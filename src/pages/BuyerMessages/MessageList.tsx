@@ -1,15 +1,13 @@
 import { forwardRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageSquare, Check, CheckCheck } from 'lucide-react';
+import { MessageSquare, CheckCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 import { MessageBody, TypingIndicator } from './MessageBody';
 
 // ─── MessageList ───
-// Renders the scrollable list of messages in a thread, including
-// loading skeletons, empty state, system messages, and read receipts.
 
 interface MessageListProps {
   messages: Array<{
@@ -29,23 +27,23 @@ interface MessageListProps {
 export const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
   function MessageList({ messages, isLoading, isAdminTyping = false, messagesEndRef }) {
     return (
-      <ScrollArea className="flex-1" style={{ backgroundColor: '#FCF9F0' }}>
-        <div className="px-5 py-4 space-y-3">
+      <ScrollArea className="flex-1 bg-white">
+        <div className="px-5 py-4 space-y-4">
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-16 w-3/4" />
+                <div key={i} className="space-y-1">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-12 w-3/4 rounded-2xl" />
+                </div>
               ))}
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center py-16">
+            <div className="flex items-center justify-center py-20">
               <div className="text-center">
-                <MessageSquare className="w-8 h-8 mx-auto mb-2" style={{ color: '#CBCBCB' }} />
-                <p className="text-sm" style={{ color: '#5A5A5A' }}>
+                <MessageSquare className="w-8 h-8 mx-auto mb-2" style={{ color: '#E5DDD0' }} />
+                <p className="text-sm" style={{ color: '#9A9A9A' }}>
                   No messages yet
-                </p>
-                <p className="text-xs mt-1" style={{ color: '#9A9A9A' }}>
-                  Send a message to start the conversation
                 </p>
               </div>
             </div>
@@ -58,11 +56,11 @@ export const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
                 return (
                   <div key={msg.id} className="flex justify-center">
                     <div
-                      className="italic text-sm px-3 py-1.5 rounded-full max-w-[80%]"
-                      style={{ backgroundColor: '#F7F4DD', color: '#3a3a3a' }}
+                      className="italic text-xs px-3 py-1.5 rounded-full"
+                      style={{ color: '#9A9A9A' }}
                     >
                       <MessageBody body={msg.body} variant="system" />
-                      <span className="opacity-50 text-[10px] ml-2">
+                      <span className="opacity-60 text-[10px] ml-2">
                         {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
                       </span>
                     </div>
@@ -75,64 +73,48 @@ export const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
                   key={msg.id}
                   className={cn('flex flex-col', isBuyer ? 'items-end' : 'items-start')}
                 >
+                  {/* Sender + time above bubble */}
                   <div
-                    className="max-w-[80%] rounded-xl px-4 py-3 space-y-1 shadow-sm border"
+                    className="flex items-center gap-1.5 text-[10px] mb-1 px-1"
+                    style={{ color: '#CBCBCB' }}
+                  >
+                    <span className="font-medium">
+                      {isBuyer ? 'You' : msg.sender?.first_name || 'SourceCo'}
+                    </span>
+                    <span>&middot;</span>
+                    <span>
+                      {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                    </span>
+                  </div>
+
+                  <div
+                    className={cn(
+                      'max-w-[75%] px-4 py-3',
+                      isBuyer
+                        ? 'rounded-[16px] rounded-br-[6px]'
+                        : 'rounded-[16px] rounded-bl-[6px]',
+                    )}
                     style={
                       isBuyer
-                        ? {
-                            backgroundColor: '#0E101A',
-                            borderColor: '#0E101A',
-                            color: '#FFFFFF',
-                          }
-                        : {
-                            backgroundColor: '#FFFFFF',
-                            borderColor: '#E5DDD0',
-                            color: '#0E101A',
-                          }
+                        ? { backgroundColor: '#0E101A', color: '#FFFFFF' }
+                        : { backgroundColor: '#F8F8F6', color: '#0E101A' }
                     }
                   >
-                    <div
-                      className="flex items-center gap-2 text-[11px]"
-                      style={{
-                        color: isBuyer ? 'rgba(255,255,255,0.6)' : '#5A5A5A',
-                      }}
-                    >
-                      <span className="font-medium">
-                        {isBuyer ? 'You' : msg.sender?.first_name || 'SourceCo'}
-                      </span>
-                      <span>&middot;</span>
-                      <span>
-                        {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                      </span>
-                    </div>
-                    <div className="text-base leading-relaxed">
+                    <div className="text-sm leading-relaxed">
                       <MessageBody body={msg.body} variant={isBuyer ? 'buyer' : 'admin'} />
                     </div>
                   </div>
-                  {/* Read receipt for buyer-sent messages */}
-                  {isBuyer && (
-                    <div
-                      className="flex items-center gap-1 mt-0.5 mr-1"
-                      style={{ color: '#9A9A9A' }}
-                    >
-                      {msg.is_read_by_admin ? (
-                        <>
-                          <CheckCheck className="h-3 w-3" />
-                          <span className="text-[10px]">Read</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="h-3 w-3" />
-                          <span className="text-[10px]">Delivered</span>
-                        </>
-                      )}
+
+                  {/* Read receipt -- subtle icon only */}
+                  {isBuyer && msg.is_read_by_admin && (
+                    <div className="mt-0.5 mr-1">
+                      <CheckCheck className="h-3 w-3" style={{ color: '#DEC76B' }} />
                     </div>
                   )}
                 </div>
               );
             })
           )}
-          {/* Typing indicator when admin is typing */}
           {isAdminTyping && <TypingIndicator />}
           <div ref={messagesEndRef} />
         </div>

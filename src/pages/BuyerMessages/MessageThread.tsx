@@ -12,7 +12,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 import type { BuyerThread } from './helpers';
-import { getStatusStyle, getStatusLabel } from './helpers';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 
@@ -21,7 +20,6 @@ export { GeneralChatView } from './GeneralChatView';
 export { PendingAgreementBanner } from './AgreementSection';
 
 // ─── BuyerThreadView ───
-// Displays a message thread for a specific deal.
 
 export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBack: () => void }) {
   const { data: messages = [], isLoading } = useConnectionMessages(thread.connection_request_id);
@@ -66,7 +64,6 @@ export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBac
     };
   }, [thread.connection_request_id]);
 
-  // Broadcast buyer typing event (debounced)
   const broadcastTyping = useCallback(() => {
     if (!channelRef.current) return;
     channelRef.current.send({
@@ -90,7 +87,6 @@ export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBac
     [broadcastTyping],
   );
 
-  // Hide admin typing when new messages arrive
   useEffect(() => {
     setIsAdminTyping(false);
   }, [messages.length]);
@@ -152,35 +148,25 @@ export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBac
     setAttachment(null);
   };
 
-  const statusStyle = getStatusStyle(thread.request_status);
-
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       <div
         className="flex items-center gap-3 px-5 py-3 flex-shrink-0"
-        style={{ borderBottom: '1px solid #E5DDD0' }}
+        style={{ borderBottom: '1px solid #F0EDE6' }}
       >
         <Button variant="ghost" size="sm" onClick={onBack} className="md:hidden h-8 w-8 p-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold truncate" style={{ color: '#0E101A' }}>
-              {thread.deal_title}
-            </h2>
-            <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={statusStyle}>
-              {getStatusLabel(thread.request_status)}
-            </span>
-          </div>
-          <p className="text-xs" style={{ color: '#5A5A5A' }}>
-            SourceCo Team
-          </p>
+          <h2 className="text-sm font-semibold truncate" style={{ color: '#0E101A' }}>
+            {thread.deal_title}
+          </h2>
         </div>
         <Link
           to={`/my-deals?deal=${thread.connection_request_id}`}
-          className="text-xs flex items-center gap-1 shrink-0 hover:opacity-80"
-          style={{ color: '#0E101A' }}
+          className="text-[11px] flex items-center gap-1 shrink-0 hover:opacity-70 transition-opacity"
+          style={{ color: '#9A9A9A' }}
         >
           View deal <ExternalLink className="h-3 w-3" />
         </Link>
@@ -199,8 +185,8 @@ export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBac
 
       {/* Compose bar */}
       {isRejected ? (
-        <div className="px-5 py-3 text-center" style={{ borderTop: '1px solid #E5DDD0' }}>
-          <p className="text-xs" style={{ color: '#5A5A5A' }}>
+        <div className="px-5 py-3 text-center" style={{ borderTop: '1px solid #F0EDE6' }}>
+          <p className="text-xs" style={{ color: '#9A9A9A' }}>
             This deal is no longer active.
           </p>
         </div>
@@ -221,28 +207,23 @@ export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBac
 }
 
 // ─── BuyerMessagesSkeleton ───
-// Loading skeleton shown while threads are being fetched.
 
 export function BuyerMessagesSkeleton() {
   return (
     <div
       className="rounded-xl overflow-hidden min-h-[500px] flex"
-      style={{ border: '2px solid #CBCBCB', backgroundColor: '#FFFFFF' }}
+      style={{ border: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}
     >
-      <div className="w-[360px] p-4 space-y-4" style={{ borderRight: '1px solid #E5DDD0' }}>
+      <div className="w-[340px] p-4 space-y-5" style={{ borderRight: '1px solid #F0EDE6' }}>
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="space-y-2">
-            <Skeleton className="h-4 w-[180px]" />
-            <Skeleton className="h-3 w-[120px]" />
-            <Skeleton className="h-3 w-[240px]" />
+            <Skeleton className="h-4 w-[160px]" />
+            <Skeleton className="h-3 w-[220px]" />
           </div>
         ))}
       </div>
       <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Inbox className="h-12 w-12 mx-auto mb-3 opacity-20" />
-          <Skeleton className="h-4 w-[160px] mx-auto" />
-        </div>
+        <Inbox className="h-10 w-10" style={{ color: '#F0EDE6' }} />
       </div>
     </div>
   );

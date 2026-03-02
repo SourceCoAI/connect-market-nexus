@@ -1,29 +1,19 @@
 import { useRef } from 'react';
-import { Button } from '@/components/ui/button';
 import { Send, Paperclip, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 import { MAX_ATTACHMENT_SIZE, ACCEPTED_FILE_TYPES } from './types';
 
 // ─── MessageInput ───
-// Compose bar with text input, file attachment, and send button.
 
 interface MessageInputProps {
-  /** Current text value */
   value: string;
-  /** Called when text changes */
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  /** Called when send is triggered */
   onSend: () => void;
-  /** Whether sending / uploading is in progress */
   isSending: boolean;
-  /** Whether a file is currently being uploaded */
   isUploading: boolean;
-  /** Current attachment file (if any) */
   attachment: File | null;
-  /** Set the attachment */
   onAttachmentChange: (file: File | null) => void;
-  /** Placeholder text */
   placeholder?: string;
 }
 
@@ -59,15 +49,15 @@ export function MessageInput({
   const canSend = (value.trim() || attachment) && !isSending && !isUploading;
 
   return (
-    <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid #E5DDD0' }}>
+    <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid #F0EDE6' }}>
       {attachment && (
         <div
-          className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-lg text-sm"
-          style={{ backgroundColor: '#FCF9F0', border: '1px solid #E5DDD0', color: '#0E101A' }}
+          className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-lg text-xs"
+          style={{ backgroundColor: '#F8F8F6', color: '#0E101A' }}
         >
-          <Paperclip className="h-3.5 w-3.5 shrink-0" style={{ color: '#5A5A5A' }} />
+          <Paperclip className="h-3 w-3 shrink-0" style={{ color: '#CBCBCB' }} />
           <span className="truncate flex-1">{attachment.name}</span>
-          <span className="text-[10px] shrink-0" style={{ color: '#9A9A9A' }}>
+          <span className="text-[10px] shrink-0" style={{ color: '#CBCBCB' }}>
             {(attachment.size / 1024).toFixed(0)}KB
           </span>
           <button
@@ -75,14 +65,11 @@ export function MessageInput({
             onClick={() => onAttachmentChange(null)}
             className="shrink-0 p-0.5 rounded hover:bg-black/5"
           >
-            <X className="h-3.5 w-3.5" style={{ color: '#5A5A5A' }} />
+            <X className="h-3 w-3" style={{ color: '#9A9A9A' }} />
           </button>
         </div>
       )}
-      <div
-        className="flex items-end gap-3 rounded-lg border-2 p-2"
-        style={{ borderColor: '#E5DDD0', backgroundColor: '#FFFFFF' }}
-      >
+      <div className="flex items-center gap-2">
         <input
           ref={fileInputRef}
           type="file"
@@ -93,10 +80,10 @@ export function MessageInput({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="shrink-0 p-1.5 rounded hover:bg-black/5 transition-colors"
+          className="shrink-0 p-1 rounded-full hover:bg-[#F8F8F6] transition-colors"
           title="Attach file"
         >
-          <Paperclip className="h-4 w-4" style={{ color: '#5A5A5A' }} />
+          <Paperclip className="h-4 w-4" style={{ color: '#CBCBCB' }} />
         </button>
         <input
           type="text"
@@ -109,27 +96,26 @@ export function MessageInput({
             }
           }}
           placeholder={placeholder}
-          className="flex-1 text-sm px-2 py-1.5 bg-transparent focus:outline-none"
+          className="flex-1 text-sm py-2 bg-transparent focus:outline-none"
           style={{ color: '#0E101A' }}
         />
-        <Button
-          size="sm"
+        <button
+          type="button"
           onClick={onSend}
           disabled={!canSend}
-          className="h-9 px-4"
-          style={{ backgroundColor: '#0E101A', color: '#FFFFFF' }}
+          className="shrink-0 h-8 w-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-30"
+          style={{ backgroundColor: canSend ? '#0E101A' : 'transparent' }}
         >
           {isUploading ? (
-            <span className="h-3.5 w-3.5 mr-1.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
           ) : (
-            <Send className="w-3.5 h-3.5 mr-1.5" />
+            <Send
+              className="w-3.5 h-3.5"
+              style={{ color: canSend ? '#FFFFFF' : '#CBCBCB' }}
+            />
           )}
-          {isUploading ? 'Uploading...' : 'Send'}
-        </Button>
+        </button>
       </div>
-      <p className="text-[10px] mt-1" style={{ color: '#9A9A9A' }}>
-        Enter to send
-      </p>
     </div>
   );
 }
