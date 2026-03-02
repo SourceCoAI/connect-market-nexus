@@ -1,22 +1,25 @@
 
 
-## Deploy Edge Functions: seed-buyers + score-deal-buyers
+## Deploy score-deal-buyers and seed-buyers
 
-### What
+### Problem
 
-Deploy two edge functions to production:
+Deployment failed with a 500 internal error. The root cause is likely the `deno.lock` file (version 5 format) which is incompatible with Supabase's edge runtime. The build errors shown are in **other** functions (`calculate-deal-quality`, `bulk-import-remarketing`, `clarify-industry`, `auto-create-firm-on-approval`, `ai-command-center`) -- not in the two target functions -- but may contribute to deploy pipeline failures.
 
-1. **`seed-buyers`** -- Recently updated to use Claude Opus instead of Sonnet, with increased timeout (90s) and token limits (8192)
-2. **`score-deal-buyers`** -- Algorithmic buyer-deal scoring (no AI model changes, deploy as-is)
+### Fix
 
-### Action
+1. **Reset `supabase/functions/deno.lock`** to a minimal version 3 format (empty lock) so the edge runtime regenerates compatible hashes on deploy.
 
-Use the Supabase deploy tool to deploy both functions in a single operation. No code changes needed -- just deployment of the current code.
+2. **Retry deployment** of `score-deal-buyers` and `seed-buyers`.
 
-### Files Deployed
+### Files to Modify
 
-| Function | Key Config |
-|----------|-----------|
-| `supabase/functions/seed-buyers/index.ts` | `verify_jwt = false` (in config.toml) |
-| `supabase/functions/score-deal-buyers/index.ts` | `verify_jwt = false` (in config.toml) |
+| File | Change |
+|------|--------|
+| `supabase/functions/deno.lock` | Replace version 5 lockfile with minimal `{"version": "3"}` |
+
+### Notes
+
+- The pre-existing TypeScript errors in other functions (`calculate-deal-quality`, etc.) are unrelated to these two functions and won't block their deployment once the lockfile issue is resolved.
+- No code changes to `score-deal-buyers` or `seed-buyers` are needed.
 
