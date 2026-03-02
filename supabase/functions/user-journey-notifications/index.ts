@@ -3,6 +3,9 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { sendViaBervo } from "../_shared/brevo-sender.ts";
+import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { escapeHtml } from "../_shared/auth.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -14,6 +17,117 @@ interface UserJourneyEvent {
   user_email: string;
   user_name: string;
   metadata?: Record<string, unknown>;
+}
+
+const LOGIN_URL = 'https://marketplace.sourcecodeals.com/login';
+
+function buildWelcomeHtml(userName: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
+    <div style="margin-bottom: 32px;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase;">SOURCECO</div>
+    </div>
+    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0;">Welcome to SourceCo, ${escapeHtml(userName)}!</h1>
+    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
+      <p style="margin: 0 0 16px 0;">Thank you for creating your account. Please check your inbox for a verification email to confirm your email address.</p>
+      <div style="background: #FCF9F0; border-left: 4px solid #DEC76B; padding: 16px; border-radius: 0 8px 8px 0; margin: 0 0 24px 0;">
+        <p style="margin: 0; color: #3A3A3A; font-size: 14px;">Once verified, our team will review your account (typically within 24 hours). You'll receive an email when approved.</p>
+      </div>
+    </div>
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${LOGIN_URL}" style="display: inline-block; background: #0E101A; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Log In</a>
+    </div>
+    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
+      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">This is an automated notification from SourceCo.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function buildApprovalHtml(userName: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
+    <div style="margin-bottom: 32px;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase;">SOURCECO</div>
+    </div>
+    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0;">Account Approved!</h1>
+    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
+      <p style="margin: 0 0 16px 0;">Great news, <strong>${escapeHtml(userName)}</strong>! Your SourceCo account has been approved. You now have full access to our business marketplace.</p>
+      <p style="margin: 0 0 24px 0;">Log in now to browse deals, submit connection requests, and start exploring opportunities.</p>
+    </div>
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${LOGIN_URL}" style="display: inline-block; background: #0E101A; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Browse Deals</a>
+    </div>
+    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
+      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">This is an automated notification from SourceCo.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function buildRejectionHtml(userName: string, reason: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
+    <div style="margin-bottom: 32px;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase;">SOURCECO</div>
+    </div>
+    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0;">Account Update</h1>
+    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
+      <p style="margin: 0 0 16px 0;">Hi ${escapeHtml(userName)}, after reviewing your application, we were unable to approve your account at this time.</p>
+      <div style="background: #FCF9F0; border-left: 4px solid #DEC76B; padding: 16px; border-radius: 0 8px 8px 0; margin: 0 0 24px 0;">
+        <p style="margin: 0 0 4px 0; font-size: 12px; color: #9A9A9A; font-weight: 600;">REASON</p>
+        <p style="margin: 0; color: #3A3A3A; font-size: 14px;">${escapeHtml(reason)}</p>
+      </div>
+      <p style="margin: 0 0 24px 0;">If you believe this was in error or would like to discuss further, please reach out to adam.haile@sourcecodeals.com.</p>
+    </div>
+    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
+      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">This is an automated notification from SourceCo.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function buildEmailVerifiedHtml(userName: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
+    <div style="margin-bottom: 32px;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase;">SOURCECO</div>
+    </div>
+    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0;">Email Verified</h1>
+    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
+      <p style="margin: 0 0 16px 0;">${escapeHtml(userName)}, your email has been verified. Your account is now under review by our team.</p>
+      <div style="background: #FCF9F0; border-left: 4px solid #DEC76B; padding: 16px; border-radius: 0 8px 8px 0; margin: 0 0 24px 0;">
+        <p style="margin: 0; color: #3A3A3A; font-size: 14px;">Admin review typically takes less than 24 hours during business days. You'll receive an email as soon as your account is approved.</p>
+      </div>
+    </div>
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${LOGIN_URL}" style="display: inline-block; background: #0E101A; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Log In</a>
+    </div>
+    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
+      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">This is an automated notification from SourceCo.</p>
+    </div>
+  </div>
+</body>
+</html>`;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -33,99 +147,90 @@ const handler = async (req: Request): Promise<Response> => {
       user_email: event.user_email
     });
 
-    // Process the event and send appropriate notifications
-    await processUserJourneyEvent(event, correlationId);
+    const { event_type, user_email, user_name } = event;
 
-    // Log the event for analytics (optional - we'll skip this for now to avoid table creation)
-    // await logUserJourneyEvent(event, correlationId);
+    let subject: string;
+    let htmlContent: string;
+    let textContent: string | undefined;
+
+    switch (event_type) {
+      case 'user_created':
+        subject = 'Welcome to SourceCo';
+        htmlContent = buildWelcomeHtml(user_name || 'there');
+        textContent = `Welcome to SourceCo, ${user_name || 'there'}! Please verify your email to continue. Log in: ${LOGIN_URL}`;
+        break;
+
+      case 'email_verified':
+        subject = 'Email Verified — Account Under Review';
+        htmlContent = buildEmailVerifiedHtml(user_name || 'there');
+        textContent = `Your email has been verified, ${user_name || 'there'}. Your account is now under review. You'll hear from us within 24 hours.`;
+        break;
+
+      case 'profile_approved':
+        subject = 'Account Approved — Welcome to SourceCo';
+        htmlContent = buildApprovalHtml(user_name || 'there');
+        textContent = `Great news, ${user_name || 'there'}! Your account has been approved. Log in: ${LOGIN_URL}`;
+        break;
+
+      case 'profile_rejected': {
+        const reason = (event.metadata?.rejection_reason as string) || 'Application did not meet our criteria';
+        subject = 'SourceCo Account Update';
+        htmlContent = buildRejectionHtml(user_name || 'there', reason);
+        textContent = `Hi ${user_name || 'there'}, we were unable to approve your account. Reason: ${reason}`;
+        break;
+      }
+
+      case 'reminder_due':
+        console.log(`[${correlationId}] Skipping reminder email`);
+        return new Response(JSON.stringify({ success: true, correlationId, message: 'Reminder skipped' }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+
+      default:
+        console.log(`[${correlationId}] Unknown event type: ${event_type}`);
+        return new Response(JSON.stringify({ success: true, correlationId, message: 'Unknown event type' }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+    }
+
+    // Send directly via Brevo
+    const result = await sendViaBervo({
+      to: user_email,
+      toName: user_name || user_email,
+      subject,
+      htmlContent,
+      textContent,
+      senderName: 'SourceCo',
+    });
+
+    await logEmailDelivery(supabase, {
+      email: user_email,
+      emailType: `journey_${event_type}`,
+      status: result.success ? 'sent' : 'failed',
+      correlationId,
+      errorMessage: result.success ? undefined : result.error,
+    });
+
+    if (!result.success) {
+      console.error(`[${correlationId}] Failed to send ${event_type} email:`, result.error);
+    } else {
+      console.log(`[${correlationId}] ${event_type} email sent to ${user_email}`);
+    }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        correlationId,
-        message: 'User journey event processed successfully' 
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      JSON.stringify({ success: true, correlationId, message: 'User journey event processed' }),
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
 
   } catch (error: unknown) {
-    console.error("Error in user-journey-notifications function:", error);
+    console.error("Error in user-journey-notifications:", error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 };
-
-async function processUserJourneyEvent(event: UserJourneyEvent, correlationId: string) {
-  const { event_type, user_email, user_name } = event;
-  
-  let emailType: string;
-  let emailData: Record<string, unknown> = {};
-  
-  switch (event_type) {
-    case 'user_created':
-      emailType = 'welcome';
-      emailData = {
-        loginUrl: 'https://marketplace.sourcecodeals.com/login'
-      };
-      break;
-      
-    case 'email_verified':
-      // Send confirmation that email is verified and account is under review
-      emailType = 'email_verified';
-      emailData = {
-        message: 'email_verified'
-      };
-      break;
-      
-    case 'profile_approved':
-      emailType = 'approval';
-      emailData = {
-        loginUrl: 'https://marketplace.sourcecodeals.com/login'
-      };
-      break;
-      
-    case 'profile_rejected':
-      emailType = 'rejection';
-      emailData = {
-        rejectionReason: event.metadata?.rejection_reason || 'Application did not meet our criteria'
-      };
-      break;
-      
-    case 'reminder_due':
-      // Don't send reminder emails - users can't speed up approval process
-      console.log(`[${correlationId}] Skipping reminder email - users pending approval can't speed up the process`);
-      return;
-      
-    default:
-      console.log(`[${correlationId}] Unknown event type: ${event_type}`);
-      return;
-  }
-  
-  // Send the email via enhanced email delivery system
-  try {
-    await supabase.functions.invoke('enhanced-email-delivery', {
-      body: {
-        type: emailType,
-        recipientEmail: user_email,
-        recipientName: user_name,
-        correlationId,
-        data: emailData,
-        priority: event_type === 'profile_approved' ? 'high' : 'medium'
-      }
-    });
-    
-    console.log(`[${correlationId}] Email notification sent for ${event_type}`);
-  } catch (error) {
-    console.error(`[${correlationId}] Failed to send email for ${event_type}:`, error);
-  }
-}
 
 serve(handler);

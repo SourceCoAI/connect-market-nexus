@@ -71,9 +71,9 @@ backend = "postgres"
 [functions.publish-listing]
 verify_jwt = false
 [functions.send-connection-notification]
-verify_jwt = true
+verify_jwt = false
 [functions.notify-buyer-new-message]
-verify_jwt = true
+verify_jwt = false
 [functions.send-user-notification]
 verify_jwt = false
 [functions.enhanced-email-delivery]
@@ -245,6 +245,8 @@ verify_jwt = false
 [functions.resolve-buyer-message-thread]
 verify_jwt = false
 [functions.notify-admin-new-message]
-verify_jwt = true
+verify_jwt = false
+[functions.user-journey-notifications]
+verify_jwt = false
 [functions.confirm-agreement-signed]
 verify_jwt = false
