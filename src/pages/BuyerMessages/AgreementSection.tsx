@@ -184,7 +184,7 @@ export function PendingAgreementBanner() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium" style={{ color: '#0E101A' }}>
-                    {item.signed ? `${item.label} \u2014 Signed` : `${item.label} Ready to Sign`}
+                    {item.signed ? `${item.label} \u2014 Signed` : item.declined ? `${item.label} \u2014 Declined` : item.awaiting ? `${item.label} \u2014 Pending` : `${item.label} Ready to Sign`}
                   </p>
                   {item.signed && (
                     <CheckCircle className="h-3.5 w-3.5 shrink-0" style={{ color: '#DEC76B' }} />
