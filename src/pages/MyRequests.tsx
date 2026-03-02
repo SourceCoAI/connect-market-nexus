@@ -14,22 +14,11 @@ import { useMarketplace } from '@/hooks/use-marketplace';
 import {
   AlertCircle,
   FileText,
-  ArrowUpDown,
-  Shield,
-  FileSignature,
-  Check,
 } from 'lucide-react';
 import { useUnreadBuyerMessageCounts } from '@/hooks/use-connection-messages';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getProfileCompletionDetails } from '@/lib/buyer-metrics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DealMessagesTab } from '@/components/deals/DealMessagesTab';
 import { DealActivityLog } from '@/components/deals/DealActivityLog';
@@ -42,7 +31,7 @@ import { BuyerProfileStatus } from '@/components/deals/BuyerProfileStatus';
 import { PostRejectionPanel } from '@/components/deals/PostRejectionPanel';
 import { DealDocumentsCard } from '@/components/deals/DealDocumentsCard';
 import { DealInfoCard } from '@/components/deals/DealInfoCard';
-import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -55,87 +44,6 @@ import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
-
-/* ═══════════════════════════════════════════════════════════════════════
-   Account Documents Banner — Slim inline banner
-   ═══════════════════════════════════════════════════════════════════════ */
-
-interface AccountBannerProps {
-  ndaSigned: boolean;
-  feeCovered: boolean;
-  feeStatus?: string;
-}
-
-function AccountDocumentsBanner({ ndaSigned, feeCovered, feeStatus }: AccountBannerProps) {
-  const [signingOpen, setSigningOpen] = useState(false);
-  const [signingType, setSigningType] = useState<'nda' | 'fee_agreement'>('nda');
-
-  const showFee = !feeCovered && feeStatus === 'sent';
-  const needsNda = !ndaSigned;
-
-  if (!needsNda && !showFee) return null;
-
-  const openSigning = (type: 'nda' | 'fee_agreement') => {
-    setSigningType(type);
-    setSigningOpen(true);
-  };
-
-  return (
-    <>
-      <div className="flex items-center gap-4 px-5 py-2.5 bg-[#FEFDFB] border-b border-[#F0EDE6] text-[12px]">
-        <span className="text-[#0E101A]/40 font-medium uppercase tracking-wide text-[10px]">Documents</span>
-        <div className="flex items-center gap-4 flex-1">
-          <div className="flex items-center gap-1.5">
-            {ndaSigned ? (
-              <Check className="h-3 w-3 text-emerald-500" />
-            ) : (
-              <Shield className="h-3 w-3 text-[#8B6F47]" />
-            )}
-            <span className={ndaSigned ? 'text-[#0E101A]/40' : 'text-[#0E101A]/70'}>NDA</span>
-            {!ndaSigned && (
-              <button
-                onClick={() => openSigning('nda')}
-                className="text-[#0E101A] font-semibold hover:underline ml-1"
-              >
-                Sign Now →
-              </button>
-            )}
-            {ndaSigned && <span className="text-emerald-600 font-medium">Signed</span>}
-          </div>
-
-          {(showFee || feeCovered) && (
-            <>
-              <span className="text-[#0E101A]/15">|</span>
-              <div className="flex items-center gap-1.5">
-                {feeCovered ? (
-                  <Check className="h-3 w-3 text-emerald-500" />
-                ) : (
-                  <FileSignature className="h-3 w-3 text-[#8B6F47]" />
-                )}
-                <span className={feeCovered ? 'text-[#0E101A]/40' : 'text-[#0E101A]/70'}>Fee Agreement</span>
-                {!feeCovered && showFee && (
-                  <button
-                    onClick={() => openSigning('fee_agreement')}
-                    className="text-[#0E101A] font-semibold hover:underline ml-1"
-                  >
-                    Sign Now →
-                  </button>
-                )}
-                {feeCovered && <span className="text-emerald-600 font-medium">Signed</span>}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      <AgreementSigningModal
-        open={signingOpen}
-        onOpenChange={setSigningOpen}
-        documentType={signingType}
-      />
-    </>
-  );
-}
 
 /* ═══════════════════════════════════════════════════════════════════════
    Main Page Component
@@ -157,7 +65,7 @@ const MyRequests = () => {
   const { data: ndaStatus } = useBuyerNdaStatus(!isAdmin ? user?.id : undefined);
   const { data: coverage } = useMyAgreementStatus(!isAdmin && !!user);
   useAgreementStatusSync();
-  const [sortBy, setSortBy] = useState<'recent' | 'action' | 'status'>('recent');
+  const [sortBy] = useState<'recent' | 'action' | 'status'>('recent');
 
   const getInnerTab = (requestId: string) => innerTab[requestId] || 'overview';
   const setDealInnerTab = (requestId: string, tab: string) =>
@@ -316,15 +224,8 @@ const MyRequests = () => {
       </div>
 
       <div className="max-w-[1280px] mx-auto px-6 pb-8">
-        {/* Main container with account banner */}
+      {/* Main container */}
         <div className="rounded-xl border border-[#F0EDE6] overflow-hidden">
-          {/* Account Documents Banner */}
-          <AccountDocumentsBanner
-            ndaSigned={ndaStatus?.ndaSigned ?? false}
-            feeCovered={coverage?.fee_covered ?? false}
-            feeStatus={coverage?.fee_status}
-          />
-
           {/* Two-column layout */}
           <div className={cn('flex', isMobile ? 'flex-col' : 'flex-row')}>
             {/* Sidebar */}
@@ -332,7 +233,7 @@ const MyRequests = () => {
               'shrink-0 border-r border-[#F0EDE6] bg-[#FAFAF8]',
               isMobile ? 'w-full border-r-0 border-b' : 'w-[340px]',
             )}>
-              <div className="px-4 py-3 flex items-center justify-between border-b border-[#F0EDE6]">
+              <div className="px-4 py-3 border-b border-[#F0EDE6]">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-semibold text-[#0E101A]/30 uppercase tracking-[0.12em]">
                     Deals
@@ -341,19 +242,8 @@ const MyRequests = () => {
                     {requests.length}
                   </span>
                 </div>
-                <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'recent' | 'action' | 'status')}>
-                  <SelectTrigger className="h-6 w-[120px] text-[10px] border-[#E5DDD0] bg-white rounded-md">
-                    <ArrowUpDown className="h-2.5 w-2.5 mr-1 text-[#0E101A]/30 shrink-0" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="recent" className="text-[11px]">Most Recent</SelectItem>
-                    <SelectItem value="action" className="text-[11px]">Action Required</SelectItem>
-                    <SelectItem value="status" className="text-[11px]">Status</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
-              <div className="p-2 space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
+              <div className="p-2 space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto">
                 {sortedRequests.map((request) => {
                   const unreadForRequest = (unreadByRequest[request.id] || 0) + (unreadMsgCounts?.byRequest[request.id] || 0);
                   return (

@@ -3,44 +3,12 @@
  *
  * Clean 3-line layout: Title, category/EBITDA, status + timestamp.
  * Gold dot for unread. Gold left-border on selected.
+ * No icon boxes — lightweight and scannable.
  */
 
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { ConnectionRequest } from '@/types';
-import {
-  TechnologyIcon, HealthcareIcon, ManufacturingIcon, FinanceIcon,
-  RetailIcon, RealEstateIcon, FoodBeverageIcon, ProfessionalServicesIcon,
-  ConstructionIcon, TransportationIcon, EducationIcon, HospitalityIcon,
-  EnergyIcon, MediaIcon, AutomotiveIcon, AgricultureIcon,
-  TelecommunicationsIcon, ConsumerGoodsIcon, BusinessServicesIcon,
-  DefaultCategoryIcon,
-} from '@/components/icons/CategoryIcons';
-
-function getCategoryIcon(category?: string) {
-  if (!category) return DefaultCategoryIcon;
-  const cat = category.toLowerCase();
-  if (cat.includes('technology') || cat.includes('software')) return TechnologyIcon;
-  if (cat.includes('healthcare') || cat.includes('medical')) return HealthcareIcon;
-  if (cat.includes('manufacturing')) return ManufacturingIcon;
-  if (cat.includes('finance') || cat.includes('insurance')) return FinanceIcon;
-  if (cat.includes('retail') || cat.includes('e-commerce')) return RetailIcon;
-  if (cat.includes('real estate')) return RealEstateIcon;
-  if (cat.includes('food') || cat.includes('beverage')) return FoodBeverageIcon;
-  if (cat.includes('professional services')) return ProfessionalServicesIcon;
-  if (cat.includes('construction')) return ConstructionIcon;
-  if (cat.includes('transportation') || cat.includes('logistics')) return TransportationIcon;
-  if (cat.includes('education')) return EducationIcon;
-  if (cat.includes('hospitality') || cat.includes('tourism')) return HospitalityIcon;
-  if (cat.includes('energy') || cat.includes('utilities')) return EnergyIcon;
-  if (cat.includes('media') || cat.includes('entertainment')) return MediaIcon;
-  if (cat.includes('automotive')) return AutomotiveIcon;
-  if (cat.includes('agriculture')) return AgricultureIcon;
-  if (cat.includes('telecommunications')) return TelecommunicationsIcon;
-  if (cat.includes('consumer goods')) return ConsumerGoodsIcon;
-  if (cat.includes('business services')) return BusinessServicesIcon;
-  return DefaultCategoryIcon;
-}
 
 function formatEbitdaCompact(ebitda: number): string {
   if (ebitda >= 1_000_000) return `$${(ebitda / 1_000_000).toFixed(1)}M`;
@@ -57,6 +25,13 @@ function getStatusLabel(status: string, ndaSigned?: boolean): { label: string; n
     case 'rejected': return { label: 'Not Selected', needsAction: false };
     default: return { label: 'Under Review', needsAction: false };
   }
+}
+
+function isGeneralInquiry(listing?: ConnectionRequest['listing']): boolean {
+  if (!listing) return true;
+  const noCategory = !listing.category || listing.category === 'Internal';
+  const noEbitda = !listing.ebitda || listing.ebitda === 0;
+  return noCategory && noEbitda;
 }
 
 interface DealPipelineCardProps {
@@ -76,63 +51,62 @@ export function DealPipelineCard({
   ndaSigned,
   onSelect,
 }: DealPipelineCardProps) {
-  const CategoryIcon = getCategoryIcon(request.listing?.category);
   const isRejected = request.status === 'rejected';
   const statusLabel = getStatusLabel(request.status, ndaSigned);
+  const isGeneral = isGeneralInquiry(request.listing);
 
   return (
     <button
       onClick={onSelect}
       className={cn(
-        'w-full text-left rounded-lg border transition-all duration-150 px-4 py-3.5 relative group',
+        'w-full text-left rounded-lg transition-all duration-150 px-3.5 py-3 relative group',
         isSelected
-          ? 'border-[#0E101A] bg-white'
-          : 'border-[#F0EDE6] bg-white hover:border-[#E5DDD0]',
-        isRejected && 'opacity-50',
+          ? 'bg-[#FAFAF8]'
+          : 'bg-transparent hover:bg-[#FAFAF8]/60',
+        isRejected && 'opacity-45',
       )}
     >
       {/* Gold left accent */}
       {isSelected && (
-        <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-r-full bg-[#DEC76B]" />
+        <div className="absolute left-0 top-2.5 bottom-2.5 w-[2px] rounded-r-full bg-[#DEC76B]" />
       )}
 
-      {/* Row 1: Icon + Title + Unread dot */}
-      <div className="flex items-center gap-3">
-        <div className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
-          isSelected ? 'bg-[#0E101A]' : 'bg-[#F8F6F1]',
-        )}>
-          <CategoryIcon className={cn('h-4 w-4', isSelected ? 'text-[#DEC76B]' : 'text-[#0E101A]/50')} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="text-[13px] font-semibold text-[#0E101A] truncate leading-tight">
-              {request.listing?.title || 'Untitled'}
-            </h3>
-            {unreadCount > 0 && (
-              <div className="h-2 w-2 rounded-full bg-[#DEC76B] shrink-0" />
-            )}
-          </div>
-        </div>
+      {/* Row 1: Title + Unread dot */}
+      <div className="flex items-center gap-2">
+        <h3 className="text-[13px] font-semibold text-[#0E101A] truncate leading-tight flex-1 min-w-0">
+          {request.listing?.title || 'Untitled'}
+        </h3>
+        {unreadCount > 0 && (
+          <div className="h-2 w-2 rounded-full bg-[#DEC76B] shrink-0" />
+        )}
       </div>
 
-      {/* Row 2: Category + EBITDA */}
-      <div className="flex items-center gap-1.5 mt-1.5 pl-11">
-        {request.listing?.category && (
-          <span className="text-[11px] text-[#0E101A]/40 truncate">{request.listing.category}</span>
-        )}
-        {request.listing?.ebitda && (
-          <>
-            <span className="text-[#0E101A]/20">·</span>
-            <span className="text-[11px] font-medium text-[#0E101A]/60">
-              {formatEbitdaCompact(request.listing.ebitda)} EBITDA
-            </span>
-          </>
-        )}
-      </div>
+      {/* Row 2: Category + EBITDA (skip for General Inquiry) */}
+      {!isGeneral && (
+        <div className="flex items-center gap-1.5 mt-1">
+          {request.listing?.category && request.listing.category !== 'Internal' && (
+            <span className="text-[11px] text-[#0E101A]/35 truncate">{request.listing.category}</span>
+          )}
+          {request.listing?.ebitda && request.listing.ebitda > 0 && (
+            <>
+              {request.listing?.category && request.listing.category !== 'Internal' && (
+                <span className="text-[#0E101A]/15">·</span>
+              )}
+              <span className="text-[11px] font-medium text-[#0E101A]/50">
+                {formatEbitdaCompact(request.listing.ebitda)} EBITDA
+              </span>
+            </>
+          )}
+        </div>
+      )}
+      {isGeneral && (
+        <div className="mt-1">
+          <span className="text-[11px] text-[#0E101A]/30">General Inquiry</span>
+        </div>
+      )}
 
       {/* Row 3: Status + Timestamp */}
-      <div className="flex items-center justify-between mt-2 pl-11">
+      <div className="flex items-center justify-between mt-1.5">
         <div className="flex items-center gap-1.5">
           {statusLabel.needsAction && (
             <div className="h-1.5 w-1.5 rounded-full bg-[#DEC76B] shrink-0" />
@@ -142,12 +116,12 @@ export function DealPipelineCard({
             request.status === 'approved' ? 'text-[#0E101A]' :
             request.status === 'rejected' ? 'text-[#0E101A]/30' :
             statusLabel.needsAction ? 'text-[#8B6F47]' :
-            'text-[#0E101A]/50',
+            'text-[#0E101A]/40',
           )}>
             {statusLabel.label}
           </span>
         </div>
-        <span className="text-[10px] text-[#0E101A]/30">
+        <span className="text-[10px] text-[#0E101A]/25">
           {formatDistanceToNow(new Date(request.updated_at || request.created_at), { addSuffix: true })}
         </span>
       </div>
