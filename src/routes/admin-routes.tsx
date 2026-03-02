@@ -14,7 +14,7 @@ const DailyTaskDashboard = lazyWithRetry(
 const DailyTaskAnalytics = lazyWithRetry(
   () => import('@/pages/admin/remarketing/DailyTaskAnalytics'),
 );
-const MarketplaceUsersPage = lazyWithRetry(() => import('@/pages/admin/MarketplaceUsersPage'));
+const MarketplaceUsersPage = lazyWithRetry(() => import('@/pages/admin/AdminUsers'));
 const InternalTeamPage = lazyWithRetry(() => import('@/pages/admin/InternalTeamPage'));
 const BuyerContactsPage = lazyWithRetry(() => import('@/pages/admin/BuyerContactsPage'));
 const ContactListsPage = lazyWithRetry(() => import('@/pages/admin/ContactListsPage'));

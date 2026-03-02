@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Component, type ErrorInfo, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAdmin } from "@/hooks/use-admin";
-import { AlertCircle, RefreshCw, Building2, Loader2, Phone, XCircle, ThumbsDown } from "lucide-react";
+import { AlertCircle, RefreshCw, Building2, Loader2, Phone, XCircle, ThumbsDown, Users } from "lucide-react";
 import { UsersTable } from "@/components/admin/UsersTable";
 import { MobileUsersTable } from "@/components/admin/MobileUsersTable";
 import { User } from "@/types";
@@ -44,10 +44,49 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast as toastDirect } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 type PrimaryView = 'buyers' | 'owners';
 type SecondaryView = 'marketplace' | 'non-marketplace';
 
+// Error boundary to catch silent rendering crashes in the table
+class TableErrorBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: ReactNode; fallback?: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('UsersTable render error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-center space-y-2">
+          <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
+          <p className="text-sm text-destructive font-medium">Table rendering error</p>
+          <p className="text-xs text-muted-foreground">{this.state.error?.message}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => this.setState({ hasError: false, error: null })}
+          >
+            Retry
+          </Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 const AdminUsers = () => {
   const { users } = useAdmin();
   const { data: usersData = [], isLoading, error, refetch } = users;
@@ -60,6 +99,18 @@ const AdminUsers = () => {
   const isMobile = useIsMobile();
   useRealtimeAdmin();
 
+  // Query remarketing buyers that have a marketplace_firm_id link
+  const { data: linkedBuyerCount = 0 } = useQuery({
+    queryKey: ['remarketing-buyers-marketplace-linked-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('remarketing_buyers')
+        .select('id', { count: 'exact', head: true })
+        .not('marketplace_firm_id', 'is', null);
+      return count ?? 0;
+    },
+    staleTime: 60_000,
+  });
   const [searchParams, setSearchParams] = useSearchParams();
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [filteredOwnerLeads, setFilteredOwnerLeads] = useState<OwnerLead[]>([]);
@@ -266,6 +317,20 @@ const AdminUsers = () => {
 
       {/* Main content */}
       <div className="px-8 py-8">
+        {/* Remarketing linked buyers banner */}
+        {isBuyersView && linkedBuyerCount > 0 && (
+          <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+            <Users className="h-4 w-4 shrink-0" />
+            <span>
+              <strong>{linkedBuyerCount}</strong> remarketing{' '}
+              {linkedBuyerCount === 1 ? 'buyer' : 'buyers'} linked to marketplace firms.{' '}
+              <Link to="/admin/buyers" className="underline font-medium hover:text-blue-900">
+                View All Buyers
+              </Link>
+            </span>
+          </div>
+        )}
+
         {/* View Switcher */}
         <div className="mb-6">
           <UserViewSwitcher
@@ -330,27 +395,31 @@ const AdminUsers = () => {
               </div>
             ) : isMobile ? (
               <div className="p-4">
-                <MobileUsersTable
-                  users={filteredUsers}
-                  onApprove={approveUser}
-                  onMakeAdmin={makeAdmin}
-                  onRevokeAdmin={revokeAdmin}
-                  onDelete={deleteUser}
-                  isLoading={isLoading}
-                  onSendFeeAgreement={() => {}}
-                  onSendNDAEmail={() => {}}
-                />
+                <TableErrorBoundary>
+                  <MobileUsersTable
+                    users={filteredUsers}
+                    onApprove={approveUser}
+                    onMakeAdmin={makeAdmin}
+                    onRevokeAdmin={revokeAdmin}
+                    onDelete={deleteUser}
+                    isLoading={isLoading}
+                    onSendFeeAgreement={() => {}}
+                    onSendNDAEmail={() => {}}
+                  />
+                </TableErrorBoundary>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <UsersTable
-                  users={filteredUsers}
-                  onApprove={approveUser}
-                  onMakeAdmin={makeAdmin}
-                  onRevokeAdmin={revokeAdmin}
-                  onDelete={deleteUser}
-                  isLoading={isLoading}
-                />
+                <TableErrorBoundary>
+                  <UsersTable
+                    users={filteredUsers}
+                    onApprove={approveUser}
+                    onMakeAdmin={makeAdmin}
+                    onRevokeAdmin={revokeAdmin}
+                    onDelete={deleteUser}
+                    isLoading={isLoading}
+                  />
+                </TableErrorBoundary>
               </div>
             )}
           </div>
