@@ -37,7 +37,6 @@ export const getRequiredFields = (buyerType?: BuyerType): string[] => {
   if (buyerType && BUYER_TYPE_REQUIRED_FIELDS[buyerType]) {
     fields.push(...BUYER_TYPE_REQUIRED_FIELDS[buyerType]);
   }
-  }
   return fields;
 };
 
