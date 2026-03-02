@@ -244,3 +244,5 @@ verify_jwt = false
 verify_jwt = false
 [functions.resolve-buyer-message-thread]
 verify_jwt = false
+[functions.notify-admin-new-message]
+verify_jwt = true
