@@ -28,16 +28,16 @@ function buildDocItem(
   docusealStatus: string | null,
   signedDocUrl: string | null,
   draftUrl: string | null,
-  pendingNotifications: Record<string, unknown>[],
+  _pendingNotifications: Record<string, unknown>[],
 ): DocItem {
-  const _status = resolveAgreementStatus(!!signed, docusealStatus);
+  const status = resolveAgreementStatus(!!signed, docusealStatus);
 
   const descriptions: Record<AgreementDisplayStatus, string> = {
     signed: signedAt ? `Signed ${formatDistanceToNow(new Date(signedAt), { addSuffix: true })}` : 'Signed',
     declined: 'Declined — contact us with questions.',
     expired: 'Expired — contact us for a new one.',
     viewed: 'Viewed — please sign to continue.',
-    sent: (notif as any)?.message || `Ready for your review and signature.`,
+    sent: `Ready for your review and signature.`,
     pending: `Ready for your review and signature.`,
     not_sent: `Ready for your review and signature.`,
     no_firm: 'No firm record found.',
@@ -52,7 +52,7 @@ function buildDocItem(
     documentUrl: signedDocUrl,
     draftUrl,
     notificationMessage: descriptions[status],
-    notificationTime: (notif as any)?.created_at ?? undefined,
+    notificationTime: undefined,
     declined: status === 'declined',
   };
 }
