@@ -90,11 +90,6 @@ const AdminUsers = () => {
     table: 'buyers',
   });
 
-  // Sync ?view= param
-  useEffect(() => {
-    const viewParam = searchParams.get('view');
-    if (viewParam === 'owners') setPrimaryView('owners');
-  }, [searchParams]);
 
   useEffect(() => {
     markUsersAsViewed();
