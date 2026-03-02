@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   MessageSquare,
@@ -15,6 +14,8 @@ import {
   UserCheck,
   PanelRightOpen,
   PanelRightClose,
+  AtSign,
+  Paperclip,
 } from 'lucide-react';
 import {
   useConnectionMessages,
@@ -28,6 +29,10 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import type { InboxThread } from './types';
 import { ThreadContextPanel } from './ThreadContextPanel';
+import { MessageBody } from '@/pages/BuyerMessages/MessageBody';
+import { ReferenceChip, ReferencePicker } from '@/pages/BuyerMessages/ReferencePicker';
+import { encodeReference } from '@/pages/BuyerMessages/types';
+import type { MessageReference } from '@/pages/BuyerMessages/types';
 
 // ─── Hooks (used only by ThreadView) ───
 
@@ -99,8 +104,8 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
   const claimThread = useClaimThread();
   const navigate = useNavigate();
   const [newMessage, setNewMessage] = useState('');
+  const [reference, setReference] = useState<MessageReference | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showContext, setShowContext] = useState(true);
 
   // Get current admin ID for claim
   const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
@@ -120,13 +125,27 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
 
   const handleSend = () => {
     if (!newMessage.trim()) return;
+    let body = newMessage.trim();
+    if (reference) {
+      body = encodeReference(reference) + ' ' + body;
+    }
     sendMsg.mutate({
       connection_request_id: thread.connection_request_id,
-      body: newMessage.trim(),
+      body,
       sender_role: 'admin',
     });
     setNewMessage('');
+    setReference(null);
   };
+
+  // Build document and deal options for the admin reference picker
+  const adminDocuments: Array<{ type: 'nda' | 'fee_agreement'; label: string }> = [
+    { type: 'nda', label: 'NDA' },
+    { type: 'fee_agreement', label: 'Fee Agreement' },
+  ];
+  const adminThreads = thread.deal_title && thread.listing_id
+    ? [{ connection_request_id: thread.connection_request_id, deal_title: thread.deal_title, listing_id: thread.listing_id, request_status: thread.request_status, last_message_body: '', last_message_at: '', last_sender_role: '', unread_count: 0 }]
+    : [];
 
   const allMessages = useMemo(() => {
     const combined: Array<{
