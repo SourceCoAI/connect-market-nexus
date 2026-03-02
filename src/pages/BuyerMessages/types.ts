@@ -15,4 +15,6 @@ export type DocItem = {
   draftUrl: string | null;
   notificationMessage?: string;
   notificationTime?: string;
+  declined?: boolean;
+  awaiting?: boolean;
 };
