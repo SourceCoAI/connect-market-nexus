@@ -4,7 +4,7 @@ import { AdminConnectionRequest } from "@/types/admin";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useEmailDeliveryMonitoring } from "./use-email-delivery-monitoring";
-import { APP_CONFIG } from '@/config/app';
+
 
 /**
  * Hook for sending email notifications from admin actions
