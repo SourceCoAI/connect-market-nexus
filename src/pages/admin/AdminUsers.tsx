@@ -90,10 +90,15 @@ class TableErrorBoundary extends Component<
 const AdminUsers = () => {
   const { users } = useAdmin();
   const { data: usersData = [], isLoading, error, refetch } = users;
-  const primaryViewFromParams: PrimaryView = searchParams.get('view') === 'owners' ? 'owners' : 'buyers';
-  const [secondaryViewEarly] = useState<SecondaryView>('marketplace');
-  const { data: nonMarketplaceUsers = [], isLoading: isLoadingNonMarketplace } = useNonMarketplaceUsers({ enabled: primaryViewFromParams === 'buyers' && secondaryViewEarly === 'non-marketplace' });
-  const { data: ownerLeads = [], isLoading: isLoadingOwnerLeads } = useOwnerLeads({ enabled: primaryViewFromParams === 'owners' });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const primaryView: PrimaryView = searchParams.get('view') === 'owners' ? 'owners' : 'buyers';
+  const setPrimaryView = (view: PrimaryView) => {
+    setSearchParams(view === 'owners' ? { view: 'owners' } : {}, { replace: true });
+  };
+  const [secondaryView, setSecondaryView] = useState<SecondaryView>('marketplace');
+  const isBuyersView = primaryView === 'buyers';
+  const { data: nonMarketplaceUsers = [], isLoading: isLoadingNonMarketplace } = useNonMarketplaceUsers({ enabled: isBuyersView && secondaryView === 'non-marketplace' });
+  const { data: ownerLeads = [], isLoading: isLoadingOwnerLeads } = useOwnerLeads({ enabled: primaryView === 'owners' });
   const updateOwnerStatus = useUpdateOwnerLeadStatus();
   const updateOwnerNotes = useUpdateOwnerLeadNotes();
   const updateOwnerContacted = useUpdateOwnerLeadContacted();
@@ -113,14 +118,8 @@ const AdminUsers = () => {
     },
     staleTime: 60_000,
   });
-  const [searchParams, setSearchParams] = useSearchParams();
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [filteredOwnerLeads, setFilteredOwnerLeads] = useState<OwnerLead[]>([]);
-  const primaryView: PrimaryView = searchParams.get('view') === 'owners' ? 'owners' : 'buyers';
-  const setPrimaryView = (view: PrimaryView) => {
-    setSearchParams(view === 'owners' ? { view: 'owners' } : {}, { replace: true });
-  };
-  const [secondaryView, setSecondaryView] = useState<SecondaryView>('marketplace');
   const { markAsViewed: markUsersAsViewed } = useMarkUsersViewed();
   const { markAsViewed: markOwnerLeadsAsViewed } = useMarkOwnerLeadsViewed();
 
