@@ -14,14 +14,10 @@ import { useMarketplace } from '@/hooks/use-marketplace';
 import {
   AlertCircle,
   FileText,
-  MessageSquare,
-  Activity,
   ArrowUpDown,
   Shield,
   FileSignature,
-  ArrowRight,
   Check,
-  Pencil,
   Calendar,
 } from 'lucide-react';
 import { useUnreadBuyerMessageCounts } from '@/hooks/use-connection-messages';
