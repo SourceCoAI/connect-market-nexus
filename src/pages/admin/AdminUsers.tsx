@@ -391,6 +391,7 @@ const AdminUsers = () => {
         <div className="bg-card rounded-lg border overflow-hidden">
         {/* Buyers table - marketplace */}
           {isBuyersView && secondaryView === 'marketplace' && (
+            <>
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -424,6 +425,7 @@ const AdminUsers = () => {
                 </TableErrorBoundary>
               </div>
             )}
+            </>
           )}
 
           {/* Buyers table - non-marketplace */}
