@@ -3,7 +3,6 @@ import { cn, formatCompactCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { CategoryLocationBadges } from "@/components/shared/CategoryLocationBadges";
-import { CategoryLocationBadges } from "@/components/shared/CategoryLocationBadges";
 import { toStandardCategory, toStandardLocation } from "@/lib/standardization";
 import AcquisitionTypeBadge from "@/components/listing/AcquisitionTypeBadge";
 
