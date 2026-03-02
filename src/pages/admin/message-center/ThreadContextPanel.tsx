@@ -260,11 +260,11 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
   const feeStatus = firm ? resolveAgreementStatus(!!firm.fee_agreement_signed, firm.fee_docuseal_status) : null;
 
   return (
-    <div className="w-[280px] flex-shrink-0 flex flex-col min-h-0" style={{ borderLeft: '1px solid #E5DDD0', backgroundColor: '#FCF9F0' }}>
+    <div className="w-[280px] flex-shrink-0 flex flex-col min-h-0" style={{ borderLeft: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}>
       <ScrollArea className="flex-1">
         {/* Header */}
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid #E5DDD0' }}>
-          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#9A9A9A' }}>Buyer Profile</p>
+        <div className="px-4 py-3" style={{ borderBottom: '1px solid #F0EDE6' }}>
+          <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#CBCBCB' }}>Buyer Profile</p>
         </div>
 
         <div className="px-4 py-3 space-y-5">
@@ -283,7 +283,7 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
 
           {/* ── Agreements Section ── */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#9A9A9A' }}>Agreements</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#CBCBCB' }}>Agreements</p>
             {firmLoading ? (
               <div className="space-y-2">
                 <Skeleton className="h-10 w-full" />
@@ -361,7 +361,7 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
 
           {/* ── All Threads Section ── */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#9A9A9A' }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#CBCBCB' }}>
               All Threads ({allThreads.length})
             </p>
             {threadsLoading ? (
@@ -377,8 +377,8 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
                   const listing = t.listing as Record<string, unknown> | null;
                   return (
                     <div key={t.id as string}
-                      className="rounded-lg p-2 cursor-pointer hover:bg-accent/30 transition-colors"
-                      style={{ border: '1px solid #E5DDD0', backgroundColor: '#FFFFFF' }}
+                      className="py-2 cursor-pointer hover:bg-accent/20 transition-colors"
+                      style={{ borderBottom: '1px solid #F0EDE6' }}
                     >
                       <div className="flex items-center gap-1.5">
                         <FileText className="h-3 w-3 flex-shrink-0" style={{ color: '#DEC76B' }} />
@@ -409,7 +409,7 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
 
           {/* ── Activity Timeline ── */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#9A9A9A' }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#CBCBCB' }}>
               Activity Timeline
             </p>
             {timelineLoading ? (
@@ -421,7 +421,7 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
             ) : (
               <div className="relative">
                 {/* Timeline line */}
-                <div className="absolute left-[7px] top-2 bottom-2 w-px" style={{ backgroundColor: '#E5DDD0' }} />
+                <div className="absolute left-[7px] top-2 bottom-2 w-px" style={{ backgroundColor: '#F0EDE6' }} />
                 <div className="space-y-2.5">
                   {timeline.slice(0, 30).map((event) => {
                     const iconConfig = TIMELINE_ICONS[event.type] || TIMELINE_ICONS.status_change;
@@ -429,7 +429,7 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
                     return (
                       <div key={event.id} className="flex items-start gap-2.5 relative">
                         <div className="flex-shrink-0 z-10 w-[15px] h-[15px] rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: '#FCF9F0', border: `1.5px solid ${iconConfig.color}` }}>
+                          style={{ backgroundColor: '#FFFFFF', border: `1.5px solid ${iconConfig.color}` }}>
                           <Icon className="w-2 h-2" style={{ color: iconConfig.color }} />
                         </div>
                         <div className="flex-1 min-w-0">

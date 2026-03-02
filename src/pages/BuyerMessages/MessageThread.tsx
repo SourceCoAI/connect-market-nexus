@@ -28,6 +28,9 @@ interface BuyerThreadViewProps {
   onBack: () => void;
   allThreads?: BuyerThread[];
   availableDocuments?: Array<{ type: 'nda' | 'fee_agreement'; label: string }>;
+  /** External reference state from parent (ReferencePanel) */
+  reference?: MessageReference | null;
+  onReferenceChange?: (ref: MessageReference | null) => void;
 }
 
 export function BuyerThreadView({
@@ -35,6 +38,8 @@ export function BuyerThreadView({
   onBack,
   allThreads = [],
   availableDocuments = [],
+  reference: externalReference,
+  onReferenceChange: externalOnReferenceChange,
 }: BuyerThreadViewProps) {
   const { data: messages = [], isLoading } = useConnectionMessages(thread.connection_request_id);
   const sendMsg = useSendMessage();
@@ -43,7 +48,12 @@ export function BuyerThreadView({
   const [newMessage, setNewMessage] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [reference, setReference] = useState<MessageReference | null>(null);
+
+  // Use external reference state if provided, else local
+  const [localReference, setLocalReference] = useState<MessageReference | null>(null);
+  const reference = externalOnReferenceChange ? (externalReference ?? null) : localReference;
+  const setReference = externalOnReferenceChange || setLocalReference;
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isRejected = thread.request_status === 'rejected';
 
@@ -238,11 +248,11 @@ export function BuyerMessagesSkeleton() {
       className="rounded-xl overflow-hidden min-h-[500px] flex"
       style={{ border: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}
     >
-      <div className="w-[340px] p-4 space-y-5" style={{ borderRight: '1px solid #F0EDE6' }}>
+      <div className="w-[280px] p-4 space-y-5" style={{ borderRight: '1px solid #F0EDE6' }}>
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="space-y-2">
-            <Skeleton className="h-4 w-[160px]" />
-            <Skeleton className="h-3 w-[220px]" />
+            <Skeleton className="h-4 w-[140px]" />
+            <Skeleton className="h-3 w-[200px]" />
           </div>
         ))}
       </div>

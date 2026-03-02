@@ -113,6 +113,7 @@ const GlobalApprovalsPage = lazyWithRetry(() => import('@/pages/admin/GlobalAppr
 const DocumentTrackingPage = lazyWithRetry(() => import('@/pages/admin/DocumentTrackingPage'));
 const TestingHub = lazyWithRetry(() => import('@/pages/admin/TestingHub'));
 const MessageCenter = lazyWithRetry(() => import('@/pages/admin/MessageCenter'));
+const AdminFeatureIdeas = lazyWithRetry(() => import('@/pages/admin/AdminFeatureIdeas'));
 
 // Smartlead pages
 const SmartleadCampaignsPage = lazyWithRetry(() => import('@/pages/admin/SmartleadCampaignsPage'));
@@ -549,6 +550,9 @@ function App() {
                   </RoleGate>
                 }
               />
+              {/* FEATURE IDEAS */}
+              <Route path="feature-ideas" element={<AdminFeatureIdeas />} />
+
               <Route
                 path="testing"
                 element={

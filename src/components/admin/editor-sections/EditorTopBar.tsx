@@ -14,7 +14,7 @@ export function EditorTopBar({ form }: EditorTopBarProps) {
   const status = form.watch('status');
 
   return (
-    <div className="bg-white border-b border-border/40 -mx-10 px-10 py-6 mb-6">
+    <div className="bg-white border-b border-border shadow-sm -mx-10 px-10 py-6 mb-6">
       <div className="max-w-[1600px] mx-auto">
         {/* Title - full width */}
         <FormField
@@ -25,7 +25,7 @@ export function EditorTopBar({ form }: EditorTopBarProps) {
               <FormControl>
                 <Input
                   placeholder="Business Title"
-                  className="h-11 text-base font-medium mb-4 border-0 border-b rounded-none px-0 focus:border-primary transition-colors"
+                  className="h-11 text-lg font-semibold mb-4 border-0 border-b border-border/60 rounded-none px-0 focus:border-primary transition-colors text-foreground"
                   {...field}
                   value={field.value || ''}
                 />
@@ -76,7 +76,7 @@ export function EditorTopBar({ form }: EditorTopBarProps) {
           </div>
           
           {/* Type segmented control */}
-          <div className="inline-flex rounded-md border border-border bg-muted/20 p-0.5">
+          <div className="inline-flex rounded-md border border-border bg-muted/40 p-0.5">
             <button
               type="button"
               onClick={() => form.setValue('acquisition_type', 'platform')}

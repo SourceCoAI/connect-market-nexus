@@ -6,12 +6,14 @@ import { cn } from '@/lib/utils';
 
 import { useBuyerThreads, useFirmAgreementStatus } from './useMessagesData';
 import { ConversationList } from './ConversationList';
+import { ReferencePanel } from './ReferencePanel';
 import {
   BuyerThreadView,
   GeneralChatView,
   PendingAgreementBanner,
   BuyerMessagesSkeleton,
 } from './MessageThread';
+import type { MessageReference } from './types';
 
 // ─── Main Component ───
 
@@ -24,6 +26,9 @@ export default function BuyerMessages() {
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [showGeneralChat, setShowGeneralChat] = useState(false);
+
+  // Lifted reference state for the ReferencePanel ↔ MessageInput coordination
+  const [reference, setReference] = useState<MessageReference | null>(null);
 
   useEffect(() => {
     const dealParam = searchParams.get('deal');
@@ -41,6 +46,11 @@ export default function BuyerMessages() {
       setShowGeneralChat(true);
     }
   }, [isLoading, selectedThreadId, showGeneralChat]);
+
+  // Clear reference when switching threads
+  useEffect(() => {
+    setReference(null);
+  }, [selectedThreadId, showGeneralChat]);
 
   const handleSelectThread = (requestId: string) => {
     setSelectedThreadId(requestId);
@@ -130,7 +140,7 @@ export default function BuyerMessages() {
           className="flex-1 min-h-0 mx-6 mb-6 mt-4 rounded-xl overflow-hidden flex"
           style={{ border: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}
         >
-          {/* Thread List (left panel) */}
+          {/* Conversation List (left panel) */}
           <ConversationList
             threads={threads}
             filteredThreads={filteredThreads}
@@ -142,7 +152,7 @@ export default function BuyerMessages() {
             onSelectGeneral={handleSelectGeneral}
           />
 
-          {/* Thread View (right panel) */}
+          {/* Thread View (center panel) */}
           <div
             className={cn(
               'flex-1 flex flex-col min-h-0',
@@ -157,6 +167,8 @@ export default function BuyerMessages() {
                 }}
                 allThreads={threads}
                 availableDocuments={availableDocuments}
+                reference={reference}
+                onReferenceChange={setReference}
               />
             ) : hasActiveView ? (
               <BuyerThreadView
@@ -167,6 +179,8 @@ export default function BuyerMessages() {
                 }}
                 allThreads={threads}
                 availableDocuments={availableDocuments}
+                reference={reference}
+                onReferenceChange={setReference}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center">
@@ -179,6 +193,14 @@ export default function BuyerMessages() {
               </div>
             )}
           </div>
+
+          {/* Reference Panel (right panel) -- desktop only */}
+          <ReferencePanel
+            threads={threads}
+            documents={availableDocuments}
+            activeReference={reference}
+            onSelectReference={setReference}
+          />
         </div>
       )}
     </div>

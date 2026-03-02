@@ -54,6 +54,7 @@ import {
   Mail,
   Search,
   Phone,
+  Lightbulb,
   LogOut,
   User,
 } from 'lucide-react';
@@ -343,6 +344,11 @@ export function UnifiedAdminSidebar({
             label: 'Security & MFA',
             href: '/admin/settings/security',
             icon: <ShieldCheck className="h-4 w-4" />,
+          },
+          {
+            label: 'Feature Ideas',
+            href: '/admin/feature-ideas',
+            icon: <Lightbulb className="h-4 w-4" />,
           },
           {
             label: 'Testing & Diagnostics',

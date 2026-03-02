@@ -36,12 +36,7 @@ export function EditorFinancialCard({ form, isReadOnly = false }: EditorFinancia
         className="w-full flex items-center justify-between mb-4"
       >
         <span className={EDITOR_DESIGN.microHeader}>Financial</span>
-        <ChevronDown
-          className={cn(
-            'h-4 w-4 text-muted-foreground transition-transform',
-            !isOpen && '-rotate-90',
-          )}
-        />
+        <ChevronDown className={cn("h-4 w-4 text-foreground/60 transition-transform", !isOpen && "-rotate-90")} />
       </button>
 
       {isOpen && (
@@ -94,7 +89,7 @@ export function EditorFinancialCard({ form, isReadOnly = false }: EditorFinancia
               {...form.register('revenue_metric_subtitle')}
               className={cn(
                 EDITOR_DESIGN.microHeight,
-                'w-full text-xs bg-transparent border-0 border-b border-dashed border-border/50 px-0 placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50',
+                "w-full text-xs bg-transparent border-0 border-b border-dashed border-border/70 px-0 placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50"
               )}
             />
           </div>
@@ -136,7 +131,7 @@ export function EditorFinancialCard({ form, isReadOnly = false }: EditorFinancia
                 {...form.register('ebitda_metric_subtitle')}
                 className={cn(
                   EDITOR_DESIGN.microHeight,
-                  'flex-1 text-xs bg-transparent border-0 border-b border-dashed border-border/50 px-0 placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50',
+                  "flex-1 text-xs bg-transparent border-0 border-b border-dashed border-border/70 px-0 placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50"
                 )}
               />
               <span className="text-xs font-medium text-primary tabular-nums">
@@ -161,7 +156,7 @@ export function EditorFinancialCard({ form, isReadOnly = false }: EditorFinancia
                   isReadOnly && 'opacity-60 cursor-not-allowed',
                 )}
               />
-              <span className="text-muted-foreground/50">+</span>
+              <span className="text-muted-foreground">+</span>
               <Input
                 type="number"
                 placeholder="PT"

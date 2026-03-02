@@ -295,7 +295,7 @@ export default function CreateListingFromDeal() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Queue
           </Button>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm font-medium text-foreground/70">
             Creating anonymous listing from:{' '}
             <strong>
               {((deal as Record<string, unknown> | null)?.internal_company_name as string) ||

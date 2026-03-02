@@ -84,7 +84,7 @@ export function EditorLandingPageContentSection({ form }: EditorLandingPageConte
               </Button>
             </div>
             {customSections.map((section, i) => (
-              <div key={i} className="mb-3 p-3 border border-border/30 rounded-md relative">
+              <div key={i} className="mb-3 p-3 border border-border rounded-md relative">
                 <button
                   type="button"
                   onClick={() => removeCustomSection(i)}

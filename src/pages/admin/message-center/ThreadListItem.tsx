@@ -1,47 +1,10 @@
 import {
-  Clock,
-  CheckCheck,
-  Circle,
-  User,
   Building2,
   FileText,
-  UserCheck,
-  Check,
-  Send,
-  Eye,
-  AlertCircle,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { InboxThread } from "./types";
-import type { AgreementDisplayStatus } from "@/lib/agreement-status";
-
-// ─── Agreement badge helper ───
-
-const AGREEMENT_BADGE: Record<AgreementDisplayStatus | string, { bg: string; color: string; icon: typeof Check }> = {
-  signed: { bg: '#DCFCE7', color: '#166534', icon: Check },
-  declined: { bg: '#FEE2E2', color: '#991B1B', icon: AlertCircle },
-  expired: { bg: '#FEE2E2', color: '#991B1B', icon: AlertCircle },
-  viewed: { bg: '#FEF3C7', color: '#92400E', icon: Eye },
-  sent: { bg: '#DBEAFE', color: '#1E40AF', icon: Send },
-  pending: { bg: '#DBEAFE', color: '#1E40AF', icon: Clock },
-  not_sent: { bg: '#F3F4F6', color: '#6B7280', icon: Clock },
-};
-
-function AgreementMicroBadge({ type, status }: { type: 'NDA' | 'Fee'; status: string | null }) {
-  if (!status) return null;
-  const config = AGREEMENT_BADGE[status] || AGREEMENT_BADGE.not_sent;
-  const Icon = config.icon;
-  return (
-    <span
-      className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[9px] font-semibold"
-      style={{ backgroundColor: config.bg, color: config.color }}
-    >
-      <Icon className="w-2 h-2" />
-      {type}
-    </span>
-  );
-}
 
 // ─── Props ───
 
@@ -61,16 +24,6 @@ export function ThreadListItem({
   onClick,
   nested,
 }: ThreadListItemProps) {
-  const stateIcon = (() => {
-    switch (thread.conversation_state) {
-      case "waiting_on_admin": return <Circle className="w-2 h-2 fill-destructive text-destructive" />;
-      case "waiting_on_buyer": return <Clock className="w-2 h-2 text-amber-500" />;
-      case "claimed": return <User className="w-2 h-2 text-primary" />;
-      case "closed": return <CheckCheck className="w-2 h-2 text-muted-foreground" />;
-      default: return <Circle className="w-2 h-2 fill-blue-500 text-blue-500" />;
-    }
-  })();
-
   const timeLabel = thread.last_message_at
     ? formatDistanceToNow(new Date(thread.last_message_at), { addSuffix: false })
     : formatDistanceToNow(new Date(thread.created_at), { addSuffix: false });
@@ -81,37 +34,39 @@ export function ThreadListItem({
       className={cn(
         "w-full text-left px-4 py-3 transition-colors",
         nested && "pl-10",
-        isSelected ? "bg-accent" : "hover:bg-accent/50",
-        thread.unread_count > 0 && !isSelected && ""
       )}
-      style={thread.unread_count > 0 && !isSelected ? { backgroundColor: '#FFFDF5' } : undefined}
+      style={{
+        borderBottom: '1px solid #F0EDE6',
+        ...(isSelected
+          ? { backgroundColor: '#FAFAF8', borderLeft: '2px solid #DEC76B' }
+          : { borderLeft: '2px solid transparent' }),
+      }}
     >
       <div className="flex items-start gap-2.5">
-        <div className="mt-1.5 flex-shrink-0">{stateIcon}</div>
         <div className="flex-1 min-w-0">
           {/* Row 1: Buyer name + time */}
           <div className="flex items-center justify-between gap-2">
             <span className={cn(
               "text-sm truncate",
-              thread.unread_count > 0 ? "font-semibold text-foreground" : "font-medium text-foreground/90"
-            )}>
+              thread.unread_count > 0 ? "font-semibold" : "font-normal"
+            )} style={{ color: '#0E101A' }}>
               {thread.buyer_name}
             </span>
-            <span className="text-[10px] text-muted-foreground flex-shrink-0">{timeLabel}</span>
+            <span className="text-[10px] flex-shrink-0" style={{ color: '#CBCBCB' }}>{timeLabel}</span>
           </div>
 
           {/* Row 2: Company + deal */}
           <div className="flex items-center gap-1.5 mt-0.5">
             {thread.buyer_company && (
-              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <span className="text-[11px] flex items-center gap-1" style={{ color: '#9A9A9A' }}>
                 <Building2 className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">{thread.buyer_company}</span>
               </span>
             )}
             {!nested && thread.deal_title && (
               <>
-                {thread.buyer_company && <span className="text-muted-foreground/40">·</span>}
-                <span className="text-[11px] text-muted-foreground/70 truncate flex items-center gap-1">
+                {thread.buyer_company && <span style={{ color: '#F0EDE6' }}>·</span>}
+                <span className="text-[11px] truncate flex items-center gap-1" style={{ color: '#CBCBCB' }}>
                   <FileText className="w-3 h-3 flex-shrink-0" />
                   <span className="truncate">{thread.deal_title}</span>
                 </span>
@@ -119,41 +74,22 @@ export function ThreadListItem({
             )}
           </div>
 
-          {/* Row 3: Request status + pipeline + agreement badges */}
-          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-            <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-              style={
-                thread.request_status === 'approved' ? { backgroundColor: '#DEC76B', color: '#0E101A' } :
-                thread.request_status === 'pending' ? { backgroundColor: '#F7F4DD', color: '#5A5A5A', border: '1px solid #DEC76B' } :
-                thread.request_status === 'rejected' ? { backgroundColor: '#8B0000', color: '#FFFFFF' } :
-                { backgroundColor: '#E8E8E8', color: '#5A5A5A' }
-              }
-            >
+          {/* Row 3: Request status only */}
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="text-[10px] font-medium" style={{
+              color: thread.request_status === 'approved' ? '#0E101A'
+                : thread.request_status === 'rejected' ? '#991B1B'
+                : '#9A9A9A'
+            }}>
               {thread.request_status}
             </span>
-            {thread.pipeline_deal_id && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                style={{ backgroundColor: '#0E101A', color: '#FFFFFF' }}>
-                Pipeline
-              </span>
-            )}
-            {thread.claimed_by && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5"
-                style={{ backgroundColor: '#E8E8E8', color: '#5A5A5A' }}>
-                <UserCheck className="w-2.5 h-2.5" />
-                Claimed
-              </span>
-            )}
-            {/* Agreement status badges */}
-            <AgreementMicroBadge type="NDA" status={thread.nda_status} />
-            <AgreementMicroBadge type="Fee" status={thread.fee_status} />
           </div>
 
           {/* Row 4: Last message preview */}
           <p className={cn(
             "text-[11px] mt-0.5 truncate",
-            thread.unread_count > 0 ? "text-foreground font-medium" : "text-muted-foreground"
-          )}>
+            thread.unread_count > 0 ? "font-medium" : "font-normal"
+          )} style={{ color: thread.unread_count > 0 ? '#0E101A' : '#9A9A9A' }}>
             {thread.last_message_sender_role === "admin" && "You: "}
             {thread.last_message_preview || thread.user_message || "No messages yet"}
           </p>
@@ -162,7 +98,7 @@ export function ThreadListItem({
         {/* Unread badge */}
         {thread.unread_count > 0 && (
           <span className="mt-1 flex-shrink-0 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
-            style={{ backgroundColor: '#8B0000', color: '#FFFFFF' }}>
+            style={{ backgroundColor: '#DEC76B', color: '#0E101A' }}>
             {thread.unread_count}
           </span>
         )}

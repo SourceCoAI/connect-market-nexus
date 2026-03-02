@@ -3,6 +3,7 @@ import { Search, Inbox } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { BuyerThread } from './helpers';
+import { parseReferences } from './types';
 
 // ─── ConversationList ───
 
@@ -30,7 +31,7 @@ export function ConversationList({
   return (
     <div
       className={cn(
-        'w-[340px] flex-shrink-0 flex flex-col min-h-0',
+        'w-[280px] flex-shrink-0 flex flex-col min-h-0',
         selectedThreadId || showGeneralChat ? 'hidden md:flex' : 'flex',
       )}
       style={{ borderRight: '1px solid #F0EDE6' }}
@@ -160,7 +161,7 @@ function ThreadListItem({
             style={{ color: isUnread ? '#0E101A' : '#9A9A9A' }}
           >
             {thread.last_sender_role === 'buyer' && 'You: '}
-            {thread.last_message_body || 'No messages yet'}
+            {parseReferences(thread.last_message_body || '').cleanBody || 'No messages yet'}
           </p>
         </div>
 
