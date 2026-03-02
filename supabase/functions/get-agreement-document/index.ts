@@ -7,9 +7,7 @@ import { requireAuth } from '../_shared/auth.ts';
  * get-agreement-document
  *
  * Returns the PDF URL for an agreement document (draft or signed).
- * Uses DocuSeal API: GET /submissions/{id}/documents
- * Buyers can download unsigned drafts for legal review/redlining,
- * or signed copies for their records.
+ * Uses deterministic firm resolution via resolve_user_firm_id RPC.
  */
 
 serve(async (req: Request) => {
@@ -46,22 +44,17 @@ serve(async (req: Request) => {
 
     const isNda = documentType === 'nda';
 
-    // Get buyer's firm
-    const { data: membership } = await supabaseAdmin
-      .from('firm_members')
-      .select('firm_id')
-      .eq('user_id', userId)
-      .limit(1)
-      .maybeSingle();
+    // Deterministic firm resolution via DB function
+    const { data: firmId, error: resolveErr } = await supabaseAdmin.rpc('resolve_user_firm_id', {
+      p_user_id: userId,
+    });
 
-    if (!membership) {
+    if (resolveErr || !firmId) {
       return new Response(
         JSON.stringify({ error: 'No firm found' }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
-
-    const firmId = membership.firm_id;
 
     // Get submission ID and signed status
     const submissionCol = isNda ? 'nda_docuseal_submission_id' : 'fee_docuseal_submission_id';

@@ -9,47 +9,35 @@ export interface UserFirmInfo {
   nda_signed: boolean;
 }
 
+/**
+ * Resolves the canonical firm for a user via the DB function
+ * `get_user_firm_agreement_status`, which uses deterministic
+ * resolution (active connection_request → latest firm_member).
+ */
 export function useUserFirm(userId: string | null) {
   return useQuery({
     queryKey: ['user-firm', userId],
     queryFn: async () => {
       if (!userId) return null;
 
-      const { data, error } = await supabase
-        .from('firm_members' as never)
-        .select(`
-          firm_id,
-          firm:firm_agreements!firm_members_firm_id_fkey (
-            id,
-            primary_company_name,
-            member_count,
-            fee_agreement_signed,
-            nda_signed
-          )
-        `)
-        .eq('user_id', userId)
-        .single();
+      const { data, error } = await supabase.rpc('get_user_firm_agreement_status', {
+        p_user_id: userId,
+      });
 
-      if (error) {
-        // User might not belong to a firm
-        if (error.code === 'PGRST116') return null;
-        throw error;
-      }
+      if (error) throw error;
 
-      const record = data as Record<string, unknown>;
-      if (!record || !record.firm) return null;
-
-      const firm = Array.isArray(record.firm) ? (record.firm as Record<string, unknown>[])[0] : record.firm as Record<string, unknown>;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || !row.firm_id) return null;
 
       return {
-        firm_id: firm.id,
-        firm_name: firm.primary_company_name,
-        member_count: firm.member_count,
-        fee_agreement_signed: firm.fee_agreement_signed,
-        nda_signed: firm.nda_signed,
+        firm_id: row.firm_id,
+        firm_name: row.firm_name,
+        member_count: null, // not returned by RPC; callers needing this can query separately
+        fee_agreement_signed: row.fee_agreement_signed ?? false,
+        nda_signed: row.nda_signed ?? false,
       } as UserFirmInfo;
     },
     enabled: !!userId,
-    staleTime: 30000, // 30 seconds
+    staleTime: 30000,
   });
 }

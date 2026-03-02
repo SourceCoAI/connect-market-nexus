@@ -59,28 +59,12 @@ function useThreadBuyerFirm(userId: string | null) {
     queryFn: async () => {
       if (!userId) return null;
 
-      const { data: recentReq } = await supabase
-        .from('connection_requests')
-        .select('firm_id')
-        .eq('user_id', userId)
-        .not('firm_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Use canonical resolver to get firm_id
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('resolve_user_firm_id', {
+        p_user_id: userId,
+      });
 
-      let firmId = recentReq?.firm_id;
-
-      if (!firmId) {
-        const { data: membership } = await supabase
-          .from('firm_members')
-          .select('firm_id')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        firmId = membership?.firm_id;
-      }
-
+      const firmId = rpcErr ? null : rpcData;
       if (!firmId) return null;
 
       const { data: firm } = await supabase
@@ -201,13 +185,11 @@ function useUserActivityTimeline(userId: string | null) {
         });
       }
 
-      // 4. Agreement audit log
-      const { data: membership } = await supabase
-        .from('firm_members')
-        .select('firm_id')
-        .eq('user_id', userId)
-        .limit(1)
-        .maybeSingle();
+      // 4. Agreement audit log — use canonical resolver
+      const { data: resolvedFirmId } = await supabase.rpc('resolve_user_firm_id', {
+        p_user_id: userId,
+      });
+      const membership = resolvedFirmId ? { firm_id: resolvedFirmId } : null;
 
       if (membership?.firm_id) {
         const { data: auditLogs } = await supabase

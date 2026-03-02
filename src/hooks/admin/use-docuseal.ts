@@ -6,7 +6,6 @@ export type DocuSealStatus = 'not_sent' | 'sent' | 'viewed' | 'signed' | 'declin
 
 /**
  * Hook to create a DocuSeal signing submission (NDA or Fee Agreement).
- * Calls the create-docuseal-submission edge function.
  */
 export function useCreateDocuSealSubmission() {
   const queryClient = useQueryClient();
@@ -91,7 +90,8 @@ export function useAutoCreateFirmOnApproval() {
 
 /**
  * Hook to fetch NDA signing status for the current buyer.
- * Used by PendingApproval page and NDA gate modal.
+ * Uses the canonical `get_user_firm_agreement_status` RPC
+ * to deterministically resolve the correct firm.
  */
 export function useBuyerNdaStatus(userId: string | undefined) {
   return useQuery({
@@ -99,39 +99,23 @@ export function useBuyerNdaStatus(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return null;
 
-      // Get the buyer's firm membership
-      const { data: membership, error: membershipError } = await supabase
-        .from('firm_members')
-        .select('firm_id')
-        .eq('user_id', userId)
-        .limit(1)
-        .maybeSingle();
-      if (membershipError) throw membershipError;
+      const { data, error } = await supabase.rpc('get_user_firm_agreement_status', {
+        p_user_id: userId,
+      });
 
-      if (!membership) {
-        return { hasFirm: false, ndaSigned: false, embedSrc: null, firmId: null };
-      }
+      if (error) throw error;
 
-      // Get firm agreement status
-      const { data: firm, error: firmError } = await supabase
-        .from('firm_agreements')
-        .select('id, nda_signed, nda_docuseal_status, nda_docuseal_submission_id')
-        .eq('id', membership.firm_id)
-        .maybeSingle();
-      if (firmError) throw firmError;
-
-      if (!firm) {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || !row.firm_id) {
         return { hasFirm: false, ndaSigned: false, embedSrc: null, firmId: null };
       }
 
       return {
         hasFirm: true,
-        ndaSigned: firm.nda_signed,
-        docusealStatus: firm.nda_docuseal_status,
-        hasSubmission: !!firm.nda_docuseal_submission_id,
-        firmId: firm.id,
-        // embed_src needs to be fetched from DocuSeal API via edge function
-        // The frontend will call create-docuseal-submission if needed
+        ndaSigned: row.nda_signed ?? false,
+        docusealStatus: row.nda_docuseal_status,
+        hasSubmission: true, // if firm exists, submission may exist
+        firmId: row.firm_id,
         embedSrc: null as string | null,
       };
     },
