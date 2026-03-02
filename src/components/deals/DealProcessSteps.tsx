@@ -314,9 +314,9 @@ export function DealProcessSteps({
                     normalizedStatus === 'pending' && (
                       <>
                         {/* Timeline Estimate */}
-                        <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg">
-                          <Clock className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                          <p className="text-xs text-blue-800">
+                        <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-[#FCF9F0] border border-[#E5DDD0] rounded-lg">
+                          <Clock className="h-3.5 w-3.5 text-[#0E101A] shrink-0" />
+                          <p className="text-xs text-[#0E101A]/70">
                             {requestCreatedAt &&
                             Date.now() - new Date(requestCreatedAt).getTime() >
                               7 * 24 * 60 * 60 * 1000

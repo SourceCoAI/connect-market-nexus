@@ -162,12 +162,12 @@ function getStageIndex(stageId: PipelineStageId): number {
  * (review/IOI), green for late stages (LOI/Closed).
  */
 const stageColors: Record<PipelineStageId, { bg: string; text: string; border: string }> = {
-  interested: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-  nda_signed: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-  under_review: { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
-  ioi_submitted: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
-  loi: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-  closed: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+  interested: { bg: 'bg-[#FCF9F0]', text: 'text-[#8B6F47]', border: 'border-[#E5DDD0]' },
+  nda_signed: { bg: 'bg-[#FCF9F0]', text: 'text-[#0E101A]', border: 'border-[#E5DDD0]' },
+  under_review: { bg: 'bg-[#FCF9F0]', text: 'text-[#0E101A]', border: 'border-[#E5DDD0]' },
+  ioi_submitted: { bg: 'bg-[#FCF9F0]', text: 'text-[#0E101A]', border: 'border-[#E5DDD0]' },
+  loi: { bg: 'bg-[#FCF9F0]', text: 'text-[#0E101A]', border: 'border-[#DEC76B]' },
+  closed: { bg: 'bg-[#FCF9F0]', text: 'text-[#0E101A]', border: 'border-[#DEC76B]' },
 };
 void stageColors;
 
@@ -228,13 +228,13 @@ function formatEbitdaRange(ebitda: number): string {
 function getRequestStatusColors(status: string): { bg: string; text: string; border: string } {
   switch (status) {
     case 'pending':
-      return { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' };
+      return { bg: 'bg-[#FBF7EC]', text: 'text-[#8B6F47]', border: 'border-[#DEC76B]' };
     case 'approved':
-      return { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' };
+      return { bg: 'bg-[#0E101A]', text: 'text-[#DEC76B]', border: 'border-[#0E101A]' };
     case 'rejected':
-      return { bg: 'bg-slate-50', text: 'text-slate-500', border: 'border-slate-200' };
+      return { bg: 'bg-[#FCF9F0]', text: 'text-[#0E101A]/50', border: 'border-[#E5DDD0]' };
     default:
-      return { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' };
+      return { bg: 'bg-[#FBF7EC]', text: 'text-[#8B6F47]', border: 'border-[#DEC76B]' };
   }
 }
 
@@ -286,14 +286,14 @@ export function DealPipelineCard({
         className={cn(
           'w-full text-left rounded-xl border transition-all duration-200 p-4 group relative',
           isSelected
-            ? 'border-[#0f1f3d] bg-[#fdfcfa] shadow-[0_4px_16px_rgba(15,31,61,0.10)]'
-            : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-[0_2px_8px_0_rgba(0,0,0,0.04)]',
+            ? 'border-[#0E101A] bg-[#FCF9F0] shadow-[0_4px_16px_rgba(14,16,26,0.10)]'
+            : 'border-[#E5DDD0] bg-white hover:border-[#E5DDD0]/80 hover:shadow-[0_2px_8px_0_rgba(0,0,0,0.04)]',
           isRejected && 'opacity-60',
         )}
       >
         {/* Gold left-border accent on selected card */}
         {isSelected && (
-          <div className="absolute left-[-1px] top-3 bottom-3 w-[3px] rounded-r-full bg-[#c9a84c]" />
+          <div className="absolute left-[-1px] top-3 bottom-3 w-[3px] rounded-r-full bg-[#DEC76B]" />
         )}
 
         {/* Top row: Category icon + Title + Unread badge */}
@@ -301,17 +301,17 @@ export function DealPipelineCard({
           <div
             className={cn(
               'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-              isSelected ? 'bg-[#0f1f3d]' : 'bg-slate-100 group-hover:bg-slate-200',
+              isSelected ? 'bg-[#0E101A]' : 'bg-[#FCF9F0] group-hover:bg-[#E5DDD0]',
             )}
           >
             <CategoryIcon
-              className={cn('h-4.5 w-4.5', isSelected ? 'text-[#c9a84c]' : 'text-slate-600')}
+              className={cn('h-4.5 w-4.5', isSelected ? 'text-[#DEC76B]' : 'text-[#0E101A]/60')}
             />
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-[#0f1f3d] truncate">
+              <h3 className="text-sm font-semibold text-[#0E101A] truncate">
                 {request.listing?.title || 'Untitled'}
               </h3>
               {unreadCount > 0 && (
@@ -350,9 +350,9 @@ export function DealPipelineCard({
                       isRejected && isCompleted
                         ? 'bg-slate-300'
                         : isCompleted && isCurrent
-                          ? 'bg-[#c9a84c]'
+                        ? 'bg-[#DEC76B]'
                           : isCompleted
-                            ? 'bg-[#0f1f3d]'
+                            ? 'bg-[#0E101A]'
                             : 'bg-slate-100',
                     )}
                   />
@@ -389,12 +389,12 @@ export function DealPipelineCard({
         {(ctaLabel || pendingAction) && !isRejected && (
           <div className="mt-2.5 flex items-center justify-between">
             {pendingAction && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#8B6F47] bg-[#FBF7EC] px-1.5 py-0.5 rounded-full border border-[#DEC76B]">
                 {pendingAction}
               </span>
             )}
             {ctaLabel && (
-              <span className="inline-flex items-center gap-1 ml-auto text-[11px] font-semibold text-[#c9a84c] border border-[#c9a84c] px-2.5 py-1 rounded-md hover:bg-[#c9a84c] hover:text-white transition-colors">
+              <span className="inline-flex items-center gap-1 ml-auto text-[11px] font-semibold text-[#DEC76B] border border-[#DEC76B] px-2.5 py-1 rounded-md hover:bg-[#DEC76B] hover:text-[#0E101A] transition-colors">
                 {ctaLabel}
                 <ArrowRight className="h-3 w-3" />
               </span>

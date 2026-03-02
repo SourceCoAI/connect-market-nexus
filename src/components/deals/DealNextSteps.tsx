@@ -158,26 +158,26 @@ export function DealNextSteps({
 
   const stateStyles = {
     done: {
-      bg: 'bg-emerald-50',
-      border: 'border-emerald-200',
-      iconBg: 'bg-emerald-100 text-emerald-600',
+      bg: 'bg-[#FCF9F0]',
+      border: 'border-[#E5DDD0]',
+      iconBg: 'bg-[#0E101A] text-[#DEC76B]',
     },
     pending: {
-      bg: 'bg-amber-50',
-      border: 'border-amber-200',
-      iconBg: 'bg-amber-100 text-amber-600',
+      bg: 'bg-[#FBF7EC]',
+      border: 'border-[#DEC76B]',
+      iconBg: 'bg-[#DEC76B]/20 text-[#0E101A]',
     },
     locked: {
-      bg: 'bg-slate-50',
-      border: 'border-slate-200',
-      iconBg: 'bg-slate-100 text-slate-400',
+      bg: 'bg-[#FCF9F0]',
+      border: 'border-[#E5DDD0]',
+      iconBg: 'bg-[#E5DDD0] text-[#0E101A]/40',
     },
   } as const;
 
   return (
     <>
       <div>
-        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-[0.08em] mb-3">
+        <h3 className="text-xs font-semibold text-[#0E101A]/40 uppercase tracking-[0.08em] mb-3">
           Your Next Steps
         </h3>
         <div className="space-y-2.5">
@@ -213,8 +213,8 @@ export function DealNextSteps({
 
                 {/* Text */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800">{step.title}</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{step.description}</p>
+                  <p className="text-sm font-semibold text-[#0E101A]">{step.title}</p>
+                  <p className="text-[11px] text-[#0E101A]/50 mt-0.5">{step.description}</p>
                 </div>
 
                 {/* CTA button */}
@@ -223,9 +223,9 @@ export function DealNextSteps({
                     onClick={step.onAction}
                     className={cn(
                       'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-colors shrink-0',
-                      step.state === 'pending' && 'bg-[#0f1f3d] text-white hover:bg-[#1a3260]',
+                      step.state === 'pending' && 'bg-[#0E101A] text-white hover:bg-[#0E101A]/80',
                       step.state === 'done' &&
-                        'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
+                        'bg-[#0E101A]/10 text-[#0E101A] hover:bg-[#0E101A]/20',
                     )}
                   >
                     {step.cta}
@@ -235,14 +235,14 @@ export function DealNextSteps({
 
                 {/* Completed check for done items without CTA */}
                 {step.state === 'done' && !step.cta && (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shrink-0">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0E101A] text-[#DEC76B] shrink-0">
                     <Check className="h-3.5 w-3.5" />
                   </div>
                 )}
 
                 {/* Lock icon for locked items */}
                 {step.state === 'locked' && !step.cta && (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-slate-400 shrink-0">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#E5DDD0] text-[#0E101A]/40 shrink-0">
                     <Lock className="h-3 w-3" />
                   </div>
                 )}

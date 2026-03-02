@@ -169,14 +169,14 @@ export function DealDetailHeader({
 
   return (
     <TooltipProvider>
-      <div className={cn('bg-[#0f1f3d] rounded-t-xl', isRejected && 'opacity-80')}>
+    <div className={cn('bg-[#0E101A] rounded-t-xl', isRejected && 'opacity-80')}>
         {/* ── Company identity row ── */}
         <div className="px-6 pt-6 pb-4">
           <div className="flex items-start justify-between gap-4">
             {/* Left: icon + title + tags */}
             <div className="flex items-start gap-3.5 min-w-0 flex-1">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#1a3260] border border-[rgba(201,168,76,0.35)]">
-                <CategoryIcon className="h-5 w-5 text-[#c9a84c]" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/[0.08] border border-[rgba(222,199,107,0.35)]">
+                <CategoryIcon className="h-5 w-5 text-[#DEC76B]" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2.5">
@@ -213,7 +213,7 @@ export function DealDetailHeader({
             {/* Right: EBITDA callout */}
             {ebitda && (
               <div className="text-right shrink-0">
-                <div className="text-xl font-semibold text-[#c9a84c] tabular-nums">
+                <div className="text-xl font-semibold text-[#DEC76B] tabular-nums">
                   {formatCompactCurrency(ebitda)}
                 </div>
                 <div className="text-[11px] text-white/45">
@@ -243,8 +243,8 @@ export function DealDetailHeader({
                       'flex-1 text-center py-3 relative cursor-default',
                       // Bottom highlight bar for completed / current
                       'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px]',
-                      isComplete && 'after:bg-[rgba(42,125,79,0.5)]',
-                      isCurrent && 'after:bg-[#c9a84c]',
+                      isComplete && 'after:bg-[rgba(222,199,107,0.4)]',
+                      isCurrent && 'after:bg-[#DEC76B]',
                       !isComplete && !isCurrent && 'after:bg-transparent',
                     )}
                   >
@@ -253,9 +253,9 @@ export function DealDetailHeader({
                       className={cn(
                         'mx-auto mb-1 flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold border',
                         isComplete &&
-                          'bg-[rgba(42,125,79,0.3)] text-[#7ee8a2] border-[rgba(42,125,79,0.4)]',
+                          'bg-[rgba(222,199,107,0.2)] text-[#DEC76B] border-[rgba(222,199,107,0.4)]',
                         isCurrent &&
-                          'bg-[rgba(201,168,76,0.2)] text-[#c9a84c] border-[rgba(201,168,76,0.5)]',
+                          'bg-[rgba(222,199,107,0.2)] text-[#DEC76B] border-[rgba(222,199,107,0.5)]',
                         !isComplete && !isCurrent && 'border-white/15 text-white/30 bg-transparent',
                       )}
                     >
@@ -265,8 +265,8 @@ export function DealDetailHeader({
                     <div
                       className={cn(
                         'text-[10px] font-medium',
-                        isComplete && 'text-[rgba(126,232,162,0.8)]',
-                        isCurrent && 'text-[#e8c96a]',
+                        isComplete && 'text-[#DEC76B]/80',
+                        isCurrent && 'text-[#DEC76B]',
                         !isComplete && !isCurrent && 'text-white/40',
                       )}
                     >
@@ -276,7 +276,7 @@ export function DealDetailHeader({
                 </TooltipTrigger>
                 <TooltipContent
                   side="bottom"
-                  className="bg-[#1a3260] text-white border-[#243c6e] text-xs max-w-[200px]"
+                  className="bg-[#0E101A] text-white border-white/10 text-xs max-w-[200px]"
                 >
                   <p className="font-medium">{stage.label}</p>
                   <p className="text-white/70 mt-0.5">{stage.description}</p>

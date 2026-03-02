@@ -1,8 +1,7 @@
-import { TrendingUp, Users, DollarSign, MapPin, ExternalLink, Gem, Info } from "lucide-react";
+import { TrendingUp, Users, DollarSign, MapPin, ExternalLink } from "lucide-react";
 import { cn, formatCompactCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CategoryLocationBadges } from "@/components/shared/CategoryLocationBadges";
 import { toStandardCategory, toStandardLocation } from "@/lib/standardization";
 import AcquisitionTypeBadge from "@/components/listing/AcquisitionTypeBadge";
@@ -37,7 +36,7 @@ export function DealMetricsCard({ listing, status, className }: DealMetricsCardP
       case "approved":
         return { 
           label: "Approved", 
-          className: "bg-emerald-50 text-emerald-700 border-emerald-100" 
+          className: "bg-[#0E101A] text-[#DEC76B] border-[#0E101A]" 
         };
       case "rejected":
         return { 
@@ -80,34 +79,6 @@ export function DealMetricsCard({ listing, status, className }: DealMetricsCardP
 
   return (
     <div className={cn("relative bg-white rounded-lg p-6 shadow-[0_2px_12px_0_rgba(0,0,0,0.05),0_1px_4px_0_rgba(0,0,0,0.08)] hover:shadow-[0_8px_16px_0_rgba(0,0,0,0.06),0_2px_6px_0_rgba(0,0,0,0.08)] transition-shadow duration-300", className)}>
-      {/* Off-Market Badge - Stripe/Apple minimalist design */}
-      <TooltipProvider>
-        <Tooltip delayDuration={200}>
-          <TooltipTrigger asChild>
-            <div className="absolute -top-2.5 left-6 z-10">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-help">
-                <Gem className="w-3 h-3 text-gray-700 fill-gray-100" strokeWidth={2} />
-                <span className="text-[11px] font-medium text-gray-700 tracking-wide">
-                  Off-Market
-                </span>
-                <Info className="w-3 h-3 text-gray-400" strokeWidth={2} />
-              </div>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent 
-            side="bottom" 
-            align="start"
-            className="max-w-sm p-4"
-          >
-            <p className="text-xs leading-relaxed">
-              We share each deal confidentially with our curated network of buyers and take time to learn about every group's value add, how they approach structure, valuation, and the overall investment thesis, and how their approach fits into seller's expectations and timeline.
-              <br /><br />
-              We are not representing the seller in this process; we never serve as sell-side representation. There are also no other intermediaries involved in the process. All deals on the marketplace are directly with the owner (seller).
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-
       <div className="flex items-start gap-6">
         {/* Image Thumbnail */}
         {listing.image_url && (

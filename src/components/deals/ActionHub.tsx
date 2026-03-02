@@ -158,11 +158,11 @@ export function ActionHub({
 
   return (
     <>
-      <div className="bg-[#0f1f3d] rounded-xl px-6 py-5">
+      <div className="bg-[#0E101A] rounded-xl px-6 py-5">
         {/* Header row: icon + text + count */}
         <div className="flex items-center gap-3.5 mb-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(201,168,76,0.15)] border border-[rgba(201,168,76,0.4)]">
-            <Zap className="h-5 w-5 text-[#c9a84c]" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[rgba(222,199,107,0.15)] border border-[rgba(222,199,107,0.4)]">
+            <Zap className="h-5 w-5 text-[#DEC76B]" />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-white">
@@ -182,14 +182,14 @@ export function ActionHub({
               <button
                 key={action.id}
                 onClick={() => handleAction(action)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white/[0.07] border border-white/[0.15] text-white text-xs font-medium hover:bg-[rgba(201,168,76,0.2)] hover:border-[#c9a84c] transition-all group"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white/[0.07] border border-white/[0.15] text-white text-xs font-medium hover:bg-[rgba(222,199,107,0.2)] hover:border-[#DEC76B] transition-all group"
               >
                 <Icon className="h-3.5 w-3.5 text-white/70 shrink-0" />
                 <span>{action.label}</span>
                 {action.dealName && (
                   <>
                     <span className="text-white/30">—</span>
-                    <span className="text-[#c9a84c]">{truncateName(action.dealName)}</span>
+                    <span className="text-[#DEC76B]">{truncateName(action.dealName)}</span>
                   </>
                 )}
                 <ArrowRight className="h-3 w-3 text-white/40 group-hover:text-white/70 transition-colors shrink-0" />

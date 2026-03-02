@@ -279,7 +279,7 @@ const MyRequests = () => {
   /* ── Loading state — skeleton placeholder matching the final layout ── */
   if (isLoading) {
     return (
-      <div className="w-full bg-[#faf8f4] min-h-screen">
+      <div className="w-full bg-[#FCF9F0] min-h-screen">
         <div className="px-4 sm:px-8 pt-8 pb-6 max-w-[1200px] mx-auto">
           <Skeleton className="h-9 w-48" />
           <Skeleton className="h-5 w-72 mt-2" />
@@ -301,21 +301,21 @@ const MyRequests = () => {
   /* ── Empty state — no deals yet ── */
   if (!requests || requests.length === 0) {
     return (
-      <div className="w-full bg-[#faf8f4] min-h-screen">
+      <div className="w-full bg-[#FCF9F0] min-h-screen">
         <div className="px-4 sm:px-8 pt-8 pb-6 max-w-[1200px] mx-auto">
-          <h1 className="text-[28px] font-semibold text-[#0f1f3d] tracking-tight">My Deals</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-[28px] font-semibold text-[#0E101A] tracking-tight">My Deals</h1>
+          <p className="text-sm text-[#0E101A]/50 mt-1">
             Track your active opportunities and required actions across your pipeline
           </p>
         </div>
         <div className="min-h-[50vh] flex items-center justify-center px-4">
           <div className="text-center space-y-4 max-w-sm">
             <div className="flex justify-center">
-              <div className="rounded-full bg-slate-100 p-3">
-                <FileText className="h-6 w-6 text-slate-400" />
+              <div className="rounded-full bg-[#E5DDD0] p-3">
+                <FileText className="h-6 w-6 text-[#0E101A]/40" />
               </div>
             </div>
-            <h2 className="text-base font-semibold text-[#0f1f3d]">No deals yet</h2>
+            <h2 className="text-base font-semibold text-[#0E101A]">No deals yet</h2>
             <p className="text-sm text-slate-600 leading-6">
               You haven't submitted any connection requests yet. Browse the marketplace to find
               opportunities.
@@ -328,11 +328,11 @@ const MyRequests = () => {
 
   /* ── Main render ── */
   return (
-    <div className="w-full bg-[#faf8f4] min-h-screen">
+    <div className="w-full bg-[#FCF9F0] min-h-screen">
       {/* ─── Page Header ─── */}
       <div className="px-4 sm:px-8 pt-8 pb-5 max-w-[1200px] mx-auto">
-        <h1 className="text-[28px] font-semibold text-[#0f1f3d] tracking-tight">My Deals</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="text-[28px] font-semibold text-[#0E101A] tracking-tight">My Deals</h1>
+        <p className="text-sm text-[#0E101A]/50 mt-1">
           Track your active opportunities and required actions across your pipeline
         </p>
       </div>
@@ -363,7 +363,7 @@ const MyRequests = () => {
                 <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-[0.08em]">
                   Active Deals
                 </h2>
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#0f1f3d] px-2 text-[11px] font-semibold text-white">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#0E101A] px-2 text-[11px] font-semibold text-white">
                   {requests.length}
                 </span>
               </div>
@@ -470,13 +470,13 @@ function WhatsNewSection({ requests, unreadMsgCounts }: WhatsNewSectionProps) {
   return (
     <div className="flex items-center gap-2.5 flex-wrap px-1">
       <div className="flex items-center gap-1.5 text-[13px] font-medium text-slate-500">
-        <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+        <Sparkles className="h-3.5 w-3.5 text-[#DEC76B]" />
         What's New
       </div>
       {pendingDeals > 0 && (
         <Badge
           variant="secondary"
-          className="bg-blue-50 text-blue-700 border-blue-200 text-[11px] font-medium gap-1 px-2 py-0.5"
+          className="bg-[#FBF7EC] text-[#8B6F47] border-[#E5DDD0] text-[11px] font-medium gap-1 px-2 py-0.5"
         >
           <Bell className="h-3 w-3" />
           {pendingDeals} new matched {pendingDeals === 1 ? 'deal' : 'deals'} awaiting review
@@ -485,7 +485,7 @@ function WhatsNewSection({ requests, unreadMsgCounts }: WhatsNewSectionProps) {
       {statusUpdates > 0 && (
         <Badge
           variant="secondary"
-          className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] font-medium gap-1 px-2 py-0.5"
+          className="bg-[#FCF9F0] text-[#0E101A]/70 border-[#E5DDD0] text-[11px] font-medium gap-1 px-2 py-0.5"
         >
           <Activity className="h-3 w-3" />
           {statusUpdates} status {statusUpdates === 1 ? 'update' : 'updates'} on your deals
@@ -494,7 +494,7 @@ function WhatsNewSection({ requests, unreadMsgCounts }: WhatsNewSectionProps) {
       {totalUnreadMessages > 0 && (
         <Badge
           variant="secondary"
-          className="bg-red-50 text-red-700 border-red-200 text-[11px] font-medium gap-1 px-2 py-0.5"
+          className="bg-[#FBF7EC] text-[#8B6F47] border-[#DEC76B] text-[11px] font-medium gap-1 px-2 py-0.5"
         >
           <Mail className="h-3 w-3" />
           {totalUnreadMessages} unread {totalUnreadMessages === 1 ? 'message' : 'messages'}
@@ -556,7 +556,7 @@ function DetailPanel({
   const docUnread = unreadDocsByDeal[request.listing_id] || 0;
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-[0_4px_16px_rgba(15,31,61,0.08)] overflow-hidden">
+    <div className="bg-white rounded-xl border border-[#E5DDD0] shadow-[0_4px_16px_rgba(14,16,26,0.06)] overflow-hidden">
       {/* ─── Navy Header with company info + pipeline progress ─── */}
       <DealDetailHeader
         listingId={request.listing_id}
@@ -581,8 +581,8 @@ function DetailPanel({
               className={cn(
                 'px-4 py-3 text-[13px] font-medium rounded-none border-b-2 transition-colors',
                 innerTab === 'overview'
-                  ? 'border-[#0f1f3d] text-[#0f1f3d] font-semibold'
-                  : 'border-transparent text-slate-400 hover:text-[#0f1f3d]',
+                  ? 'border-[#0E101A] text-[#0E101A] font-semibold'
+                  : 'border-transparent text-[#0E101A]/40 hover:text-[#0E101A]',
               )}
             >
               Overview
@@ -592,8 +592,8 @@ function DetailPanel({
               className={cn(
                 'px-4 py-3 text-[13px] font-medium rounded-none border-b-2 transition-colors flex items-center gap-1.5',
                 innerTab === 'messages'
-                  ? 'border-[#0f1f3d] text-[#0f1f3d] font-semibold'
-                  : 'border-transparent text-slate-400 hover:text-[#0f1f3d]',
+                  ? 'border-[#0E101A] text-[#0E101A] font-semibold'
+                  : 'border-transparent text-[#0E101A]/40 hover:text-[#0E101A]',
               )}
             >
               <MessageSquare className="h-3.5 w-3.5" />
@@ -609,8 +609,8 @@ function DetailPanel({
               className={cn(
                 'px-4 py-3 text-[13px] font-medium rounded-none border-b-2 transition-colors flex items-center gap-1.5',
                 innerTab === 'documents'
-                  ? 'border-[#0f1f3d] text-[#0f1f3d] font-semibold'
-                  : 'border-transparent text-slate-400 hover:text-[#0f1f3d]',
+                  ? 'border-[#0E101A] text-[#0E101A] font-semibold'
+                  : 'border-transparent text-[#0E101A]/40 hover:text-[#0E101A]',
               )}
             >
               <FolderOpen className="h-3.5 w-3.5" />
@@ -626,8 +626,8 @@ function DetailPanel({
               className={cn(
                 'px-4 py-3 text-[13px] font-medium rounded-none border-b-2 transition-colors flex items-center gap-1.5',
                 innerTab === 'activity'
-                  ? 'border-[#0f1f3d] text-[#0f1f3d] font-semibold'
-                  : 'border-transparent text-slate-400 hover:text-[#0f1f3d]',
+                  ? 'border-[#0E101A] text-[#0E101A] font-semibold'
+                  : 'border-transparent text-[#0E101A]/40 hover:text-[#0E101A]',
               )}
             >
               <Activity className="h-3.5 w-3.5" />
