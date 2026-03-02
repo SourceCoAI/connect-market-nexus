@@ -6,8 +6,9 @@ import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useAuth } from '@/context/AuthContext';
 import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
 import { useRealtime } from '@/components/realtime/RealtimeProvider';
-import { Send, XCircle } from 'lucide-react';
+import { Send, XCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
 
 interface ConnectionButtonProps {
   connectionExists: boolean;
@@ -112,6 +113,44 @@ const ConnectionButton = ({
           Business owner accounts cannot request deal connections. Visit the Sell page to list your
           business.
         </p>
+      </div>
+    );
+  }
+
+  // Block users with incomplete profiles from requesting connections
+  if (user && !isAdmin && !isProfileComplete(user)) {
+    const pct = getProfileCompletionPercentage(user);
+    return (
+      <div className="space-y-3">
+        <div className="w-full px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+            <p className="text-sm font-medium text-amber-900">Complete Your Profile</p>
+          </div>
+          <p className="text-xs text-amber-700 mt-0.5">
+            You need to complete your buyer profile before requesting deal access.
+          </p>
+          {pct > 0 && (
+            <div className="mt-2 space-y-1">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-amber-600">Profile completeness</span>
+                <span className="font-mono text-xs text-amber-900">{pct}%</span>
+              </div>
+              <div className="h-1 bg-amber-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-amber-500 transition-all duration-300"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        <Link
+          to="/profile"
+          className="block w-full text-center text-xs font-medium py-2.5 px-3 rounded-md bg-sourceco text-sourceco-foreground hover:bg-sourceco/90 transition-colors"
+        >
+          Complete My Profile
+        </Link>
       </div>
     );
   }

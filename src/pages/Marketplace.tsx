@@ -8,10 +8,9 @@ import OnboardingPopup from '@/components/onboarding/OnboardingPopup';
 import { SearchSessionProvider } from '@/contexts/SearchSessionContext';
 import { useSearchSession } from '@/hooks/use-search-session';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { LayoutGrid, LayoutList, UserCircle } from 'lucide-react';
+
+import { LayoutGrid, LayoutList } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Link } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAllSavedListingIds } from '@/hooks/marketplace/use-saved-listings';
 import { useAllConnectionStatuses } from '@/hooks/marketplace/use-connections';
@@ -167,26 +166,8 @@ const MarketplaceContent = () => {
     );
   }
 
-  // Tier 4 gate: buyers with buyer_tier === 4 must complete their profile
-  if (user && !user.is_admin && user.buyer_tier === 4) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-8">
-        <Card className="max-w-lg w-full">
-          <CardContent className="pt-8 text-center space-y-4">
-            <UserCircle className="h-16 w-16 text-muted-foreground mx-auto" />
-            <h2 className="text-xl font-semibold">Complete Your Profile to Access Deals</h2>
-            <p className="text-muted-foreground text-sm">
-              Complete your profile to access all available opportunities. We need a bit more
-              information about your investment criteria and background to show you relevant deals.
-            </p>
-            <Link to="/profile">
-              <Button className="mt-2">Complete My Profile</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Profile completeness gate removed — users can browse freely.
+  // Connection requests are gated by profile completeness in ConnectionButton.
 
   return (
     <div className="min-h-screen bg-background">
