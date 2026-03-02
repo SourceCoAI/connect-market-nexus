@@ -8,7 +8,6 @@ export interface BuyerScore {
   pe_firm_name: string | null;
   pe_firm_id: string | null;
   buyer_type: string | null;
-  buyer_category: 'sponsor' | 'operating_company';
   hq_state: string | null;
   hq_city: string | null;
   has_fee_agreement: boolean;

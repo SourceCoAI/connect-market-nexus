@@ -26,6 +26,7 @@ interface SeedBuyersParams {
   listingId: string;
   maxBuyers?: number;
   forceRefresh?: boolean;
+  buyerCategory?: 'sponsors' | 'operating_companies';
 }
 
 /** Extract the real error message from a Supabase FunctionsHttpError */
@@ -59,9 +60,9 @@ export function useSeedBuyers() {
   const queryClient = useQueryClient();
 
   return useMutation<SeedBuyersResponse, Error, SeedBuyersParams>({
-    mutationFn: async ({ listingId, maxBuyers, forceRefresh }) => {
+    mutationFn: async ({ listingId, maxBuyers, forceRefresh, buyerCategory }) => {
       const { data, error } = await supabase.functions.invoke('seed-buyers', {
-        body: { listingId, maxBuyers, forceRefresh },
+        body: { listingId, maxBuyers, forceRefresh, buyerCategory },
       });
       if (error) {
         const msg = await extractEdgeFunctionError(error);
