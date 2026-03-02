@@ -127,22 +127,30 @@ export default function CreateListingFromDeal() {
     (async () => {
       try {
         const { data, error } = await supabase.functions.invoke('generate-lead-memo', {
-          body: { listing_id: dealId },
+          body: { deal_id: dealId, memo_type: 'anonymous_teaser' },
         });
         if (error) {
           console.error('AI content generation failed:', error);
           toast.info('AI content generation could not complete. You can fill in content manually.');
           return;
         }
-        // Update prefilled with generated content
-        if (data?.buyer_universe_label || data?.buyer_universe_description) {
+        // Update prefilled with generated content from the anonymous teaser memo
+        const memoContent = data?.memos?.anonymous_teaser?.content;
+        if (memoContent?.sections) {
+          const customSections = memoContent.sections
+            .filter((s: { key: string }) => s.key !== 'header_block' && s.key !== 'contact_information')
+            .map((s: { title: string; content: string }) => ({ title: s.title, description: s.content }));
+
+          const companyOverview = memoContent.sections.find(
+            (s: { key: string }) => s.key === 'company_overview',
+          );
+
           setPrefilled((prev) => {
             if (!prev) return prev;
             return {
               ...prev,
-              title: data.title || prev.title,
-              description: data.description || prev.description,
-              hero_description: data.hero_description || prev.hero_description,
+              custom_sections: customSections,
+              description: companyOverview?.content || prev.description,
             };
           });
           toast.success('AI content generated — review and edit before saving.');
