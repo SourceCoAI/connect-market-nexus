@@ -1,16 +1,18 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useSimpleListings } from '@/hooks/use-simple-listings';
 import { useAllSavedListingIds } from '@/hooks/marketplace/use-saved-listings';
 import { useAllConnectionStatuses } from '@/hooks/marketplace/use-connections';
 import ListingCard from '@/components/ListingCard';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Settings2 } from 'lucide-react';
+import { Sparkles, Settings2, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { computeMatchScore, extractBuyerCriteria } from '@/lib/match-scoring';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export function MatchedDealsSection() {
+  const [isOpen, setIsOpen] = useState(false);
   const { user } = useAuth();
   const { data: listingsData } = useSimpleListings({
     page: 1,
@@ -122,19 +124,20 @@ export function MatchedDealsSection() {
 
   return (
     <TooltipProvider>
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <div className="flex items-center gap-2">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen} className={isOpen ? 'mb-8' : 'mb-4'}>
+        <div className="flex items-center justify-between">
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 group cursor-pointer">
+              <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`} />
               <Sparkles className="h-4 w-4 text-purple-600" />
-              <h2 className="text-lg font-semibold">Matched for You</h2>
-            </div>
-            {criteriaSummary && (
-              <p className="text-xs text-muted-foreground mt-0.5 ml-6">
-                Based on your acquisition profile — {criteriaSummary}
-              </p>
-            )}
-          </div>
+              <h2 className="text-lg font-semibold">Matched for You ({matchedListings.length})</h2>
+              {!isOpen && criteriaSummary && (
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  — {criteriaSummary}
+                </span>
+              )}
+            </button>
+          </CollapsibleTrigger>
           <Link to="/profile">
             <Button variant="ghost" size="sm" className="text-xs gap-1.5 text-muted-foreground">
               <Settings2 className="h-3 w-3" />
@@ -143,38 +146,46 @@ export function MatchedDealsSection() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {matchedListings.map(({ listing, reasons }) => (
-            <div key={listing.id} className="relative">
-              <ListingCard
-                listing={listing}
-                viewType="grid"
-                savedIds={savedIds}
-                connectionMap={connectionMap}
-              />
-              {reasons.length > 0 && (
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <button className="absolute top-2 right-2 bg-purple-100 text-purple-700 text-[10px] font-medium px-2 py-0.5 rounded-full hover:bg-purple-200 transition-colors z-10">
-                      Why matched
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="max-w-xs p-3">
-                    <p className="text-xs font-medium mb-1.5">Match reasons:</p>
-                    <ul className="space-y-1">
-                      {reasons.map((r, i) => (
-                        <li key={i} className="text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{r.label}:</span> {r.detail}
-                        </li>
-                      ))}
-                    </ul>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+        {isOpen && criteriaSummary && (
+          <p className="text-xs text-muted-foreground mt-0.5 ml-10">
+            Based on your acquisition profile — {criteriaSummary}
+          </p>
+        )}
+
+        <CollapsibleContent className="mt-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {matchedListings.map(({ listing, reasons }) => (
+              <div key={listing.id} className="relative">
+                <ListingCard
+                  listing={listing}
+                  viewType="grid"
+                  savedIds={savedIds}
+                  connectionMap={connectionMap}
+                />
+                {reasons.length > 0 && (
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <button className="absolute top-2 right-2 bg-purple-100 text-purple-700 text-[10px] font-medium px-2 py-0.5 rounded-full hover:bg-purple-200 transition-colors z-10">
+                        Why matched
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-xs p-3">
+                      <p className="text-xs font-medium mb-1.5">Match reasons:</p>
+                      <ul className="space-y-1">
+                        {reasons.map((r, i) => (
+                          <li key={i} className="text-xs text-muted-foreground">
+                            <span className="font-medium text-foreground">{r.label}:</span> {r.detail}
+                          </li>
+                        ))}
+                      </ul>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            ))}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </TooltipProvider>
   );
 }
