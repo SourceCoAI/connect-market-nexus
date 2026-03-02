@@ -10769,6 +10769,21 @@ export type Database = {
         }[]
       }
       get_stage_deal_count: { Args: { stage_uuid: string }; Returns: number }
+      get_user_firm_agreement_status: {
+        Args: { p_user_id: string }
+        Returns: {
+          fee_agreement_signed: boolean
+          fee_agreement_signed_at: string
+          fee_agreement_status: string
+          fee_docuseal_status: string
+          firm_id: string
+          firm_name: string
+          nda_docuseal_status: string
+          nda_signed: boolean
+          nda_signed_at: string
+          nda_status: string
+        }[]
+      }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -10924,6 +10939,7 @@ export type Database = {
         Args: { p_contact_id: string }
         Returns: Json
       }
+      resolve_user_firm_id: { Args: { p_user_id: string }; Returns: string }
       restore_deal: { Args: { deal_id: string }; Returns: boolean }
       restore_soft_deleted: {
         Args: { p_record_id: string; p_table_name: string }

@@ -240,13 +240,26 @@ export default function DocumentTrackingPage() {
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (f) =>
+      result = result.filter((f) => {
+        // Search firm name, domain, primary contact
+        if (
           f.primary_company_name.toLowerCase().includes(q) ||
           f.contactName?.toLowerCase().includes(q) ||
           f.contactEmail?.toLowerCase().includes(q) ||
-          f.email_domain?.toLowerCase().includes(q),
-      );
+          f.email_domain?.toLowerCase().includes(q)
+        ) return true;
+        // Also search ALL member emails/names (Phase 4A)
+        if (f.members?.length) {
+          return f.members.some((m) => {
+            const memberName = m.user
+              ? `${m.user.first_name || ''} ${m.user.last_name || ''}`.trim().toLowerCase()
+              : (m.lead_name || '').toLowerCase();
+            const memberEmail = (m.user?.email || m.lead_email || '').toLowerCase();
+            return memberName.includes(q) || memberEmail.includes(q);
+          });
+        }
+        return false;
+      });
     }
 
     if (filterStatus === 'signed') {
