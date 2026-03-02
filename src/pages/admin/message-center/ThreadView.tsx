@@ -429,6 +429,22 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
                         Initial Inquiry
                       </span>
                     )}
+                    {msg.body.startsWith('\u{1F4C4} Question about NDA') && (
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                        style={{ backgroundColor: '#DBEAFE', color: '#1E40AF' }}
+                      >
+                        NDA Question
+                      </span>
+                    )}
+                    {msg.body.startsWith('\u{1F4C4} Question about Fee Agreement') && (
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                        style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}
+                      >
+                        Fee Agreement
+                      </span>
+                    )}
                   </div>
                   <p
                     className="text-base whitespace-pre-wrap leading-relaxed"
