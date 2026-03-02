@@ -228,6 +228,7 @@ export type Database = {
         Row: {
           agreement_type: string
           changed_by: string | null
+          changed_by_name: string | null
           created_at: string | null
           document_url: string | null
           firm_id: string
@@ -240,6 +241,7 @@ export type Database = {
         Insert: {
           agreement_type: string
           changed_by?: string | null
+          changed_by_name?: string | null
           created_at?: string | null
           document_url?: string | null
           firm_id: string
@@ -252,6 +254,7 @@ export type Database = {
         Update: {
           agreement_type?: string
           changed_by?: string | null
+          changed_by_name?: string | null
           created_at?: string | null
           document_url?: string | null
           firm_id?: string
@@ -11147,7 +11150,7 @@ export type Database = {
           p_signed_by_user_id?: string
           p_source?: string
         }
-        Returns: boolean
+        Returns: undefined
       }
       update_journey_milestone: {
         Args: {

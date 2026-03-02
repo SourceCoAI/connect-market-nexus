@@ -78,19 +78,24 @@ export function PendingAgreementBanner() {
 
   if (!firmStatus) return null;
 
+  // The RPC returns flat fields; map to expected shape
+  const fs = firmStatus as Record<string, unknown>;
+
   const items: DocItem[] = [
     buildDocItem(
       'nda', 'NDA',
-      firmStatus.nda_signed, firmStatus.nda_signed_at,
-      firmStatus.nda_docuseal_status as string | null,
-      firmStatus.nda_signed_document_url, firmStatus.nda_document_url,
+      fs.nda_signed as boolean | null, fs.nda_signed_at as string | null,
+      (fs.nda_docuseal_status ?? fs.nda_status) as string | null,
+      (fs.nda_signed_document_url ?? null) as string | null,
+      (fs.nda_document_url ?? null) as string | null,
       pendingNotifications as Record<string, unknown>[],
     ),
     buildDocItem(
       'fee_agreement', 'Fee Agreement',
-      firmStatus.fee_agreement_signed, firmStatus.fee_agreement_signed_at,
-      firmStatus.fee_docuseal_status as string | null,
-      firmStatus.fee_signed_document_url, firmStatus.fee_agreement_document_url,
+      fs.fee_agreement_signed as boolean | null, fs.fee_agreement_signed_at as string | null,
+      (fs.fee_docuseal_status ?? fs.fee_agreement_status) as string | null,
+      (fs.fee_signed_document_url ?? fs.fee_agreement_signed_document_url ?? null) as string | null,
+      (fs.fee_agreement_document_url ?? null) as string | null,
       pendingNotifications as Record<string, unknown>[],
     ),
   ];
@@ -150,15 +155,28 @@ export function PendingAgreementBanner() {
             {/* Actions */}
             <div className="flex items-center gap-1.5 shrink-0">
               {item.signed ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs gap-1"
-                  onClick={() => download({ documentUrl: item.documentUrl, draftUrl: item.draftUrl, documentType: item.type })}
-                >
-                  <Download className="h-3 w-3" />
-                  PDF
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => download({ documentUrl: item.documentUrl, draftUrl: item.draftUrl, documentType: item.type })}
+                  >
+                    <Download className="h-3 w-3" />
+                    Signed PDF
+                  </Button>
+                  {item.draftUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => download({ documentUrl: null, draftUrl: item.draftUrl, documentType: item.type })}
+                    >
+                      <Download className="h-3 w-3" />
+                      Draft
+                    </Button>
+                  )}
+                </>
               ) : item.declined ? (
                 <Button
                   variant="ghost"

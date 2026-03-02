@@ -148,40 +148,17 @@ export function useFirmAgreementStatus() {
     queryFn: async () => {
       if (!user?.id) return null;
 
-      // Try to find firm linked to most recent connection request first
-      const { data: recentRequest } = await supabase
-        .from('connection_requests')
-        .select('firm_id')
-        .eq('user_id', user.id)
-        .not('firm_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Use canonical firm resolver RPC
+      const { data, error } = await supabase.rpc('get_user_firm_agreement_status', {
+        p_user_id: user.id,
+      });
 
-      let firmId = recentRequest?.firm_id;
+      if (error) throw error;
 
-      // Fall back to firm_members table
-      if (!firmId) {
-        const { data: membership } = await supabase
-          .from('firm_members')
-          .select('firm_id')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        firmId = membership?.firm_id;
-      }
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || !row.firm_id) return null;
 
-      if (!firmId) return null;
-
-      const { data: firm } = await supabase
-        .from('firm_agreements')
-        .select(
-          'nda_signed, nda_signed_at, nda_signed_document_url, nda_document_url, nda_docuseal_status, fee_agreement_signed, fee_agreement_signed_at, fee_signed_document_url, fee_agreement_document_url, fee_docuseal_status',
-        )
-        .eq('id', firmId)
-        .maybeSingle();
-      return firm;
+      return row;
     },
     enabled: !!user?.id,
     staleTime: 15_000,

@@ -60,6 +60,10 @@ export function useUpdateFirmFeeAgreement() {
       queryClient.invalidateQueries({ queryKey: ['firm-members'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['admin-users'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      queryClient.invalidateQueries({ queryKey: ['buyer-firm-agreement-status'] });
+      queryClient.invalidateQueries({ queryKey: ['my-agreement-status'] });
+      queryClient.invalidateQueries({ queryKey: ['buyer-nda-status'] });
+      queryClient.invalidateQueries({ queryKey: ['user-firm'] });
 
       toast({
         title: 'Success',
@@ -136,6 +140,10 @@ export function useUpdateFirmNDA() {
       queryClient.invalidateQueries({ queryKey: ['firm-members'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['admin-users'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      queryClient.invalidateQueries({ queryKey: ['buyer-firm-agreement-status'] });
+      queryClient.invalidateQueries({ queryKey: ['my-agreement-status'] });
+      queryClient.invalidateQueries({ queryKey: ['buyer-nda-status'] });
+      queryClient.invalidateQueries({ queryKey: ['user-firm'] });
 
       toast({
         title: 'Success',
@@ -201,7 +209,9 @@ export function useUpdateAgreementStatus() {
               nda_status: params.newStatus,
               nda_signed: params.newStatus === 'signed',
               nda_signed_at:
-                params.newStatus === 'signed' ? new Date().toISOString() : firm.nda_signed_at,
+                params.newStatus === 'signed' ? (firm.nda_signed_at || new Date().toISOString()) : null,
+              nda_signed_by_name:
+                params.newStatus === 'signed' ? (firm.nda_signed_by_name || params.signedByName || null) : null,
             };
           }
           return {
@@ -210,8 +220,10 @@ export function useUpdateAgreementStatus() {
             fee_agreement_signed: params.newStatus === 'signed',
             fee_agreement_signed_at:
               params.newStatus === 'signed'
-                ? new Date().toISOString()
-                : firm.fee_agreement_signed_at,
+                ? (firm.fee_agreement_signed_at || new Date().toISOString())
+                : null,
+            fee_agreement_signed_by_name:
+              params.newStatus === 'signed' ? (firm.fee_agreement_signed_by_name || params.signedByName || null) : null,
           };
         });
       });
@@ -219,11 +231,18 @@ export function useUpdateAgreementStatus() {
       return { previousData };
     },
     onSuccess: (_data, params) => {
+      // Admin-side queries
       queryClient.invalidateQueries({ queryKey: ['firm-agreements'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['firm-members'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['admin-users'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['agreement-audit-log'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      // Buyer-side queries — ensure toggle changes propagate immediately
+      queryClient.invalidateQueries({ queryKey: ['buyer-firm-agreement-status'] });
+      queryClient.invalidateQueries({ queryKey: ['my-agreement-status'] });
+      queryClient.invalidateQueries({ queryKey: ['buyer-nda-status'] });
+      queryClient.invalidateQueries({ queryKey: ['thread-buyer-firm'] });
+      queryClient.invalidateQueries({ queryKey: ['user-firm'] });
 
       const typeLabel = params.agreementType === 'nda' ? 'NDA' : 'Fee Agreement';
       toast({
