@@ -48,6 +48,7 @@ const DesktopNavItems = ({ isAdmin, isApproved, onNavigateToAdmin }: DesktopNavI
       icon: MessagesIcon,
       isActive: location.pathname === "/messages",
       ...((unreadMessages?.total || 0) > 0 && { badge: unreadMessages?.total }),
+      highlight: true,
     },
     {
       to: "/profile",
@@ -69,7 +70,8 @@ const DesktopNavItems = ({ isAdmin, isApproved, onNavigateToAdmin }: DesktopNavI
               "relative inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
               item.isActive
                 ? "bg-slate-900 text-white shadow-sm"
-                : "text-slate-700 hover:text-slate-900 hover:bg-slate-100"
+                : "text-slate-700 hover:text-slate-900 hover:bg-slate-100",
+              'highlight' in item && item.highlight && !item.isActive && "ring-1 ring-slate-300 bg-slate-50"
             )}
           >
             <Icon className="w-[15px] h-[15px]" />

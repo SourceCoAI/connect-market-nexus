@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Send, MessageSquarePlus } from 'lucide-react';
@@ -18,6 +19,7 @@ interface DocumentDialogProps {
 export function DocumentDialog({ open, onOpenChange, documentType, userId }: DocumentDialogProps) {
   const [docQuestion, setDocQuestion] = useState('');
   const sendDocQuestion = useSendDocumentQuestion();
+  const navigate = useNavigate();
 
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen);
@@ -74,6 +76,7 @@ export function DocumentDialog({ open, onOpenChange, documentType, userId }: Doc
                     onSuccess: () => {
                       onOpenChange(false);
                       setDocQuestion('');
+                      navigate('/messages?deal=general');
                     },
                   },
                 );

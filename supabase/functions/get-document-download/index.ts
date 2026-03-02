@@ -40,9 +40,18 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse document type from query string
+    // Parse document type from query string OR request body (POST)
     const url = new URL(req.url);
-    const documentType = url.searchParams.get("document_type") || "nda";
+    let documentType = url.searchParams.get("document_type");
+
+    if (!documentType) {
+      try {
+        const body = await req.clone().json();
+        documentType = body?.document_type || "nda";
+      } catch {
+        documentType = "nda";
+      }
+    }
     if (documentType !== "nda" && documentType !== "fee_agreement") {
       return new Response(
         JSON.stringify({ error: 'Invalid document_type. Must be "nda" or "fee_agreement".' }),

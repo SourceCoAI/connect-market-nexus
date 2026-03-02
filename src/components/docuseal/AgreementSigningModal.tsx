@@ -70,37 +70,23 @@ export function AgreementSigningModal({
       setError(null);
 
       try {
-        if (documentType === 'nda') {
-          const { data, error: fnError } = await supabase.functions.invoke('get-buyer-nda-embed');
-          if (cancelled) return;
+        const fnName = documentType === 'nda' ? 'get-buyer-nda-embed' : 'get-buyer-fee-embed';
+        const { data, error: fnError } = await supabase.functions.invoke(fnName);
+        if (cancelled) return;
 
-          if (fnError) {
-            setError('Failed to load signing form. Please try again.');
-          } else if (data?.ndaSigned) {
-            toast({ title: 'Already Signed', description: 'Your NDA has already been signed.' });
-            onOpenChange(false);
-          } else if (data?.embedSrc) {
-            setEmbedSrc(data.embedSrc);
-          } else {
-            setError('Signing form not available. Please contact support.');
-          }
+        const alreadySigned = documentType === 'nda' ? data?.ndaSigned : data?.feeSigned;
+
+        if (fnError) {
+          setError('Failed to load signing form. Please try again.');
+        } else if (data?.hasFirm === false) {
+          setError('Your account hasn\'t been set up for signing yet. Please contact our team via Messages.');
+        } else if (alreadySigned) {
+          toast({ title: 'Already Signed', description: `Your ${docLabel} has already been signed.` });
+          onOpenChange(false);
+        } else if (data?.embedSrc) {
+          setEmbedSrc(data.embedSrc);
         } else {
-          const { data, error: fnError } = await supabase.functions.invoke('get-buyer-fee-embed');
-          if (cancelled) return;
-
-          if (fnError) {
-            setError('Failed to load signing form. Please try again.');
-          } else if (data?.feeSigned) {
-            toast({
-              title: 'Already Signed',
-              description: 'Your Fee Agreement has already been signed.',
-            });
-            onOpenChange(false);
-          } else if (data?.embedSrc) {
-            setEmbedSrc(data.embedSrc);
-          } else {
-            setError('Signing form not available. Please contact support.');
-          }
+          setError('Signing form not available. Please contact support.');
         }
       } catch {
         if (!cancelled) setError('Something went wrong. Please try again.');
@@ -194,8 +180,19 @@ export function AgreementSigningModal({
         )}
 
         {error && (
-          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 text-center">
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 text-center space-y-3">
             <p className="text-sm text-destructive">{error}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                onOpenChange(false);
+                navigate('/messages?deal=general');
+              }}
+            >
+              <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+              Contact Us
+            </Button>
           </div>
         )}
 

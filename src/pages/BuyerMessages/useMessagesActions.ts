@@ -94,7 +94,8 @@ export function useDownloadDocument() {
 
     try {
       const { data, error } = await supabase.functions.invoke(
-        `get-document-download?document_type=${documentType}`,
+        'get-document-download',
+        { body: { document_type: documentType } },
       );
 
       if (error) {
