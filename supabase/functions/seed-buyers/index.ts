@@ -108,9 +108,12 @@ CRITICAL RULES:
 - Look for firms actively executing "buy-and-build" or roll-up strategies in the deal's specific vertical. Platform companies doing add-on acquisitions in the same niche are the highest-value finds.
 - Include firms that have made RECENT, VERIFIABLE acquisitions in the specific sub-sector — not firms that might theoretically be interested.
 - Think about the full ecosystem: Who are the PE-backed platforms rolling up this space? Which strategic acquirers are on acquisition sprees in this niche? Which infrastructure funds or specialty PE firms have thesis overlap?
-- For each buyer, explain specifically WHY they are a uniquely good fit for THIS deal — reference their portfolio companies, known acquisitions, stated thesis, or geographic strategy.
 - Include the company's website if you know it.
 - Quality over quantity: 5 highly relevant buyers beats 10 generic ones.
+
+DESCRIPTION QUALITY — THIS IS CRITICAL:
+- For "why_relevant": Write 2-3 detailed sentences explaining the SPECIFIC connection between this buyer and THIS deal. Name their relevant portfolio companies, cite specific acquisitions they've made in this niche, explain their geographic strategy overlap, or describe how this deal fills a gap in their platform. NEVER write generic descriptions like "invests in business services" — always reference concrete, verifiable facts about the buyer.
+- For "thesis_summary": Write a specific, detailed summary of what the buyer actively acquires. Name their platform companies, the sub-sectors they focus on, and their geographic strategy. NOT "invests in lower middle market services companies" but rather "Building a national utility field services platform through Sparus Holdings; acquired TruCheck (metering) and OneVision (utility services) as add-ons."
 
 You must respond with valid JSON only. No markdown, no code fences, no explanatory text outside the JSON.`;
 }
@@ -144,19 +147,33 @@ function buildUserPrompt(deal: Record<string, unknown>, maxBuyers: number, buyer
   let categoryInstruction = '';
   if (buyerCategory === 'sponsors') {
     categoryInstruction = `
-BUYER TYPE FILTER: ONLY return financial sponsors — PE firms, growth equity firms, infrastructure funds, family offices, independent sponsors, and search funds that invest in this vertical.
-- Prioritize PE firms actively building platforms via buy-and-build strategies in this exact niche
-- Include specialty funds focused on this industry (e.g., infrastructure funds for utility deals, healthcare-focused PE for medical deals)
-- Look for firms that have backed portfolio companies making add-on acquisitions in this space
-- Do NOT include operating companies or strategic acquirers
+BUYER TYPE FILTER: ONLY return financial sponsors — PE firms, growth equity firms, infrastructure funds, family offices, independent sponsors, and search funds.
+- Prioritize NICHE PE firms actively building platforms via buy-and-build strategies in this exact sub-sector
+- Include specialty funds focused on this specific industry vertical (e.g., XPV Water Partners for water/utility deals, Ember Infrastructure for infrastructure services, Shore Capital for healthcare)
+- Look for PE firms that have backed portfolio companies making add-on acquisitions in this exact niche — name those portfolio companies in why_relevant
+- Set buyer_type to "pe_firm" for PE/growth equity firms, "family_office" for family offices
+- Do NOT include operating companies, platform companies, or strategic acquirers — those go in the operating companies category
 `;
   } else if (buyerCategory === 'operating_companies') {
     categoryInstruction = `
-BUYER TYPE FILTER: ONLY return operating companies and strategic acquirers — real businesses that operate in the same or adjacent industries.
-- Prioritize PE-backed platform companies actively doing add-on acquisitions to consolidate this niche
-- Include regional or national operators that compete in or serve the same end market
-- Look for companies that have recently acquired similar businesses as part of a roll-up strategy
-- Do NOT include PE firms, financial sponsors, family offices, or investment funds (the PE backer can be listed as pe_firm_name but the company_name must be the operating company)
+BUYER TYPE FILTER: ONLY return ACTUAL OPERATING COMPANIES — real businesses that do real work in this industry. These are companies with employees who deliver the service, not investment firms.
+
+WHAT TO INCLUDE:
+- PE-backed PLATFORM companies (the operating company itself, NOT the PE firm). Example: "Utility Partners of America" is correct (operating company), "System One Holdings" (the PE backer) is WRONG.
+- Regional or national operators that compete in the same end market and have been acquiring similar businesses
+- Strategic acquirers — large companies in the industry that buy smaller companies to expand capability or geography
+- Companies that directly deliver the same or adjacent services to the same customer base
+
+WHAT TO EXCLUDE (these are SPONSORS, not operating companies):
+- PE firms, family offices, investment funds, growth equity firms, independent sponsors
+- Any company whose primary business is investing/managing capital rather than delivering services
+- Holding companies that only exist as investment vehicles
+
+CLASSIFICATION:
+- Set buyer_type to "platform" for PE-backed operating platforms doing roll-ups
+- Set buyer_type to "strategic" for large companies acquiring to expand
+- For PE-backed platforms, put the PE firm name in pe_firm_name field, but company_name MUST be the operating company name
+- Example: company_name="Sparus Holdings", pe_firm_name="Ridgemont Equity Partners", buyer_type="platform"
 `;
   }
 
@@ -183,21 +200,22 @@ DISCOVERY GUIDANCE:
 - Consider the full buyer ecosystem: PE-backed platforms doing add-ons, specialty PE funds, regional consolidators, national strategic acquirers expanding into this geography
 - Prioritize buyers with VERIFIABLE recent acquisitions in this niche over firms that are merely tangentially related
 - A small specialized firm with 3 acquisitions in this exact space is more valuable than a Fortune 500 with broad interests
+- For each buyer, explain the SPECIFIC connection to THIS deal — don't just describe the buyer generically
 
 Return a JSON array of up to ${maxBuyers} buyers. Each object must have:
 {
-  "company_name": "exact legal/common name",
+  "company_name": "exact legal/common name of the company",
   "company_website": "url or null",
   "buyer_type": "pe_firm" | "platform" | "strategic" | "family_office",
-  "pe_firm_name": "PE sponsor name or null (for platform companies, name the PE backer)",
+  "pe_firm_name": "for platform companies backed by PE, name the PE backer here; null for PE firms themselves or independent strategics",
   "hq_city": "city or null",
   "hq_state": "2-letter state code or null",
-  "thesis_summary": "their acquisition thesis in 1-2 sentences — what they invest in and why",
-  "why_relevant": "1-2 sentences explaining why this buyer is a uniquely good fit for THIS specific deal — reference their portfolio, acquisitions, thesis overlap, or geographic strategy",
-  "target_services": ["service types they acquire"],
-  "target_industries": ["industries they invest in"],
+  "thesis_summary": "2-3 specific sentences: what they acquire, their platform strategy, and key portfolio companies. NOT generic — name real companies and strategies.",
+  "why_relevant": "2-3 specific sentences: why this buyer is a uniquely compelling fit for THIS deal. Reference their specific portfolio companies, named acquisitions, geographic gap this deal fills, or how this deal's capabilities complement their platform. Be concrete and verifiable.",
+  "target_services": ["specific service types they acquire — e.g. 'AMI meter deployment' not just 'services'"],
+  "target_industries": ["specific industries — e.g. 'utility field services' not just 'infrastructure'"],
   "target_geographies": ["states or regions they cover"],
-  "known_acquisitions": ["names of recent acquisitions in this or adjacent spaces"],
+  "known_acquisitions": ["names of specific companies they have acquired in this or adjacent spaces"],
   "estimated_ebitda_min": number or null,
   "estimated_ebitda_max": number or null
 }
@@ -430,13 +448,13 @@ Deno.serve(async (req: Request) => {
     // ── Call Claude to discover buyers ──
     const cappedMax = Math.min(maxBuyers, 15);
     const claudeResponse = await callClaude({
-      model: CLAUDE_MODELS.sonnet,
+      model: CLAUDE_MODELS.opus,
       maxTokens: 4096,
       systemPrompt: buildSystemPrompt(),
       messages: [
         { role: 'user', content: buildUserPrompt(deal, cappedMax, buyerCategory) },
       ],
-      timeoutMs: 60000,
+      timeoutMs: 120000,
     });
 
     // Extract text from response
@@ -553,7 +571,7 @@ Deno.serve(async (req: Request) => {
         known_acquisitions: suggested.known_acquisitions,
         was_new_record: wasNew,
         action,
-        seed_model: CLAUDE_MODELS.sonnet,
+        seed_model: CLAUDE_MODELS.opus,
         category_cache_key: cacheKey,
       });
 
