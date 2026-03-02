@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
 
     // 1. Check for existing pipeline deal (dedup)
     const { data: existingDeal } = await supabase
-      .from('deals')
+      .from('deal_pipeline')
       .select('id, title')
       .eq('remarketing_buyer_id', buyer_id)
       .eq('listing_id', listing_id)
@@ -225,7 +225,7 @@ Deno.serve(async (req: Request) => {
     const dealTitle = `${buyer.company_name} → ${listingTitle}`;
 
     const { data: newDeal, error: dealError } = await supabase
-      .from('deals')
+      .from('deal_pipeline')
       .insert({
         listing_id,
         title: dealTitle,

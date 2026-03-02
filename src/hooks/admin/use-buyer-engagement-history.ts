@@ -112,7 +112,7 @@ export function useBuyerEngagementHistory(buyerId: string | undefined, emailDoma
 
       // 3. Pipeline deals (via remarketing_buyer_id or connection_request linkage)
       const { data: pipelineDeals } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select(`
           id, title, created_at, source, contact_name, contact_email,
           nda_status, fee_agreement_status, meeting_scheduled,

@@ -629,7 +629,7 @@ async function getDealDetails(
 
   // Try deals table for FK-linked contacts
   const { data: dealsRow } = await supabase
-    .from('deals')
+    .from('deal_pipeline')
     .select('buyer_contact_id, seller_contact_id, remarketing_buyer_id, stage_id')
     .eq('id', dealId)
     .single();

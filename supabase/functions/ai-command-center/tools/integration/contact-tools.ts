@@ -143,7 +143,7 @@ export async function saveContactsToCrm(
   // Log activity — only if we can resolve a deal for this listing+buyer
   if (saved.length > 0 && listingId && buyerId) {
     const { data: linkedDeal } = await supabase
-      .from('deals')
+      .from('deal_pipeline')
       .select('id')
       .eq('listing_id', listingId)
       .eq('remarketing_buyer_id', buyerId)

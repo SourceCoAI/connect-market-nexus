@@ -43,7 +43,7 @@ export function DealBuyerHistoryTab({ listingId, listingTitle }: DealBuyerHistor
     queryKey: ['deal-buyer-history', listingId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select(
           `
           id,

@@ -63,7 +63,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Fetch deal with listing and both owners in ONE efficient query
     const { data: deal, error: dealError } = await supabase
-      .from('deals')
+      .from('deal_pipeline')
       .select(`
         id,
         title,

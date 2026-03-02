@@ -65,7 +65,7 @@ export function useFirmAgreements() {
       const allRequestIds = Object.keys(requestToFirm);
       if (allRequestIds.length > 0) {
         const { data: dealsData, error: dealsDataError } = await supabase
-          .from('deals')
+          .from('deal_pipeline')
           .select('connection_request_id')
           .in('connection_request_id', allRequestIds);
         if (dealsDataError) throw dealsDataError;

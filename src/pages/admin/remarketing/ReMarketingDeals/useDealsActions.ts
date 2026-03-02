@@ -425,7 +425,7 @@ export function useDealsActions({
         await supabase.from('connection_requests').delete().eq('listing_id', dealId);
         await supabase.from('deal_ranking_history').delete().eq('listing_id', dealId);
         await supabase.from('deal_referrals').delete().eq('listing_id', dealId);
-        await supabase.from('deals').delete().eq('listing_id', dealId);
+        await supabase.from('deal_pipeline').delete().eq('listing_id', dealId);
         await supabase.from('deal_scoring_adjustments').delete().eq('listing_id', dealId);
         await supabase.from('deal_transcripts').delete().eq('listing_id', dealId);
         await supabase.from('enrichment_queue').delete().eq('listing_id', dealId);

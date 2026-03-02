@@ -58,7 +58,7 @@ export function DealContactHistoryTab({
     queryKey: ['deal-contact-history-buyers', listingId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select(
           `
           id,

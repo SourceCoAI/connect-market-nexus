@@ -24,7 +24,7 @@ export function useUpdateDealStage() {
       // If not skipping owner check, verify ownership first
       if (!skipOwnerCheck && currentAdminId) {
         const { data: dealData, error: dealDataError } = await supabase
-          .from('deals')
+          .from('deal_pipeline')
           .select(
             'assigned_to, title, assigned_admin:profiles!deals_assigned_to_fkey(first_name, last_name)',
           )
@@ -349,7 +349,7 @@ export function useUpdateDeal() {
       );
 
       const { data, error } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .update(safeUpdates)
         .eq('id', dealId)
         .select(
@@ -480,7 +480,7 @@ export function useCreateDeal() {
   return useMutation({
     mutationFn: async (deal: Record<string, unknown>) => {
       const { data, error } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .insert(deal as never)
         .select()
         .single();

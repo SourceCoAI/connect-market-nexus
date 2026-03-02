@@ -189,7 +189,7 @@ export function useDealsData() {
     staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select('listing_id')
         .is('deleted_at', null)
         .limit(5000);

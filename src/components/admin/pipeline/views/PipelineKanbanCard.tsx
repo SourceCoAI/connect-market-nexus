@@ -80,7 +80,7 @@ export function PipelineKanbanCard({ deal, onDealClick, isDragging }: PipelineKa
   const handleMeetingToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const next = !deal.meeting_scheduled;
-    const { error } = await supabase.from('deals').update({ meeting_scheduled: next }).eq('id', deal.deal_id);
+    const { error } = await supabase.from('deal_pipeline').update({ meeting_scheduled: next }).eq('id', deal.deal_id);
     if (error) { toast.error('Failed to update'); return; }
     toast.success(next ? 'Meeting scheduled' : 'Meeting unscheduled');
     queryClient.invalidateQueries({ queryKey: ['deals'] });

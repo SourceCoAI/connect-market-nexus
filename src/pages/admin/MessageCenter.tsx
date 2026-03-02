@@ -76,7 +76,7 @@ function useInboxThreads() {
       let deals: { id: string; connection_request_id: string | null }[] | null = null;
       if (requestIds.length > 0) {
         const { data } = await supabase
-          .from('deals')
+          .from('deal_pipeline')
           .select('id, connection_request_id')
           .in('connection_request_id', requestIds);
         deals = data as typeof deals;

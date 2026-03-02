@@ -126,7 +126,7 @@ export function useToggleTaskComplete() {
         if (task.created_by && task.created_by !== user?.id) {
           try {
             const { data: dealData } = await supabase
-              .from('deals')
+              .from('deal_pipeline')
               .select('title')
               .eq('id', task.entity_id)
               .single();
@@ -268,7 +268,7 @@ export function useReassignTask() {
                 .eq('id', user?.id ?? '')
                 .single(),
               task.entity_type === 'deal'
-                ? supabase.from('deals').select('title').eq('id', task.entity_id!).single()
+                ? supabase.from('deal_pipeline').select('title').eq('id', task.entity_id!).single()
                 : Promise.resolve({ data: null }),
             ]);
 

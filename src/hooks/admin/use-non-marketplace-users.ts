@@ -51,28 +51,58 @@ export function useNonMarketplaceUsers(options?: { enabled?: boolean }) {
 
       if (ilError) throw ilError;
 
-      // Fetch deals with contact information AND listing title
-      const { data: deals, error: dealsError } = await supabase
-        .from('deals')
+      // Fetch deals with buyer contact info via connection_requests or contacts table
+      const { data: rawDeals, error: dealsError } = await supabase
+        .from('deal_pipeline')
         .select(`
           id,
           title,
-          contact_email,
-          contact_name,
-          contact_company,
-          contact_role,
-          contact_phone,
           created_at,
           nda_status,
           fee_agreement_status,
+          connection_request:connection_requests(
+            lead_email,
+            lead_name,
+            lead_company,
+            lead_role,
+            lead_phone
+          ),
+          buyer_contact:contacts!deal_pipeline_buyer_contact_id_fkey(
+            email,
+            first_name,
+            last_name,
+            company,
+            title,
+            phone
+          ),
           listing:listings(
             id,
             title
           )
-        `)
-        .not('contact_email', 'is', null);
+        `);
 
       if (dealsError) throw dealsError;
+
+      // Normalize deals to have contact_* fields from the joined data
+      const deals = (rawDeals || []).map((d) => {
+        const cr = d.connection_request as { lead_email: string | null; lead_name: string | null; lead_company: string | null; lead_role: string | null; lead_phone: string | null } | null;
+        const bc = d.buyer_contact as { email: string | null; first_name: string | null; last_name: string | null; company: string | null; title: string | null; phone: string | null } | null;
+        const contactEmail = cr?.lead_email || bc?.email || null;
+        const contactName = cr?.lead_name || (bc ? `${bc.first_name || ''} ${bc.last_name || ''}`.trim() : null) || null;
+        return {
+          id: d.id,
+          title: d.title,
+          contact_email: contactEmail,
+          contact_name: contactName,
+          contact_company: cr?.lead_company || bc?.company || null,
+          contact_role: cr?.lead_role || bc?.title || null,
+          contact_phone: cr?.lead_phone || bc?.phone || null,
+          created_at: d.created_at,
+          nda_status: d.nda_status,
+          fee_agreement_status: d.fee_agreement_status,
+          listing: d.listing,
+        };
+      }).filter((d) => d.contact_email != null);
 
       // Fetch all profiles to check for potential matches
       const { data: profiles, error: profilesError } = await supabase

@@ -45,7 +45,7 @@ export function PipelineDetailCommunication({ deal }: PipelineDetailCommunicatio
       if (!deal.connection_request_id || !deal.contact_email) return;
 
       const { data: allDeals, error: allDealsError } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select('id, title, stage_id, followed_up')
         .eq('contact_email', deal.contact_email)
         .neq('id', deal.deal_id);
@@ -137,7 +137,7 @@ export function PipelineDetailCommunication({ deal }: PipelineDetailCommunicatio
 
     // Add selected other deals' connection requests
     const { data: selectedDealsData, error: selectedDealsDataError } = await supabase
-      .from('deals')
+      .from('deal_pipeline')
       .select('connection_request_id')
       .in('id', selectedOtherDeals);
     if (selectedDealsDataError) throw selectedDealsDataError;

@@ -36,7 +36,7 @@ export const useUpdateDealFollowup = () => {
       if (authError) throw authError;
 
       const { error: dealError } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .update({
           [dealField]: isFollowedUp,
           [dealAtField]: isFollowedUp ? new Date().toISOString() : null,
@@ -49,7 +49,7 @@ export const useUpdateDealFollowup = () => {
 
       // Get the connection_request_id from the deal
       const { data: deal, error: dealError2 } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select('connection_request_id, contact_email')
         .eq('id', dealId)
         .single();

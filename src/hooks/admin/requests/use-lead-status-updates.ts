@@ -111,7 +111,7 @@ export const useUpdateLeadNDAStatus = () => {
       
       // Log activity if this connection request has a deal
       const { data: deal, error: dealError } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
         .maybeSingle();
@@ -196,7 +196,7 @@ export const useUpdateLeadNDAEmailStatus = () => {
       
       // Log activity if this connection request has a deal
       const { data: deal, error: dealError } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
         .maybeSingle();
@@ -270,7 +270,7 @@ export const useUpdateLeadFeeAgreementStatus = () => {
       
       // Log activity if this connection request has a deal
       const { data: deal, error: dealError } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
         .maybeSingle();
@@ -355,7 +355,7 @@ export const useUpdateLeadFeeAgreementEmailStatus = () => {
       
       // Log activity if this connection request has a deal
       const { data: deal, error: dealError } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
         .maybeSingle();

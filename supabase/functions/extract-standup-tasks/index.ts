@@ -440,7 +440,7 @@ serve(async (req) => {
       if (!sanitized) return null;
 
       const { data: deals } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select(
           'id, listing_id, stage_id, deal_stages(name), listings!inner(ebitda, title, internal_company_name)',
         )
@@ -463,7 +463,7 @@ serve(async (req) => {
 
     // 6. Get all EBITDA values for scoring normalization
     const { data: allDeals } = await supabase
-      .from('deals')
+      .from('deal_pipeline')
       .select('listing_id, listings!inner(ebitda)');
 
     const allEbitdaValues = (allDeals || [])

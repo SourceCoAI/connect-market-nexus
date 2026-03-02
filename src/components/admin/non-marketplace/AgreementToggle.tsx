@@ -137,7 +137,7 @@ export const AgreementToggle = ({ user, type, checked }: AgreementToggleProps) =
               : { fee_agreement_status: isSigned ? 'signed' : 'not_sent' };
 
           const { error } = await supabase
-            .from('deals')
+            .from('deal_pipeline')
             .update(dealUpdates)
             .in('id', user.associated_records.deals.map((d) => d.id) as string[]);
           if (error) throw error;

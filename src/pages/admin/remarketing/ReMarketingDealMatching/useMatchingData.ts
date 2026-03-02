@@ -352,7 +352,7 @@ export function useMatchingData(listingId: string | undefined) {
     queryFn: async () => {
       if (!listingId) return [];
       const { data, error } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select('id, remarketing_buyer_id')
         .eq('listing_id', listingId!)
         .not('remarketing_buyer_id', 'is', null)

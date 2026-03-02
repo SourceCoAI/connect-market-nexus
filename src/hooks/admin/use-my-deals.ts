@@ -17,7 +17,7 @@ export function useMyDeals() {
       }
 
       const { data, error } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select(`
           *,
           stage:deal_stages(name, color),
@@ -51,7 +51,7 @@ export function useMyDealStats() {
 
       // Get deals with stage information to identify terminal stages
       const { data: deals, error } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select(`
           id, 
           stage_id, 

@@ -194,7 +194,7 @@ export function useAssociatedRequests(
 
         // Step 3: Also find manually created deals with matching contact_company
         const { data: dealsData, error: dealsError } = await supabase
-          .from('deals')
+          .from('deal_pipeline')
           .select(`
             id,
             contact_name,

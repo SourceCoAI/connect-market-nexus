@@ -50,7 +50,7 @@ export const DealPipelinePanel = ({
     queryKey: ['deal-pipeline', listingId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select(
           `
           id,

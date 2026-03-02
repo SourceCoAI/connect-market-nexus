@@ -80,19 +80,44 @@ export function useCreateDealForm(
     }
   }, [selectedStageId, stages, form]);
 
-  // Check for duplicates
+  // Check for duplicates by looking for deals with matching buyer email on same listing
   const checkDuplicates = async (email: string, listingId: string): Promise<DuplicateDeal[]> => {
     try {
-      const { data, error } = await supabase
-        .from('deals')
-        .select('id, title, contact_name, created_at')
-        .eq('contact_email', email)
+      const normalizedEmail = email.toLowerCase().trim();
+
+      // Check deals that have a connection_request with matching lead_email
+      const { data: crDeals } = await supabase
+        .from('deal_pipeline')
+        .select('id, title, created_at, connection_request:connection_requests!inner(lead_name)')
         .eq('listing_id', listingId)
+        .eq('connection_requests.lead_email', normalizedEmail)
         .order('created_at', { ascending: false })
         .limit(5);
 
-      if (error) throw error;
-      return data || [];
+      // Check deals that have a buyer_contact with matching email
+      const { data: bcDeals } = await supabase
+        .from('deal_pipeline')
+        .select('id, title, created_at, buyer_contact:contacts!deal_pipeline_buyer_contact_id_fkey!inner(first_name, last_name)')
+        .eq('listing_id', listingId)
+        .eq('contacts.email', normalizedEmail)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      // Merge and dedupe
+      const allDeals = [...(crDeals || []), ...(bcDeals || [])];
+      const seen = new Set<string>();
+      return allDeals
+        .filter((d) => { if (seen.has(d.id)) return false; seen.add(d.id); return true; })
+        .map((d) => {
+          const cr = (d as Record<string, unknown>).connection_request as { lead_name: string } | null;
+          const bc = (d as Record<string, unknown>).buyer_contact as { first_name: string; last_name: string } | null;
+          return {
+            id: d.id,
+            title: d.title,
+            contact_name: cr?.lead_name || (bc ? `${bc.first_name} ${bc.last_name}`.trim() : null),
+            created_at: d.created_at,
+          };
+        });
     } catch (error) {
       console.error('Error checking duplicates:', error);
       return [];
@@ -164,14 +189,56 @@ export function useCreateDealForm(
         }
       }
 
+      // Create or find a buyer contact record for the contact info
+      let buyerContactId: string | null = null;
+      if (data.contact_email) {
+        const { data: existingContact } = await supabase
+          .from('contacts')
+          .select('id')
+          .eq('email', data.contact_email.toLowerCase().trim())
+          .eq('contact_type', 'buyer')
+          .limit(1)
+          .single();
+
+        if (existingContact) {
+          buyerContactId = existingContact.id;
+        } else {
+          const nameParts = (data.contact_name || '').split(' ');
+          const { data: newContact } = await supabase
+            .from('contacts')
+            .insert({
+              first_name: nameParts[0] || '',
+              last_name: nameParts.slice(1).join(' ') || '',
+              email: data.contact_email.toLowerCase().trim(),
+              phone: data.contact_phone || null,
+              title: data.contact_role || null,
+              company: data.contact_company || null,
+              contact_type: 'buyer',
+              source: 'manual_deal_creation',
+            })
+            .select('id')
+            .single();
+          if (newContact) buyerContactId = newContact.id;
+        }
+      }
+
+      // Build payload without contact_* columns (removed from deal_pipeline)
       const payload: Record<string, unknown> = {
-        ...data,
+        title: data.title,
+        description: data.description,
+        stage_id: data.stage_id,
+        listing_id: data.listing_id,
+        priority: data.priority,
+        value: data.value,
+        probability: data.probability,
+        expected_close_date: data.expected_close_date,
         source: 'manual',
         nda_status: 'not_sent',
         fee_agreement_status: 'not_sent',
         buyer_priority_score: 0,
         assigned_to: data.assigned_to && data.assigned_to !== '' ? data.assigned_to : null,
         connection_request_id: connectionRequestId,
+        buyer_contact_id: buyerContactId,
       };
       const newDeal = await createDealMutation.mutateAsync(payload);
 

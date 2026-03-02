@@ -33,7 +33,7 @@ export function PipelineDetailOtherBuyers({ deal }: PipelineDetailOtherBuyersPro
       if (!deal.listing_id) return [];
 
       const { data, error } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select(
           `
           id,

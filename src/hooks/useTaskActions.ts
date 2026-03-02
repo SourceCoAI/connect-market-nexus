@@ -340,7 +340,7 @@ export function useAddEntityTask() {
                 .eq('id', user?.id ?? '')
                 .single(),
               task.entity_type === 'deal'
-                ? supabase.from('deals').select('title').eq('id', task.entity_id).single()
+                ? supabase.from('deal_pipeline').select('title').eq('id', task.entity_id).single()
                 : Promise.resolve({ data: null }),
             ]);
 

@@ -59,7 +59,7 @@ function useDealsForPicker() {
     queryKey: ['daily-tasks-deal-picker'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select('id, listing_id, listings(title, internal_company_name)')
         .order('created_at', { ascending: false })
         .limit(200);

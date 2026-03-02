@@ -31,7 +31,7 @@ export function useMemberRequestsDeals(userId: string | null, leadEmail: string 
       // Fetch deals linked to these requests
       const requestIds = requests?.map(r => r.id) || [];
       const { data: deals, error: dealsError } = await supabase
-        .from('deals')
+        .from('deal_pipeline')
         .select(`
           id,
           title,

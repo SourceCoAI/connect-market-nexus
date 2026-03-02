@@ -372,7 +372,7 @@ async function updateDealStage(
 
   // Get current deal info including current stage
   const { data: current } = await supabase
-    .from('deals')
+    .from('deal_pipeline')
     .select('stage_id, title')
     .eq('id', dealId)
     .single();
@@ -402,7 +402,7 @@ async function updateDealStage(
 
   // Update deals.stage_id
   const { error: updateError } = await supabase
-    .from('deals')
+    .from('deal_pipeline')
     .update({ stage_id: stageRecord.id, updated_at: new Date().toISOString() })
     .eq('id', dealId);
 
@@ -502,7 +502,7 @@ async function grantDataRoomAccess(
 
   // Log activity — resolve actual deal from listing+buyer
   const { data: linkedDeal } = await supabase
-    .from('deals')
+    .from('deal_pipeline')
     .select('id')
     .eq('listing_id', dealId)
     .eq('remarketing_buyer_id', buyerId)
@@ -663,7 +663,7 @@ async function convertToPipelineDeal(
 
   // Check if deal already exists for this buyer+listing combo
   const { data: existingDeal } = await supabase
-    .from('deals')
+    .from('deal_pipeline')
     .select('id')
     .eq('listing_id', listingId)
     .eq('buyer_id', buyerId)
@@ -687,7 +687,7 @@ async function convertToPipelineDeal(
   // Create the deal
   const now = new Date().toISOString();
   const { data: deal, error: dealError } = await supabase
-    .from('deals')
+    .from('deal_pipeline')
     .insert({
       listing_id: listingId,
       remarketing_buyer_id: buyerId,
