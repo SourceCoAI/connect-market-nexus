@@ -49,8 +49,11 @@ export default function CreateListingFromDeal() {
           full_time_employees, linkedin_employee_count,
           main_contact_name, main_contact_email, main_contact_phone, main_contact_title,
           geographic_states, internal_deal_memo_link,
-          pushed_to_marketplace,
-          founded_year, number_of_locations
+          founded_year, number_of_locations,
+          customer_geography, customer_types, business_model, revenue_model,
+          end_market_description, competitive_position, ownership_structure,
+          seller_motivation, owner_goals, transition_preferences,
+          growth_drivers, investment_thesis
         `,
         )
         .eq('id', dealId!)
@@ -107,7 +110,7 @@ export default function CreateListingFromDeal() {
         metric_4_custom_label: anonymized.metric_4_custom_label,
         metric_4_custom_value: anonymized.metric_4_custom_value,
         metric_4_custom_subtitle: anonymized.metric_4_custom_subtitle,
-        custom_sections: (anonymized as any).custom_sections || [],
+        custom_sections: [],
         tags: [],
         status: 'active',
         created_at: new Date().toISOString(),
@@ -127,28 +130,55 @@ export default function CreateListingFromDeal() {
     (async () => {
       try {
         const { data, error } = await supabase.functions.invoke('generate-lead-memo', {
-          body: { listing_id: dealId },
+          body: { deal_id: dealId, memo_type: 'anonymous_teaser' },
         });
         if (error) {
           console.error('AI content generation failed:', error);
-          toast.info('AI content generation could not complete. You can fill in content manually.');
+          const msg =
+            typeof error === 'object' && error?.context?.body
+              ? (() => {
+                  try {
+                    return JSON.parse(error.context.body)?.error;
+                  } catch {
+                    return null;
+                  }
+                })()
+              : null;
+          toast.info(
+            msg || 'AI content generation could not complete. You can fill in content manually.',
+          );
           return;
         }
-        // Update prefilled with generated content
-        if (data?.buyer_universe_label || data?.buyer_universe_description) {
+        // Extract content from the memo response — the edge function returns
+        // { success, memos: { anonymous_teaser: { content: { sections: [...] } } } }
+        const memoContent = data?.memos?.anonymous_teaser?.content;
+        const sections = memoContent?.sections;
+        if (sections && Array.isArray(sections) && sections.length > 0) {
+          // Mirror the edge function's sync logic: filter header/contact, map to custom_sections
+          const customSections = sections
+            .filter(
+              (s: { key: string }) => s.key !== 'header_block' && s.key !== 'contact_information',
+            )
+            .map((s: { title: string; content: string }) => ({
+              title: s.title,
+              description: s.content,
+            }));
+          const companyOverview = sections.find(
+            (s: { key: string }) => s.key === 'company_overview',
+          );
           setPrefilled((prev) => {
             if (!prev) return prev;
             return {
               ...prev,
-              title: data.title || prev.title,
-              description: data.description || prev.description,
-              hero_description: data.hero_description || prev.hero_description,
+              custom_sections: customSections,
+              description: companyOverview?.content || prev.description,
             };
           });
           toast.success('AI content generated — review and edit before saving.');
         }
       } catch (err) {
         console.error('AI content generation error:', err);
+        toast.info('AI content generation could not complete. You can fill in content manually.');
       } finally {
         setIsGeneratingContent(false);
       }
@@ -160,8 +190,6 @@ export default function CreateListingFromDeal() {
       const listingData = {
         ...data,
         source_deal_id: dealId,
-        // Ensure it's created as an internal draft
-        is_internal_deal: true,
       };
 
       await createListing({ listing: listingData as never, image });
@@ -232,7 +260,7 @@ export default function CreateListingFromDeal() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Queue
           </Button>
-          <Button onClick={() => navigate(`/admin/deals?tab=marketplace`)}>
+          <Button onClick={() => navigate(`/admin/marketplace/listings/${existingListing.id}`)}>
             View Existing Listing
           </Button>
         </div>
@@ -259,10 +287,7 @@ export default function CreateListingFromDeal() {
           </Button>
           <div className="text-sm text-muted-foreground">
             Creating anonymous listing from:{' '}
-            <strong>
-              {((deal as Record<string, unknown> | null)?.internal_company_name as string) ||
-                'Unknown Deal'}
-            </strong>
+            <strong>{deal?.internal_company_name || 'Unknown Deal'}</strong>
           </div>
         </div>
       </div>
