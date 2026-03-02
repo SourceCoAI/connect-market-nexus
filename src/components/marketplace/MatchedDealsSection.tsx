@@ -6,8 +6,13 @@ import { useAllConnectionStatuses } from '@/hooks/marketplace/use-connections';
 import ListingCard from '@/components/ListingCard';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Settings2, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { computeMatchScore, extractBuyerCriteria } from '@/lib/match-scoring';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export function MatchedDealsSection() {
+  const [isOpen, setIsOpen] = useState(false);
   const { user } = useAuth();
   const { data: listingsData } = useSimpleListings({
     page: 1,
