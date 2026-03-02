@@ -1,79 +1,107 @@
 
 
-## Fix All Email Notifications via Brevo
+## Buyer Messages Screen -- Premium Minimal Redesign
 
-### Root Causes Found
+### Current Issues (from screenshot)
+- Heavy 2px gray border around the main container feels dated
+- Agreement banner has cluttered row-by-row borders and dense chip layout
+- Conversation list items are visually noisy (colored dots, status chips, category text all competing)
+- Message area background (#FCF9F0 gold tint) makes the whole right panel feel heavy
+- "Enter to send" helper text below compose bar is unnecessary visual noise
+- Thread headers repeat information already visible in the sidebar
+- Inconsistent spacing and alignment throughout
+- Unread badge (dark red circle) clashes with the premium palette
 
-1. **JWT gateway rejection**: `send-connection-notification`, `notify-buyer-new-message`, and `notify-admin-new-message` all have `verify_jwt = true` in config.toml, but they use internal auth validation. The Supabase gateway rejects valid JWTs before the function can run its own check. This is the primary reason "email notifications don't work at all."
+### Design Direction
+Refined, quiet luxury aesthetic aligned with SourceCo brand -- white-dominant with gold accents used sparingly, generous whitespace, hairline dividers, and typography-driven hierarchy instead of colored badges.
 
-2. **Resend dependency**: `send-verification-success-email` uses the Resend SDK instead of Brevo. If `RESEND_API_KEY` isn't configured, this silently fails.
+### Changes by Component
 
-3. **Missing admin recipients**: When `send-connection-notification` is called with `type: 'admin_notification'`, the frontend doesn't pass `recipientEmail` or `recipientName`. The edge function sends to... nobody. It should look up all admin emails like `notify-admin-new-message` does.
+**1. Page Header (`index.tsx`)**
+- Remove the subtitle line ("2 unread messages" / "Conversations with...")
+- Move unread count into the "Messages" title as a subtle parenthetical: `Messages (2)`
+- Make "New Message" button outline-style with gold accent instead of solid black
+- Add a thin bottom border instead of relying on spacing alone
 
-4. **Auth mismatch**: `user-journey-notifications` calls `enhanced-email-delivery`, which requires admin auth. But journey events fire from non-admin contexts (signup, verification), so they always fail.
+**2. Agreement Banner (`AgreementSection.tsx`)**
+- Remove the bordered card container entirely
+- Replace with a single-line horizontal strip per document, no enclosing box
+- Use a minimal left-accent gold bar (2px) for pending items only
+- Remove "ACTION REQUIRED" header -- the gold accent communicates urgency
+- Status chips: use text-only labels (no background pill) -- "Signed" in muted green text, "Pending" in gold text
+- Collapse signed documents into a single summary line: "NDA Signed -- Fee Agreement Pending"
+- When all signed, show nothing (remove the section entirely for clean state)
 
-### Complete Email Notification Matrix
+**3. Conversation List (`ConversationList.tsx`)**
+- Remove the colored unread dot indicator -- use font weight alone (bold = unread)
+- Remove status badge chips (Connected, Under Review) from thread items
+- Show only: deal title (bold if unread), time, and one-line preview
+- Unread count badge: switch from dark red to a subtle gold circle
+- Search input: remove gold background tint, use plain white with hairline border
+- General Inquiry item: remove the gold icon, use plain text with a subtle "General" label
+- Selected state: use a 2px gold left border instead of gray background highlight
+- Reduce padding for tighter, more editorial feel
 
-| Event | Edge Function | Recipient | Status |
-|-------|-------------|-----------|--------|
-| Connection request submitted | `send-connection-notification` (user_confirmation) | Buyer | BROKEN (verify_jwt) |
-| Connection request submitted | `send-connection-notification` (admin_notification) | All admins | BROKEN (no recipientEmail + verify_jwt) |
-| New user registered | `user-journey-notifications` -> `enhanced-email-delivery` | Admin | BROKEN (admin auth required) |
-| Email verified | `send-verification-success-email` | Buyer | BROKEN (uses Resend) |
-| Buyer approved | `send-templated-approval-email` | Buyer | WORKS (admin calls it) |
-| Buyer rejected | `notify-buyer-rejection` | Buyer | WORKS (uses sendViaBervo) |
-| Admin sends message | `notify-buyer-new-message` | Buyer | BROKEN (verify_jwt) |
-| Buyer sends message | `notify-admin-new-message` | All admins | BROKEN (verify_jwt) |
-| Admin custom email | `send-approval-email` | Buyer | WORKS |
+**4. Thread Header (`MessageThread.tsx` + `GeneralChatView.tsx`)**
+- Simplify to just the title + "View deal" link on the right
+- Remove status badge from header (redundant with sidebar)
+- Remove "SourceCo Team" subtitle -- implied by context
+- Clean hairline bottom border
 
-### Implementation Plan
+**5. Message Bubbles (`MessageList.tsx` + `MessageBody.tsx`)**
+- Change message area background from #FCF9F0 to pure white (#FFFFFF)
+- Buyer messages: keep dark (#0E101A) but soften border radius to 16px with 12px on the tail corner
+- Admin messages: use #F8F8F6 (very light warm gray) instead of pure white with border
+- Remove shadow-sm from message bubbles -- flat design
+- Remove the border on admin messages -- background contrast is sufficient
+- Sender name + time: consolidate into a single line above the bubble, outside the bubble
+- Read receipts: make more subtle -- just a small double-check icon, no "Read"/"Delivered" text
 
-#### 1. Fix config.toml -- set verify_jwt = false for all notification functions
+**6. Compose Bar (`MessageInput.tsx`)**
+- Remove the outer border container -- use a single input field with integrated send button
+- Remove "Enter to send" text
+- Send button: icon-only (no text), circular, gold background on hover
+- Attachment button: more subtle, just the icon with no visible button chrome
+- Overall: thinner, more like iMessage/WhatsApp compose bar
 
-Change `verify_jwt` to `false` for:
-- `send-connection-notification`
-- `notify-buyer-new-message`
-- `notify-admin-new-message`
+**7. Empty/Loading States**
+- Skeleton: match the new minimal layout (thinner lines, no heavy borders)
+- Empty state: smaller icon, lighter text, more whitespace
 
-These functions already do their own auth checks internally via `requireAuth`.
+### Technical Scope
 
-#### 2. Fix send-connection-notification admin notification
+| File | Changes |
+|------|---------|
+| `src/pages/BuyerMessages/index.tsx` | Simplify header, remove subtitle, refine container border, adjust spacing |
+| `src/pages/BuyerMessages/AgreementSection.tsx` | Redesign to minimal inline strip with gold accent bars, remove card wrapper |
+| `src/pages/BuyerMessages/ConversationList.tsx` | Remove status chips/dots, gold left-border selection, tighten spacing |
+| `src/pages/BuyerMessages/MessageThread.tsx` | Simplify thread header, clean skeleton |
+| `src/pages/BuyerMessages/GeneralChatView.tsx` | Match simplified header pattern, white message background |
+| `src/pages/BuyerMessages/MessageList.tsx` | White background, remove bubble borders/shadows, external sender labels |
+| `src/pages/BuyerMessages/MessageInput.tsx` | Minimal compose bar, icon-only send, remove helper text |
+| `src/pages/BuyerMessages/MessageBody.tsx` | No structural changes, just inherits new bubble styling |
 
-Rewrite the admin notification path to look up all admin emails via `user_roles` table (same pattern as `notify-admin-new-message`), removing the dependency on `recipientEmail` for admin type. Migrate from raw Brevo fetch to `sendViaBervo` shared utility.
+### Visual Summary
 
-#### 3. Convert send-verification-success-email from Resend to Brevo
+```text
+Before:                          After:
++--[2px border]-------------+   +--[hairline]----------------+
+| ACTION REQUIRED            |   |  NDA Signed                |
+| [icon] NDA [Signed] [PDF]  |   |  Fee Agreement  Sign Now > |
+| [icon] Fee [Pending] [Sign]|   +-----------------------------+
++----------------------------+   |                             |
+| [Search...........]        |   | Search...                   |
+| * General Inquiry          |   | | General                   |
+| * Deal Title  [Connected]  |   | | Deal Title        2m ago  |
+|   Category   2m     (2)    |   | |   Last message...         |
+|   Last message preview...  |   |                             |
++----------------------------+   +-----------------------------+
+```
 
-Replace the Resend SDK with the `sendViaBervo` shared utility. Keep the same HTML template and email delivery logging. Remove Resend import.
-
-#### 4. Fix user-journey-notifications to send directly via Brevo
-
-Remove the call to `enhanced-email-delivery` (which requires admin auth). Instead, build and send emails directly using `sendViaBervo`. Handle each event type (user_created, email_verified, profile_approved, profile_rejected) with appropriate templates.
-
-#### 5. Add missing notification: admin alert when new user registers
-
-Create a new function `notify-admin-new-registration` that sends an email to all admins when a new user signs up. Wire it from the signup flow.
-
-### Files to Change
-
-| File | Change |
-|------|--------|
-| `supabase/config.toml` | Set `verify_jwt = false` for 3 notification functions |
-| `supabase/functions/send-connection-notification/index.ts` | Use `sendViaBervo`, auto-lookup admin emails for admin type |
-| `supabase/functions/send-verification-success-email/index.ts` | Replace Resend with `sendViaBervo` |
-| `supabase/functions/user-journey-notifications/index.ts` | Send directly via `sendViaBervo` instead of calling `enhanced-email-delivery` |
-| `src/hooks/marketplace/use-connections.ts` | Simplify admin notification payload (remove recipientEmail requirement) |
-
-### What Already Works (No Changes Needed)
-
-- `notify-buyer-rejection` -- uses `sendViaBervo` correctly
-- `send-templated-approval-email` -- admin-invoked, Brevo direct
-- `send-approval-email` -- admin-invoked, Brevo direct
-- `notify-buyer-new-message` / `notify-admin-new-message` -- code is correct, just need config.toml fix
-
-### Email Design Consistency
-
-All migrated templates will follow the existing SourceCo brand pattern already used in `notify-buyer-new-message`:
-- White background, SOURCECO header in uppercase gray
-- Dark navy (#0E101A) CTA buttons
-- Gold-tinted (#FCF9F0) quote blocks with gold border (#DEC76B)
-- Warm footer divider (#E5DDD0)
+### Design Principles Applied
+- White-dominant with gold as accent only
+- Typography-driven hierarchy (weight, size) over colored badges
+- Hairline dividers (1px #F0EDE6) instead of heavy borders
+- Generous whitespace signals premium
+- Flat design -- no shadows on message bubbles
+- Information density reduced to essentials only
