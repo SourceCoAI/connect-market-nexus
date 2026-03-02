@@ -4,8 +4,7 @@ import {
   FileSignature,
   Shield,
   CheckCircle,
-  MessageSquarePlus,
-  XCircle,
+  Download,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
@@ -20,45 +19,7 @@ import { useDownloadDocument } from './useMessagesActions';
 import { DocumentDialog } from './DocumentDialog';
 import type { DocItem } from './types';
 
-// ─── DownloadDocButton ───
-function DownloadDocButton({
-  documentUrl,
-  draftUrl,
-  documentType,
-  label,
-  variant = 'outline',
-}: {
-  documentUrl: string | null;
-  draftUrl: string | null;
-  documentType: 'nda' | 'fee_agreement';
-  label: string;
-  variant?: 'outline' | 'default';
-}) {
-  const [loading, setLoading] = useState(false);
-  const download = useDownloadDocument();
-
-  const handleDownload = async () => {
-    setLoading(true);
-    try {
-      await download({ documentUrl, draftUrl, documentType });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Button variant={variant} size="sm" onClick={handleDownload} disabled={loading}>
-      {loading ? (
-        <span className="h-3.5 w-3.5 mr-1.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-      ) : (
-        <FileSignature className="h-3.5 w-3.5 mr-1.5" />
-      )}
-      {label}
-    </Button>
-  );
-}
-
-// ─── Helper to build DocItem from firm status using canonical mapper ───
+// ─── Helper to build DocItem from firm status ───
 function buildDocItem(
   type: 'nda' | 'fee_agreement',
   label: string,
@@ -77,31 +38,31 @@ function buildDocItem(
   );
 
   const statusLabels: Record<AgreementDisplayStatus, string> = {
-    signed: `${label} \u2014 Signed`,
-    declined: `${label} \u2014 Declined`,
-    expired: `${label} \u2014 Expired`,
-    viewed: `${label} \u2014 Viewed`,
-    sent: `${label} Ready to Sign`,
-    pending: `${label} — Ready to Sign`,
-    not_sent: `${label} — Ready to Sign`,
-    no_firm: `${label} \u2014 No Firm`,
+    signed: 'Signed',
+    declined: 'Declined',
+    expired: 'Expired',
+    viewed: 'Viewed',
+    sent: 'Ready to Sign',
+    pending: 'Ready to Sign',
+    not_sent: 'Ready to Sign',
+    no_firm: 'No Firm',
   };
 
   const descriptions: Record<AgreementDisplayStatus, string> = {
     signed: signedAt ? `Signed ${formatDistanceToNow(new Date(signedAt), { addSuffix: true })}` : 'Signed',
-    declined: 'Your agreement was declined. Please contact us if you have questions.',
-    expired: 'This agreement has expired. Please contact us for a new one.',
-    viewed: 'You\'ve viewed this agreement. Please sign to continue.',
-    sent: (notif as any)?.message || `A ${label} has been prepared for your review. You can sign, or download and send us a redline.`,
-    pending: `Your ${label} is ready for review and signature.`,
-    not_sent: `Your ${label} is ready for review and signature.`,
+    declined: 'Declined — contact us with questions.',
+    expired: 'Expired — contact us for a new one.',
+    viewed: 'Viewed — please sign to continue.',
+    sent: (notif as any)?.message || `Ready for your review and signature.`,
+    pending: `Ready for your review and signature.`,
+    not_sent: `Ready for your review and signature.`,
     no_firm: 'No firm record found.',
   };
 
   return {
     key: `${type}-${status}`,
     type,
-    label: statusLabels[status],
+    label,
     signed: status === 'signed',
     signedAt,
     documentUrl: signedDocUrl,
@@ -110,6 +71,13 @@ function buildDocItem(
     notificationTime: (notif as any)?.created_at ?? undefined,
     declined: status === 'declined',
   };
+}
+
+// ─── Status chip styles ───
+function getStatusChipStyle(item: DocItem): React.CSSProperties {
+  if (item.signed) return { backgroundColor: '#F0EDDA', color: '#7A6F2A' };
+  if (item.declined) return { backgroundColor: '#FEE2E2', color: '#991B1B' };
+  return { backgroundColor: '#FEF3C7', color: '#92400E' };
 }
 
 // ─── PendingAgreementBanner ───
@@ -122,6 +90,7 @@ export function PendingAgreementBanner() {
 
   const { data: firmStatus } = useFirmAgreementStatus();
   const { data: pendingNotifications = [] } = usePendingNotifications();
+  const download = useDownloadDocument();
 
   if (!firmStatus) return null;
 
@@ -148,133 +117,105 @@ export function PendingAgreementBanner() {
   return (
     <>
       <div
-        className="rounded-xl overflow-hidden mb-0"
-        style={{ border: '1px solid #CBCBCB', backgroundColor: '#FFFFFF' }}
+        className="rounded-lg overflow-hidden mb-0"
+        style={{ border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))' }}
       >
-        <div className="px-5 py-3" style={{ borderBottom: '1px solid #E5DDD0' }}>
-          <h3 className="text-sm font-semibold" style={{ color: '#0E101A' }}>
-            {allSigned ? 'Signed Documents' : hasPending ? 'Action Required' : 'Documents'}
-          </h3>
-          <p className="text-xs mt-0.5" style={{ color: '#5A5A5A' }}>
-            {allSigned
-              ? 'All agreements are signed. Download copies for your records.'
-              : 'Sign these documents to continue accessing deal details'}
-          </p>
+        {/* Compact header */}
+        <div className="px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: '1px solid hsl(var(--border))' }}>
+          <span className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+            {allSigned ? 'Documents' : hasPending ? 'Action Required' : 'Documents'}
+          </span>
+          {allSigned && (
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <CheckCircle className="h-3 w-3" />
+              All signed
+            </span>
+          )}
         </div>
-        <div className="divide-y" style={{ borderColor: '#E5DDD0' }}>
-          {items.map((item) => (
-            <div key={item.key} className="flex items-center gap-4 px-5 py-3">
-              <div
-                className="p-2 rounded-full"
-                style={{ backgroundColor: item.signed ? '#F7F4DD' : item.declined ? '#FEE2E2' : '#FCF9F0' }}
-              >
-                {item.type === 'nda' ? (
-                  <Shield
-                    className="h-5 w-5"
-                    style={{ color: item.signed ? '#DEC76B' : item.declined ? '#991B1B' : '#5A5A5A' }}
-                  />
-                ) : (
-                  <FileSignature
-                    className="h-5 w-5"
-                    style={{ color: item.signed ? '#DEC76B' : item.declined ? '#991B1B' : '#5A5A5A' }}
-                  />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium" style={{ color: '#0E101A' }}>
-                    {item.label}
-                  </p>
-                  {item.signed && (
-                    <CheckCircle className="h-3.5 w-3.5 shrink-0" style={{ color: '#DEC76B' }} />
-                  )}
-                  {item.declined && (
-                    <XCircle className="h-3.5 w-3.5 shrink-0" style={{ color: '#991B1B' }} />
-                  )}
-                  {!item.signed && !item.declined && (
-                    <FileSignature className="h-3.5 w-3.5 shrink-0" style={{ color: '#DEC76B' }} />
-                  )}
-                </div>
-                <p className="text-xs mt-0.5" style={{ color: '#5A5A5A' }}>
-                  {item.notificationMessage}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {item.signed ? (
-                  <>
-                    <DownloadDocButton
-                      documentUrl={item.documentUrl}
-                      draftUrl={item.draftUrl}
-                      documentType={item.type}
-                      label="Download PDF"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setDocMessageType(item.type);
-                        setDocMessageOpen(true);
-                      }}
-                    >
-                      <MessageSquarePlus className="h-3.5 w-3.5 mr-1.5" />
-                      Questions?
-                    </Button>
-                  </>
-                ) : item.declined ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setDocMessageType(item.type);
-                      setDocMessageOpen(true);
-                    }}
-                  >
-                    <MessageSquarePlus className="h-3.5 w-3.5 mr-1.5" />
-                    Contact Us
-                  </Button>
-                ) : (
-                  <>
-                    {item.draftUrl ? (
-                      <DownloadDocButton
-                        documentUrl={null}
-                        draftUrl={item.draftUrl}
-                        documentType={item.type}
-                        label="Download Draft"
-                        variant="outline"
-                      />
-                    ) : (
-                      <Button variant="outline" size="sm" disabled>
-                        <FileSignature className="h-3.5 w-3.5 mr-1.5" />
-                        Draft Not Available
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setDocMessageType(item.type);
-                        setDocMessageOpen(true);
-                      }}
-                    >
-                      <MessageSquarePlus className="h-3.5 w-3.5 mr-1.5" />
-                      Redlines / Questions?
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setSigningDocType(item.type);
-                        setSigningOpen(true);
-                      }}
-                      style={{ backgroundColor: '#0E101A', color: '#FFFFFF' }}
-                    >
-                      Sign Now
-                    </Button>
-                  </>
-                )}
-              </div>
+
+        {/* Clean rows */}
+        {items.map((item) => (
+          <div
+            key={item.key}
+            className="flex items-center gap-3 px-4 py-2.5"
+            style={{ borderBottom: '1px solid hsl(var(--border))' }}
+          >
+            {/* Icon */}
+            <div className="shrink-0">
+              {item.type === 'nda' ? (
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <FileSignature className="h-4 w-4 text-muted-foreground" />
+              )}
             </div>
-          ))}
-        </div>
+
+            {/* Label + status chip */}
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <span className="text-sm font-medium text-foreground">{item.label}</span>
+              <span
+                className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                style={getStatusChipStyle(item)}
+              >
+                {item.signed ? 'Signed' : item.declined ? 'Declined' : 'Pending'}
+              </span>
+              <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                {item.notificationMessage}
+              </span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {item.signed ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => download({ documentUrl: item.documentUrl, draftUrl: item.draftUrl, documentType: item.type })}
+                >
+                  <Download className="h-3 w-3" />
+                  PDF
+                </Button>
+              ) : item.declined ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setDocMessageType(item.type);
+                    setDocMessageOpen(true);
+                  }}
+                >
+                  Contact
+                </Button>
+              ) : (
+                <>
+                  {item.draftUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => download({ documentUrl: null, draftUrl: item.draftUrl, documentType: item.type })}
+                    >
+                      <Download className="h-3 w-3" />
+                      Draft
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setSigningDocType(item.type);
+                      setSigningOpen(true);
+                    }}
+                    style={{ backgroundColor: '#0E101A', color: '#FFFFFF' }}
+                  >
+                    Sign Now
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
       <AgreementSigningModal
         open={signingOpen}
