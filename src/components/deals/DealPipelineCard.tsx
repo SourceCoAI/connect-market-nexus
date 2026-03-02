@@ -385,20 +385,12 @@ export function DealPipelineCard({
           </span>
         </div>
 
-        {/* Per-deal CTA button — the key UX improvement */}
-        {(ctaLabel || pendingAction) && !isRejected && (
-          <div className="mt-2.5 flex items-center justify-between">
-            {pendingAction && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#8B6F47] bg-[#FBF7EC] px-1.5 py-0.5 rounded-full border border-[#DEC76B]">
-                {pendingAction}
-              </span>
-            )}
-            {ctaLabel && (
-              <span className="inline-flex items-center gap-1 ml-auto text-[11px] font-semibold text-[#DEC76B] border border-[#DEC76B] px-2.5 py-1 rounded-md hover:bg-[#DEC76B] hover:text-[#0E101A] transition-colors">
-                {ctaLabel}
-                <ArrowRight className="h-3 w-3" />
-              </span>
-            )}
+        {/* Pending action badge (no signing CTA — signing is at page level) */}
+        {pendingAction && !isRejected && (
+          <div className="mt-2.5">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#8B6F47] bg-[#FBF7EC] px-1.5 py-0.5 rounded-full border border-[#DEC76B]">
+              {pendingAction}
+            </span>
           </div>
         )}
       </button>
