@@ -1,8 +1,8 @@
-import { TrendingUp, Users, DollarSign, MapPin, ExternalLink, Gem, Info } from "lucide-react";
+import { TrendingUp, Users, DollarSign, MapPin, ExternalLink } from "lucide-react";
 import { cn, formatCompactCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CategoryLocationBadges } from "@/components/shared/CategoryLocationBadges";
 import { CategoryLocationBadges } from "@/components/shared/CategoryLocationBadges";
 import { toStandardCategory, toStandardLocation } from "@/lib/standardization";
 import AcquisitionTypeBadge from "@/components/listing/AcquisitionTypeBadge";
