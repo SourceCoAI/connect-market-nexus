@@ -2,6 +2,7 @@
 
 export interface InboxThread {
   connection_request_id: string;
+  user_id: string | null;
   buyer_name: string;
   buyer_company: string | null;
   buyer_email: string | null;

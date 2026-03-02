@@ -86,6 +86,7 @@ function useInboxThreads() {
         const user = req.user;
         return {
           connection_request_id: req.id,
+          user_id: (req.user_id as string) || null,
           buyer_name: user
             ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown'
             : 'Unknown',
