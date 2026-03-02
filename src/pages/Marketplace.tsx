@@ -179,7 +179,7 @@ const MarketplaceContent = () => {
               Complete your profile to access all available opportunities. We need a bit more
               information about your investment criteria and background to show you relevant deals.
             </p>
-            <Link to="/welcome">
+            <Link to="/profile">
               <Button className="mt-2">Complete My Profile</Button>
             </Link>
           </CardContent>
