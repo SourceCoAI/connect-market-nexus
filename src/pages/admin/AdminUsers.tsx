@@ -60,12 +60,13 @@ const AdminUsers = () => {
   const isMobile = useIsMobile();
   useRealtimeAdmin();
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [filteredOwnerLeads, setFilteredOwnerLeads] = useState<OwnerLead[]>([]);
-  const [primaryView, setPrimaryView] = useState<PrimaryView>(
-    searchParams.get('view') === 'owners' ? 'owners' : 'buyers'
-  );
+  const primaryView: PrimaryView = searchParams.get('view') === 'owners' ? 'owners' : 'buyers';
+  const setPrimaryView = (view: PrimaryView) => {
+    setSearchParams(view === 'owners' ? { view: 'owners' } : {}, { replace: true });
+  };
   const [secondaryView, setSecondaryView] = useState<SecondaryView>('marketplace');
   const { markAsViewed: markUsersAsViewed } = useMarkUsersViewed();
   const { markAsViewed: markOwnerLeadsAsViewed } = useMarkOwnerLeadsViewed();
@@ -89,11 +90,6 @@ const AdminUsers = () => {
     table: 'buyers',
   });
 
-  // Sync ?view= param
-  useEffect(() => {
-    const viewParam = searchParams.get('view');
-    if (viewParam === 'owners') setPrimaryView('owners');
-  }, [searchParams]);
 
   useEffect(() => {
     markUsersAsViewed();
