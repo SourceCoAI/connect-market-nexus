@@ -28,9 +28,7 @@ const WebhooksPage = lazyWithRetry(() => import('@/pages/admin/settings/Webhooks
 const TranscriptAnalytics = lazyWithRetry(
   () => import('@/pages/admin/analytics/TranscriptAnalytics'),
 );
-const WebsiteAnalytics = lazyWithRetry(
-  () => import('@/pages/admin/analytics/WebsiteAnalytics'),
-);
+const WebsiteAnalytics = lazyWithRetry(() => import('@/pages/admin/analytics/WebsiteAnalytics'));
 const EnrichmentTest = lazyWithRetry(() => import('@/pages/admin/EnrichmentTest'));
 const EnrichmentQueue = lazyWithRetry(() => import('@/pages/admin/EnrichmentQueue'));
 const DataRecoveryPage = lazyWithRetry(() => import('@/pages/admin/DataRecoveryPage'));
@@ -39,6 +37,7 @@ const SecuritySettings = lazyWithRetry(() => import('@/pages/admin/settings/Secu
 const GlobalApprovalsPage = lazyWithRetry(() => import('@/pages/admin/GlobalApprovalsPage'));
 const SystemTestRunner = lazyWithRetry(() => import('@/pages/admin/SystemTestRunner'));
 const DocuSealHealthCheck = lazyWithRetry(() => import('@/pages/admin/DocuSealHealthCheck'));
+const SystemStatus = lazyWithRetry(() => import('@/pages/admin/SystemStatus'));
 const MessageCenter = lazyWithRetry(() => import('@/pages/admin/MessageCenter'));
 
 // Smartlead pages
@@ -343,6 +342,14 @@ export function AdminRoutes() {
         element={
           <RoleGate min="owner">
             <SystemTestRunner />
+          </RoleGate>
+        }
+      />
+      <Route
+        path="system-status"
+        element={
+          <RoleGate min="admin">
+            <SystemStatus />
           </RoleGate>
         }
       />
