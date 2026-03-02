@@ -16,5 +16,4 @@ export type DocItem = {
   notificationMessage?: string;
   notificationTime?: string;
   declined?: boolean;
-  awaiting?: boolean;
 };

@@ -83,8 +83,8 @@ function buildDocItem(
     expired: `${label} \u2014 Expired`,
     viewed: `${label} \u2014 Viewed`,
     sent: `${label} Ready to Sign`,
-    pending: `${label} \u2014 Pending`,
-    not_sent: `${label} \u2014 Pending`,
+    pending: `${label} — Ready to Sign`,
+    not_sent: `${label} — Ready to Sign`,
     no_firm: `${label} \u2014 No Firm`,
   };
 
@@ -94,8 +94,8 @@ function buildDocItem(
     expired: 'This agreement has expired. Please contact us for a new one.',
     viewed: 'You\'ve viewed this agreement. Please sign to continue.',
     sent: (notif as any)?.message || `A ${label} has been prepared for your review. You can sign, or download and send us a redline.`,
-    pending: `Your ${label} will be sent to you shortly for review and signing.`,
-    not_sent: `Your ${label} will be sent to you shortly for review and signing.`,
+    pending: `Your ${label} is ready for review and signature.`,
+    not_sent: `Your ${label} is ready for review and signature.`,
     no_firm: 'No firm record found.',
   };
 
@@ -110,7 +110,6 @@ function buildDocItem(
     notificationMessage: descriptions[status],
     notificationTime: (notif as any)?.created_at ?? undefined,
     declined: status === 'declined',
-    awaiting: status === 'not_sent' || status === 'pending',
   };
 }
 
@@ -193,8 +192,8 @@ export function PendingAgreementBanner() {
                   {item.declined && (
                     <XCircle className="h-3.5 w-3.5 shrink-0" style={{ color: '#991B1B' }} />
                   )}
-                  {item.awaiting && (
-                    <Clock className="h-3.5 w-3.5 shrink-0" style={{ color: '#5A5A5A' }} />
+                  {!item.signed && !item.declined && (
+                    <FileSignature className="h-3.5 w-3.5 shrink-0" style={{ color: '#DEC76B' }} />
                   )}
                 </div>
                 <p className="text-xs mt-0.5" style={{ color: '#5A5A5A' }}>
@@ -233,18 +232,6 @@ export function PendingAgreementBanner() {
                   >
                     <MessageSquarePlus className="h-3.5 w-3.5 mr-1.5" />
                     Contact Us
-                  </Button>
-                ) : item.awaiting ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setDocMessageType(item.type);
-                      setDocMessageOpen(true);
-                    }}
-                  >
-                    <MessageSquarePlus className="h-3.5 w-3.5 mr-1.5" />
-                    Questions?
                   </Button>
                 ) : (
                   <>
