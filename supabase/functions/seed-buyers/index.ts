@@ -27,6 +27,7 @@ interface SeedRequest {
   listingId: string;
   maxBuyers?: number;
   forceRefresh?: boolean;
+  buyerCategory?: 'sponsors' | 'operating_companies';
 }
 
 interface AISuggestedBuyer {
@@ -62,14 +63,15 @@ function buildCacheKey(deal: {
   categories: string[] | null;
   address_state: string | null;
   ebitda: number | null;
-}): string {
+}, buyerCategory?: string): string {
   const industry = (deal.industry || 'unknown').toLowerCase().trim();
   const cats = (deal.categories || []).sort().join(',').toLowerCase();
   const state = (deal.address_state || 'unknown').toLowerCase().trim();
   const ebitdaBucket = deal.ebitda
     ? Math.floor(deal.ebitda / 500_000) * 500_000
     : 0;
-  return `seed:${industry}:${cats}:${state}:${ebitdaBucket}`;
+  const catSuffix = buyerCategory ? `:${buyerCategory}` : '';
+  return `seed:${industry}:${cats}:${state}:${ebitdaBucket}${catSuffix}`;
 }
 
 function extractDomain(url: string | null): string | null {
@@ -96,21 +98,24 @@ function normalizeCompanyName(name: string): string {
 }
 
 function buildSystemPrompt(): string {
-  return `You are an M&A buyer discovery specialist. Your job is to identify real PE firms, platform companies, and strategic acquirers that would be strong potential buyers for a specific deal.
+  return `You are an elite M&A buyer discovery specialist who deeply understands private equity roll-ups, platform strategies, and strategic acquisitions across niche industry verticals.
+
+YOUR MISSION: Find the BEST-FIT acquirers for a specific deal — not the most obvious or largest, but the ones whose strategy, portfolio, and acquisition history make them a genuinely compelling match.
 
 CRITICAL RULES:
-- Only suggest REAL companies that actually exist. Do not fabricate company names.
-- Focus on firms that are actively acquiring in the deal's industry vertical.
-- Include a mix of: PE firms with relevant platforms, standalone platform companies doing add-ons, and strategic acquirers.
-- Prioritize firms with a track record of acquisitions in the sector.
-- For each buyer, explain specifically WHY they are a good fit for THIS deal.
+- Only suggest REAL companies that actually exist. Never fabricate names.
+- Prioritize NICHE, SPECIALIZED buyers over large generalist firms. A $200M PE fund with three portfolio companies in the exact sub-sector is far more valuable than a $10B fund that occasionally invests in the broad industry.
+- Look for firms actively executing "buy-and-build" or roll-up strategies in the deal's specific vertical. Platform companies doing add-on acquisitions in the same niche are the highest-value finds.
+- Include firms that have made RECENT, VERIFIABLE acquisitions in the specific sub-sector — not firms that might theoretically be interested.
+- Think about the full ecosystem: Who are the PE-backed platforms rolling up this space? Which strategic acquirers are on acquisition sprees in this niche? Which infrastructure funds or specialty PE firms have thesis overlap?
+- For each buyer, explain specifically WHY they are a uniquely good fit for THIS deal — reference their portfolio companies, known acquisitions, stated thesis, or geographic strategy.
 - Include the company's website if you know it.
-- Be specific about geographic overlap and service/industry alignment.
+- Quality over quantity: 5 highly relevant buyers beats 10 generic ones.
 
 You must respond with valid JSON only. No markdown, no code fences, no explanatory text outside the JSON.`;
 }
 
-function buildUserPrompt(deal: Record<string, unknown>, maxBuyers: number): string {
+function buildUserPrompt(deal: Record<string, unknown>, maxBuyers: number, buyerCategory?: string): string {
   const ebitdaNum = deal.ebitda as number | null;
   const ebitdaStr = ebitdaNum
     ? `$${(ebitdaNum / 1_000_000).toFixed(1)}M`
@@ -136,8 +141,27 @@ function buildUserPrompt(deal: Record<string, unknown>, maxBuyers: number): stri
   const bizModel = (deal.business_model as string) || (deal.revenue_model as string) || '';
   const ownerGoals = (deal.owner_goals as string) || (deal.seller_motivation as string) || '';
 
-  return `Find up to ${maxBuyers} potential acquirers for this business.
+  let categoryInstruction = '';
+  if (buyerCategory === 'sponsors') {
+    categoryInstruction = `
+BUYER TYPE FILTER: ONLY return financial sponsors — PE firms, growth equity firms, infrastructure funds, family offices, independent sponsors, and search funds that invest in this vertical.
+- Prioritize PE firms actively building platforms via buy-and-build strategies in this exact niche
+- Include specialty funds focused on this industry (e.g., infrastructure funds for utility deals, healthcare-focused PE for medical deals)
+- Look for firms that have backed portfolio companies making add-on acquisitions in this space
+- Do NOT include operating companies or strategic acquirers
+`;
+  } else if (buyerCategory === 'operating_companies') {
+    categoryInstruction = `
+BUYER TYPE FILTER: ONLY return operating companies and strategic acquirers — real businesses that operate in the same or adjacent industries.
+- Prioritize PE-backed platform companies actively doing add-on acquisitions to consolidate this niche
+- Include regional or national operators that compete in or serve the same end market
+- Look for companies that have recently acquired similar businesses as part of a roll-up strategy
+- Do NOT include PE firms, financial sponsors, family offices, or investment funds (the PE backer can be listed as pe_firm_name but the company_name must be the operating company)
+`;
+  }
 
+  return `Find up to ${maxBuyers} potential acquirers for this business. Focus on finding the BEST strategic fits — firms whose acquisition thesis, portfolio, and track record directly align with this deal.
+${categoryInstruction}
 DEAL OVERVIEW:
 Title: ${(deal.title as string) || 'Not provided'}
 Industry: ${(deal.industry as string) || 'Not specified'}
@@ -154,20 +178,26 @@ ${endMarket ? `END MARKET / CUSTOMERS:\n${endMarket}\n` : ''}
 ${bizModel ? `BUSINESS MODEL:\n${bizModel}\n` : ''}
 ${ownerGoals ? `SELLER GOALS:\n${ownerGoals}\n` : ''}
 
+DISCOVERY GUIDANCE:
+- Think about who is ACTIVELY acquiring in this specific sub-sector right now
+- Consider the full buyer ecosystem: PE-backed platforms doing add-ons, specialty PE funds, regional consolidators, national strategic acquirers expanding into this geography
+- Prioritize buyers with VERIFIABLE recent acquisitions in this niche over firms that are merely tangentially related
+- A small specialized firm with 3 acquisitions in this exact space is more valuable than a Fortune 500 with broad interests
+
 Return a JSON array of up to ${maxBuyers} buyers. Each object must have:
 {
   "company_name": "exact legal/common name",
   "company_website": "url or null",
   "buyer_type": "pe_firm" | "platform" | "strategic" | "family_office",
-  "pe_firm_name": "PE sponsor name or null",
+  "pe_firm_name": "PE sponsor name or null (for platform companies, name the PE backer)",
   "hq_city": "city or null",
   "hq_state": "2-letter state code or null",
-  "thesis_summary": "their acquisition thesis in 1-2 sentences",
-  "why_relevant": "why specifically fit for THIS deal — be concrete, reference deal details",
+  "thesis_summary": "their acquisition thesis in 1-2 sentences — what they invest in and why",
+  "why_relevant": "1-2 sentences explaining why this buyer is a uniquely good fit for THIS specific deal — reference their portfolio, acquisitions, thesis overlap, or geographic strategy",
   "target_services": ["service types they acquire"],
   "target_industries": ["industries they invest in"],
   "target_geographies": ["states or regions they cover"],
-  "known_acquisitions": ["recent acquisition names if known"],
+  "known_acquisitions": ["names of recent acquisitions in this or adjacent spaces"],
   "estimated_ebitda_min": number or null,
   "estimated_ebitda_max": number or null
 }
@@ -311,7 +341,7 @@ Deno.serve(async (req: Request) => {
     // ── End auth guard ──
 
     const body: SeedRequest = await req.json();
-    const { listingId, maxBuyers = 10, forceRefresh = false } = body;
+    const { listingId, maxBuyers = 10, forceRefresh = false, buyerCategory } = body;
 
     if (!listingId) {
       return new Response(
@@ -340,7 +370,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Check seed cache ──
-    const cacheKey = buildCacheKey(deal);
+    const cacheKey = buildCacheKey(deal, buyerCategory);
 
     if (!forceRefresh) {
       const { data: cached } = await supabase
@@ -400,13 +430,13 @@ Deno.serve(async (req: Request) => {
     // ── Call Claude to discover buyers ──
     const cappedMax = Math.min(maxBuyers, 15);
     const claudeResponse = await callClaude({
-      model: CLAUDE_MODELS.haiku,
+      model: CLAUDE_MODELS.sonnet,
       maxTokens: 4096,
       systemPrompt: buildSystemPrompt(),
       messages: [
-        { role: 'user', content: buildUserPrompt(deal, cappedMax) },
+        { role: 'user', content: buildUserPrompt(deal, cappedMax, buyerCategory) },
       ],
-      timeoutMs: 45000,
+      timeoutMs: 60000,
     });
 
     // Extract text from response
@@ -523,7 +553,7 @@ Deno.serve(async (req: Request) => {
         known_acquisitions: suggested.known_acquisitions,
         was_new_record: wasNew,
         action,
-        seed_model: CLAUDE_MODELS.haiku,
+        seed_model: CLAUDE_MODELS.sonnet,
         category_cache_key: cacheKey,
       });
 
@@ -582,7 +612,7 @@ Deno.serve(async (req: Request) => {
         cached: false,
         seeded_at: now,
         cache_key: cacheKey,
-        model: CLAUDE_MODELS.haiku,
+        model: CLAUDE_MODELS.sonnet,
         usage: claudeResponse.usage,
       }),
       { headers: { ...headers, 'Content-Type': 'application/json' } },

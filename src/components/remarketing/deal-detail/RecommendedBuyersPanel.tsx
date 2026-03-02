@@ -65,10 +65,13 @@ function formatBuyerType(type: string | null): string {
 /** Sponsors = PE firms, independent sponsors, family offices, search funds */
 const SPONSOR_TYPES = new Set(['pe_firm', 'family_office', 'independent_sponsor', 'search_fund']);
 
+/** Keywords in company name that indicate a sponsor/financial buyer */
+const SPONSOR_NAME_KEYWORDS = /\b(capital|partners|equity|investment|ventures|advisors|fund|holdings|group)\b/i;
+
 function isSponsor(buyer: BuyerScore): boolean {
   if (buyer.buyer_type && SPONSOR_TYPES.has(buyer.buyer_type)) return true;
-  // If buyer has a PE firm attached, treat as sponsor
   if (buyer.pe_firm_name) return true;
+  if (SPONSOR_NAME_KEYWORDS.test(buyer.company_name)) return true;
   return false;
 }
 
@@ -225,23 +228,6 @@ function BuyerCard({
           {buyer.fit_reason}
         </p>
       )}
-
-      {/* Signal tags — max 3 */}
-      {buyer.fit_signals.length > 0 && (
-        <div className="flex flex-wrap gap-1 ml-6">
-          {buyer.fit_signals.slice(0, 3).map((signal, i) => (
-            <Badge key={i} variant="outline" className="text-[10px] font-normal">
-              {signal}
-            </Badge>
-          ))}
-          {buyer.fit_signals.length > 3 && (
-            <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
-              +{buyer.fit_signals.length - 3} more
-            </Badge>
-          )}
-        </div>
-      )}
-
     </div>
   );
 }
@@ -306,6 +292,7 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
   const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'sponsors' | 'operating'>('sponsors');
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -321,8 +308,9 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
 
   const handleSeedBuyers = async () => {
     setSeedResults(null);
+    const buyerCategory = activeTab === 'sponsors' ? 'sponsors' as const : 'operating_companies' as const;
     try {
-      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: false });
+      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: false, buyerCategory });
       setSeedResults(result.seeded_buyers);
       if (result.cached) {
         toast.info(`Found ${result.total} cached AI-seeded buyers`);
@@ -447,7 +435,7 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
             disabled={seedMutation.isPending}
           >
             <Sparkles className={cn('h-3.5 w-3.5 mr-1.5', seedMutation.isPending && 'animate-pulse')} />
-            {seedMutation.isPending ? 'Searching...' : 'AI Search for Buyers'}
+            {seedMutation.isPending ? 'Searching...' : activeTab === 'sponsors' ? 'AI Search Sponsors' : 'AI Search Operating Cos'}
           </Button>
           <Button
             variant="outline"
@@ -474,7 +462,7 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
             </p>
           </div>
         ) : (
-          <Tabs defaultValue="sponsors" className="w-full">
+          <Tabs defaultValue="sponsors" className="w-full" onValueChange={(v) => setActiveTab(v as 'sponsors' | 'operating')}>
             <TabsList className="mb-3">
               <TabsTrigger value="sponsors" className="gap-1.5">
                 <Landmark className="h-3.5 w-3.5" />

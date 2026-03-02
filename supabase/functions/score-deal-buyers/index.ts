@@ -520,20 +520,20 @@ Deno.serve(async (req: Request) => {
           ? 'marketplace'
           : 'scored';
 
-      // AI-seeded buyers for THIS deal get a score boost so they rank above generic pool matches
-      const aiBoost = (buyer.ai_seeded && buyer.ai_seeded_from_deal_id === listingId) ? 15 : 0;
-      const boostedComposite = Math.min(composite + aiBoost, 100);
-
-      const tier = classifyTier(boostedComposite, !!buyer.has_fee_agreement, buyer.acquisition_appetite);
+      const tier = classifyTier(composite, !!buyer.has_fee_agreement, buyer.acquisition_appetite);
 
       // Build fit_reason: seed log why_relevant (best) > thesis_summary (good) > generated sentence
       const seedLogReason = seedLogMap.get(buyer.id);
-      const thesisSentence = (buyer.thesis_summary || '').trim();
+      const rawThesis = (buyer.thesis_summary || '').trim();
+      // Strip signal-like suffixes that may have been appended to thesis_summary by previous code
+      const thesisCleaned = rawThesis
+        .replace(/\.?\s*(Exact industry match:[^.]*|Adjacent industry:[^.]*|State match:[^.]*|Region match:[^.]*|National buyer|EBITDA [^.]*|Fee agreement signed|Aggressive [^.]*|\d+ acquisitions)\.?\s*/gi, '')
+        .trim();
       let fit_reason: string;
       if (seedLogReason) {
         fit_reason = seedLogReason;
-      } else if (thesisSentence) {
-        const firstSentence = thesisSentence.split('.').filter(s => s.trim())[0]?.trim() || thesisSentence;
+      } else if (thesisCleaned) {
+        const firstSentence = thesisCleaned.split('.').filter(s => s.trim())[0]?.trim() || thesisCleaned;
         fit_reason = firstSentence.endsWith('.') ? firstSentence : `${firstSentence}.`;
       } else {
         // Generate a human-readable sentence from scoring signals
@@ -557,7 +557,7 @@ Deno.serve(async (req: Request) => {
         hq_city: buyer.hq_city,
         has_fee_agreement: !!buyer.has_fee_agreement,
         acquisition_appetite: buyer.acquisition_appetite,
-        composite_score: boostedComposite,
+        composite_score: composite,
         service_score: svc.score,
         geography_score: geo.score,
         size_score: size.score,
