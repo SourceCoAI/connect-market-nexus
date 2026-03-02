@@ -45,12 +45,16 @@ export function useBuyerIntroductions(listingId: string | undefined) {
 
   const createMutation = useMutation({
     mutationFn: async (input: CreateBuyerIntroductionInput) => {
+      if (!user?.id) {
+        throw new Error('You must be signed in to add a buyer');
+      }
+
       const { data, error } = await supabase
         .from('buyer_introductions' as never)
         .insert({
           ...input,
           introduction_status: 'not_introduced',
-          created_by: user?.id,
+          created_by: user.id,
         } as never)
         .select()
         .single();

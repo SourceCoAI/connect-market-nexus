@@ -1,11 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Target,
   CheckCircle,
@@ -18,6 +17,7 @@ import {
   Phone,
   ChevronRight,
   Linkedin,
+  Send,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { BuyerIntroduction, IntroductionStatus } from '@/types/buyer-introductions';
@@ -120,95 +120,61 @@ export function BuyerIntroductionTracker({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Summary Stats */}
-      <div className="grid gap-4 grid-cols-5">
-        <Card>
-          <CardContent className="py-4 text-center">
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <div className="text-xs text-muted-foreground">Total Tracked</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <div className="text-2xl font-bold text-amber-600">{stats.notIntroduced}</div>
-            <div className="text-xs text-muted-foreground">Not Introduced</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">{stats.introduced}</div>
-            <div className="text-xs text-muted-foreground">Awaiting</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <div className="text-2xl font-bold text-emerald-600">{stats.passed}</div>
-            <div className="text-xs text-muted-foreground">Moving Forward</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4 text-center">
-            <div className="text-2xl font-bold text-slate-500">{stats.rejected}</div>
-            <div className="text-xs text-muted-foreground">Not Interested</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search + Add Button */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search buyer or firm..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Button className="gap-2" onClick={() => setAddDialogOpen(true)}>
-          <UserPlus className="h-4 w-4" />
-          Add Buyer
-        </Button>
-      </div>
-
-      {/* Two Pipeline Tabs */}
-      <Tabs defaultValue="not_introduced">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="not_introduced" className="text-sm">
-            <Target className="mr-1.5 h-3.5 w-3.5" />
-            Not Yet Introduced ({filteredNotIntroduced.length})
-          </TabsTrigger>
-          <TabsTrigger value="introduced_passed" className="text-sm">
-            <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
-            Introduced & Passed ({filteredIntroducedPassed.length})
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ─── Not Yet Introduced ─── */}
-        <TabsContent value="not_introduced" className="space-y-3 mt-4">
+    <>
+      {/* ─── Section 1: Buyers to Introduce to Deal ─── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Target className="h-4 w-4" />
+              Buyers to Introduce to Deal
+              {filteredNotIntroduced.length > 0 && (
+                <Badge variant="secondary" className="text-xs ml-1">
+                  {filteredNotIntroduced.length}
+                </Badge>
+              )}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Buyers queued for introduction — click a buyer to update their status
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 w-48 text-xs"
+              />
+            </div>
+            <Button size="sm" className="gap-1.5" onClick={() => setAddDialogOpen(true)}>
+              <UserPlus className="h-3.5 w-3.5" />
+              Add Buyer
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
           {filteredNotIntroduced.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Target className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  {searchQuery
-                    ? 'No buyers matching your search'
-                    : 'No buyers in the not-yet-introduced pipeline'}
-                </p>
-                {!searchQuery && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 gap-2"
-                    onClick={() => setAddDialogOpen(true)}
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Add First Buyer
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+            <div className="py-8 text-center">
+              <Target className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+              <p className="text-sm text-muted-foreground">
+                {searchQuery
+                  ? 'No buyers matching your search'
+                  : 'No buyers in the introduction pipeline yet'}
+              </p>
+              {!searchQuery && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 gap-2"
+                  onClick={() => setAddDialogOpen(true)}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Add First Buyer
+                </Button>
+              )}
+            </div>
           ) : (
             filteredNotIntroduced.map((buyer) => (
               <NotIntroducedCard
@@ -221,21 +187,52 @@ export function BuyerIntroductionTracker({
               />
             ))
           )}
-        </TabsContent>
+        </CardContent>
+      </Card>
 
-        {/* ─── Introduced & Passed ─── */}
-        <TabsContent value="introduced_passed" className="space-y-3 mt-4">
+      {/* ─── Section 2: Buyers Introduced — Passed or Interested ─── */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Send className="h-4 w-4" />
+              Buyers Introduced — Passed or Interested
+              {filteredIntroducedPassed.length > 0 && (
+                <Badge variant="secondary" className="text-xs ml-1">
+                  {filteredIntroducedPassed.length}
+                </Badge>
+              )}
+            </CardTitle>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span>Buyers that have been introduced to this deal</span>
+              {stats.introduced > 0 && (
+                <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">
+                  {stats.introduced} Awaiting Outcome
+                </Badge>
+              )}
+              {stats.passed > 0 && (
+                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                  {stats.passed} Moving Forward
+                </Badge>
+              )}
+              {stats.rejected > 0 && (
+                <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200">
+                  {stats.rejected} Not Interested
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
           {filteredIntroducedPassed.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <CheckCircle className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  {searchQuery
-                    ? 'No introduced buyers matching your search'
-                    : 'No buyers have been introduced yet'}
-                </p>
-              </CardContent>
-            </Card>
+            <div className="py-8 text-center">
+              <CheckCircle className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+              <p className="text-sm text-muted-foreground">
+                {searchQuery
+                  ? 'No introduced buyers matching your search'
+                  : 'No buyers have been introduced yet'}
+              </p>
+            </div>
           ) : (
             filteredIntroducedPassed.map((buyer) => (
               <IntroducedCard
@@ -248,8 +245,8 @@ export function BuyerIntroductionTracker({
               />
             ))
           )}
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+      </Card>
 
       {/* Dialogs */}
       <AddBuyerIntroductionDialog
@@ -270,7 +267,7 @@ export function BuyerIntroductionTracker({
           listingId={listingId}
         />
       )}
-    </div>
+    </>
   );
 }
 

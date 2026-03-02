@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 
 interface RecommendedBuyersPanelProps {
   listingId: string;
+  listingTitle?: string;
 }
 
 const PAGE_SIZE = 5;
@@ -282,7 +283,7 @@ function SeedResultsSummary({ results }: { results: SeedBuyerResult[] }) {
   );
 }
 
-export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProps) {
+export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedBuyersPanelProps) {
   const { data, isLoading, isError, error, refresh } = useNewRecommendedBuyers(listingId);
   const seedMutation = useSeedBuyers();
   const { createIntroduction } = useBuyerIntroductions(listingId);
@@ -336,8 +337,8 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
           {
             listing_id: listingId,
             buyer_name: buyer.company_name,
-            buyer_firm_name: buyer.pe_firm_name || '',
-            company_name: buyer.company_name,
+            buyer_firm_name: buyer.pe_firm_name || buyer.company_name,
+            company_name: listingTitle || buyer.company_name,
             targeting_reason: buyer.fit_reason,
           },
           {

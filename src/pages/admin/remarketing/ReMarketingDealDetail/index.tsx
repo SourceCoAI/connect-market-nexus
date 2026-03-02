@@ -180,9 +180,9 @@ const ReMarketingDealDetail = () => {
         </TabsContent>
 
         <TabsContent value="buyer-introductions" className="space-y-6">
-          <RecommendedBuyersPanel listingId={dealId!} />
-          <DealBuyerHistoryTab listingId={dealId!} listingTitle={displayName} />
+          <RecommendedBuyersPanel listingId={dealId!} listingTitle={displayName} />
           <BuyerIntroductionTracker listingId={dealId!} listingTitle={displayName} />
+          <DealBuyerHistoryTab listingId={dealId!} listingTitle={displayName} />
         </TabsContent>
 
         <TabsContent value="tasks" className="space-y-6">
