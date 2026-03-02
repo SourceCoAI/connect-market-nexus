@@ -6,8 +6,9 @@ import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useAuth } from '@/context/AuthContext';
 import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
 import { useRealtime } from '@/components/realtime/RealtimeProvider';
-import { Send, XCircle } from 'lucide-react';
+import { Send, XCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
 
 interface ConnectionButtonProps {
   connectionExists: boolean;
