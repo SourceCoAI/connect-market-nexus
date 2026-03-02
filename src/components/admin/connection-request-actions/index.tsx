@@ -236,6 +236,8 @@ export function ConnectionRequestActions({
             ndaStatus={actions.ndaStatus}
             feeStatus={actions.feeStatus}
             firmId={actions.firmInfo?.firm_id ?? undefined}
+            firmAgreement={actions.firmInfo?.firmAgreement ?? null}
+            firmMembers={actions.firmInfo?.firmMembers ?? []}
             onSendAgreement={(type) => {
               actions.setSendAgreementType(type);
               actions.setSendAgreementOpen(true);

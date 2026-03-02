@@ -46,7 +46,7 @@ const VALID_TRANSITIONS: Record<AgreementStatus, AgreementStatus[]> = {
   sent: ['signed', 'redlined', 'declined'],
   redlined: ['under_review', 'declined'],
   under_review: ['signed', 'declined'],
-  signed: ['expired'],
+  signed: ['sent', 'expired'],
   expired: ['sent'],
   declined: ['sent'],
 };

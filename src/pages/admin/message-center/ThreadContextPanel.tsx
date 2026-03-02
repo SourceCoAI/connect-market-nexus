@@ -194,7 +194,7 @@ function useUserActivityTimeline(userId: string | null) {
       if (membership?.firm_id) {
         const { data: auditLogs } = await supabase
           .from('agreement_audit_log')
-          .select('id, agreement_type, old_status, new_status, created_at, notes')
+          .select('id, agreement_type, old_status, new_status, created_at, notes, changed_by_name')
           .eq('firm_id', membership.firm_id)
           .order('created_at', { ascending: false })
           .limit(20);
@@ -202,11 +202,12 @@ function useUserActivityTimeline(userId: string | null) {
         (auditLogs || []).forEach((log) => {
           const isNda = log.agreement_type === 'nda';
           const label = isNda ? 'NDA' : 'Fee Agreement';
+          const byAdmin = log.changed_by_name ? ` by ${log.changed_by_name}` : '';
           events.push({
             id: `audit-${log.id}`,
             type: log.new_status === 'signed' ? (isNda ? 'nda_signed' : 'fee_signed') : (isNda ? 'nda_sent' : 'fee_sent'),
             title: `${label}: ${log.new_status}`,
-            description: log.notes || `${log.old_status || 'n/a'} → ${log.new_status}`,
+            description: log.notes || `${log.old_status || 'n/a'} → ${log.new_status}${byAdmin}`,
             timestamp: log.created_at || '',
           });
         });

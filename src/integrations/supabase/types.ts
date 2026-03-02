@@ -10775,15 +10775,21 @@ export type Database = {
       get_user_firm_agreement_status: {
         Args: { p_user_id: string }
         Returns: {
+          fee_agreement_document_url: string
           fee_agreement_signed: boolean
           fee_agreement_signed_at: string
+          fee_agreement_signed_by_name: string
           fee_agreement_status: string
           fee_docuseal_status: string
+          fee_signed_document_url: string
           firm_id: string
           firm_name: string
+          nda_document_url: string
           nda_docuseal_status: string
           nda_signed: boolean
           nda_signed_at: string
+          nda_signed_by_name: string
+          nda_signed_document_url: string
           nda_status: string
         }[]
       }

@@ -553,6 +553,8 @@ export default function DocumentTrackingPage() {
                         <span title={format(new Date(firm.nda_sent_at), 'MMM d, yyyy h:mm a')}>
                           Sent {formatDistanceToNow(new Date(firm.nda_sent_at), { addSuffix: true })}
                         </span>
+                      ) : firm.nda_status !== 'not_started' ? (
+                        <LastAuditAction firmId={firm.id} agreementType="nda" />
                       ) : '--'}
                     </td>
 
@@ -576,6 +578,8 @@ export default function DocumentTrackingPage() {
                         <span title={format(new Date(firm.fee_agreement_sent_at), 'MMM d, yyyy h:mm a')}>
                           Sent {formatDistanceToNow(new Date(firm.fee_agreement_sent_at), { addSuffix: true })}
                         </span>
+                      ) : firm.fee_agreement_status !== 'not_started' ? (
+                        <LastAuditAction firmId={firm.id} agreementType="fee_agreement" />
                       ) : '--'}
                     </td>
 
@@ -601,6 +605,37 @@ export default function DocumentTrackingPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Last Audit Action (for non-signed, non-not_started states) ──────
+
+function LastAuditAction({ firmId, agreementType }: { firmId: string; agreementType: 'nda' | 'fee_agreement' }) {
+  const { data } = useQuery({
+    queryKey: ['last-audit-action', firmId, agreementType],
+    queryFn: async () => {
+      const { data: logs, error } = await supabase
+        .from('agreement_audit_log')
+        .select('new_status, changed_by_name, created_at')
+        .eq('firm_id', firmId)
+        .eq('agreement_type', agreementType)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) return null;
+      return logs;
+    },
+    staleTime: 60_000,
+  });
+
+  if (!data) return <span>--</span>;
+
+  return (
+    <div>
+      <span className="text-amber-600 font-medium">{data.new_status}</span>
+      {data.changed_by_name && <p className="text-[10px]">by {data.changed_by_name}</p>}
+      {data.created_at && <p className="text-[10px]">{format(new Date(data.created_at), 'MMM d, yyyy')}</p>}
     </div>
   );
 }
