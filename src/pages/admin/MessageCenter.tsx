@@ -181,12 +181,27 @@ function useInboxThreads() {
 // ─── Main Component ───
 
 export default function MessageCenter() {
+  const queryClient = useQueryClient();
   const { data: threads = [], isLoading } = useInboxThreads();
   const { data: adminProfiles } = useAdminProfiles();
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<InboxFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('all');
+
+  // Realtime subscription for new messages
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-inbox-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'connection_messages' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['inbox-threads'] });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'connection_requests' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['inbox-threads'] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const selectedThread = threads.find((t) => t.connection_request_id === selectedThreadId);
 
