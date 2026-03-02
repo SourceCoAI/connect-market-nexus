@@ -91,8 +91,8 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
   const { data: firm, isLoading } = useThreadBuyerFirm(userId);
   const navigate = useNavigate();
 
-  const ndaStatus = firm ? resolveStatus(firm.nda_signed, firm.nda_docuseal_status) : null;
-  const feeStatus = firm ? resolveStatus(firm.fee_agreement_signed, firm.fee_docuseal_status) : null;
+  const ndaStatus = firm ? resolveStatus(!!firm.nda_signed, firm.nda_docuseal_status) : null;
+  const feeStatus = firm ? resolveStatus(!!firm.fee_agreement_signed, firm.fee_docuseal_status) : null;
 
   return (
     <div className="w-[240px] flex-shrink-0 flex flex-col min-h-0 overflow-y-auto" style={{ borderLeft: '1px solid #E5DDD0', backgroundColor: '#FCF9F0' }}>
