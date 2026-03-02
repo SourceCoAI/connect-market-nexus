@@ -8,6 +8,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
+import { RecentAgreementSignaturesCard } from './dashboard/RecentAgreementSignaturesCard';
 import { useAdmin } from '@/hooks/use-admin';
 import { useRecentUserActivity } from '@/hooks/use-recent-user-activity';
 import { Button } from '@/components/ui/button';
@@ -523,6 +524,9 @@ export function StripeOverviewTab() {
           )}
         </div>
       </div>
+
+      {/* Recent Agreement Signatures */}
+      <RecentAgreementSignaturesCard />
 
       {/* User Details Side Panel */}
       <UserDetailsSidePanel

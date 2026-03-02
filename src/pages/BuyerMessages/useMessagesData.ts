@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import type { BuyerThread } from './helpers';
 
 // ─── useResolvedThreadId ───
@@ -140,6 +141,7 @@ export function useBuyerActiveRequest() {
 
 export function useFirmAgreementStatus() {
   const { user } = useAuth();
+  useAgreementStatusSync();
 
   return useQuery({
     queryKey: ['buyer-firm-agreement-status', user?.id],

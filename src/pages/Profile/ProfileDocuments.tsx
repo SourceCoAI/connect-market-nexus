@@ -87,7 +87,7 @@ function useSignedDocuments() {
       return docs;
     },
     enabled: !!user?.id,
-    staleTime: 60_000,
+    staleTime: 15_000,
   });
 }
 
