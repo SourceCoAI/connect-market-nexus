@@ -27,8 +27,8 @@ import {
   CheckCircle,
   X,
   Briefcase,
-  Landmark,
-  Building2,
+  Database,
+  Globe,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -37,7 +37,7 @@ interface RecommendedBuyersPanelProps {
   listingId: string;
 }
 
-const MAX_BUYERS = 5;
+const PAGE_SIZE = 5;
 
 const TIER_CONFIG: Record<BuyerScore['tier'], { label: string; color: string; icon: typeof Zap }> = {
   move_now: { label: 'Move Now', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: Zap },
@@ -62,17 +62,9 @@ function formatBuyerType(type: string | null): string {
   return map[type] || type.replace('_', ' ');
 }
 
-/** Sponsors = PE firms, independent sponsors, family offices, search funds */
-const SPONSOR_TYPES = new Set(['pe_firm', 'family_office', 'independent_sponsor', 'search_fund']);
-
-/** Keywords in company name that indicate a sponsor/financial buyer */
-const SPONSOR_NAME_KEYWORDS = /\b(capital|partners|equity|investment|ventures|advisors|fund|holdings|group)\b/i;
-
-function isSponsor(buyer: BuyerScore): boolean {
-  if (buyer.buyer_type && SPONSOR_TYPES.has(buyer.buyer_type)) return true;
-  if (buyer.pe_firm_name) return true;
-  if (SPONSOR_NAME_KEYWORDS.test(buyer.company_name)) return true;
-  return false;
+/** Internal = buyers from our platform (marketplace + buyer pool). External = AI-discovered buyers. */
+function isInternal(buyer: BuyerScore): boolean {
+  return buyer.source === 'marketplace' || buyer.source === 'scored';
 }
 
 function TierSummary({ buyers }: { buyers: BuyerScore[] }) {
@@ -292,7 +284,9 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
   const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<'sponsors' | 'operating'>('sponsors');
+  const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
+  const [internalVisible, setInternalVisible] = useState(PAGE_SIZE);
+  const [externalVisible, setExternalVisible] = useState(PAGE_SIZE);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -308,9 +302,9 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
 
   const handleSeedBuyers = async () => {
     setSeedResults(null);
-    const buyerCategory = activeTab === 'sponsors' ? 'sponsors' as const : 'operating_companies' as const;
     try {
-      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: false, buyerCategory });
+      // AI search always runs without buyerCategory filter — Opus finds the best buyers across all types
+      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: false });
       setSeedResults(result.seeded_buyers);
       if (result.cached) {
         toast.info(`Found ${result.total} cached AI-seeded buyers`);
@@ -413,9 +407,11 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
 
   const allBuyers = data?.buyers || [];
   const available = allBuyers.filter(b => !acceptedIds.has(b.buyer_id) && !rejectedIds.has(b.buyer_id));
-  const sponsors = available.filter(isSponsor).slice(0, MAX_BUYERS);
-  const operatingCos = available.filter(b => !isSponsor(b)).slice(0, MAX_BUYERS);
-  const buyers = [...sponsors, ...operatingCos];
+  const allInternal = available.filter(isInternal);
+  const allExternal = available.filter(b => !isInternal(b));
+  const internalBuyers = allInternal.slice(0, internalVisible);
+  const externalBuyers = allExternal.slice(0, externalVisible);
+  const buyers = [...allInternal, ...allExternal];
 
   return (
     <Card>
@@ -435,7 +431,7 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
             disabled={seedMutation.isPending}
           >
             <Sparkles className={cn('h-3.5 w-3.5 mr-1.5', seedMutation.isPending && 'animate-pulse')} />
-            {seedMutation.isPending ? 'Searching...' : activeTab === 'sponsors' ? 'AI Search Sponsors' : 'AI Search Operating Cos'}
+            {seedMutation.isPending ? 'Searching...' : 'AI Search Buyers'}
           </Button>
           <Button
             variant="outline"
@@ -462,57 +458,86 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
             </p>
           </div>
         ) : (
-          <Tabs defaultValue="sponsors" className="w-full" onValueChange={(v) => setActiveTab(v as 'sponsors' | 'operating')}>
+          <Tabs defaultValue="internal" className="w-full" onValueChange={(v) => setActiveTab(v as 'internal' | 'external')}>
             <TabsList className="mb-3">
-              <TabsTrigger value="sponsors" className="gap-1.5">
-                <Landmark className="h-3.5 w-3.5" />
-                Sponsors
-                {sponsors.length > 0 && (
+              <TabsTrigger value="internal" className="gap-1.5">
+                <Database className="h-3.5 w-3.5" />
+                Internal
+                {allInternal.length > 0 && (
                   <Badge variant="secondary" className="text-[10px] h-4 px-1.5 ml-0.5">
-                    {sponsors.length}
+                    {allInternal.length}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="operating" className="gap-1.5">
-                <Building2 className="h-3.5 w-3.5" />
-                Operating Companies
-                {operatingCos.length > 0 && (
+              <TabsTrigger value="external" className="gap-1.5">
+                <Globe className="h-3.5 w-3.5" />
+                External
+                {allExternal.length > 0 && (
                   <Badge variant="secondary" className="text-[10px] h-4 px-1.5 ml-0.5">
-                    {operatingCos.length}
+                    {allExternal.length}
                   </Badge>
                 )}
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="sponsors" className="space-y-1.5 mt-0">
-              {sponsors.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No sponsors found</p>
+            <TabsContent value="internal" className="space-y-1.5 mt-0">
+              {allInternal.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No matching buyers from your buyer pool</p>
               ) : (
-                sponsors.map(buyer => (
-                  <BuyerCard
-                    key={buyer.buyer_id}
-                    buyer={buyer}
-                    onAccept={handleAccept}
-                    onReject={handleReject}
-                    isAccepting={acceptingIds.has(buyer.buyer_id)}
-                  />
-                ))
+                <>
+                  {internalBuyers.map(buyer => (
+                    <BuyerCard
+                      key={buyer.buyer_id}
+                      buyer={buyer}
+                      onAccept={handleAccept}
+                      onReject={handleReject}
+                      isAccepting={acceptingIds.has(buyer.buyer_id)}
+                    />
+                  ))}
+                  {allInternal.length > internalVisible && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => setInternalVisible(prev => prev + PAGE_SIZE)}
+                    >
+                      Show More ({allInternal.length - internalVisible} remaining)
+                    </Button>
+                  )}
+                </>
               )}
             </TabsContent>
 
-            <TabsContent value="operating" className="space-y-1.5 mt-0">
-              {operatingCos.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No operating companies found</p>
+            <TabsContent value="external" className="space-y-1.5 mt-0">
+              {allExternal.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-6 text-center">
+                  <Globe className="h-6 w-6 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">
+                    No AI-discovered buyers yet. Click "AI Search Buyers" to discover new matches.
+                  </p>
+                </div>
               ) : (
-                operatingCos.map(buyer => (
-                  <BuyerCard
-                    key={buyer.buyer_id}
-                    buyer={buyer}
-                    onAccept={handleAccept}
-                    onReject={handleReject}
-                    isAccepting={acceptingIds.has(buyer.buyer_id)}
-                  />
-                ))
+                <>
+                  {externalBuyers.map(buyer => (
+                    <BuyerCard
+                      key={buyer.buyer_id}
+                      buyer={buyer}
+                      onAccept={handleAccept}
+                      onReject={handleReject}
+                      isAccepting={acceptingIds.has(buyer.buyer_id)}
+                    />
+                  ))}
+                  {allExternal.length > externalVisible && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => setExternalVisible(prev => prev + PAGE_SIZE)}
+                    >
+                      Show More ({allExternal.length - externalVisible} remaining)
+                    </Button>
+                  )}
+                </>
               )}
             </TabsContent>
 

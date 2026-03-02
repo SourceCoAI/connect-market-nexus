@@ -1,6 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
+import {
+  GEMINI_API_URL,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiHeaders,
+  callGeminiWithRetry,
+} from '../_shared/ai-providers.ts';
 
 // ── Types ──
 
@@ -15,6 +21,7 @@ interface BuyerScore {
   pe_firm_name: string | null;
   pe_firm_id: string | null;
   buyer_type: string | null;
+  buyer_category: 'sponsor' | 'operating_company';
   hq_state: string | null;
   hq_city: string | null;
   has_fee_agreement: boolean;
@@ -348,6 +355,88 @@ function classifyTier(
   return 'speculative';
 }
 
+// ── AI-based buyer classification ──
+
+/** Known sponsor buyer_types — no AI needed */
+const SPONSOR_TYPES = new Set(['pe_firm', 'family_office', 'independent_sponsor', 'search_fund']);
+/** Known operating company buyer_types — no AI needed */
+const OPERATING_TYPES = new Set(['platform', 'strategic']);
+
+/** Quick rule-based check before resorting to AI */
+function quickClassify(buyer: { buyer_type: string | null; company_name: string; pe_firm_name: string | null; thesis_summary: string | null }): 'sponsor' | 'operating_company' | null {
+  const bt = buyer.buyer_type?.toLowerCase();
+  if (bt && SPONSOR_TYPES.has(bt)) return 'sponsor';
+  if (bt && OPERATING_TYPES.has(bt)) return 'operating_company';
+  // pe_firm_name set AND different from company_name → the company IS a platform (operating), backed by the PE firm
+  if (buyer.pe_firm_name && buyer.pe_firm_name !== buyer.company_name) return 'operating_company';
+  // Can't determine from type alone
+  return null;
+}
+
+/**
+ * For buyers that can't be classified by type alone (buyer_type = 'other' | null),
+ * batch-classify them using Gemini Flash. Results are persisted to remarketing_buyers.buyer_type
+ * so AI only runs once per buyer.
+ */
+async function classifyAmbiguousBuyers(
+  buyers: Array<{ id: string; company_name: string; buyer_type: string | null; pe_firm_name: string | null; thesis_summary: string | null }>,
+  supabase: ReturnType<typeof createClient>,
+): Promise<Map<string, 'sponsor' | 'operating_company'>> {
+  const results = new Map<string, 'sponsor' | 'operating_company'>();
+
+  // Only classify buyers that couldn't be rule-classified
+  const ambiguous = buyers.filter(b => quickClassify(b) === null);
+  if (ambiguous.length === 0) return results;
+
+  // Batch in groups of 20
+  const BATCH_SIZE = 20;
+  for (let i = 0; i < ambiguous.length; i += BATCH_SIZE) {
+    const batch = ambiguous.slice(i, i + BATCH_SIZE);
+    const prompt = `Classify each company as either "sponsor" (PE firm, family office, investment fund, search fund, independent sponsor — any entity whose primary business is investing capital) or "operating_company" (real business that delivers services/products, including PE-backed platform companies that actually operate).
+
+Return a JSON array of objects with "id" and "category" fields. Example: [{"id":"abc","category":"sponsor"}]
+
+Companies to classify:
+${batch.map(b => `- id: "${b.id}", name: "${b.company_name}", type: "${b.buyer_type || 'unknown'}", pe_firm: "${b.pe_firm_name || 'none'}", thesis: "${(b.thesis_summary || '').slice(0, 100)}"`).join('\n')}
+
+Return ONLY the JSON array.`;
+
+    try {
+      const geminiResponse = await callGeminiWithRetry({
+        model: DEFAULT_GEMINI_MODEL,
+        prompt,
+        maxTokens: 1024,
+      });
+
+      // Parse response
+      const text = typeof geminiResponse === 'string' ? geminiResponse : JSON.stringify(geminiResponse);
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as Array<{ id: string; category: string }>;
+        for (const item of parsed) {
+          const cat = item.category === 'sponsor' ? 'sponsor' : 'operating_company';
+          results.set(item.id, cat);
+        }
+      }
+    } catch (err) {
+      console.error('Gemini classification batch failed (non-fatal):', err);
+      // Fall through — unclassified buyers default to operating_company
+    }
+  }
+
+  // Persist classifications to DB so AI doesn't run again for these buyers
+  for (const [buyerId, category] of results) {
+    const newType = category === 'sponsor' ? 'pe_firm' : 'strategic';
+    await supabase
+      .from('remarketing_buyers')
+      .update({ buyer_type: newType })
+      .eq('id', buyerId)
+      .is('buyer_type', null);
+  }
+
+  return results;
+}
+
 // ── Main handler ──
 
 Deno.serve(async (req: Request) => {
@@ -471,6 +560,9 @@ Deno.serve(async (req: Request) => {
       if (row.why_relevant) seedLogMap.set(row.remarketing_buyer_id, row.why_relevant);
     }
 
+    // ── Classify ambiguous buyers (buyer_type = null / 'other') ──
+    const aiClassifications = await classifyAmbiguousBuyers(buyers, supabase);
+
     // ── Normalize deal fields ──
     const richKeywords = extractDealKeywords(deal);
     const dealCategories = normArray([
@@ -547,12 +639,17 @@ Deno.serve(async (req: Request) => {
           : 'Potential industry fit based on acquisition criteria.';
       }
 
+      // Determine buyer_category: rule-based first, then AI classification, default to operating_company
+      const ruleCategory = quickClassify(buyer);
+      const buyer_category: 'sponsor' | 'operating_company' = ruleCategory || aiClassifications.get(buyer.id) || 'operating_company';
+
       scored.push({
         buyer_id: buyer.id,
         company_name: buyer.company_name,
         pe_firm_name: buyer.pe_firm_name,
         pe_firm_id: buyer.pe_firm_id || null,
         buyer_type: buyer.buyer_type,
+        buyer_category,
         hq_state: buyer.hq_state,
         hq_city: buyer.hq_city,
         has_fee_agreement: !!buyer.has_fee_agreement,
