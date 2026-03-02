@@ -4,7 +4,7 @@ import { AdminConnectionRequest } from "@/types/admin";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useEmailDeliveryMonitoring } from "./use-email-delivery-monitoring";
-import { APP_CONFIG } from '@/config/app';
+
 
 /**
  * Hook for sending email notifications from admin actions
@@ -16,23 +16,19 @@ export function useAdminEmail() {
    * Send an email notification to a user when their account is approved
    */
   const sendUserApprovalEmail = async (user: User) => {
-    // Sending approval email
     const correlationId = `approval-${user.id}-${Date.now()}`;
+    const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'there';
     
     try {
-      const notificationPayload = {
-        email: user.email,
-        subject: "Your SourceCo Marketplace Account Has Been Approved!",
-        message: `Hi ${user.first_name},\n\nGreat news! Your SourceCo Marketplace account has been approved and you now have full access to our platform.\n\nYou can now:\n• Browse all available business listings\n• Request connections with sellers\n• Save listings for later review\n• Access detailed financial information\n\nStart exploring opportunities that match your investment criteria.`,
-        type: 'success',
-        actionUrl: 'https://marketplace.sourcecodeals.com/marketplace',
-        actionText: 'Browse Marketplace'
-      };
-      
       const { data, error } = await supabase.functions.invoke(
-        "send-user-notification", 
+        "user-journey-notifications", 
         { 
-          body: notificationPayload
+          body: {
+            event_type: 'profile_approved',
+            user_id: user.id,
+            user_email: user.email,
+            user_name: userName,
+          }
         }
       );
       
@@ -44,19 +40,9 @@ export function useAdminEmail() {
         throw error;
       }
       
-      if (data && !data.success) {
-        trackEmailDelivery(correlationId, {
-          success: false,
-          error: data.message || 'Failed to send approval email'
-        });
-        throw new Error(data.message || 'Failed to send approval email');
-      }
-      
-      // User approval email sent successfully
       trackEmailDelivery(correlationId, {
         success: true,
         messageId: data?.messageId,
-        emailProvider: data?.emailProvider
       });
       
       toast({
@@ -84,23 +70,20 @@ export function useAdminEmail() {
    * Send an email notification to a user when their account is rejected
    */
   const sendUserRejectionEmail = async (user: User, reason?: string) => {
-    // Sending rejection email
     const correlationId = `rejection-${user.id}-${Date.now()}`;
+    const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'there';
     
     try {
-      const notificationPayload = {
-        email: user.email,
-        subject: "SourceCo Marketplace Account Status Update",
-        message: `Hi ${user.first_name},\n\nThank you for your interest in SourceCo Marketplace. After reviewing your application, we are unable to approve your account at this time.\n\n${reason ? `Reason: ${reason}\n\n` : ''}If you believe this decision was made in error or if you have additional information to share, please don't hesitate to contact our support team.\n\nWe appreciate your understanding.`,
-        type: 'error',
-        actionUrl: `mailto:${APP_CONFIG.adminEmail}`,
-        actionText: 'Contact Support'
-      };
-      
       const { data, error } = await supabase.functions.invoke(
-        "send-user-notification", 
+        "user-journey-notifications", 
         { 
-          body: notificationPayload
+          body: {
+            event_type: 'profile_rejected',
+            user_id: user.id,
+            user_email: user.email,
+            user_name: userName,
+            metadata: { rejection_reason: reason || 'Application did not meet our criteria' },
+          }
         }
       );
       
@@ -112,19 +95,9 @@ export function useAdminEmail() {
         throw error;
       }
       
-      if (data && !data.success) {
-        trackEmailDelivery(correlationId, {
-          success: false,
-          error: data.message || 'Failed to send rejection email'
-        });
-        throw new Error(data.message || 'Failed to send rejection email');
-      }
-      
-      // User rejection email sent successfully
       trackEmailDelivery(correlationId, {
         success: true,
         messageId: data?.messageId,
-        emailProvider: data?.emailProvider
       });
       
       toast({

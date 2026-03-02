@@ -219,6 +219,62 @@ const handler = async (req: Request): Promise<Response> => {
       console.log(`[${correlationId}] ${event_type} email sent to ${user_email}`);
     }
 
+    // For user_created events, also notify all admins
+    if (event_type === 'user_created') {
+      try {
+        const { data: adminRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'admin');
+
+        if (adminRoles?.length) {
+          const adminIds = adminRoles.map((r: { user_id: string }) => r.user_id);
+          const { data: adminProfiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, email')
+            .in('id', adminIds);
+
+          const company = (event.metadata?.company as string) || '';
+          const adminSubject = `New User Registration: ${user_name} (${user_email})`;
+          const adminHtml = `
+<!DOCTYPE html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+<div style="max-width:600px;margin:0 auto;padding:40px 24px;">
+  <div style="font-size:11px;font-weight:600;letter-spacing:1.2px;color:#9A9A9A;text-transform:uppercase;margin-bottom:8px;">SOURCECO</div>
+  <h1 style="color:#0E101A;font-size:20px;font-weight:700;margin:0 0 24px 0;">New User Registration</h1>
+  <div style="color:#3A3A3A;font-size:15px;line-height:1.7;">
+    <p style="margin:0 0 16px 0;">A new user has registered on the marketplace:</p>
+    <div style="background:#FCF9F0;border-left:4px solid #DEC76B;padding:16px;border-radius:0 8px 8px 0;margin:0 0 24px 0;">
+      <p style="margin:0;color:#3A3A3A;font-size:14px;"><strong>Name:</strong> ${escapeHtml(user_name)}<br/><strong>Email:</strong> ${escapeHtml(user_email)}${company ? `<br/><strong>Company:</strong> ${escapeHtml(company)}` : ''}</p>
+    </div>
+    <p style="margin:0 0 24px 0;">The user will need to verify their email before you can review and approve their account.</p>
+  </div>
+  <div style="text-align:center;margin:32px 0;">
+    <a href="https://marketplace.sourcecodeals.com/admin/users" style="display:inline-block;background:#0E101A;color:#ffffff;padding:14px 28px;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">Review Users</a>
+  </div>
+  <div style="margin-top:48px;padding-top:24px;border-top:1px solid #E5DDD0;">
+    <p style="color:#9A9A9A;font-size:12px;margin:0;">This is an automated notification from SourceCo.</p>
+  </div>
+</div></body></html>`;
+
+          for (const admin of (adminProfiles || [])) {
+            if (!admin.email) continue;
+            const adminName = `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
+            await sendViaBervo({
+              to: admin.email,
+              toName: adminName,
+              subject: adminSubject,
+              htmlContent: adminHtml,
+              senderName: 'SourceCo',
+            });
+          }
+          console.log(`[${correlationId}] Admin notifications sent for new user registration`);
+        }
+      } catch (adminErr) {
+        console.error(`[${correlationId}] Failed to notify admins of new user:`, adminErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, correlationId, message: 'User journey event processed' }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }

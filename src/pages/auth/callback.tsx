@@ -52,6 +52,19 @@ export default function AuthCallback() {
               // Don't block the flow if email fails - just log it
               console.error('Failed to send verification success email:', emailError);
             }
+
+            // Also send branded email_verified notification via user-journey-notifications
+            const userName = `${(profile.first_name || '')} ${(profile.last_name || '')}`.trim() || 'there';
+            supabase.functions.invoke('user-journey-notifications', {
+              body: {
+                event_type: 'email_verified',
+                user_id: authUser.id,
+                user_email: profile.email as string,
+                user_name: userName,
+              },
+            }).catch((err) => {
+              console.error('Failed to send email_verified journey notification:', err);
+            });
           }
 
           if (profile?.email_verified && profile?.approval_status === 'approved') {

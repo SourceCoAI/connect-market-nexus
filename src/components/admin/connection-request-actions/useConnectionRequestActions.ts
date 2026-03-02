@@ -95,6 +95,31 @@ export function useConnectionRequestActions({
         sender_role: 'admin',
         message_type: 'decision',
       });
+
+      // Send dedicated connection approval email to buyer
+      const buyerEmail = user.email;
+      const buyerName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+      const listingTitle = listing?.title || 'the listing';
+      const listingId = listing?.id;
+      if (buyerEmail && listingId) {
+        supabase.functions
+          .invoke('send-connection-notification', {
+            body: {
+              type: 'approval_notification',
+              recipientEmail: buyerEmail,
+              recipientName: buyerName || buyerEmail,
+              requesterName: buyerName || buyerEmail,
+              requesterEmail: buyerEmail,
+              listingTitle,
+              listingId,
+              requestId,
+            },
+          })
+          .catch((emailErr) => {
+            console.error('[approval-email] Failed to send connection approval email:', emailErr);
+          });
+      }
+
       toast({ title: 'Request approved', description: 'Buyer has been notified.' });
     } catch (err) {
       toast({

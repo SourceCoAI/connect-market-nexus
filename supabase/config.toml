@@ -250,3 +250,7 @@ verify_jwt = false
 verify_jwt = false
 [functions.confirm-agreement-signed]
 verify_jwt = false
+[functions.notify-buyer-rejection]
+verify_jwt = false
+[functions.send-approval-email]
+verify_jwt = false

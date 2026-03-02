@@ -273,6 +273,21 @@ export function useNuclearAuth() {
     if (error) throw error;
 
     if (data.user) {
+      const userName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'there';
+
+      // Send welcome email + admin notification via user-journey-notifications
+      const welcomeEmailPromise = supabase.functions.invoke('user-journey-notifications', {
+        body: {
+          event_type: 'user_created',
+          user_id: data.user.id,
+          user_email: userData.email,
+          user_name: userName,
+          metadata: { company: userData.company || '' },
+        },
+      }).catch((err) => {
+        console.warn('Welcome email failed but user creation succeeded:', err);
+      });
+
       const adminNotificationPromise = supabase.functions.invoke('enhanced-admin-notification', {
         body: {
           first_name: userData.first_name || '',
@@ -293,7 +308,7 @@ export function useNuclearAuth() {
         console.warn('Firm creation at signup failed (will retry on pending-approval page):', err);
       });
 
-      await Promise.allSettled([adminNotificationPromise, firmCreationPromise]);
+      await Promise.allSettled([welcomeEmailPromise, adminNotificationPromise, firmCreationPromise]);
     }
   };
 
