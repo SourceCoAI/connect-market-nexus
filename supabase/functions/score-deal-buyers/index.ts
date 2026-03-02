@@ -1,6 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
+import {
+  GEMINI_API_URL,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiHeaders,
+  callGeminiWithRetry,
+} from '../_shared/ai-providers.ts';
 
 // ── Types ──
 
@@ -15,6 +21,7 @@ interface BuyerScore {
   pe_firm_name: string | null;
   pe_firm_id: string | null;
   buyer_type: string | null;
+  buyer_category: 'sponsor' | 'operating_company';
   hq_state: string | null;
   hq_city: string | null;
   has_fee_agreement: boolean;
@@ -348,6 +355,124 @@ function classifyTier(
   return 'speculative';
 }
 
+// ── AI-based buyer classification ──
+
+/** Known sponsor buyer_types — no AI needed */
+const SPONSOR_TYPES = new Set(['pe_firm', 'family_office', 'independent_sponsor', 'search_fund']);
+/** Known operating company buyer_types — no AI needed */
+const OPERATING_TYPES = new Set(['platform', 'strategic']);
+
+/** Quick rule-based check before resorting to AI */
+function quickClassify(buyer: { buyer_type: string | null; company_name: string; pe_firm_name: string | null; thesis_summary: string | null }): 'sponsor' | 'operating_company' | null {
+  const bt = buyer.buyer_type?.toLowerCase();
+  if (bt && SPONSOR_TYPES.has(bt)) return 'sponsor';
+  if (bt && OPERATING_TYPES.has(bt)) return 'operating_company';
+  // pe_firm_name set AND different from company_name → the company IS a platform (operating), backed by the PE firm
+  if (buyer.pe_firm_name && buyer.pe_firm_name !== buyer.company_name) return 'operating_company';
+  // Can't determine from type alone
+  return null;
+}
+
+/**
+ * For buyers that can't be classified by type alone (buyer_type = 'other' | null),
+ * batch-classify them using Gemini Flash. Results are persisted to remarketing_buyers.buyer_type
+ * so this only runs once per buyer.
+ */
+async function aiClassifyBuyers(
+  buyers: Array<{ id: string; company_name: string; thesis_summary: string | null; buyer_type: string | null }>,
+  supabase: ReturnType<typeof createClient>,
+  geminiApiKey: string,
+): Promise<Map<string, 'sponsor' | 'operating_company'>> {
+  const result = new Map<string, 'sponsor' | 'operating_company'>();
+  if (buyers.length === 0) return result;
+
+  // Build a compact list for the AI
+  const buyerList = buyers.map((b, i) => ({
+    idx: i,
+    name: b.company_name,
+    thesis: (b.thesis_summary || '').slice(0, 200),
+  }));
+
+  const systemPrompt = `You classify M&A buyers as either "sponsor" or "operating_company".
+
+SPONSOR = financial buyer: PE firm, family office, growth equity fund, independent sponsor, search fund, investment firm, holding company whose primary business is investing capital. Key signals: name contains "capital", "partners", "equity", "fund", "ventures", "investment", "advisors", "holdings", "group", "management"; thesis mentions "we invest", "we partner with", "looking for", "lower middle market", "portfolio companies", "buyout".
+
+OPERATING_COMPANY = actual business that delivers services or products: platform companies (even if PE-backed), strategic acquirers, regional/national service providers, manufacturers, distributors. These companies have employees who do real work — construction, metering, HVAC, healthcare delivery, etc.
+
+Respond with ONLY a JSON array of objects: [{"idx": 0, "cat": "sponsor"}, {"idx": 1, "cat": "operating_company"}]
+No markdown, no explanation.`;
+
+  try {
+    const response = await callGeminiWithRetry(
+      GEMINI_API_URL,
+      getGeminiHeaders(geminiApiKey),
+      {
+        model: DEFAULT_GEMINI_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Classify each buyer:\n${JSON.stringify(buyerList)}` },
+        ],
+        temperature: 0,
+        max_tokens: 1024,
+      },
+      15000,
+      'score-deal-buyers/classify',
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API ${response.status}: ${errText.substring(0, 200)}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    // Parse the response — handle potential markdown fences
+    const cleaned = text.replace(/```json?\s*/gi, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    if (Array.isArray(parsed)) {
+      // Map buyer_type values for DB update
+      const typeMap: Record<string, string> = {
+        sponsor: 'pe_firm',
+        operating_company: 'platform',
+      };
+      const updates: Array<{ id: string; buyer_type: string }> = [];
+
+      for (const item of parsed) {
+        const buyer = buyers[item.idx];
+        if (!buyer) continue;
+        const cat = item.cat === 'sponsor' ? 'sponsor' : 'operating_company';
+        result.set(buyer.id, cat);
+
+        // Persist the classification to avoid re-calling AI
+        if (buyer.buyer_type === 'other' || !buyer.buyer_type) {
+          updates.push({ id: buyer.id, buyer_type: typeMap[cat] || 'other' });
+        }
+      }
+
+      // Batch-update buyer_type in DB (non-blocking, non-fatal)
+      for (const upd of updates) {
+        await supabase
+          .from('remarketing_buyers')
+          .update({ buyer_type: upd.buyer_type })
+          .eq('id', upd.id)
+          .then(({ error }) => {
+            if (error) console.error(`Failed to update buyer_type for ${upd.id}:`, error.message);
+          });
+      }
+    }
+  } catch (err) {
+    console.error('AI buyer classification failed (non-fatal):', err);
+    // Fall back to name-based heuristic
+    const sponsorKeywords = /\b(capital|partners|equity|investment|ventures|advisors|fund|holdings|group|management|succession|advisory|associates)\b/i;
+    for (const buyer of buyers) {
+      result.set(buyer.id, sponsorKeywords.test(buyer.company_name) ? 'sponsor' : 'operating_company');
+    }
+  }
+
+  return result;
+}
+
 // ── Main handler ──
 
 Deno.serve(async (req: Request) => {
@@ -359,6 +484,14 @@ Deno.serve(async (req: Request) => {
 
   try {
     // ── Auth guard (shared helper) ──
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiApiKey) {
+      return new Response(
+        JSON.stringify({ error: 'GEMINI_API_KEY is not configured' }),
+        { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
@@ -471,6 +604,23 @@ Deno.serve(async (req: Request) => {
       if (row.why_relevant) seedLogMap.set(row.remarketing_buyer_id, row.why_relevant);
     }
 
+    // ── Classify ambiguous buyers (buyer_type = 'other' or null) via AI ──
+    const ambiguousBuyers = buyers.filter(b => !b.buyer_type || b.buyer_type === 'other');
+    const aiClassifications = ambiguousBuyers.length > 0
+      ? await aiClassifyBuyers(ambiguousBuyers, supabase, geminiApiKey)
+      : new Map<string, 'sponsor' | 'operating_company'>();
+
+    // Build buyer category map for ALL buyers (rule-based + AI fallback)
+    const buyerCategoryMap = new Map<string, 'sponsor' | 'operating_company'>();
+    for (const buyer of buyers) {
+      const quick = quickClassify(buyer);
+      if (quick) {
+        buyerCategoryMap.set(buyer.id, quick);
+      } else {
+        buyerCategoryMap.set(buyer.id, aiClassifications.get(buyer.id) || 'operating_company');
+      }
+    }
+
     // ── Normalize deal fields ──
     const richKeywords = extractDealKeywords(deal);
     const dealCategories = normArray([
@@ -522,30 +672,9 @@ Deno.serve(async (req: Request) => {
 
       const tier = classifyTier(composite, !!buyer.has_fee_agreement, buyer.acquisition_appetite);
 
-      // Build fit_reason: seed log why_relevant (best) > thesis_summary (good) > generated sentence
+      // fit_reason will be populated after scoring — use seed log if available, otherwise placeholder
       const seedLogReason = seedLogMap.get(buyer.id);
-      const rawThesis = (buyer.thesis_summary || '').trim();
-      // Strip signal-like suffixes that may have been appended to thesis_summary by previous code
-      const thesisCleaned = rawThesis
-        .replace(/\.?\s*(Exact industry match:[^.]*|Adjacent industry:[^.]*|State match:[^.]*|Region match:[^.]*|National buyer|EBITDA [^.]*|Fee agreement signed|Aggressive [^.]*|\d+ acquisitions)\.?\s*/gi, '')
-        .trim();
-      let fit_reason: string;
-      if (seedLogReason) {
-        fit_reason = seedLogReason;
-      } else if (thesisCleaned) {
-        const firstSentence = thesisCleaned.split('.').filter(s => s.trim())[0]?.trim() || thesisCleaned;
-        fit_reason = firstSentence.endsWith('.') ? firstSentence : `${firstSentence}.`;
-      } else {
-        // Generate a human-readable sentence from scoring signals
-        const parts: string[] = [];
-        if (svc.score >= 60) parts.push(`aligns with ${dealIndustry || 'target'} industry focus`);
-        if (geo.score >= 60) parts.push(`geographic overlap in ${dealState?.toUpperCase() || 'target region'}`);
-        if (size.score >= 60) parts.push('EBITDA range fits deal size');
-        if (bonus.signals.length > 0) parts.push(bonus.signals[0].toLowerCase());
-        fit_reason = parts.length > 0
-          ? `${buyer.company_name} ${parts.join(', ')}.`
-          : 'Potential industry fit based on acquisition criteria.';
-      }
+      const fit_reason = seedLogReason || '';
 
       scored.push({
         buyer_id: buyer.id,
@@ -553,6 +682,7 @@ Deno.serve(async (req: Request) => {
         pe_firm_name: buyer.pe_firm_name,
         pe_firm_id: buyer.pe_firm_id || null,
         buyer_type: buyer.buyer_type,
+        buyer_category: buyerCategoryMap.get(buyer.id) || 'operating_company',
         hq_state: buyer.hq_state,
         hq_city: buyer.hq_city,
         has_fee_agreement: !!buyer.has_fee_agreement,
@@ -572,6 +702,110 @@ Deno.serve(async (req: Request) => {
     // ── Rank and cap ──
     scored.sort((a, b) => b.composite_score - a.composite_score);
     const topBuyers = scored.slice(0, MAX_RESULTS);
+
+    // ── Generate AI fit reasons for top buyers missing them ──
+    const buyersNeedingReasons = topBuyers.filter(b => !b.fit_reason);
+    if (buyersNeedingReasons.length > 0) {
+      // Build buyer context from the raw buyer data
+      const buyerDataMap = new Map(buyers.map(b => [b.id, b]));
+      const reasonBatch = buyersNeedingReasons.slice(0, 20).map((scored, idx) => {
+        const raw = buyerDataMap.get(scored.buyer_id);
+        return {
+          idx,
+          name: scored.company_name,
+          pe: scored.pe_firm_name || undefined,
+          type: scored.buyer_type || undefined,
+          thesis: (raw?.thesis_summary || '').slice(0, 300),
+          services: (raw?.target_services || []).slice(0, 5).join(', '),
+          industries: (raw?.target_industries || []).slice(0, 5).join(', '),
+          geo: (raw?.target_geographies || []).slice(0, 5).join(', '),
+          hq: scored.hq_state || undefined,
+          signals: scored.fit_signals.join('; '),
+          score: scored.composite_score,
+        };
+      });
+
+      const dealSummary = [
+        deal.title ? `"${deal.title}"` : '',
+        deal.industry ? `Industry: ${deal.industry}` : '',
+        deal.address_state ? `Location: ${deal.address_state}` : '',
+        deal.ebitda ? `EBITDA: $${(deal.ebitda / 1_000_000).toFixed(1)}M` : '',
+        deal.executive_summary ? deal.executive_summary.substring(0, 400) : deal.description ? deal.description.substring(0, 400) : '',
+      ].filter(Boolean).join('. ');
+
+      const reasonSystemPrompt = `You write deal-specific buyer fit reasons for M&A recommendations. For each buyer, write 2-3 sentences explaining why they are a compelling fit for THIS specific deal. Be concrete and specific:
+- Reference the buyer's specific portfolio companies, acquisitions, or thesis focus
+- Explain the geographic, service, or strategic overlap with THIS deal
+- If the buyer has a platform in the same space, name it and explain how this deal would be a complementary add-on
+- NEVER be generic (e.g., "invests in business services") — always connect the buyer to THIS deal specifically
+- If you don't have enough info about the buyer, focus on the scoring signals and explain the strategic logic
+
+Respond with ONLY a JSON array: [{"idx": 0, "reason": "2-3 sentence fit reason"}, ...]
+No markdown, no explanation.`;
+
+      try {
+        const reasonResponse = await callGeminiWithRetry(
+          GEMINI_API_URL,
+          getGeminiHeaders(geminiApiKey),
+          {
+            model: DEFAULT_GEMINI_MODEL,
+            messages: [
+              { role: 'system', content: reasonSystemPrompt },
+              { role: 'user', content: `DEAL: ${dealSummary}\n\nBUYERS:\n${JSON.stringify(reasonBatch)}` },
+            ],
+            temperature: 0,
+            max_tokens: 2048,
+          },
+          20000,
+          'score-deal-buyers/fit-reasons',
+        );
+
+        if (!reasonResponse.ok) {
+          const errText = await reasonResponse.text();
+          throw new Error(`Gemini API ${reasonResponse.status}: ${errText.substring(0, 200)}`);
+        }
+
+        const reasonData = await reasonResponse.json();
+        const reasonText = reasonData.choices?.[0]?.message?.content || '';
+        const cleanedReasons = reasonText.replace(/```json?\s*/gi, '').replace(/```/g, '').trim();
+        const parsedReasons = JSON.parse(cleanedReasons);
+
+        if (Array.isArray(parsedReasons)) {
+          for (const item of parsedReasons) {
+            const buyer = buyersNeedingReasons[item.idx];
+            if (buyer && item.reason) {
+              buyer.fit_reason = item.reason;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('AI fit reason generation failed (non-fatal):', err);
+      }
+
+      // Fallback: any buyer still without a fit_reason gets a signal-based reason
+      for (const buyer of topBuyers) {
+        if (!buyer.fit_reason) {
+          const raw = buyerDataMap.get(buyer.buyer_id);
+          const rawThesis = (raw?.thesis_summary || '').trim();
+          const thesisCleaned = rawThesis
+            .replace(/\.?\s*(Exact industry match:[^.]*|Adjacent industry:[^.]*|State match:[^.]*|Region match:[^.]*|National buyer|EBITDA [^.]*|Fee agreement signed|Aggressive [^.]*|\d+ acquisitions)\.?\s*/gi, '')
+            .trim();
+          if (thesisCleaned) {
+            buyer.fit_reason = thesisCleaned.length > 200
+              ? thesisCleaned.substring(0, 200).replace(/\s+\S*$/, '') + '...'
+              : thesisCleaned;
+          } else {
+            const parts: string[] = [];
+            if (buyer.service_score >= 60) parts.push(`aligns with ${dealIndustry || 'target'} industry focus`);
+            if (buyer.geography_score >= 60) parts.push(`geographic overlap in ${dealState?.toUpperCase() || 'target region'}`);
+            if (buyer.size_score >= 60) parts.push('EBITDA range fits deal size');
+            buyer.fit_reason = parts.length > 0
+              ? `${buyer.company_name} ${parts.join(', ')}.`
+              : 'Potential industry fit based on acquisition criteria.';
+          }
+        }
+      }
+    }
 
     // ── Write to cache (non-blocking — scoring still succeeds if cache write fails) ──
     const now = new Date();
