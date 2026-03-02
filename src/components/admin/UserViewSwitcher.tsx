@@ -21,53 +21,42 @@ export function UserViewSwitcher({
   ownerLeadsCount
 }: UserViewSwitcherProps) {
   return (
-    <div className="flex items-center gap-6">
-      {/* Primary Level: Buyers / Owners */}
-      <div className="inline-flex items-center rounded-lg bg-muted/50 p-1">
+    <div className="flex flex-col gap-4">
+      {/* Primary Level: Buyers / Owners — underline tabs */}
+      <div className="flex items-center gap-0 border-b border-border">
         <button
           onClick={() => onPrimaryViewChange('buyers')}
           className={cn(
-            "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            "inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px",
             primaryView === 'buyers'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
+              ? 'border-foreground text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40'
           )}
         >
           Buyers
-          <Badge variant="secondary" className={cn(
-            "h-5 min-w-[28px] justify-center px-1.5 text-xs font-medium",
-            primaryView === 'buyers' ? 'bg-muted' : 'bg-transparent'
-          )}>
+          <Badge variant="secondary" className="h-5 min-w-[28px] justify-center px-1.5 text-xs font-medium">
             {marketplaceCount + nonMarketplaceCount}
           </Badge>
         </button>
         <button
           onClick={() => onPrimaryViewChange('owners')}
           className={cn(
-            "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            "inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px",
             primaryView === 'owners'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
+              ? 'border-foreground text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40'
           )}
         >
           Owners
-          <Badge variant="secondary" className={cn(
-            "h-5 min-w-[28px] justify-center px-1.5 text-xs font-medium",
-            primaryView === 'owners' ? 'bg-muted' : 'bg-transparent'
-          )}>
+          <Badge variant="secondary" className="h-5 min-w-[28px] justify-center px-1.5 text-xs font-medium">
             {ownerLeadsCount}
           </Badge>
         </button>
       </div>
 
-      {/* Divider */}
-      {primaryView === 'buyers' && (
-        <div className="h-5 w-px bg-border" />
-      )}
-
       {/* Secondary Level: Marketplace / Non-Marketplace (only for Buyers) */}
       {primaryView === 'buyers' && (
-        <div className="inline-flex items-center rounded-lg bg-muted/50 p-1">
+        <div className="inline-flex items-center rounded-lg bg-muted/50 p-1 self-start">
           <button
             onClick={() => onSecondaryViewChange('marketplace')}
             className={cn(
