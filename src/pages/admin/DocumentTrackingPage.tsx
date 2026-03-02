@@ -223,7 +223,7 @@ export default function DocumentTrackingPage() {
     },
     onClearSelection: () => setSelectedIds(new Set()),
     onSortColumn: (field) => {
-      const map: Record<string, SortField> = { company_name: 'company', nda: 'nda_status', fee: 'fee_status', members: 'members' };
+      const map: Record<string, SortField> = { company_name: 'company', nda: 'nda_status', fee: 'fee_status', members: 'members', last_signed: 'last_signed' };
       const f = map[field];
       if (f) toggleSort(f);
     },
@@ -474,13 +474,21 @@ export default function DocumentTrackingPage() {
                       <Shield className="h-3 w-3" /> NDA <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">NDA Date</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                    <button onClick={() => toggleSort('last_signed')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                      NDA Date <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">
                     <button onClick={() => toggleSort('fee_status')} className="flex items-center gap-1 hover:text-foreground transition-colors">
                       <FileSignature className="h-3 w-3" /> Fee Agmt <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Fee Date</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                    <button onClick={() => toggleSort('last_signed')} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                      Fee Date <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Primary Contact</th>
                 </tr>
               </thead>
