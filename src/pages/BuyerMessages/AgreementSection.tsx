@@ -285,9 +285,6 @@ export function PendingAgreementBanner() {
                     </Button>
                   </>
                 )}
-                    </Button>
-                  </>
-                )}
               </div>
             </div>
           ))}
