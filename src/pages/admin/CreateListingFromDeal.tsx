@@ -107,7 +107,7 @@ export default function CreateListingFromDeal() {
         metric_4_custom_label: anonymized.metric_4_custom_label,
         metric_4_custom_value: anonymized.metric_4_custom_value,
         metric_4_custom_subtitle: anonymized.metric_4_custom_subtitle,
-        custom_sections: anonymized.custom_sections || [],
+        custom_sections: (anonymized as any).custom_sections || [],
         tags: [],
         status: 'active',
         created_at: new Date().toISOString(),

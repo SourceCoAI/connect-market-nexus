@@ -21,17 +21,18 @@ async function syncBuyerFromMarketplace(
   try {
     const { data: firmAgreement } = await client
       .from('firm_agreements')
-      .select('company_name, buyer_type')
+      .select('*')
       .eq('firm_id', firmId)
       .maybeSingle();
 
     if (firmAgreement) {
+      const fa = firmAgreement as any;
       const updates: Record<string, unknown> = {};
-      if (firmAgreement.company_name) {
-        updates.company_name = firmAgreement.company_name;
+      if (fa.company_name) {
+        updates.company_name = fa.company_name;
       }
-      if (firmAgreement.buyer_type) {
-        updates.buyer_type = firmAgreement.buyer_type;
+      if (fa.buyer_type) {
+        updates.buyer_type = fa.buyer_type;
       }
       if (Object.keys(updates).length > 0) {
         await client

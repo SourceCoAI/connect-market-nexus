@@ -69,8 +69,9 @@ export async function generateMemoDocx({
       const logoBuffer = await logoResponse.arrayBuffer();
       logoImageRun = new ImageRun({
         data: new Uint8Array(logoBuffer),
+        type: 'png',
         transformation: { width: 50, height: 50 },
-      });
+      } as any);
     }
   } catch {
     // Logo fetch failed — continue without it

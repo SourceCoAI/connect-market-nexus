@@ -23,7 +23,7 @@ export function useCapTargetData() {
   }, [setPageContext]);
 
   // Timeframe
-  const { timeframe, setTimeframe, dateRange, isInRange } = useTimeframe('last_365d');
+  const { timeframe, setTimeframe, dateRange, isInRange } = useTimeframe('all_time');
 
   // Enrichment progress
   const { progress: enrichmentProgress, cancelEnrichment } = useEnrichmentProgress();
