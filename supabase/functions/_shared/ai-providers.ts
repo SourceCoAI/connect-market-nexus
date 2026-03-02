@@ -22,8 +22,7 @@ export const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 // Default models
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 export const GEMINI_25_FLASH_MODEL = 'gemini-2.5-flash';
-export const DEFAULT_GEMINI_PRO_MODEL = 'gemini-2.0-pro-exp';
-export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-4-6';
 
 /**
  * Build Gemini API request headers
@@ -142,6 +141,8 @@ export async function fetchWithAutoRetry(
 
       if (response.status === 429) {
         if (attempt === maxRetries) return response;
+        // Drain response body to prevent connection leak before retry
+        await response.body?.cancel();
         const retryAfterMs = parseRetryAfter(response) || baseDelayMs * Math.pow(2, attempt);
         const waitMs = Math.min(retryAfterMs, maxDelayMs);
         const jitter = Math.random() * 1000;
@@ -154,6 +155,8 @@ export async function fetchWithAutoRetry(
 
       if (response.status >= 500) {
         if (attempt === maxRetries) return response;
+        // Drain response body to prevent connection leak before retry
+        await response.body?.cancel();
         const delay = Math.min(baseDelayMs * Math.pow(2, attempt), maxDelayMs);
         const jitter = Math.random() * delay * 0.3;
         console.warn(
@@ -173,8 +176,11 @@ export async function fetchWithAutoRetry(
 
       if (attempt < maxRetries) {
         const delay = Math.min(baseDelayMs * Math.pow(2, attempt), maxDelayMs);
-        console.warn(`[${callerName}] Network error, retrying in ${delay}ms: ${lastError.message}`);
-        await new Promise((r) => setTimeout(r, delay));
+        const jitter = Math.random() * delay * 0.3;
+        console.warn(
+          `[${callerName}] Network error, retrying in ${Math.round(delay + jitter)}ms: ${lastError.message}`,
+        );
+        await new Promise((r) => setTimeout(r, delay + jitter));
         continue;
       }
     }

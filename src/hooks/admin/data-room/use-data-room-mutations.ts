@@ -10,7 +10,8 @@ import type { Json } from '@/integrations/supabase/types';
 function getFunctionsBaseUrl(): string {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const resolvedUrl = supabaseUrl || (projectId ? `https://${projectId}.supabase.co` : '') || SUPABASE_URL;
+  const resolvedUrl =
+    supabaseUrl || (projectId ? `https://${projectId}.supabase.co` : '') || SUPABASE_URL;
 
   if (!resolvedUrl) {
     throw new Error('Supabase URL is not configured');
@@ -45,7 +46,10 @@ export function useUploadDocument() {
       formData.append('document_category', documentCategory);
       formData.append('allow_download', String(allowDownload));
 
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!session) throw new Error('Not authenticated');
 
@@ -73,7 +77,10 @@ export function useUploadDocument() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['data-room-documents', variables.dealId] });
-      toast({ title: 'Document uploaded', description: `${variables.file.name} uploaded successfully` });
+      toast({
+        title: 'Document uploaded',
+        description: `${variables.file.name} uploaded successfully`,
+      });
     },
     onError: (error: Error) => {
       toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
@@ -101,10 +108,7 @@ export function useDeleteDocument() {
       }
 
       // Delete record
-      const { error } = await supabase
-        .from('data_room_documents')
-        .delete()
-        .eq('id', documentId);
+      const { error } = await supabase.from('data_room_documents').delete().eq('id', documentId);
 
       if (error) throw error;
       return { dealId };
@@ -135,7 +139,10 @@ export function useUpdateAccess() {
       fee_agreement_override_reason?: string;
       expires_at?: string;
     }) => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!session) throw new Error('Not authenticated');
 
@@ -159,7 +166,11 @@ export function useUpdateAccess() {
     },
     onError: (error: Error) => {
       if (error.message !== 'FEE_AGREEMENT_REQUIRED') {
-        toast({ title: 'Access update failed', description: error.message, variant: 'destructive' });
+        toast({
+          title: 'Access update failed',
+          description: error.message,
+          variant: 'destructive',
+        });
       }
     },
   });
@@ -172,7 +183,10 @@ export function useRevokeAccess() {
 
   return useMutation({
     mutationFn: async ({ accessId, dealId }: { accessId: string; dealId: string }) => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!session) throw new Error('Not authenticated');
 
@@ -216,7 +230,10 @@ export function useBulkUpdateAccess() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['data-room-access', variables.deal_id] });
-      toast({ title: 'Bulk access updated', description: `Updated ${variables.buyer_ids.length} buyers` });
+      toast({
+        title: 'Bulk access updated',
+        description: `Updated ${variables.buyer_ids.length} buyers`,
+      });
     },
     onError: (error: Error) => {
       toast({ title: 'Bulk update failed', description: error.message, variant: 'destructive' });
@@ -228,8 +245,17 @@ export function useBulkUpdateAccess() {
 
 export function useDocumentUrl() {
   return useMutation({
-    mutationFn: async ({ documentId, action = 'view' }: { documentId: string; action?: 'view' | 'download' }) => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    mutationFn: async ({
+      documentId,
+      action = 'view',
+    }: {
+      documentId: string;
+      action?: 'view' | 'download';
+    }) => {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!session) throw new Error('Not authenticated');
 
@@ -239,8 +265,14 @@ export function useDocumentUrl() {
       });
 
       if (!resp.ok) {
-        const err = await resp.json();
-        throw new Error(err.error || 'Failed to get document URL');
+        let errorMessage = 'Failed to get document URL';
+        try {
+          const err = await resp.json();
+          errorMessage = err.error || errorMessage;
+        } catch {
+          errorMessage = `Failed to get document URL (HTTP ${resp.status})`;
+        }
+        throw new Error(errorMessage);
       }
 
       return resp.json();
@@ -283,7 +315,12 @@ export function useUpdateMemo() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ memoId, content, htmlContent, dealId }: {
+    mutationFn: async ({
+      memoId,
+      content,
+      htmlContent,
+      dealId,
+    }: {
       memoId: string;
       content: Record<string, unknown>;
       htmlContent: string;
@@ -298,7 +335,10 @@ export function useUpdateMemo() {
       if (currentMemoError) throw currentMemoError;
 
       if (currentMemo) {
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
         if (authError) throw authError;
         await supabase.from('lead_memo_versions').insert({
           memo_id: memoId,
@@ -340,7 +380,10 @@ export function usePublishMemo() {
 
   return useMutation({
     mutationFn: async ({ memoId, dealId }: { memoId: string; dealId: string }) => {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
       if (authError) throw authError;
 
       const { error } = await supabase
@@ -358,7 +401,10 @@ export function usePublishMemo() {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['lead-memos', result.dealId] });
-      toast({ title: 'Memo published', description: 'Memo is now available to buyers with access' });
+      toast({
+        title: 'Memo published',
+        description: 'Memo is now available to buyers with access',
+      });
     },
     onError: (error: Error) => {
       toast({ title: 'Publish failed', description: error.message, variant: 'destructive' });
@@ -379,20 +425,21 @@ export function useLogManualSend() {
       memo_type: 'anonymous_teaser' | 'full_memo';
       notes?: string;
     }) => {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
       if (authError) throw authError;
 
-      const { error } = await supabase
-        .from('memo_distribution_log')
-        .insert({
-          deal_id: params.deal_id,
-          memo_id: params.memo_id,
-          remarketing_buyer_id: params.remarketing_buyer_id,
-          memo_type: params.memo_type,
-          channel: 'manual_log',
-          sent_by: user?.id,
-          notes: params.notes,
-        });
+      const { error } = await supabase.from('memo_distribution_log').insert({
+        deal_id: params.deal_id,
+        memo_id: params.memo_id,
+        remarketing_buyer_id: params.remarketing_buyer_id,
+        memo_type: params.memo_type,
+        channel: 'manual_log',
+        sent_by: user?.id,
+        notes: params.notes,
+      });
 
       if (error) throw error;
       return { dealId: params.deal_id };
@@ -411,11 +458,7 @@ export function useLogManualSend() {
 
 export function useDraftOutreachEmail() {
   return useMutation({
-    mutationFn: async (params: {
-      deal_id: string;
-      buyer_id: string;
-      memo_id?: string;
-    }) => {
+    mutationFn: async (params: { deal_id: string; buyer_id: string; memo_id?: string }) => {
       const response = await supabase.functions.invoke('draft-outreach-email', {
         body: params,
       });

@@ -252,12 +252,12 @@ function generateAnonymousTitle(deal: DealData): string {
   const margin = deal.ebitda && deal.revenue ? Math.round((deal.ebitda / deal.revenue) * 100) : 0;
   const years = deal.founded_year ? new Date().getFullYear() - deal.founded_year : 0;
 
-  // Prefer revenue-anchored if revenue exists, margin if good margins, years if long history
+  // Prefer margin-anchored if high margins, then revenue-anchored, then years
+  if (deal.revenue && deal.revenue > 0 && margin > 15) {
+    return TITLE_GENERATORS[1](industry, state, deal);
+  }
   if (deal.revenue && deal.revenue > 0) {
     return TITLE_GENERATORS[0](industry, state, deal);
-  }
-  if (margin > 15) {
-    return TITLE_GENERATORS[1](industry, state, deal);
   }
   if (years > 10) {
     return TITLE_GENERATORS[2](industry, state, deal);

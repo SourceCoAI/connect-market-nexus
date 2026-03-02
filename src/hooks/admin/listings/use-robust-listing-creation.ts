@@ -159,9 +159,9 @@ export function useRobustListingCreation() {
           // IMPORTANT: Create as internal draft - must use publish-listing to go public
           is_internal_deal: true,
 
-          // Employee metrics
-          full_time_employees: listing.full_time_employees || null,
-          part_time_employees: listing.part_time_employees || null,
+          // Employee metrics (use ?? to preserve valid 0 values)
+          full_time_employees: listing.full_time_employees ?? null,
+          part_time_employees: listing.part_time_employees ?? null,
 
           // Hero & Status
           hero_description: listing.hero_description || null,

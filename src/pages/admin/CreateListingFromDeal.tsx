@@ -49,7 +49,8 @@ export default function CreateListingFromDeal() {
           full_time_employees, linkedin_employee_count,
           main_contact_name, main_contact_email, main_contact_phone, main_contact_title,
           geographic_states, internal_deal_memo_link,
-          founded_year, number_of_locations
+          founded_year, number_of_locations,
+          customer_geography, customer_types, end_market_description
         `,
         )
         .eq('id', dealId!)
