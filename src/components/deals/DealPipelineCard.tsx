@@ -44,7 +44,7 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Clock, ArrowRight } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import type { ConnectionRequest } from '@/types';
 import {
   TechnologyIcon,
@@ -277,7 +277,7 @@ export function DealPipelineCard({
     ? formatEbitdaRange(request.listing.ebitda)
     : null;
 
-  const ctaLabel = getCtaLabel(request.status, ndaSigned, hasCim);
+  
 
   return (
     <TooltipProvider>
