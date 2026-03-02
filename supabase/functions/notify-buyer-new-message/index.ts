@@ -37,18 +37,18 @@ function buildMessageNotificationHtml(
   <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
     <!-- Header -->
     <div style="margin-bottom: 32px;">
-      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.8px; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase; margin-bottom: 8px;">
         SOURCECO
       </div>
     </div>
 
     <!-- Subject Line -->
-    <h1 style="color: #0f172a; font-size: 20px; font-weight: 700; margin: 0 0 24px 0; line-height: 1.4;">
+    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0; line-height: 1.4;">
       New Message Regarding ${escapeHtml(dealTitle)}
     </h1>
 
     <!-- Body -->
-    <div style="color: #334155; font-size: 15px; line-height: 1.7;">
+    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
       <p style="margin: 0 0 16px 0;">
         Hi ${escapeHtml(buyerName)},
       </p>
@@ -58,8 +58,8 @@ function buildMessageNotificationHtml(
       </p>
 
       <!-- Message preview -->
-      <div style="background: #f8fafc; border-left: 4px solid #059669; padding: 16px; border-radius: 0 8px 8px 0; margin: 0 0 24px 0;">
-        <p style="margin: 0; color: #475569; font-size: 14px; font-style: italic;">
+      <div style="background: #FCF9F0; border-left: 4px solid #DEC76B; padding: 16px; border-radius: 0 8px 8px 0; margin: 0 0 24px 0;">
+        <p style="margin: 0; color: #3A3A3A; font-size: 14px; font-style: italic;">
           "${escapeHtmlWithBreaks(messagePreview)}"
         </p>
       </div>
@@ -72,14 +72,14 @@ function buildMessageNotificationHtml(
     <!-- CTA -->
     <div style="text-align: center; margin: 32px 0;">
       <a href="${loginUrl}"
-         style="display: inline-block; background: #059669; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">
+         style="display: inline-block; background: #0E101A; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">
         View Message
       </a>
     </div>
 
     <!-- Footer -->
-    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e2e8f0;">
-      <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
+      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">
         This is an automated notification from SourceCo. You received this because an admin sent you a message on the SourceCo Marketplace.
       </p>
     </div>
