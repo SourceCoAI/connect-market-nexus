@@ -91,8 +91,8 @@ export const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
                     className={cn(
                       'max-w-[75%] px-4 py-3',
                       isBuyer
-                        ? 'rounded-[16px] rounded-br-[6px]'
-                        : 'rounded-[16px] rounded-bl-[6px]',
+                        ? 'rounded-[20px] rounded-br-[6px]'
+                        : 'rounded-[20px] rounded-bl-[6px]',
                     )}
                     style={
                       isBuyer

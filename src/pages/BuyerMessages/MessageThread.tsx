@@ -182,14 +182,14 @@ export function BuyerThreadView({
     <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       <div
-        className="flex items-center gap-3 px-5 py-3 flex-shrink-0"
+        className="flex items-center gap-3 px-5 py-3.5 flex-shrink-0"
         style={{ borderBottom: '1px solid #F0EDE6' }}
       >
         <Button variant="ghost" size="sm" onClick={onBack} className="md:hidden h-8 w-8 p-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-semibold truncate" style={{ color: '#0E101A' }}>
+          <h2 className="text-[13px] font-semibold truncate" style={{ color: '#0E101A' }}>
             {thread.deal_title}
           </h2>
         </div>
@@ -245,19 +245,22 @@ export function BuyerThreadView({
 export function BuyerMessagesSkeleton() {
   return (
     <div
-      className="rounded-xl overflow-hidden min-h-[500px] flex"
-      style={{ border: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}
+      className="flex min-h-[500px]"
+      style={{ backgroundColor: '#FFFFFF' }}
     >
-      <div className="w-[280px] p-4 space-y-5" style={{ borderRight: '1px solid #F0EDE6' }}>
+      <div className="w-[300px] p-5 space-y-5" style={{ borderRight: '1px solid #F0EDE6' }}>
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="space-y-2">
-            <Skeleton className="h-4 w-[140px]" />
-            <Skeleton className="h-3 w-[200px]" />
+          <div key={i} className="flex items-center gap-3">
+            <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-3.5 w-[120px]" />
+              <Skeleton className="h-3 w-[180px]" />
+            </div>
           </div>
         ))}
       </div>
       <div className="flex-1 flex items-center justify-center">
-        <Inbox className="h-10 w-10" style={{ color: '#F0EDE6' }} />
+        <Inbox className="h-8 w-8" style={{ color: '#E5DDD0' }} />
       </div>
     </div>
   );

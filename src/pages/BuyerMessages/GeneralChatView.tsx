@@ -143,13 +143,19 @@ export function GeneralChatView({
     <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       <div
-        className="flex items-center gap-3 px-5 py-3 flex-shrink-0"
+        className="flex items-center gap-3 px-5 py-3.5 flex-shrink-0"
         style={{ borderBottom: '1px solid #F0EDE6' }}
       >
         <Button variant="ghost" size="sm" onClick={onBack} className="md:hidden h-8 w-8 p-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h2 className="text-sm font-semibold" style={{ color: '#0E101A' }}>
+        <div
+          className="h-7 w-7 rounded-full flex items-center justify-center text-[9px] font-semibold tracking-wide"
+          style={{ backgroundColor: '#0E101A', color: '#FFFFFF' }}
+        >
+          SC
+        </div>
+        <h2 className="text-[13px] font-semibold" style={{ color: '#0E101A' }}>
           SourceCo Team
         </h2>
       </div>

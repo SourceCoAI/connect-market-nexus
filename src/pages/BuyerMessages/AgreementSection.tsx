@@ -88,45 +88,37 @@ export function PendingAgreementBanner() {
   ];
 
   const allSigned = items.every((i) => i.signed);
-
-  // Hide entirely when all documents are signed
   if (allSigned) return null;
 
   return (
     <>
-      <div className="py-2 px-4 flex items-center gap-4 flex-wrap" style={{ borderBottom: '1px solid #F0EDE6' }}>
-        {items.map((item) => (
-          <div
-            key={item.key}
-            className="flex items-center gap-2"
-          >
-            <div className="flex-1 min-w-0 flex items-center gap-2">
-              <span className="text-sm font-medium" style={{ color: '#0E101A' }}>
-                {item.label}
-              </span>
-              {item.signed ? (
-                <span className="flex items-center gap-1 text-[11px]" style={{ color: '#7A6F2A' }}>
-                  <CheckCircle className="h-3 w-3" />
-                  Signed
-                </span>
-              ) : item.declined ? (
-                <span className="text-[11px]" style={{ color: '#991B1B' }}>Declined</span>
-              ) : (
-                <span className="text-[11px]" style={{ color: '#DEC76B' }}>Pending</span>
-              )}
-            </div>
+      <div
+        className="flex-shrink-0 px-5 py-2 flex items-center gap-6"
+        style={{ borderBottom: '1px solid #F0EDE6', backgroundColor: '#FEFDFB' }}
+      >
+        {items.map((item, idx) => (
+          <div key={item.key} className="flex items-center gap-2">
+            {idx > 0 && (
+              <div className="h-3 mr-4" style={{ borderLeft: '1px solid #F0EDE6' }} />
+            )}
+            <span className="text-[12px] font-medium" style={{ color: '#0E101A' }}>
+              {item.label}
+            </span>
 
-            <div className="flex items-center gap-1 shrink-0">
-              {item.signed ? (
+            {item.signed ? (
+              <>
+                <CheckCircle className="h-3 w-3" style={{ color: '#7A6F2A' }} />
                 <button
                   onClick={() => download({ documentUrl: item.documentUrl, draftUrl: item.draftUrl, documentType: item.type })}
-                  className="text-[11px] flex items-center gap-1 hover:opacity-70 transition-opacity"
+                  className="text-[11px] flex items-center gap-0.5 hover:opacity-70 transition-opacity"
                   style={{ color: '#9A9A9A' }}
                 >
                   <Download className="h-3 w-3" />
-                  PDF
                 </button>
-              ) : item.declined ? (
+              </>
+            ) : item.declined ? (
+              <>
+                <span className="text-[11px]" style={{ color: '#991B1B' }}>Declined</span>
                 <button
                   onClick={() => {
                     setDocMessageType(item.type);
@@ -137,7 +129,10 @@ export function PendingAgreementBanner() {
                 >
                   Contact
                 </button>
-              ) : (
+              </>
+            ) : (
+              <>
+                <span className="text-[11px]" style={{ color: '#DEC76B' }}>Pending</span>
                 <button
                   onClick={() => {
                     setSigningDocType(item.type);
@@ -146,11 +141,11 @@ export function PendingAgreementBanner() {
                   className="text-[11px] font-medium flex items-center gap-0.5 hover:opacity-70 transition-opacity"
                   style={{ color: '#0E101A' }}
                 >
-                  Sign Now
+                  Sign
                   <ChevronRight className="h-3 w-3" />
                 </button>
-              )}
-            </div>
+              </>
+            )}
           </div>
         ))}
       </div>

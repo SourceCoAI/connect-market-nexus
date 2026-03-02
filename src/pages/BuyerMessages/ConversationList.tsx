@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Inbox } from 'lucide-react';
+import { Search, Inbox, X, MessageSquarePlus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { BuyerThread } from './helpers';
@@ -16,6 +17,7 @@ interface ConversationListProps {
   onSearchChange: (query: string) => void;
   onSelectThread: (requestId: string) => void;
   onSelectGeneral: () => void;
+  totalUnread?: number;
 }
 
 export function ConversationList({
@@ -27,59 +29,110 @@ export function ConversationList({
   onSearchChange,
   onSelectThread,
   onSelectGeneral,
+  totalUnread = 0,
 }: ConversationListProps) {
+  const [searchOpen, setSearchOpen] = useState(false);
+
   return (
     <div
       className={cn(
-        'w-[280px] flex-shrink-0 flex flex-col min-h-0',
+        'w-[300px] flex-shrink-0 flex flex-col min-h-0',
         selectedThreadId || showGeneralChat ? 'hidden md:flex' : 'flex',
       )}
       style={{ borderRight: '1px solid #F0EDE6' }}
     >
-      {/* Search */}
-      <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid #F0EDE6' }}>
-        <div className="relative">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
-            style={{ color: '#CBCBCB' }}
-          />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search..."
-            className="w-full text-xs rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#E5DDD0]"
-            style={{
-              border: '1px solid #F0EDE6',
-              backgroundColor: '#FFFFFF',
-              color: '#0E101A',
-            }}
-          />
-        </div>
+      {/* Header */}
+      <div className="px-5 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #F0EDE6' }}>
+        {searchOpen ? (
+          <div className="flex items-center gap-2">
+            <Search className="h-3.5 w-3.5 shrink-0" style={{ color: '#CBCBCB' }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search conversations..."
+              className="flex-1 text-xs bg-transparent focus:outline-none"
+              style={{ color: '#0E101A' }}
+              autoFocus
+            />
+            <button
+              onClick={() => {
+                setSearchOpen(false);
+                onSearchChange('');
+              }}
+              className="shrink-0 p-0.5 rounded hover:bg-[#F8F8F6]"
+            >
+              <X className="h-3.5 w-3.5" style={{ color: '#9A9A9A' }} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <h1 className="text-[15px] font-semibold tracking-tight" style={{ color: '#0E101A' }}>
+              Messages
+              {totalUnread > 0 && (
+                <span
+                  className="ml-2 text-[11px] font-medium"
+                  style={{ color: '#DEC76B' }}
+                >
+                  {totalUnread}
+                </span>
+              )}
+            </h1>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-[#F8F8F6] transition-colors"
+              >
+                <Search className="h-3.5 w-3.5" style={{ color: '#9A9A9A' }} />
+              </button>
+              <button
+                onClick={onSelectGeneral}
+                className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-[#F8F8F6] transition-colors"
+                title="New message"
+              >
+                <MessageSquarePlus className="h-3.5 w-3.5" style={{ color: '#9A9A9A' }} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
-        <div>
-          {/* General Inquiry -- always first */}
+        <div className="py-1">
+          {/* SourceCo Team -- always first */}
           <button
             onClick={onSelectGeneral}
             className={cn(
-              'w-full text-left px-4 py-3.5 transition-colors',
+              'w-full text-left px-5 py-3.5 transition-colors',
               showGeneralChat ? '' : 'hover:bg-[#FAFAF8]',
             )}
             style={{
-              borderBottom: '1px solid #F0EDE6',
-              borderLeft: showGeneralChat ? '2px solid #DEC76B' : '2px solid transparent',
-              backgroundColor: showGeneralChat ? '#FDFCF9' : undefined,
+              backgroundColor: showGeneralChat ? '#FAFAF8' : undefined,
             }}
           >
-            <span className="text-sm font-medium" style={{ color: '#0E101A' }}>
-              SourceCo Team
-            </span>
-            <p className="text-[11px] mt-0.5" style={{ color: '#9A9A9A' }}>
-              Ask us anything
-            </p>
+            <div className="flex items-center gap-3">
+              {/* Avatar */}
+              <div
+                className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-semibold tracking-wide"
+                style={{ backgroundColor: '#0E101A', color: '#FFFFFF' }}
+              >
+                SC
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-[13px] font-medium block" style={{ color: '#0E101A' }}>
+                  SourceCo Team
+                </span>
+                <p className="text-[11px] mt-0.5 truncate" style={{ color: '#9A9A9A' }}>
+                  Ask us anything
+                </p>
+              </div>
+            </div>
           </button>
+
+          {/* Separator */}
+          {filteredThreads.length > 0 && (
+            <div className="mx-5 my-1" style={{ borderTop: '1px solid #F0EDE6' }} />
+          )}
 
           {/* Deal threads */}
           {filteredThreads.map((thread) => (
@@ -91,18 +144,18 @@ export function ConversationList({
             />
           ))}
 
-          {filteredThreads.length === 0 && threads.length > 0 && (
+          {filteredThreads.length === 0 && threads.length > 0 && searchQuery && (
             <div className="p-8 text-center">
               <p className="text-xs" style={{ color: '#9A9A9A' }}>
-                No conversations match your search
+                No conversations match
               </p>
             </div>
           )}
 
           {threads.length === 0 && (
             <div className="p-8 text-center">
-              <Inbox className="h-8 w-8 mx-auto mb-2" style={{ color: '#E5DDD0' }} />
-              <p className="text-xs" style={{ color: '#9A9A9A' }}>
+              <Inbox className="h-6 w-6 mx-auto mb-2" style={{ color: '#E5DDD0' }} />
+              <p className="text-[11px]" style={{ color: '#9A9A9A' }}>
                 No deal conversations yet
               </p>
             </div>
@@ -131,21 +184,30 @@ function ThreadListItem({
     <button
       onClick={onClick}
       className={cn(
-        'w-full text-left px-4 py-3.5 transition-colors',
+        'w-full text-left px-5 py-3 transition-colors',
         isSelected ? '' : 'hover:bg-[#FAFAF8]',
       )}
       style={{
-        borderBottom: '1px solid #F0EDE6',
-        borderLeft: isSelected ? '2px solid #DEC76B' : '2px solid transparent',
-        backgroundColor: isSelected ? '#FDFCF9' : undefined,
+        backgroundColor: isSelected ? '#FAFAF8' : undefined,
       }}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-3">
+        {/* Deal initial avatar */}
+        <div
+          className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-medium"
+          style={{
+            backgroundColor: '#F8F8F6',
+            color: '#9A9A9A',
+          }}
+        >
+          {thread.deal_title.charAt(0).toUpperCase()}
+        </div>
+
         <div className="flex-1 min-w-0">
           {/* Row 1: Deal title + time */}
           <div className="flex items-center justify-between gap-2">
             <span
-              className={cn('text-sm truncate', isUnread ? 'font-semibold' : 'font-medium')}
+              className={cn('text-[13px] truncate', isUnread ? 'font-semibold' : 'font-medium')}
               style={{ color: '#0E101A' }}
             >
               {thread.deal_title}
@@ -155,25 +217,23 @@ function ThreadListItem({
             </span>
           </div>
 
-          {/* Row 2: Last message preview */}
-          <p
-            className={cn('text-[11px] mt-1 truncate', isUnread ? 'font-medium' : '')}
-            style={{ color: isUnread ? '#0E101A' : '#9A9A9A' }}
-          >
-            {thread.last_sender_role === 'buyer' && 'You: '}
-            {parseReferences(thread.last_message_body || '').cleanBody || 'No messages yet'}
-          </p>
+          {/* Row 2: Last message preview + unread dot */}
+          <div className="flex items-center gap-2 mt-0.5">
+            <p
+              className={cn('text-[11px] truncate flex-1', isUnread ? 'font-medium' : '')}
+              style={{ color: isUnread ? '#0E101A' : '#9A9A9A' }}
+            >
+              {thread.last_sender_role === 'buyer' && 'You: '}
+              {parseReferences(thread.last_message_body || '').cleanBody || 'No messages yet'}
+            </p>
+            {isUnread && (
+              <span
+                className="h-1.5 w-1.5 rounded-full shrink-0"
+                style={{ backgroundColor: '#DEC76B' }}
+              />
+            )}
+          </div>
         </div>
-
-        {/* Unread badge */}
-        {isUnread && (
-          <span
-            className="mt-1 flex-shrink-0 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
-            style={{ backgroundColor: '#DEC76B', color: '#0E101A' }}
-          >
-            {thread.unread_count}
-          </span>
-        )}
       </div>
     </button>
   );
