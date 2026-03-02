@@ -6,17 +6,37 @@ import { requireAuth } from '../_shared/auth.ts';
 /**
  * confirm-agreement-signed
  *
- * Called by the frontend right after the DocuSeal onCompleted callback fires.
- * Checks DocuSeal API for actual completion status and immediately:
- *   - Updates firm_agreements (signed = true, document URL)
- *   - Syncs to profiles for all firm members
- *   - Creates user_notifications (agreement_signed)
- *   - Posts system messages in connection_messages threads
- *   - Creates admin_notifications
- *
- * This ensures the DB is updated before the frontend refetches cached data,
- * eliminating the dependency on the async webhook for immediate UX updates.
+ * Called by the frontend after DocuSeal onCompleted fires.
+ * Uses deterministic firm resolution and retry polling for DocuSeal status.
  */
+
+async function resolveFirmId(supabaseAdmin: SupabaseClient, userId: string): Promise<string | null> {
+  const { data: reqFirm } = await supabaseAdmin
+    .from('connection_requests')
+    .select('firm_id')
+    .eq('user_id', userId)
+    .not('firm_id', 'is', null)
+    .in('status', ['approved', 'pending', 'on_hold'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (reqFirm?.firm_id) return reqFirm.firm_id;
+
+  const { data: membership } = await supabaseAdmin
+    .from('firm_members')
+    .select('firm_id')
+    .eq('user_id', userId)
+    .order('added_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return membership?.firm_id || null;
+}
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -47,9 +67,8 @@ serve(async (req: Request) => {
 
     const userId = auth.userId;
 
-    // Parse request body
     const body = await req.json().catch(() => ({}));
-    const documentType: string = body.documentType; // 'nda' or 'fee_agreement'
+    const documentType: string = body.documentType;
     if (documentType !== 'nda' && documentType !== 'fee_agreement') {
       return new Response(
         JSON.stringify({ error: 'Invalid documentType. Must be "nda" or "fee_agreement".' }),
@@ -60,42 +79,35 @@ serve(async (req: Request) => {
     const isNda = documentType === 'nda';
     const docLabel = isNda ? 'NDA' : 'Fee Agreement';
 
-    // Get buyer's firm membership
-    const { data: membership } = await supabaseAdmin
-      .from('firm_members')
-      .select('firm_id')
-      .eq('user_id', userId)
-      .limit(1)
-      .maybeSingle();
+    // Deterministic firm resolution
+    const firmId = await resolveFirmId(supabaseAdmin, userId);
 
-    if (!membership) {
+    if (!firmId) {
       return new Response(
         JSON.stringify({ error: 'No firm found', confirmed: false }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    const firmId = membership.firm_id;
+    console.log(`🔍 Resolved firm ${firmId} for user ${userId} (${docLabel})`);
 
-    // Get firm agreement
     const signedCol = isNda ? 'nda_signed' : 'fee_agreement_signed';
     const submissionCol = isNda ? 'nda_docuseal_submission_id' : 'fee_docuseal_submission_id';
     const { data: firm } = await supabaseAdmin
       .from('firm_agreements')
-      .select(`id, firm_name, ${signedCol}, ${submissionCol}`)
+      .select(`id, primary_company_name, ${signedCol}, ${submissionCol}`)
       .eq('id', firmId)
       .single();
 
     if (!firm) {
       return new Response(
-        JSON.stringify({ error: 'Firm agreement not found', confirmed: false }),
+        JSON.stringify({ error: 'Firm agreement not found', confirmed: false, resolvedFirmId: firmId }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    // If already marked signed in DB, return immediately
+    // If already marked signed
     if (firm[signedCol]) {
-      // Fetch document URL to return
       const docUrlCol = isNda ? 'nda_signed_document_url' : 'fee_signed_document_url';
       const { data: docData } = await supabaseAdmin
         .from('firm_agreements')
@@ -103,7 +115,7 @@ serve(async (req: Request) => {
         .eq('id', firmId)
         .single();
       return new Response(
-        JSON.stringify({ confirmed: true, alreadySigned: true, signedDocumentUrl: docData?.[docUrlCol] || null }),
+        JSON.stringify({ confirmed: true, alreadySigned: true, signedDocumentUrl: docData?.[docUrlCol] || null, resolvedFirmId: firmId }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
@@ -111,12 +123,11 @@ serve(async (req: Request) => {
     const submissionId = firm[submissionCol];
     if (!submissionId) {
       return new Response(
-        JSON.stringify({ confirmed: false, error: 'No submission found' }),
+        JSON.stringify({ confirmed: false, error: 'No submission found', resolvedFirmId: firmId }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    // Check DocuSeal API for actual submission status
     const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
     if (!docusealApiKey) {
       return new Response(
@@ -125,44 +136,51 @@ serve(async (req: Request) => {
       );
     }
 
-    const fetchController = new AbortController();
-    const fetchTimeout = setTimeout(() => fetchController.abort(), 15000);
-    let submitterRes: Response;
-    try {
-      submitterRes = await fetch(
-        `https://api.docuseal.com/submitters?submission_id=${submissionId}`,
-        {
-          headers: { 'X-Auth-Token': docusealApiKey },
-          signal: fetchController.signal,
-        },
-      );
-    } finally {
-      clearTimeout(fetchTimeout);
-    }
-
-    if (!submitterRes.ok) {
-      const errText = await submitterRes.text();
-      console.error('DocuSeal API error:', submitterRes.status, errText);
-      return new Response(
-        JSON.stringify({ confirmed: false, error: 'Failed to verify signing status' }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
-    }
-
-    const submitters = await submitterRes.json();
-    const data = Array.isArray(submitters?.data) ? submitters.data : Array.isArray(submitters) ? submitters : [];
-
     // Get buyer's email for matching
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('email')
       .eq('id', userId)
       .single();
-    const submitter = data.find((s: { email?: string; status?: string; documents?: { url?: string }[] }) => s.email === profile?.email) || data[0];
+
+    // Retry polling: check DocuSeal status with retries (0s, 1.5s, 3s)
+    const retryDelays = [0, 1500, 3000];
+    let submitter: { status?: string; documents?: { url?: string }[]; email?: string } | null = null;
+
+    for (const delay of retryDelays) {
+      if (delay > 0) await sleep(delay);
+
+      const fetchController = new AbortController();
+      const fetchTimeout = setTimeout(() => fetchController.abort(), 10000);
+      try {
+        const submitterRes = await fetch(
+          `https://api.docuseal.com/submitters?submission_id=${submissionId}`,
+          {
+            headers: { 'X-Auth-Token': docusealApiKey },
+            signal: fetchController.signal,
+          },
+        );
+
+        if (submitterRes.ok) {
+          const submitters = await submitterRes.json();
+          const data = Array.isArray(submitters?.data) ? submitters.data : Array.isArray(submitters) ? submitters : [];
+          submitter = data.find((s: { email?: string }) => s.email === profile?.email) || data[0];
+
+          if (submitter?.status === 'completed') {
+            console.log(`✅ DocuSeal confirmed completed on attempt ${retryDelays.indexOf(delay) + 1}`);
+            break;
+          }
+        }
+      } catch (e) {
+        console.warn(`DocuSeal check attempt failed:`, e);
+      } finally {
+        clearTimeout(fetchTimeout);
+      }
+    }
 
     if (!submitter || submitter.status !== 'completed') {
       return new Response(
-        JSON.stringify({ confirmed: false, status: submitter?.status || 'unknown' }),
+        JSON.stringify({ confirmed: false, status: submitter?.status || 'unknown', resolvedFirmId: firmId, reason: 'DocuSeal not yet confirmed' }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
@@ -172,9 +190,8 @@ serve(async (req: Request) => {
     const now = new Date().toISOString();
     const rawSignedDocUrl = submitter.documents?.[0]?.url || null;
     const signedDocUrl = rawSignedDocUrl && rawSignedDocUrl.startsWith('https://') ? rawSignedDocUrl : null;
-    const firmName = firm.firm_name || 'Unknown Firm';
+    const firmName = firm.primary_company_name || 'Unknown Firm';
 
-    // 1. Update firm_agreements
     const updates: Record<string, unknown> = { updated_at: now };
     if (isNda) {
       updates.nda_signed = true;
@@ -201,9 +218,7 @@ serve(async (req: Request) => {
       .update(updates)
       .eq('id', firmId);
 
-    // Write to webhook log for deduplication with the webhook handler.
-    // If the webhook already processed this event, the unique constraint will
-    // cause a conflict — we ignore it since the DB is already up to date.
+    // Dedup log
     await supabaseAdmin.from('docuseal_webhook_log').insert({
       event_type: 'form.completed',
       submission_id: String(submissionId),
@@ -216,7 +231,7 @@ serve(async (req: Request) => {
       }
     });
 
-    // 2. Sync to profiles for all firm members
+    // Sync to profiles
     const { data: members } = await supabaseAdmin
       .from('firm_members')
       .select('user_id')
@@ -234,17 +249,15 @@ serve(async (req: Request) => {
           .eq('id', member.user_id);
       }
 
-      // 3. Create user_notifications + system messages
       await sendBuyerSignedDocNotification(supabaseAdmin, members, firmId, docLabel, signedDocUrl);
     }
 
-    // 4. Create admin notifications
     await createAdminNotification(supabaseAdmin, firmId, firmName, docLabel);
 
     console.log(`✅ Confirmed ${docLabel} signed for firm ${firmId} (buyer ${userId})`);
 
     return new Response(
-      JSON.stringify({ confirmed: true, signedDocumentUrl: signedDocUrl }),
+      JSON.stringify({ confirmed: true, signedDocumentUrl: signedDocUrl, resolvedFirmId: firmId }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   } catch (error: unknown) {
@@ -256,9 +269,6 @@ serve(async (req: Request) => {
   }
 });
 
-/**
- * Send buyer notification + system messages (same pattern as webhook handler).
- */
 async function sendBuyerSignedDocNotification(
   supabase: SupabaseClient,
   members: { user_id: string }[],
@@ -274,7 +284,6 @@ async function sendBuyerSignedDocNotification(
     const docType = docLabel.toLowerCase().replace(/ /g, '_');
 
     for (const member of members) {
-      // Dedup: skip if notification already exists within 5 min window
       const { data: existingNotif } = await supabase
         .from('user_notifications')
         .select('id')
@@ -299,7 +308,6 @@ async function sendBuyerSignedDocNotification(
         });
       }
 
-      // System messages — only to General Inquiry (first active request), dedup by checking for recent system message
       const { data: generalRequest } = await supabase
         .from('connection_requests')
         .select('id')
@@ -343,9 +351,6 @@ async function sendBuyerSignedDocNotification(
   }
 }
 
-/**
- * Create admin_notifications for all admins.
- */
 async function createAdminNotification(
   supabase: SupabaseClient,
   firmId: string,
@@ -353,14 +358,12 @@ async function createAdminNotification(
   docLabel: string,
 ) {
   try {
-    // Query user_roles table (not profiles.role) for admin/owner users
     const { data: adminRoles } = await supabase
       .from('user_roles')
       .select('user_id')
       .in('role', ['admin', 'owner']);
 
     const admins = adminRoles?.map((r: { user_id: string }) => ({ id: r.user_id })) || [];
-
     if (!admins?.length) return;
 
     const notifications = admins.map((admin: { id: string }) => ({

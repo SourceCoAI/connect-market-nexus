@@ -5,10 +5,33 @@ import { requireAuth } from '../_shared/auth.ts';
 
 /**
  * get-buyer-fee-embed
- * Buyer-facing endpoint: returns the DocuSeal embed_src for the buyer's Fee Agreement.
- * If no submission exists yet, creates one via DocuSeal API (same pattern as NDA embed).
- * Only returns data for the authenticated buyer's own firm.
+ * Uses deterministic firm resolution: active connection_request.firm_id first,
+ * then fallback to latest firm_members by added_at.
  */
+
+async function resolveFirmId(supabaseAdmin: ReturnType<typeof createClient>, userId: string): Promise<string | null> {
+  const { data: reqFirm } = await supabaseAdmin
+    .from('connection_requests')
+    .select('firm_id')
+    .eq('user_id', userId)
+    .not('firm_id', 'is', null)
+    .in('status', ['approved', 'pending', 'on_hold'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (reqFirm?.firm_id) return reqFirm.firm_id;
+
+  const { data: membership } = await supabaseAdmin
+    .from('firm_members')
+    .select('firm_id')
+    .eq('user_id', userId)
+    .order('added_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return membership?.firm_id || null;
+}
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -31,25 +54,17 @@ serve(async (req: Request) => {
     }
 
     const userId = auth.userId;
+    const firmId = await resolveFirmId(supabaseAdmin, userId);
 
-    // Get buyer's firm membership
-    const { data: membership } = await supabaseAdmin
-      .from('firm_members')
-      .select('firm_id')
-      .eq('user_id', userId)
-      .limit(1)
-      .maybeSingle();
-
-    if (!membership) {
+    if (!firmId) {
       return new Response(
         JSON.stringify({ error: 'No firm found for this buyer', hasFirm: false }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    const firmId = membership.firm_id;
+    console.log(`🔍 Resolved firm ${firmId} for user ${userId}`);
 
-    // Get firm agreement
     const { data: firm } = await supabaseAdmin
       .from('firm_agreements')
       .select('id, fee_agreement_signed, fee_docuseal_submission_id, fee_docuseal_status')
@@ -63,15 +78,13 @@ serve(async (req: Request) => {
       });
     }
 
-    // If already signed, no embed needed
     if (firm.fee_agreement_signed) {
-      return new Response(JSON.stringify({ feeSigned: true, embedSrc: null }), {
+      return new Response(JSON.stringify({ feeSigned: true, embedSrc: null, resolvedFirmId: firmId }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    // Get buyer profile for email/name (needed for both existing and new submissions)
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('email, first_name, last_name')
@@ -96,7 +109,6 @@ serve(async (req: Request) => {
       });
     }
 
-    // If submission already exists, fetch embed_src from DocuSeal API
     if (firm.fee_docuseal_submission_id) {
       const fetchController = new AbortController();
       const fetchTimeout = setTimeout(() => fetchController.abort(), 15000);
@@ -121,17 +133,8 @@ serve(async (req: Request) => {
             ? submitters
             : [];
         const submitter =
-          data.find((s: { email?: string; embed_src?: string }) => s.email === profile.email) ||
-          data[0];
-        if (submitter?.embed_src) {
-          return new Response(JSON.stringify({ feeSigned: false, embedSrc: submitter.embed_src }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          });
-        }
-        // If submitter exists but no embed_src, it may have been completed already.
-        // Self-heal: if DocuSeal says completed but our DB doesn't reflect it,
-        // update the DB now (covers missed webhook events).
+          data.find((s: { email?: string }) => s.email === profile.email) || data[0];
+
         if (submitter?.status === 'completed') {
           const now = new Date().toISOString();
           const docUrl = submitter.documents?.[0]?.url || null;
@@ -142,14 +145,11 @@ serve(async (req: Request) => {
               fee_agreement_signed_at: now,
               fee_docuseal_status: 'completed',
               fee_agreement_status: 'signed',
-              ...(docUrl
-                ? { fee_signed_document_url: docUrl, fee_agreement_document_url: docUrl }
-                : {}),
+              ...(docUrl ? { fee_signed_document_url: docUrl, fee_agreement_document_url: docUrl } : {}),
               updated_at: now,
             })
             .eq('id', firmId);
 
-          // Also sync to profiles for all firm members
           const { data: members } = await supabaseAdmin
             .from('firm_members')
             .select('user_id')
@@ -158,35 +158,28 @@ serve(async (req: Request) => {
             for (const member of members) {
               await supabaseAdmin
                 .from('profiles')
-                .update({
-                  fee_agreement_signed: true,
-                  fee_agreement_signed_at: now,
-                  updated_at: now,
-                })
+                .update({ fee_agreement_signed: true, fee_agreement_signed_at: now, updated_at: now })
                 .eq('id', member.user_id);
             }
           }
 
-          console.log(
-            `🔧 Self-healed: fee agreement for firm ${firmId} marked as signed (DocuSeal says completed)`,
-          );
-
-          return new Response(JSON.stringify({ feeSigned: true, embedSrc: null }), {
+          console.log(`🔧 Self-healed: fee agreement for firm ${firmId} marked as signed`);
+          return new Response(JSON.stringify({ feeSigned: true, embedSrc: null, resolvedFirmId: firmId }), {
             status: 200,
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
           });
         }
-      } else {
-        const errorText = await submitterRes.text();
-        console.error(
-          '❌ DocuSeal API error fetching existing submission:',
-          submitterRes.status,
-          errorText,
-        );
+
+        if (submitter?.embed_src) {
+          return new Response(JSON.stringify({ feeSigned: false, embedSrc: submitter.embed_src, resolvedFirmId: firmId }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
       }
     }
 
-    // No existing submission or couldn't get embed_src — create new submission
+    // Create new submission
     const feeTemplateId = Deno.env.get('DOCUSEAL_FEE_TEMPLATE_ID');
     if (!feeTemplateId) {
       return new Response(JSON.stringify({ error: 'Fee agreement template not configured' }), {
@@ -227,11 +220,7 @@ serve(async (req: Request) => {
 
     if (!docusealResponse.ok) {
       const errorText = await docusealResponse.text();
-      console.error(
-        '❌ DocuSeal API error creating submission:',
-        docusealResponse.status,
-        errorText,
-      );
+      console.error('❌ DocuSeal API error:', docusealResponse.status, errorText);
       return new Response(JSON.stringify({ error: 'Failed to create signing form' }), {
         status: 502,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -243,7 +232,6 @@ serve(async (req: Request) => {
     const submissionId = String(submitter.submission_id || submitter.id);
     const embedSrc = submitter.embed_src || null;
 
-    // Update firm_agreements with the new submission
     const now = new Date().toISOString();
     await supabaseAdmin
       .from('firm_agreements')
@@ -256,7 +244,6 @@ serve(async (req: Request) => {
       })
       .eq('id', firmId);
 
-    // Log the creation
     await supabaseAdmin.from('docuseal_webhook_log').insert({
       event_type: 'submission_created',
       submission_id: submissionId,
@@ -265,17 +252,14 @@ serve(async (req: Request) => {
       raw_payload: { created_by_buyer: userId },
     });
 
-    console.log(`✅ Created fee agreement submission ${submissionId} for buyer ${userId}`);
+    console.log(`✅ Created fee agreement submission ${submissionId} for buyer ${userId} (firm ${firmId})`);
 
-    return new Response(JSON.stringify({ feeSigned: false, embedSrc }), {
+    return new Response(JSON.stringify({ feeSigned: false, embedSrc, resolvedFirmId: firmId }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (error: unknown) {
-    console.error(
-      '❌ Error in get-buyer-fee-embed:',
-      error instanceof Error ? error.message : String(error),
-    );
+    console.error('❌ Error in get-buyer-fee-embed:', error instanceof Error ? error.message : String(error));
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },

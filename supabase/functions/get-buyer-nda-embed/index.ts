@@ -6,9 +6,35 @@ import { requireAuth } from '../_shared/auth.ts';
 /**
  * get-buyer-nda-embed
  * Buyer-facing endpoint: returns the DocuSeal embed_src for the buyer's NDA.
- * If no submission exists yet, creates one via DocuSeal API.
- * Only returns data for the authenticated buyer's own firm.
+ * Uses deterministic firm resolution: active connection_request.firm_id first,
+ * then fallback to latest firm_members by added_at.
  */
+
+async function resolveFirmId(supabaseAdmin: ReturnType<typeof createClient>, userId: string): Promise<string | null> {
+  // Priority 1: Most recent active connection_request with non-null firm_id
+  const { data: reqFirm } = await supabaseAdmin
+    .from('connection_requests')
+    .select('firm_id')
+    .eq('user_id', userId)
+    .not('firm_id', 'is', null)
+    .in('status', ['approved', 'pending', 'on_hold'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (reqFirm?.firm_id) return reqFirm.firm_id;
+
+  // Priority 2: Latest firm_members by added_at
+  const { data: membership } = await supabaseAdmin
+    .from('firm_members')
+    .select('firm_id')
+    .eq('user_id', userId)
+    .order('added_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return membership?.firm_id || null;
+}
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -22,7 +48,6 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Authenticate buyer (any logged-in user)
     const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.userId) {
       return new Response(JSON.stringify({ error: auth.error }), {
@@ -33,22 +58,17 @@ serve(async (req: Request) => {
 
     const userId = auth.userId;
 
-    // Get buyer's firm membership
-    const { data: membership } = await supabaseAdmin
-      .from('firm_members')
-      .select('firm_id')
-      .eq('user_id', userId)
-      .limit(1)
-      .maybeSingle();
+    // Deterministic firm resolution
+    const firmId = await resolveFirmId(supabaseAdmin, userId);
 
-    if (!membership) {
+    if (!firmId) {
       return new Response(
         JSON.stringify({ error: 'No firm found for this buyer', hasFirm: false }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    const firmId = membership.firm_id;
+    console.log(`🔍 Resolved firm ${firmId} for user ${userId}`);
 
     // Get firm agreement
     const { data: firm } = await supabaseAdmin
@@ -66,7 +86,7 @@ serve(async (req: Request) => {
 
     // If already signed, no embed needed
     if (firm.nda_signed) {
-      return new Response(JSON.stringify({ ndaSigned: true, embedSrc: null }), {
+      return new Response(JSON.stringify({ ndaSigned: true, embedSrc: null, resolvedFirmId: firmId }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
@@ -89,7 +109,6 @@ serve(async (req: Request) => {
     const buyerName =
       `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email;
 
-    // If submission already exists, fetch embed_src from DocuSeal API
     const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
     if (!docusealApiKey) {
       return new Response(JSON.stringify({ error: 'DocuSeal not configured' }), {
@@ -99,7 +118,6 @@ serve(async (req: Request) => {
     }
 
     if (firm.nda_docuseal_submission_id) {
-      // Fetch submitter details to get embed_src (with timeout)
       const fetchController = new AbortController();
       const fetchTimeout = setTimeout(() => fetchController.abort(), 15000);
       let submitterRes: Response;
@@ -127,12 +145,7 @@ serve(async (req: Request) => {
             (s: { email?: string; embed_src?: string; status?: string }) =>
               s.email === profile.email,
           ) || data[0];
-        if (submitter?.embed_src) {
-          return new Response(JSON.stringify({ ndaSigned: false, embedSrc: submitter.embed_src }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          });
-        }
+
         // Self-heal: if DocuSeal says completed but our DB doesn't reflect it
         if (submitter?.status === 'completed') {
           const now = new Date().toISOString();
@@ -162,16 +175,21 @@ serve(async (req: Request) => {
             }
           }
 
-          console.log(
-            `🔧 Self-healed: NDA for firm ${firmId} marked as signed (DocuSeal says completed)`,
-          );
-
-          return new Response(JSON.stringify({ ndaSigned: true, embedSrc: null }), {
+          console.log(`🔧 Self-healed: NDA for firm ${firmId} marked as signed`);
+          return new Response(JSON.stringify({ ndaSigned: true, embedSrc: null, resolvedFirmId: firmId }), {
             status: 200,
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
           });
         }
-        // embed_src not in list response — fetch individual submitter
+
+        if (submitter?.embed_src) {
+          return new Response(JSON.stringify({ ndaSigned: false, embedSrc: submitter.embed_src, resolvedFirmId: firmId }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+
+        // Try individual submitter endpoint for embed_src
         if (submitter?.id) {
           const individualRes = await fetch(`https://api.docuseal.com/submitters/${submitter.id}`, {
             headers: { 'X-Auth-Token': docusealApiKey },
@@ -179,17 +197,14 @@ serve(async (req: Request) => {
           if (individualRes.ok) {
             const ind = await individualRes.json();
             if (ind?.embed_src) {
-              return new Response(JSON.stringify({ ndaSigned: false, embedSrc: ind.embed_src }), {
+              return new Response(JSON.stringify({ ndaSigned: false, embedSrc: ind.embed_src, resolvedFirmId: firmId }), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json', ...corsHeaders },
               });
             }
             if (ind?.slug) {
               return new Response(
-                JSON.stringify({
-                  ndaSigned: false,
-                  embedSrc: `https://docuseal.com/s/${ind.slug}`,
-                }),
+                JSON.stringify({ ndaSigned: false, embedSrc: `https://docuseal.com/s/${ind.slug}`, resolvedFirmId: firmId }),
                 { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
               );
             }
@@ -197,55 +212,14 @@ serve(async (req: Request) => {
         }
         if (submitter?.slug) {
           return new Response(
-            JSON.stringify({
-              ndaSigned: false,
-              embedSrc: `https://docuseal.com/s/${submitter.slug}`,
-            }),
+            JSON.stringify({ ndaSigned: false, embedSrc: `https://docuseal.com/s/${submitter.slug}`, resolvedFirmId: firmId }),
             { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
           );
-        }
-        // Self-heal: if DocuSeal says completed but our DB doesn't reflect it
-        if (submitter?.status === 'completed') {
-          const now = new Date().toISOString();
-          const docUrl = submitter.documents?.[0]?.url || null;
-          await supabaseAdmin
-            .from('firm_agreements')
-            .update({
-              nda_signed: true,
-              nda_signed_at: now,
-              nda_docuseal_status: 'completed',
-              nda_status: 'signed',
-              ...(docUrl ? { nda_signed_document_url: docUrl, nda_document_url: docUrl } : {}),
-              updated_at: now,
-            })
-            .eq('id', firmId);
-
-          const { data: members } = await supabaseAdmin
-            .from('firm_members')
-            .select('user_id')
-            .eq('firm_id', firmId);
-          if (members?.length) {
-            for (const member of members) {
-              await supabaseAdmin
-                .from('profiles')
-                .update({ nda_signed: true, nda_signed_at: now, updated_at: now })
-                .eq('id', member.user_id);
-            }
-          }
-
-          console.log(
-            `🔧 Self-healed: NDA for firm ${firmId} marked as signed (DocuSeal says completed)`,
-          );
-
-          return new Response(JSON.stringify({ ndaSigned: true, embedSrc: null }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          });
         }
       }
     }
 
-    // No existing submission or couldn't get embed_src — create new submission
+    // No existing submission — create new
     const ndaTemplateId = Deno.env.get('DOCUSEAL_NDA_TEMPLATE_ID');
     if (!ndaTemplateId) {
       return new Response(JSON.stringify({ error: 'NDA template not configured' }), {
@@ -298,7 +272,6 @@ serve(async (req: Request) => {
     const submissionId = String(submitter.submission_id || submitter.id);
     const embedSrc = submitter.embed_src || null;
 
-    // Update firm_agreements (also set nda_status to 'sent' for tracking)
     const now = new Date().toISOString();
     await supabaseAdmin
       .from('firm_agreements')
@@ -311,7 +284,6 @@ serve(async (req: Request) => {
       })
       .eq('id', firmId);
 
-    // Log
     await supabaseAdmin.from('docuseal_webhook_log').insert({
       event_type: 'submission_created',
       submission_id: submissionId,
@@ -320,9 +292,9 @@ serve(async (req: Request) => {
       raw_payload: { created_by_buyer: userId },
     });
 
-    console.log(`✅ Created NDA submission ${submissionId} for buyer ${userId}`);
+    console.log(`✅ Created NDA submission ${submissionId} for buyer ${userId} (firm ${firmId})`);
 
-    return new Response(JSON.stringify({ ndaSigned: false, embedSrc }), {
+    return new Response(JSON.stringify({ ndaSigned: false, embedSrc, resolvedFirmId: firmId }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
