@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { z } from 'zod/v3';
 import { useForm } from 'react-hook-form';
@@ -145,7 +145,6 @@ interface ImprovedListingEditorProps {
   ) => Promise<void>;
   listing?: AdminListing;
   isLoading?: boolean;
-  targetType?: 'marketplace' | 'research';
 }
 
 const convertListingToFormInput = (listing?: AdminListing): ListingFormInput => {
@@ -201,13 +200,28 @@ export function ImprovedListingEditor({
   const [isImageChanged, setIsImageChanged] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
 
-  const isGenerating = false;
-  const generatingField: string | null = null;
-
   const form = useForm<ListingFormInput, unknown, ListingFormValues>({
     resolver: zodResolver(listingFormSchema as unknown as Parameters<typeof zodResolver>[0]),
     defaultValues: convertListingToFormInput(listing),
   });
+
+  // Reset form when the listing prop changes (e.g., after AI content generation updates prefilled data)
+  const prevListingRef = useRef(listing);
+  useEffect(() => {
+    if (listing && listing !== prevListingRef.current) {
+      const hasNewSections =
+        Array.isArray(listing.custom_sections) &&
+        listing.custom_sections.length > 0 &&
+        (!Array.isArray(prevListingRef.current?.custom_sections) ||
+          prevListingRef.current.custom_sections.length === 0);
+      const descriptionChanged = listing.description !== prevListingRef.current?.description;
+
+      if (hasNewSections || descriptionChanged) {
+        form.reset(convertListingToFormInput(listing));
+      }
+      prevListingRef.current = listing;
+    }
+  }, [listing, form]);
 
   // Cast for child components that accept UseFormReturn<any>
   const formForSections = form as unknown as import('react-hook-form').UseFormReturn<

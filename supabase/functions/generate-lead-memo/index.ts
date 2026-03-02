@@ -67,7 +67,12 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { deal_id, memo_type, branding = 'sourceco', project_name: requestProjectName } = await req.json();
+    const {
+      deal_id,
+      memo_type,
+      branding = 'sourceco',
+      project_name: requestProjectName,
+    } = await req.json();
 
     if (!deal_id) {
       return new Response(JSON.stringify({ error: 'deal_id is required' }), {
@@ -217,7 +222,13 @@ Deno.serve(async (req: Request) => {
         listingUpdate.description_html = htmlContent;
       }
 
-      await supabaseAdmin.from('listings').update(listingUpdate).eq('id', deal_id);
+      const { error: listingUpdateError } = await supabaseAdmin
+        .from('listings')
+        .update(listingUpdate)
+        .eq('id', deal_id);
+      if (listingUpdateError) {
+        console.error('Failed to sync anonymous teaser sections to listing:', listingUpdateError);
+      }
     }
 
     if (memo_type === 'full_memo' || memo_type === 'both') {
@@ -429,7 +440,10 @@ function enforceBannedWords(sections: MemoSection[]): MemoSection[] {
   return sections.map((s) => {
     let content = s.content;
     for (const banned of BANNED_WORDS) {
-      const regex = new RegExp(`\\b${banned}\\b`, 'gi');
+      // Use lookahead/lookbehind to ensure we only match standalone words/phrases,
+      // not substrings within other words (e.g., "strong" inside "Armstrong")
+      const escaped = banned.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'gi');
       content = content.replace(regex, '');
     }
     // Clean up double spaces left by removals
@@ -475,7 +489,19 @@ function enforceAnonymization(
   if (companyName) {
     identifyingTerms.push(companyName);
     // Also strip without common suffixes
-    const suffixes = [' Inc', ' Inc.', ' LLC', ' Corp', ' Corp.', ' Ltd', ' Ltd.', ' Co', ' Co.', ' LP', ' LLP'];
+    const suffixes = [
+      ' Inc',
+      ' Inc.',
+      ' LLC',
+      ' Corp',
+      ' Corp.',
+      ' Ltd',
+      ' Ltd.',
+      ' Co',
+      ' Co.',
+      ' LP',
+      ' LLP',
+    ];
     for (const suffix of suffixes) {
       if (companyName.endsWith(suffix)) {
         identifyingTerms.push(companyName.slice(0, -suffix.length).trim());
@@ -486,7 +512,10 @@ function enforceAnonymization(
 
   if (website) {
     identifyingTerms.push(website);
-    const domain = website.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+    const domain = website
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\/.*$/, '');
     identifyingTerms.push(domain);
     const domainBase = domain.split('.')[0];
     if (domainBase && domainBase.length >= 4) identifyingTerms.push(domainBase);
@@ -496,7 +525,9 @@ function enforceAnonymization(
     identifyingTerms.push(contactName);
     const parts = contactName.split(/\s+/);
     if (parts.length >= 2) {
-      parts.forEach((p) => { if (p.length >= 3) identifyingTerms.push(p); });
+      parts.forEach((p) => {
+        if (p.length >= 3) identifyingTerms.push(p);
+      });
     }
   }
   if (contactEmail) identifyingTerms.push(contactEmail);
@@ -508,22 +539,64 @@ function enforceAnonymization(
 
   // Build state-specific terms to replace
   const stateNames: Record<string, string> = {
-    AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
-    CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
-    HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
-    KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
-    MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri',
-    MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
-    NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio',
-    OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
-    SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
-    VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
+    AL: 'Alabama',
+    AK: 'Alaska',
+    AZ: 'Arizona',
+    AR: 'Arkansas',
+    CA: 'California',
+    CO: 'Colorado',
+    CT: 'Connecticut',
+    DE: 'Delaware',
+    FL: 'Florida',
+    GA: 'Georgia',
+    HI: 'Hawaii',
+    ID: 'Idaho',
+    IL: 'Illinois',
+    IN: 'Indiana',
+    IA: 'Iowa',
+    KS: 'Kansas',
+    KY: 'Kentucky',
+    LA: 'Louisiana',
+    ME: 'Maine',
+    MD: 'Maryland',
+    MA: 'Massachusetts',
+    MI: 'Michigan',
+    MN: 'Minnesota',
+    MS: 'Mississippi',
+    MO: 'Missouri',
+    MT: 'Montana',
+    NE: 'Nebraska',
+    NV: 'Nevada',
+    NH: 'New Hampshire',
+    NJ: 'New Jersey',
+    NM: 'New Mexico',
+    NY: 'New York',
+    NC: 'North Carolina',
+    ND: 'North Dakota',
+    OH: 'Ohio',
+    OK: 'Oklahoma',
+    OR: 'Oregon',
+    PA: 'Pennsylvania',
+    RI: 'Rhode Island',
+    SC: 'South Carolina',
+    SD: 'South Dakota',
+    TN: 'Tennessee',
+    TX: 'Texas',
+    UT: 'Utah',
+    VT: 'Vermont',
+    VA: 'Virginia',
+    WA: 'Washington',
+    WV: 'West Virginia',
+    WI: 'Wisconsin',
+    WY: 'Wyoming',
     DC: 'Washington D.C.',
   };
   // Collect specific states from the deal's geographic_states and address_state
   const statesInDeal: string[] = [];
   if (addressState) statesInDeal.push(addressState.toUpperCase());
-  const geoStates = Array.isArray(deal.geographic_states) ? deal.geographic_states as string[] : [];
+  const geoStates = Array.isArray(deal.geographic_states)
+    ? (deal.geographic_states as string[])
+    : [];
   for (const s of geoStates) {
     if (s) statesInDeal.push(s.toUpperCase());
   }
@@ -659,8 +732,9 @@ async function generateMemo(
   const companyWebsite = (context.deal.website || '') as string;
   const contactName = (context.deal.main_contact_name || '') as string;
   const addressCity = (context.deal.address_city || '') as string;
-  const addressState = (context.deal.address_state || '') as string;
-  const geoStates = Array.isArray(context.deal.geographic_states) ? context.deal.geographic_states : [];
+  const geoStates = Array.isArray(context.deal.geographic_states)
+    ? context.deal.geographic_states
+    : [];
 
   const systemPrompt = `You are a VP at a buy-side investment bank writing an investment memo for the partners at a private equity firm. This memo will go to the investment committee.
 ...
@@ -680,7 +754,14 @@ CRITICAL ANONYMITY RULES — VIOLATION OF ANY OF THESE WILL RESULT IN THE MEMO B
 - Services described generically (e.g., "automotive maintenance and repair" not the brand name of the service)
 - NO founding dates that combined with other details could identify the company — use approximate years in operation (e.g., "approximately 3–5 years")
 ${companyName ? `- BANNED TERMS (these are the actual company identifiers — NEVER include them): "${companyName}"` : ''}
-${companyWebsite ? `, "${companyWebsite}", "${companyWebsite.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '')}"` : ''}
+${
+  companyWebsite
+    ? `, "${companyWebsite}", "${companyWebsite
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .replace(/\/.*$/, '')}"`
+    : ''
+}
 ${contactName ? `, "${contactName}"` : ''}
 ${addressCity ? `\n- BANNED LOCATION: "${addressCity}" — do NOT mention this city` : ''}
 ${geoStates.length > 0 ? `\n- BANNED STATES: ${geoStates.map((s: string) => `"${s}"`).join(', ')} — do NOT name these states individually` : ''}
@@ -824,7 +905,12 @@ Generate the memo now. Return ONLY the JSON object with "sections" array.`;
   // Post-process: for anonymous teasers, enforce anonymization by stripping any
   // identifying information that may have leaked through the AI
   if (isAnonymous) {
-    cleanedSections = enforceAnonymization(cleanedSections, context.deal, projectCodename, regionName);
+    cleanedSections = enforceAnonymization(
+      cleanedSections,
+      context.deal,
+      projectCodename,
+      regionName,
+    );
   }
 
   return {
@@ -917,15 +1003,35 @@ function sectionsToHtml(memo: MemoContent, memoType: string, branding: string): 
 
 function markdownToHtml(text: string): string {
   if (!text) return '';
-  return text
+
+  // Apply inline formatting first
+  const html = text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/^- (.*)/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>')
-    .replace(/^(.+)$/gm, (match) => {
-      if (match.startsWith('<')) return match;
-      return `<p>${match}</p>`;
-    });
+    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+  // Split into paragraphs by double newlines
+  const paragraphs = html.split(/\n\n+/);
+  const outputParts: string[] = [];
+
+  for (const para of paragraphs) {
+    const trimmed = para.trim();
+    if (!trimmed) continue;
+
+    // Check if this paragraph is a list (all lines start with "- ")
+    const lines = trimmed.split('\n');
+    const isListBlock = lines.every((l) => l.trimStart().startsWith('- '));
+
+    if (isListBlock) {
+      const items = lines.map((l) => `<li>${l.trimStart().slice(2)}</li>`).join('');
+      outputParts.push(`<ul>${items}</ul>`);
+    } else if (trimmed.includes('|') && trimmed.includes('\n')) {
+      // Likely a markdown table — pass through with line breaks
+      outputParts.push(`<p>${trimmed.replace(/\n/g, '<br>')}</p>`);
+    } else {
+      // Regular paragraph — convert single newlines to <br>
+      outputParts.push(`<p>${trimmed.replace(/\n/g, '<br>')}</p>`);
+    }
+  }
+
+  return outputParts.join('');
 }
