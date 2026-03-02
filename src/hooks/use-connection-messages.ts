@@ -131,7 +131,7 @@ export function useSendMessage() {
 
       if (error) throw error;
 
-      // Send email notification to buyer when admin sends a message.
+      // Send email notification to the other party.
       // Fire-and-forget: don't block the UI on email delivery.
       if (params.sender_role === 'admin') {
         supabase.functions
@@ -148,6 +148,24 @@ export function useSendMessage() {
           })
           .catch((err: unknown) => {
             console.error('Error invoking notify-buyer-new-message:', err);
+          });
+      }
+
+      if (params.sender_role === 'buyer') {
+        supabase.functions
+          .invoke('notify-admin-new-message', {
+            body: {
+              connection_request_id: params.connection_request_id,
+              message_preview: params.body.substring(0, 200),
+            },
+          })
+          .then(({ error: fnError }) => {
+            if (fnError) {
+              console.error('Failed to send admin message notification email:', fnError);
+            }
+          })
+          .catch((err: unknown) => {
+            console.error('Error invoking notify-admin-new-message:', err);
           });
       }
 
