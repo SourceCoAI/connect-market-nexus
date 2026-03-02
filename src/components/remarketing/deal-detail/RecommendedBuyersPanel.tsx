@@ -5,10 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  useNewRecommendedBuyers,
-  type BuyerScore,
-} from '@/hooks/admin/use-new-recommended-buyers';
+import { useNewRecommendedBuyers, type BuyerScore } from '@/hooks/admin/use-new-recommended-buyers';
 import { useSeedBuyers, type SeedBuyerResult } from '@/hooks/admin/use-seed-buyers';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
 import {
@@ -39,16 +36,25 @@ interface RecommendedBuyersPanelProps {
 
 const PAGE_SIZE = 5;
 
-const TIER_CONFIG: Record<BuyerScore['tier'], { label: string; color: string; icon: typeof Zap }> = {
-  move_now: { label: 'Move Now', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: Zap },
-  strong: { label: 'Strong', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: Star },
-  speculative: { label: 'Speculative', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: HelpCircle },
-};
+const TIER_CONFIG: Record<BuyerScore['tier'], { label: string; color: string; icon: typeof Zap }> =
+  {
+    move_now: {
+      label: 'Move Now',
+      color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      icon: Zap,
+    },
+    strong: { label: 'Strong', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: Star },
+    speculative: {
+      label: 'Speculative',
+      color: 'bg-amber-100 text-amber-800 border-amber-200',
+      icon: HelpCircle,
+    },
+  };
 
 const SOURCE_BADGE: Record<BuyerScore['source'], { label: string; color: string }> = {
-  ai_seeded:   { label: 'AI Search',   color: 'bg-purple-100 text-purple-700' },
+  ai_seeded: { label: 'AI Search', color: 'bg-purple-100 text-purple-700' },
   marketplace: { label: 'Marketplace', color: 'bg-blue-100 text-blue-700' },
-  scored:      { label: 'Buyer Pool',  color: 'bg-gray-100 text-gray-600' },
+  scored: { label: 'Buyer Pool', color: 'bg-gray-100 text-gray-600' },
 };
 
 function formatBuyerType(type: string | null): string {
@@ -68,9 +74,9 @@ function isInternal(buyer: BuyerScore): boolean {
 }
 
 function TierSummary({ buyers }: { buyers: BuyerScore[] }) {
-  const moveNow = buyers.filter(b => b.tier === 'move_now').length;
-  const strong = buyers.filter(b => b.tier === 'strong').length;
-  const speculative = buyers.filter(b => b.tier === 'speculative').length;
+  const moveNow = buyers.filter((b) => b.tier === 'move_now').length;
+  const strong = buyers.filter((b) => b.tier === 'strong').length;
+  const speculative = buyers.filter((b) => b.tier === 'speculative').length;
 
   return (
     <div className="flex items-center gap-4 text-sm">
@@ -138,7 +144,9 @@ function BuyerCard({
                     </span>
                   </Link>
                 ) : (
-                  <span className="text-xs text-muted-foreground truncate">{buyer.pe_firm_name}</span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {buyer.pe_firm_name}
+                  </span>
                 )}
               </>
             )}
@@ -182,11 +190,16 @@ function BuyerCard({
             {tier.label}
           </Badge>
 
-          <span className={cn(
-            'text-[15px] font-bold min-w-[26px] text-right tabular-nums',
-            buyer.composite_score >= 70 ? 'text-emerald-600' :
-            buyer.composite_score >= 55 ? 'text-amber-600' : 'text-muted-foreground',
-          )}>
+          <span
+            className={cn(
+              'text-[15px] font-bold min-w-[26px] text-right tabular-nums',
+              buyer.composite_score >= 70
+                ? 'text-emerald-600'
+                : buyer.composite_score >= 55
+                  ? 'text-amber-600'
+                  : 'text-muted-foreground',
+            )}
+          >
             {buyer.composite_score}
           </span>
 
@@ -232,9 +245,9 @@ const ACTION_CONFIG: Record<string, { label: string; color: string; icon: typeof
 };
 
 function SeedResultsSummary({ results }: { results: SeedBuyerResult[] }) {
-  const inserted = results.filter(r => r.action === 'inserted').length;
-  const enriched = results.filter(r => r.action === 'enriched_existing').length;
-  const dupes = results.filter(r => r.action === 'probable_duplicate').length;
+  const inserted = results.filter((r) => r.action === 'inserted').length;
+  const enriched = results.filter((r) => r.action === 'enriched_existing').length;
+  const dupes = results.filter((r) => r.action === 'probable_duplicate').length;
 
   return (
     <div className="border rounded-lg bg-muted/30 p-3 space-y-2">
@@ -243,15 +256,9 @@ function SeedResultsSummary({ results }: { results: SeedBuyerResult[] }) {
         AI Search Results
       </div>
       <div className="flex items-center gap-3 text-xs">
-        {inserted > 0 && (
-          <span className="text-green-700">{inserted} new buyers added</span>
-        )}
-        {enriched > 0 && (
-          <span className="text-blue-700">{enriched} existing updated</span>
-        )}
-        {dupes > 0 && (
-          <span className="text-gray-500">{dupes} duplicates skipped</span>
-        )}
+        {inserted > 0 && <span className="text-green-700">{inserted} new buyers added</span>}
+        {enriched > 0 && <span className="text-blue-700">{enriched} existing updated</span>}
+        {dupes > 0 && <span className="text-gray-500">{dupes} duplicates skipped</span>}
       </div>
       <div className="space-y-1 max-h-40 overflow-y-auto">
         {results.slice(0, 10).map((result) => {
@@ -284,7 +291,6 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
   const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
   const [internalVisible, setInternalVisible] = useState(PAGE_SIZE);
   const [externalVisible, setExternalVisible] = useState(PAGE_SIZE);
 
@@ -323,7 +329,7 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
 
   const handleAccept = async (buyer: BuyerScore) => {
     if (acceptingIds.has(buyer.buyer_id)) return; // prevent double-click
-    setAcceptingIds(prev => new Set([...prev, buyer.buyer_id]));
+    setAcceptingIds((prev) => new Set([...prev, buyer.buyer_id]));
     try {
       await new Promise<void>((resolve, reject) => {
         createIntroduction(
@@ -340,11 +346,11 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
           },
         );
       });
-      setAcceptedIds(prev => new Set([...prev, buyer.buyer_id]));
+      setAcceptedIds((prev) => new Set([...prev, buyer.buyer_id]));
     } catch {
       // onError in the mutation already shows a toast — buyer stays visible for retry
     } finally {
-      setAcceptingIds(prev => {
+      setAcceptingIds((prev) => {
         const next = new Set(prev);
         next.delete(buyer.buyer_id);
         return next;
@@ -353,7 +359,7 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
   };
 
   const handleReject = (buyer: BuyerScore) => {
-    setRejectedIds(prev => new Set([...prev, buyer.buyer_id]));
+    setRejectedIds((prev) => new Set([...prev, buyer.buyer_id]));
     toast.info(`${buyer.company_name} removed from recommendations`);
   };
 
@@ -377,7 +383,9 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
 
   if (isError) {
     const errorMsg = error instanceof Error ? error.message : 'Failed to load recommendations';
-    const isAuthError = errorMsg.toLowerCase().includes('unauthorized') || errorMsg.toLowerCase().includes('forbidden');
+    const isAuthError =
+      errorMsg.toLowerCase().includes('unauthorized') ||
+      errorMsg.toLowerCase().includes('forbidden');
     return (
       <Card>
         <CardHeader>
@@ -392,9 +400,7 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
             <p className="text-sm font-medium text-destructive">
               {isAuthError ? 'Access Denied' : 'Scoring Failed'}
             </p>
-            <p className="text-xs text-muted-foreground max-w-md">
-              {errorMsg}
-            </p>
+            <p className="text-xs text-muted-foreground max-w-md">{errorMsg}</p>
             <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
               Retry
@@ -406,9 +412,11 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
   }
 
   const allBuyers = data?.buyers || [];
-  const available = allBuyers.filter(b => !acceptedIds.has(b.buyer_id) && !rejectedIds.has(b.buyer_id));
+  const available = allBuyers.filter(
+    (b) => !acceptedIds.has(b.buyer_id) && !rejectedIds.has(b.buyer_id),
+  );
   const allInternal = available.filter(isInternal);
-  const allExternal = available.filter(b => !isInternal(b));
+  const allExternal = available.filter((b) => !isInternal(b));
   const internalBuyers = allInternal.slice(0, internalVisible);
   const externalBuyers = allExternal.slice(0, externalVisible);
   const buyers = [...allInternal, ...allExternal];
@@ -430,15 +438,12 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
             onClick={handleSeedBuyers}
             disabled={seedMutation.isPending}
           >
-            <Sparkles className={cn('h-3.5 w-3.5 mr-1.5', seedMutation.isPending && 'animate-pulse')} />
+            <Sparkles
+              className={cn('h-3.5 w-3.5 mr-1.5', seedMutation.isPending && 'animate-pulse')}
+            />
             {seedMutation.isPending ? 'Searching...' : 'AI Search Buyers'}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
             <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', refreshing && 'animate-spin')} />
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
@@ -458,7 +463,7 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
             </p>
           </div>
         ) : (
-          <Tabs defaultValue="internal" className="w-full" onValueChange={(v) => setActiveTab(v as 'internal' | 'external')}>
+          <Tabs defaultValue="internal" className="w-full">
             <TabsList className="mb-3">
               <TabsTrigger value="internal" className="gap-1.5">
                 <Database className="h-3.5 w-3.5" />
@@ -482,10 +487,12 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
 
             <TabsContent value="internal" className="space-y-1.5 mt-0">
               {allInternal.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No matching buyers from your buyer pool</p>
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No matching buyers from your buyer pool
+                </p>
               ) : (
                 <>
-                  {internalBuyers.map(buyer => (
+                  {internalBuyers.map((buyer) => (
                     <BuyerCard
                       key={buyer.buyer_id}
                       buyer={buyer}
@@ -499,7 +506,7 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
                       variant="ghost"
                       size="sm"
                       className="w-full text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => setInternalVisible(prev => prev + PAGE_SIZE)}
+                      onClick={() => setInternalVisible((prev) => prev + PAGE_SIZE)}
                     >
                       Show More ({allInternal.length - internalVisible} remaining)
                     </Button>
@@ -518,7 +525,7 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
                 </div>
               ) : (
                 <>
-                  {externalBuyers.map(buyer => (
+                  {externalBuyers.map((buyer) => (
                     <BuyerCard
                       key={buyer.buyer_id}
                       buyer={buyer}
@@ -532,7 +539,7 @@ export function RecommendedBuyersPanel({ listingId }: RecommendedBuyersPanelProp
                       variant="ghost"
                       size="sm"
                       className="w-full text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => setExternalVisible(prev => prev + PAGE_SIZE)}
+                      onClick={() => setExternalVisible((prev) => prev + PAGE_SIZE)}
                     >
                       Show More ({allExternal.length - externalVisible} remaining)
                     </Button>

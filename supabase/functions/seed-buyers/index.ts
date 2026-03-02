@@ -19,7 +19,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { callClaude, CLAUDE_MODELS } from '../_shared/claude-client.ts';
-import { requireAdmin } from '../_shared/auth.ts';
 
 // ── Types ──
 
@@ -57,19 +56,20 @@ interface SeedResult {
 
 // ── Helpers ──
 
-function buildCacheKey(deal: {
-  id: string;
-  industry: string | null;
-  categories: string[] | null;
-  address_state: string | null;
-  ebitda: number | null;
-}, buyerCategory?: string): string {
+function buildCacheKey(
+  deal: {
+    id: string;
+    industry: string | null;
+    categories: string[] | null;
+    address_state: string | null;
+    ebitda: number | null;
+  },
+  buyerCategory?: string,
+): string {
   const industry = (deal.industry || 'unknown').toLowerCase().trim();
   const cats = (deal.categories || []).sort().join(',').toLowerCase();
   const state = (deal.address_state || 'unknown').toLowerCase().trim();
-  const ebitdaBucket = deal.ebitda
-    ? Math.floor(deal.ebitda / 500_000) * 500_000
-    : 0;
+  const ebitdaBucket = deal.ebitda ? Math.floor(deal.ebitda / 500_000) * 500_000 : 0;
   const catSuffix = buyerCategory ? `:${buyerCategory}` : '';
   return `seed:${industry}:${cats}:${state}:${ebitdaBucket}${catSuffix}`;
 }
@@ -118,11 +118,13 @@ DESCRIPTION QUALITY — THIS IS CRITICAL:
 You must respond with valid JSON only. No markdown, no code fences, no explanatory text outside the JSON.`;
 }
 
-function buildUserPrompt(deal: Record<string, unknown>, maxBuyers: number, buyerCategory?: string): string {
+function buildUserPrompt(
+  deal: Record<string, unknown>,
+  maxBuyers: number,
+  buyerCategory?: string,
+): string {
   const ebitdaNum = deal.ebitda as number | null;
-  const ebitdaStr = ebitdaNum
-    ? `$${(ebitdaNum / 1_000_000).toFixed(1)}M`
-    : 'Not disclosed';
+  const ebitdaStr = ebitdaNum ? `$${(ebitdaNum / 1_000_000).toFixed(1)}M` : 'Not disclosed';
 
   const cats = (deal.categories as string[] | null)?.length
     ? (deal.categories as string[]).join(', ')
@@ -224,7 +226,10 @@ function findLastCompleteObject(text: string): number {
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
     if (inString) {
-      if (ch === '\\') { i++; continue; } // skip escaped char
+      if (ch === '\\') {
+        i++;
+        continue;
+      } // skip escaped char
       if (ch === '"') inString = false;
     } else {
       if (ch === '"') inString = true;
@@ -246,22 +251,28 @@ function repairAndParseJson(raw: string): unknown {
   if (jsonStart === -1) throw new Error('No JSON array found in response');
 
   const jsonEnd = cleaned.lastIndexOf(']');
-  cleaned = jsonEnd > jsonStart
-    ? cleaned.substring(jsonStart, jsonEnd + 1)
-    : cleaned.substring(jsonStart); // truncated — no closing bracket
+  cleaned =
+    jsonEnd > jsonStart ? cleaned.substring(jsonStart, jsonEnd + 1) : cleaned.substring(jsonStart); // truncated — no closing bracket
 
-  // Remove control chars that break JSON
+  // Remove control chars that break JSON (use RegExp constructor to satisfy no-control-regex)
+  // eslint-disable-next-line no-control-regex
   cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, ' ');
 
   // First attempt: direct parse
-  try { return JSON.parse(cleaned); } catch { /* continue */ }
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    /* continue */
+  }
 
   // Second attempt: strip trailing commas
-  let repaired = cleaned
-    .replace(/,\s*}/g, '}')
-    .replace(/,\s*]/g, ']');
+  let repaired = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
 
-  try { return JSON.parse(repaired); } catch { /* continue */ }
+  try {
+    return JSON.parse(repaired);
+  } catch {
+    /* continue */
+  }
 
   // Third attempt: find the last properly-closed object (not inside a string)
   // This handles truncated output where a string literal is unterminated
@@ -274,7 +285,11 @@ function repairAndParseJson(raw: string): unknown {
     if (!repaired.startsWith('[')) repaired = '[' + repaired;
     repaired = repaired.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
 
-    try { return JSON.parse(repaired); } catch { /* continue */ }
+    try {
+      return JSON.parse(repaired);
+    } catch {
+      /* continue */
+    }
   }
 
   throw new Error(`Cannot parse Claude response as JSON (length=${raw.length})`);
@@ -287,24 +302,34 @@ function parseClaudeResponse(responseText: string): AISuggestedBuyer[] {
   }
 
   // Validate and clean each buyer
-  return parsed.map((b: Record<string, unknown>) => ({
-    company_name: String(b.company_name || '').trim(),
-    company_website: b.company_website ? String(b.company_website).trim() : null,
-    buyer_type: (['pe_firm', 'platform', 'strategic', 'family_office'].includes(String(b.buyer_type))
-      ? String(b.buyer_type)
-      : 'strategic') as AISuggestedBuyer['buyer_type'],
-    pe_firm_name: b.pe_firm_name ? String(b.pe_firm_name).trim() : null,
-    hq_city: b.hq_city ? String(b.hq_city).trim() : null,
-    hq_state: b.hq_state ? String(b.hq_state).trim().toUpperCase().slice(0, 2) : null,
-    thesis_summary: String(b.thesis_summary || '').trim(),
-    why_relevant: String(b.why_relevant || '').trim(),
-    target_services: Array.isArray(b.target_services) ? b.target_services.map(String) : [],
-    target_industries: Array.isArray(b.target_industries) ? b.target_industries.map(String) : [],
-    target_geographies: Array.isArray(b.target_geographies) ? b.target_geographies.map(String) : [],
-    known_acquisitions: Array.isArray(b.known_acquisitions) ? b.known_acquisitions.map(String) : [],
-    estimated_ebitda_min: typeof b.estimated_ebitda_min === 'number' ? b.estimated_ebitda_min : null,
-    estimated_ebitda_max: typeof b.estimated_ebitda_max === 'number' ? b.estimated_ebitda_max : null,
-  })).filter(b => b.company_name.length > 0);
+  return parsed
+    .map((b: Record<string, unknown>) => ({
+      company_name: String(b.company_name || '').trim(),
+      company_website: b.company_website ? String(b.company_website).trim() : null,
+      buyer_type: (['pe_firm', 'platform', 'strategic', 'family_office'].includes(
+        String(b.buyer_type),
+      )
+        ? String(b.buyer_type)
+        : 'strategic') as AISuggestedBuyer['buyer_type'],
+      pe_firm_name: b.pe_firm_name ? String(b.pe_firm_name).trim() : null,
+      hq_city: b.hq_city ? String(b.hq_city).trim() : null,
+      hq_state: b.hq_state ? String(b.hq_state).trim().toUpperCase().slice(0, 2) : null,
+      thesis_summary: String(b.thesis_summary || '').trim(),
+      why_relevant: String(b.why_relevant || '').trim(),
+      target_services: Array.isArray(b.target_services) ? b.target_services.map(String) : [],
+      target_industries: Array.isArray(b.target_industries) ? b.target_industries.map(String) : [],
+      target_geographies: Array.isArray(b.target_geographies)
+        ? b.target_geographies.map(String)
+        : [],
+      known_acquisitions: Array.isArray(b.known_acquisitions)
+        ? b.known_acquisitions.map(String)
+        : [],
+      estimated_ebitda_min:
+        typeof b.estimated_ebitda_min === 'number' ? b.estimated_ebitda_min : null,
+      estimated_ebitda_max:
+        typeof b.estimated_ebitda_max === 'number' ? b.estimated_ebitda_max : null,
+    }))
+    .filter((b) => b.company_name.length > 0);
 }
 
 // ── Main handler ──
@@ -321,10 +346,10 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get('Authorization') || '';
     const callerToken = authHeader.replace('Bearer ', '').trim();
     if (!callerToken) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...headers, 'Content-Type': 'application/json' } },
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -333,21 +358,24 @@ Deno.serve(async (req: Request) => {
     const callerClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: `Bearer ${callerToken}` } },
     });
-    const { data: { user: callerUser }, error: callerError } = await callerClient.auth.getUser();
+    const {
+      data: { user: callerUser },
+      error: callerError,
+    } = await callerClient.auth.getUser();
     if (callerError || !callerUser) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...headers, 'Content-Type': 'application/json' } },
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { data: isAdmin } = await supabase.rpc('is_admin', { user_id: callerUser.id });
     if (!isAdmin) {
-      return new Response(
-        JSON.stringify({ error: 'Forbidden: admin access required' }),
-        { status: 403, headers: { ...headers, 'Content-Type': 'application/json' } },
-      );
+      return new Response(JSON.stringify({ error: 'Forbidden: admin access required' }), {
+        status: 403,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      });
     }
     // ── End auth guard ──
 
@@ -355,10 +383,10 @@ Deno.serve(async (req: Request) => {
     const { listingId, maxBuyers = 10, forceRefresh = false, buyerCategory } = body;
 
     if (!listingId) {
-      return new Response(
-        JSON.stringify({ error: 'listingId is required' }),
-        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } },
-      );
+      return new Response(JSON.stringify({ error: 'listingId is required' }), {
+        status: 400,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      });
     }
 
     // ── Fetch deal ──
@@ -366,9 +394,9 @@ Deno.serve(async (req: Request) => {
       .from('listings')
       .select(
         'id, title, industry, category, categories, ebitda, address_state,' +
-        'geographic_states, executive_summary, description, hero_description,' +
-        'investment_thesis, end_market_description, business_model, revenue_model,' +
-        'customer_types, growth_trajectory, owner_goals, seller_motivation, transition_preferences'
+          'geographic_states, executive_summary, description, hero_description,' +
+          'investment_thesis, end_market_description, business_model, revenue_model,' +
+          'customer_types, growth_trajectory, owner_goals, seller_motivation, transition_preferences',
       )
       .eq('id', listingId)
       .single();
@@ -400,7 +428,7 @@ Deno.serve(async (req: Request) => {
 
         return new Response(
           JSON.stringify({
-            seeded_buyers: (cachedBuyers || []).map(b => ({
+            seeded_buyers: (cachedBuyers || []).map((b) => ({
               buyer_id: b.id,
               company_name: b.company_name,
               action: 'cached' as const,
@@ -426,16 +454,16 @@ Deno.serve(async (req: Request) => {
       .limit(10000);
 
     const existingNameSet = new Set(
-      (existingBuyers || []).map(b => normalizeCompanyName(b.company_name)),
+      (existingBuyers || []).map((b) => normalizeCompanyName(b.company_name)),
     );
     const existingDomainSet = new Set(
       (existingBuyers || [])
-        .map(b => extractDomain(b.company_website))
+        .map((b) => extractDomain(b.company_website))
         .filter(Boolean) as string[],
     );
     // Map normalized name → existing buyer id for enrichment
     const nameToId = new Map(
-      (existingBuyers || []).map(b => [normalizeCompanyName(b.company_name), b.id]),
+      (existingBuyers || []).map((b) => [normalizeCompanyName(b.company_name), b.id]),
     );
 
     // ── Call Claude to discover buyers ──
@@ -444,16 +472,14 @@ Deno.serve(async (req: Request) => {
       model: CLAUDE_MODELS.opus,
       maxTokens: 8192,
       systemPrompt: buildSystemPrompt(),
-      messages: [
-        { role: 'user', content: buildUserPrompt(deal, cappedMax, buyerCategory) },
-      ],
+      messages: [{ role: 'user', content: buildUserPrompt(deal, cappedMax, buyerCategory) }],
       timeoutMs: 90000,
     });
 
     // Extract text from response
     const responseText = claudeResponse.content
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
       .join('');
 
     if (!responseText) {
@@ -505,7 +531,7 @@ Deno.serve(async (req: Request) => {
         // Probable duplicate via domain
         action = 'probable_duplicate';
         const domainBuyer = (existingBuyers || []).find(
-          b => extractDomain(b.company_website) === domain,
+          (b) => extractDomain(b.company_website) === domain,
         );
         if (!domainBuyer) {
           // Cannot resolve the duplicate — skip to avoid corrupting UUID[] cache
@@ -579,7 +605,7 @@ Deno.serve(async (req: Request) => {
 
     // ── Batch insert seed log entries (delete stale entries for this deal first) ──
     if (seedLogEntries.length > 0) {
-      const buyerIdsToLog = seedLogEntries.map(e => e.remarketing_buyer_id as string);
+      const buyerIdsToLog = seedLogEntries.map((e) => e.remarketing_buyer_id as string);
       // Remove previous seed log entries for these buyer+deal pairs to prevent unbounded growth
       const { error: deleteError } = await supabase
         .from('buyer_seed_log')
@@ -597,21 +623,19 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Update seed cache ──
-    await supabase
-      .from('buyer_seed_cache')
-      .upsert(
-        {
-          cache_key: cacheKey,
-          buyer_ids: newBuyerIds,
-          seeded_at: now,
-          expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        { onConflict: 'cache_key' },
-      );
+    await supabase.from('buyer_seed_cache').upsert(
+      {
+        cache_key: cacheKey,
+        buyer_ids: newBuyerIds,
+        seeded_at: now,
+        expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      { onConflict: 'cache_key' },
+    );
 
-    const inserted = results.filter(r => r.action === 'inserted').length;
-    const enriched = results.filter(r => r.action === 'enriched_existing').length;
-    const dupes = results.filter(r => r.action === 'probable_duplicate').length;
+    const inserted = results.filter((r) => r.action === 'inserted').length;
+    const enriched = results.filter((r) => r.action === 'enriched_existing').length;
+    const dupes = results.filter((r) => r.action === 'probable_duplicate').length;
 
     return new Response(
       JSON.stringify({
