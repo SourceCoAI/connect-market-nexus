@@ -150,7 +150,7 @@ export function GeneralChatView({
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h2 className="text-sm font-semibold" style={{ color: '#0E101A' }}>
-          General Inquiry
+          SourceCo Team
         </h2>
       </div>
 

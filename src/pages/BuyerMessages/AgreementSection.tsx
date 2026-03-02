@@ -94,15 +94,11 @@ export function PendingAgreementBanner() {
 
   return (
     <>
-      <div className="mb-0 py-2 space-y-1">
+      <div className="py-2 px-4 flex items-center gap-4 flex-wrap" style={{ borderBottom: '1px solid #F0EDE6' }}>
         {items.map((item) => (
           <div
             key={item.key}
-            className="flex items-center gap-3 px-4 py-2 rounded-lg"
-            style={{
-              borderLeft: item.signed ? 'none' : '2px solid #DEC76B',
-              backgroundColor: item.signed ? 'transparent' : '#FDFCF9',
-            }}
+            className="flex items-center gap-2"
           >
             <div className="flex-1 min-w-0 flex items-center gap-2">
               <span className="text-sm font-medium" style={{ color: '#0E101A' }}>

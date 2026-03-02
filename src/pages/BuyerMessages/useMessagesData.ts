@@ -5,6 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import type { BuyerThread } from './helpers';
 
+// Internal listing used for general inquiry threads -- not a real deal
+export const GENERAL_INQUIRY_LISTING_ID = '00000000-0000-0000-0000-000000000001';
+
 // ─── useResolvedThreadId ───
 // Calls the resolve-buyer-message-thread edge function to guarantee a thread ID.
 // Caches the result so it's only called once per session.
@@ -98,7 +101,10 @@ export function useBuyerThreads() {
         unread_count: unreadMap[req.id as string] || 0,
       }));
 
-      return threads.sort((a, b) => {
+      // Filter out internal general-inquiry listing so it doesn't appear as a real deal
+      const realThreads = threads.filter(t => t.listing_id !== GENERAL_INQUIRY_LISTING_ID);
+
+      return realThreads.sort((a, b) => {
         if (a.unread_count > 0 && b.unread_count === 0) return -1;
         if (a.unread_count === 0 && b.unread_count > 0) return 1;
         return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime();

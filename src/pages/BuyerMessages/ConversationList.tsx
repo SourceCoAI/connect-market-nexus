@@ -74,10 +74,10 @@ export function ConversationList({
             }}
           >
             <span className="text-sm font-medium" style={{ color: '#0E101A' }}>
-              General Inquiry
+              SourceCo Team
             </span>
             <p className="text-[11px] mt-0.5" style={{ color: '#9A9A9A' }}>
-              Message the SourceCo team
+              Ask us anything
             </p>
           </button>
 

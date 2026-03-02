@@ -95,7 +95,7 @@ export default function BuyerMessages() {
       style={{ fontFamily: 'Montserrat, Inter, sans-serif' }}
     >
       {/* Header */}
-      <div className="px-6 pt-6 pb-4 flex-shrink-0" style={{ borderBottom: '1px solid #F0EDE6' }}>
+      <div className="px-6 pt-6 pb-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#0E101A' }}>
             Messages{totalUnread > 0 ? ` (${totalUnread})` : ''}
@@ -103,19 +103,14 @@ export default function BuyerMessages() {
           <Button
             onClick={handleSelectGeneral}
             size="sm"
-            variant="outline"
-            className="gap-1.5 text-xs"
-            style={{ borderColor: '#E5DDD0', color: '#0E101A' }}
+            variant="ghost"
+            className="gap-1.5 text-xs hover:bg-[#FAFAF8]"
+            style={{ color: '#0E101A' }}
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
             New Message
           </Button>
         </div>
-      </div>
-
-      {/* Pending agreement banner */}
-      <div className="px-6 flex-shrink-0">
-        <PendingAgreementBanner />
       </div>
 
       {/* Main content */}
@@ -137,9 +132,15 @@ export default function BuyerMessages() {
         </div>
       ) : (
         <div
-          className="flex-1 min-h-0 mx-6 mb-6 mt-4 rounded-xl overflow-hidden flex"
+          className="flex-1 min-h-0 mx-6 mb-6 rounded-xl overflow-hidden flex flex-col"
           style={{ border: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}
         >
+          {/* Pending agreement banner -- inside container */}
+          <div className="flex-shrink-0">
+            <PendingAgreementBanner />
+          </div>
+
+          <div className="flex-1 min-h-0 flex">
           {/* Conversation List (left panel) */}
           <ConversationList
             threads={threads}
@@ -201,6 +202,7 @@ export default function BuyerMessages() {
             activeReference={reference}
             onSelectReference={setReference}
           />
+          </div>
         </div>
       )}
     </div>
