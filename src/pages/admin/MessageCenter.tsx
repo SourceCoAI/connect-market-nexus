@@ -73,10 +73,14 @@ function useInboxThreads() {
 
       // Fetch pipeline deal IDs for these connection requests
       const requestIds = requests.map((r) => r.id);
-      const { data: deals } = await supabase
-        .from('deals')
-        .select('id, connection_request_id')
-        .in('connection_request_id', requestIds.length > 0 ? requestIds : ['__none__']);
+      let deals: { id: string; connection_request_id: string | null }[] | null = null;
+      if (requestIds.length > 0) {
+        const { data } = await supabase
+          .from('deals')
+          .select('id, connection_request_id')
+          .in('connection_request_id', requestIds);
+        deals = data as typeof deals;
+      }
 
       const dealMap: Record<string, string> = {};
       (deals || []).forEach((d: { id: string; connection_request_id: string | null }) => {

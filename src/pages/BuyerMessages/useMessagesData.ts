@@ -67,12 +67,16 @@ export function useBuyerThreads() {
       if (reqError || !requests) return [];
 
       const requestIds = requests.map((r: Record<string, unknown>) => r.id as string);
-      const { data: unreadMsgs } = await supabase
-        .from('connection_messages')
-        .select('connection_request_id')
-        .in('connection_request_id', requestIds.length > 0 ? requestIds : ['__none__'])
-        .eq('is_read_by_buyer', false)
-        .eq('sender_role', 'admin');
+      let unreadMsgs: Record<string, unknown>[] | null = null;
+      if (requestIds.length > 0) {
+        const { data } = await supabase
+          .from('connection_messages')
+          .select('connection_request_id')
+          .in('connection_request_id', requestIds)
+          .eq('is_read_by_buyer', false)
+          .eq('sender_role', 'admin');
+        unreadMsgs = data;
+      }
 
       const unreadMap: Record<string, number> = {};
       (unreadMsgs || []).forEach((msg: Record<string, unknown>) => {
