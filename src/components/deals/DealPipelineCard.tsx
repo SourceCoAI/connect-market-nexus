@@ -44,7 +44,7 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Clock, ArrowRight } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import type { ConnectionRequest } from '@/types';
 import {
   TechnologyIcon,
@@ -245,13 +245,6 @@ function getRequestStatusColors(status: string): { bg: string; text: string; bor
  * deal.  Returns null if no immediate action is available (e.g. under
  * review with nothing pending).
  */
-function getCtaLabel(status: string, ndaSigned?: boolean, hasCim?: boolean): string | null {
-  if (status === 'rejected') return null;
-  if (!ndaSigned) return 'Sign NDA';
-  if (hasCim) return 'View Deal Memo';
-  // NDA signed but not yet under review
-  return null;
-}
 
 /* ─── Component ────────────────────────────────────────────────────────── */
 
@@ -277,7 +270,7 @@ export function DealPipelineCard({
     ? formatEbitdaRange(request.listing.ebitda)
     : null;
 
-  const ctaLabel = getCtaLabel(request.status, ndaSigned, hasCim);
+  
 
   return (
     <TooltipProvider>
@@ -385,20 +378,12 @@ export function DealPipelineCard({
           </span>
         </div>
 
-        {/* Per-deal CTA button — the key UX improvement */}
-        {(ctaLabel || pendingAction) && !isRejected && (
-          <div className="mt-2.5 flex items-center justify-between">
-            {pendingAction && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#8B6F47] bg-[#FBF7EC] px-1.5 py-0.5 rounded-full border border-[#DEC76B]">
-                {pendingAction}
-              </span>
-            )}
-            {ctaLabel && (
-              <span className="inline-flex items-center gap-1 ml-auto text-[11px] font-semibold text-[#DEC76B] border border-[#DEC76B] px-2.5 py-1 rounded-md hover:bg-[#DEC76B] hover:text-[#0E101A] transition-colors">
-                {ctaLabel}
-                <ArrowRight className="h-3 w-3" />
-              </span>
-            )}
+        {/* Pending action badge (no signing CTA — signing is at page level) */}
+        {pendingAction && !isRejected && (
+          <div className="mt-2.5">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#8B6F47] bg-[#FBF7EC] px-1.5 py-0.5 rounded-full border border-[#DEC76B]">
+              {pendingAction}
+            </span>
           </div>
         )}
       </button>
