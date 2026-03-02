@@ -124,7 +124,6 @@ function useInboxThreads() {
           Object.entries(userFirmMap).forEach(([userId, firmId]) => {
             const firm = firmDataMap[firmId];
             if (firm) {
-              const { resolveAgreementStatus } = require('@/lib/agreement-status');
               firmStatusMap[userId] = {
                 nda_status: resolveAgreementStatus(!!firm.nda_signed, firm.nda_docuseal_status as string | null),
                 fee_status: resolveAgreementStatus(!!firm.fee_agreement_signed, firm.fee_docuseal_status as string | null),
