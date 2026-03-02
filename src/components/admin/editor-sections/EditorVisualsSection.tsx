@@ -67,14 +67,14 @@ export function EditorVisualsSection({
           onClick={() => fileInputRef.current?.click()}
           className={cn(
             EDITOR_DESIGN.wideImageAspect,
-            "rounded-md border-2 border-dashed border-border/40 bg-muted/20 hover:bg-muted/30 cursor-pointer flex items-center justify-center",
+            "rounded-md border-2 border-dashed border-border bg-muted/30 hover:bg-muted/50 cursor-pointer flex items-center justify-center",
             EDITOR_DESIGN.hoverTransition
           )}
         >
           <div className="text-center">
-            <ImageIcon className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Click to upload</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">PNG, JPG, WebP up to 5MB</p>
+            <ImageIcon className="h-8 w-8 text-muted-foreground/60 mx-auto mb-2" />
+            <p className="text-sm font-medium text-muted-foreground">Click to upload</p>
+            <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WebP up to 5MB</p>
           </div>
         </div>
       )}

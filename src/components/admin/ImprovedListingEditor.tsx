@@ -372,13 +372,13 @@ export function ImprovedListingEditor({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-slate-50/30">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50">
       <div className="max-w-[1920px] mx-auto px-12 py-8">
         <Form {...form}>
           <form onSubmit={handleFormSubmit}>
             {/* Target type banner */}
             {!listing && (
-              <div className="mb-6 flex items-center gap-3 rounded-lg border border-muted bg-muted/30 px-4 py-3 text-sm font-medium text-muted-foreground">
+              <div className="mb-6 flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm font-medium text-foreground/70">
                 <Target className="h-4 w-4 shrink-0" />
                 This listing will be created as a draft. Use the Publish button on the card to make
                 it live on the marketplace.
@@ -457,7 +457,7 @@ export function ImprovedListingEditor({
             </div>
 
             {/* FOOTER - Actions */}
-            <div className="flex items-center justify-between pt-6 border-t border-border/30">
+            <div className="flex items-center justify-between pt-6 border-t border-border">
               <div className="text-sm text-muted-foreground">
                 {listing
                   ? `Last updated: ${new Date(listing.updated_at).toLocaleDateString()}`
