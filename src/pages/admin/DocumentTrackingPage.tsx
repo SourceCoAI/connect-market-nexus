@@ -194,7 +194,7 @@ function useRealtimeFirmAgreements() {
 // ─── Component ───────────────────────────────────────────────────────
 
 type FilterStatus = 'all' | 'signed' | 'sent' | 'not_started' | 'unsigned' | 'needs_attention';
-type SortField = 'company' | 'nda_status' | 'fee_status' | 'members';
+type SortField = 'company' | 'nda_status' | 'fee_status' | 'members' | 'last_signed';
 
 export default function DocumentTrackingPage() {
   const { data: firms = [], isLoading, error } = useAllFirmsTracking();
@@ -203,8 +203,8 @@ export default function DocumentTrackingPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-  const [sortField, setSortField] = useState<SortField>('company');
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortField, setSortField] = useState<SortField>('last_signed');
+  const [sortAsc, setSortAsc] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [orphansOpen, setOrphansOpen] = useState(false);
 
@@ -276,6 +276,21 @@ export default function DocumentTrackingPage() {
       else if (sortField === 'nda_status') cmp = (statusOrder[a.nda_status] ?? 9) - (statusOrder[b.nda_status] ?? 9);
       else if (sortField === 'fee_status') cmp = (statusOrder[a.fee_agreement_status] ?? 9) - (statusOrder[b.fee_agreement_status] ?? 9);
       else if (sortField === 'members') cmp = b.member_count - a.member_count;
+      else if (sortField === 'last_signed') {
+        const aDate = Math.max(
+          a.nda_signed_at ? new Date(a.nda_signed_at).getTime() : 0,
+          a.fee_agreement_signed_at ? new Date(a.fee_agreement_signed_at).getTime() : 0,
+        );
+        const bDate = Math.max(
+          b.nda_signed_at ? new Date(b.nda_signed_at).getTime() : 0,
+          b.fee_agreement_signed_at ? new Date(b.fee_agreement_signed_at).getTime() : 0,
+        );
+        // Firms with signed docs first, then by date
+        if (aDate === 0 && bDate === 0) cmp = 0;
+        else if (aDate === 0) cmp = 1;
+        else if (bDate === 0) cmp = -1;
+        else cmp = bDate - aDate;
+      }
       return sortAsc ? cmp : -cmp;
     });
 

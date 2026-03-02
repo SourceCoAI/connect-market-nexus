@@ -246,3 +246,5 @@ verify_jwt = false
 verify_jwt = false
 [functions.notify-admin-new-message]
 verify_jwt = true
+[functions.confirm-agreement-signed]
+verify_jwt = false
