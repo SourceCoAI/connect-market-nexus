@@ -362,16 +362,24 @@ export function UnifiedAdminSidebar({
   );
 
   const activeSectionId = useMemo(() => {
+    // First pass: find items with search qualifiers that match exactly
     for (const section of sections) {
       for (const item of section.items) {
         if (item.external) continue;
         const [itemPath, itemSearch] = item.href.split('?');
-        if (item.exact && location.pathname === itemPath) {
-          if (!itemSearch || location.search.includes(itemSearch)) return section.id;
-        }
-        if (!item.exact && location.pathname.startsWith(itemPath)) {
-          if (!itemSearch || location.search.includes(itemSearch)) return section.id;
-        }
+        if (!itemSearch) continue;
+        const pathMatch = item.exact ? location.pathname === itemPath : location.pathname.startsWith(itemPath);
+        if (pathMatch && location.search.includes(itemSearch)) return section.id;
+      }
+    }
+    // Second pass: fallback to items without search qualifiers
+    for (const section of sections) {
+      for (const item of section.items) {
+        if (item.external) continue;
+        const [itemPath, itemSearch] = item.href.split('?');
+        if (itemSearch) continue;
+        const pathMatch = item.exact ? location.pathname === itemPath : location.pathname.startsWith(itemPath);
+        if (pathMatch) return section.id;
       }
     }
     return null;
@@ -403,6 +411,16 @@ export function UnifiedAdminSidebar({
       : location.pathname.startsWith(itemPath);
     if (!pathMatch) return false;
     if (itemSearch) return location.search.includes(itemSearch);
+    // If this item has no search qualifier but the URL does, check if a sibling matches
+    if (!itemSearch && location.search) {
+      const allItems = sections.flatMap(s => s.items);
+      const siblingMatch = allItems.some(other => {
+        if (other === item) return false;
+        const [otherPath, otherSearch] = other.href.split('?');
+        return otherPath === itemPath && otherSearch && location.search.includes(otherSearch);
+      });
+      if (siblingMatch) return false;
+    }
     return true;
   };
 

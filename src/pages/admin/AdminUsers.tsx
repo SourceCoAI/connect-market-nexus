@@ -90,8 +90,10 @@ class TableErrorBoundary extends Component<
 const AdminUsers = () => {
   const { users } = useAdmin();
   const { data: usersData = [], isLoading, error, refetch } = users;
-  const { data: nonMarketplaceUsers = [], isLoading: isLoadingNonMarketplace } = useNonMarketplaceUsers();
-  const { data: ownerLeads = [], isLoading: isLoadingOwnerLeads } = useOwnerLeads();
+  const primaryViewFromParams: PrimaryView = searchParams.get('view') === 'owners' ? 'owners' : 'buyers';
+  const [secondaryViewEarly] = useState<SecondaryView>('marketplace');
+  const { data: nonMarketplaceUsers = [], isLoading: isLoadingNonMarketplace } = useNonMarketplaceUsers({ enabled: primaryViewFromParams === 'buyers' && secondaryViewEarly === 'non-marketplace' });
+  const { data: ownerLeads = [], isLoading: isLoadingOwnerLeads } = useOwnerLeads({ enabled: primaryViewFromParams === 'owners' });
   const updateOwnerStatus = useUpdateOwnerLeadStatus();
   const updateOwnerNotes = useUpdateOwnerLeadNotes();
   const updateOwnerContacted = useUpdateOwnerLeadContacted();
@@ -387,8 +389,8 @@ const AdminUsers = () => {
 
         {/* Table Container */}
         <div className="bg-card rounded-lg border overflow-hidden">
-          {/* Buyers table - marketplace */}
-          <div className={cn(!(isBuyersView && secondaryView === 'marketplace') && "hidden")}>
+        {/* Buyers table - marketplace */}
+          {isBuyersView && secondaryView === 'marketplace' && (
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -422,10 +424,10 @@ const AdminUsers = () => {
                 </TableErrorBoundary>
               </div>
             )}
-          </div>
+          )}
 
           {/* Buyers table - non-marketplace */}
-          <div className={cn(!(isBuyersView && secondaryView === 'non-marketplace') && "hidden")}>
+          {isBuyersView && secondaryView === 'non-marketplace' && (
              <NonMarketplaceUsersTable
                users={nonMarketplaceUsers}
                isLoading={isLoadingNonMarketplace}
@@ -434,10 +436,11 @@ const AdminUsers = () => {
                onToggleSelect={() => {}}
                onToggleSelectAll={() => {}}
              />
-          </div>
+          )}
 
           {/* Owners table */}
-          <div className={cn(!isOwnersView && "hidden")}>
+          {isOwnersView && (
+            <>
             {isLoadingOwnerLeads ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -464,7 +467,8 @@ const AdminUsers = () => {
                 />
               </div>
             )}
-          </div>
+            </>
+          )}
         </div>
 
         {/* Owner bulk actions floating bar */}

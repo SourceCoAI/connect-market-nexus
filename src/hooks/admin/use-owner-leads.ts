@@ -19,9 +19,10 @@ export interface OwnerLead {
   updated_at: string;
 }
 
-export function useOwnerLeads() {
+export function useOwnerLeads(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["owner-leads"],
+    enabled: options?.enabled !== false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inbound_leads")

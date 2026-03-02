@@ -2,9 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { NonMarketplaceUser } from '@/types/non-marketplace-user';
 
-export function useNonMarketplaceUsers() {
+export function useNonMarketplaceUsers(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['admin', 'non-marketplace-users'],
+    enabled: options?.enabled !== false,
     queryFn: async () => {
       // Fetch connection requests with lead data AND firm info
       const { data: connectionRequests, error: crError } = await supabase
