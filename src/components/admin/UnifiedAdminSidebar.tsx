@@ -49,7 +49,6 @@ import {
   FlaskConical,
   ExternalLink,
   Plus,
-  List,
   ListChecks,
   Contact,
   Mail,
