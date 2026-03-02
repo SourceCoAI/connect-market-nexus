@@ -92,6 +92,8 @@ export const ROUTES = {
 
     analytics: {
       root: '/admin/analytics',
+      website: '/admin/analytics/website',
+      remarketing: '/admin/analytics/remarketing',
       transcripts: '/admin/analytics/transcripts',
     },
 
