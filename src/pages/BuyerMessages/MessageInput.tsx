@@ -65,7 +65,7 @@ export function MessageInput({
   const showPicker = onReferenceChange && (documents.length > 0 || threads.length > 0);
 
   return (
-    <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid #F0EDE6' }}>
+    <div className="px-5 py-3 flex-shrink-0" style={{ boxShadow: '0 -1px 3px rgba(0,0,0,0.03)' }}>
       {/* Hint for referencing -- mobile only */}
       {!reference && showPicker && !value && !attachment && (
         <p className="text-[10px] mb-1.5 md:hidden" style={{ color: '#CBCBCB' }}>
