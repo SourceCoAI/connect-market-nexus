@@ -1,10 +1,10 @@
 /**
- * MyRequests (My Deals) — The buyer's deal pipeline page.
+ * MyRequests (My Deals) — Premium buyer deal command center.
  *
- * Clean, minimal layout:
- * 1. Account Status bar (only shown when documents need signing)
- * 2. Deal cards (left) + Detail panel (right)
- * 3. Tabs: Overview | Messages | Activity Log (no Documents tab)
+ * Clean two-column layout:
+ * 1. Slim account documents banner (only if unsigned)
+ * 2. Sidebar (360px) with minimal deal cards
+ * 3. Detail panel with action card, status, info, messages/activity tabs
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -14,13 +14,11 @@ import { useMarketplace } from '@/hooks/use-marketplace';
 import {
   AlertCircle,
   FileText,
-  MessageSquare,
-  Activity,
   ArrowUpDown,
   Shield,
   FileSignature,
-  ArrowRight,
   Check,
+  Calendar,
 } from 'lucide-react';
 import { useUnreadBuyerMessageCounts } from '@/hooks/use-connection-messages';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -34,13 +32,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DealProcessSteps } from '@/components/deals/DealProcessSteps';
-import { DealDetailsCard } from '@/components/deals/DealDetailsCard';
 import { DealMessagesTab } from '@/components/deals/DealMessagesTab';
 import { DealActivityLog } from '@/components/deals/DealActivityLog';
 import { DealPipelineCard } from '@/components/deals/DealPipelineCard';
 import { DealDetailHeader } from '@/components/deals/DealDetailHeader';
-import { DealNextSteps } from '@/components/deals/DealNextSteps';
+import { DealActionCard } from '@/components/deals/DealActionCard';
+import { DealStatusSection } from '@/components/deals/DealStatusSection';
+import { DealMessageEditor } from '@/components/deals/DealMessageEditor';
+import { BuyerProfileStatus } from '@/components/deals/BuyerProfileStatus';
+import { PostRejectionPanel } from '@/components/deals/PostRejectionPanel';
 import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,106 +54,77 @@ import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
+import { formatDistanceToNow } from 'date-fns';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Account Status Bar — Firm-level document signing status
+   Account Documents Banner — Slim inline banner
    ═══════════════════════════════════════════════════════════════════════ */
 
-interface AccountStatusBarProps {
+interface AccountBannerProps {
   ndaSigned: boolean;
   feeCovered: boolean;
   feeStatus?: string;
 }
 
-function AccountStatusBar({ ndaSigned, feeCovered, feeStatus }: AccountStatusBarProps) {
+function AccountDocumentsBanner({ ndaSigned, feeCovered, feeStatus }: AccountBannerProps) {
   const [signingOpen, setSigningOpen] = useState(false);
   const [signingType, setSigningType] = useState<'nda' | 'fee_agreement'>('nda');
 
-  const showFeeRow = !feeCovered && feeStatus === 'sent';
+  const showFee = !feeCovered && feeStatus === 'sent';
   const needsNda = !ndaSigned;
 
-  // Hide entirely when everything is signed
-  if (!needsNda && !showFeeRow) return null;
+  if (!needsNda && !showFee) return null;
 
   const openSigning = (type: 'nda' | 'fee_agreement') => {
     setSigningType(type);
     setSigningOpen(true);
   };
 
-  const rows: { key: string; icon: typeof Shield; label: string; signed: boolean; type: 'nda' | 'fee_agreement' }[] = [];
-
-  rows.push({
-    key: 'nda',
-    icon: Shield,
-    label: 'Non-Disclosure Agreement',
-    signed: ndaSigned,
-    type: 'nda',
-  });
-
-  if (showFeeRow || feeCovered) {
-    rows.push({
-      key: 'fee',
-      icon: FileSignature,
-      label: 'Fee Agreement',
-      signed: feeCovered,
-      type: 'fee_agreement',
-    });
-  }
-
   return (
     <>
-      <div className="rounded-xl border border-[#E5DDD0] bg-white overflow-hidden">
-        <div className="px-5 py-3 border-b border-[#E5DDD0]/60">
-          <p className="text-[11px] font-semibold text-[#0E101A]/40 uppercase tracking-[0.1em]">
-            Account Documents
-          </p>
-        </div>
-        <div className="divide-y divide-[#E5DDD0]/40">
-          {rows.map((row) => {
-            const Icon = row.icon;
-            return (
-              <div key={row.key} className="flex items-center gap-3 px-5 py-3">
-                {/* Status indicator */}
-                <div
-                  className={cn(
-                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
-                    row.signed
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-[#FBF7EC] border border-[#DEC76B]',
-                  )}
-                >
-                  {row.signed ? (
-                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                  ) : (
-                    <Icon className="h-3 w-3 text-[#8B6F47]" />
-                  )}
-                </div>
+      <div className="flex items-center gap-4 px-5 py-2.5 bg-[#FEFDFB] border-b border-[#F0EDE6] text-[12px]">
+        <span className="text-[#0E101A]/40 font-medium uppercase tracking-wide text-[10px]">Documents</span>
+        <div className="flex items-center gap-4 flex-1">
+          <div className="flex items-center gap-1.5">
+            {ndaSigned ? (
+              <Check className="h-3 w-3 text-emerald-500" />
+            ) : (
+              <Shield className="h-3 w-3 text-[#8B6F47]" />
+            )}
+            <span className={ndaSigned ? 'text-[#0E101A]/40' : 'text-[#0E101A]/70'}>NDA</span>
+            {!ndaSigned && (
+              <button
+                onClick={() => openSigning('nda')}
+                className="text-[#0E101A] font-semibold hover:underline ml-1"
+              >
+                Sign Now →
+              </button>
+            )}
+            {ndaSigned && <span className="text-emerald-600 font-medium">Signed</span>}
+          </div>
 
-                {/* Label */}
-                <span
-                  className={cn(
-                    'text-sm font-medium flex-1',
-                    row.signed ? 'text-[#0E101A]/70' : 'text-[#0E101A]',
-                  )}
-                >
-                  {row.label}
-                </span>
-
-                {/* Status / Action */}
-                {row.signed ? (
-                  <span className="text-xs font-medium text-emerald-600">Signed</span>
+          {(showFee || feeCovered) && (
+            <>
+              <span className="text-[#0E101A]/15">|</span>
+              <div className="flex items-center gap-1.5">
+                {feeCovered ? (
+                  <Check className="h-3 w-3 text-emerald-500" />
                 ) : (
+                  <FileSignature className="h-3 w-3 text-[#8B6F47]" />
+                )}
+                <span className={feeCovered ? 'text-[#0E101A]/40' : 'text-[#0E101A]/70'}>Fee Agreement</span>
+                {!feeCovered && showFee && (
                   <button
-                    onClick={() => openSigning(row.type)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0E101A] text-white hover:bg-[#0E101A]/80 transition-colors"
+                    onClick={() => openSigning('fee_agreement')}
+                    className="text-[#0E101A] font-semibold hover:underline ml-1"
                   >
-                    Sign Now
-                    <ArrowRight className="h-3 w-3" />
+                    Sign Now →
                   </button>
                 )}
+                {feeCovered && <span className="text-emerald-600 font-medium">Signed</span>}
               </div>
-            );
-          })}
+            </>
+          )}
         </div>
       </div>
 
@@ -299,19 +270,15 @@ const MyRequests = () => {
 
   if (isLoading) {
     return (
-      <div className="w-full bg-[#FCF9F0] min-h-screen">
-        <div className="px-4 sm:px-8 pt-8 pb-6 max-w-[1200px] mx-auto">
-          <Skeleton className="h-9 w-48" />
-          <Skeleton className="h-5 w-72 mt-2" />
-        </div>
-        <div className="px-4 sm:px-8 max-w-[1200px] mx-auto">
-          <Skeleton className="h-24 w-full rounded-xl mb-6" />
-          <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5">
-            <div className="space-y-3">
-              <Skeleton className="h-36 w-full rounded-xl" />
-              <Skeleton className="h-36 w-full rounded-xl" />
+      <div className="w-full bg-white min-h-screen">
+        <div className="max-w-[1280px] mx-auto px-6 pt-8">
+          <Skeleton className="h-7 w-32 mb-6" />
+          <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
+            <div className="space-y-2">
+              <Skeleton className="h-20 w-full rounded-lg" />
+              <Skeleton className="h-20 w-full rounded-lg" />
             </div>
-            <Skeleton className="h-[500px] w-full rounded-xl" />
+            <Skeleton className="h-[500px] w-full rounded-lg" />
           </div>
         </div>
       </div>
@@ -320,21 +287,20 @@ const MyRequests = () => {
 
   if (!requests || requests.length === 0) {
     return (
-      <div className="w-full bg-[#FCF9F0] min-h-screen">
-        <div className="px-4 sm:px-8 pt-8 pb-6 max-w-[1200px] mx-auto">
-          <h1 className="text-[28px] font-semibold text-[#0E101A] tracking-tight">My Deals</h1>
-          <p className="text-sm text-[#0E101A]/50 mt-1">Track your active opportunities</p>
+      <div className="w-full bg-white min-h-screen">
+        <div className="max-w-[1280px] mx-auto px-6 pt-8">
+          <h1 className="text-xl font-semibold text-[#0E101A] tracking-tight">My Deals</h1>
         </div>
         <div className="min-h-[50vh] flex items-center justify-center px-4">
-          <div className="text-center space-y-4 max-w-sm">
+          <div className="text-center space-y-3 max-w-xs">
             <div className="flex justify-center">
-              <div className="rounded-full bg-[#E5DDD0] p-3">
-                <FileText className="h-6 w-6 text-[#0E101A]/40" />
+              <div className="rounded-full bg-[#F5F3EE] p-3">
+                <FileText className="h-5 w-5 text-[#0E101A]/30" />
               </div>
             </div>
-            <h2 className="text-base font-semibold text-[#0E101A]">No deals yet</h2>
-            <p className="text-sm text-slate-600 leading-6">
-              You haven't submitted any connection requests yet. Browse the marketplace to find opportunities.
+            <h2 className="text-[15px] font-semibold text-[#0E101A]">No deals yet</h2>
+            <p className="text-[13px] text-[#0E101A]/50 leading-relaxed">
+              Browse the marketplace to find opportunities and express interest.
             </p>
           </div>
         </div>
@@ -343,83 +309,88 @@ const MyRequests = () => {
   }
 
   return (
-    <div className="w-full bg-[#FCF9F0] min-h-screen">
+    <div className="w-full bg-white min-h-screen">
       {/* Page Header */}
-      <div className="px-4 sm:px-8 pt-8 pb-5 max-w-[1200px] mx-auto">
-        <h1 className="text-[28px] font-semibold text-[#0E101A] tracking-tight">My Deals</h1>
-        <p className="text-sm text-[#0E101A]/50 mt-1">Track your active opportunities</p>
+      <div className="max-w-[1280px] mx-auto px-6 pt-8 pb-5">
+        <h1 className="text-xl font-semibold text-[#0E101A] tracking-tight">My Deals</h1>
       </div>
 
-      <div className="px-4 sm:px-8 pb-8 max-w-[1200px] mx-auto space-y-6">
-        {/* Account Status Bar — only visible when documents need signing */}
-        <AccountStatusBar
-          ndaSigned={ndaStatus?.ndaSigned ?? false}
-          feeCovered={coverage?.fee_covered ?? false}
-          feeStatus={coverage?.fee_status}
-        />
+      <div className="max-w-[1280px] mx-auto px-6 pb-8">
+        {/* Main container with account banner */}
+        <div className="rounded-xl border border-[#F0EDE6] overflow-hidden">
+          {/* Account Documents Banner */}
+          <AccountDocumentsBanner
+            ndaSigned={ndaStatus?.ndaSigned ?? false}
+            feeCovered={coverage?.fee_covered ?? false}
+            feeStatus={coverage?.fee_status}
+          />
 
-        {/* Main Grid */}
-        <div className={cn('grid gap-5', isMobile ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-[340px_1fr]')}>
-          {/* Left Column: Deal Cards */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-[0.08em]">
-                  Active Deals
-                </h2>
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#0E101A] px-2 text-[11px] font-semibold text-white">
-                  {requests.length}
-                </span>
+          {/* Two-column layout */}
+          <div className={cn('flex', isMobile ? 'flex-col' : 'flex-row')}>
+            {/* Sidebar */}
+            <div className={cn(
+              'shrink-0 border-r border-[#F0EDE6] bg-[#FAFAF8]',
+              isMobile ? 'w-full border-r-0 border-b' : 'w-[340px]',
+            )}>
+              <div className="px-4 py-3 flex items-center justify-between border-b border-[#F0EDE6]">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold text-[#0E101A]/30 uppercase tracking-[0.12em]">
+                    Deals
+                  </span>
+                  <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#0E101A] px-1.5 text-[9px] font-semibold text-white">
+                    {requests.length}
+                  </span>
+                </div>
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'recent' | 'action' | 'status')}>
+                  <SelectTrigger className="h-6 w-[120px] text-[10px] border-[#E5DDD0] bg-white rounded-md">
+                    <ArrowUpDown className="h-2.5 w-2.5 mr-1 text-[#0E101A]/30 shrink-0" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recent" className="text-[11px]">Most Recent</SelectItem>
+                    <SelectItem value="action" className="text-[11px]">Action Required</SelectItem>
+                    <SelectItem value="status" className="text-[11px]">Status</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'recent' | 'action' | 'status')}>
-                <SelectTrigger className="h-7 w-[140px] text-[11px] border-slate-200 bg-white">
-                  <ArrowUpDown className="h-3 w-3 mr-1 text-slate-400 shrink-0" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent" className="text-[12px]">Most Recent</SelectItem>
-                  <SelectItem value="action" className="text-[12px]">Action Required</SelectItem>
-                  <SelectItem value="status" className="text-[12px]">Status</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="p-2 space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
+                {sortedRequests.map((request) => {
+                  const unreadForRequest = (unreadByRequest[request.id] || 0) + (unreadMsgCounts?.byRequest[request.id] || 0);
+                  return (
+                    <DealPipelineCard
+                      key={request.id}
+                      request={request}
+                      isSelected={selectedDeal === request.id}
+                      unreadCount={unreadForRequest}
+                      ndaSigned={ndaStatus?.ndaSigned ?? undefined}
+                      onSelect={() => handleSelectDeal(request.id)}
+                    />
+                  );
+                })}
+              </div>
             </div>
-            <div className="space-y-2.5">
-              {sortedRequests.map((request) => {
-                const unreadForRequest = (unreadByRequest[request.id] || 0) + (unreadMsgCounts?.byRequest[request.id] || 0);
-                let pendingAction: string | undefined;
-                if (request.status === 'pending') pendingAction = 'Under Review';
 
-                return (
-                  <DealPipelineCard
-                    key={request.id}
-                    request={request}
-                    isSelected={selectedDeal === request.id}
-                    unreadCount={unreadForRequest}
-                    ndaSigned={ndaStatus?.ndaSigned ?? undefined}
-                    onSelect={() => handleSelectDeal(request.id)}
-                    pendingAction={pendingAction}
-                  />
-                );
-              })}
-            </div>
+            {/* Detail Panel */}
+            {selectedRequest ? (
+              <div className="flex-1 min-w-0 bg-white">
+                <DetailPanel
+                  request={selectedRequest}
+                  innerTab={getInnerTab(selectedRequest.id)}
+                  onInnerTabChange={(tab) => setDealInnerTab(selectedRequest.id, tab)}
+                  unreadMsgCounts={unreadMsgCounts}
+                  updateMessage={updateMessage}
+                  profileForCalc={profileForCalc}
+                  ndaSigned={ndaStatus?.ndaSigned ?? false}
+                  feeCovered={coverage?.fee_covered ?? false}
+                  feeStatus={coverage?.fee_status}
+                />
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center py-20">
+                <p className="text-[13px] text-[#0E101A]/30">Select a deal to view details</p>
+              </div>
+            )}
           </div>
-
-          {/* Right Column: Detail Panel */}
-          {selectedRequest && (
-            <div className="min-w-0">
-              <DetailPanel
-                request={selectedRequest}
-                innerTab={getInnerTab(selectedRequest.id)}
-                onInnerTabChange={(tab) => setDealInnerTab(selectedRequest.id, tab)}
-                unreadMsgCounts={unreadMsgCounts}
-                updateMessage={updateMessage}
-                profileForCalc={profileForCalc}
-                ndaSigned={ndaStatus?.ndaSigned ?? false}
-                feeCovered={coverage?.fee_covered ?? false}
-                feeStatus={coverage?.fee_status}
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -427,7 +398,7 @@ const MyRequests = () => {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Detail Panel — 3 tabs: Overview | Messages | Activity Log
+   Detail Panel — Action card + Status + Info + Messages/Activity tabs
    ═══════════════════════════════════════════════════════════════════════ */
 
 interface DetailPanelProps {
@@ -457,9 +428,11 @@ function DetailPanel({
 }: DetailPanelProps) {
   const requestStatus = request.status as 'pending' | 'approved' | 'rejected' | 'on_hold';
   const msgUnread = unreadMsgCounts?.byRequest[request.id] || 0;
+  const profileDetails = profileForCalc ? getProfileCompletionDetails(profileForCalc) : null;
 
   return (
-    <div className="bg-white rounded-xl border border-[#E5DDD0] shadow-[0_4px_16px_rgba(14,16,26,0.06)] overflow-hidden">
+    <div className="flex flex-col h-full">
+      {/* Header */}
       <DealDetailHeader
         listingId={request.listing_id}
         title={request.listing?.title || 'Untitled'}
@@ -472,16 +445,17 @@ function DetailPanel({
         ndaSigned={ndaSigned}
       />
 
-      <Tabs value={innerTab} onValueChange={onInnerTabChange} className="w-full">
-        <div className="border-b border-slate-100 px-6 bg-white">
-          <TabsList className="inline-flex h-auto items-center bg-transparent p-0 gap-0.5 w-full justify-start rounded-none">
+      {/* Tabs */}
+      <Tabs value={innerTab} onValueChange={onInnerTabChange} className="flex-1 flex flex-col">
+        <div className="border-b border-[#F0EDE6] px-6 bg-white">
+          <TabsList className="inline-flex h-auto items-center bg-transparent p-0 gap-0 w-full justify-start rounded-none">
             <TabsTrigger
               value="overview"
               className={cn(
-                'px-4 py-3 text-[13px] font-medium rounded-none border-b-2 transition-colors',
+                'px-4 py-3 text-[12px] font-medium rounded-none border-b-2 transition-colors',
                 innerTab === 'overview'
                   ? 'border-[#0E101A] text-[#0E101A] font-semibold'
-                  : 'border-transparent text-[#0E101A]/40 hover:text-[#0E101A]',
+                  : 'border-transparent text-[#0E101A]/35 hover:text-[#0E101A]/60',
               )}
             >
               Overview
@@ -489,74 +463,114 @@ function DetailPanel({
             <TabsTrigger
               value="messages"
               className={cn(
-                'px-4 py-3 text-[13px] font-medium rounded-none border-b-2 transition-colors flex items-center gap-1.5',
+                'px-4 py-3 text-[12px] font-medium rounded-none border-b-2 transition-colors flex items-center gap-1.5',
                 innerTab === 'messages'
                   ? 'border-[#0E101A] text-[#0E101A] font-semibold'
-                  : 'border-transparent text-[#0E101A]/40 hover:text-[#0E101A]',
+                  : 'border-transparent text-[#0E101A]/35 hover:text-[#0E101A]/60',
               )}
             >
-              <MessageSquare className="h-3.5 w-3.5" />
               Messages
               {msgUnread > 0 && (
-                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
-                  {msgUnread > 99 ? '99+' : msgUnread}
-                </span>
+                <div className="h-1.5 w-1.5 rounded-full bg-[#DEC76B]" />
               )}
             </TabsTrigger>
             <TabsTrigger
               value="activity"
               className={cn(
-                'px-4 py-3 text-[13px] font-medium rounded-none border-b-2 transition-colors flex items-center gap-1.5',
+                'px-4 py-3 text-[12px] font-medium rounded-none border-b-2 transition-colors',
                 innerTab === 'activity'
                   ? 'border-[#0E101A] text-[#0E101A] font-semibold'
-                  : 'border-transparent text-[#0E101A]/40 hover:text-[#0E101A]',
+                  : 'border-transparent text-[#0E101A]/35 hover:text-[#0E101A]/60',
               )}
             >
-              <Activity className="h-3.5 w-3.5" />
-              Activity Log
+              Activity
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <div className="p-6">
-          <TabsContent value="overview" className="mt-0 space-y-6">
-            <DealNextSteps
-              requestCreatedAt={request.created_at}
+        <div className="flex-1 overflow-y-auto">
+          <TabsContent value="overview" className="mt-0 p-6 space-y-6">
+            {/* Action Card — the single most important thing */}
+            <DealActionCard
+              requestStatus={requestStatus as 'pending' | 'approved' | 'rejected'}
               ndaSigned={ndaSigned}
               feeCovered={feeCovered}
               feeStatus={feeStatus}
-              requestStatus={requestStatus as 'pending' | 'approved' | 'rejected'}
-            />
-
-            <DealProcessSteps
-              requestStatus={request.status as 'pending' | 'approved' | 'rejected'}
-              requestId={request.id}
-              userMessage={request.user_message}
-              onMessageUpdate={async (newMessage) => {
-                await updateMessage.mutateAsync({ requestId: request.id, message: newMessage });
-              }}
-              isProfileComplete={getProfileCompletionDetails(profileForCalc).isComplete}
-              profileCompletionPercentage={getProfileCompletionDetails(profileForCalc).percentage}
-              listingCategory={request.listing?.category}
-              listingLocation={request.listing?.location}
               requestCreatedAt={request.created_at}
             />
 
-            <DealDetailsCard
-              listing={{
-                category: request.listing?.category,
-                location: request.listing?.location,
-                description: request.listing?.description,
-              }}
-              createdAt={request.created_at}
+            {/* Deal Progress */}
+            <DealStatusSection
+              requestStatus={requestStatus as 'pending' | 'approved' | 'rejected'}
+              ndaSigned={ndaSigned}
+              feeCovered={feeCovered}
+              feeStatus={feeStatus}
             />
+
+            {/* Post-rejection panel */}
+            {requestStatus === 'rejected' && (
+              <PostRejectionPanel
+                listingCategory={request.listing?.category}
+                listingLocation={request.listing?.location}
+              />
+            )}
+
+            {/* Deal Info — clean key-value sections */}
+            <div className="border-t border-[#F0EDE6] pt-6 space-y-5">
+              {/* Submission date */}
+              <div className="flex items-center gap-2 text-[12px] text-[#0E101A]/40">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>Submitted {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}</span>
+              </div>
+
+              {/* Your Message */}
+              {requestStatus !== 'rejected' && (
+                <div>
+                  <h4 className="text-[10px] font-semibold text-[#0E101A]/30 uppercase tracking-[0.12em] mb-2">
+                    Your Message
+                  </h4>
+                  <DealMessageEditor
+                    requestId={request.id}
+                    initialMessage={request.user_message || ''}
+                    onMessageUpdate={async (newMessage) => {
+                      await updateMessage.mutateAsync({ requestId: request.id, message: newMessage });
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Buyer Profile */}
+              {requestStatus !== 'rejected' && profileDetails && (
+                <div>
+                  <h4 className="text-[10px] font-semibold text-[#0E101A]/30 uppercase tracking-[0.12em] mb-2">
+                    Buyer Profile
+                  </h4>
+                  <BuyerProfileStatus
+                    isComplete={profileDetails.isComplete}
+                    completionPercentage={profileDetails.percentage}
+                  />
+                </div>
+              )}
+
+              {/* About this opportunity */}
+              {request.listing?.description && (
+                <div>
+                  <h4 className="text-[10px] font-semibold text-[#0E101A]/30 uppercase tracking-[0.12em] mb-2">
+                    About this Opportunity
+                  </h4>
+                  <p className="text-[13px] text-[#0E101A]/60 leading-relaxed line-clamp-4">
+                    {request.listing.description}
+                  </p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
-          <TabsContent value="messages" className="mt-0">
+          <TabsContent value="messages" className="mt-0 p-6">
             <DealMessagesTab requestId={request.id} requestStatus={requestStatus} />
           </TabsContent>
 
-          <TabsContent value="activity" className="mt-0">
+          <TabsContent value="activity" className="mt-0 p-6">
             <DealActivityLog requestId={request.id} requestStatus={requestStatus} />
           </TabsContent>
         </div>
