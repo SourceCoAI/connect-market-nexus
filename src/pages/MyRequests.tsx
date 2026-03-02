@@ -18,7 +18,6 @@ import {
   Shield,
   FileSignature,
   Check,
-  Calendar,
 } from 'lucide-react';
 import { useUnreadBuyerMessageCounts } from '@/hooks/use-connection-messages';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -43,7 +42,7 @@ import { BuyerProfileStatus } from '@/components/deals/BuyerProfileStatus';
 import { PostRejectionPanel } from '@/components/deals/PostRejectionPanel';
 import { DealDocumentsCard } from '@/components/deals/DealDocumentsCard';
 import { DealInfoCard } from '@/components/deals/DealInfoCard';
-import { DealDocumentPreview } from '@/components/deals/DealDocumentPreview';
+import { DealDocumentsCard } from '@/components/deals/DealDocumentsCard';
 import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,8 +55,6 @@ import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
-import { formatDistanceToNow } from 'date-fns';
 
 /* ═══════════════════════════════════════════════════════════════════════
    Account Documents Banner — Slim inline banner
