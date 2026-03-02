@@ -2,11 +2,11 @@
  * DealDocumentsCard — Agreements + Data Room preview card.
  *
  * Shows NDA/Fee Agreement signing status with prominent CTAs,
- * plus a data room preview showing available documents.
+ * plus a data room preview teasing locked contents to motivate signing.
  */
 
 import { useState } from 'react';
-import { Shield, FileSignature, Check, FolderOpen, Lock, ArrowRight } from 'lucide-react';
+import { Shield, FileSignature, Check, FolderOpen, Lock, ArrowRight, FileText, BarChart3, Building2 } from 'lucide-react';
 import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -89,6 +89,7 @@ export function DealDocumentsCard({
 
   const hasAccess = access && (access.can_view_teaser || access.can_view_full_memo || access.can_view_data_room);
   const totalDocs = docCount + memoCount;
+  const docsLocked = requestStatus === 'pending' || !hasAccess;
 
   return (
     <>
@@ -159,28 +160,41 @@ export function DealDocumentsCard({
           <div className="border-t border-[#F0EDE6]" />
 
           {/* Data Room section */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 mb-1">
             <FolderOpen className={cn('h-4 w-4', hasAccess ? 'text-[#0E101A]/50' : 'text-[#0E101A]/20')} />
             <span className="text-[10px] font-semibold text-[#0E101A]/30 uppercase tracking-[0.12em]">
               Data Room
             </span>
           </div>
 
-          {requestStatus === 'pending' ? (
-            <div className="flex items-center gap-2.5 pl-[30px]">
-              <Lock className="h-3.5 w-3.5 text-[#0E101A]/20" />
-              <p className="text-[12px] text-[#0E101A]/40">
-                Available after your request is approved
-              </p>
-            </div>
-          ) : !hasAccess ? (
-            <div className="flex items-center gap-2.5 pl-[30px]">
-              <Lock className="h-3.5 w-3.5 text-[#0E101A]/20" />
-              <p className="text-[12px] text-[#0E101A]/40">
-                Documents will be shared as the deal progresses
+          {docsLocked ? (
+            /* Locked state — tease what's inside */
+            <div className="space-y-2 pl-[30px]">
+              <div className="flex items-center gap-2.5 opacity-40">
+                <Building2 className="h-3.5 w-3.5 text-[#0E101A]/50 shrink-0" />
+                <span className="text-[12px] text-[#0E101A]/60">Confidential Company Profile</span>
+                <Lock className="h-3 w-3 text-[#0E101A]/30 ml-auto shrink-0" />
+              </div>
+              <div className="flex items-center gap-2.5 opacity-40">
+                <FileText className="h-3.5 w-3.5 text-[#0E101A]/50 shrink-0" />
+                <span className="text-[12px] text-[#0E101A]/60">Deal Memorandum / CIM</span>
+                <Lock className="h-3 w-3 text-[#0E101A]/30 ml-auto shrink-0" />
+              </div>
+              <div className="flex items-center gap-2.5 opacity-40">
+                <BarChart3 className="h-3.5 w-3.5 text-[#0E101A]/50 shrink-0" />
+                <span className="text-[12px] text-[#0E101A]/60">Detailed Financial Statements</span>
+                <Lock className="h-3 w-3 text-[#0E101A]/30 ml-auto shrink-0" />
+              </div>
+              <p className="text-[11px] text-[#8B6F47] mt-2 font-medium">
+                {!ndaSigned
+                  ? 'Sign your NDA to begin unlocking these materials.'
+                  : requestStatus === 'pending'
+                  ? 'Available once your request is approved by the owner.'
+                  : 'Documents are being prepared by our team.'}
               </p>
             </div>
           ) : (
+            /* Unlocked state — show actual counts */
             <div className="pl-[30px] space-y-2">
               <p className="text-[13px] text-[#0E101A]/60">
                 {totalDocs > 0

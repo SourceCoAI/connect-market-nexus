@@ -2,7 +2,7 @@
  * DealActionCard — Single-purpose next-action callout for the buyer.
  *
  * Shows the ONE most important thing the buyer needs to do or know
- * about this deal right now. Replaces DealNextSteps' multi-step display.
+ * about this deal right now. Signing CTAs are bold and unmissable.
  */
 
 import { useState } from 'react';
@@ -41,6 +41,7 @@ export function DealActionCard({
         title: 'Not Selected',
         description: 'The owner has chosen another buyer for this opportunity. This reflects deal-specific fit, not your qualifications.',
         variant: 'muted' as const,
+        unlock: null,
         cta: null,
       };
     }
@@ -51,6 +52,7 @@ export function DealActionCard({
         title: 'You\'re Connected',
         description: 'Great news — the owner selected your firm. Expect an email from our team shortly with next steps and detailed opportunity materials.',
         variant: 'success' as const,
+        unlock: null,
         cta: null,
       };
     }
@@ -61,8 +63,9 @@ export function DealActionCard({
         icon: Shield,
         title: 'Sign your NDA to proceed',
         description: 'Your Non-Disclosure Agreement needs to be signed before your interest can be presented to the owner.',
+        unlock: 'Once signed, you\'ll receive access to the company name, confidential deal memo, and detailed financials.',
         variant: 'action' as const,
-        cta: { label: 'Sign NDA', onClick: () => openSigning('nda') },
+        cta: { label: 'Sign NDA Now', onClick: () => openSigning('nda') },
       };
     }
 
@@ -71,8 +74,9 @@ export function DealActionCard({
         icon: FileSignature,
         title: 'Sign your Fee Agreement',
         description: 'Your Fee Agreement is ready for signature. Complete this to finalize your documentation.',
+        unlock: 'Signing completes your documentation, allowing our team to present your interest to the owner.',
         variant: 'action' as const,
-        cta: { label: 'Sign Agreement', onClick: () => openSigning('fee_agreement') },
+        cta: { label: 'Sign Agreement Now', onClick: () => openSigning('fee_agreement') },
       };
     }
 
@@ -86,6 +90,7 @@ export function DealActionCard({
       description: isExtended
         ? 'This is taking a bit longer than usual. The owner is carefully evaluating all interested buyers. We\'ll notify you as soon as a decision is made.'
         : 'Your interest is being presented to the owner alongside other qualified buyers. Decisions typically take 3–7 business days.',
+      unlock: null,
       variant: 'waiting' as const,
       cta: null,
     };
@@ -111,25 +116,32 @@ export function DealActionCard({
   return (
     <>
       <div className={cn('rounded-lg border p-5', variantStyles[action.variant])}>
-        <div className="flex items-start gap-3.5">
-          <Icon className={cn('h-5 w-5 shrink-0 mt-0.5', iconStyles[action.variant])} />
-          <div className="flex-1 min-w-0">
-            <h3 className="text-[14px] font-semibold text-[#0E101A] leading-tight">
-              {action.title}
-            </h3>
-            <p className="text-[13px] text-[#0E101A]/60 leading-relaxed mt-1">
-              {action.description}
-            </p>
-            {action.cta && (
-              <button
-                onClick={action.cta.onClick}
-                className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-md text-[13px] font-semibold bg-[#0E101A] text-white hover:bg-[#0E101A]/85 transition-colors"
-              >
-                {action.cta.label}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            )}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3.5 flex-1 min-w-0">
+            <Icon className={cn('h-5 w-5 shrink-0 mt-0.5', iconStyles[action.variant])} />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[15px] font-semibold text-[#0E101A] leading-tight">
+                {action.title}
+              </h3>
+              <p className="text-[13px] text-[#0E101A]/55 leading-relaxed mt-1">
+                {action.description}
+              </p>
+              {action.unlock && (
+                <p className="text-[12px] text-[#8B6F47] leading-relaxed mt-2 font-medium">
+                  {action.unlock}
+                </p>
+              )}
+            </div>
           </div>
+          {action.cta && (
+            <button
+              onClick={action.cta.onClick}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md text-[13px] font-semibold bg-[#0E101A] text-white hover:bg-[#0E101A]/85 transition-colors shrink-0 mt-0.5"
+            >
+              {action.cta.label}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

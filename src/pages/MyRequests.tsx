@@ -316,15 +316,8 @@ const MyRequests = () => {
       </div>
 
       <div className="max-w-[1280px] mx-auto px-6 pb-8">
-        {/* Main container with account banner */}
+      {/* Main container */}
         <div className="rounded-xl border border-[#F0EDE6] overflow-hidden">
-          {/* Account Documents Banner */}
-          <AccountDocumentsBanner
-            ndaSigned={ndaStatus?.ndaSigned ?? false}
-            feeCovered={coverage?.fee_covered ?? false}
-            feeStatus={coverage?.fee_status}
-          />
-
           {/* Two-column layout */}
           <div className={cn('flex', isMobile ? 'flex-col' : 'flex-row')}>
             {/* Sidebar */}
@@ -332,7 +325,7 @@ const MyRequests = () => {
               'shrink-0 border-r border-[#F0EDE6] bg-[#FAFAF8]',
               isMobile ? 'w-full border-r-0 border-b' : 'w-[340px]',
             )}>
-              <div className="px-4 py-3 flex items-center justify-between border-b border-[#F0EDE6]">
+              <div className="px-4 py-3 border-b border-[#F0EDE6]">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-semibold text-[#0E101A]/30 uppercase tracking-[0.12em]">
                     Deals
@@ -341,19 +334,8 @@ const MyRequests = () => {
                     {requests.length}
                   </span>
                 </div>
-                <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'recent' | 'action' | 'status')}>
-                  <SelectTrigger className="h-6 w-[120px] text-[10px] border-[#E5DDD0] bg-white rounded-md">
-                    <ArrowUpDown className="h-2.5 w-2.5 mr-1 text-[#0E101A]/30 shrink-0" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="recent" className="text-[11px]">Most Recent</SelectItem>
-                    <SelectItem value="action" className="text-[11px]">Action Required</SelectItem>
-                    <SelectItem value="status" className="text-[11px]">Status</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
-              <div className="p-2 space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
+              <div className="p-2 space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto">
                 {sortedRequests.map((request) => {
                   const unreadForRequest = (unreadByRequest[request.id] || 0) + (unreadMsgCounts?.byRequest[request.id] || 0);
                   return (
