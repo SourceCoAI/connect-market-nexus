@@ -215,48 +215,15 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
     <div className="flex h-full min-h-0">
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-border flex-shrink-0">
+      <div className="flex items-center gap-3 px-5 py-3 flex-shrink-0" style={{ borderBottom: '1px solid #F0EDE6' }}>
         <Button variant="ghost" size="sm" onClick={onBack} className="md:hidden h-8 w-8 p-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-foreground truncate">{thread.buyer_name}</h2>
-            <span
-              className={cn(
-                'px-1.5 py-0.5 rounded text-[10px] font-medium',
-                conversationStateLabel.color,
-              )}
-            >
-              {conversationStateLabel.label}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            {thread.buyer_company && (
-              <span className="flex items-center gap-1">
-                <Building2 className="w-3 h-3" />
-                {thread.buyer_company}
-              </span>
-            )}
-            {thread.deal_title && (
-              <>
-                <span className="text-muted-foreground/40">·</span>
-                <span className="flex items-center gap-1">
-                  <FileText className="w-3 h-3" />
-                  {thread.deal_title}
-                </span>
-              </>
-            )}
-            {claimedByName && (
-              <>
-                <span className="text-muted-foreground/40">·</span>
-                <span className="flex items-center gap-1">
-                  <UserCheck className="w-3 h-3" />
-                  {claimedByName}
-                </span>
-              </>
-            )}
-          </div>
+          <h2 className="text-sm font-semibold truncate" style={{ color: '#0E101A' }}>{thread.buyer_name}</h2>
+          <p className="text-[11px] truncate mt-0.5" style={{ color: '#9A9A9A' }}>
+            {[thread.buyer_company, thread.deal_title, claimedByName ? `Claimed by ${claimedByName}` : null].filter(Boolean).join(' · ')}
+          </p>
         </div>
 
         {/* Quick actions */}
@@ -382,8 +349,8 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1" style={{ backgroundColor: '#FCF9F0' }}>
-        <div className="px-5 py-4 space-y-3">
+      <ScrollArea className="flex-1" style={{ backgroundColor: '#FFFFFF' }}>
+        <div className="px-5 py-4 space-y-4">
           {isLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
@@ -409,8 +376,8 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
                 return (
                   <div key={msg.id} className="flex justify-center">
                     <div
-                      className="bg-muted/40 italic text-sm px-3 py-1.5 rounded-full max-w-[80%]"
-                      style={{ color: '#3a3a3a' }}
+                      className="italic text-[11px] px-3 py-1.5 rounded-full max-w-[80%]"
+                      style={{ backgroundColor: '#F8F8F6', color: '#9A9A9A' }}
                     >
                       {msg.body}
                       <span className="opacity-50 text-[10px] ml-2">
@@ -422,34 +389,28 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
               }
 
               return (
-                <div
-                  key={msg.id}
-                  className={cn(
-                    'max-w-[80%] rounded-xl px-4 py-3 space-y-1 shadow-sm',
-                    isAdmin ? 'ml-auto border' : 'mr-auto border',
-                  )}
-                  style={
-                    isAdmin
-                      ? { backgroundColor: '#F7F4DD', borderColor: '#E5DDD0', color: '#0E101A' }
-                      : { backgroundColor: '#FFFFFF', borderColor: '#E5DDD0', color: '#0E101A' }
-                  }
-                >
-                  <div className="flex items-center gap-2 text-[11px]" style={{ color: '#5A5A5A' }}>
-                    <span className="font-medium">{isAdmin ? 'You' : msg.senderName}</span>
+                <div key={msg.id} className={cn('max-w-[80%]', isAdmin ? 'ml-auto' : 'mr-auto')}>
+                  {/* Sender + time label outside bubble */}
+                  <div className={cn('flex items-center gap-1.5 mb-1 text-[10px]', isAdmin ? 'justify-end' : '')} style={{ color: '#CBCBCB' }}>
+                    <span className="font-medium" style={{ color: '#9A9A9A' }}>{isAdmin ? 'You' : msg.senderName}</span>
                     <span>·</span>
-                    <span>
-                      {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                    </span>
+                    <span>{formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}</span>
                     {msg.isInquiry && (
-                      <span
-                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
-                        style={{ backgroundColor: '#DEC76B', color: '#0E101A' }}
-                      >
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold" style={{ backgroundColor: '#DEC76B', color: '#0E101A' }}>
                         Initial Inquiry
                       </span>
                     )}
                   </div>
-                  <MessageBody body={msg.body} variant={isAdmin ? 'admin' : 'buyer'} />
+                  <div
+                    className="rounded-xl px-4 py-3 space-y-1"
+                    style={
+                      isAdmin
+                        ? { backgroundColor: '#F8F8F6', color: '#0E101A' }
+                        : { backgroundColor: '#FFFFFF', border: '1px solid #F0EDE6', color: '#0E101A' }
+                    }
+                  >
+                    <MessageBody body={msg.body} variant={isAdmin ? 'admin' : 'buyer'} />
+                  </div>
                 </div>
               );
             })
@@ -460,7 +421,7 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
 
       {/* Compose bar */}
       {thread.conversation_state !== 'closed' ? (
-        <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid #E5DDD0' }}>
+        <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid #F0EDE6' }}>
           {/* Reference chip */}
           {reference && (
             <div className="mb-2">
