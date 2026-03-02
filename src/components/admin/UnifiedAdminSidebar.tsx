@@ -475,7 +475,7 @@ export function UnifiedAdminSidebar({
         <nav className="flex-1 overflow-y-auto px-3 py-1 space-y-0.5">
           {sections.map((section, index) => {
             // Thin separator between groups (no text labels)
-            const dividerLabel = groupDividers[section.id];
+            const showSeparator = index > 0;
             const isExpanded = expandedSections.has(section.id);
             const isActive = activeSectionId === section.id;
             const hasBadge = sectionHasBadge(section);
@@ -483,7 +483,7 @@ export function UnifiedAdminSidebar({
             if (collapsed) {
               return (
                 <div key={section.id}>
-                  {dividerLabel && index > 0 && (
+                  {showSeparator && (
                     <div className="my-2 border-t border-border/30" />
                   )}
                 <Tooltip>
