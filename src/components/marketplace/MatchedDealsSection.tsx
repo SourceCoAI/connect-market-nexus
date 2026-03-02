@@ -155,7 +155,7 @@ export function MatchedDealsSection() {
         <CollapsibleContent className="mt-3">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {matchedListings.map(({ listing, reasons }) => (
-              <div key={listing.id} className="relative">
+              <div key={listing.id}>
                 <ListingCard
                   listing={listing}
                   viewType="grid"
@@ -165,11 +165,12 @@ export function MatchedDealsSection() {
                 {reasons.length > 0 && (
                   <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
-                      <button className="absolute top-2 right-2 bg-purple-100 text-purple-700 text-[10px] font-medium px-2 py-0.5 rounded-full hover:bg-purple-200 transition-colors z-10">
-                        Why matched
+                      <button className="flex items-center gap-1 mt-1.5 ml-1 text-[11px] text-purple-600 hover:text-purple-800 transition-colors">
+                        <Sparkles className="h-3 w-3" />
+                        Why matched?
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="left" className="max-w-xs p-3">
+                    <TooltipContent side="bottom" align="start" className="max-w-xs p-3">
                       <p className="text-xs font-medium mb-1.5">Match reasons:</p>
                       <ul className="space-y-1">
                         {reasons.map((r, i) => (

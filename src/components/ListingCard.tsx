@@ -7,7 +7,7 @@ import { useAnalyticsTracking } from '@/hooks/use-analytics-tracking';
 import { Card, CardContent } from '@/components/ui/card';
 import { RichTextDisplay } from '@/components/ui/rich-text-display';
 import { formatCurrency } from '@/lib/currency-utils';
-import { computeMatchScore, extractBuyerCriteria, getMatchBadge } from '@/lib/match-scoring';
+
 import { Listing } from '@/types';
 import ListingCardImage from './listing/ListingCardImage';
 import ListingCardBadges from './listing/ListingCardBadges';
@@ -43,26 +43,6 @@ const ListingCard = memo(function ListingCard({
   const { trackSearchResultClick } = useAnalyticsTracking();
   const navigate = useNavigate();
 
-  // Compute match badge from buyer profile criteria
-  const matchBadge = useMemo(() => {
-    if (!user || user.is_admin) return null;
-
-    const criteria = extractBuyerCriteria(user);
-    if (criteria.criteriaCount < 2) return null;
-
-    const { percentage } = computeMatchScore(
-      listing,
-      criteria.buyerCategories,
-      criteria.buyerLocations,
-      criteria.revenueMin,
-      criteria.revenueMax,
-      criteria.ebitdaMin,
-      criteria.ebitdaMax,
-      criteria.dealIntent,
-    );
-
-    return getMatchBadge(percentage);
-  }, [user, listing]);
 
   // Get search session context for tracking (returns undefined if not within provider)
   const searchSession = useContext(SearchSessionContext);
@@ -134,14 +114,6 @@ const ListingCard = memo(function ListingCard({
               />
               <ListingStatusTag status={listing.status_tag ?? null} />
 
-              {/* Match score badge */}
-              {matchBadge && (
-                <div
-                  className={`absolute bottom-2 left-2 z-10 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${matchBadge.colorClass}`}
-                >
-                  {matchBadge.label}
-                </div>
-              )}
 
               {/* Approved badge - smaller pill at top of image, fully visible */}
               {connectionExists && connectionStatus?.status === 'approved' && (
