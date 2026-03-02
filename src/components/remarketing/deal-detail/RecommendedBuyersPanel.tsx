@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useNewRecommendedBuyers, type BuyerScore } from '@/hooks/admin/use-new-recommended-buyers';
 import { useSeedBuyers, type SeedBuyerResult } from '@/hooks/admin/use-seed-buyers';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
@@ -26,6 +27,7 @@ import {
   Briefcase,
   Database,
   Globe,
+  ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -209,7 +211,7 @@ function BuyerCard({
           <Button
             variant="outline"
             size="sm"
-            className="h-7 px-2.5 text-xs gap-1 hover:bg-green-50 hover:border-green-500 hover:text-green-700"
+            className="h-7 px-2.5 text-xs gap-1 bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-500"
             onClick={() => onAccept(buyer)}
             disabled={isAccepting}
           >
@@ -219,7 +221,7 @@ function BuyerCard({
           <Button
             variant="outline"
             size="sm"
-            className="h-7 px-2.5 text-xs gap-1 hover:bg-red-50 hover:border-red-400 hover:text-red-600"
+            className="h-7 px-2.5 text-xs gap-1 bg-red-50 border-red-300 text-red-700 hover:bg-red-100 hover:border-red-500"
             onClick={() => onReject(buyer)}
           >
             <X className="h-3.5 w-3.5" />
@@ -249,37 +251,47 @@ function SeedResultsSummary({ results }: { results: SeedBuyerResult[] }) {
   const inserted = results.filter((r) => r.action === 'inserted').length;
   const enriched = results.filter((r) => r.action === 'enriched_existing').length;
   const dupes = results.filter((r) => r.action === 'probable_duplicate').length;
+  const [isOpen, setIsOpen] = useState(true);
 
   return (
-    <div className="border rounded-lg bg-muted/30 p-3 space-y-2">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Sparkles className="h-4 w-4 text-purple-600" />
-        AI Search Results
-      </div>
-      <div className="flex items-center gap-3 text-xs">
-        {inserted > 0 && <span className="text-green-700">{inserted} new buyers added</span>}
-        {enriched > 0 && <span className="text-blue-700">{enriched} existing updated</span>}
-        {dupes > 0 && <span className="text-gray-500">{dupes} duplicates skipped</span>}
-      </div>
-      <div className="space-y-1 max-h-40 overflow-y-auto">
-        {results.slice(0, 10).map((result) => {
-          const config = ACTION_CONFIG[result.action] || ACTION_CONFIG.inserted;
-          const Icon = config.icon;
-          return (
-            <div key={result.buyer_id} className="flex items-center gap-2 text-xs">
-              <Badge variant="outline" className={cn('text-[10px] shrink-0', config.color)}>
-                <Icon className="h-2.5 w-2.5 mr-0.5" />
-                {config.label}
-              </Badge>
-              <span className="truncate font-medium">{result.company_name}</span>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="border rounded-lg bg-muted/30 p-3 space-y-2">
+        <CollapsibleTrigger asChild>
+          <button className="flex items-center justify-between w-full cursor-pointer hover:opacity-80 transition-opacity">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Sparkles className="h-4 w-4 text-purple-600" />
+              AI Search Results
             </div>
-          );
-        })}
-        {results.length > 10 && (
-          <p className="text-[10px] text-muted-foreground">+{results.length - 10} more</p>
-        )}
+            <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
+          </button>
+        </CollapsibleTrigger>
+        <div className="flex items-center gap-3 text-xs">
+          {inserted > 0 && <span className="text-green-700">{inserted} new buyers added</span>}
+          {enriched > 0 && <span className="text-blue-700">{enriched} existing updated</span>}
+          {dupes > 0 && <span className="text-gray-500">{dupes} duplicates skipped</span>}
+        </div>
+        <CollapsibleContent>
+          <div className="space-y-1 max-h-40 overflow-y-auto">
+            {results.slice(0, 10).map((result) => {
+              const config = ACTION_CONFIG[result.action] || ACTION_CONFIG.inserted;
+              const Icon = config.icon;
+              return (
+                <div key={result.buyer_id} className="flex items-center gap-2 text-xs">
+                  <Badge variant="outline" className={cn('text-[10px] shrink-0', config.color)}>
+                    <Icon className="h-2.5 w-2.5 mr-0.5" />
+                    {config.label}
+                  </Badge>
+                  <span className="truncate font-medium">{result.company_name}</span>
+                </div>
+              );
+            })}
+            {results.length > 10 && (
+              <p className="text-[10px] text-muted-foreground">+{results.length - 10} more</p>
+            )}
+          </div>
+        </CollapsibleContent>
       </div>
-    </div>
+    </Collapsible>
   );
 }
 
