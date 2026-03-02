@@ -1,105 +1,108 @@
 
-## Fix Document Sync, Tracking & Admin Toggles -- Complete Remediation
 
-### Issues Found
+## Admin Inbox -- Premium Minimal Redesign
 
-**1. CRITICAL: `update_firm_agreement_status` RPC references non-existent columns**
-The NDA branch of the RPC sets `nda_scope` and `nda_deal_id` -- but these columns don't exist in `firm_agreements`. Only `fee_agreement_scope` and `fee_agreement_deal_id` exist. This means **every NDA status toggle from the admin will fail silently or error out**.
+### Overview
 
-**2. `get_user_firm_agreement_status` RPC doesn't return document URLs**
-The buyer's `useFirmAgreementStatus` hook calls this RPC, then `AgreementSection.tsx` tries to read `nda_signed_document_url`, `nda_document_url`, `fee_signed_document_url`, `fee_agreement_document_url` from the result -- but the RPC only returns `firm_id, firm_name, nda_signed, nda_status, nda_docuseal_status, nda_signed_at, fee_agreement_signed, fee_agreement_status, fee_docuseal_status, fee_agreement_signed_at`. All document URLs are always null on the buyer side.
+Align the admin Message Center with the "quiet luxury" design language: white-dominant, hairline dividers, gold as accent only, typography-driven hierarchy, flat design. Remove visual noise (heavy borders, gold backgrounds, colored dots, excessive badges) in favor of clarity.
 
-**3. Admin `ThreadContextPanel` audit timeline doesn't show `changed_by_name`**
-The activity timeline fetches `agreement_audit_log` but only selects `id, agreement_type, old_status, new_status, created_at, notes` -- missing `changed_by_name`. So when Bill Martin toggles NDA off, the timeline says "NDA: not_started" but doesn't say who did it.
+### Changes by File
 
-**4. `DocumentTrackingPage` date columns don't show last admin action for non-signed states**
-When an admin resets a document from "signed" to "not_started", `nda_signed_at` becomes null and the date column shows "--". There's no indication of the last status change or who performed it.
+#### 1. `MessageCenter.tsx` -- Page Shell + Header + Thread List
 
-**5. `AgreementStatusDropdown` has no "Reset to Not Started" for all states**
-The valid transitions don't include going from `signed` directly to `not_started`. The reset option exists as a separate menu item, but only for `currentStatus !== 'not_started'`. This is correct but the transitions from `signed` only allow `expired` -- there's no way to move `signed -> sent` to re-send.
+**Header:**
+- Title: "Inbox" with unread count inline -- e.g. "Inbox (3)" when unread > 0, just "Inbox" otherwise
+- Remove subtitle paragraph ("X unread conversations" / "All caught up")
+- View mode toggle: white background with hairline border (#F0EDE6) instead of gold (#F7F4DD)
+- Filter tabs: active state uses underline + bold text instead of solid black pill; inactive uses plain text; count badges use subtle gray (#F0EDE6) instead of dark red (#8B0000) for non-urgent filters
 
-**6. NDASection in connection request sidebar doesn't use `AgreementStatusDropdown`**
-It still uses a simple Signed/Sent/Not Sent text display with no toggle capability. Admins can't change status from this view.
+**Container:**
+- Replace `border: 2px solid #CBCBCB` with `border: 1px solid #F0EDE6`
+- White background (already `#FFFFFF`, keep it)
 
-### Implementation Plan
+**Search:**
+- White background instead of `#FCF9F0`
+- Border: `1px solid #F0EDE6` instead of `#CBCBCB`
+- Remove gold-tinted background
 
-#### Phase 1: Fix the RPC -- add missing columns + expand return type
+**Thread list dividers:**
+- Replace `divide-border/40` with explicit `border-bottom: 1px solid #F0EDE6`
 
-**DB Migration:**
-- Add `nda_scope` and `nda_deal_id` columns to `firm_agreements` (matching the fee_agreement equivalents)
-- Update `get_user_firm_agreement_status` RPC to also return: `nda_signed_document_url`, `nda_document_url`, `nda_signed_by_name`, `fee_signed_document_url`, `fee_agreement_document_url`, `fee_agreement_signed_by_name`
-- Update TypeScript types in `types.ts` to match expanded return
+#### 2. `ThreadListItem.tsx` -- Sidebar Thread Rows
 
-#### Phase 2: Show admin identity on all audit entries
+**Simplify each row:**
+- Remove colored state dots (Circle, Clock, User, CheckCheck icons at left)
+- Remove agreement micro-badges (NDA/Fee status pills) -- this info belongs in context panel
+- Remove Pipeline badge and Claimed badge
+- Keep only: buyer name, time, request status (as minimal text), one-line preview
+- Unread: bold font-weight only (no gold background `#FFFDF5`)
+- Selected: 2px gold left border (`#DEC76B`) + very light background (`#FAFAF8`) instead of `bg-accent`
+- Unread badge: subtle gold circle (`#DEC76B` bg, `#0E101A` text) instead of dark red (`#8B0000`)
+- Tighter padding for editorial feel
 
-**File: `src/pages/admin/message-center/ThreadContextPanel.tsx`**
-- Add `changed_by_name` to the audit log query select
-- Display admin name in timeline events for agreement status changes (e.g., "NDA: not_started -- by Bill Martin")
+#### 3. `DealGroupSection.tsx` -- Deal Group Headers
 
-**File: `src/pages/admin/DocumentTrackingPage.tsx`**
-- Add a "Last Action" column or enhance the date columns to show the last audit entry when status is not "signed"
-- Show: admin name, action, timestamp (e.g., "Reset by Bill Martin, Mar 2")
-- Fetch last audit entries for visible firms in a single batch query
+- Remove `FileText` icon with gold tint
+- Text-only header: deal title + thread count
+- Unread badge: gold (`#DEC76B`) instead of dark red
+- Lighter chevron color
+- Remove gold background on unread groups (`#FFFDF5`)
 
-#### Phase 3: Expand `AgreementStatusDropdown` transitions
+#### 4. `ThreadView.tsx` -- Header + Messages + Compose
 
-**File: `src/components/admin/firm-agreements/AgreementStatusDropdown.tsx`**
-- Add `signed -> sent` transition (re-send after signing)
-- Show the "Reset to Not Started" option for ALL non-not_started states (already works, just confirming)
-- Show signed document URL + draft URL in the hover metadata for all states where they exist
-- Display `changed_by_name` from last audit entry in the hover metadata
+**Header:**
+- Simplify: buyer name + deal on one line with dot separator (plain text, no icons for Building2/FileText)
+- Remove conversation state badge pill (redundant -- visible in sidebar filter)
+- Keep action buttons (context toggle, pipeline, claim, close) but use hairline bottom border `#F0EDE6`
 
-#### Phase 4: Upgrade NDASection sidebar to use dropdowns
+**Messages area:**
+- Background: pure white `#FFFFFF` instead of `#FCF9F0`
+- Admin bubbles: `#F8F8F6` background, no border, no shadow
+- Buyer bubbles: white with `1px solid #F0EDE6`, no shadow
+- Remove `shadow-sm` from all bubbles
+- Move sender + time labels outside/above the bubble as a standalone line
+- Keep `MessageBody` for reference chip rendering (already integrated)
+- System messages: lighter styling, `#F8F8F6` background
 
-**File: `src/components/admin/connection-request-actions/NDASection.tsx`**
-- Replace simple text display with `AgreementStatusDropdown` component
-- Pass firm data and members so admin can toggle status directly from the connection request sidebar
-- Keep the "Send" button for not_started state
+**Compose bar:**
+- Already minimal (text input + send button) -- just update border to `#F0EDE6`
+- Keep reference picker, keep hint text
 
-#### Phase 5: Ensure buyer view shows all document URLs
+#### 5. `ThreadContextPanel.tsx` -- Right Sidebar
 
-**File: `src/pages/BuyerMessages/AgreementSection.tsx`**
-- After Phase 1 RPC fix, document URLs will flow through correctly
-- Show both signed PDF download AND draft download when both exist (even when signed)
-- Show draft download when unsigned
+- Background: white `#FFFFFF` instead of `#FCF9F0`
+- Border: `1px solid #F0EDE6` instead of `#E5DDD0`
+- Remove bordered card containers for NDA/Fee rows -- use flat layout with hairline dividers
+- Agreement status: use text-only labels (green text "Signed", gold text "Pending") instead of `Badge` components with colored backgrounds
+- Timeline vertical line: `#F0EDE6` instead of `#E5DDD0`
+- Timeline icon circles: white background instead of `#FCF9F0`
+- Thread cards: remove borders, use hairline bottom dividers
+- Section headers: lighter weight, keep uppercase but use `#CBCBCB` instead of `#9A9A9A`
 
-### Technical Details
+#### 6. `MessageCenterShells.tsx` -- Loading + Empty States
 
-**DB Migration SQL:**
-```sql
--- Add missing columns
-ALTER TABLE firm_agreements ADD COLUMN IF NOT EXISTS nda_scope text DEFAULT 'blanket';
-ALTER TABLE firm_agreements ADD COLUMN IF NOT EXISTS nda_deal_id uuid;
+- Container: `1px solid #F0EDE6` instead of `2px solid #CBCBCB`
+- Background: white instead of `#FCF9F0`
+- Skeleton colors: `#F0EDE6` instead of `#E5DDD0`
+- Empty state icon: lighter, smaller
 
--- Expand RPC return type to include document URLs
-CREATE OR REPLACE FUNCTION get_user_firm_agreement_status(p_user_id uuid)
-RETURNS TABLE(
-  firm_id uuid, firm_name text,
-  nda_signed boolean, nda_status text, nda_docuseal_status text,
-  nda_signed_at timestamptz, nda_signed_by_name text,
-  nda_signed_document_url text, nda_document_url text,
-  fee_agreement_signed boolean, fee_agreement_status text,
-  fee_docuseal_status text, fee_agreement_signed_at timestamptz,
-  fee_agreement_signed_by_name text,
-  fee_signed_document_url text, fee_agreement_document_url text
-) ...
-```
+### Design Principles Applied
 
-**Files to modify:**
+- White-dominant with gold (#DEC76B) as accent only
+- Typography-driven hierarchy: weight and size differentiate, not colored badges
+- Hairline dividers (1px #F0EDE6) replacing all heavy borders
+- Flat design: no shadows on message bubbles
+- Reduced information density in thread list; detail lives in context panel
+- Consistent with buyer-side "quiet luxury" aesthetic
 
-| File | Change |
-|------|--------|
-| DB migration | Add `nda_scope`, `nda_deal_id` columns; expand `get_user_firm_agreement_status` RPC |
-| `src/integrations/supabase/types.ts` | Update `get_user_firm_agreement_status` return type |
-| `src/pages/admin/message-center/ThreadContextPanel.tsx` | Add `changed_by_name` to audit query + display |
-| `src/pages/admin/DocumentTrackingPage.tsx` | Show last audit action in date columns when not signed |
-| `src/components/admin/firm-agreements/AgreementStatusDropdown.tsx` | Add `signed -> sent` transition, show doc URLs in metadata |
-| `src/components/admin/connection-request-actions/NDASection.tsx` | Replace text display with `AgreementStatusDropdown` |
-| `src/pages/BuyerMessages/AgreementSection.tsx` | Leverage expanded RPC data for dual doc URLs |
+### Files Modified
 
-### What This Fixes
-- NDA status toggles will stop failing (missing column fix)
-- Buyer sees document URLs (signed PDF + draft) in all states
-- Every admin toggle is attributed with admin name + exact timestamp
-- Admin can toggle status from both Document Tracking page and connection request sidebar
-- Activity timeline shows exactly who changed what and when
+| File | Summary |
+|------|---------|
+| `src/pages/admin/MessageCenter.tsx` | White search, hairline container, simplified header, underline filters |
+| `src/pages/admin/message-center/ThreadListItem.tsx` | Remove state dots/badges, font-weight unread, gold left-border selection |
+| `src/pages/admin/message-center/DealGroupSection.tsx` | Minimal text header, gold unread badge |
+| `src/pages/admin/message-center/ThreadView.tsx` | White message bg, flat bubbles, external sender labels, hairline borders |
+| `src/pages/admin/message-center/ThreadContextPanel.tsx` | White bg, flat agreement rows, text status, lighter timeline |
+| `src/pages/admin/message-center/MessageCenterShells.tsx` | Hairline borders, white bg, lighter skeletons |
+
