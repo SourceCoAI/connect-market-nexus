@@ -1,11 +1,6 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  FileSignature,
-  Shield,
-  CheckCircle,
-  Download,
-} from 'lucide-react';
+
+import { CheckCircle, Download, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
 import { useAuth } from '@/context/AuthContext';
@@ -37,9 +32,9 @@ function buildDocItem(
     declined: 'Declined — contact us with questions.',
     expired: 'Expired — contact us for a new one.',
     viewed: 'Viewed — please sign to continue.',
-    sent: `Ready for your review and signature.`,
-    pending: `Ready for your review and signature.`,
-    not_sent: `Ready for your review and signature.`,
+    sent: 'Ready for your review and signature.',
+    pending: 'Ready for your review and signature.',
+    not_sent: 'Ready for your review and signature.',
     no_firm: 'No firm record found.',
   };
 
@@ -57,13 +52,6 @@ function buildDocItem(
   };
 }
 
-// ─── Status chip styles ───
-function getStatusChipStyle(item: DocItem): React.CSSProperties {
-  if (item.signed) return { backgroundColor: '#F0EDDA', color: '#7A6F2A' };
-  if (item.declined) return { backgroundColor: '#FEE2E2', color: '#991B1B' };
-  return { backgroundColor: '#FEF3C7', color: '#92400E' };
-}
-
 // ─── PendingAgreementBanner ───
 export function PendingAgreementBanner() {
   const { user } = useAuth();
@@ -78,7 +66,6 @@ export function PendingAgreementBanner() {
 
   if (!firmStatus) return null;
 
-  // The RPC returns flat fields; map to expected shape
   const fs = firmStatus as Record<string, unknown>;
 
   const items: DocItem[] = [
@@ -100,120 +87,72 @@ export function PendingAgreementBanner() {
     ),
   ];
 
-  const hasPending = items.some((i) => !i.signed);
   const allSigned = items.every((i) => i.signed);
+
+  // Hide entirely when all documents are signed
+  if (allSigned) return null;
 
   return (
     <>
-      <div
-        className="rounded-lg overflow-hidden mb-0"
-        style={{ border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))' }}
-      >
-        {/* Compact header */}
-        <div className="px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: '1px solid hsl(var(--border))' }}>
-          <span className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
-            {allSigned ? 'Documents' : hasPending ? 'Action Required' : 'Documents'}
-          </span>
-          {allSigned && (
-            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <CheckCircle className="h-3 w-3" />
-              All signed
-            </span>
-          )}
-        </div>
-
-        {/* Clean rows */}
+      <div className="mb-0 py-2 space-y-1">
         {items.map((item) => (
           <div
             key={item.key}
-            className="flex items-center gap-3 px-4 py-2.5"
-            style={{ borderBottom: '1px solid hsl(var(--border))' }}
+            className="flex items-center gap-3 px-4 py-2 rounded-lg"
+            style={{
+              borderLeft: item.signed ? 'none' : '2px solid #DEC76B',
+              backgroundColor: item.signed ? 'transparent' : '#FDFCF9',
+            }}
           >
-            {/* Icon */}
-            <div className="shrink-0">
-              {item.type === 'nda' ? (
-                <Shield className="h-4 w-4 text-muted-foreground" />
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <span className="text-sm font-medium" style={{ color: '#0E101A' }}>
+                {item.label}
+              </span>
+              {item.signed ? (
+                <span className="flex items-center gap-1 text-[11px]" style={{ color: '#7A6F2A' }}>
+                  <CheckCircle className="h-3 w-3" />
+                  Signed
+                </span>
+              ) : item.declined ? (
+                <span className="text-[11px]" style={{ color: '#991B1B' }}>Declined</span>
               ) : (
-                <FileSignature className="h-4 w-4 text-muted-foreground" />
+                <span className="text-[11px]" style={{ color: '#DEC76B' }}>Pending</span>
               )}
             </div>
 
-            {/* Label + status chip */}
-            <div className="flex-1 min-w-0 flex items-center gap-2">
-              <span className="text-sm font-medium text-foreground">{item.label}</span>
-              <span
-                className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-                style={getStatusChipStyle(item)}
-              >
-                {item.signed ? 'Signed' : item.declined ? 'Declined' : 'Pending'}
-              </span>
-              <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                {item.notificationMessage}
-              </span>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               {item.signed ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs gap-1"
-                    onClick={() => download({ documentUrl: item.documentUrl, draftUrl: item.draftUrl, documentType: item.type })}
-                  >
-                    <Download className="h-3 w-3" />
-                    Signed PDF
-                  </Button>
-                  {item.draftUrl && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => download({ documentUrl: null, draftUrl: item.draftUrl, documentType: item.type })}
-                    >
-                      <Download className="h-3 w-3" />
-                      Draft
-                    </Button>
-                  )}
-                </>
+                <button
+                  onClick={() => download({ documentUrl: item.documentUrl, draftUrl: item.draftUrl, documentType: item.type })}
+                  className="text-[11px] flex items-center gap-1 hover:opacity-70 transition-opacity"
+                  style={{ color: '#9A9A9A' }}
+                >
+                  <Download className="h-3 w-3" />
+                  PDF
+                </button>
               ) : item.declined ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
+                <button
                   onClick={() => {
                     setDocMessageType(item.type);
                     setDocMessageOpen(true);
                   }}
+                  className="text-[11px] hover:opacity-70 transition-opacity"
+                  style={{ color: '#9A9A9A' }}
                 >
                   Contact
-                </Button>
+                </button>
               ) : (
-                <>
-                  {item.draftUrl && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => download({ documentUrl: null, draftUrl: item.draftUrl, documentType: item.type })}
-                    >
-                      <Download className="h-3 w-3" />
-                      Draft
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => {
-                      setSigningDocType(item.type);
-                      setSigningOpen(true);
-                    }}
-                    style={{ backgroundColor: '#0E101A', color: '#FFFFFF' }}
-                  >
-                    Sign Now
-                  </Button>
-                </>
+                <button
+                  onClick={() => {
+                    setSigningDocType(item.type);
+                    setSigningOpen(true);
+                  }}
+                  className="text-[11px] font-medium flex items-center gap-0.5 hover:opacity-70 transition-opacity"
+                  style={{ color: '#0E101A' }}
+                >
+                  Sign Now
+                  <ChevronRight className="h-3 w-3" />
+                </button>
               )}
             </div>
           </div>

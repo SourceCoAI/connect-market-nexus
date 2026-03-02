@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageSquare, ArrowLeft, Loader2 } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Loader2, CheckCheck } from 'lucide-react';
 import { useConnectionMessages } from '@/hooks/use-connection-messages';
 import { useAuth } from '@/context/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
@@ -15,7 +15,6 @@ import { MessageBody } from './MessageBody';
 import { MessageInput } from './MessageInput';
 
 // ─── GeneralChatView ───
-// A general inquiry chat. Always persists to DB via resolved thread ID.
 
 export function GeneralChatView({ onBack }: { onBack: () => void }) {
   const { user } = useAuth();
@@ -27,7 +26,6 @@ export function GeneralChatView({ onBack }: { onBack: () => void }) {
   const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Resolve a guaranteed thread ID (creates General Inquiry request if needed)
   const { data: resolvedThread, isLoading: resolving } = useResolvedThreadId();
   const threadId = resolvedThread?.connection_request_id;
 
@@ -43,7 +41,6 @@ export function GeneralChatView({ onBack }: { onBack: () => void }) {
 
     let body = newMessage.trim();
 
-    // Handle file attachment upload
     if (attachment) {
       setUploading(true);
       try {
@@ -107,8 +104,8 @@ export function GeneralChatView({ onBack }: { onBack: () => void }) {
   if (resolving) {
     return (
       <div className="flex flex-col h-full items-center justify-center gap-2">
-        <Loader2 className="h-6 w-6 animate-spin" style={{ color: '#5A5A5A' }} />
-        <p className="text-sm" style={{ color: '#5A5A5A' }}>Loading conversation...</p>
+        <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#CBCBCB' }} />
+        <p className="text-xs" style={{ color: '#9A9A9A' }}>Loading...</p>
       </div>
     );
   }
@@ -118,89 +115,79 @@ export function GeneralChatView({ onBack }: { onBack: () => void }) {
       {/* Header */}
       <div
         className="flex items-center gap-3 px-5 py-3 flex-shrink-0"
-        style={{ borderBottom: '1px solid #E5DDD0' }}
+        style={{ borderBottom: '1px solid #F0EDE6' }}
       >
         <Button variant="ghost" size="sm" onClick={onBack} className="md:hidden h-8 w-8 p-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" style={{ color: '#DEC76B' }} />
-            <h2 className="text-sm font-semibold" style={{ color: '#0E101A' }}>
-              General Inquiry
-            </h2>
-          </div>
-          <p className="text-xs" style={{ color: '#5A5A5A' }}>
-            Message the SourceCo team
-          </p>
-        </div>
+        <h2 className="text-sm font-semibold" style={{ color: '#0E101A' }}>
+          General Inquiry
+        </h2>
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1" style={{ backgroundColor: '#FCF9F0' }}>
-        <div className="px-5 py-4 space-y-3">
+      <ScrollArea className="flex-1 bg-white">
+        <div className="px-5 py-4 space-y-4">
           {existingMessages.length === 0 ? (
-            <div className="flex items-center justify-center py-16">
+            <div className="flex items-center justify-center py-20">
               <div className="text-center">
-                <MessageSquare className="h-10 w-10 mx-auto mb-3" style={{ color: '#CBCBCB' }} />
-                <p className="text-sm" style={{ color: '#5A5A5A' }}>
-                  Send a message to start a conversation with the SourceCo team.
+                <MessageSquare className="h-8 w-8 mx-auto mb-2" style={{ color: '#E5DDD0' }} />
+                <p className="text-sm" style={{ color: '#9A9A9A' }}>
+                  Send a message to start a conversation.
                 </p>
               </div>
             </div>
           ) : (
-            existingMessages.map((msg: any) => (
-              <div
-                key={msg.id}
-                className={cn(
-                  'flex',
-                  msg.sender_role === 'buyer' ? 'justify-end' : 'justify-start',
-                )}
-              >
+            existingMessages.map((msg: any) => {
+              const isBuyer = msg.sender_role === 'buyer';
+              return (
                 <div
-                  className="max-w-[80%] rounded-xl px-4 py-3 space-y-1 shadow-sm border"
-                  style={
-                    msg.sender_role === 'buyer'
-                      ? {
-                          backgroundColor: '#0E101A',
-                          borderColor: '#0E101A',
-                          color: '#FFFFFF',
-                        }
-                      : {
-                          backgroundColor: '#FFFFFF',
-                          borderColor: '#E5DDD0',
-                          color: '#0E101A',
-                        }
-                  }
+                  key={msg.id}
+                  className={cn('flex flex-col', isBuyer ? 'items-end' : 'items-start')}
                 >
+                  {/* Sender + time above bubble */}
                   <div
-                    className="flex items-center gap-2 text-[11px]"
-                    style={{
-                      color:
-                        msg.sender_role === 'buyer'
-                          ? 'rgba(255,255,255,0.6)'
-                          : '#5A5A5A',
-                    }}
+                    className="flex items-center gap-1.5 text-[10px] mb-1 px-1"
+                    style={{ color: '#CBCBCB' }}
                   >
                     <span className="font-medium">
-                      {msg.sender_role === 'buyer'
-                        ? 'You'
-                        : msg.sender?.first_name || 'SourceCo'}
+                      {isBuyer ? 'You' : msg.sender?.first_name || 'SourceCo'}
                     </span>
                     <span>&middot;</span>
                     <span>
                       {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
                     </span>
                   </div>
-                  <div className="text-base leading-relaxed">
-                    <MessageBody
-                      body={msg.body}
-                      variant={msg.sender_role === 'buyer' ? 'buyer' : 'admin'}
-                    />
+
+                  <div
+                    className={cn(
+                      'max-w-[75%] px-4 py-3',
+                      isBuyer
+                        ? 'rounded-[16px] rounded-br-[6px]'
+                        : 'rounded-[16px] rounded-bl-[6px]',
+                    )}
+                    style={
+                      isBuyer
+                        ? { backgroundColor: '#0E101A', color: '#FFFFFF' }
+                        : { backgroundColor: '#F8F8F6', color: '#0E101A' }
+                    }
+                  >
+                    <div className="text-sm leading-relaxed">
+                      <MessageBody
+                        body={msg.body}
+                        variant={isBuyer ? 'buyer' : 'admin'}
+                      />
+                    </div>
                   </div>
+
+                  {isBuyer && msg.is_read_by_admin && (
+                    <div className="mt-0.5 mr-1">
+                      <CheckCheck className="h-3 w-3" style={{ color: '#DEC76B' }} />
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
           <div ref={messagesEndRef} />
         </div>

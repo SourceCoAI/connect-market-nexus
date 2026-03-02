@@ -76,23 +76,17 @@ export default function BuyerMessages() {
       style={{ fontFamily: 'Montserrat, Inter, sans-serif' }}
     >
       {/* Header */}
-      <div className="px-6 pt-6 pb-4 flex-shrink-0">
+      <div className="px-6 pt-6 pb-4 flex-shrink-0" style={{ borderBottom: '1px solid #F0EDE6' }}>
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#0E101A' }}>
-              Messages
-            </h1>
-            <p className="text-sm mt-0.5" style={{ color: '#5A5A5A' }}>
-              {totalUnread > 0
-                ? `${totalUnread} unread message${totalUnread !== 1 ? 's' : ''}`
-                : 'Conversations with the SourceCo team'}
-            </p>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#0E101A' }}>
+            Messages{totalUnread > 0 ? ` (${totalUnread})` : ''}
+          </h1>
           <Button
             onClick={handleSelectGeneral}
             size="sm"
-            className="gap-1.5"
-            style={{ backgroundColor: '#0E101A', color: '#FFFFFF' }}
+            variant="outline"
+            className="gap-1.5 text-xs"
+            style={{ borderColor: '#E5DDD0', color: '#0E101A' }}
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
             New Message
@@ -109,11 +103,11 @@ export default function BuyerMessages() {
       {error ? (
         <div className="flex-1 px-6 pb-6 pt-4">
           <div
-            className="border rounded-xl bg-card flex flex-col items-center justify-center py-16"
-            style={{ borderColor: '#CBCBCB' }}
+            className="rounded-xl flex flex-col items-center justify-center py-16"
+            style={{ border: '1px solid #F0EDE6' }}
           >
             <p className="text-sm text-destructive mb-1">Failed to load messages</p>
-            <p className="text-xs" style={{ color: '#5A5A5A' }}>
+            <p className="text-xs" style={{ color: '#9A9A9A' }}>
               Please try refreshing the page.
             </p>
           </div>
@@ -125,7 +119,7 @@ export default function BuyerMessages() {
       ) : (
         <div
           className="flex-1 min-h-0 mx-6 mb-6 mt-4 rounded-xl overflow-hidden flex"
-          style={{ border: '2px solid #CBCBCB', backgroundColor: '#FFFFFF' }}
+          style={{ border: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}
         >
           {/* Thread List (left panel) */}
           <ConversationList
@@ -164,12 +158,9 @@ export default function BuyerMessages() {
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
-                  <Inbox className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                  <p className="text-sm font-medium" style={{ color: '#5A5A5A' }}>
+                  <Inbox className="h-10 w-10 mx-auto mb-3" style={{ color: '#E5DDD0' }} />
+                  <p className="text-sm font-medium" style={{ color: '#9A9A9A' }}>
                     Select a conversation
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: '#9A9A9A' }}>
-                    Choose from the list to view messages
                   </p>
                 </div>
               </div>

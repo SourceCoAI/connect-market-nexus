@@ -3,7 +3,6 @@ import { Download } from 'lucide-react';
 import type { MessageVariant } from './types';
 
 // ─── AttachmentChip ───
-// Renders an inline download link for a message attachment.
 
 export function AttachmentChip({
   fileName,
@@ -21,9 +20,8 @@ export function AttachmentChip({
       rel="noopener noreferrer"
       className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-80"
       style={{
-        backgroundColor: variant === 'buyer' ? 'rgba(255,255,255,0.15)' : '#FCF9F0',
+        backgroundColor: variant === 'buyer' ? 'rgba(255,255,255,0.1)' : '#F8F8F6',
         color: variant === 'buyer' ? '#FFFFFF' : '#0E101A',
-        border: variant === 'buyer' ? '1px solid rgba(255,255,255,0.2)' : '1px solid #E5DDD0',
       }}
     >
       <Download className="h-3.5 w-3.5 shrink-0" />
@@ -33,10 +31,8 @@ export function AttachmentChip({
 }
 
 // ─── MessageBody ───
-// Renders message text, auto-linking URLs and rendering attachment chips.
 
 export function MessageBody({ body, variant }: { body: string; variant: MessageVariant }) {
-  // Split on attachment link pattern: [📎 filename](url)
   const attachmentRegex = /\[📎\s+([^\]]+)\]\(([^)]+)\)/g;
   const segments: Array<
     { type: 'text'; value: string } | { type: 'attachment'; fileName: string; url: string }
@@ -66,7 +62,6 @@ export function MessageBody({ body, variant }: { body: string; variant: MessageV
             <AttachmentChip key={segIdx} fileName={seg.fileName} url={seg.url} variant={variant} />
           );
         }
-        // Render text segment with URL auto-linking
         const parts = seg.value.split(/(https?:\/\/[^\s]+)/g);
         const trimmed = seg.value.trim();
         if (!trimmed) return null;
@@ -115,31 +110,26 @@ export function MessageBody({ body, variant }: { body: string; variant: MessageV
 }
 
 // ─── TypingIndicator ───
-// Animated dots shown when the other party is typing.
 
 export function TypingIndicator() {
   return (
     <div className="flex justify-start">
       <div
-        className="rounded-xl px-4 py-3 shadow-sm border"
-        style={{
-          backgroundColor: '#FFFFFF',
-          borderColor: '#E5DDD0',
-          color: '#0E101A',
-        }}
+        className="rounded-[16px] rounded-bl-[6px] px-4 py-3"
+        style={{ backgroundColor: '#F8F8F6' }}
       >
         <div className="flex items-center gap-1">
           <span
             className="w-1.5 h-1.5 rounded-full animate-bounce"
-            style={{ backgroundColor: '#9A9A9A', animationDelay: '0ms', animationDuration: '1s' }}
+            style={{ backgroundColor: '#CBCBCB', animationDelay: '0ms', animationDuration: '1s' }}
           />
           <span
             className="w-1.5 h-1.5 rounded-full animate-bounce"
-            style={{ backgroundColor: '#9A9A9A', animationDelay: '150ms', animationDuration: '1s' }}
+            style={{ backgroundColor: '#CBCBCB', animationDelay: '150ms', animationDuration: '1s' }}
           />
           <span
             className="w-1.5 h-1.5 rounded-full animate-bounce"
-            style={{ backgroundColor: '#9A9A9A', animationDelay: '300ms', animationDuration: '1s' }}
+            style={{ backgroundColor: '#CBCBCB', animationDelay: '300ms', animationDuration: '1s' }}
           />
         </div>
       </div>
