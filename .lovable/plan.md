@@ -1,122 +1,116 @@
 
-Goal: make agreement status fully consistent across buyer/admin surfaces, correctly associate users to firms, and restore historical fee/NDA tracking without losing auditability.
 
-What I found (root causes)
-1) User-to-firm association is inconsistent today.
-- For adambhaile00@gmail.com, there are 2 firm memberships:
-  - d18c83c3... (dfdf) → NDA/Fee not signed
-  - fc768c08... (teltonika.lt) → NDA signed
-- Their latest active connection request points to teltonika firm, but latest firm_members row is dfdf.
-- Result: different screens pick different firms and show conflicting status.
+## Fix Document Sync + Admin Toggle Audit Trail
 
-2) Firm resolution logic is fragmented and contradictory.
-- Some places use “latest connection_request then fallback membership” (good).
-- Some places use `.from('firm_members').eq('user_id', userId).limit(1)` with no ordering (non-deterministic).
-- Some places use domain-based RPC (`get_my_agreement_status`) which ignores membership context for generic domains.
-- One query orders firm_members by `created_at` even though firm_members has `added_at` (schema mismatch).
+### Issues Found
 
-3) Data quality issues amplify mismatch.
-- 17 firm_agreements rows have `email_domain` containing full emails (`%@%`) instead of pure domains.
-- Multiple users have latest request firm != latest membership firm.
-- Admin Document Tracking search only checks one selected contact per firm, not all member emails/names, so signed firm rows are easy to miss when searching by a specific user email.
+**1. Admin toggle "un-sign" (toggle OFF) does NOT cascade to buyer view**
 
-4) Core signed-state integrity is mostly OK, but association is not.
-- No current rows where docuseal completed + signed=false.
-- Main failure mode is wrong firm resolution + duplicate/stale memberships, not webhook status writing.
+The `update_firm_agreement_status` RPC handles `signed` transitions well (cascades `nda_signed=true` to profiles), but when an admin toggles a document BACK (e.g., `signed` -> `not_started` via "Reset to Not Started"), the RPC:
+- Sets `nda_signed = (p_new_status = 'signed')` which correctly becomes `false` on firm_agreements
+- But does NOT cascade `nda_signed = false` back to `profiles` for member users
+- Result: Buyer view still shows "Signed" because `profiles.nda_signed` remains `true`
 
-Implementation plan (sequenced)
+Same issue for fee_agreement.
 
-Phase 1 — Canonical firm resolution contract (single source of truth)
-A) Add DB function `resolve_user_firm_id(p_user_id uuid)`:
-- Priority 1: most recent active connection_requests.firm_id (approved/pending/on_hold)
-- Priority 2: most recent firm_members.firm_id by `added_at desc`
-- Return null if none.
-B) Add companion function `get_user_firm_agreement_status(p_user_id uuid)` returning firm_id + NDA/Fee fields from firm_agreements.
-C) Update all user-firm lookups to use this contract:
-- Frontend hooks:
-  - `src/hooks/admin/use-docuseal.ts` (`useBuyerNdaStatus`)
-  - `src/hooks/admin/use-user-firm.ts`
-  - `src/pages/admin/message-center/ThreadContextPanel.tsx` (fix `created_at`→`added_at` fallback)
-  - `src/pages/MyRequests.tsx` (stop mixing two different status sources for NDA/Fee)
-- Edge functions:
-  - `supabase/functions/get-agreement-document/index.ts`
-  - (keep current deterministic behavior in `get-buyer-nda-embed`, `get-buyer-fee-embed`, `confirm-agreement-signed`, but switch them to shared resolver util to prevent drift)
+**2. No audit log entry is written**
 
-Dependency: Phase 1 must land before remediation/backfill scripts are used in UI rollout.
+The `update_firm_agreement_status` RPC does NOT insert into `agreement_audit_log`. The audit log table exists but is never populated by this RPC. So admin toggle changes have zero tracking of who changed what, when.
 
-Phase 2 — Data remediation + historical restoration (idempotent migration)
-A) Normalize malformed firm domains:
-- For `firm_agreements.email_domain like '%@%'`, split to domain where valid.
-- If domain is generic, set `email_domain = null` and preserve prior value in metadata for audit.
-B) Reconcile duplicate user memberships:
-- For each user with >1 firm, compute canonical firm via Phase 1 resolver.
-- Move/retain user membership on canonical firm.
-- For non-canonical memberships:
-  - If no active requests and no signed docs and likely placeholder, detach user membership.
-  - Keep firm rows if referenced elsewhere; do not hard-delete signed-history firms.
-C) Recompute `firm_agreements.member_count` from firm_members.
-D) Historical fee/NDA restoration:
-- Rebuild missing signed timestamps/urls/status from submission ids + webhook logs where needed.
-- Re-sync profile legacy booleans from firm truth (compatibility only), using firm membership rollup.
-E) Produce remediation report table/log:
-- changed firm_ids, moved users, normalized domains, restored signed rows, skipped ambiguous rows.
+**3. Audit log missing `changed_by_name` column**
 
-Dependency: run in dry-run preview first, then execute once approved.
+The `agreement_audit_log` table has `changed_by` (uuid) but NO `changed_by_name` column. When reviewing audit history, there's no way to display "Bill Martin toggled NDA off" without a separate profile join.
 
-Phase 3 — Prevent recurrence (hardening)
-A) Update trigger function `sync_connection_request_firm()`:
-- Never use unordered `LIMIT 1` from firm_members.
-- Prefer explicit NEW.firm_id if already set.
-- If deriving, use canonical resolver rules.
-- Avoid silent reassignment on updates unless source fields changed.
-B) Add DB constraints/guards:
-- CHECK to prevent `email_domain` containing `@`.
-- Optional trigger to normalize `email_domain` on write.
-C) Add periodic integrity job:
-- Detect users with multi-firm ambiguity, malformed domains, request/member canonical mismatch.
-- Emit admin alert + dashboard metric.
+**4. `useFirmAgreementStatus` (buyer Messages page) still uses manual firm resolution**
 
-Phase 4 — Admin UX clarity (so ops can trust what they see)
-A) DocumentTracking search should include all member emails/names, not only primary/first contact.
-B) Add “Associated Users” expandable section per firm row.
-C) Add “Canonical firm for user” inspector in admin context panel and user badge tooltip.
-D) Add “Potential duplicate firm” warning chip when same user appears in multiple firms.
+The `useFirmAgreementStatus` hook in `useMessagesData.ts` still does its own `connection_requests` + `firm_members` lookup instead of using the canonical `resolve_user_firm_id` RPC. This is a remaining inconsistency from Phase 1.
 
-Technical file scope
-- DB migrations/functions:
-  - new resolver functions + remediation SQL + constraints + trigger updates
-- Frontend:
-  - `src/hooks/admin/use-docuseal.ts`
-  - `src/hooks/admin/use-user-firm.ts`
-  - `src/pages/admin/message-center/ThreadContextPanel.tsx`
-  - `src/pages/MyRequests.tsx`
-  - `src/pages/admin/DocumentTrackingPage.tsx`
-- Edge:
-  - `supabase/functions/get-agreement-document/index.ts`
-  - shared resolver import/use in signing-related functions
+**5. Document URLs not shown in both states**
 
-Validation checklist (must pass before closing)
-1) For affected user (adambhaile00@gmail.com), admin and buyer both resolve same firm_id.
-2) NDA/Fee badges match across:
-- Profile Documents
-- My Deals
-- Buyer Messages action bar
-- Admin Message Center context panel
-- Admin Document Tracking
-3) Backfill invariants:
-- zero malformed email_domain rows with `@`
-- zero users where latest request firm conflicts with canonical resolver output
-- no docuseal completed rows left unsigned
-4) End-to-end test:
-- sign Fee Agreement from buyer UI, confirm green signed state appears in all surfaces without manual refresh.
+When admin toggles signed -> not_started, the signed document URL is preserved in the DB but the buyer UI only shows the `draftUrl` when unsigned and `signedDocUrl` when signed. Both should be visible where applicable.
 
-Risk controls
-- Execute remediation in two steps: dry-run report → reviewed apply migration.
-- Keep all destructive actions reversible (log old/new mappings).
-- Do not delete firms with signed history; only re-link memberships unless explicitly safe.
+**6. AgreementStatusDropdown "Reset to Not Started" transition clears signed_at but signed_by audit is lost**
 
-Expected outcome
-- One canonical firm context per user interaction.
-- Agreement statuses synchronized everywhere in near real time.
-- Historical fee/NDA tracking restored and trustworthy for all firms/users.
-- Admin search and debugging become transparent, reducing false “not signed” reads.
+The RPC uses `COALESCE(nda_signed_at, v_now)` which means it never clears `signed_at` when moving away from signed. When toggled off, `signed_at` remains stale from the previous signing.
+
+### Implementation Plan
+
+#### Phase A: Fix the RPC to handle un-signing and write audit logs
+
+**DB Migration**: Update `update_firm_agreement_status` RPC:
+
+1. Add `changed_by_name` column to `agreement_audit_log` table
+2. When status changes AWAY from `signed` (e.g., to `not_started`, `sent`, etc.):
+   - Clear `nda_signed_at` / `fee_agreement_signed_at` (reset timestamp)
+   - Clear `nda_signed_by` / `fee_agreement_signed_by` and `*_signed_by_name`
+   - Cascade `nda_signed = false` / `fee_agreement_signed = false` to ALL `profiles` of firm members
+3. Always write to `agreement_audit_log` with:
+   - `changed_by` = `auth.uid()`
+   - `changed_by_name` = admin's name from profiles lookup
+   - `old_status` = previous status value
+   - `new_status` = new status value
+   - `document_url` = any attached document
+   - `notes` = provided notes
+   - `metadata` = JSON with source, signed_by_name, etc.
+
+#### Phase B: Fix buyer-facing firm resolution consistency
+
+**File: `src/pages/BuyerMessages/useMessagesData.ts`**
+- Update `useFirmAgreementStatus` to use `resolve_user_firm_id` RPC instead of manual lookup, matching the pattern already used in `ThreadContextPanel` and `use-user-firm.ts`
+
+#### Phase C: Show document URLs in both signed and unsigned states
+
+**File: `src/pages/BuyerMessages/AgreementSection.tsx`**
+- When signed: show both "Download Signed PDF" and "View Draft" links
+- When unsigned but draft exists: show "Download Draft" link
+- Both admin (ThreadContextPanel) and buyer views already handle this correctly; AgreementSection is the only one that doesn't expose the signed document URL properly after un-signing
+
+**File: `src/pages/admin/message-center/ThreadContextPanel.tsx`**
+- Already shows both draft and signed URLs -- no change needed
+
+#### Phase D: Show admin name + timestamp on all audit entries in DocumentTrackingPage
+
+**File: `src/pages/admin/DocumentTrackingPage.tsx`**
+- The NDA Date and Fee Date columns already show `signed_by_name` and date when signed
+- Add: when status is NOT signed but was previously toggled by an admin, show the last audit entry's admin name + timestamp in a subtle tooltip or inline text (e.g., "Reset by Bill Martin, Mar 2")
+
+**File: `src/pages/admin/message-center/ThreadContextPanel.tsx`**
+- Activity timeline already reads from `agreement_audit_log` -- will automatically show the new `changed_by_name` entries once populated
+
+#### Phase E: Ensure toggle invalidation reaches ALL buyer screens
+
+**File: `src/hooks/admin/use-firm-agreement-mutations.ts`**
+- Add missing invalidation keys to `onSuccess` of `useUpdateAgreementStatus`:
+  - `['buyer-firm-agreement-status']`
+  - `['my-agreement-status']`  
+  - `['buyer-nda-status']`
+  - `['thread-buyer-firm']`
+  - `['user-firm']`
+  
+  (Some of these are already covered by the realtime subscription, but direct invalidation ensures immediate UI feedback on the admin side)
+
+### Technical Details
+
+**DB Migration SQL** (update_firm_agreement_status + audit log):
+- ALTER `agreement_audit_log` ADD COLUMN `changed_by_name` text
+- Rewrite the RPC to:
+  - Read current status before updating (for `old_status` in audit)
+  - On any non-signed status: clear signed_at, signed_by, signed_by_name fields
+  - Cascade `signed = false` to profiles when un-signing
+  - Insert audit log row on every status change
+  - Lookup admin name from profiles for `changed_by_name`
+
+**Files to modify**:
+| File | Change |
+|------|--------|
+| DB migration | Add `changed_by_name` to audit log, rewrite RPC |
+| `src/pages/BuyerMessages/useMessagesData.ts` | Use `resolve_user_firm_id` RPC |
+| `src/hooks/admin/use-firm-agreement-mutations.ts` | Add buyer query key invalidations |
+| `src/pages/admin/DocumentTrackingPage.tsx` | Show last audit admin + timestamp when not signed |
+
+### What This Fixes
+- Admin toggles NDA/Fee to "Not Signed" -> buyer immediately sees "Not Signed"
+- Every toggle change is audited with admin name + exact timestamp
+- Buyer Messages page uses same canonical firm resolver as all other pages
+- Document URLs visible in both signed and unsigned states
+- Activity timeline in admin shows full audit trail with admin names
