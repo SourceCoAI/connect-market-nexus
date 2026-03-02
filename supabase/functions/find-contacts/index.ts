@@ -22,6 +22,7 @@ import { requireAdmin } from '../_shared/auth.ts';
 import { scrapeCompanyEmployees, resolveCompanyUrl, inferDomain } from '../_shared/apify-client.ts';
 import { batchEnrich, domainSearchEnrich } from '../_shared/prospeo-client.ts';
 import { findCompanyLinkedIn } from '../_shared/serper-client.ts';
+import { fireClayFallback } from '../_shared/clay-fallback.ts';
 
 interface FindContactsRequest {
   company_name: string;
@@ -267,7 +268,9 @@ Deno.serve(async (req: Request) => {
     }));
 
     // Also include unenriched Apify contacts (no email but have LinkedIn)
-    const enrichedLinkedIns = new Set(enriched.map((e) => (e.linkedin_url as string)?.toLowerCase()));
+    const enrichedLinkedIns = new Set(
+      enriched.map((e) => (e.linkedin_url as string)?.toLowerCase()),
+    );
     const unenriched = toEnrich
       .filter((e) => !enrichedLinkedIns.has(e.profileUrl?.toLowerCase()))
       .map((e) => ({
@@ -286,6 +289,25 @@ Deno.serve(async (req: Request) => {
       }));
 
     const allContacts = deduplicateContacts([...contacts, ...unenriched]).slice(0, targetCount);
+
+    // 7b. Fire Clay fallback for unenriched contacts (non-blocking, capped at 10)
+    for (const c of unenriched.slice(0, 10)) {
+      fireClayFallback(
+        supabaseAdmin,
+        {
+          firstName: c.first_name,
+          lastName: c.last_name,
+          linkedinUrl: c.linkedin_url || undefined,
+          domain,
+          company: companyName,
+          title: c.title,
+        },
+        {
+          workspaceId: auth.userId!,
+          sourceFunction: 'find_contacts',
+        },
+      );
+    }
 
     // 8. Save to enriched_contacts
     if (allContacts.length > 0) {

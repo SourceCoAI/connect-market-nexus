@@ -22,6 +22,7 @@ import {
   type DiscoveredContact,
   type LinkedInMatch,
 } from './common.ts';
+import { fireClayFallback } from '../../../_shared/clay-fallback.ts';
 
 // ---------- Tool definitions ----------
 
@@ -380,6 +381,28 @@ export async function enrichBuyerContacts(
       search_query: cacheKey,
     }));
 
+  // Fire Clay fallback for unenriched contacts (non-blocking, capped at 10)
+  const unenrichedForClay = toEnrich.filter(
+    (d) => !enrichedLinkedIns.has(d.linkedin_url?.toLowerCase()),
+  );
+  for (const d of unenrichedForClay.slice(0, 10)) {
+    fireClayFallback(
+      supabase,
+      {
+        firstName: d.first_name,
+        lastName: d.last_name,
+        linkedinUrl: d.linkedin_url || undefined,
+        domain: primaryDomain,
+        company: companyName,
+        title: d.title,
+      },
+      {
+        workspaceId: userId,
+        sourceFunction: 'ai_command_center',
+      },
+    );
+  }
+
   const seenFinal = new Set<string>();
   const allContacts = [...contacts, ...unenriched]
     .filter((c) => {
@@ -617,11 +640,31 @@ export async function enrichLinkedInContact(
         }
       }
 
+      // Fire Clay fallback for async enrichment
+      const clayRequestId = await fireClayFallback(
+        supabase,
+        {
+          firstName: fallbackFirstName,
+          lastName: fallbackLastName,
+          linkedinUrl,
+          domain,
+          company: fallbackCompany,
+          title: '',
+        },
+        {
+          workspaceId: userId,
+          sourceFunction: 'ai_command_center',
+          sourceEntityId: fallbackCrmContactId || undefined,
+        },
+      );
+
       return {
         data: {
           linkedin_url: linkedinUrl,
           found: false,
-          message: `Could not find email for this LinkedIn profile. Prospeo returned no results.${fallbackCompany ? ` Google search for ${fallbackFirstName} ${fallbackLastName} at ${fallbackCompany} also did not find a match.` : ''} Try providing the person's company domain (e.g. company_domain: "acme.com") for a name+domain fallback.`,
+          clay_enrichment_pending: !!clayRequestId,
+          clay_request_id: clayRequestId,
+          message: `Could not find email for this LinkedIn profile. Prospeo returned no results.${fallbackCompany ? ` Google search for ${fallbackFirstName} ${fallbackLastName} at ${fallbackCompany} also did not find a match.` : ''}${clayRequestId ? ' Clay enrichment has been triggered and will update the contact when results arrive.' : ' Try providing the person\'s company domain (e.g. company_domain: "acme.com") for a name+domain fallback.'}`,
         },
       };
     }

@@ -16,6 +16,7 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import { enrichContact } from '../_shared/prospeo-client.ts';
 import { inferDomain } from '../_shared/apify-client.ts';
+import { fireClayFallback } from '../_shared/clay-fallback.ts';
 
 // deno-lint-ignore no-explicit-any
 type SupabaseClient = any;
@@ -120,7 +121,9 @@ Deno.serve(async (req: Request) => {
 
     const { data: contacts, error: fetchErr } = await supabase
       .from('contacts')
-      .select('id, first_name, last_name, email, phone, linkedin_url, title, remarketing_buyer_id, firm_id')
+      .select(
+        'id, first_name, last_name, email, phone, linkedin_url, title, remarketing_buyer_id, firm_id',
+      )
       .in('id', contactIds)
       .eq('archived', false);
 
@@ -198,7 +201,10 @@ Deno.serve(async (req: Request) => {
             { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false },
           );
           if (enrichedUpsertErr) {
-            console.error(`[enrich-list] enriched_contacts upsert failed for ${contact.id}:`, enrichedUpsertErr.message);
+            console.error(
+              `[enrich-list] enriched_contacts upsert failed for ${contact.id}:`,
+              enrichedUpsertErr.message,
+            );
           }
 
           results.push({
@@ -210,6 +216,24 @@ Deno.serve(async (req: Request) => {
             error: null,
           });
         } else {
+          // Fire Clay fallback for contacts Prospeo couldn't enrich
+          fireClayFallback(
+            supabase,
+            {
+              firstName: contact.first_name || '',
+              lastName: contact.last_name || '',
+              linkedinUrl: contact.linkedin_url || undefined,
+              domain,
+              company: companyName || undefined,
+              title: contact.title || undefined,
+            },
+            {
+              workspaceId: auth.userId!,
+              sourceFunction: 'enrich_list_contacts',
+              sourceEntityId: contact.id,
+            },
+          );
+
           results.push({
             contact_id: contact.id,
             email: contact.email,
@@ -272,7 +296,10 @@ Deno.serve(async (req: Request) => {
             { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false },
           );
           if (rawUpsertErr) {
-            console.error(`[enrich-list] enriched_contacts upsert failed for raw ${raw.key}:`, rawUpsertErr.message);
+            console.error(
+              `[enrich-list] enriched_contacts upsert failed for raw ${raw.key}:`,
+              rawUpsertErr.message,
+            );
           }
 
           results.push({
@@ -284,6 +311,21 @@ Deno.serve(async (req: Request) => {
             error: null,
           });
         } else {
+          // Fire Clay fallback for raw contacts Prospeo couldn't enrich
+          fireClayFallback(
+            supabase,
+            {
+              firstName: raw.first_name,
+              lastName: raw.last_name,
+              domain,
+              company: raw.company,
+            },
+            {
+              workspaceId: auth.userId!,
+              sourceFunction: 'enrich_list_contacts',
+            },
+          );
+
           results.push({
             contact_id: raw.key,
             email: null,
@@ -310,8 +352,7 @@ Deno.serve(async (req: Request) => {
   const enrichedCount = results.filter((r) => r.source && r.source !== 'existing').length;
   console.log(`[enrich-list] Done: ${enrichedCount} enriched via Prospeo`);
 
-  return new Response(
-    JSON.stringify({ results }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-  );
+  return new Response(JSON.stringify({ results }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 });
