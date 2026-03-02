@@ -50,6 +50,7 @@ export function useUpdateAgreementViaUser() {
       queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
       queryClient.invalidateQueries({ queryKey: ['firm-members'] });
       queryClient.invalidateQueries({ queryKey: ['my-agreement-status'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
 
       const typeLabel = data.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement';
       const actionLabel = (() => {

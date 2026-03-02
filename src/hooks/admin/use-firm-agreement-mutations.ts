@@ -59,6 +59,7 @@ export function useUpdateFirmFeeAgreement() {
       queryClient.invalidateQueries({ queryKey: ['firm-agreements'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['firm-members'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['admin-users'], refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
 
       toast({
         title: 'Success',
@@ -134,6 +135,7 @@ export function useUpdateFirmNDA() {
       queryClient.invalidateQueries({ queryKey: ['firm-agreements'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['firm-members'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['admin-users'], refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
 
       toast({
         title: 'Success',
@@ -221,6 +223,7 @@ export function useUpdateAgreementStatus() {
       queryClient.invalidateQueries({ queryKey: ['firm-members'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['admin-users'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['agreement-audit-log'], refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
 
       const typeLabel = params.agreementType === 'nda' ? 'NDA' : 'Fee Agreement';
       toast({
