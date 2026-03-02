@@ -1,82 +1,105 @@
 
+## Fix Document Sync, Tracking & Admin Toggles -- Complete Remediation
 
-## Buyer Messages -- Premium Redesign with Always-Visible References
+### Issues Found
 
-### Problem
+**1. CRITICAL: `update_firm_agreement_status` RPC references non-existent columns**
+The NDA branch of the RPC sets `nda_scope` and `nda_deal_id` -- but these columns don't exist in `firm_agreements`. Only `fee_agreement_scope` and `fee_agreement_deal_id` exist. This means **every NDA status toggle from the admin will fail silently or error out**.
 
-From the screenshots, references are buried in a tiny popover triggered by an `@` button at the bottom. The conversation list shows raw `[ref:document:fee_agreement:Fee Agreem...` text. The overall layout lacks the Apple/Stripe-level clarity and premium feel requested.
+**2. `get_user_firm_agreement_status` RPC doesn't return document URLs**
+The buyer's `useFirmAgreementStatus` hook calls this RPC, then `AgreementSection.tsx` tries to read `nda_signed_document_url`, `nda_document_url`, `fee_signed_document_url`, `fee_agreement_document_url` from the result -- but the RPC only returns `firm_id, firm_name, nda_signed, nda_status, nda_docuseal_status, nda_signed_at, fee_agreement_signed, fee_agreement_status, fee_docuseal_status, fee_agreement_signed_at`. All document URLs are always null on the buyer side.
 
-### Design Direction
+**3. Admin `ThreadContextPanel` audit timeline doesn't show `changed_by_name`**
+The activity timeline fetches `agreement_audit_log` but only selects `id, agreement_type, old_status, new_status, created_at, notes` -- missing `changed_by_name`. So when Bill Martin toggles NDA off, the timeline says "NDA: not_started" but doesn't say who did it.
 
-**Three-column layout** on desktop with a persistent right sidebar that makes Documents, Deals, and Requests always visible and one-tap accessible. No more hidden popovers.
+**4. `DocumentTrackingPage` date columns don't show last admin action for non-signed states**
+When an admin resets a document from "signed" to "not_started", `nda_signed_at` becomes null and the date column shows "--". There's no indication of the last status change or who performed it.
 
-```text
-+------------------+---------------------------+--------------------+
-| Conversations    |  Message Thread            | Quick Reference    |
-| 280px            |  flex-1                    | 220px              |
-+------------------+---------------------------+--------------------+
+**5. `AgreementStatusDropdown` has no "Reset to Not Started" for all states**
+The valid transitions don't include going from `signed` directly to `not_started`. The reset option exists as a separate menu item, but only for `currentStatus !== 'not_started'`. This is correct but the transitions from `signed` only allow `expired` -- there's no way to move `signed -> sent` to re-send.
+
+**6. NDASection in connection request sidebar doesn't use `AgreementStatusDropdown`**
+It still uses a simple Signed/Sent/Not Sent text display with no toggle capability. Admins can't change status from this view.
+
+### Implementation Plan
+
+#### Phase 1: Fix the RPC -- add missing columns + expand return type
+
+**DB Migration:**
+- Add `nda_scope` and `nda_deal_id` columns to `firm_agreements` (matching the fee_agreement equivalents)
+- Update `get_user_firm_agreement_status` RPC to also return: `nda_signed_document_url`, `nda_document_url`, `nda_signed_by_name`, `fee_signed_document_url`, `fee_agreement_document_url`, `fee_agreement_signed_by_name`
+- Update TypeScript types in `types.ts` to match expanded return
+
+#### Phase 2: Show admin identity on all audit entries
+
+**File: `src/pages/admin/message-center/ThreadContextPanel.tsx`**
+- Add `changed_by_name` to the audit log query select
+- Display admin name in timeline events for agreement status changes (e.g., "NDA: not_started -- by Bill Martin")
+
+**File: `src/pages/admin/DocumentTrackingPage.tsx`**
+- Add a "Last Action" column or enhance the date columns to show the last audit entry when status is not "signed"
+- Show: admin name, action, timestamp (e.g., "Reset by Bill Martin, Mar 2")
+- Fetch last audit entries for visible firms in a single batch query
+
+#### Phase 3: Expand `AgreementStatusDropdown` transitions
+
+**File: `src/components/admin/firm-agreements/AgreementStatusDropdown.tsx`**
+- Add `signed -> sent` transition (re-send after signing)
+- Show the "Reset to Not Started" option for ALL non-not_started states (already works, just confirming)
+- Show signed document URL + draft URL in the hover metadata for all states where they exist
+- Display `changed_by_name` from last audit entry in the hover metadata
+
+#### Phase 4: Upgrade NDASection sidebar to use dropdowns
+
+**File: `src/components/admin/connection-request-actions/NDASection.tsx`**
+- Replace simple text display with `AgreementStatusDropdown` component
+- Pass firm data and members so admin can toggle status directly from the connection request sidebar
+- Keep the "Send" button for not_started state
+
+#### Phase 5: Ensure buyer view shows all document URLs
+
+**File: `src/pages/BuyerMessages/AgreementSection.tsx`**
+- After Phase 1 RPC fix, document URLs will flow through correctly
+- Show both signed PDF download AND draft download when both exist (even when signed)
+- Show draft download when unsigned
+
+### Technical Details
+
+**DB Migration SQL:**
+```sql
+-- Add missing columns
+ALTER TABLE firm_agreements ADD COLUMN IF NOT EXISTS nda_scope text DEFAULT 'blanket';
+ALTER TABLE firm_agreements ADD COLUMN IF NOT EXISTS nda_deal_id uuid;
+
+-- Expand RPC return type to include document URLs
+CREATE OR REPLACE FUNCTION get_user_firm_agreement_status(p_user_id uuid)
+RETURNS TABLE(
+  firm_id uuid, firm_name text,
+  nda_signed boolean, nda_status text, nda_docuseal_status text,
+  nda_signed_at timestamptz, nda_signed_by_name text,
+  nda_signed_document_url text, nda_document_url text,
+  fee_agreement_signed boolean, fee_agreement_status text,
+  fee_docuseal_status text, fee_agreement_signed_at timestamptz,
+  fee_agreement_signed_by_name text,
+  fee_signed_document_url text, fee_agreement_document_url text
+) ...
 ```
 
-On mobile (below `md`), the right panel hides and the `@` button remains as fallback.
-
-### Changes
-
-#### 1. New file: `ReferencePanel.tsx` -- Always-visible right sidebar
-
-A persistent 220px panel showing three sections stacked vertically:
-
-- **Documents** -- NDA and Fee Agreement rows with status (Signed in green text, Pending in gold text). Each row is a button that attaches it as a reference. Active reference gets a `2px solid #DEC76B` left border.
-- **Your Deals** -- List of deal threads showing title and category. Tap to reference.
-- **Your Requests** -- Same threads but referencing the connection request ID, showing status.
-
-Design tokens: white background, left border `1px solid #F0EDE6`, section headers `10px` uppercase `#CBCBCB`, items `12px` text, hover `#FAFAF8`, no shadows, no icons in headers.
-
-#### 2. `index.tsx` -- Wire three-column layout
-
-- Add `reference` and `setReference` state at the page level
-- Pass `onSelectReference` callback to `ReferencePanel`
-- Pass `reference` and `onReferenceChange` down to `BuyerThreadView` and `GeneralChatView`
-- Wrap the message thread area + reference panel in a flex row
-- Reference panel hidden below `md` breakpoint
-
-#### 3. `MessageInput.tsx` -- Clean up compose bar
-
-- Hide the `@` Ref button and hint text on `md+` screens (panel handles it)
-- Keep them on mobile as fallback
-- Tighter, cleaner compose bar
-
-#### 4. `ConversationList.tsx` -- Decode reference tags in previews
-
-- Use `parseReferences` to strip `[ref:...]` tags from `last_message_body` preview text and show cleaned text instead of raw tags
-- Reduce width from `340px` to `280px` for better three-column proportions
-
-#### 5. `MessageThread.tsx` + `GeneralChatView.tsx` -- Accept external reference state
-
-- Accept `reference` and `onReferenceChange` as props from parent
-- Pass them through to `MessageInput` (replacing local state)
-- This enables the `ReferencePanel` in index.tsx to control the reference
-
-#### 6. `AgreementSection.tsx` -- Minor polish
-
-- Slightly tighter vertical spacing on the banner rows
-
-### Visual Summary
-
-- **Palette**: `#0E101A` text, `#DEC76B` gold accent, `#F0EDE6` dividers, `#F8F8F6` hover, `#FDFCF9` selected
-- **No shadows** on any element
-- **Typography-driven hierarchy**: section labels are 10px uppercase muted, items are 12px medium
-- **Active reference**: gold left border + subtle background tint
-- **Conversation previews**: cleaned of raw `[ref:...]` tags
-
-### Files
+**Files to modify:**
 
 | File | Change |
 |------|--------|
-| `src/pages/BuyerMessages/ReferencePanel.tsx` | **New** -- persistent sidebar with Documents/Deals/Requests |
-| `src/pages/BuyerMessages/index.tsx` | Three-column layout, lift reference state, wire panel |
-| `src/pages/BuyerMessages/MessageInput.tsx` | Hide `@` button on desktop, keep for mobile |
-| `src/pages/BuyerMessages/ConversationList.tsx` | Width 280px, clean preview text with parseReferences |
-| `src/pages/BuyerMessages/MessageThread.tsx` | Accept external reference/onReferenceChange props |
-| `src/pages/BuyerMessages/GeneralChatView.tsx` | Accept external reference/onReferenceChange props |
-| `src/pages/BuyerMessages/AgreementSection.tsx` | Tighter spacing |
+| DB migration | Add `nda_scope`, `nda_deal_id` columns; expand `get_user_firm_agreement_status` RPC |
+| `src/integrations/supabase/types.ts` | Update `get_user_firm_agreement_status` return type |
+| `src/pages/admin/message-center/ThreadContextPanel.tsx` | Add `changed_by_name` to audit query + display |
+| `src/pages/admin/DocumentTrackingPage.tsx` | Show last audit action in date columns when not signed |
+| `src/components/admin/firm-agreements/AgreementStatusDropdown.tsx` | Add `signed -> sent` transition, show doc URLs in metadata |
+| `src/components/admin/connection-request-actions/NDASection.tsx` | Replace text display with `AgreementStatusDropdown` |
+| `src/pages/BuyerMessages/AgreementSection.tsx` | Leverage expanded RPC data for dual doc URLs |
 
+### What This Fixes
+- NDA status toggles will stop failing (missing column fix)
+- Buyer sees document URLs (signed PDF + draft) in all states
+- Every admin toggle is attributed with admin name + exact timestamp
+- Admin can toggle status from both Document Tracking page and connection request sidebar
+- Activity timeline shows exactly who changed what and when

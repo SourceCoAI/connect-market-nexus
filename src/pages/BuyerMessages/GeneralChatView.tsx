@@ -23,12 +23,17 @@ interface GeneralChatViewProps {
   onBack: () => void;
   allThreads?: BuyerThread[];
   availableDocuments?: Array<{ type: 'nda' | 'fee_agreement'; label: string }>;
+  /** External reference state from parent (ReferencePanel) */
+  reference?: MessageReference | null;
+  onReferenceChange?: (ref: MessageReference | null) => void;
 }
 
 export function GeneralChatView({
   onBack,
   allThreads = [],
   availableDocuments = [],
+  reference: externalReference,
+  onReferenceChange: externalOnReferenceChange,
 }: GeneralChatViewProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -37,8 +42,12 @@ export function GeneralChatView({
   const [sending, setSending] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [reference, setReference] = useState<MessageReference | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Use external reference state if provided, else local
+  const [localReference, setLocalReference] = useState<MessageReference | null>(null);
+  const reference = externalOnReferenceChange ? (externalReference ?? null) : localReference;
+  const setReference = externalOnReferenceChange || setLocalReference;
 
   const { data: resolvedThread, isLoading: resolving } = useResolvedThreadId();
   const threadId = resolvedThread?.connection_request_id;
