@@ -6,6 +6,7 @@ import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useAuth } from '@/context/AuthContext';
 import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
 import { useRealtime } from '@/components/realtime/RealtimeProvider';
+import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { Send, XCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
@@ -34,6 +35,7 @@ const ConnectionButton = ({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showFeeGate, setShowFeeGate] = useState(false);
   useRealtime();
+  useAgreementStatusSync();
   const { user } = useAuth();
   const { data: coverage } = useMyAgreementStatus(!isAdmin && !!user);
   const { data: ndaStatus } = useBuyerNdaStatus(!isAdmin ? user?.id : undefined);

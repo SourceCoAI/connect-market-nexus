@@ -45,6 +45,7 @@ import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
 import { useAuth } from '@/context/AuthContext';
 import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
+import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import type { ConnectionRequest } from '@/types';
 
 /* ─── Types ────────────────────────────────────────────────────────────── */
@@ -77,6 +78,7 @@ export function ActionHub({
   const { user, isAdmin } = useAuth();
   const { data: ndaStatus } = useBuyerNdaStatus(!isAdmin ? user?.id : undefined);
   const { data: coverage } = useMyAgreementStatus(!isAdmin && !!user);
+  useAgreementStatusSync();
   const [signingOpen, setSigningOpen] = useState(false);
   const [signingType, setSigningType] = useState<'nda' | 'fee_agreement'>('nda');
 

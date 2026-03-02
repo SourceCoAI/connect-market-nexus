@@ -29,6 +29,7 @@ import { MFAGate } from '@/components/auth/MFAGate';
 import { NdaGateModal } from '@/components/docuseal/NdaGateModal';
 import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
 import { AgreementStatusBanner } from '@/components/marketplace/AgreementStatusBanner';
+import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 
 const ListingDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -51,6 +52,7 @@ const ListingDetail = () => {
 
   // NDA gate: check if buyer has signed NDA (skip for admins and unauthenticated)
   const { data: ndaStatus } = useBuyerNdaStatus(!isAdmin ? user?.id : undefined);
+  useAgreementStatusSync();
   const [ndaGateDismissed, setNdaGateDismissed] = useState(false);
   const showNdaGate =
     !isAdmin && user && ndaStatus && ndaStatus.hasFirm && !ndaStatus.ndaSigned && !ndaGateDismissed;

@@ -1,20 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { FileDown, Shield, FileSignature, CheckCircle, Loader2 } from 'lucide-react';
+import { FileDown, Shield, FileSignature, CheckCircle, Loader2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { useState } from 'react';
+import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
+import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 
-interface SignedDocument {
+interface DocumentItem {
   type: 'nda' | 'fee_agreement';
   label: string;
   signed: boolean;
   signedAt: string | null;
   documentUrl: string | null;
+  hasSubmission: boolean;
+  status: string | null;
 }
 
-function useSignedDocuments() {
+function useAllDocuments() {
   const { user } = useAuth();
 
   return useQuery({
@@ -22,26 +28,49 @@ function useSignedDocuments() {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      // Get firm membership
-      const { data: membership } = await (
-        supabase.from('firm_members' as never) as unknown as ReturnType<typeof supabase.from>
+      // Deterministic firm resolution: connection_requests first, then firm_members
+      let firmId: string | null = null;
+
+      // Try connection_requests → firm_id
+      const { data: crData } = await (
+        supabase.from('connection_requests' as never) as unknown as ReturnType<typeof supabase.from>
       )
         .select('firm_id')
         .eq('user_id', user.id)
+        .not('firm_id', 'is', null)
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (!membership) return [];
-      const membershipData = membership as unknown as { firm_id: string };
+      if (crData) {
+        firmId = (crData as unknown as { firm_id: string }).firm_id;
+      }
 
-      // Get firm agreement with signed doc URLs
+      // Fallback: firm_members
+      if (!firmId) {
+        const { data: membership } = await (
+          supabase.from('firm_members' as never) as unknown as ReturnType<typeof supabase.from>
+        )
+          .select('firm_id')
+          .eq('user_id', user.id)
+          .order('added_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (membership) {
+          firmId = (membership as unknown as { firm_id: string }).firm_id;
+        }
+      }
+
+      if (!firmId) return [];
+
       const { data: firmRaw } = await (
         supabase.from('firm_agreements' as never) as unknown as ReturnType<typeof supabase.from>
       )
         .select(
-          'nda_signed, nda_signed_at, nda_signed_document_url, nda_document_url, fee_agreement_signed, fee_agreement_signed_at, fee_signed_document_url, fee_agreement_document_url',
+          'nda_signed, nda_signed_at, nda_signed_document_url, nda_document_url, nda_docuseal_submission_id, nda_docuseal_status, fee_agreement_signed, fee_agreement_signed_at, fee_signed_document_url, fee_agreement_document_url, fee_docuseal_submission_id, fee_docuseal_status',
         )
-        .eq('id', membershipData.firm_id)
+        .eq('id', firmId)
         .maybeSingle();
 
       if (!firmRaw) return [];
@@ -50,39 +79,39 @@ function useSignedDocuments() {
         nda_signed_at: string | null;
         nda_signed_document_url: string | null;
         nda_document_url: string | null;
+        nda_docuseal_submission_id: string | null;
+        nda_docuseal_status: string | null;
         fee_agreement_signed: boolean | null;
         fee_agreement_signed_at: string | null;
         fee_signed_document_url: string | null;
         fee_agreement_document_url: string | null;
+        fee_docuseal_submission_id: string | null;
+        fee_docuseal_status: string | null;
       };
 
-      const docs: SignedDocument[] = [];
+      const docs: DocumentItem[] = [];
 
-      // NDA
-      if (firm.nda_signed || firm.nda_signed_document_url || firm.nda_document_url) {
-        docs.push({
-          type: 'nda',
-          label: 'Non-Disclosure Agreement (NDA)',
-          signed: !!firm.nda_signed,
-          signedAt: firm.nda_signed_at,
-          documentUrl: firm.nda_signed_document_url || firm.nda_document_url || null,
-        });
-      }
+      // Always show NDA row if firm exists
+      docs.push({
+        type: 'nda',
+        label: 'Non-Disclosure Agreement (NDA)',
+        signed: !!firm.nda_signed,
+        signedAt: firm.nda_signed_at,
+        documentUrl: firm.nda_signed_document_url || firm.nda_document_url || null,
+        hasSubmission: !!firm.nda_docuseal_submission_id,
+        status: firm.nda_docuseal_status,
+      });
 
-      // Fee Agreement
-      if (
-        firm.fee_agreement_signed ||
-        firm.fee_signed_document_url ||
-        firm.fee_agreement_document_url
-      ) {
-        docs.push({
-          type: 'fee_agreement',
-          label: 'Fee Agreement',
-          signed: !!firm.fee_agreement_signed,
-          signedAt: firm.fee_agreement_signed_at,
-          documentUrl: firm.fee_signed_document_url || firm.fee_agreement_document_url || null,
-        });
-      }
+      // Always show Fee Agreement row if firm exists
+      docs.push({
+        type: 'fee_agreement',
+        label: 'Fee Agreement',
+        signed: !!firm.fee_agreement_signed,
+        signedAt: firm.fee_agreement_signed_at,
+        documentUrl: firm.fee_signed_document_url || firm.fee_agreement_document_url || null,
+        hasSubmission: !!firm.fee_docuseal_submission_id,
+        status: firm.fee_docuseal_status,
+      });
 
       return docs;
     },
@@ -92,7 +121,19 @@ function useSignedDocuments() {
 }
 
 export function ProfileDocuments() {
-  const { data: documents, isLoading } = useSignedDocuments();
+  const { data: documents, isLoading } = useAllDocuments();
+  const [signingOpen, setSigningOpen] = useState(false);
+  const [signingType, setSigningType] = useState<'nda' | 'fee_agreement'>('nda');
+
+  // Realtime sync for agreement status changes
+  useAgreementStatusSync();
+
+  const pendingDocs = documents?.filter(d => !d.signed && (d.hasSubmission || d.status === 'sent' || d.status === 'awaiting')) || [];
+
+  const openSigning = (type: 'nda' | 'fee_agreement') => {
+    setSigningType(type);
+    setSigningOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -125,60 +166,104 @@ export function ProfileDocuments() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Signed Documents</CardTitle>
-        <CardDescription>
-          Download copies of your signed agreements for compliance records
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {documents.map((doc) => (
-          <div
-            key={doc.type}
-            className="flex items-center justify-between p-4 rounded-lg border border-border bg-card"
-          >
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-accent p-2">
-                {doc.type === 'nda' ? (
-                  <Shield className="h-4 w-4 text-accent-foreground" />
-                ) : (
-                  <FileSignature className="h-4 w-4 text-accent-foreground" />
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">{doc.label}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {doc.signed && (
-                    <span className="flex items-center gap-1 text-xs text-primary">
-                      <CheckCircle className="h-3 w-3" />
-                      Signed
-                    </span>
-                  )}
-                  {doc.signedAt && (
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(doc.signedAt), 'MMM d, yyyy')}
-                    </span>
+    <>
+      {/* Pending signing callout */}
+      {pendingDocs.length > 0 && (
+        <div className="rounded-lg border-2 border-amber-300/60 bg-amber-50 p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-full bg-amber-100 flex-shrink-0">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">
+                You have {pendingDocs.length} document{pendingDocs.length > 1 ? 's' : ''} ready for signing
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Sign below to unlock full deal access and data room materials.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Documents</CardTitle>
+          <CardDescription>
+            Your agreements and signing status
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {documents.map((doc) => (
+            <div
+              key={doc.type}
+              className="flex items-center justify-between p-4 rounded-lg border border-border bg-card"
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-full bg-accent p-2">
+                  {doc.type === 'nda' ? (
+                    <Shield className="h-4 w-4 text-accent-foreground" />
+                  ) : (
+                    <FileSignature className="h-4 w-4 text-accent-foreground" />
                   )}
                 </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{doc.label}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {doc.signed ? (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Signed
+                      </Badge>
+                    ) : doc.hasSubmission ? (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50">
+                        Ready to Sign
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted text-muted-foreground">
+                        Not Sent
+                      </Badge>
+                    )}
+                    {doc.signedAt && (
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(doc.signedAt), 'MMM d, yyyy')}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {doc.documentUrl && doc.documentUrl.startsWith('https://') ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(doc.documentUrl!, '_blank', 'noopener,noreferrer')}
-              >
-                <FileDown className="h-3.5 w-3.5 mr-1.5" />
-                Download
-              </Button>
-            ) : (
-              <span className="text-xs text-muted-foreground">Processing...</span>
-            )}
-          </div>
-        ))}
-      </CardContent>
-    </Card>
+              {doc.signed && doc.documentUrl && doc.documentUrl.startsWith('https://') ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(doc.documentUrl!, '_blank', 'noopener,noreferrer')}
+                >
+                  <FileDown className="h-3.5 w-3.5 mr-1.5" />
+                  Download
+                </Button>
+              ) : !doc.signed && doc.hasSubmission ? (
+                <Button
+                  size="sm"
+                  className="bg-sourceco hover:bg-sourceco/90 text-sourceco-foreground font-medium"
+                  onClick={() => openSigning(doc.type)}
+                >
+                  Sign Now
+                  <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              ) : doc.signed ? (
+                <span className="text-xs text-muted-foreground">Processing...</span>
+              ) : null}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <AgreementSigningModal
+        open={signingOpen}
+        onOpenChange={setSigningOpen}
+        documentType={signingType}
+      />
+    </>
   );
 }

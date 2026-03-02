@@ -121,7 +121,7 @@ export function BuyerNotificationBell() {
     } else if (n.notification_type === 'new_message' && n.connection_request_id) {
       navigate(`/messages?deal=${n.connection_request_id}`);
     } else if (n.notification_type === 'agreement_pending') {
-      navigate('/messages');
+      navigate('/profile?tab=documents');
     } else if (n.notification_type === 'request_approved' && n.connection_request_id) {
       navigate(`/deals/${n.connection_request_id}`);
     } else if (n.connection_request_id) {
