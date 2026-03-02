@@ -481,5 +481,15 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
         </div>
       )}
     </div>
+    {/* Buyer context panel */}
+    {showContext && (
+      <ThreadContextPanel
+        userId={thread.user_id}
+        buyerName={thread.buyer_name}
+        buyerEmail={thread.buyer_email}
+        buyerCompany={thread.buyer_company}
+      />
+    )}
+    </div>
   );
 }
