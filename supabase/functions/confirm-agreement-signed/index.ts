@@ -2,12 +2,14 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 
 /**
  * confirm-agreement-signed
  *
  * Called by the frontend after DocuSeal onCompleted fires.
  * Uses deterministic firm resolution and retry polling for DocuSeal status.
+ * Sends confirmation emails to buyer and admins.
  */
 
 async function resolveFirmId(supabaseAdmin: SupabaseClient, userId: string): Promise<string | null> {
@@ -136,12 +138,14 @@ serve(async (req: Request) => {
       );
     }
 
-    // Get buyer's email for matching
+    // Get buyer's profile for matching and name
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('email')
+      .select('email, first_name, last_name')
       .eq('id', userId)
       .single();
+
+    const signerName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Unknown';
 
     // Retry polling: check DocuSeal status with retries (0s, 1.5s, 3s)
     const retryDelays = [0, 1500, 3000];
@@ -198,6 +202,7 @@ serve(async (req: Request) => {
       updates.nda_signed_at = now;
       updates.nda_docuseal_status = 'completed';
       updates.nda_status = 'signed';
+      updates.nda_signed_by_name = signerName;
       if (signedDocUrl) {
         updates.nda_signed_document_url = signedDocUrl;
         updates.nda_document_url = signedDocUrl;
@@ -207,6 +212,7 @@ serve(async (req: Request) => {
       updates.fee_agreement_signed_at = now;
       updates.fee_docuseal_status = 'completed';
       updates.fee_agreement_status = 'signed';
+      updates.fee_agreement_signed_by_name = signerName;
       if (signedDocUrl) {
         updates.fee_signed_document_url = signedDocUrl;
         updates.fee_agreement_document_url = signedDocUrl;
@@ -252,6 +258,16 @@ serve(async (req: Request) => {
       await sendBuyerSignedDocNotification(supabaseAdmin, members, firmId, docLabel, signedDocUrl);
     }
 
+    // Send confirmation emails
+    await sendSigningConfirmationEmails(supabaseAdmin, {
+      firmId,
+      firmName,
+      docLabel,
+      signerName,
+      signerEmail: profile?.email || '',
+      signedDocUrl,
+    });
+
     await createAdminNotification(supabaseAdmin, firmId, firmName, docLabel);
 
     console.log(`✅ Confirmed ${docLabel} signed for firm ${firmId} (buyer ${userId})`);
@@ -268,6 +284,118 @@ serve(async (req: Request) => {
     );
   }
 });
+
+// ─── Send confirmation emails to buyer + admins ───
+
+async function sendSigningConfirmationEmails(
+  supabase: SupabaseClient,
+  opts: {
+    firmId: string;
+    firmName: string;
+    docLabel: string;
+    signerName: string;
+    signerEmail: string;
+    signedDocUrl: string | null;
+  },
+) {
+  const { firmId, firmName, docLabel, signerName, signerEmail, signedDocUrl } = opts;
+  const senderEmail = Deno.env.get('SENDER_EMAIL') || 'notifications@sourcecodeals.com';
+  const senderName = Deno.env.get('SENDER_NAME') || 'SourceCo';
+
+  // 1. Email to the buyer who signed
+  if (signerEmail) {
+    try {
+      const downloadLine = signedDocUrl
+        ? `<p style="margin: 0 0 16px 0;">You can <a href="${signedDocUrl}" style="color: #DEC76B; font-weight: 600;">download your signed copy here</a>, or view it anytime from your Profile → Documents tab.</p>`
+        : `<p style="margin: 0 0 16px 0;">A copy is available in your Profile → Documents tab.</p>`;
+
+      const buyerHtml = `
+<!DOCTYPE html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+<div style="max-width:600px;margin:0 auto;padding:40px 24px;">
+  <div style="font-size:11px;font-weight:600;letter-spacing:1.2px;color:#9A9A9A;text-transform:uppercase;margin-bottom:8px;">SOURCECO</div>
+  <h1 style="color:#0E101A;font-size:20px;font-weight:700;margin:0 0 24px 0;line-height:1.4;">✅ ${docLabel} Signed Successfully</h1>
+  <div style="color:#3A3A3A;font-size:15px;line-height:1.7;">
+    <p style="margin:0 0 16px 0;">Hi ${signerName},</p>
+    <p style="margin:0 0 16px 0;">Your <strong>${docLabel}</strong> has been signed and recorded successfully. Thank you for completing this step.</p>
+    ${downloadLine}
+  </div>
+  <div style="text-align:center;margin:32px 0;">
+    <a href="https://marketplace.sourcecodeals.com/messages" style="display:inline-block;background:#0E101A;color:#ffffff;padding:14px 28px;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">View Your Dashboard</a>
+  </div>
+  <div style="margin-top:48px;padding-top:24px;border-top:1px solid #E5DDD0;">
+    <p style="color:#9A9A9A;font-size:12px;margin:0;">This is an automated confirmation from SourceCo.</p>
+  </div>
+</div></body></html>`;
+
+      await sendViaBervo({
+        to: signerEmail,
+        toName: signerName,
+        subject: `✅ Your ${docLabel} Has Been Signed — SourceCo`,
+        htmlContent: buyerHtml,
+        senderName,
+        senderEmail,
+      });
+      console.log(`📧 Buyer signing confirmation email sent to ${signerEmail}`);
+    } catch (err) {
+      console.error('Failed to send buyer confirmation email:', err);
+    }
+  }
+
+  // 2. Email to all admins
+  try {
+    const { data: adminRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .in('role', ['admin', 'owner']);
+
+    if (adminRoles?.length) {
+      const adminIds = adminRoles.map((r: { user_id: string }) => r.user_id);
+      const { data: adminProfiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email')
+        .in('id', adminIds);
+
+      for (const admin of (adminProfiles || [])) {
+        if (!admin.email) continue;
+        const adminName = `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
+
+        const adminHtml = `
+<!DOCTYPE html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+<div style="max-width:600px;margin:0 auto;padding:40px 24px;">
+  <div style="font-size:11px;font-weight:600;letter-spacing:1.2px;color:#9A9A9A;text-transform:uppercase;margin-bottom:8px;">SOURCECO</div>
+  <h1 style="color:#0E101A;font-size:20px;font-weight:700;margin:0 0 24px 0;line-height:1.4;">📄 ${docLabel} Signed: ${firmName}</h1>
+  <div style="color:#3A3A3A;font-size:15px;line-height:1.7;">
+    <p style="margin:0 0 16px 0;">Hi ${adminName},</p>
+    <p style="margin:0 0 16px 0;"><strong>${signerName}</strong> (${signerEmail}) from <strong>${firmName}</strong> has signed the <strong>${docLabel}</strong>.</p>
+    <div style="background:#FCF9F0;border-left:4px solid #DEC76B;padding:16px;border-radius:0 8px 8px 0;margin:0 0 24px 0;">
+      <p style="margin:0;color:#3A3A3A;font-size:14px;"><strong>Document:</strong> ${docLabel}<br/><strong>Firm:</strong> ${firmName}<br/><strong>Signed by:</strong> ${signerName} (${signerEmail})</p>
+    </div>
+  </div>
+  <div style="text-align:center;margin:32px 0;">
+    <a href="https://marketplace.sourcecodeals.com/admin/documents" style="display:inline-block;background:#0E101A;color:#ffffff;padding:14px 28px;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">View Document Tracking</a>
+  </div>
+  <div style="margin-top:48px;padding-top:24px;border-top:1px solid #E5DDD0;">
+    <p style="color:#9A9A9A;font-size:12px;margin:0;">This is an automated notification from SourceCo.</p>
+  </div>
+</div></body></html>`;
+
+        await sendViaBervo({
+          to: admin.email,
+          toName: adminName,
+          subject: `📄 ${docLabel} Signed: ${firmName} — ${signerName}`,
+          htmlContent: adminHtml,
+          senderName,
+          senderEmail,
+        });
+        console.log(`📧 Admin signing notification sent to ${admin.email}`);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to send admin confirmation emails:', err);
+  }
+}
 
 async function sendBuyerSignedDocNotification(
   supabase: SupabaseClient,
