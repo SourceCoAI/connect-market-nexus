@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Inbox, MessageSquarePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-import { useBuyerThreads } from './useMessagesData';
+import { useBuyerThreads, useFirmAgreementStatus } from './useMessagesData';
 import { ConversationList } from './ConversationList';
 import {
   BuyerThreadView,
@@ -17,6 +17,7 @@ import {
 
 export default function BuyerMessages() {
   const { data: threads = [], isLoading, error } = useBuyerThreads();
+  useFirmAgreementStatus(); // keep data warm for reference picker
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
     searchParams.get('deal') || null,
@@ -67,6 +68,14 @@ export default function BuyerMessages() {
   }, [threads, searchQuery]);
 
   const totalUnread = useMemo(() => threads.reduce((sum, t) => sum + t.unread_count, 0), [threads]);
+
+  // Build available documents list for the reference picker
+  const availableDocuments = useMemo(() => {
+    const docs: Array<{ type: 'nda' | 'fee_agreement'; label: string }> = [];
+    docs.push({ type: 'nda', label: 'NDA' });
+    docs.push({ type: 'fee_agreement', label: 'Fee Agreement' });
+    return docs;
+  }, []);
 
   const hasActiveView = selectedThreadId && selectedThread;
 
@@ -146,6 +155,8 @@ export default function BuyerMessages() {
                   setShowGeneralChat(false);
                   setSearchParams({});
                 }}
+                allThreads={threads}
+                availableDocuments={availableDocuments}
               />
             ) : hasActiveView ? (
               <BuyerThreadView
@@ -154,6 +165,8 @@ export default function BuyerMessages() {
                   setSelectedThreadId(null);
                   setSearchParams({});
                 }}
+                allThreads={threads}
+                availableDocuments={availableDocuments}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center">

@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 import type { BuyerThread } from './helpers';
+import type { MessageReference } from './types';
+import { encodeReference } from './types';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 
@@ -21,7 +23,19 @@ export { PendingAgreementBanner } from './AgreementSection';
 
 // ─── BuyerThreadView ───
 
-export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBack: () => void }) {
+interface BuyerThreadViewProps {
+  thread: BuyerThread;
+  onBack: () => void;
+  allThreads?: BuyerThread[];
+  availableDocuments?: Array<{ type: 'nda' | 'fee_agreement'; label: string }>;
+}
+
+export function BuyerThreadView({
+  thread,
+  onBack,
+  allThreads = [],
+  availableDocuments = [],
+}: BuyerThreadViewProps) {
   const { data: messages = [], isLoading } = useConnectionMessages(thread.connection_request_id);
   const sendMsg = useSendMessage();
   const markRead = useMarkMessagesReadByBuyer();
@@ -29,6 +43,7 @@ export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBac
   const [newMessage, setNewMessage] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [reference, setReference] = useState<MessageReference | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isRejected = thread.request_status === 'rejected';
 
@@ -38,7 +53,6 @@ export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBac
   const buyerTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Subscribe to Supabase broadcast channel for typing events
   useEffect(() => {
     const channelName = `typing:${thread.connection_request_id}`;
     const channel = supabase.channel(channelName);
@@ -107,6 +121,11 @@ export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBac
 
     let body = newMessage.trim();
 
+    // Prepend reference tag if present
+    if (reference) {
+      body = `${encodeReference(reference)}\n${body}`;
+    }
+
     if (attachment) {
       setUploading(true);
       try {
@@ -146,6 +165,7 @@ export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBac
     });
     setNewMessage('');
     setAttachment(null);
+    setReference(null);
   };
 
   return (
@@ -200,6 +220,10 @@ export function BuyerThreadView({ thread, onBack }: { thread: BuyerThread; onBac
           attachment={attachment}
           onAttachmentChange={setAttachment}
           placeholder="Message SourceCo about this deal..."
+          reference={reference}
+          onReferenceChange={setReference}
+          threads={allThreads}
+          documents={availableDocuments}
         />
       )}
     </div>

@@ -1,8 +1,11 @@
 import { useRef } from 'react';
-import { Send, Paperclip, X } from 'lucide-react';
+import { Send, Paperclip, AtSign, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 import { MAX_ATTACHMENT_SIZE, ACCEPTED_FILE_TYPES } from './types';
+import type { MessageReference } from './types';
+import { ReferenceChip, ReferencePicker } from './ReferencePicker';
+import type { BuyerThread } from './helpers';
 
 // ─── MessageInput ───
 
@@ -15,6 +18,14 @@ interface MessageInputProps {
   attachment: File | null;
   onAttachmentChange: (file: File | null) => void;
   placeholder?: string;
+  /** Current message reference */
+  reference?: MessageReference | null;
+  /** Set the reference */
+  onReferenceChange?: (ref: MessageReference | null) => void;
+  /** Available threads for the reference picker */
+  threads?: BuyerThread[];
+  /** Available documents for the reference picker */
+  documents?: Array<{ type: 'nda' | 'fee_agreement'; label: string }>;
 }
 
 export function MessageInput({
@@ -26,6 +37,10 @@ export function MessageInput({
   attachment,
   onAttachmentChange,
   placeholder = 'Type a message...',
+  reference,
+  onReferenceChange,
+  threads = [],
+  documents = [],
 }: MessageInputProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,9 +62,22 @@ export function MessageInput({
   };
 
   const canSend = (value.trim() || attachment) && !isSending && !isUploading;
+  const showPicker = onReferenceChange && (documents.length > 0 || threads.length > 0);
 
   return (
     <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid #F0EDE6' }}>
+      {/* Reference chip */}
+      {reference && onReferenceChange && (
+        <div className="mb-2">
+          <ReferenceChip
+            reference={reference}
+            variant="compose"
+            onRemove={() => onReferenceChange(null)}
+          />
+        </div>
+      )}
+
+      {/* Attachment chip */}
       {attachment && (
         <div
           className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-lg text-xs"
@@ -69,6 +97,7 @@ export function MessageInput({
           </button>
         </div>
       )}
+
       <div className="flex items-center gap-2">
         <input
           ref={fileInputRef}
@@ -77,6 +106,25 @@ export function MessageInput({
           onChange={handleFileSelect}
           className="hidden"
         />
+
+        {/* Reference picker button */}
+        {showPicker && (
+          <ReferencePicker
+            threads={threads}
+            documents={documents}
+            onSelect={(ref) => onReferenceChange?.(ref)}
+          >
+            <button
+              type="button"
+              className="shrink-0 p-1 rounded-full hover:bg-[#F8F8F6] transition-colors"
+              title="Reference a document, deal, or request"
+            >
+              <AtSign className="h-4 w-4" style={{ color: reference ? '#DEC76B' : '#CBCBCB' }} />
+            </button>
+          </ReferencePicker>
+        )}
+
+        {/* Attach file button */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -85,6 +133,7 @@ export function MessageInput({
         >
           <Paperclip className="h-4 w-4" style={{ color: '#CBCBCB' }} />
         </button>
+
         <input
           type="text"
           value={value}

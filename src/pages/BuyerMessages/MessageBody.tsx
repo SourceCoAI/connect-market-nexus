@@ -1,6 +1,8 @@
 import { Download } from 'lucide-react';
 
 import type { MessageVariant } from './types';
+import { parseReferences } from './types';
+import { ReferenceChip } from './ReferencePicker';
 
 // ─── AttachmentChip ───
 
@@ -33,6 +35,10 @@ export function AttachmentChip({
 // ─── MessageBody ───
 
 export function MessageBody({ body, variant }: { body: string; variant: MessageVariant }) {
+  // 1. Parse references from the message body
+  const { references, cleanBody } = parseReferences(body);
+
+  // 2. Parse attachments from the clean body
   const attachmentRegex = /\[📎\s+([^\]]+)\]\(([^)]+)\)/g;
   const segments: Array<
     { type: 'text'; value: string } | { type: 'attachment'; fileName: string; url: string }
@@ -40,15 +46,15 @@ export function MessageBody({ body, variant }: { body: string; variant: MessageV
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = attachmentRegex.exec(body)) !== null) {
+  while ((match = attachmentRegex.exec(cleanBody)) !== null) {
     if (match.index > lastIndex) {
-      segments.push({ type: 'text', value: body.slice(lastIndex, match.index) });
+      segments.push({ type: 'text', value: cleanBody.slice(lastIndex, match.index) });
     }
     segments.push({ type: 'attachment', fileName: match[1], url: match[2] });
     lastIndex = match.index + match[0].length;
   }
-  if (lastIndex < body.length) {
-    segments.push({ type: 'text', value: body.slice(lastIndex) });
+  if (lastIndex < cleanBody.length) {
+    segments.push({ type: 'text', value: cleanBody.slice(lastIndex) });
   }
 
   return (
@@ -56,6 +62,15 @@ export function MessageBody({ body, variant }: { body: string; variant: MessageV
       className="whitespace-pre-wrap break-words space-y-1.5"
       style={{ overflowWrap: 'anywhere' }}
     >
+      {/* Render references as chips above the text */}
+      {references.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-1">
+          {references.map((ref, i) => (
+            <ReferenceChip key={i} reference={ref} variant={variant === 'system' ? 'admin' : variant} />
+          ))}
+        </div>
+      )}
+
       {segments.map((seg, segIdx) => {
         if (seg.type === 'attachment') {
           return (

@@ -13,10 +13,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { useResolvedThreadId } from './useMessagesData';
 import { MessageBody } from './MessageBody';
 import { MessageInput } from './MessageInput';
+import type { MessageReference } from './types';
+import { encodeReference } from './types';
+import type { BuyerThread } from './helpers';
 
 // ─── GeneralChatView ───
 
-export function GeneralChatView({ onBack }: { onBack: () => void }) {
+interface GeneralChatViewProps {
+  onBack: () => void;
+  allThreads?: BuyerThread[];
+  availableDocuments?: Array<{ type: 'nda' | 'fee_agreement'; label: string }>;
+}
+
+export function GeneralChatView({
+  onBack,
+  allThreads = [],
+  availableDocuments = [],
+}: GeneralChatViewProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -24,6 +37,7 @@ export function GeneralChatView({ onBack }: { onBack: () => void }) {
   const [sending, setSending] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [reference, setReference] = useState<MessageReference | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: resolvedThread, isLoading: resolving } = useResolvedThreadId();
@@ -40,6 +54,11 @@ export function GeneralChatView({ onBack }: { onBack: () => void }) {
     setSending(true);
 
     let body = newMessage.trim();
+
+    // Prepend reference tag if present
+    if (reference) {
+      body = `${encodeReference(reference)}\n${body}`;
+    }
 
     if (attachment) {
       setUploading(true);
@@ -87,6 +106,7 @@ export function GeneralChatView({ onBack }: { onBack: () => void }) {
 
       setNewMessage('');
       setAttachment(null);
+      setReference(null);
       queryClient.invalidateQueries({ queryKey: ['buyer-message-threads'] });
       queryClient.invalidateQueries({ queryKey: ['connection-messages', threadId] });
     } catch (err) {
@@ -145,7 +165,6 @@ export function GeneralChatView({ onBack }: { onBack: () => void }) {
                   key={msg.id}
                   className={cn('flex flex-col', isBuyer ? 'items-end' : 'items-start')}
                 >
-                  {/* Sender + time above bubble */}
                   <div
                     className="flex items-center gap-1.5 text-[10px] mb-1 px-1"
                     style={{ color: '#CBCBCB' }}
@@ -203,6 +222,10 @@ export function GeneralChatView({ onBack }: { onBack: () => void }) {
         attachment={attachment}
         onAttachmentChange={setAttachment}
         placeholder="Message the SourceCo team..."
+        reference={reference}
+        onReferenceChange={setReference}
+        threads={allThreads}
+        documents={availableDocuments}
       />
     </div>
   );
