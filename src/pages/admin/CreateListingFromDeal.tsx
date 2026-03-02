@@ -49,7 +49,6 @@ export default function CreateListingFromDeal() {
           full_time_employees, linkedin_employee_count,
           main_contact_name, main_contact_email, main_contact_phone, main_contact_title,
           geographic_states, internal_deal_memo_link,
-          pushed_to_marketplace,
           founded_year, number_of_locations
         `,
         )
@@ -107,7 +106,7 @@ export default function CreateListingFromDeal() {
         metric_4_custom_label: anonymized.metric_4_custom_label,
         metric_4_custom_value: anonymized.metric_4_custom_value,
         metric_4_custom_subtitle: anonymized.metric_4_custom_subtitle,
-        custom_sections: (anonymized as any).custom_sections || [],
+        custom_sections: [],
         tags: [],
         status: 'active',
         created_at: new Date().toISOString(),
@@ -127,28 +126,62 @@ export default function CreateListingFromDeal() {
     (async () => {
       try {
         const { data, error } = await supabase.functions.invoke('generate-lead-memo', {
-          body: { listing_id: dealId },
+          body: { deal_id: dealId, memo_type: 'anonymous_teaser' },
         });
         if (error) {
           console.error('AI content generation failed:', error);
-          toast.info('AI content generation could not complete. You can fill in content manually.');
+          // Parse the error for a more specific message
+          const errorMsg =
+            typeof error === 'object' && error !== null && 'message' in error
+              ? (error as { message: string }).message
+              : '';
+          if (errorMsg.includes('Final PDF') || errorMsg.includes('Full Lead Memo')) {
+            toast.info(
+              'AI content requires a Full Lead Memo PDF to be uploaded first. You can fill in content manually.',
+            );
+          } else {
+            toast.info('AI content generation could not complete. You can fill in content manually.');
+          }
           return;
         }
-        // Update prefilled with generated content
-        if (data?.buyer_universe_label || data?.buyer_universe_description) {
+
+        // Extract sections from the anonymous teaser memo response.
+        // Response shape: { success: true, memos: { anonymous_teaser: { content: { sections: [...] } } } }
+        const teaserMemo = data?.memos?.anonymous_teaser;
+        const sections = teaserMemo?.content?.sections;
+
+        if (sections && Array.isArray(sections) && sections.length > 0) {
+          // Build custom_sections matching the same logic the edge function uses
+          // when syncing back to the listing (filter out header/contact, map to {title, description})
+          const customSections = sections
+            .filter(
+              (s: { key: string }) => s.key !== 'header_block' && s.key !== 'contact_information',
+            )
+            .map((s: { title: string; content: string }) => ({
+              title: s.title,
+              description: s.content,
+            }));
+
+          // Use company_overview section as the listing description
+          const companyOverview = sections.find(
+            (s: { key: string }) => s.key === 'company_overview',
+          );
+
           setPrefilled((prev) => {
             if (!prev) return prev;
             return {
               ...prev,
-              title: data.title || prev.title,
-              description: data.description || prev.description,
-              hero_description: data.hero_description || prev.hero_description,
+              custom_sections: customSections,
+              description: companyOverview?.content || prev.description,
             };
           });
           toast.success('AI content generated — review and edit before saving.');
+        } else {
+          toast.info('AI generation returned no content sections. You can fill in content manually.');
         }
       } catch (err) {
         console.error('AI content generation error:', err);
+        toast.info('AI content generation could not complete. You can fill in content manually.');
       } finally {
         setIsGeneratingContent(false);
       }
