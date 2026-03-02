@@ -66,7 +66,12 @@ export function MessageInput({
 
   return (
     <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid #F0EDE6' }}>
-      {/* Reference chip */}
+      {/* Hint for referencing */}
+      {!reference && showPicker && !value && !attachment && (
+        <p className="text-[10px] mb-1.5" style={{ color: '#CBCBCB' }}>
+          Tap <span className="font-semibold">@</span> to reference a deal or document
+        </p>
+      )}
       {reference && onReferenceChange && (
         <div className="mb-2">
           <ReferenceChip
@@ -116,10 +121,11 @@ export function MessageInput({
           >
             <button
               type="button"
-              className="shrink-0 p-1 rounded-full hover:bg-[#F8F8F6] transition-colors"
+              className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-full hover:bg-[#F8F8F6] transition-colors"
               title="Reference a document, deal, or request"
             >
               <AtSign className="h-4 w-4" style={{ color: reference ? '#DEC76B' : '#CBCBCB' }} />
+              <span className="hidden sm:inline text-[10px] font-medium" style={{ color: reference ? '#DEC76B' : '#CBCBCB' }}>Ref</span>
             </button>
           </ReferencePicker>
         )}

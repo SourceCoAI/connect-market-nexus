@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   MessageSquare,
@@ -15,6 +14,7 @@ import {
   UserCheck,
   PanelRightOpen,
   PanelRightClose,
+  AtSign,
 } from 'lucide-react';
 import {
   useConnectionMessages,
@@ -28,6 +28,10 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import type { InboxThread } from './types';
 import { ThreadContextPanel } from './ThreadContextPanel';
+import { MessageBody } from '@/pages/BuyerMessages/MessageBody';
+import { ReferenceChip, ReferencePicker } from '@/pages/BuyerMessages/ReferencePicker';
+import { encodeReference } from '@/pages/BuyerMessages/types';
+import type { MessageReference } from '@/pages/BuyerMessages/types';
 
 // ─── Hooks (used only by ThreadView) ───
 
@@ -99,6 +103,7 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
   const claimThread = useClaimThread();
   const navigate = useNavigate();
   const [newMessage, setNewMessage] = useState('');
+  const [reference, setReference] = useState<MessageReference | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showContext, setShowContext] = useState(true);
 
@@ -120,13 +125,27 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
 
   const handleSend = () => {
     if (!newMessage.trim()) return;
+    let body = newMessage.trim();
+    if (reference) {
+      body = encodeReference(reference) + ' ' + body;
+    }
     sendMsg.mutate({
       connection_request_id: thread.connection_request_id,
-      body: newMessage.trim(),
+      body,
       sender_role: 'admin',
     });
     setNewMessage('');
+    setReference(null);
   };
+
+  // Build document and deal options for the admin reference picker
+  const adminDocuments: Array<{ type: 'nda' | 'fee_agreement'; label: string }> = [
+    { type: 'nda', label: 'NDA' },
+    { type: 'fee_agreement', label: 'Fee Agreement' },
+  ];
+  const adminThreads = thread.deal_title && thread.listing_id
+    ? [{ connection_request_id: thread.connection_request_id, deal_title: thread.deal_title, listing_id: thread.listing_id, request_status: thread.request_status, last_message_body: '', last_message_at: '', last_sender_role: '', unread_count: 0 }]
+    : [];
 
   const allMessages = useMemo(() => {
     const combined: Array<{
@@ -429,29 +448,8 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
                         Initial Inquiry
                       </span>
                     )}
-                    {msg.body.startsWith('\u{1F4C4} Question about NDA') && (
-                      <span
-                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
-                        style={{ backgroundColor: '#DBEAFE', color: '#1E40AF' }}
-                      >
-                        NDA Question
-                      </span>
-                    )}
-                    {msg.body.startsWith('\u{1F4C4} Question about Fee Agreement') && (
-                      <span
-                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
-                        style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}
-                      >
-                        Fee Agreement
-                      </span>
-                    )}
                   </div>
-                  <p
-                    className="text-base whitespace-pre-wrap leading-relaxed"
-                    style={{ color: '#0E101A' }}
-                  >
-                    {msg.body}
-                  </p>
+                  <MessageBody body={msg.body} variant={isAdmin ? 'admin' : 'buyer'} />
                 </div>
               );
             })
@@ -463,32 +461,62 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
       {/* Compose bar */}
       {thread.conversation_state !== 'closed' ? (
         <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid #E5DDD0' }}>
-          <div
-            className="flex items-end gap-3 rounded-lg border-2 p-2"
-            style={{ borderColor: '#E5DDD0', backgroundColor: '#FFFFFF' }}
-          >
-            <Textarea
-              placeholder="Type a message..."
+          {/* Reference chip */}
+          {reference && (
+            <div className="mb-2">
+              <ReferenceChip
+                reference={reference}
+                variant="compose"
+                onRemove={() => setReference(null)}
+              />
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            {/* Reference picker */}
+            <ReferencePicker
+              threads={adminThreads}
+              documents={adminDocuments}
+              onSelect={(ref) => setReference(ref)}
+            >
+              <button
+                type="button"
+                className="shrink-0 p-1.5 rounded-full hover:bg-muted transition-colors"
+                title="Reference a document or deal"
+              >
+                <AtSign className="h-4 w-4" style={{ color: reference ? '#DEC76B' : '#CBCBCB' }} />
+              </button>
+            </ReferencePicker>
+
+            <input
+              type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              className="min-h-[50px] max-h-[120px] resize-none text-sm flex-1 border-0 shadow-none focus-visible:ring-0 p-1"
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSend();
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
               }}
+              placeholder="Type a message..."
+              className="flex-1 text-sm py-2 bg-transparent focus:outline-none"
+              style={{ color: '#0E101A' }}
             />
-            <Button
-              size="sm"
+            <button
+              type="button"
               onClick={handleSend}
               disabled={!newMessage.trim() || sendMsg.isPending}
-              className="h-9 px-4"
-              style={{ backgroundColor: '#0E101A', color: '#FFFFFF' }}
+              className="shrink-0 h-8 w-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-30"
+              style={{ backgroundColor: newMessage.trim() ? '#0E101A' : 'transparent' }}
             >
-              <Send className="w-3.5 h-3.5 mr-1.5" />
-              Send
-            </Button>
+              <Send
+                className="w-3.5 h-3.5"
+                style={{ color: newMessage.trim() ? '#FFFFFF' : '#CBCBCB' }}
+              />
+            </button>
           </div>
           <p className="text-[10px] mt-1" style={{ color: '#9A9A9A' }}>
-            Cmd/Ctrl + Enter to send
+            Enter to send · @ to reference
           </p>
         </div>
       ) : (

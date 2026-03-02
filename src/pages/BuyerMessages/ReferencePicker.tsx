@@ -56,7 +56,9 @@ export function ReferenceChip({
       style={
         isBuyer
           ? { backgroundColor: 'rgba(255,255,255,0.15)', color: '#FFFFFF' }
-          : { backgroundColor: '#F8F8F6', color: '#0E101A', border: '1px solid #F0EDE6' }
+          : variant === 'admin'
+            ? { backgroundColor: '#F7F4DD', color: '#0E101A', border: '1px solid #E5DDD0' }
+            : { backgroundColor: '#F8F8F6', color: '#0E101A', border: '1px solid #F0EDE6' }
       }
     >
       <span style={{ color: isBuyer ? 'rgba(255,255,255,0.6)' : '#DEC76B' }}>
