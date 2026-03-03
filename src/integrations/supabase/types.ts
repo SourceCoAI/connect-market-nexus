@@ -471,6 +471,13 @@ export type Database = {
             foreignKeyName: "buyer_approve_decisions_buyer_id_fkey"
             columns: ["buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_approve_decisions_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -615,6 +622,13 @@ export type Database = {
             columns: ["source_id"]
             isOneToOne: false
             referencedRelation: "criteria_extraction_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_criteria_extractions_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
             referencedColumns: ["id"]
           },
           {
@@ -806,7 +820,21 @@ export type Database = {
             foreignKeyName: "buyer_enrichment_queue_buyer_id_fkey"
             columns: ["buyer_id"]
             isOneToOne: true
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_enrichment_queue_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: true
             referencedRelation: "remarketing_buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_enrichment_queue_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
             referencedColumns: ["id"]
           },
           {
@@ -1018,6 +1046,13 @@ export type Database = {
             foreignKeyName: "buyer_learning_history_buyer_id_fkey"
             columns: ["buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_learning_history_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -1047,6 +1082,13 @@ export type Database = {
             columns: ["score_id"]
             isOneToOne: false
             referencedRelation: "remarketing_scores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_learning_history_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
             referencedColumns: ["id"]
           },
           {
@@ -1087,6 +1129,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "buyer_pass_decisions_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "buyer_pass_decisions_buyer_id_fkey"
             columns: ["buyer_id"]
@@ -1210,6 +1259,13 @@ export type Database = {
             foreignKeyName: "buyer_seed_log_remarketing_buyer_id_fkey"
             columns: ["remarketing_buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_seed_log_remarketing_buyer_id_fkey"
+            columns: ["remarketing_buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -1293,32 +1349,155 @@ export type Database = {
             foreignKeyName: "buyer_transcripts_buyer_id_fkey"
             columns: ["buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_transcripts_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
         ]
       }
+      buyer_universes: {
+        Row: {
+          archived: boolean
+          buyer_types_criteria: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          documents: Json | null
+          documents_analyzed_at: string | null
+          fee_agreement_required: boolean | null
+          fit_criteria: string | null
+          fit_criteria_buyer_types: string | null
+          fit_criteria_geography: string | null
+          fit_criteria_service: string | null
+          fit_criteria_size: string | null
+          geography_criteria: Json | null
+          geography_weight: number
+          id: string
+          industry_template: string | null
+          kpi_scoring_config: Json | null
+          ma_guide_content: string | null
+          ma_guide_generated_at: string | null
+          ma_guide_qa_context: Json | null
+          name: string
+          owner_goals_weight: number
+          scoring_behavior: Json | null
+          service_criteria: Json | null
+          service_weight: number
+          size_criteria: Json | null
+          size_weight: number
+          target_buyer_types: Json | null
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          buyer_types_criteria?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          documents?: Json | null
+          documents_analyzed_at?: string | null
+          fee_agreement_required?: boolean | null
+          fit_criteria?: string | null
+          fit_criteria_buyer_types?: string | null
+          fit_criteria_geography?: string | null
+          fit_criteria_service?: string | null
+          fit_criteria_size?: string | null
+          geography_criteria?: Json | null
+          geography_weight?: number
+          id?: string
+          industry_template?: string | null
+          kpi_scoring_config?: Json | null
+          ma_guide_content?: string | null
+          ma_guide_generated_at?: string | null
+          ma_guide_qa_context?: Json | null
+          name: string
+          owner_goals_weight?: number
+          scoring_behavior?: Json | null
+          service_criteria?: Json | null
+          service_weight?: number
+          size_criteria?: Json | null
+          size_weight?: number
+          target_buyer_types?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          buyer_types_criteria?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          documents?: Json | null
+          documents_analyzed_at?: string | null
+          fee_agreement_required?: boolean | null
+          fit_criteria?: string | null
+          fit_criteria_buyer_types?: string | null
+          fit_criteria_geography?: string | null
+          fit_criteria_service?: string | null
+          fit_criteria_size?: string | null
+          geography_criteria?: Json | null
+          geography_weight?: number
+          id?: string
+          industry_template?: string | null
+          kpi_scoring_config?: Json | null
+          ma_guide_content?: string | null
+          ma_guide_generated_at?: string | null
+          ma_guide_qa_context?: Json | null
+          name?: string
+          owner_goals_weight?: number
+          scoring_behavior?: Json | null
+          service_criteria?: Json | null
+          service_weight?: number
+          size_criteria?: Json | null
+          size_weight?: number
+          target_buyer_types?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       buyers: {
         Row: {
           acquisition_appetite: string | null
           acquisition_frequency: string | null
-          acquisition_geography: string[] | null
           acquisition_timeline: string | null
-          addon_only: boolean | null
-          business_model: string | null
-          business_model_prefs: string | null
+          admin_override_note: string | null
+          admin_tier_override: number | null
+          ai_seeded: boolean | null
+          ai_seeded_at: string | null
+          ai_seeded_from_deal_id: string | null
+          alignment_checked_at: string | null
+          alignment_reasoning: string | null
+          alignment_score: number | null
+          archived: boolean
           business_summary: string | null
+          business_type: string | null
           buyer_linkedin: string | null
-          call_history: Json | null
+          buyer_quality_score: number | null
+          buyer_quality_score_last_calculated: string | null
+          buyer_tier: number | null
+          buyer_type: string | null
+          buyer_type_ai_recommendation: string | null
+          buyer_type_classified_at: string | null
+          buyer_type_confidence: number | null
+          buyer_type_needs_review: boolean | null
+          buyer_type_reasoning: string | null
+          buyer_type_source: string | null
+          company_name: string
+          company_website: string | null
           created_at: string
-          data_last_updated: string
-          deal_breakers: string[] | null
-          ebitda_sweet_spot: number | null
-          extraction_evidence: Json | null
+          customer_geographic_reach: string | null
+          customer_industries: string[] | null
+          data_last_updated: string | null
+          email_domain: string | null
           extraction_sources: Json | null
+          fee_agreement_source: string | null
           fee_agreement_status: string | null
-          geo_preferences: Json | null
-          geographic_exclusions: string[] | null
+          founded_year: number | null
           geographic_footprint: string[] | null
           has_fee_agreement: boolean | null
           hq_city: string | null
@@ -1326,60 +1505,85 @@ export type Database = {
           hq_region: string | null
           hq_state: string | null
           id: string
-          industry_exclusions: string[] | null
+          industry_tracker_id: string | null
           industry_vertical: string | null
-          key_quotes: string[] | null
-          last_acquisition_date: string | null
-          last_call_date: string | null
-          max_ebitda: number | null
-          max_revenue: number | null
-          min_ebitda: number | null
-          min_revenue: number | null
+          investment_date: string | null
+          is_pe_backed: boolean | null
+          marketplace_firm_id: string | null
+          notes: string | null
+          notes_analyzed_at: string | null
+          num_employees: number | null
           num_platforms: number | null
-          operating_locations: Json | null
-          other_office_locations: string[] | null
+          number_of_locations: number | null
+          operating_locations: string[] | null
+          pe_firm_acquisitions: Json | null
+          pe_firm_id: string | null
           pe_firm_linkedin: string | null
-          pe_firm_name: string
+          pe_firm_name: string | null
           pe_firm_website: string | null
-          platform_company_name: string | null
-          platform_only: boolean | null
+          platform_acquisitions: Json | null
+          platform_signal_detected: boolean | null
+          platform_signal_source: string | null
           platform_website: string | null
-          portfolio_companies: string[] | null
-          preferred_ebitda: number | null
+          portfolio_companies: Json | null
+          primary_customer_size: string | null
           recent_acquisitions: Json | null
-          revenue_sweet_spot: number | null
-          service_mix_prefs: string | null
+          revenue_model: string | null
           service_regions: string[] | null
           services_offered: string | null
-          specialized_focus: string | null
-          strategic_priorities: string | null
+          target_customer_profile: string | null
+          target_ebitda_max: number | null
+          target_ebitda_min: number | null
           target_geographies: string[] | null
           target_industries: string[] | null
+          target_revenue_max: number | null
+          target_revenue_min: number | null
           target_services: string[] | null
           thesis_summary: string | null
           total_acquisitions: number | null
-          tracker_id: string
+          universe_id: string | null
+          updated_at: string
+          verification_status: string | null
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           acquisition_appetite?: string | null
           acquisition_frequency?: string | null
-          acquisition_geography?: string[] | null
           acquisition_timeline?: string | null
-          addon_only?: boolean | null
-          business_model?: string | null
-          business_model_prefs?: string | null
+          admin_override_note?: string | null
+          admin_tier_override?: number | null
+          ai_seeded?: boolean | null
+          ai_seeded_at?: string | null
+          ai_seeded_from_deal_id?: string | null
+          alignment_checked_at?: string | null
+          alignment_reasoning?: string | null
+          alignment_score?: number | null
+          archived?: boolean
           business_summary?: string | null
+          business_type?: string | null
           buyer_linkedin?: string | null
-          call_history?: Json | null
+          buyer_quality_score?: number | null
+          buyer_quality_score_last_calculated?: string | null
+          buyer_tier?: number | null
+          buyer_type?: string | null
+          buyer_type_ai_recommendation?: string | null
+          buyer_type_classified_at?: string | null
+          buyer_type_confidence?: number | null
+          buyer_type_needs_review?: boolean | null
+          buyer_type_reasoning?: string | null
+          buyer_type_source?: string | null
+          company_name: string
+          company_website?: string | null
           created_at?: string
-          data_last_updated?: string
-          deal_breakers?: string[] | null
-          ebitda_sweet_spot?: number | null
-          extraction_evidence?: Json | null
+          customer_geographic_reach?: string | null
+          customer_industries?: string[] | null
+          data_last_updated?: string | null
+          email_domain?: string | null
           extraction_sources?: Json | null
+          fee_agreement_source?: string | null
           fee_agreement_status?: string | null
-          geo_preferences?: Json | null
-          geographic_exclusions?: string[] | null
+          founded_year?: number | null
           geographic_footprint?: string[] | null
           has_fee_agreement?: boolean | null
           hq_city?: string | null
@@ -1387,60 +1591,85 @@ export type Database = {
           hq_region?: string | null
           hq_state?: string | null
           id?: string
-          industry_exclusions?: string[] | null
+          industry_tracker_id?: string | null
           industry_vertical?: string | null
-          key_quotes?: string[] | null
-          last_acquisition_date?: string | null
-          last_call_date?: string | null
-          max_ebitda?: number | null
-          max_revenue?: number | null
-          min_ebitda?: number | null
-          min_revenue?: number | null
+          investment_date?: string | null
+          is_pe_backed?: boolean | null
+          marketplace_firm_id?: string | null
+          notes?: string | null
+          notes_analyzed_at?: string | null
+          num_employees?: number | null
           num_platforms?: number | null
-          operating_locations?: Json | null
-          other_office_locations?: string[] | null
+          number_of_locations?: number | null
+          operating_locations?: string[] | null
+          pe_firm_acquisitions?: Json | null
+          pe_firm_id?: string | null
           pe_firm_linkedin?: string | null
-          pe_firm_name: string
+          pe_firm_name?: string | null
           pe_firm_website?: string | null
-          platform_company_name?: string | null
-          platform_only?: boolean | null
+          platform_acquisitions?: Json | null
+          platform_signal_detected?: boolean | null
+          platform_signal_source?: string | null
           platform_website?: string | null
-          portfolio_companies?: string[] | null
-          preferred_ebitda?: number | null
+          portfolio_companies?: Json | null
+          primary_customer_size?: string | null
           recent_acquisitions?: Json | null
-          revenue_sweet_spot?: number | null
-          service_mix_prefs?: string | null
+          revenue_model?: string | null
           service_regions?: string[] | null
           services_offered?: string | null
-          specialized_focus?: string | null
-          strategic_priorities?: string | null
+          target_customer_profile?: string | null
+          target_ebitda_max?: number | null
+          target_ebitda_min?: number | null
           target_geographies?: string[] | null
           target_industries?: string[] | null
+          target_revenue_max?: number | null
+          target_revenue_min?: number | null
           target_services?: string[] | null
           thesis_summary?: string | null
           total_acquisitions?: number | null
-          tracker_id: string
+          universe_id?: string | null
+          updated_at?: string
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           acquisition_appetite?: string | null
           acquisition_frequency?: string | null
-          acquisition_geography?: string[] | null
           acquisition_timeline?: string | null
-          addon_only?: boolean | null
-          business_model?: string | null
-          business_model_prefs?: string | null
+          admin_override_note?: string | null
+          admin_tier_override?: number | null
+          ai_seeded?: boolean | null
+          ai_seeded_at?: string | null
+          ai_seeded_from_deal_id?: string | null
+          alignment_checked_at?: string | null
+          alignment_reasoning?: string | null
+          alignment_score?: number | null
+          archived?: boolean
           business_summary?: string | null
+          business_type?: string | null
           buyer_linkedin?: string | null
-          call_history?: Json | null
+          buyer_quality_score?: number | null
+          buyer_quality_score_last_calculated?: string | null
+          buyer_tier?: number | null
+          buyer_type?: string | null
+          buyer_type_ai_recommendation?: string | null
+          buyer_type_classified_at?: string | null
+          buyer_type_confidence?: number | null
+          buyer_type_needs_review?: boolean | null
+          buyer_type_reasoning?: string | null
+          buyer_type_source?: string | null
+          company_name?: string
+          company_website?: string | null
           created_at?: string
-          data_last_updated?: string
-          deal_breakers?: string[] | null
-          ebitda_sweet_spot?: number | null
-          extraction_evidence?: Json | null
+          customer_geographic_reach?: string | null
+          customer_industries?: string[] | null
+          data_last_updated?: string | null
+          email_domain?: string | null
           extraction_sources?: Json | null
+          fee_agreement_source?: string | null
           fee_agreement_status?: string | null
-          geo_preferences?: Json | null
-          geographic_exclusions?: string[] | null
+          founded_year?: number | null
           geographic_footprint?: string[] | null
           has_fee_agreement?: boolean | null
           hq_city?: string | null
@@ -1448,41 +1677,92 @@ export type Database = {
           hq_region?: string | null
           hq_state?: string | null
           id?: string
-          industry_exclusions?: string[] | null
+          industry_tracker_id?: string | null
           industry_vertical?: string | null
-          key_quotes?: string[] | null
-          last_acquisition_date?: string | null
-          last_call_date?: string | null
-          max_ebitda?: number | null
-          max_revenue?: number | null
-          min_ebitda?: number | null
-          min_revenue?: number | null
+          investment_date?: string | null
+          is_pe_backed?: boolean | null
+          marketplace_firm_id?: string | null
+          notes?: string | null
+          notes_analyzed_at?: string | null
+          num_employees?: number | null
           num_platforms?: number | null
-          operating_locations?: Json | null
-          other_office_locations?: string[] | null
+          number_of_locations?: number | null
+          operating_locations?: string[] | null
+          pe_firm_acquisitions?: Json | null
+          pe_firm_id?: string | null
           pe_firm_linkedin?: string | null
-          pe_firm_name?: string
+          pe_firm_name?: string | null
           pe_firm_website?: string | null
-          platform_company_name?: string | null
-          platform_only?: boolean | null
+          platform_acquisitions?: Json | null
+          platform_signal_detected?: boolean | null
+          platform_signal_source?: string | null
           platform_website?: string | null
-          portfolio_companies?: string[] | null
-          preferred_ebitda?: number | null
+          portfolio_companies?: Json | null
+          primary_customer_size?: string | null
           recent_acquisitions?: Json | null
-          revenue_sweet_spot?: number | null
-          service_mix_prefs?: string | null
+          revenue_model?: string | null
           service_regions?: string[] | null
           services_offered?: string | null
-          specialized_focus?: string | null
-          strategic_priorities?: string | null
+          target_customer_profile?: string | null
+          target_ebitda_max?: number | null
+          target_ebitda_min?: number | null
           target_geographies?: string[] | null
           target_industries?: string[] | null
+          target_revenue_max?: number | null
+          target_revenue_min?: number | null
           target_services?: string[] | null
           thesis_summary?: string | null
           total_acquisitions?: number | null
-          tracker_id?: string
+          universe_id?: string | null
+          updated_at?: string
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "remarketing_buyers_industry_tracker_id_fkey"
+            columns: ["industry_tracker_id"]
+            isOneToOne: false
+            referencedRelation: "industry_trackers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_buyers_marketplace_firm_id_fkey"
+            columns: ["marketplace_firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_buyers_pe_firm_id_fkey"
+            columns: ["pe_firm_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_buyers_pe_firm_id_fkey"
+            columns: ["pe_firm_id"]
+            isOneToOne: false
+            referencedRelation: "remarketing_buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_buyers_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_buyers_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "remarketing_buyer_universes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       call_intelligence: {
         Row: {
@@ -2441,6 +2721,13 @@ export type Database = {
             foreignKeyName: "contact_activities_remarketing_buyer_id_fkey"
             columns: ["remarketing_buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_activities_remarketing_buyer_id_fkey"
+            columns: ["remarketing_buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -2781,6 +3068,13 @@ export type Database = {
             foreignKeyName: "contacts_remarketing_buyer_id_fkey"
             columns: ["remarketing_buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_remarketing_buyer_id_fkey"
+            columns: ["remarketing_buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -2836,6 +3130,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "criteria_extraction_sources_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "criteria_extraction_sources_universe_id_fkey"
             columns: ["universe_id"]
@@ -3208,6 +3509,13 @@ export type Database = {
             foreignKeyName: "data_room_access_remarketing_buyer_id_fkey"
             columns: ["remarketing_buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_room_access_remarketing_buyer_id_fkey"
+            columns: ["remarketing_buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -3514,6 +3822,13 @@ export type Database = {
             foreignKeyName: "deal_data_room_access_buyer_id_fkey"
             columns: ["buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_data_room_access_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -3813,6 +4128,13 @@ export type Database = {
             columns: ["owner_assigned_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_remarketing_buyer_id_fkey"
+            columns: ["remarketing_buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
             referencedColumns: ["id"]
           },
           {
@@ -4567,6 +4889,13 @@ export type Database = {
             foreignKeyName: "document_release_log_buyer_id_fkey"
             columns: ["buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_release_log_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -4686,6 +5015,13 @@ export type Database = {
           revoked_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "document_tracked_links_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "document_tracked_links_buyer_id_fkey"
             columns: ["buyer_id"]
@@ -4969,6 +5305,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "enriched_contacts_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "enriched_contacts_buyer_id_fkey"
             columns: ["buyer_id"]
@@ -6035,6 +6378,13 @@ export type Database = {
             foreignKeyName: "heyreach_campaigns_universe_id_fkey"
             columns: ["universe_id"]
             isOneToOne: false
+            referencedRelation: "buyer_universes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heyreach_campaigns_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyer_universes"
             referencedColumns: ["id"]
           },
@@ -6296,6 +6646,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "industry_trackers_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "industry_trackers_universe_id_fkey"
             columns: ["universe_id"]
@@ -7374,6 +7731,13 @@ export type Database = {
             foreignKeyName: "ma_guide_generations_universe_id_fkey"
             columns: ["universe_id"]
             isOneToOne: false
+            referencedRelation: "buyer_universes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ma_guide_generations_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyer_universes"
             referencedColumns: ["id"]
           },
@@ -7476,6 +7840,13 @@ export type Database = {
             foreignKeyName: "marketplace_approval_queue_matched_buyer_id_fkey"
             columns: ["matched_buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_approval_queue_matched_buyer_id_fkey"
+            columns: ["matched_buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -7565,6 +7936,13 @@ export type Database = {
             columns: ["memo_id"]
             isOneToOne: false
             referencedRelation: "lead_memos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memo_distribution_log_remarketing_buyer_id_fkey"
+            columns: ["remarketing_buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
             referencedColumns: ["id"]
           },
           {
@@ -7743,6 +8121,13 @@ export type Database = {
             foreignKeyName: "outreach_records_buyer_id_fkey"
             columns: ["buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_records_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -7772,6 +8157,13 @@ export type Database = {
             columns: ["score_id"]
             isOneToOne: false
             referencedRelation: "remarketing_scores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_records_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
             referencedColumns: ["id"]
           },
           {
@@ -8529,6 +8921,13 @@ export type Database = {
             foreignKeyName: "profiles_remarketing_buyer_id_fkey"
             columns: ["remarketing_buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_remarketing_buyer_id_fkey"
+            columns: ["remarketing_buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -8796,375 +9195,14 @@ export type Database = {
             foreignKeyName: "remarketing_buyer_contacts_buyer_id_fkey"
             columns: ["buyer_id"]
             isOneToOne: false
-            referencedRelation: "remarketing_buyers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      remarketing_buyer_universes: {
-        Row: {
-          archived: boolean
-          buyer_types_criteria: Json | null
-          created_at: string
-          created_by: string | null
-          description: string | null
-          documents: Json | null
-          documents_analyzed_at: string | null
-          fee_agreement_required: boolean | null
-          fit_criteria: string | null
-          fit_criteria_buyer_types: string | null
-          fit_criteria_geography: string | null
-          fit_criteria_service: string | null
-          fit_criteria_size: string | null
-          geography_criteria: Json | null
-          geography_weight: number
-          id: string
-          industry_template: string | null
-          kpi_scoring_config: Json | null
-          ma_guide_content: string | null
-          ma_guide_generated_at: string | null
-          ma_guide_qa_context: Json | null
-          name: string
-          owner_goals_weight: number
-          scoring_behavior: Json | null
-          service_criteria: Json | null
-          service_weight: number
-          size_criteria: Json | null
-          size_weight: number
-          target_buyer_types: Json | null
-          updated_at: string
-        }
-        Insert: {
-          archived?: boolean
-          buyer_types_criteria?: Json | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          documents?: Json | null
-          documents_analyzed_at?: string | null
-          fee_agreement_required?: boolean | null
-          fit_criteria?: string | null
-          fit_criteria_buyer_types?: string | null
-          fit_criteria_geography?: string | null
-          fit_criteria_service?: string | null
-          fit_criteria_size?: string | null
-          geography_criteria?: Json | null
-          geography_weight?: number
-          id?: string
-          industry_template?: string | null
-          kpi_scoring_config?: Json | null
-          ma_guide_content?: string | null
-          ma_guide_generated_at?: string | null
-          ma_guide_qa_context?: Json | null
-          name: string
-          owner_goals_weight?: number
-          scoring_behavior?: Json | null
-          service_criteria?: Json | null
-          service_weight?: number
-          size_criteria?: Json | null
-          size_weight?: number
-          target_buyer_types?: Json | null
-          updated_at?: string
-        }
-        Update: {
-          archived?: boolean
-          buyer_types_criteria?: Json | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          documents?: Json | null
-          documents_analyzed_at?: string | null
-          fee_agreement_required?: boolean | null
-          fit_criteria?: string | null
-          fit_criteria_buyer_types?: string | null
-          fit_criteria_geography?: string | null
-          fit_criteria_service?: string | null
-          fit_criteria_size?: string | null
-          geography_criteria?: Json | null
-          geography_weight?: number
-          id?: string
-          industry_template?: string | null
-          kpi_scoring_config?: Json | null
-          ma_guide_content?: string | null
-          ma_guide_generated_at?: string | null
-          ma_guide_qa_context?: Json | null
-          name?: string
-          owner_goals_weight?: number
-          scoring_behavior?: Json | null
-          service_criteria?: Json | null
-          service_weight?: number
-          size_criteria?: Json | null
-          size_weight?: number
-          target_buyer_types?: Json | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      remarketing_buyers: {
-        Row: {
-          acquisition_appetite: string | null
-          acquisition_frequency: string | null
-          acquisition_timeline: string | null
-          ai_seeded: boolean | null
-          ai_seeded_at: string | null
-          ai_seeded_from_deal_id: string | null
-          alignment_checked_at: string | null
-          alignment_reasoning: string | null
-          alignment_score: number | null
-          archived: boolean
-          business_summary: string | null
-          business_type: string | null
-          buyer_linkedin: string | null
-          buyer_type: string | null
-          buyer_type_ai_recommendation: string | null
-          buyer_type_classified_at: string | null
-          buyer_type_confidence: number | null
-          buyer_type_needs_review: boolean | null
-          buyer_type_reasoning: string | null
-          buyer_type_source: string | null
-          company_name: string
-          company_website: string | null
-          created_at: string
-          customer_geographic_reach: string | null
-          customer_industries: string[] | null
-          data_last_updated: string | null
-          email_domain: string | null
-          extraction_sources: Json | null
-          fee_agreement_source: string | null
-          fee_agreement_status: string | null
-          founded_year: number | null
-          geographic_footprint: string[] | null
-          has_fee_agreement: boolean | null
-          hq_city: string | null
-          hq_country: string | null
-          hq_region: string | null
-          hq_state: string | null
-          id: string
-          industry_tracker_id: string | null
-          industry_vertical: string | null
-          investment_date: string | null
-          is_pe_backed: boolean | null
-          marketplace_firm_id: string | null
-          notes: string | null
-          notes_analyzed_at: string | null
-          num_employees: number | null
-          num_platforms: number | null
-          number_of_locations: number | null
-          operating_locations: string[] | null
-          pe_firm_acquisitions: Json | null
-          pe_firm_id: string | null
-          pe_firm_linkedin: string | null
-          pe_firm_name: string | null
-          pe_firm_website: string | null
-          platform_acquisitions: Json | null
-          platform_website: string | null
-          portfolio_companies: Json | null
-          primary_customer_size: string | null
-          recent_acquisitions: Json | null
-          revenue_model: string | null
-          service_regions: string[] | null
-          services_offered: string | null
-          target_customer_profile: string | null
-          target_ebitda_max: number | null
-          target_ebitda_min: number | null
-          target_geographies: string[] | null
-          target_industries: string[] | null
-          target_revenue_max: number | null
-          target_revenue_min: number | null
-          target_services: string[] | null
-          thesis_summary: string | null
-          total_acquisitions: number | null
-          universe_id: string | null
-          updated_at: string
-          verification_status: string | null
-          verified_at: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          acquisition_appetite?: string | null
-          acquisition_frequency?: string | null
-          acquisition_timeline?: string | null
-          ai_seeded?: boolean | null
-          ai_seeded_at?: string | null
-          ai_seeded_from_deal_id?: string | null
-          alignment_checked_at?: string | null
-          alignment_reasoning?: string | null
-          alignment_score?: number | null
-          archived?: boolean
-          business_summary?: string | null
-          business_type?: string | null
-          buyer_linkedin?: string | null
-          buyer_type?: string | null
-          buyer_type_ai_recommendation?: string | null
-          buyer_type_classified_at?: string | null
-          buyer_type_confidence?: number | null
-          buyer_type_needs_review?: boolean | null
-          buyer_type_reasoning?: string | null
-          buyer_type_source?: string | null
-          company_name: string
-          company_website?: string | null
-          created_at?: string
-          customer_geographic_reach?: string | null
-          customer_industries?: string[] | null
-          data_last_updated?: string | null
-          email_domain?: string | null
-          extraction_sources?: Json | null
-          fee_agreement_source?: string | null
-          fee_agreement_status?: string | null
-          founded_year?: number | null
-          geographic_footprint?: string[] | null
-          has_fee_agreement?: boolean | null
-          hq_city?: string | null
-          hq_country?: string | null
-          hq_region?: string | null
-          hq_state?: string | null
-          id?: string
-          industry_tracker_id?: string | null
-          industry_vertical?: string | null
-          investment_date?: string | null
-          is_pe_backed?: boolean | null
-          marketplace_firm_id?: string | null
-          notes?: string | null
-          notes_analyzed_at?: string | null
-          num_employees?: number | null
-          num_platforms?: number | null
-          number_of_locations?: number | null
-          operating_locations?: string[] | null
-          pe_firm_acquisitions?: Json | null
-          pe_firm_id?: string | null
-          pe_firm_linkedin?: string | null
-          pe_firm_name?: string | null
-          pe_firm_website?: string | null
-          platform_acquisitions?: Json | null
-          platform_website?: string | null
-          portfolio_companies?: Json | null
-          primary_customer_size?: string | null
-          recent_acquisitions?: Json | null
-          revenue_model?: string | null
-          service_regions?: string[] | null
-          services_offered?: string | null
-          target_customer_profile?: string | null
-          target_ebitda_max?: number | null
-          target_ebitda_min?: number | null
-          target_geographies?: string[] | null
-          target_industries?: string[] | null
-          target_revenue_max?: number | null
-          target_revenue_min?: number | null
-          target_services?: string[] | null
-          thesis_summary?: string | null
-          total_acquisitions?: number | null
-          universe_id?: string | null
-          updated_at?: string
-          verification_status?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          acquisition_appetite?: string | null
-          acquisition_frequency?: string | null
-          acquisition_timeline?: string | null
-          ai_seeded?: boolean | null
-          ai_seeded_at?: string | null
-          ai_seeded_from_deal_id?: string | null
-          alignment_checked_at?: string | null
-          alignment_reasoning?: string | null
-          alignment_score?: number | null
-          archived?: boolean
-          business_summary?: string | null
-          business_type?: string | null
-          buyer_linkedin?: string | null
-          buyer_type?: string | null
-          buyer_type_ai_recommendation?: string | null
-          buyer_type_classified_at?: string | null
-          buyer_type_confidence?: number | null
-          buyer_type_needs_review?: boolean | null
-          buyer_type_reasoning?: string | null
-          buyer_type_source?: string | null
-          company_name?: string
-          company_website?: string | null
-          created_at?: string
-          customer_geographic_reach?: string | null
-          customer_industries?: string[] | null
-          data_last_updated?: string | null
-          email_domain?: string | null
-          extraction_sources?: Json | null
-          fee_agreement_source?: string | null
-          fee_agreement_status?: string | null
-          founded_year?: number | null
-          geographic_footprint?: string[] | null
-          has_fee_agreement?: boolean | null
-          hq_city?: string | null
-          hq_country?: string | null
-          hq_region?: string | null
-          hq_state?: string | null
-          id?: string
-          industry_tracker_id?: string | null
-          industry_vertical?: string | null
-          investment_date?: string | null
-          is_pe_backed?: boolean | null
-          marketplace_firm_id?: string | null
-          notes?: string | null
-          notes_analyzed_at?: string | null
-          num_employees?: number | null
-          num_platforms?: number | null
-          number_of_locations?: number | null
-          operating_locations?: string[] | null
-          pe_firm_acquisitions?: Json | null
-          pe_firm_id?: string | null
-          pe_firm_linkedin?: string | null
-          pe_firm_name?: string | null
-          pe_firm_website?: string | null
-          platform_acquisitions?: Json | null
-          platform_website?: string | null
-          portfolio_companies?: Json | null
-          primary_customer_size?: string | null
-          recent_acquisitions?: Json | null
-          revenue_model?: string | null
-          service_regions?: string[] | null
-          services_offered?: string | null
-          target_customer_profile?: string | null
-          target_ebitda_max?: number | null
-          target_ebitda_min?: number | null
-          target_geographies?: string[] | null
-          target_industries?: string[] | null
-          target_revenue_max?: number | null
-          target_revenue_min?: number | null
-          target_services?: string[] | null
-          thesis_summary?: string | null
-          total_acquisitions?: number | null
-          universe_id?: string | null
-          updated_at?: string
-          verification_status?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "remarketing_buyers_industry_tracker_id_fkey"
-            columns: ["industry_tracker_id"]
-            isOneToOne: false
-            referencedRelation: "industry_trackers"
+            referencedRelation: "buyers"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "remarketing_buyers_marketplace_firm_id_fkey"
-            columns: ["marketplace_firm_id"]
-            isOneToOne: false
-            referencedRelation: "firm_agreements"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "remarketing_buyers_pe_firm_id_fkey"
-            columns: ["pe_firm_id"]
+            foreignKeyName: "remarketing_buyer_contacts_buyer_id_fkey"
+            columns: ["buyer_id"]
             isOneToOne: false
             referencedRelation: "remarketing_buyers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "remarketing_buyers_universe_id_fkey"
-            columns: ["universe_id"]
-            isOneToOne: false
-            referencedRelation: "remarketing_buyer_universes"
             referencedColumns: ["id"]
           },
         ]
@@ -9207,6 +9245,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "remarketing_guide_generation_state_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "remarketing_guide_generation_state_universe_id_fkey"
             columns: ["universe_id"]
@@ -9269,6 +9314,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "remarketing_outreach_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "remarketing_outreach_buyer_id_fkey"
             columns: ["buyer_id"]
@@ -9448,6 +9500,13 @@ export type Database = {
             foreignKeyName: "remarketing_scores_buyer_id_fkey"
             columns: ["buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_scores_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -9470,6 +9529,13 @@ export type Database = {
             columns: ["listing_id"]
             isOneToOne: false
             referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_scores_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
             referencedColumns: ["id"]
           },
           {
@@ -9529,6 +9595,13 @@ export type Database = {
             foreignKeyName: "remarketing_scoring_queue_buyer_id_fkey"
             columns: ["buyer_id"]
             isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_scoring_queue_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
             referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
@@ -9551,6 +9624,13 @@ export type Database = {
             columns: ["listing_id"]
             isOneToOne: false
             referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_scoring_queue_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
             referencedColumns: ["id"]
           },
           {
@@ -9610,6 +9690,13 @@ export type Database = {
             columns: ["listing_id"]
             isOneToOne: false
             referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_universe_deals_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
             referencedColumns: ["id"]
           },
           {
@@ -10035,6 +10122,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartlead_campaigns_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
             referencedColumns: ["id"]
           },
           {
@@ -11241,6 +11335,409 @@ export type Database = {
             columns: ["listing_id"]
             isOneToOne: false
             referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      remarketing_buyer_universes: {
+        Row: {
+          archived: boolean | null
+          buyer_types_criteria: Json | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          documents: Json | null
+          documents_analyzed_at: string | null
+          fee_agreement_required: boolean | null
+          fit_criteria: string | null
+          fit_criteria_buyer_types: string | null
+          fit_criteria_geography: string | null
+          fit_criteria_service: string | null
+          fit_criteria_size: string | null
+          geography_criteria: Json | null
+          geography_weight: number | null
+          id: string | null
+          industry_template: string | null
+          kpi_scoring_config: Json | null
+          ma_guide_content: string | null
+          ma_guide_generated_at: string | null
+          ma_guide_qa_context: Json | null
+          name: string | null
+          owner_goals_weight: number | null
+          scoring_behavior: Json | null
+          service_criteria: Json | null
+          service_weight: number | null
+          size_criteria: Json | null
+          size_weight: number | null
+          target_buyer_types: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          archived?: boolean | null
+          buyer_types_criteria?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          documents?: Json | null
+          documents_analyzed_at?: string | null
+          fee_agreement_required?: boolean | null
+          fit_criteria?: string | null
+          fit_criteria_buyer_types?: string | null
+          fit_criteria_geography?: string | null
+          fit_criteria_service?: string | null
+          fit_criteria_size?: string | null
+          geography_criteria?: Json | null
+          geography_weight?: number | null
+          id?: string | null
+          industry_template?: string | null
+          kpi_scoring_config?: Json | null
+          ma_guide_content?: string | null
+          ma_guide_generated_at?: string | null
+          ma_guide_qa_context?: Json | null
+          name?: string | null
+          owner_goals_weight?: number | null
+          scoring_behavior?: Json | null
+          service_criteria?: Json | null
+          service_weight?: number | null
+          size_criteria?: Json | null
+          size_weight?: number | null
+          target_buyer_types?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          archived?: boolean | null
+          buyer_types_criteria?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          documents?: Json | null
+          documents_analyzed_at?: string | null
+          fee_agreement_required?: boolean | null
+          fit_criteria?: string | null
+          fit_criteria_buyer_types?: string | null
+          fit_criteria_geography?: string | null
+          fit_criteria_service?: string | null
+          fit_criteria_size?: string | null
+          geography_criteria?: Json | null
+          geography_weight?: number | null
+          id?: string | null
+          industry_template?: string | null
+          kpi_scoring_config?: Json | null
+          ma_guide_content?: string | null
+          ma_guide_generated_at?: string | null
+          ma_guide_qa_context?: Json | null
+          name?: string | null
+          owner_goals_weight?: number | null
+          scoring_behavior?: Json | null
+          service_criteria?: Json | null
+          service_weight?: number | null
+          size_criteria?: Json | null
+          size_weight?: number | null
+          target_buyer_types?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      remarketing_buyers: {
+        Row: {
+          acquisition_appetite: string | null
+          acquisition_frequency: string | null
+          acquisition_timeline: string | null
+          admin_override_note: string | null
+          admin_tier_override: number | null
+          ai_seeded: boolean | null
+          ai_seeded_at: string | null
+          ai_seeded_from_deal_id: string | null
+          alignment_checked_at: string | null
+          alignment_reasoning: string | null
+          alignment_score: number | null
+          archived: boolean | null
+          business_summary: string | null
+          business_type: string | null
+          buyer_linkedin: string | null
+          buyer_quality_score: number | null
+          buyer_quality_score_last_calculated: string | null
+          buyer_tier: number | null
+          buyer_type: string | null
+          buyer_type_ai_recommendation: string | null
+          buyer_type_classified_at: string | null
+          buyer_type_confidence: number | null
+          buyer_type_needs_review: boolean | null
+          buyer_type_reasoning: string | null
+          buyer_type_source: string | null
+          company_name: string | null
+          company_website: string | null
+          created_at: string | null
+          customer_geographic_reach: string | null
+          customer_industries: string[] | null
+          data_last_updated: string | null
+          email_domain: string | null
+          extraction_sources: Json | null
+          fee_agreement_source: string | null
+          fee_agreement_status: string | null
+          founded_year: number | null
+          geographic_footprint: string[] | null
+          has_fee_agreement: boolean | null
+          hq_city: string | null
+          hq_country: string | null
+          hq_region: string | null
+          hq_state: string | null
+          id: string | null
+          industry_tracker_id: string | null
+          industry_vertical: string | null
+          investment_date: string | null
+          is_pe_backed: boolean | null
+          marketplace_firm_id: string | null
+          notes: string | null
+          notes_analyzed_at: string | null
+          num_employees: number | null
+          num_platforms: number | null
+          number_of_locations: number | null
+          operating_locations: string[] | null
+          pe_firm_acquisitions: Json | null
+          pe_firm_id: string | null
+          pe_firm_linkedin: string | null
+          pe_firm_name: string | null
+          pe_firm_website: string | null
+          platform_acquisitions: Json | null
+          platform_signal_detected: boolean | null
+          platform_signal_source: string | null
+          platform_website: string | null
+          portfolio_companies: Json | null
+          primary_customer_size: string | null
+          recent_acquisitions: Json | null
+          revenue_model: string | null
+          service_regions: string[] | null
+          services_offered: string | null
+          target_customer_profile: string | null
+          target_ebitda_max: number | null
+          target_ebitda_min: number | null
+          target_geographies: string[] | null
+          target_industries: string[] | null
+          target_revenue_max: number | null
+          target_revenue_min: number | null
+          target_services: string[] | null
+          thesis_summary: string | null
+          total_acquisitions: number | null
+          universe_id: string | null
+          updated_at: string | null
+          verification_status: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          acquisition_appetite?: string | null
+          acquisition_frequency?: string | null
+          acquisition_timeline?: string | null
+          admin_override_note?: string | null
+          admin_tier_override?: number | null
+          ai_seeded?: boolean | null
+          ai_seeded_at?: string | null
+          ai_seeded_from_deal_id?: string | null
+          alignment_checked_at?: string | null
+          alignment_reasoning?: string | null
+          alignment_score?: number | null
+          archived?: boolean | null
+          business_summary?: string | null
+          business_type?: string | null
+          buyer_linkedin?: string | null
+          buyer_quality_score?: number | null
+          buyer_quality_score_last_calculated?: string | null
+          buyer_tier?: number | null
+          buyer_type?: string | null
+          buyer_type_ai_recommendation?: string | null
+          buyer_type_classified_at?: string | null
+          buyer_type_confidence?: number | null
+          buyer_type_needs_review?: boolean | null
+          buyer_type_reasoning?: string | null
+          buyer_type_source?: string | null
+          company_name?: string | null
+          company_website?: string | null
+          created_at?: string | null
+          customer_geographic_reach?: string | null
+          customer_industries?: string[] | null
+          data_last_updated?: string | null
+          email_domain?: string | null
+          extraction_sources?: Json | null
+          fee_agreement_source?: string | null
+          fee_agreement_status?: string | null
+          founded_year?: number | null
+          geographic_footprint?: string[] | null
+          has_fee_agreement?: boolean | null
+          hq_city?: string | null
+          hq_country?: string | null
+          hq_region?: string | null
+          hq_state?: string | null
+          id?: string | null
+          industry_tracker_id?: string | null
+          industry_vertical?: string | null
+          investment_date?: string | null
+          is_pe_backed?: boolean | null
+          marketplace_firm_id?: string | null
+          notes?: string | null
+          notes_analyzed_at?: string | null
+          num_employees?: number | null
+          num_platforms?: number | null
+          number_of_locations?: number | null
+          operating_locations?: string[] | null
+          pe_firm_acquisitions?: Json | null
+          pe_firm_id?: string | null
+          pe_firm_linkedin?: string | null
+          pe_firm_name?: string | null
+          pe_firm_website?: string | null
+          platform_acquisitions?: Json | null
+          platform_signal_detected?: boolean | null
+          platform_signal_source?: string | null
+          platform_website?: string | null
+          portfolio_companies?: Json | null
+          primary_customer_size?: string | null
+          recent_acquisitions?: Json | null
+          revenue_model?: string | null
+          service_regions?: string[] | null
+          services_offered?: string | null
+          target_customer_profile?: string | null
+          target_ebitda_max?: number | null
+          target_ebitda_min?: number | null
+          target_geographies?: string[] | null
+          target_industries?: string[] | null
+          target_revenue_max?: number | null
+          target_revenue_min?: number | null
+          target_services?: string[] | null
+          thesis_summary?: string | null
+          total_acquisitions?: number | null
+          universe_id?: string | null
+          updated_at?: string | null
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          acquisition_appetite?: string | null
+          acquisition_frequency?: string | null
+          acquisition_timeline?: string | null
+          admin_override_note?: string | null
+          admin_tier_override?: number | null
+          ai_seeded?: boolean | null
+          ai_seeded_at?: string | null
+          ai_seeded_from_deal_id?: string | null
+          alignment_checked_at?: string | null
+          alignment_reasoning?: string | null
+          alignment_score?: number | null
+          archived?: boolean | null
+          business_summary?: string | null
+          business_type?: string | null
+          buyer_linkedin?: string | null
+          buyer_quality_score?: number | null
+          buyer_quality_score_last_calculated?: string | null
+          buyer_tier?: number | null
+          buyer_type?: string | null
+          buyer_type_ai_recommendation?: string | null
+          buyer_type_classified_at?: string | null
+          buyer_type_confidence?: number | null
+          buyer_type_needs_review?: boolean | null
+          buyer_type_reasoning?: string | null
+          buyer_type_source?: string | null
+          company_name?: string | null
+          company_website?: string | null
+          created_at?: string | null
+          customer_geographic_reach?: string | null
+          customer_industries?: string[] | null
+          data_last_updated?: string | null
+          email_domain?: string | null
+          extraction_sources?: Json | null
+          fee_agreement_source?: string | null
+          fee_agreement_status?: string | null
+          founded_year?: number | null
+          geographic_footprint?: string[] | null
+          has_fee_agreement?: boolean | null
+          hq_city?: string | null
+          hq_country?: string | null
+          hq_region?: string | null
+          hq_state?: string | null
+          id?: string | null
+          industry_tracker_id?: string | null
+          industry_vertical?: string | null
+          investment_date?: string | null
+          is_pe_backed?: boolean | null
+          marketplace_firm_id?: string | null
+          notes?: string | null
+          notes_analyzed_at?: string | null
+          num_employees?: number | null
+          num_platforms?: number | null
+          number_of_locations?: number | null
+          operating_locations?: string[] | null
+          pe_firm_acquisitions?: Json | null
+          pe_firm_id?: string | null
+          pe_firm_linkedin?: string | null
+          pe_firm_name?: string | null
+          pe_firm_website?: string | null
+          platform_acquisitions?: Json | null
+          platform_signal_detected?: boolean | null
+          platform_signal_source?: string | null
+          platform_website?: string | null
+          portfolio_companies?: Json | null
+          primary_customer_size?: string | null
+          recent_acquisitions?: Json | null
+          revenue_model?: string | null
+          service_regions?: string[] | null
+          services_offered?: string | null
+          target_customer_profile?: string | null
+          target_ebitda_max?: number | null
+          target_ebitda_min?: number | null
+          target_geographies?: string[] | null
+          target_industries?: string[] | null
+          target_revenue_max?: number | null
+          target_revenue_min?: number | null
+          target_services?: string[] | null
+          thesis_summary?: string | null
+          total_acquisitions?: number | null
+          universe_id?: string | null
+          updated_at?: string | null
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "remarketing_buyers_industry_tracker_id_fkey"
+            columns: ["industry_tracker_id"]
+            isOneToOne: false
+            referencedRelation: "industry_trackers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_buyers_marketplace_firm_id_fkey"
+            columns: ["marketplace_firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_buyers_pe_firm_id_fkey"
+            columns: ["pe_firm_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_buyers_pe_firm_id_fkey"
+            columns: ["pe_firm_id"]
+            isOneToOne: false
+            referencedRelation: "remarketing_buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_buyers_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_universes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_buyers_universe_id_fkey"
+            columns: ["universe_id"]
+            isOneToOne: false
+            referencedRelation: "remarketing_buyer_universes"
             referencedColumns: ["id"]
           },
         ]
