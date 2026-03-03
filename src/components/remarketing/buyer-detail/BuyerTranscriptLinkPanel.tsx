@@ -65,7 +65,22 @@ export function BuyerTranscriptLinkPanel({
   const [query, setQuery] = useState(companyName || '');
   const [searchLoading, setSearchLoading] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
   const [linking, setLinking] = useState<string | null>(null);
+
+  const handleQueryChange = (val: string) => {
+    setQuery(val);
+    if (!val.trim()) {
+      setResults([]);
+      setHasSearched(false);
+    }
+  };
+
+  const clearResults = () => {
+    setResults([]);
+    setHasSearched(false);
+    setQuery('');
+  };
 
   // URL validation
   const isValidFirefliesUrl =
@@ -202,6 +217,7 @@ export function BuyerTranscriptLinkPanel({
     if (!trimmedQuery) return;
 
     setSearchLoading(true);
+    setHasSearched(true);
     try {
       const { data, error } = await supabase.functions.invoke('search-fireflies-for-buyer', {
         body: { query: trimmedQuery, limit: 30 },
@@ -270,7 +286,7 @@ export function BuyerTranscriptLinkPanel({
             <Input
               placeholder="Search by company name, person, or keywords..."
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => handleQueryChange(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !searchLoading && handleSearch()}
               className="flex-1 h-8 text-sm"
             />
@@ -296,16 +312,15 @@ export function BuyerTranscriptLinkPanel({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-muted-foreground">
-                  {results.length} result{results.length !== 1 ? 's' : ''} found — click a title to
-                  view in Fireflies, or link to this buyer
+                  {results.length} result{results.length !== 1 ? 's' : ''} found
                 </p>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 text-xs"
-                  onClick={() => setResults([])}
+                  className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={clearResults}
                 >
-                  Clear
+                  Clear results
                 </Button>
               </div>
               <div className="space-y-2 max-h-72 overflow-auto">
@@ -405,8 +420,21 @@ export function BuyerTranscriptLinkPanel({
             </div>
           )}
 
-          {/* Empty state */}
-          {!searchLoading && results.length === 0 && !query.trim() && (
+          {/* No results found — after a search returned 0 results */}
+          {!searchLoading && results.length === 0 && hasSearched && query.trim() && (
+            <div className="text-center py-3 px-4 bg-muted/30 rounded-lg">
+              <Search className="h-5 w-5 mx-auto text-muted-foreground mb-1.5" />
+              <p className="text-xs text-muted-foreground">
+                No calls found for &ldquo;{query.trim()}&rdquo;
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Try a different search term or use Paste Link to add a transcript directly
+              </p>
+            </div>
+          )}
+
+          {/* Empty state — no search has been performed yet */}
+          {!searchLoading && results.length === 0 && !hasSearched && !query.trim() && (
             <div className="text-center py-3 px-4 bg-muted/30 rounded-lg">
               <Search className="h-5 w-5 mx-auto text-muted-foreground mb-1.5" />
               <p className="text-xs text-muted-foreground">
