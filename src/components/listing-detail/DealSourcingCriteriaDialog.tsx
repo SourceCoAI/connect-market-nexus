@@ -18,6 +18,7 @@ import { User as AppUser } from '@/types';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { BUYER_TYPE_LABELS } from '@/constants';
 
 interface DealSourcingCriteriaDialogProps {
   open: boolean;
@@ -44,15 +45,7 @@ export const DealSourcingCriteriaDialog = ({
   const INITIAL_INDUSTRIES_DISPLAY = 3;
 
   const formatBuyerType = (type: string) => {
-    const typeMap: { [key: string]: string } = {
-      privateEquity: 'Private Equity',
-      familyOffice: 'Family Office',
-      individualBuyer: 'Individual Buyer',
-      searchFund: 'Search Fund',
-      strategicBuyer: 'Strategic Buyer',
-      ventureCapital: 'Venture Capital',
-    };
-    return typeMap[type] || type;
+    return BUYER_TYPE_LABELS[type] || type;
   };
 
   const handleGetMyDeals = async () => {
