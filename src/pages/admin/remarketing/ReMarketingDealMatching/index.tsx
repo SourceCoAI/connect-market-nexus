@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -7,6 +8,7 @@ import {
   ScoringInstructionsPanel,
   PassConfirmDialog,
   BulkEmailDialog,
+  ApproveBuyerMultiDealDialog,
 } from '@/components/remarketing';
 
 import { MatchingHeader } from './MatchingHeader';
@@ -16,6 +18,13 @@ import { useMatchingActions } from './useMatchingActions';
 
 export default function ReMarketingDealMatching() {
   const { listingId } = useParams<{ listingId: string }>();
+
+  // Multi-deal approval dialog state
+  const [multiDealApproval, setMultiDealApproval] = useState<{
+    open: boolean;
+    buyerId: string;
+    buyerName: string;
+  }>({ open: false, buyerId: '', buyerName: '' });
 
   const data = useMatchingData(listingId);
   const actions = useMatchingActions({
@@ -212,6 +221,9 @@ export default function ReMarketingDealMatching() {
                 onOutreachUpdate={actions.handleOutreachUpdate}
                 onViewed={actions.handleScoreViewed}
                 onMoveToPipeline={actions.handleMoveToPipeline}
+                onApproveMultiDeal={(buyerId, buyerName) =>
+                  setMultiDealApproval({ open: true, buyerId, buyerName })
+                }
                 pipelineDealId={
                   score.buyer_id ? data.pipelineDealByBuyer.get(score.buyer_id) : undefined
                 }
@@ -255,6 +267,15 @@ export default function ReMarketingDealMatching() {
           }}
         />
       )}
+
+      {/* Multi-deal approval dialog */}
+      <ApproveBuyerMultiDealDialog
+        open={multiDealApproval.open}
+        onOpenChange={(open) => setMultiDealApproval((prev) => ({ ...prev, open }))}
+        buyerId={multiDealApproval.buyerId}
+        buyerName={multiDealApproval.buyerName}
+        currentListingId={listingId!}
+      />
     </div>
   );
 }

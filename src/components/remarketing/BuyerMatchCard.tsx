@@ -96,6 +96,7 @@ interface BuyerMatchCardProps {
   onOutreachUpdate?: (scoreId: string, status: OutreachStatus, notes: string) => Promise<void>;
   onViewed?: (scoreId: string) => void;
   onMoveToPipeline?: (scoreId: string, buyerId: string, listingId: string) => Promise<void>;
+  onApproveMultiDeal?: (buyerId: string, buyerName: string, currentListingId: string) => void;
   outreach?: OutreachData | null;
   isPending?: boolean;
   universeName?: string; // Show universe badge when viewing "All Universes"
@@ -131,13 +132,14 @@ export const BuyerMatchCard = ({
   isSelected = false,
   isHighlighted = false,
   onSelect,
-  onApprove: _onApprove,
-  onPass: _onPass,
+  onApprove,
+  onPass,
   onToggleInterested: _onToggleInterested,
   onMarkInterested,
   onOutreachUpdate,
   onViewed,
   onMoveToPipeline: _onMoveToPipeline,
+  onApproveMultiDeal,
   outreach,
   isPending = false,
   universeName,
@@ -432,6 +434,43 @@ export const BuyerMatchCard = ({
 
           {/* Right: Status badges + actions */}
           <div className="flex items-center gap-2">
+            {/* Approve / Pass buttons for pending buyers */}
+            {score.status !== 'approved' && score.status !== 'passed' && score.status !== 'interested' && (
+              <>
+                <Button
+                  size="sm"
+                  className="h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => onApprove(score.id, score)}
+                  disabled={isPending}
+                >
+                  <Check className="h-3 w-3 mr-1" />
+                  Approve
+                </Button>
+                {onApproveMultiDeal && listingId && buyer?.id && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    onClick={() => onApproveMultiDeal(buyer!.id, buyer!.company_name || 'Unknown', listingId)}
+                    disabled={isPending}
+                  >
+                    <Check className="h-3 w-3 mr-1" />
+                    Approve for Multiple Deals
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-3 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                  onClick={() => onPass(score.id, buyer?.company_name || 'Unknown', score)}
+                  disabled={isPending}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Pass
+                </Button>
+              </>
+            )}
+
             {score.status === 'approved' && (
               <>
                 <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
