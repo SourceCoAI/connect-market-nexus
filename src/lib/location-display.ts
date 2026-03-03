@@ -1,6 +1,6 @@
 import { normalizeStateCode } from '@/lib/deal-csv-import/parsers';
 
-interface LocationFields {
+export interface LocationFields {
   address_city?: string | null;
   address_state?: string | null;
   location?: string | null;
@@ -28,8 +28,11 @@ export function getDisplayLocation(fields: LocationFields): string | null {
   }
 
   // 2. Free-text location field
-  if (fields.location && fields.location.trim() && fields.location.trim() !== 'Unknown') {
-    return fields.location.trim();
+  if (fields.location) {
+    const trimmed = fields.location.trim();
+    if (trimmed && trimmed !== 'Unknown') {
+      return trimmed;
+    }
   }
 
   // 3. First geographic state (last resort - shows just the state code)

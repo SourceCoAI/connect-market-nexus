@@ -157,12 +157,15 @@ export function DealHeader({
         {listedName && (
           <p className="text-sm text-muted-foreground mt-0.5">Listed as: {listedName}</p>
         )}
-        {getDisplayLocation(deal) && (
-          <p className="text-muted-foreground flex items-center gap-1 mt-1">
-            <MapPin className="h-4 w-4" />
-            {getDisplayLocation(deal)}
-          </p>
-        )}
+        {(() => {
+          const loc = getDisplayLocation(deal);
+          return loc && (
+            <p className="text-muted-foreground flex items-center gap-1 mt-1">
+              <MapPin className="h-4 w-4" />
+              {loc}
+            </p>
+          );
+        })()}
       </div>
       <div className="flex items-center gap-2">
         {tier && <ScoreBadge variant="tier" tier={tier as ScoreTier} size="lg" />}

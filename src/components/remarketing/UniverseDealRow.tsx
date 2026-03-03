@@ -102,12 +102,15 @@ export const UniverseDealRow = ({
                 </Badge>
               )}
             </div>
-            {getDisplayLocation(deal.listing) && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                <span className="truncate">{getDisplayLocation(deal.listing)}</span>
-              </div>
-            )}
+            {(() => {
+              const loc = getDisplayLocation(deal.listing);
+              return loc && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  <span className="truncate">{loc}</span>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </TableCell>

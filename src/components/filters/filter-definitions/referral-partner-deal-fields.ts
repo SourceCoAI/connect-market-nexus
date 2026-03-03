@@ -1,4 +1,4 @@
-import { getDisplayLocation } from '@/lib/location-display';
+import { getDisplayLocation, type LocationFields } from '@/lib/location-display';
 import {
   Building2,
   DollarSign,
@@ -49,7 +49,7 @@ export const REFERRAL_PARTNER_DEAL_FIELDS: FilterFieldDef[] = [
     group: 'Location',
     icon: MapPin,
     accessor: (item: Record<string, unknown>) => {
-      return getDisplayLocation(item as { address_city?: string | null; address_state?: string | null; location?: string | null; geographic_states?: string[] | null }) || '';
+      return getDisplayLocation(item as LocationFields) || '';
     },
   },
   {
