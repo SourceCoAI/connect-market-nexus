@@ -53,7 +53,7 @@ export function PushToDialerModal({
   onOpenChange,
   contactIds,
   contactCount,
-  entityType = "buyer_contacts",
+  entityType = "contacts",
 }: PushToDialerModalProps) {
   const [sessionName, setSessionName] = useState(
     `Buyer Outreach - ${new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}`,

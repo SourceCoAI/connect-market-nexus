@@ -27,7 +27,7 @@ import {
   getGlobalLeads,
 } from '../_shared/smartlead-client.ts';
 
-type EntityType = 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
+type EntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
 
 interface ResolvedLead {
   email: string;
@@ -295,6 +295,7 @@ Deno.serve(async (req) => {
         // Resolve contacts
         let leads: ResolvedLead[];
         switch (entity_type) {
+          case 'contacts':
           case 'buyer_contacts':
             leads = await resolveFromBuyerContacts(supabase, entity_ids);
             break;

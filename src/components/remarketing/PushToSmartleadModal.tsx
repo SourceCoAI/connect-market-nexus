@@ -33,7 +33,7 @@ export function PushToSmartleadModal({
   onOpenChange,
   contactIds,
   contactCount,
-  entityType = 'buyer_contacts',
+  entityType = 'contacts',
 }: PushToSmartleadModalProps) {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
   const [result, setResult] = useState<{

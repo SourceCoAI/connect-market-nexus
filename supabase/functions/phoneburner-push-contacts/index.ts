@@ -18,7 +18,7 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 const PB_API_BASE = 'https://www.phoneburner.com/rest/1';
 
-type EntityType = 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
+type EntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
 
 interface PushRequest {
   entity_type?: EntityType;
@@ -302,6 +302,7 @@ Deno.serve(async (req: Request) => {
 
   let contacts: ResolvedContact[];
   switch (entityType) {
+    case 'contacts':
     case 'buyer_contacts':
       contacts = await resolveFromBuyerContacts(supabase, entityIds);
       break;
@@ -434,7 +435,7 @@ Deno.serve(async (req: Request) => {
 
   await supabase.from('phoneburner_sessions').insert({
     session_name: sessionLabel,
-    session_type: entityType === 'buyer_contacts' || entityType === 'buyers' ? 'buyer_outreach' : entityType,
+    session_type: entityType === 'contacts' || entityType === 'buyer_contacts' || entityType === 'buyers' ? 'buyer_outreach' : entityType,
     total_contacts_added: eligible.length,
     session_status: 'active',
     created_by_user_id: user.id,

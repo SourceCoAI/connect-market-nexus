@@ -366,21 +366,21 @@ const ContactListDetailPage = () => {
         onOpenChange={setIsDialerOpen}
         contactIds={dialerContactIds}
         contactCount={dialerContactIds.length}
-        entityType="buyer_contacts"
+        entityType="contacts"
       />
       <PushToSmartleadModal
         open={isSmartleadOpen}
         onOpenChange={setIsSmartleadOpen}
         contactIds={dialerContactIds}
         contactCount={dialerContactIds.length}
-        entityType="buyer_contacts"
+        entityType="contacts"
       />
       <PushToHeyreachModal
         open={isHeyreachOpen}
         onOpenChange={setIsHeyreachOpen}
         contactIds={selectedMembers.map((m) => m.entity_id)}
         contactCount={selectedMembers.length}
-        entityType="buyer_contacts"
+        entityType="contacts"
       />
     </div>
   );

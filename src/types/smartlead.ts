@@ -133,7 +133,7 @@ export type SmartleadEventType =
 
 // ─── API request/response types ─────────────────────────────────────────────
 
-export type SmartleadEntityType = 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
+export type SmartleadEntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
 
 export interface PushLeadsRequest {
   campaign_id: number;
