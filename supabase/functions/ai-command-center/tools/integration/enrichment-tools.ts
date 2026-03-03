@@ -22,7 +22,7 @@ import {
   type DiscoveredContact,
   type LinkedInMatch,
 } from './common.ts';
-import { fireClayFallback } from '../../../_shared/clay-fallback.ts';
+import { clayLookupEmail, clayBatchSend, clayBatchPoll } from './clay-tools.ts';
 
 // ---------- Tool definitions ----------
 
@@ -280,89 +280,152 @@ export async function enrichBuyerContacts(
 
   const toEnrich = needsEnrichment.slice(0, targetCount);
 
-  // 4. Prospeo enrichment — try multiple domain candidates for better coverage
   const domainCandidates = companyDomain
     ? [companyDomain, ...inferDomainCandidates(companyName).filter((d) => d !== companyDomain)]
     : inferDomainCandidates(companyName);
   const primaryDomain = domainCandidates[0] || inferDomain(companyName);
 
-  // deno-lint-ignore no-explicit-any
-  let enriched: unknown[] = [];
-  try {
-    enriched = await batchEnrich(
-      toEnrich.map((d) => ({
-        firstName: d.first_name,
-        lastName: d.last_name,
-        linkedinUrl: d.linkedin_url,
-        domain: primaryDomain,
-        title: d.title,
-        company: companyName,
-      })),
-      3,
-    );
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    if (errMsg.includes('404')) {
-      errors.push(
-        `Email enrichment failed (404): Prospeo API endpoint may have changed. Check PROSPEO_API_KEY.`,
-      );
-    } else if (errMsg.includes('401') || errMsg.includes('403')) {
-      errors.push(`Email enrichment failed (auth): PROSPEO_API_KEY may be invalid or expired.`);
-    } else {
-      errors.push(`Email enrichment failed: ${errMsg}`);
+  // 4. PRIMARY: Clay batch email lookup — send all contacts, poll for results
+  const clayRequestIds = await clayBatchSend(
+    supabase,
+    userId,
+    toEnrich.map((d) => ({
+      linkedinUrl: d.linkedin_url || undefined,
+      firstName: d.first_name,
+      lastName: d.last_name,
+      domain: primaryDomain,
+      company: companyName,
+      title: d.title,
+      sourceFunction: 'enrich_buyer_contacts',
+    })),
+  );
+
+  // Build a mapping from requestId → contact for correlation
+  const requestToContact = new Map<string, DiscoveredContact>();
+  for (let i = 0; i < Math.min(clayRequestIds.length, toEnrich.length); i++) {
+    requestToContact.set(clayRequestIds[i], toEnrich[i]);
+  }
+
+  // Poll for Clay results (up to 60s)
+  const clayEmails = await clayBatchPoll(supabase, clayRequestIds);
+  console.log(
+    `[enrich-buyer-contacts] Clay returned ${clayEmails.size}/${clayRequestIds.length} emails`,
+  );
+
+  // Map Clay results back to contacts by LinkedIn URL
+  const clayEmailByLinkedIn = new Map<string, string>();
+  for (const [reqId, email] of clayEmails) {
+    const contact = requestToContact.get(reqId);
+    if (contact?.linkedin_url) {
+      clayEmailByLinkedIn.set(contact.linkedin_url.toLowerCase(), email);
     }
   }
 
-  // 5. Domain search fallback — try multiple domain candidates
-  if (enriched.length < targetCount / 2) {
-    for (const domainCandidate of domainCandidates.slice(0, 3)) {
-      if (enriched.length >= targetCount) break;
-      try {
-        const domainResults = await domainSearchEnrich(
-          domainCandidate,
-          targetCount - enriched.length,
+  // Determine which contacts still need email (Clay didn't find them)
+  const stillNeedsEmail = toEnrich.filter(
+    (d) => !clayEmailByLinkedIn.has((d.linkedin_url || '').toLowerCase()),
+  );
+
+  // 5. FALLBACK: Prospeo enrichment for contacts Clay couldn't find
+  // deno-lint-ignore no-explicit-any
+  let prospeoEnriched: unknown[] = [];
+  if (stillNeedsEmail.length > 0) {
+    try {
+      prospeoEnriched = await batchEnrich(
+        stillNeedsEmail.map((d) => ({
+          firstName: d.first_name,
+          lastName: d.last_name,
+          linkedinUrl: d.linkedin_url,
+          domain: primaryDomain,
+          title: d.title,
+          company: companyName,
+        })),
+        3,
+      );
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.includes('404')) {
+        errors.push(
+          `Prospeo enrichment failed (404): Prospeo API endpoint may have changed. Check PROSPEO_API_KEY.`,
         );
-        const filteredDomain =
-          titleFilter.length > 0
-            ? domainResults.filter((r) => matchesTitle(r.title, titleFilter))
-            : domainResults;
-        enriched = [...enriched, ...filteredDomain];
-      } catch {
-        /* non-critical — try next domain candidate */
+      } else if (errMsg.includes('401') || errMsg.includes('403')) {
+        errors.push(`Prospeo enrichment failed (auth): PROSPEO_API_KEY may be invalid or expired.`);
+      } else {
+        errors.push(`Prospeo enrichment failed: ${errMsg}`);
+      }
+    }
+
+    // 6. Domain search fallback — try multiple domain candidates
+    if (prospeoEnriched.length < stillNeedsEmail.length / 2) {
+      for (const domainCandidate of domainCandidates.slice(0, 3)) {
+        if (prospeoEnriched.length >= stillNeedsEmail.length) break;
+        try {
+          const domainResults = await domainSearchEnrich(
+            domainCandidate,
+            stillNeedsEmail.length - prospeoEnriched.length,
+          );
+          const filteredDomain =
+            titleFilter.length > 0
+              ? domainResults.filter((r) => matchesTitle(r.title, titleFilter))
+              : domainResults;
+          prospeoEnriched = [...prospeoEnriched, ...filteredDomain];
+        } catch {
+          /* non-critical — try next domain candidate */
+        }
       }
     }
   }
 
-  // Build final contacts — merge enriched results with discovered-only contacts
-  const contacts = enriched.map(
-    (e: {
-      first_name?: string;
-      last_name?: string;
-      title?: string;
-      email?: string;
-      phone?: string;
-      linkedin_url?: string;
-      confidence?: string;
-      source?: string;
-    }) => ({
-      company_name: companyName,
-      full_name: `${e.first_name} ${e.last_name}`.trim(),
-      first_name: e.first_name,
-      last_name: e.last_name,
-      title: e.title || '',
-      email: e.email,
-      phone: e.phone,
-      linkedin_url: e.linkedin_url || '',
-      confidence: e.confidence || 'low',
-      source: e.source || 'unknown',
-      enriched_at: new Date().toISOString(),
-      search_query: cacheKey,
-    }),
-  );
+  // Build final contacts — merge Clay results + Prospeo results + unenriched
+  const contacts = [
+    // Contacts with Clay email
+    ...toEnrich
+      .filter((d) => clayEmailByLinkedIn.has((d.linkedin_url || '').toLowerCase()))
+      .map((d) => ({
+        company_name: companyName,
+        full_name: `${d.first_name} ${d.last_name}`.trim(),
+        first_name: d.first_name,
+        last_name: d.last_name,
+        title: d.title || '',
+        email: clayEmailByLinkedIn.get((d.linkedin_url || '').toLowerCase()) || null,
+        phone: null as string | null,
+        linkedin_url: d.linkedin_url || '',
+        confidence: 'high' as string,
+        source: 'clay',
+        enriched_at: new Date().toISOString(),
+        search_query: cacheKey,
+      })),
+    // Contacts with Prospeo email
+    ...prospeoEnriched.map(
+      (e: {
+        first_name?: string;
+        last_name?: string;
+        title?: string;
+        email?: string;
+        phone?: string;
+        linkedin_url?: string;
+        confidence?: string;
+        source?: string;
+      }) => ({
+        company_name: companyName,
+        full_name: `${e.first_name} ${e.last_name}`.trim(),
+        first_name: e.first_name,
+        last_name: e.last_name,
+        title: e.title || '',
+        email: e.email,
+        phone: e.phone,
+        linkedin_url: e.linkedin_url || '',
+        confidence: e.confidence || 'low',
+        source: e.source || 'prospeo',
+        enriched_at: new Date().toISOString(),
+        search_query: cacheKey,
+      }),
+    ),
+  ];
 
-  // Include unenriched LinkedIn-only contacts (discovered but no email from Prospeo)
+  // Include unenriched contacts (neither Clay nor Prospeo found email)
   const enrichedLinkedIns = new Set(
-    enriched.map((e: { linkedin_url?: string }) => e.linkedin_url?.toLowerCase()),
+    contacts.map((c) => c.linkedin_url?.toLowerCase()).filter(Boolean),
   );
   const unenriched = toEnrich
     .filter((d) => !enrichedLinkedIns.has(d.linkedin_url?.toLowerCase()))
@@ -380,28 +443,6 @@ export async function enrichBuyerContacts(
       enriched_at: new Date().toISOString(),
       search_query: cacheKey,
     }));
-
-  // Fire Clay fallback for unenriched contacts (non-blocking, capped at 10)
-  const unenrichedForClay = toEnrich.filter(
-    (d) => !enrichedLinkedIns.has(d.linkedin_url?.toLowerCase()),
-  );
-  for (const d of unenrichedForClay.slice(0, 10)) {
-    fireClayFallback(
-      supabase,
-      {
-        firstName: d.first_name,
-        lastName: d.last_name,
-        linkedinUrl: d.linkedin_url || undefined,
-        domain: primaryDomain,
-        company: companyName,
-        title: d.title,
-      },
-      {
-        workspaceId: userId,
-        sourceFunction: 'ai_command_center',
-      },
-    );
-  }
 
   const seenFinal = new Set<string>();
   const allContacts = [...contacts, ...unenriched]
@@ -494,6 +535,95 @@ export async function enrichLinkedInContact(
 
   console.log(`[enrich-linkedin] Enriching: ${linkedinUrl}`);
 
+  // --- PRIMARY: Try Clay first for email lookup ---
+  try {
+    const clayResult = await clayLookupEmail(supabase, userId, {
+      linkedinUrl,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      domain,
+      sourceFunction: 'enrich_linkedin_contact',
+    });
+
+    if (clayResult.email) {
+      console.log(`[enrich-linkedin] Clay found email: ${clayResult.email} for ${linkedinUrl}`);
+
+      // Save to enriched_contacts
+      const contactData = {
+        workspace_id: userId,
+        company_name: 'Unknown',
+        full_name: `${firstName} ${lastName}`.trim() || 'Unknown',
+        first_name: firstName,
+        last_name: lastName,
+        title: '',
+        email: clayResult.email,
+        phone: null,
+        linkedin_url: linkedinUrl,
+        confidence: 'high',
+        source: clayResult.source,
+        enriched_at: new Date().toISOString(),
+        search_query: `linkedin:${linkedinUrl}`,
+      };
+
+      await supabase
+        .from('enriched_contacts')
+        .upsert(contactData, { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false });
+
+      // Update CRM contact if exists
+      let crmContactId: string | null = null;
+      let crmAction: 'created' | 'updated' | null = null;
+      const normalizedUrl = linkedinUrl
+        .replace('https://www.', '')
+        .replace('https://', '')
+        .replace('http://', '');
+
+      const { data: existingContacts } = await supabase
+        .from('contacts')
+        .select('id, email, phone, linkedin_url, first_name, last_name')
+        .or(`linkedin_url.ilike.%${normalizedUrl}%`)
+        .eq('archived', false)
+        .limit(1);
+
+      if (existingContacts && existingContacts.length > 0) {
+        const existing = existingContacts[0] as Record<string, unknown>;
+        const updates: Record<string, unknown> = {};
+        if (!existing.email) updates.email = clayResult.email;
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('contacts').update(updates).eq('id', existing.id);
+        }
+        crmContactId = existing.id as string;
+        crmAction = 'updated';
+      }
+
+      return {
+        data: {
+          found: true,
+          name: `${firstName} ${lastName}`.trim() || 'Unknown',
+          email: clayResult.email,
+          phone: null,
+          title: null,
+          company: null,
+          linkedin_url: linkedinUrl,
+          confidence: 'high',
+          source: clayResult.source,
+          saved_to_enriched: true,
+          crm_contact_id: crmContactId || undefined,
+          crm_action: crmAction || undefined,
+          message: `Found email via Clay: ${clayResult.email}${crmAction === 'updated' ? ' — existing CRM contact updated' : ''}`,
+        },
+      };
+    }
+
+    console.log(
+      `[enrich-linkedin] Clay did not find email for ${linkedinUrl} — trying Prospeo fallback`,
+    );
+  } catch (clayErr) {
+    console.warn(
+      `[enrich-linkedin] Clay lookup failed: ${clayErr instanceof Error ? clayErr.message : String(clayErr)} — trying Prospeo fallback`,
+    );
+  }
+
+  // --- FALLBACK: Try Prospeo ---
   try {
     const result = await enrichContact({
       firstName,
@@ -503,7 +633,7 @@ export async function enrichLinkedInContact(
     });
 
     if (!result) {
-      // --- FALLBACK: Prospeo returned nothing — try Google discovery to verify/find correct profile ---
+      // --- FALLBACK 2: Prospeo returned nothing — try Google discovery to verify/find correct profile ---
       console.log(
         `[enrich-linkedin] Prospeo returned no results for ${linkedinUrl} — trying Google fallback`,
       );
@@ -640,31 +770,12 @@ export async function enrichLinkedInContact(
         }
       }
 
-      // Fire Clay fallback for async enrichment
-      const clayRequestId = await fireClayFallback(
-        supabase,
-        {
-          firstName: fallbackFirstName,
-          lastName: fallbackLastName,
-          linkedinUrl,
-          domain,
-          company: fallbackCompany,
-          title: '',
-        },
-        {
-          workspaceId: userId,
-          sourceFunction: 'ai_command_center',
-          sourceEntityId: fallbackCrmContactId || undefined,
-        },
-      );
-
+      // Clay was already tried as primary — no further fallback
       return {
         data: {
           linkedin_url: linkedinUrl,
           found: false,
-          clay_enrichment_pending: !!clayRequestId,
-          clay_request_id: clayRequestId,
-          message: `Could not find email for this LinkedIn profile. Prospeo returned no results.${fallbackCompany ? ` Google search for ${fallbackFirstName} ${fallbackLastName} at ${fallbackCompany} also did not find a match.` : ''}${clayRequestId ? ' Clay enrichment has been triggered and will update the contact when results arrive.' : ' Try providing the person\'s company domain (e.g. company_domain: "acme.com") for a name+domain fallback.'}`,
+          message: `Could not find email for this LinkedIn profile. Both Clay and Prospeo returned no results.${fallbackCompany ? ` Google search for ${fallbackFirstName} ${fallbackLastName} at ${fallbackCompany} also did not find a match.` : ''} Try providing the person's company domain (e.g. company_domain: "acme.com") for a name+domain fallback.`,
         },
       };
     }
@@ -921,7 +1032,93 @@ export async function findAndEnrichPerson(
     `2. Company resolution: ${companyName ? `"${companyName}"` : 'unknown (will use name-only search)'}`,
   );
 
-  // --- Step 3: If we already have a LinkedIn URL, verify it and try Prospeo ---
+  // --- Step 3: PRIMARY — Try Clay email lookup first ---
+  {
+    const clayFirstName = contact ? (contact.first_name as string) || '' : words[0] || '';
+    const clayLastName = contact
+      ? (contact.last_name as string) || ''
+      : words.slice(1).join(' ') || '';
+    const storedUrl = contact?.linkedin_url as string | undefined;
+    const clayDomain = companyName ? inferDomain(companyName) : undefined;
+
+    const hasClayLinkedIn = storedUrl?.includes('linkedin.com/in/');
+    const hasClayNameDomain = !!clayFirstName && !!clayLastName && !!clayDomain;
+
+    if (hasClayLinkedIn || hasClayNameDomain) {
+      steps.push(
+        `3. Trying Clay email lookup${hasClayLinkedIn ? ` (LinkedIn: ${storedUrl})` : ` (${clayFirstName} ${clayLastName} @ ${clayDomain})`}`,
+      );
+
+      try {
+        const clayResult = await clayLookupEmail(supabase, userId, {
+          linkedinUrl: hasClayLinkedIn ? storedUrl : undefined,
+          firstName: clayFirstName || undefined,
+          lastName: clayLastName || undefined,
+          domain: clayDomain,
+          company: companyName,
+          sourceFunction: 'find_and_enrich_person',
+          sourceEntityId: (contact?.id as string) || undefined,
+        });
+
+        if (clayResult.email) {
+          steps.push(`3b. Clay found email: ${clayResult.email}`);
+
+          // Update CRM contact
+          if (contact?.id) {
+            const updates: Record<string, unknown> = { email: clayResult.email };
+            await supabase.from('contacts').update(updates).eq('id', contact.id);
+            steps.push(`3c. Updated CRM contact ${contact.id} with email`);
+          }
+
+          // Save to enriched_contacts
+          await supabase.from('enriched_contacts').upsert(
+            {
+              workspace_id: userId,
+              company_name: companyName || 'Unknown',
+              full_name: `${clayFirstName} ${clayLastName}`.trim(),
+              first_name: clayFirstName,
+              last_name: clayLastName,
+              title: (contact?.title as string) || '',
+              email: clayResult.email,
+              phone: null,
+              linkedin_url: storedUrl || '',
+              confidence: 'high',
+              source: clayResult.source,
+              enriched_at: new Date().toISOString(),
+              search_query: `person:${personName}`,
+            },
+            { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false },
+          );
+
+          return {
+            data: {
+              found: true,
+              source: clayResult.source,
+              contact_id: contact?.id || null,
+              name: `${clayFirstName} ${clayLastName}`.trim(),
+              email: clayResult.email,
+              phone: null,
+              title: (contact?.title as string) || null,
+              company: companyName || null,
+              linkedin_url: storedUrl || null,
+              confidence: 'high',
+              crm_updated: !!contact?.id,
+              steps,
+              message: `Found email via Clay: ${clayResult.email}`,
+            },
+          };
+        }
+
+        steps.push(`3b. Clay did not find email — trying Prospeo fallback`);
+      } catch (clayErr) {
+        steps.push(
+          `3b. Clay lookup failed: ${clayErr instanceof Error ? clayErr.message : String(clayErr)} — trying Prospeo`,
+        );
+      }
+    }
+  }
+
+  // --- Step 4: If we have a LinkedIn URL, verify it and try Prospeo ---
   const storedLinkedinUrl = contact?.linkedin_url as string | undefined;
   if (storedLinkedinUrl?.includes('linkedin.com/in/')) {
     steps.push(
@@ -1288,7 +1485,7 @@ export async function findAndEnrichPerson(
     );
   }
 
-  // --- No email found through any method ---
+  // --- No email found through any method (Clay + Prospeo + domain fallback all failed) ---
   return {
     data: {
       found: false,
@@ -1298,7 +1495,7 @@ export async function findAndEnrichPerson(
       linkedin_url: discoveredLinkedIn,
       steps,
       message:
-        `Could not find email for ${personName}. ${discoveredLinkedIn ? `LinkedIn profile found: ${discoveredLinkedIn}` : 'No LinkedIn profile found.'} ${!companyName ? 'Providing a company_name might improve results.' : ''}`.trim(),
+        `Could not find email for ${personName}. Clay, Prospeo, and domain fallback all returned no results. ${discoveredLinkedIn ? `LinkedIn profile found: ${discoveredLinkedIn}` : 'No LinkedIn profile found.'} ${!companyName ? 'Providing a company_name might improve results.' : ''}`.trim(),
     },
   };
 }
@@ -1373,73 +1570,131 @@ export async function findDecisionMakers(
   const skippedFromCrm = discovered.length - needsEnrichment.length;
   const toProcess = needsEnrichment.slice(0, targetCount);
 
-  // 3. Optionally enrich with Prospeo
+  // 3. Email enrichment — Clay first, Prospeo fallback
   // deno-lint-ignore no-explicit-any
-  let enrichedContacts: unknown[] = [];
+  let prospeoEnrichedContacts: unknown[] = [];
+
+  const domainCandidates = companyDomain
+    ? [companyDomain, ...inferDomainCandidates(companyName).filter((d) => d !== companyDomain)]
+    : inferDomainCandidates(companyName);
+  const primaryDomain = domainCandidates[0] || inferDomain(companyName);
+
+  // 3a. PRIMARY: Clay batch email lookup
+  const clayEmailByLinkedIn = new Map<string, string>();
 
   if (autoEnrich && toProcess.length > 0) {
-    const domainCandidates = companyDomain
-      ? [companyDomain, ...inferDomainCandidates(companyName).filter((d) => d !== companyDomain)]
-      : inferDomainCandidates(companyName);
-    const primaryDomain = domainCandidates[0] || inferDomain(companyName);
+    const clayRequestIds = await clayBatchSend(
+      supabase,
+      userId,
+      toProcess.map((d) => ({
+        linkedinUrl: d.linkedin_url || undefined,
+        firstName: d.first_name,
+        lastName: d.last_name,
+        domain: primaryDomain,
+        company: companyName,
+        title: d.title,
+        sourceFunction: 'find_decision_makers',
+      })),
+    );
 
-    try {
-      enrichedContacts = await batchEnrich(
-        toProcess.map((d) => ({
-          firstName: d.first_name,
-          lastName: d.last_name,
-          linkedinUrl: d.linkedin_url,
-          domain: primaryDomain,
-          title: d.title,
-          company: companyName,
-        })),
-        3,
-      );
-    } catch (err) {
-      console.warn(
-        `[find-decision-makers] Prospeo enrichment failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+    const requestToContact = new Map<string, DiscoveredContact>();
+    for (let i = 0; i < Math.min(clayRequestIds.length, toProcess.length); i++) {
+      requestToContact.set(clayRequestIds[i], toProcess[i]);
     }
 
-    // Domain search fallback if Prospeo didn't find enough
-    if (enrichedContacts.length < toProcess.length / 2) {
-      for (const domainCandidate of domainCandidates.slice(0, 3)) {
-        if (enrichedContacts.length >= toProcess.length) break;
-        try {
-          const domainResults = await domainSearchEnrich(
-            domainCandidate,
-            toProcess.length - enrichedContacts.length,
-          );
-          enrichedContacts = [...enrichedContacts, ...domainResults];
-        } catch {
-          /* non-critical */
+    const clayEmails = await clayBatchPoll(supabase, clayRequestIds);
+    console.log(
+      `[find-decision-makers] Clay returned ${clayEmails.size}/${clayRequestIds.length} emails`,
+    );
+
+    for (const [reqId, email] of clayEmails) {
+      const c = requestToContact.get(reqId);
+      if (c?.linkedin_url) {
+        clayEmailByLinkedIn.set(c.linkedin_url.toLowerCase(), email);
+      }
+    }
+
+    // 3b. FALLBACK: Prospeo for contacts Clay didn't find
+    const stillNeedsEmail = toProcess.filter(
+      (d) => !clayEmailByLinkedIn.has((d.linkedin_url || '').toLowerCase()),
+    );
+
+    if (stillNeedsEmail.length > 0) {
+      try {
+        prospeoEnrichedContacts = await batchEnrich(
+          stillNeedsEmail.map((d) => ({
+            firstName: d.first_name,
+            lastName: d.last_name,
+            linkedinUrl: d.linkedin_url,
+            domain: primaryDomain,
+            title: d.title,
+            company: companyName,
+          })),
+          3,
+        );
+      } catch (err) {
+        console.warn(
+          `[find-decision-makers] Prospeo enrichment failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // Domain search fallback if Prospeo didn't find enough
+      if (prospeoEnrichedContacts.length < stillNeedsEmail.length / 2) {
+        for (const domainCandidate of domainCandidates.slice(0, 3)) {
+          if (prospeoEnrichedContacts.length >= stillNeedsEmail.length) break;
+          try {
+            const domainResults = await domainSearchEnrich(
+              domainCandidate,
+              stillNeedsEmail.length - prospeoEnrichedContacts.length,
+            );
+            prospeoEnrichedContacts = [...prospeoEnrichedContacts, ...domainResults];
+          } catch {
+            /* non-critical */
+          }
         }
       }
     }
   }
 
-  // 4. Build final results — merge enriched data with discovered contacts
+  // 4. Build final results — merge Clay + Prospeo + discovered contacts
   // deno-lint-ignore no-explicit-any
-  const enrichedByLinkedIn = new Map<string, any>();
+  const prospeoByLinkedIn = new Map<string, any>();
   // deno-lint-ignore no-explicit-any
-  for (const e of enrichedContacts) {
+  for (const e of prospeoEnrichedContacts) {
     if (e.linkedin_url) {
-      enrichedByLinkedIn.set(e.linkedin_url.toLowerCase(), e);
+      prospeoByLinkedIn.set(e.linkedin_url.toLowerCase(), e);
     }
   }
 
   const finalContacts = toProcess.map((d) => {
-    const enriched = enrichedByLinkedIn.get(d.linkedin_url?.toLowerCase());
+    const clayEmail = clayEmailByLinkedIn.get(d.linkedin_url?.toLowerCase() || '');
+    const prospeoData = prospeoByLinkedIn.get(d.linkedin_url?.toLowerCase() || '');
+
+    if (clayEmail) {
+      return {
+        first_name: d.first_name,
+        last_name: d.last_name,
+        title: d.title || '',
+        email: clayEmail,
+        phone: null as string | null,
+        linkedin_url: d.linkedin_url,
+        company_name: companyName,
+        confidence: 'high' as string,
+        source: 'clay',
+        discovery_confidence: d.confidence,
+      };
+    }
+
     return {
-      first_name: enriched?.first_name || d.first_name,
-      last_name: enriched?.last_name || d.last_name,
-      title: d.title || enriched?.title || '',
-      email: enriched?.email || null,
-      phone: enriched?.phone || null,
+      first_name: prospeoData?.first_name || d.first_name,
+      last_name: prospeoData?.last_name || d.last_name,
+      title: d.title || prospeoData?.title || '',
+      email: (prospeoData?.email as string) || null,
+      phone: (prospeoData?.phone as string) || null,
       linkedin_url: d.linkedin_url,
       company_name: companyName,
-      confidence: enriched?.confidence || (d.confidence >= 60 ? 'medium' : 'low'),
-      source: enriched?.source || 'google_discovery',
+      confidence: (prospeoData?.confidence as string) || (d.confidence >= 60 ? 'medium' : 'low'),
+      source: (prospeoData?.source as string) || 'google_discovery',
       discovery_confidence: d.confidence,
     };
   });

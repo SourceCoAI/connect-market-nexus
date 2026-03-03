@@ -35,8 +35,15 @@ export { outreachToolDefinitions, pushToPhoneBurner } from './outreach-tools.ts'
 // Agreement tools
 export { agreementToolDefinitions, sendDocument } from './agreement-tools.ts';
 
-// Clay email lookup tools
-export { clayToolDefinitions, clayFindEmail } from './clay-tools.ts';
+// Clay email lookup tools + shared helpers
+export {
+  clayToolDefinitions,
+  clayFindEmail,
+  clayLookupEmail,
+  clayBatchSend,
+  clayBatchPoll,
+} from './clay-tools.ts';
+export type { ClayLookupParams, ClayLookupResult } from './clay-tools.ts';
 
 // Re-export common types for external consumers
 export type { SupabaseClient, ClaudeTool, ToolResult } from './common.ts';
