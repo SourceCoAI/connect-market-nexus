@@ -247,7 +247,9 @@ const DailyTaskDashboard = () => {
 
   // Filter approved tasks into today/future/completed
   const todayTasks = useMemo(() => {
-    return approvedTasks.filter((t) => t.due_date === today || t.status === 'overdue');
+    return approvedTasks.filter(
+      (t) => t.status !== 'completed' && (t.due_date <= today || t.status === 'overdue'),
+    );
   }, [approvedTasks, today]);
 
   const futureTasks = useMemo(() => {
