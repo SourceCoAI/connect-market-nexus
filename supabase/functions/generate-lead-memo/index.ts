@@ -194,33 +194,46 @@ Deno.serve(async (req: Request) => {
       if (teaserError) throw teaserError;
       results.anonymous_teaser = teaser;
 
-      // Sync anonymous teaser sections to the listing's custom_sections.
-      // The lead memo is the single source of truth for listing content —
-      // this keeps the marketplace listing and landing page in sync with
-      // the anonymous teaser automatically.
-      const customSections = teaserContent.sections
-        .filter((s: MemoSection) => s.key !== 'header_block' && s.key !== 'contact_information')
+      // Sync anonymous teaser to listing as ONE unified text block.
+      // Instead of splitting into separate custom_sections (which are hard to
+      // manage/edit), we merge all sections into a single description with
+      // section headers as bold dividers within the text.
+      const contentSections = teaserContent.sections
+        .filter((s: MemoSection) => s.key !== 'header_block' && s.key !== 'contact_information');
+
+      // Also keep custom_sections populated for backwards compatibility
+      // with landing pages and detail views that render them
+      const customSections = contentSections
         .map((s: MemoSection) => ({ title: s.title, description: s.content }));
 
-      // Also use the company_overview section as the listing description
-      const companyOverview = teaserContent.sections.find(
-        (s: MemoSection) => s.key === 'company_overview',
-      );
+      // Build ONE unified description from all sections
+      const unifiedDescription = contentSections
+        .map((s: MemoSection) => `**${s.title}**\n\n${s.content}`)
+        .join('\n\n---\n\n');
+
+      // Build unified HTML
+      const unifiedHtml = contentSections
+        .map((s: MemoSection) => {
+          const sectionContent = s.content
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/^/, '<p>')
+            .replace(/$/, '</p>');
+          return `<h3 style="font-size:16px;font-weight:bold;color:#1a1a2e;margin:24px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #e0e0e0;">${s.title}</h3>${sectionContent}`;
+        })
+        .join('');
 
       const listingUpdate: Record<string, unknown> = {
         custom_sections: customSections,
+        description: unifiedDescription,
+        description_html: `<div class="unified-memo">${unifiedHtml}</div>`,
       };
-      if (companyOverview) {
-        listingUpdate.description = companyOverview.content;
-        // Build basic HTML from the markdown content
-        const htmlContent = companyOverview.content
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.*?)\*/g, '<em>$1</em>')
-          .replace(/\n\n/g, '</p><p>')
-          .replace(/^/, '<p>')
-          .replace(/$/, '</p>');
-        listingUpdate.description_html = htmlContent;
-      }
+
+      // Generate a compelling hero_description from the memo content.
+      // The hero is the first thing buyers see on cards and landing pages —
+      // it must be a concise 2-3 sentence elevator pitch, not just a data dump.
+      listingUpdate.hero_description = buildHeroFromMemo(teaserContent.sections, deal);
 
       const { error: syncError } = await supabaseAdmin
         .from('listings')
@@ -414,6 +427,80 @@ function buildDataContext(
     valuationData: valuationStr,
     sources,
   };
+}
+
+// ─── Hero Description Builder ───
+
+/**
+ * Build a compelling hero_description (max 500 chars) from the generated memo sections.
+ * Extracts the opening sentences from company_overview and combines with key financial
+ * highlights from financial_overview to create a concise elevator pitch.
+ */
+function buildHeroFromMemo(
+  sections: MemoSection[],
+  deal: Record<string, unknown>,
+): string {
+  const overview = sections.find((s) => s.key === 'company_overview');
+  const financial = sections.find((s) => s.key === 'financial_overview');
+  const growth = sections.find((s) => s.key === 'growth_opportunities');
+
+  const heroParts: string[] = [];
+
+  // Extract first 1-2 sentences from company overview (strip markdown formatting)
+  if (overview?.content) {
+    const plainText = overview.content
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/^[-•]\s*/gm, '')
+      .trim();
+    // Get first 2 sentences
+    const sentences = plainText.match(/[^.!?]+[.!?]+/g) || [];
+    if (sentences.length >= 2) {
+      heroParts.push(sentences.slice(0, 2).join('').trim());
+    } else if (sentences.length === 1) {
+      heroParts.push(sentences[0].trim());
+    } else if (plainText.length > 0) {
+      // No sentence endings found — take first 200 chars
+      heroParts.push(plainText.substring(0, 200).trim() + '.');
+    }
+  }
+
+  // Add a financial highlight if company overview didn't cover it
+  const heroSoFar = heroParts.join(' ');
+  const hasRevenue = /\$[\d.]+[MKB]/i.test(heroSoFar) || /revenue/i.test(heroSoFar);
+  if (!hasRevenue && financial?.content) {
+    const plainFinancial = financial.content
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .trim();
+    const finSentences = plainFinancial.match(/[^.!?]+[.!?]+/g) || [];
+    if (finSentences.length > 0) {
+      heroParts.push(finSentences[0].trim());
+    }
+  }
+
+  // Add growth angle if we have room
+  if (growth?.content && heroParts.join(' ').length < 350) {
+    const plainGrowth = growth.content
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .trim();
+    const growthSentences = plainGrowth.match(/[^.!?]+[.!?]+/g) || [];
+    if (growthSentences.length > 0) {
+      heroParts.push(growthSentences[0].trim());
+    }
+  }
+
+  let hero = heroParts.join(' ').trim();
+
+  // Enforce 500 char limit — trim to last complete sentence
+  if (hero.length > 500) {
+    const trimmed = hero.substring(0, 500);
+    const lastPeriod = trimmed.lastIndexOf('.');
+    hero = lastPeriod > 100 ? trimmed.substring(0, lastPeriod + 1).trim() : trimmed.trim();
+  }
+
+  return hero;
 }
 
 // ─── AI Memo Generation ───
@@ -767,7 +854,14 @@ ${addressCity ? `\n- BANNED LOCATION: "${addressCity}" — do NOT mention this c
 ${geoStates.length > 0 ? `\n- BANNED STATES: ${geoStates.map((s: string) => `"${s}"`).join(', ')} — do NOT name these states individually` : ''}
 
 REQUIRED SECTIONS (9 sections — follow this exact structure — be EXHAUSTIVE with detail, this is a comprehensive investment document for an investment committee, NOT a short summary):
-1. key: "company_overview" / title: "Company Overview" — 3-5 paragraphs. Detailed description of what the company does, where it operates (region only — NEVER name specific states or cities), years in operation (approximate range), employee count range, market positioning, competitive advantages, customer base demographics (without names), recurring vs. project-based revenue dynamics, end-market exposure, and what makes the business defensible. Be specific about the business model and value proposition.
+1. key: "company_overview" / title: "Company Overview" — THIS IS THE MOST IMPORTANT SECTION. It becomes the primary listing description buyers see. Write 4-6 rich, substantive paragraphs. This must read like a compelling investment thesis, NOT a generic template.
+   - Paragraph 1: What the company does, its business model (how it makes money — B2B/B2C/mixed, recurring/project/contract-based, subscription/transactional), and how services interrelate. Be specific about what sets the revenue model apart.
+   - Paragraph 2: Geographic presence (region only — NEVER name states or cities), operational scale (employee count range, number of locations), and years in operation (approximate range). Paint a picture of the operational footprint.
+   - Paragraph 3: Competitive advantages and market position — certifications (described generically), preferred relationships, proprietary processes or technology, customer lock-in mechanisms, brand reputation, barriers to entry. What makes this business hard to replicate?
+   - Paragraph 4: Customer base quality — types of customers served (without naming specific accounts), recurring/repeat dynamics, contract vs. spot revenue, customer diversification or concentration characteristics, end-market exposure.
+   - Paragraph 5 (if data supports): Growth trajectory and acquisition attractiveness — how the business has grown, why a PE buyer would want this (platform potential, add-on opportunity, geographic gap-filler), and what investment would unlock.
+   - Paragraph 6 (if data supports): Owner context — why they are seeking a transaction, preferred deal structure, transition willingness. Only include if this information exists in the data.
+   Every sentence must contain at least one SPECIFIC fact, metric, or concrete detail from the provided data. Do NOT use vague phrases like "well-positioned" or "strong reputation" — state the actual evidence.
 2. key: "financial_overview" / title: "Financial Overview" — Present a 3-year (or best available) annual summary table PLUS YTD as ranges: Revenue range, Gross Profit range, EBITDA range, EBITDA margin range, owner compensation add-backs (range), adjusted EBITDA range. Then a narrative paragraph covering: revenue trend and CAGR, margin evolution, revenue concentration risk, recurring vs. project revenue split, capex requirements (range), and working capital characteristics.
 3. key: "services_operations" / title: "Services & Operations" — 3-5 paragraphs. All service lines with estimated revenue mix percentages (as ranges), operational footprint and geographic reach (region only — NEVER name specific states or cities), certifications described generically (e.g., "industry-standard certifications" not specific named programs), facilities (size ranges without addresses), capacity utilization, seasonal patterns, and key operational differentiators. Do NOT name specific vendor or partner companies.
 4. key: "ownership_management" / title: "Ownership & Management" — 2-3 paragraphs. Owner/operator background: years in industry (no name), how long they have owned the business, day-to-day role and involvement level, management team depth (tenure ranges, functional coverage), whether there is a layer of management that would allow a transition, and what the owner is seeking from a transaction partner. No names — refer to as "the owner," "the founder," "senior leadership," etc.
@@ -790,13 +884,13 @@ Include all identifying information: company name, owner, address, website, cont
 REQUIRED SECTIONS (follow this exact structure):
 1. key: "header_block" / title: "Header" — Company name (or codename), date, branding. Confidential disclaimer.
 2. key: "contact_information" / title: "Contact Information" — Company HQ address, phone, website. Owner/CEO name, email, phone.
-3. key: "company_overview" / title: "Company Overview" — 2-4 paragraphs. What the company does, where it operates, how long in business, employees, what makes it distinct. Factual narrative only.
-4. key: "ownership_management" / title: "Ownership & Management" — Owner/operator background, how they came to own, industry experience, day-to-day role, transaction goals.
-5. key: "services_operations" / title: "Services & Operations" — Detailed services, revenue mix by service, customer types, operational footprint, equipment, facilities, technology, certifications.
-6. key: "financial_overview" / title: "Financial Overview" — Revenue, EBITDA, margins for last 3 years (or available). YTD numbers. Revenue concentration. Capex. Working capital. Present as a table with brief narrative.
-7. key: "employees_workforce" / title: "Employees & Workforce" — Total headcount, breakdown by role, key personnel and tenure, compensation structure, union status.
-8. key: "facilities_locations" / title: "Facilities & Locations" — Number of locations, owned vs leased, lease terms, square footage, condition, planned expansions.
-9. key: "transaction_overview" / title: "Transaction Overview" — Full sale, majority recap, growth partner. Valuation expectations. Timeline. Broker involvement.
+3. key: "company_overview" / title: "Company Overview" — THIS IS THE MOST IMPORTANT SECTION. Write 4-6 rich, substantive paragraphs covering: (a) What the company does and its business model — how it makes money, B2B/B2C/mixed, recurring/project-based, subscription/contract/transactional; (b) Geographic presence, operational scale (employees, locations), and years in business; (c) Competitive advantages — certifications, preferred vendor/carrier relationships, proprietary processes, barriers to entry; (d) Customer base quality — segments, recurring dynamics, contract vs. spot, diversification; (e) Growth trajectory and acquisition attractiveness; (f) Owner context if available. Every sentence must contain a specific fact, number, or concrete detail.
+4. key: "ownership_management" / title: "Ownership & Management" — 2-3 paragraphs. Owner/operator background, how they came to own, industry experience, day-to-day role, management team depth and tenure, transaction goals and motivation.
+5. key: "services_operations" / title: "Services & Operations" — 3-5 paragraphs. Detailed services with revenue mix percentages, customer types by service line, operational footprint, equipment and fleet, facilities, technology systems, certifications, capacity utilization, seasonal patterns.
+6. key: "financial_overview" / title: "Financial Overview" — Revenue, EBITDA, margins for last 3 years (or available). YTD numbers. Revenue concentration. Capex. Working capital. Present as a table with brief narrative paragraph covering trends, margin evolution, and revenue quality.
+7. key: "employees_workforce" / title: "Employees & Workforce" — Total headcount, breakdown by role (field/technical, office/admin, management), key personnel and tenure, compensation structure, training programs, union status, retention characteristics.
+8. key: "facilities_locations" / title: "Facilities & Locations" — Number of locations, owned vs leased, lease terms, square footage, condition, planned expansions or consolidations.
+9. key: "transaction_overview" / title: "Transaction Overview" — Full sale, majority recap, growth partner. Valuation expectations or asking price. Preferred timeline. Ideal buyer profile. Owner transition willingness and preferred period. Deal requirements or deal-breakers.
 
 IMPORTANT — COMPLETENESS RULES:
 - Only write about information you actually have from the data provided
@@ -814,23 +908,33 @@ Return a JSON object with a "sections" array. Each section has:
 
 === FEW-SHOT EXAMPLES ===
 
-Example 1 — RIA/Wealth Management (Correct tone):
+Example 1 — Anonymous Teaser Company Overview (Correct depth and detail — this is the MINIMUM quality bar):
+Company Overview:
+"${projectCodename} is a full-service restoration and reconstruction business operating across the ${regionName} United States, providing fire restoration, water mitigation, mold remediation, and commercial roofing services. The company operates on a hybrid revenue model combining insurance-referred restoration work (approximately 55%–65% of revenue) with direct-to-consumer retail projects, creating a diversified demand profile that provides resilience across economic cycles.
+
+The business operates from two locations in the ${regionName} region with a team of approximately 40–50 full-time employees, including dedicated project managers, certified technicians, and administrative support staff. The company has been in continuous operation for approximately 15–20 years, building deep institutional knowledge of regional building codes, insurance carrier processes, and subcontractor networks.
+
+The company maintains multiple industry-standard certifications and preferred vendor relationships with several national insurance carriers, which serve as a recurring referral pipeline and create meaningful barriers to entry for competitors. The company's in-house textile cleaning capability eliminates reliance on third-party vendors for contents restoration, improving both margins and turnaround times. These operational advantages, combined with a decades-long regional reputation, create a defensible market position.
+
+The customer base spans residential homeowners (approximately 55%–65%), commercial property managers and building owners (approximately 25%–35%), and government/municipal contracts (approximately 5%–10%). Insurance-referred work provides natural customer acquisition at minimal marketing cost, while commercial contracts tend to be recurring in nature with higher average project values.
+
+Revenue has grown from approximately $3.5M–$4.5M to $7.5M–$8.5M over the past five years, driven by geographic expansion, the addition of commercial roofing services, and deepening insurance carrier relationships. The business represents a platform opportunity in the fragmented restoration services market, with clear organic growth levers including geographic expansion, commercial segment growth, and potential bolt-on acquisitions of smaller regional operators.
+
+The owner is seeking a full exit within approximately 12–18 months, primarily motivated by retirement after an extended ownership period. The owner has expressed willingness to support a transition period of up to one year to ensure continuity of key carrier relationships and customer accounts."
+
+Example 2 — Full Memo Company Overview (Correct factual style with specifics):
 Company Overview:
 "Brook Capital LLC is a fee-based registered investment advisory firm headquartered in Wayne, New Jersey. Founded in 2013 and originally based in New York City, the firm relocated to northern New Jersey in 2017. Brook Capital manages approximately $900 million in assets under management across more than 200 household client relationships, with an average client AUM of approximately $2-$3 million.
 
-The firm employs 11 individuals, including 7 licensed financial advisors. Brook Capital operates a fee-based model and does not engage in commission-based product sales. The firm provides comprehensive wealth management services including portfolio management, financial planning, tax planning, and estate planning."
+The firm employs 11 individuals, including 7 licensed financial advisors. Brook Capital operates a fee-based model and does not engage in commission-based product sales. The firm provides comprehensive wealth management services including portfolio management, financial planning, tax planning, and estate planning. Revenue is generated through a tiered fee schedule based on AUM, creating a highly recurring and predictable revenue stream with minimal customer churn.
 
-Example 2 — Defense Contractor (Correct terminology):
-Company Overview:
-"NES provides technical and engineering support services to the United States Navy, specializing in submarine maintenance, modernization, and repair. The company operates in close proximity to a major Navy shipyard and has maintained active contracts with the Department of Defense for over two decades.
+The firm serves affluent individuals and families, predominantly in the New York/New Jersey metropolitan area, with client retention rates exceeding 95% annually. The average client relationship tenure is approximately 5 years, reflecting the long-term nature of wealth management engagements and the trust-based advisory model."
 
-The company holds the necessary security clearances and facility certifications required for classified defense work. NES maintains DCAA-compliant accounting systems. The workforce includes engineers, technicians, and project managers with specialized naval systems expertise."
-
-Example 3 — Commercial Plumbing (Correct factual style):
+Example 3 — Financial Overview (Correct range-based approach):
 Financial Overview:
-"Revenue has ranged from approximately $15 million to $18 million over the past three fiscal years. EBITDA has been in the $2.5 million to $3.0 million range. The service and maintenance segment carries higher margins than the new construction segment, and ownership has been shifting the revenue mix toward recurring service contracts."
+"Revenue has ranged from approximately $15 million to $18 million over the past three fiscal years, reflecting a compound annual growth rate of approximately 8%–10%. EBITDA has been in the $2.5 million to $3.0 million range, with margins improving from approximately 15% to 17% as the service and maintenance segment has grown as a share of total revenue. The service and maintenance segment carries higher margins than the new construction segment, and ownership has been actively shifting the revenue mix toward recurring service contracts, which now represent approximately 35%–40% of total revenue compared to approximately 20% three years ago."
 
-Notice: No opinions. No "strong reputation." Facts about AUM, headcount, fee model, and owner goals speak for themselves.`;
+CRITICAL: Every paragraph must contain SPECIFIC facts, numbers, or concrete details. Do NOT write vague paragraphs like "The company has a strong reputation in the market" or "The business is well-positioned for growth." Instead write: "The company has maintained preferred vendor status with three national insurance carriers for over a decade, generating approximately 60% of annual revenue through carrier referrals.";
 
   const userPrompt = `Generate a ${isAnonymous ? 'Anonymous Teaser' : 'Full Lead Memo'} from the following company data.
 
