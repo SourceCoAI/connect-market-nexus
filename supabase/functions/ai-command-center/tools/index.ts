@@ -144,6 +144,7 @@ const TOOL_CATEGORIES: Record<string, string[]> = {
     'get_current_user_context',
     'get_connection_requests',
     'get_follow_up_queue',
+    'get_task_inbox', // for personal task queue — was missing
     'get_call_history',
     'get_stale_deals',
     'get_deal_health',
@@ -156,6 +157,7 @@ const TOOL_CATEGORIES: Record<string, string[]> = {
     'search_valuation_leads',
     'query_deals',
     'search_inbound_leads',
+    'search_buyer_universes', // needed for "find the HVAC universe" queries routed here
     'select_table_rows',
     'apply_table_filter',
     'sort_table_column',
@@ -166,6 +168,7 @@ const TOOL_CATEGORIES: Record<string, string[]> = {
     'query_deals',
     'get_buyer_profile',
     'get_top_buyers_for_deal',
+    'get_score_breakdown', // per-dimension score breakdown — was missing
     'get_recommended_buyers',
     'generate_buyer_narrative',
     'get_buyer_signals', // merged: was get_buyer_decisions
@@ -182,6 +185,7 @@ const TOOL_CATEGORIES: Record<string, string[]> = {
     'get_universe_buyer_fits',
     'get_outreach_records', // merged: includes remarketing_outreach
     'get_top_buyers_for_deal',
+    'get_score_breakdown', // per-dimension score breakdown — was missing
     'search_buyers',
     'select_table_rows',
     'apply_table_filter',
@@ -387,6 +391,7 @@ const TOOL_CATEGORIES: Record<string, string[]> = {
     'get_deal_health',
     'match_leads_to_deals',
     'get_stale_deals',
+    'get_proactive_alerts', // referenced in system prompt but was missing
   ],
 
   // EOD / recap

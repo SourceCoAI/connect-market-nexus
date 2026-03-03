@@ -337,14 +337,29 @@ async function pipelineHealth(supabase: SupabaseClient): Promise<ToolResult> {
 }
 
 async function scoringDistribution(supabase: SupabaseClient): Promise<ToolResult> {
-  const { data, error } = await supabase
-    .from('remarketing_scores')
-    .select('composite_score, status, tier')
-    .order('composite_score', { ascending: false })
-    .limit(500);
+  // Paginate to fetch ALL scores for accurate distribution.
+  // Previous limit of 500 silently truncated low scores, skewing the distribution
+  // toward high scores and undercounting below_50 and 50-59 buckets.
+  const PAGE_SIZE = 1000;
+  let allScores: Array<{ composite_score: number; status: string; tier: string }> = [];
+  let offset = 0;
+  const MAX_TOTAL = 10000;
 
-  if (error) return { error: error.message };
-  const scores = data || [];
+  while (offset < MAX_TOTAL) {
+    const { data: batch, error } = await supabase
+      .from('remarketing_scores')
+      .select('composite_score, status, tier')
+      .order('composite_score', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) return { error: error.message };
+    if (!batch || batch.length === 0) break;
+    allScores = allScores.concat(batch);
+    if (batch.length < PAGE_SIZE) break;
+    offset += batch.length;
+  }
+
+  const scores = allScores;
 
   const byStatus: Record<string, number> = {};
   const byTier: Record<string, number> = {};

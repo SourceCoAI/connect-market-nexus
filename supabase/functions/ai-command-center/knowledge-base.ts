@@ -58,7 +58,7 @@ Score Modifiers:
 - data_quality_bonus: rich, well-enriched data = more reliable scoring.
 - custom_bonus: manually set by admin for deal-specific adjustments.
 - service_multiplier / size_multiplier / geography_mode_factor: custom weight multipliers per deal via deal_scoring_adjustments.
-- Use get_score_breakdown for per-dimension breakdown. Use explain_buyer_score for human-readable explanation.`,
+- Use get_score_breakdown for per-dimension breakdown and human-readable explanation.`,
   },
 
   pass_categories: {
@@ -309,7 +309,7 @@ Track via connection_requests (NDA/fee status) and firm_agreements.`,
 - Deal sourcing: marketplace listings, CapTarget, GP Partners, valuation calculator, inbound leads, referrals. Check deal_source.
 - Deal enrichment: AI scrapes company data (Firecrawl), LinkedIn (Apify), Google (reviews/ratings). Check enrichment_status/enriched_at.
 - Universe building: each deal gets a buyer universe matched by industry, geography, size. Use get_universe_details.
-- Scoring: every buyer scored 0-100 across dimensions. Use explain_buyer_score for breakdowns.
+- Scoring: every buyer scored 0-100 across dimensions. Use get_score_breakdown for breakdowns.
 - Outreach: email, calls (PhoneBurner), memo distribution. Track via outreach_records and remarketing_outreach.
 - Pipeline tracking: Lead -> NDA -> LOI -> Due Diligence -> Closed. Monitor with get_deal_health and get_follow_up_queue.`,
   },

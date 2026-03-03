@@ -7,6 +7,32 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import type { ClaudeTool } from '../../_shared/claude-client.ts';
 import type { ToolResult } from './index.ts';
 
+// State name → code mapping for normalizing deal address_state (full names) to buyer hq_state (2-letter codes)
+const STATE_NAME_TO_CODE: Record<string, string> = {
+  alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA',
+  colorado: 'CO', connecticut: 'CT', delaware: 'DE', florida: 'FL', georgia: 'GA',
+  hawaii: 'HI', idaho: 'ID', illinois: 'IL', indiana: 'IN', iowa: 'IA',
+  kansas: 'KS', kentucky: 'KY', louisiana: 'LA', maine: 'ME', maryland: 'MD',
+  massachusetts: 'MA', michigan: 'MI', minnesota: 'MN', mississippi: 'MS', missouri: 'MO',
+  montana: 'MT', nebraska: 'NE', nevada: 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+  'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND',
+  ohio: 'OH', oklahoma: 'OK', oregon: 'OR', pennsylvania: 'PA', 'rhode island': 'RI',
+  'south carolina': 'SC', 'south dakota': 'SD', tennessee: 'TN', texas: 'TX',
+  utah: 'UT', vermont: 'VT', virginia: 'VA', washington: 'WA', 'west virginia': 'WV',
+  wisconsin: 'WI', wyoming: 'WY', 'district of columbia': 'DC',
+};
+
+/** Normalize a state string to a 2-letter code. Handles full names, codes, and mixed case. */
+function normalizeToStateCode(raw: string): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  const upper = trimmed.toUpperCase();
+  // Already a 2-letter code?
+  if (upper.length === 2 && /^[A-Z]{2}$/.test(upper)) return upper;
+  // Full name?
+  return STATE_NAME_TO_CODE[trimmed.toLowerCase()] || null;
+}
+
 // ---------- Tool definitions ----------
 
 export const crossDealAnalyticsTools: ClaudeTool[] = [
@@ -546,9 +572,19 @@ async function geographyHeatmap(
     }
   }
 
+  // Normalize deal address_state (may be full names like "Texas") to 2-letter codes
+  // to match buyer hq_state format. Also include geographic_states for multi-location deals.
   const dealsByState: Record<string, number> = {};
   for (const d of deals) {
-    if (d.address_state) dealsByState[d.address_state] = (dealsByState[d.address_state] || 0) + 1;
+    if (d.address_state) {
+      const code = normalizeToStateCode(d.address_state) || d.address_state;
+      dealsByState[code] = (dealsByState[code] || 0) + 1;
+    }
+    // Include geographic_states for multi-location deals (was previously ignored)
+    for (const s of (d.geographic_states as string[]) || []) {
+      const code = normalizeToStateCode(s) || s;
+      dealsByState[code] = (dealsByState[code] || 0) + 1;
+    }
   }
 
   // Find coverage gaps (states with deals but few buyers)

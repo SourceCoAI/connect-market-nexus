@@ -99,7 +99,13 @@ async function searchInboundLeads(
   supabase: SupabaseClient,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
-  const limit = Math.min(Number(args.limit) || 50, 500);
+  // When client-side search is active, expand the DB fetch limit to avoid
+  // silently missing matching records beyond the default top-N window.
+  // Same pattern as queryDeals needsClientFilter expansion.
+  const hasClientFilter = !!args.search;
+  const limit = hasClientFilter
+    ? Math.min(Number(args.limit) || 2000, 5000)
+    : Math.min(Number(args.limit) || 50, 500);
   const days = Number(args.days) || 30;
   const cutoff = new Date(Date.now() - days * 86400000).toISOString();
 
@@ -189,7 +195,11 @@ async function getReferralData(
   supabase: SupabaseClient,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
-  const limit = Math.min(Number(args.limit) || 50, 200);
+  // Expand fetch limit when search is active to avoid missing matching partners
+  const hasClientFilter = !!args.search;
+  const limit = hasClientFilter
+    ? Math.min(Number(args.limit) || 500, 1000)
+    : Math.min(Number(args.limit) || 50, 200);
   const includeSubmissions = args.include_submissions !== false;
 
   let partnerQuery = supabase

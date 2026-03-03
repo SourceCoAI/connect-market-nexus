@@ -137,7 +137,7 @@ KEY BEHAVIORS:
 FORMAT: Return buyer matches as: name, type, HQ, revenue range, key services, alignment score.`,
 
   BUYER_ANALYSIS: `Present scores with context: composite, geography, service, size, owner goals, portfolio, business_model, acquisition.
-Explain score drivers and flags. Use get_score_breakdown for per-dimension breakdown. Use explain_buyer_score for human-readable explanations with data source citations.
+Explain score drivers and flags. Use get_score_breakdown for per-dimension breakdown and human-readable explanations with data source citations.
 Pair search_buyers with get_buyer_profile for deep-dives (note: top 10 scored deals only).
 For "recommended buyers" or "buyer strategy", prefer get_recommended_buyers — it synthesizes across ALL data sources: scores, transcripts (call + buyer + deal), buyer universes, outreach records, and full deal context in a single call.
 For "competitors": clarify if they mean competing acquirers or industry competitors.
@@ -178,7 +178,7 @@ TASK CREATION — CRITICAL:
   REMARKETING: `1. SEARCH to find matching entities and IDs, 2. Call select_table_rows or apply_table_filter, 3. Confirm what was selected.
 Always combine data query with UI action.
 When recommending buyers, reference specific names in **bold**, explain fit reasoning using thesis, geography, size, and services.
-Use explain_buyer_score or get_score_breakdown for per-dimension justification (geography, size, service, composite).
+Use get_score_breakdown for per-dimension justification (geography, size, service, composite).
 Prioritize PENDING status buyers unless asked otherwise.
 DATA PROVENANCE: Never attribute PE firm data to platform companies. Distinguish data from call transcripts vs website enrichment. If transcript data is unavailable, say so — never infer.`,
 
@@ -306,7 +306,7 @@ PRESENTATION RULES:
 - Include deal investment thesis and owner goals context when explaining recommendations
 
 Use generate_buyer_narrative for a written strategy document with full multi-source synthesis.
-Use explain_buyer_score or get_score_breakdown for per-dimension justification.
+Use get_score_breakdown for per-dimension justification.
 Use draft_outreach_email when the user wants to draft outreach to a recommended buyer.
 Use search_transcripts or semantic_transcript_search if the user wants to dig deeper into specific call content.`,
 
