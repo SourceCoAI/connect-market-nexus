@@ -14,9 +14,6 @@ interface EditorFinancialCardProps {
 
 export function EditorFinancialCard({ form, isReadOnly = false }: EditorFinancialCardProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const revenue = form.watch('revenue') || 0;
-  const ebitda = form.watch('ebitda') || 0;
-  const calculatedMargin = revenue > 0 ? ((ebitda / revenue) * 100).toFixed(1) : '0.0';
 
   return (
     <div
@@ -89,52 +86,6 @@ export function EditorFinancialCard({ form, isReadOnly = false }: EditorFinancia
                 "w-full text-xs bg-transparent border-0 border-b border-dashed border-border/70 px-0 placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50"
               )}
             />
-          </div>
-
-          {/* EBITDA */}
-          <div className={EDITOR_DESIGN.compactFieldSpacing}>
-            <div className={EDITOR_DESIGN.microLabel}>EBITDA</div>
-            <FormField
-              control={form.control}
-              name="ebitda"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <EnhancedCurrencyInput
-                      value={field.value?.toString() || ''}
-                      onChange={(value) => {
-                        if (isReadOnly) return;
-                        const digits = value.replace(/\D/g, '');
-                        field.onChange(digits || '');
-                      }}
-                      currencyMode="auto"
-                      fieldType="revenue"
-                      showSuffix={true}
-                      disabled={isReadOnly}
-                      className={cn(
-                        EDITOR_DESIGN.compactHeight,
-                        'text-sm font-medium',
-                        EDITOR_DESIGN.inputBg,
-                        isReadOnly && 'opacity-60 cursor-not-allowed',
-                      )}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <div className="flex items-center gap-2">
-              <input
-                placeholder="Subtitle"
-                {...form.register('ebitda_metric_subtitle')}
-                className={cn(
-                  EDITOR_DESIGN.microHeight,
-                  "flex-1 text-xs bg-transparent border-0 border-b border-dashed border-border/70 px-0 placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50"
-                )}
-              />
-              <span className="text-xs font-medium text-primary tabular-nums">
-                {calculatedMargin}%
-              </span>
-            </div>
           </div>
         </div>
       )}
