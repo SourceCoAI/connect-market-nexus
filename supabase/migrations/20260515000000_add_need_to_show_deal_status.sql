@@ -24,8 +24,10 @@ WHERE bi.introduction_status IN ('need_to_show_deal', 'outreach_initiated', 'mee
   AND bi.archived_at IS NULL
 ORDER BY bi.created_at DESC;
 
--- 3. Update the summary view to include new status
-CREATE OR REPLACE VIEW buyer_introduction_summary AS
+-- 3. Drop and recreate the summary view (CREATE OR REPLACE cannot change columns)
+DROP VIEW IF EXISTS buyer_introduction_summary;
+
+CREATE VIEW buyer_introduction_summary AS
 SELECT
   l.id as listing_id,
   l.title as company_name,
