@@ -7,6 +7,7 @@ export type IntroductionStatus =
 export interface BuyerIntroduction {
   id: string;
   contact_id: string | null;
+  remarketing_buyer_id: string | null;
   buyer_name: string;
   buyer_firm_name: string;
   buyer_email: string | null;
@@ -91,6 +92,7 @@ export interface IntroductionActivity {
 
 export interface CreateBuyerIntroductionInput {
   contact_id?: string;
+  remarketing_buyer_id?: string;
   buyer_name: string;
   buyer_firm_name: string;
   buyer_email?: string;

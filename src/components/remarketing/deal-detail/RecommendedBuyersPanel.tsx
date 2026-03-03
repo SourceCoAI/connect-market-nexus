@@ -352,7 +352,7 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
       await new Promise<void>((resolve, reject) => {
         createIntroduction(
           {
-            contact_id: buyer.buyer_id,
+            remarketing_buyer_id: buyer.buyer_id,
             listing_id: listingId,
             buyer_name: buyer.company_name,
             buyer_firm_name: buyer.pe_firm_name || buyer.company_name,
@@ -407,7 +407,9 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
   const introducedBuyerIds = useMemo(() => {
     const ids = new Set<string>();
     for (const intro of introductions) {
-      if (intro.contact_id) ids.add(intro.contact_id);
+      if (intro.remarketing_buyer_id) ids.add(intro.remarketing_buyer_id);
+      // Fallback: also check contact_id for legacy rows created before the migration
+      else if (intro.contact_id) ids.add(intro.contact_id);
     }
     return ids;
   }, [introductions]);

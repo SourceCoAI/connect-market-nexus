@@ -346,7 +346,7 @@ export function BuyerIntroductionTracker({
                 <IntroductionBuyerRow
                   key={buyer.id}
                   buyer={buyer}
-                  score={buyer.contact_id ? scoreMap.get(buyer.contact_id) : undefined}
+                  score={(buyer.remarketing_buyer_id || buyer.contact_id) ? scoreMap.get((buyer.remarketing_buyer_id || buyer.contact_id)!) : undefined}
                   selected={selectedIds.has(buyer.id)}
                   onToggleSelect={toggleSelection}
                   onSelect={(b) => {
@@ -423,7 +423,7 @@ export function BuyerIntroductionTracker({
                 <IntroducedBuyerRow
                   key={buyer.id}
                   buyer={buyer}
-                  score={buyer.contact_id ? scoreMap.get(buyer.contact_id) : undefined}
+                  score={(buyer.remarketing_buyer_id || buyer.contact_id) ? scoreMap.get((buyer.remarketing_buyer_id || buyer.contact_id)!) : undefined}
                   selected={selectedIds.has(buyer.id)}
                   onToggleSelect={toggleSelection}
                   onSelect={(b) => {
@@ -555,8 +555,8 @@ function IntroductionBuyerRow({
         {/* Name + firm */}
         <div className="shrink-0 min-w-[180px]">
           <div className="flex items-center gap-1.5">
-            {buyer.contact_id ? (
-              <Link to={`/admin/buyers/${buyer.contact_id}`}>
+            {(buyer.remarketing_buyer_id || buyer.contact_id) ? (
+              <Link to={`/admin/buyers/${buyer.remarketing_buyer_id || buyer.contact_id}`}>
                 <span className="font-semibold text-[15px] hover:underline truncate">
                   {displayName}
                 </span>
@@ -754,8 +754,8 @@ function IntroducedBuyerRow({
         {/* Name + firm */}
         <div className="shrink-0 min-w-[180px]">
           <div className="flex items-center gap-1.5">
-            {buyer.contact_id ? (
-              <Link to={`/admin/buyers/${buyer.contact_id}`}>
+            {(buyer.remarketing_buyer_id || buyer.contact_id) ? (
+              <Link to={`/admin/buyers/${buyer.remarketing_buyer_id || buyer.contact_id}`}>
                 <span className="font-semibold text-[15px] hover:underline truncate">
                   {displayName}
                 </span>

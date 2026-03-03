@@ -850,6 +850,7 @@ export type Database = {
           passed_date: string | null
           passed_notes: string | null
           passed_reason: string | null
+          remarketing_buyer_id: string | null
           score_snapshot: Json | null
           targeting_reason: string | null
           updated_at: string
@@ -885,6 +886,7 @@ export type Database = {
           passed_date?: string | null
           passed_notes?: string | null
           passed_reason?: string | null
+          remarketing_buyer_id?: string | null
           score_snapshot?: Json | null
           targeting_reason?: string | null
           updated_at?: string
@@ -920,6 +922,7 @@ export type Database = {
           passed_date?: string | null
           passed_notes?: string | null
           passed_reason?: string | null
+          remarketing_buyer_id?: string | null
           score_snapshot?: Json | null
           targeting_reason?: string | null
           updated_at?: string
