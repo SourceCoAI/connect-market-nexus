@@ -27,34 +27,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
-const encoder = new TextEncoder();
-
-async function verifySignature(
-  payload: string,
-  signature: string | null,
-  secret: string,
-): Promise<boolean> {
-  if (!signature) return false;
-  const rawSig = signature.replace(/^sha256=/, '');
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  if (computed.length !== rawSig.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < computed.length; i++) {
-    mismatch |= computed.charCodeAt(i) ^ rawSig.charCodeAt(i);
-  }
-  return mismatch === 0;
-}
-
 function jsonResponse(
   body: Record<string, unknown>,
   status: number,
@@ -103,21 +75,20 @@ Deno.serve(async (req) => {
 
   const rawBody = await req.text();
 
-  // ── signature check (enforced when secret is configured) ──
-  const sig =
-    req.headers.get('x-phoneburner-signature') || req.headers.get('X-Phoneburner-Signature');
+  // ── simple secret header check ──
+  const headerSecret =
+    req.headers.get('x-webhook-secret') || req.headers.get('X-Webhook-Secret');
   let signatureValid = false;
-  if (webhookSecret && sig) {
-    signatureValid = await verifySignature(rawBody, sig, webhookSecret);
-  }
-  if (webhookSecret && !signatureValid) {
-    console.warn('PhoneBurner webhook signature invalid — rejecting request');
-    return jsonResponse({ error: 'Invalid webhook signature' }, 401, corsHeaders);
-  }
-  if (!webhookSecret) {
-    console.warn('PHONEBURNER_WEBHOOK_SECRET not configured — accepting without auth');
+  if (webhookSecret) {
+    if (headerSecret === webhookSecret) {
+      signatureValid = true;
+      console.log('PhoneBurner webhook received, secret verified');
+    } else {
+      console.warn('PhoneBurner webhook secret mismatch — rejecting');
+      return jsonResponse({ error: 'Invalid webhook secret' }, 401, corsHeaders);
+    }
   } else {
-    console.log('PhoneBurner webhook received, signature verified');
+    console.warn('PHONEBURNER_WEBHOOK_SECRET not configured — accepting without auth');
   }
 
   let payload: Record<string, unknown>;
