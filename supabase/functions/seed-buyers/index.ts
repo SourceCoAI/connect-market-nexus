@@ -533,6 +533,40 @@ Deno.serve(async (req: Request) => {
         action = 'inserted';
         wasNew = true;
 
+        // ── Resolve PE firm parent (lookup or auto-create) ──
+        let resolvedPeFirmId: string | null = null;
+        if (suggested.pe_firm_name && suggested.buyer_type !== 'pe_firm') {
+          const normPeFirmName = normalizeCompanyName(suggested.pe_firm_name);
+          const existingPeFirmId = nameToId.get(normPeFirmName);
+
+          if (existingPeFirmId) {
+            resolvedPeFirmId = existingPeFirmId;
+          } else {
+            // Auto-create the PE firm as a remarketing_buyers record
+            const { data: newFirm, error: firmError } = await supabase
+              .from('remarketing_buyers')
+              .insert({
+                company_name: suggested.pe_firm_name,
+                buyer_type: 'pe_firm',
+                ai_seeded: true,
+                ai_seeded_at: now,
+                ai_seeded_from_deal_id: listingId,
+                verification_status: 'pending',
+              })
+              .select('id')
+              .single();
+
+            if (firmError || !newFirm) {
+              console.error(`Failed to auto-create PE firm ${suggested.pe_firm_name}:`, firmError);
+            } else {
+              resolvedPeFirmId = newFirm.id;
+              // Track the new PE firm in dedup sets for subsequent iterations
+              existingNameSet.add(normPeFirmName);
+              nameToId.set(normPeFirmName, newFirm.id);
+            }
+          }
+        }
+
         const { data: inserted, error: insertError } = await supabase
           .from('remarketing_buyers')
           .insert({
@@ -540,6 +574,7 @@ Deno.serve(async (req: Request) => {
             company_website: suggested.company_website,
             buyer_type: suggested.buyer_type,
             pe_firm_name: suggested.pe_firm_name,
+            pe_firm_id: resolvedPeFirmId,
             hq_city: suggested.hq_city,
             hq_state: suggested.hq_state,
             thesis_summary: suggested.thesis_summary,

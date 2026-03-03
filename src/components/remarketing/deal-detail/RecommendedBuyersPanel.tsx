@@ -24,7 +24,6 @@ import {
   Copy,
   CheckCircle,
   X,
-  Briefcase,
   Database,
   Globe,
   ChevronDown,
@@ -125,44 +124,39 @@ function BuyerCard({
     <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
       {/* Top row */}
       <div className="flex items-center gap-3">
-        {/* Icon */}
-        <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
-          <Briefcase className="h-4 w-4 text-muted-foreground" />
-        </div>
-
         {/* Name + location */}
-        <div className="shrink-0 min-w-[160px]">
+        <div className="shrink-0 min-w-[180px]">
           <div className="flex items-center gap-1.5">
             <Link to={`/admin/buyers/${buyer.buyer_id}`}>
-              <span className="font-semibold text-[13.5px] hover:underline truncate">
+              <span className="font-semibold text-[15px] hover:underline truncate">
                 {buyer.company_name}
               </span>
             </Link>
             {buyer.pe_firm_name && (
               <>
-                <span className="text-muted-foreground text-xs">/</span>
+                <span className="text-muted-foreground text-[13px]">/</span>
                 {buyer.pe_firm_id ? (
                   <Link to={`/admin/buyers/pe-firms/${buyer.pe_firm_id}`}>
-                    <span className="text-xs text-muted-foreground hover:underline truncate">
+                    <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
                       {buyer.pe_firm_name}
                     </span>
                   </Link>
                 ) : (
-                  <span className="text-xs text-muted-foreground truncate">
+                  <span className="text-[13px] text-muted-foreground truncate">
                     {buyer.pe_firm_name}
                   </span>
                 )}
               </>
             )}
           </div>
-          <div className="flex items-center gap-1 text-[11.5px] text-muted-foreground mt-0.5">
-            <MapPin className="h-2.5 w-2.5" />
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+            <MapPin className="h-3 w-3" />
             {buyer.hq_city && buyer.hq_state
               ? `${buyer.hq_city}, ${buyer.hq_state}`
               : buyer.hq_state || formatBuyerType(buyer.buyer_type) || ''}
             {buyer.has_fee_agreement && (
               <span className="flex items-center gap-0.5 text-green-600 ml-1">
-                <FileCheck className="h-2.5 w-2.5" />
+                <FileCheck className="h-3 w-3" />
                 Fee
               </span>
             )}
@@ -174,7 +168,7 @@ function BuyerCard({
                 className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
                 onClick={(e) => e.stopPropagation()}
               >
-                <ExternalLink className="h-2.5 w-2.5" />
+                <ExternalLink className="h-3 w-3" />
                 Website
               </a>
             )}
@@ -186,7 +180,7 @@ function BuyerCard({
           {buyer.fit_signals.slice(0, 3).map((signal, i) => (
             <span
               key={i}
-              className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap"
+              className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap"
             >
               {signal}
             </span>
@@ -195,18 +189,18 @@ function BuyerCard({
 
         {/* Source + Tier + Score + Actions */}
         <div className="flex items-center gap-2 shrink-0">
-          <Badge variant="outline" className={cn('text-[10px]', sourceBadge.color)}>
+          <Badge variant="outline" className={cn('text-[11px]', sourceBadge.color)}>
             {sourceBadge.label}
           </Badge>
 
-          <Badge variant="outline" className={cn('text-[11px] gap-0.5', tier.color)}>
+          <Badge variant="outline" className={cn('text-xs gap-0.5', tier.color)}>
             <TierIcon className="h-3 w-3" />
             {tier.label}
           </Badge>
 
           <span
             className={cn(
-              'text-[15px] font-bold min-w-[26px] text-right tabular-nums',
+              'text-base font-bold min-w-[26px] text-right tabular-nums',
               buyer.composite_score >= 70
                 ? 'text-emerald-600'
                 : buyer.composite_score >= 55
@@ -243,7 +237,7 @@ function BuyerCard({
 
       {/* Why they're a good fit */}
       {buyer.fit_reason && (
-        <p className="text-xs text-muted-foreground leading-relaxed mt-2.5 pt-2.5 border-t pl-11">
+        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mt-2.5 pt-2.5 border-t">
           {buyer.fit_reason}
         </p>
       )}

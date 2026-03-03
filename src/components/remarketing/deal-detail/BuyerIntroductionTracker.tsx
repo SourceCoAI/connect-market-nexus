@@ -15,7 +15,6 @@ import {
   UserPlus,
   Calendar,
   Send,
-  Briefcase,
   MapPin,
   FileCheck,
   ChevronRight,
@@ -333,22 +332,17 @@ function IntroductionBuyerRow({
     <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
       {/* Top row — matches BuyerCard layout */}
       <div className="flex items-center gap-3">
-        {/* Icon */}
-        <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
-          <Briefcase className="h-4 w-4 text-muted-foreground" />
-        </div>
-
         {/* Name + firm */}
-        <div className="shrink-0 min-w-[160px]">
+        <div className="shrink-0 min-w-[180px]">
           <div className="flex items-center gap-1.5">
             {buyer.contact_id ? (
               <Link to={`/admin/buyers/${buyer.contact_id}`}>
-                <span className="font-semibold text-[13.5px] hover:underline truncate">
+                <span className="font-semibold text-[15px] hover:underline truncate">
                   {displayName}
                 </span>
               </Link>
             ) : (
-              <span className="font-semibold text-[13.5px] truncate">
+              <span className="font-semibold text-[15px] truncate">
                 {displayName}
               </span>
             )}
@@ -356,15 +350,15 @@ function IntroductionBuyerRow({
               const firmId = score?.pe_firm_id || snap?.pe_firm_id;
               return (
                 <>
-                  <span className="text-muted-foreground text-xs">/</span>
+                  <span className="text-muted-foreground text-[13px]">/</span>
                   {firmId ? (
                     <Link to={`/admin/buyers/pe-firms/${firmId}`}>
-                      <span className="text-xs text-muted-foreground hover:underline truncate">
+                      <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
                         {firmName}
                       </span>
                     </Link>
                   ) : (
-                    <span className="text-xs text-muted-foreground truncate">
+                    <span className="text-[13px] text-muted-foreground truncate">
                       {firmName}
                     </span>
                   )}
@@ -372,16 +366,16 @@ function IntroductionBuyerRow({
               );
             })()}
           </div>
-          <div className="flex items-center gap-1 text-[11.5px] text-muted-foreground mt-0.5">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
             {location && (
               <>
-                <MapPin className="h-2.5 w-2.5" />
+                <MapPin className="h-3 w-3" />
                 {location}
               </>
             )}
             {hasFeeAgreement && (
               <span className="flex items-center gap-0.5 text-green-600 ml-1">
-                <FileCheck className="h-2.5 w-2.5" />
+                <FileCheck className="h-3 w-3" />
                 Fee
               </span>
             )}
@@ -393,7 +387,7 @@ function IntroductionBuyerRow({
                 className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
                 onClick={(e) => e.stopPropagation()}
               >
-                <ExternalLink className="h-2.5 w-2.5" />
+                <ExternalLink className="h-3 w-3" />
                 Website
               </a>
             )}
@@ -405,7 +399,7 @@ function IntroductionBuyerRow({
           {fitSignals.slice(0, 3).map((signal, i) => (
             <span
               key={i}
-              className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap"
+              className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap"
             >
               {signal}
             </span>
@@ -415,13 +409,13 @@ function IntroductionBuyerRow({
         {/* Source + Tier + Score + Status + Action */}
         <div className="flex items-center gap-2 shrink-0">
           {sourceBadge && (
-            <Badge variant="outline" className={cn('text-[10px]', sourceBadge.color)}>
+            <Badge variant="outline" className={cn('text-[11px]', sourceBadge.color)}>
               {sourceBadge.label}
             </Badge>
           )}
 
           {tier && (
-            <Badge variant="outline" className={cn('text-[11px] gap-0.5', tier.color)}>
+            <Badge variant="outline" className={cn('text-xs gap-0.5', tier.color)}>
               <tier.icon className="h-3 w-3" />
               {tier.label}
             </Badge>
@@ -430,7 +424,7 @@ function IntroductionBuyerRow({
           {compositeScore != null && (
             <span
               className={cn(
-                'text-[15px] font-bold min-w-[26px] text-right tabular-nums',
+                'text-base font-bold min-w-[26px] text-right tabular-nums',
                 compositeScore >= 70
                   ? 'text-emerald-600'
                   : compositeScore >= 55
@@ -442,7 +436,7 @@ function IntroductionBuyerRow({
             </span>
           )}
 
-          <Badge variant="outline" className={cn('text-[11px] gap-0.5', config.color)}>
+          <Badge variant="outline" className={cn('text-xs gap-0.5', config.color)}>
             <StatusIcon className="h-3 w-3" />
             {config.label}
           </Badge>
@@ -466,7 +460,7 @@ function IntroductionBuyerRow({
 
       {/* Fit reason line */}
       {fitReason && (
-        <p className="text-xs text-muted-foreground leading-relaxed mt-2.5 pt-2.5 border-t pl-11">
+        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mt-2.5 pt-2.5 border-t">
           {fitReason}
         </p>
       )}
@@ -514,22 +508,17 @@ function IntroducedBuyerRow({
     <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
       {/* Top row */}
       <div className="flex items-center gap-3">
-        {/* Icon */}
-        <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
-          <Briefcase className="h-4 w-4 text-muted-foreground" />
-        </div>
-
         {/* Name + firm */}
-        <div className="shrink-0 min-w-[160px]">
+        <div className="shrink-0 min-w-[180px]">
           <div className="flex items-center gap-1.5">
             {buyer.contact_id ? (
               <Link to={`/admin/buyers/${buyer.contact_id}`}>
-                <span className="font-semibold text-[13.5px] hover:underline truncate">
+                <span className="font-semibold text-[15px] hover:underline truncate">
                   {displayName}
                 </span>
               </Link>
             ) : (
-              <span className="font-semibold text-[13.5px] truncate">
+              <span className="font-semibold text-[15px] truncate">
                 {displayName}
               </span>
             )}
@@ -537,15 +526,15 @@ function IntroducedBuyerRow({
               const firmId = score?.pe_firm_id || snap?.pe_firm_id;
               return (
                 <>
-                  <span className="text-muted-foreground text-xs">/</span>
+                  <span className="text-muted-foreground text-[13px]">/</span>
                   {firmId ? (
                     <Link to={`/admin/buyers/pe-firms/${firmId}`}>
-                      <span className="text-xs text-muted-foreground hover:underline truncate">
+                      <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
                         {firmName}
                       </span>
                     </Link>
                   ) : (
-                    <span className="text-xs text-muted-foreground truncate">
+                    <span className="text-[13px] text-muted-foreground truncate">
                       {firmName}
                     </span>
                   )}
@@ -553,21 +542,21 @@ function IntroducedBuyerRow({
               );
             })()}
           </div>
-          <div className="flex items-center gap-1 text-[11.5px] text-muted-foreground mt-0.5">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
             {location ? (
               <>
-                <MapPin className="h-2.5 w-2.5" />
+                <MapPin className="h-3 w-3" />
                 {location}
               </>
             ) : buyer.introduced_by ? (
               <>
-                <MapPin className="h-2.5 w-2.5" />
+                <MapPin className="h-3 w-3" />
                 Intro by {buyer.introduced_by}
               </>
             ) : null}
             {hasFeeAgreement && (
               <span className="flex items-center gap-0.5 text-green-600 ml-1">
-                <FileCheck className="h-2.5 w-2.5" />
+                <FileCheck className="h-3 w-3" />
                 Fee
               </span>
             )}
@@ -579,7 +568,7 @@ function IntroducedBuyerRow({
                 className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
                 onClick={(e) => e.stopPropagation()}
               >
-                <ExternalLink className="h-2.5 w-2.5" />
+                <ExternalLink className="h-3 w-3" />
                 Website
               </a>
             )}
@@ -594,19 +583,19 @@ function IntroducedBuyerRow({
           {fitSignals.slice(0, 3).map((signal, i) => (
             <span
               key={i}
-              className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap"
+              className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap"
             >
               {signal}
             </span>
           ))}
           {buyer.next_step && (
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium whitespace-nowrap truncate max-w-[200px]">
+            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium whitespace-nowrap truncate max-w-[200px]">
               Next: {buyer.next_step}
             </span>
           )}
           {buyer.expected_next_step_date && (
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap">
-              <Calendar className="h-2.5 w-2.5 inline mr-0.5" />
+            <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap">
+              <Calendar className="h-3 w-3 inline mr-0.5" />
               {format(new Date(buyer.expected_next_step_date), 'MMM d')}
             </span>
           )}
@@ -615,13 +604,13 @@ function IntroducedBuyerRow({
         {/* Source + Tier + Score + Status + Action */}
         <div className="flex items-center gap-2 shrink-0">
           {sourceBadge && (
-            <Badge variant="outline" className={cn('text-[10px]', sourceBadge.color)}>
+            <Badge variant="outline" className={cn('text-[11px]', sourceBadge.color)}>
               {sourceBadge.label}
             </Badge>
           )}
 
           {tier && (
-            <Badge variant="outline" className={cn('text-[11px] gap-0.5', tier.color)}>
+            <Badge variant="outline" className={cn('text-xs gap-0.5', tier.color)}>
               <tier.icon className="h-3 w-3" />
               {tier.label}
             </Badge>
@@ -630,7 +619,7 @@ function IntroducedBuyerRow({
           {compositeScore != null && (
             <span
               className={cn(
-                'text-[15px] font-bold min-w-[26px] text-right tabular-nums',
+                'text-base font-bold min-w-[26px] text-right tabular-nums',
                 compositeScore >= 70
                   ? 'text-emerald-600'
                   : compositeScore >= 55
@@ -642,7 +631,7 @@ function IntroducedBuyerRow({
             </span>
           )}
 
-          <Badge variant="outline" className={cn('text-[11px] gap-0.5', config.color)}>
+          <Badge variant="outline" className={cn('text-xs gap-0.5', config.color)}>
             <StatusIcon className="h-3 w-3" />
             {config.label}
           </Badge>
@@ -666,14 +655,14 @@ function IntroducedBuyerRow({
 
       {/* Fit reason or feedback line */}
       {(fitReason || buyer.buyer_feedback) && (
-        <div className="mt-2.5 pt-2.5 border-t pl-11 space-y-1.5">
+        <div className="mt-2.5 pt-2.5 border-t space-y-1.5">
           {fitReason && (
-            <p className="text-xs text-muted-foreground leading-relaxed">
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
               {fitReason}
             </p>
           )}
           {buyer.buyer_feedback && (
-            <p className="text-xs text-muted-foreground leading-relaxed italic">
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed italic">
               &ldquo;{buyer.buyer_feedback}&rdquo;
             </p>
           )}
