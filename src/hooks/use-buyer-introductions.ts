@@ -38,9 +38,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
   );
 
   const introducedAndPassed = introductions.filter(
-    (i) =>
-      i.introduction_status === 'fit_and_interested' ||
-      i.introduction_status === 'not_a_fit',
+    (i) => i.introduction_status === 'fit_and_interested' || i.introduction_status === 'not_a_fit',
   );
 
   const createMutation = useMutation({
@@ -228,7 +226,9 @@ export function useBuyerIntroductions(listingId: string | undefined) {
     } catch (error) {
       console.error('Failed to create deal from introduction:', error);
       // Don't fail the status update, just log and show a warning
-      toast.error('Status updated but failed to create deal pipeline opportunity. Please create it manually.');
+      toast.error(
+        'Status updated but failed to create deal pipeline opportunity. Please create it manually.',
+      );
     }
   }
 
@@ -250,6 +250,24 @@ export function useBuyerIntroductions(listingId: string | undefined) {
     },
   });
 
+  const batchArchiveMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('buyer_introductions' as never)
+        .update({ archived_at: new Date().toISOString() } as never)
+        .in('id', ids);
+
+      if (error) throw error;
+    },
+    onSuccess: (_data, ids) => {
+      queryClient.invalidateQueries({ queryKey });
+      toast.success(`${ids.length} buyer${ids.length === 1 ? '' : 's'} removed from deal`);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to remove buyers');
+    },
+  });
+
   return {
     introductions,
     notIntroduced,
@@ -260,5 +278,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
     updateStatus: updateStatusMutation.mutate,
     isUpdating: updateStatusMutation.isPending,
     archiveIntroduction: archiveMutation.mutate,
+    batchArchiveIntroductions: batchArchiveMutation.mutate,
+    isBatchArchiving: batchArchiveMutation.isPending,
   };
 }

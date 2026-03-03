@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
 import { useNewRecommendedBuyers, type BuyerScore } from '@/hooks/admin/use-new-recommended-buyers';
@@ -7,6 +7,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Target,
   CheckCircle,
@@ -22,10 +33,16 @@ import {
   Star,
   HelpCircle,
   ExternalLink,
+  X,
+  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { BuyerIntroduction, IntroductionStatus, ScoreSnapshot } from '@/types/buyer-introductions';
+import type {
+  BuyerIntroduction,
+  IntroductionStatus,
+  ScoreSnapshot,
+} from '@/types/buyer-introductions';
 import { AddBuyerIntroductionDialog } from './AddBuyerIntroductionDialog';
 import { UpdateIntroductionStatusDialog } from './UpdateIntroductionStatusDialog';
 
@@ -60,19 +77,20 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const TIER_CONFIG: Record<BuyerScore['tier'], { label: string; color: string; icon: typeof Zap }> = {
-  move_now: {
-    label: 'Move Now',
-    color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    icon: Zap,
-  },
-  strong: { label: 'Strong', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: Star },
-  speculative: {
-    label: 'Speculative',
-    color: 'bg-amber-100 text-amber-800 border-amber-200',
-    icon: HelpCircle,
-  },
-};
+const TIER_CONFIG: Record<BuyerScore['tier'], { label: string; color: string; icon: typeof Zap }> =
+  {
+    move_now: {
+      label: 'Move Now',
+      color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      icon: Zap,
+    },
+    strong: { label: 'Strong', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: Star },
+    speculative: {
+      label: 'Speculative',
+      color: 'bg-amber-100 text-amber-800 border-amber-200',
+      icon: HelpCircle,
+    },
+  };
 
 const SOURCE_BADGE: Record<BuyerScore['source'], { label: string; color: string }> = {
   ai_seeded: { label: 'AI Search', color: 'bg-purple-100 text-purple-700' },
@@ -95,8 +113,14 @@ export function BuyerIntroductionTracker({
   listingId,
   listingTitle,
 }: BuyerIntroductionTrackerProps) {
-  const { introductions, notIntroduced, introducedAndPassed, isLoading } =
-    useBuyerIntroductions(listingId);
+  const {
+    introductions,
+    notIntroduced,
+    introducedAndPassed,
+    isLoading,
+    batchArchiveIntroductions,
+    isBatchArchiving,
+  } = useBuyerIntroductions(listingId);
   const { data: scoredData } = useNewRecommendedBuyers(listingId);
 
   // Build a lookup map: buyer_id → BuyerScore (shares React Query cache with RecommendedBuyersPanel)
@@ -112,6 +136,37 @@ export function BuyerIntroductionTracker({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<BuyerIntroduction | null>(null);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+
+  // Checkbox selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  // Get names of selected buyers for the confirmation dialog
+  const selectedBuyerNames = useMemo(() => {
+    return introductions.filter((i) => selectedIds.has(i.id)).map((i) => i.buyer_name);
+  }, [introductions, selectedIds]);
+
+  const handleRemoveSelected = useCallback(() => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    batchArchiveIntroductions(ids, {
+      onSuccess: () => {
+        setSelectedIds(new Set());
+        setConfirmRemoveOpen(false);
+      },
+    });
+  }, [selectedIds, batchArchiveIntroductions]);
 
   const filteredNotIntroduced = useMemo(() => {
     if (!searchQuery) return notIntroduced;
@@ -129,11 +184,44 @@ export function BuyerIntroductionTracker({
     );
   }, [introducedAndPassed, searchQuery]);
 
+  // Select-all helpers for each section
+  const allNotIntroducedSelected =
+    filteredNotIntroduced.length > 0 && filteredNotIntroduced.every((b) => selectedIds.has(b.id));
+  const someNotIntroducedSelected = filteredNotIntroduced.some((b) => selectedIds.has(b.id));
+  const toggleAllNotIntroduced = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allNotIntroducedSelected) {
+        filteredNotIntroduced.forEach((b) => next.delete(b.id));
+      } else {
+        filteredNotIntroduced.forEach((b) => next.add(b.id));
+      }
+      return next;
+    });
+  }, [allNotIntroducedSelected, filteredNotIntroduced]);
+
+  const allIntroducedSelected =
+    filteredIntroducedPassed.length > 0 &&
+    filteredIntroducedPassed.every((b) => selectedIds.has(b.id));
+  const someIntroducedSelected = filteredIntroducedPassed.some((b) => selectedIds.has(b.id));
+  const toggleAllIntroduced = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allIntroducedSelected) {
+        filteredIntroducedPassed.forEach((b) => next.delete(b.id));
+      } else {
+        filteredIntroducedPassed.forEach((b) => next.add(b.id));
+      }
+      return next;
+    });
+  }, [allIntroducedSelected, filteredIntroducedPassed]);
+
   // Stats
   const stats = {
     total: introductions.length,
     notIntroduced: notIntroduced.length,
-    fitAndInterested: introductions.filter((i) => i.introduction_status === 'fit_and_interested').length,
+    fitAndInterested: introductions.filter((i) => i.introduction_status === 'fit_and_interested')
+      .length,
     notAFit: introductions.filter((i) => i.introduction_status === 'not_a_fit').length,
   };
 
@@ -149,6 +237,42 @@ export function BuyerIntroductionTracker({
 
   return (
     <>
+      {/* ─── Selection Action Bar ─── */}
+      {selectedIds.size > 0 && (
+        <div className="sticky top-0 z-20 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary" className="text-xs font-semibold">
+              {selectedIds.size} selected
+            </Badge>
+            <span className="text-sm text-blue-700">
+              {selectedBuyerNames.slice(0, 3).join(', ')}
+              {selectedBuyerNames.length > 3 && ` +${selectedBuyerNames.length - 3} more`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={clearSelection}
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setConfirmRemoveOpen(true)}
+              disabled={isBatchArchiving}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Remove from Deal
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ─── Section 1: Buyers to Introduce to Deal ─── */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -204,17 +328,34 @@ export function BuyerIntroductionTracker({
               )}
             </div>
           ) : (
-            filteredNotIntroduced.map((buyer) => (
-              <IntroductionBuyerRow
-                key={buyer.id}
-                buyer={buyer}
-                score={buyer.contact_id ? scoreMap.get(buyer.contact_id) : undefined}
-                onSelect={(b) => {
-                  setSelectedBuyer(b);
-                  setUpdateDialogOpen(true);
-                }}
-              />
-            ))
+            <>
+              {/* Select all for this section */}
+              <div className="flex items-center gap-2 pb-1">
+                <Checkbox
+                  checked={allNotIntroducedSelected}
+                  ref={undefined}
+                  onCheckedChange={toggleAllNotIntroduced}
+                  className={cn(
+                    'h-4 w-4',
+                    someNotIntroducedSelected && !allNotIntroducedSelected && 'opacity-60',
+                  )}
+                />
+                <span className="text-xs text-muted-foreground">Select all</span>
+              </div>
+              {filteredNotIntroduced.map((buyer) => (
+                <IntroductionBuyerRow
+                  key={buyer.id}
+                  buyer={buyer}
+                  score={buyer.contact_id ? scoreMap.get(buyer.contact_id) : undefined}
+                  selected={selectedIds.has(buyer.id)}
+                  onToggleSelect={toggleSelection}
+                  onSelect={(b) => {
+                    setSelectedBuyer(b);
+                    setUpdateDialogOpen(true);
+                  }}
+                />
+              ))}
+            </>
           )}
         </CardContent>
       </Card>
@@ -235,12 +376,18 @@ export function BuyerIntroductionTracker({
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span>Buyers that have been evaluated for this deal</span>
               {stats.fitAndInterested > 0 && (
-                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200"
+                >
                   {stats.fitAndInterested} Fit & Interested
                 </Badge>
               )}
               {stats.notAFit > 0 && (
-                <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] bg-slate-50 text-slate-600 border-slate-200"
+                >
                   {stats.notAFit} Not a Fit
                 </Badge>
               )}
@@ -258,17 +405,34 @@ export function BuyerIntroductionTracker({
               </p>
             </div>
           ) : (
-            filteredIntroducedPassed.map((buyer) => (
-              <IntroducedBuyerRow
-                key={buyer.id}
-                buyer={buyer}
-                score={buyer.contact_id ? scoreMap.get(buyer.contact_id) : undefined}
-                onSelect={(b) => {
-                  setSelectedBuyer(b);
-                  setUpdateDialogOpen(true);
-                }}
-              />
-            ))
+            <>
+              {/* Select all for this section */}
+              <div className="flex items-center gap-2 pb-1">
+                <Checkbox
+                  checked={allIntroducedSelected}
+                  ref={undefined}
+                  onCheckedChange={toggleAllIntroduced}
+                  className={cn(
+                    'h-4 w-4',
+                    someIntroducedSelected && !allIntroducedSelected && 'opacity-60',
+                  )}
+                />
+                <span className="text-xs text-muted-foreground">Select all</span>
+              </div>
+              {filteredIntroducedPassed.map((buyer) => (
+                <IntroducedBuyerRow
+                  key={buyer.id}
+                  buyer={buyer}
+                  score={buyer.contact_id ? scoreMap.get(buyer.contact_id) : undefined}
+                  selected={selectedIds.has(buyer.id)}
+                  onToggleSelect={toggleSelection}
+                  onSelect={(b) => {
+                    setSelectedBuyer(b);
+                    setUpdateDialogOpen(true);
+                  }}
+                />
+              ))}
+            </>
           )}
         </CardContent>
       </Card>
@@ -292,6 +456,38 @@ export function BuyerIntroductionTracker({
           listingId={listingId}
         />
       )}
+
+      {/* Confirm Remove Dialog */}
+      <AlertDialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove {selectedIds.size} buyer{selectedIds.size === 1 ? '' : 's'} from deal?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the selected buyers from this deal's introduction pipeline. They will
+              still exist in your buyer pool and can be re-added later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-32 overflow-y-auto text-sm text-muted-foreground px-1">
+            {selectedBuyerNames.map((name, i) => (
+              <div key={i} className="py-0.5">
+                &bull; {name}
+              </div>
+            ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBatchArchiving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveSelected}
+              disabled={isBatchArchiving}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBatchArchiving ? 'Removing...' : 'Remove from Deal'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -300,10 +496,14 @@ export function BuyerIntroductionTracker({
 function IntroductionBuyerRow({
   buyer,
   score,
+  selected,
+  onToggleSelect,
   onSelect,
 }: {
   buyer: BuyerIntroduction;
   score?: BuyerScore;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
   onSelect: (b: BuyerIntroduction) => void;
 }) {
   const config = STATUS_CONFIG[buyer.introduction_status];
@@ -312,26 +512,46 @@ function IntroductionBuyerRow({
 
   // Use live score data → persisted snapshot → raw introduction data
   const displayName = score?.company_name || buyer.buyer_name;
-  const firmName = score?.pe_firm_name || snap?.pe_firm_name || (buyer.buyer_firm_name !== buyer.buyer_name ? buyer.buyer_firm_name : null);
+  const firmName =
+    score?.pe_firm_name ||
+    snap?.pe_firm_name ||
+    (buyer.buyer_firm_name !== buyer.buyer_name ? buyer.buyer_firm_name : null);
   const location = score
-    ? (score.hq_city && score.hq_state ? `${score.hq_city}, ${score.hq_state}` : score.hq_state || formatBuyerType(score.buyer_type))
+    ? score.hq_city && score.hq_state
+      ? `${score.hq_city}, ${score.hq_state}`
+      : score.hq_state || formatBuyerType(score.buyer_type)
     : snap
-      ? (snap.hq_city && snap.hq_state ? `${snap.hq_city}, ${snap.hq_state}` : snap.hq_state || formatBuyerType(snap.buyer_type))
+      ? snap.hq_city && snap.hq_state
+        ? `${snap.hq_city}, ${snap.hq_state}`
+        : snap.hq_state || formatBuyerType(snap.buyer_type)
       : buyer.internal_champion || '';
   const fitReason = score?.fit_reason || snap?.fit_reason || buyer.targeting_reason;
   const fitSignals = score?.fit_signals || snap?.fit_signals || [];
   const tierKey = score?.tier || snap?.tier;
   const tier = tierKey ? TIER_CONFIG[tierKey] : null;
   const sourceKey = score?.source || snap?.source;
-  const sourceBadge = sourceKey ? (SOURCE_BADGE[sourceKey] || SOURCE_BADGE.scored) : null;
+  const sourceBadge = sourceKey ? SOURCE_BADGE[sourceKey] || SOURCE_BADGE.scored : null;
   const compositeScore = score?.composite_score ?? snap?.composite_score;
   const hasFeeAgreement = score?.has_fee_agreement ?? snap?.has_fee_agreement ?? false;
   const companyWebsite = score?.company_website || snap?.company_website || null;
 
   return (
-    <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
+    <div
+      className={cn(
+        'border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm',
+        selected && 'ring-2 ring-blue-400 bg-blue-50/30',
+      )}
+    >
       {/* Top row — matches BuyerCard layout */}
       <div className="flex items-center gap-3">
+        {/* Checkbox */}
+        <Checkbox
+          checked={selected}
+          onCheckedChange={() => onToggleSelect(buyer.id)}
+          onClick={(e) => e.stopPropagation()}
+          className="h-4 w-4 shrink-0"
+        />
+
         {/* Name + firm */}
         <div className="shrink-0 min-w-[180px]">
           <div className="flex items-center gap-1.5">
@@ -342,29 +562,26 @@ function IntroductionBuyerRow({
                 </span>
               </Link>
             ) : (
-              <span className="font-semibold text-[15px] truncate">
-                {displayName}
-              </span>
+              <span className="font-semibold text-[15px] truncate">{displayName}</span>
             )}
-            {firmName && (() => {
-              const firmId = score?.pe_firm_id || snap?.pe_firm_id;
-              return (
-                <>
-                  <span className="text-muted-foreground text-[13px]">/</span>
-                  {firmId ? (
-                    <Link to={`/admin/buyers/pe-firms/${firmId}`}>
-                      <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
-                        {firmName}
-                      </span>
-                    </Link>
-                  ) : (
-                    <span className="text-[13px] text-muted-foreground truncate">
-                      {firmName}
-                    </span>
-                  )}
-                </>
-              );
-            })()}
+            {firmName &&
+              (() => {
+                const firmId = score?.pe_firm_id || snap?.pe_firm_id;
+                return (
+                  <>
+                    <span className="text-muted-foreground text-[13px]">/</span>
+                    {firmId ? (
+                      <Link to={`/admin/buyers/pe-firms/${firmId}`}>
+                        <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
+                          {firmName}
+                        </span>
+                      </Link>
+                    ) : (
+                      <span className="text-[13px] text-muted-foreground truncate">{firmName}</span>
+                    )}
+                  </>
+                );
+              })()}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
             {location && (
@@ -381,7 +598,9 @@ function IntroductionBuyerRow({
             )}
             {companyWebsite && (
               <a
-                href={companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`}
+                href={
+                  companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
@@ -460,7 +679,7 @@ function IntroductionBuyerRow({
 
       {/* Fit reason line */}
       {fitReason && (
-        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mt-2.5 pt-2.5 border-t">
+        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mt-2.5 pt-2.5 border-t ml-7">
           {fitReason}
         </p>
       )}
@@ -472,10 +691,14 @@ function IntroductionBuyerRow({
 function IntroducedBuyerRow({
   buyer,
   score,
+  selected,
+  onToggleSelect,
   onSelect,
 }: {
   buyer: BuyerIntroduction;
   score?: BuyerScore;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
   onSelect: (b: BuyerIntroduction) => void;
 }) {
   const config = STATUS_CONFIG[buyer.introduction_status];
@@ -488,26 +711,46 @@ function IntroducedBuyerRow({
 
   // Use live score data → persisted snapshot → raw introduction data
   const displayName = score?.company_name || buyer.buyer_name;
-  const firmName = score?.pe_firm_name || snap?.pe_firm_name || (buyer.buyer_firm_name !== buyer.buyer_name ? buyer.buyer_firm_name : null);
+  const firmName =
+    score?.pe_firm_name ||
+    snap?.pe_firm_name ||
+    (buyer.buyer_firm_name !== buyer.buyer_name ? buyer.buyer_firm_name : null);
   const location = score
-    ? (score.hq_city && score.hq_state ? `${score.hq_city}, ${score.hq_state}` : score.hq_state || formatBuyerType(score.buyer_type))
+    ? score.hq_city && score.hq_state
+      ? `${score.hq_city}, ${score.hq_state}`
+      : score.hq_state || formatBuyerType(score.buyer_type)
     : snap
-      ? (snap.hq_city && snap.hq_state ? `${snap.hq_city}, ${snap.hq_state}` : snap.hq_state || formatBuyerType(snap.buyer_type))
+      ? snap.hq_city && snap.hq_state
+        ? `${snap.hq_city}, ${snap.hq_state}`
+        : snap.hq_state || formatBuyerType(snap.buyer_type)
       : '';
   const fitReason = score?.fit_reason || snap?.fit_reason || buyer.targeting_reason;
   const fitSignals = score?.fit_signals || snap?.fit_signals || [];
   const tierKey = score?.tier || snap?.tier;
   const tier = tierKey ? TIER_CONFIG[tierKey] : null;
   const sourceKey = score?.source || snap?.source;
-  const sourceBadge = sourceKey ? (SOURCE_BADGE[sourceKey] || SOURCE_BADGE.scored) : null;
+  const sourceBadge = sourceKey ? SOURCE_BADGE[sourceKey] || SOURCE_BADGE.scored : null;
   const compositeScore = score?.composite_score ?? snap?.composite_score;
   const hasFeeAgreement = score?.has_fee_agreement ?? snap?.has_fee_agreement ?? false;
   const companyWebsite = score?.company_website || snap?.company_website || null;
 
   return (
-    <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
+    <div
+      className={cn(
+        'border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm',
+        selected && 'ring-2 ring-blue-400 bg-blue-50/30',
+      )}
+    >
       {/* Top row */}
       <div className="flex items-center gap-3">
+        {/* Checkbox */}
+        <Checkbox
+          checked={selected}
+          onCheckedChange={() => onToggleSelect(buyer.id)}
+          onClick={(e) => e.stopPropagation()}
+          className="h-4 w-4 shrink-0"
+        />
+
         {/* Name + firm */}
         <div className="shrink-0 min-w-[180px]">
           <div className="flex items-center gap-1.5">
@@ -518,29 +761,26 @@ function IntroducedBuyerRow({
                 </span>
               </Link>
             ) : (
-              <span className="font-semibold text-[15px] truncate">
-                {displayName}
-              </span>
+              <span className="font-semibold text-[15px] truncate">{displayName}</span>
             )}
-            {firmName && (() => {
-              const firmId = score?.pe_firm_id || snap?.pe_firm_id;
-              return (
-                <>
-                  <span className="text-muted-foreground text-[13px]">/</span>
-                  {firmId ? (
-                    <Link to={`/admin/buyers/pe-firms/${firmId}`}>
-                      <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
-                        {firmName}
-                      </span>
-                    </Link>
-                  ) : (
-                    <span className="text-[13px] text-muted-foreground truncate">
-                      {firmName}
-                    </span>
-                  )}
-                </>
-              );
-            })()}
+            {firmName &&
+              (() => {
+                const firmId = score?.pe_firm_id || snap?.pe_firm_id;
+                return (
+                  <>
+                    <span className="text-muted-foreground text-[13px]">/</span>
+                    {firmId ? (
+                      <Link to={`/admin/buyers/pe-firms/${firmId}`}>
+                        <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
+                          {firmName}
+                        </span>
+                      </Link>
+                    ) : (
+                      <span className="text-[13px] text-muted-foreground truncate">{firmName}</span>
+                    )}
+                  </>
+                );
+              })()}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
             {location ? (
@@ -562,7 +802,9 @@ function IntroducedBuyerRow({
             )}
             {companyWebsite && (
               <a
-                href={companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`}
+                href={
+                  companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
@@ -655,11 +897,9 @@ function IntroducedBuyerRow({
 
       {/* Fit reason or feedback line */}
       {(fitReason || buyer.buyer_feedback) && (
-        <div className="mt-2.5 pt-2.5 border-t space-y-1.5">
+        <div className="mt-2.5 pt-2.5 border-t space-y-1.5 ml-7">
           {fitReason && (
-            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-              {fitReason}
-            </p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{fitReason}</p>
           )}
           {buyer.buyer_feedback && (
             <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed italic">
