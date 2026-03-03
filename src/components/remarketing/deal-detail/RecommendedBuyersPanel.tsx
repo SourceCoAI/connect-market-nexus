@@ -28,6 +28,7 @@ import {
   Database,
   Globe,
   ChevronDown,
+  ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -158,14 +159,24 @@ function BuyerCard({
             <MapPin className="h-2.5 w-2.5" />
             {buyer.hq_city && buyer.hq_state
               ? `${buyer.hq_city}, ${buyer.hq_state}`
-              : buyer.hq_state || buyer.buyer_type
-                ? formatBuyerType(buyer.buyer_type)
-                : ''}
+              : buyer.hq_state || formatBuyerType(buyer.buyer_type) || ''}
             {buyer.has_fee_agreement && (
               <span className="flex items-center gap-0.5 text-green-600 ml-1">
                 <FileCheck className="h-2.5 w-2.5" />
                 Fee
               </span>
+            )}
+            {buyer.company_website && (
+              <a
+                href={buyer.company_website.startsWith('http') ? buyer.company_website : `https://${buyer.company_website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Website
+              </a>
             )}
           </div>
         </div>
@@ -353,6 +364,25 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
             buyer_firm_name: buyer.pe_firm_name || buyer.company_name,
             company_name: listingTitle || buyer.company_name,
             targeting_reason: buyer.fit_reason,
+            score_snapshot: {
+              composite_score: buyer.composite_score,
+              service_score: buyer.service_score,
+              geography_score: buyer.geography_score,
+              size_score: buyer.size_score,
+              bonus_score: buyer.bonus_score,
+              fit_signals: buyer.fit_signals,
+              fit_reason: buyer.fit_reason,
+              tier: buyer.tier,
+              source: buyer.source,
+              buyer_type: buyer.buyer_type,
+              hq_city: buyer.hq_city,
+              hq_state: buyer.hq_state,
+              has_fee_agreement: buyer.has_fee_agreement,
+              pe_firm_name: buyer.pe_firm_name,
+              pe_firm_id: buyer.pe_firm_id,
+              acquisition_appetite: buyer.acquisition_appetite,
+              company_website: buyer.company_website,
+            },
           },
           {
             onSuccess: () => resolve(),
@@ -376,6 +406,30 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
     setRejectedIds((prev) => new Set([...prev, buyer.buyer_id]));
     toast.info(`${buyer.company_name} removed from recommendations`);
   };
+
+  // Build a set of buyer IDs that already have introductions (persisted in DB).
+  // This ensures accepted buyers stay hidden even after refresh or new AI searches.
+  // NOTE: Must be called before any early returns to satisfy React's Rules of Hooks.
+  const introducedBuyerIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const intro of introductions) {
+      if (intro.contact_id) ids.add(intro.contact_id);
+    }
+    return ids;
+  }, [introductions]);
+
+  const allBuyers = data?.buyers || [];
+  const available = allBuyers.filter(
+    (b) =>
+      !acceptedIds.has(b.buyer_id) &&
+      !rejectedIds.has(b.buyer_id) &&
+      !introducedBuyerIds.has(b.buyer_id),
+  );
+  const allInternal = available.filter(isInternal);
+  const allExternal = available.filter((b) => !isInternal(b));
+  const internalBuyers = allInternal.slice(0, internalVisible);
+  const externalBuyers = allExternal.slice(0, externalVisible);
+  const buyers = [...allInternal, ...allExternal];
 
   if (isLoading) {
     return (
@@ -424,29 +478,6 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
       </Card>
     );
   }
-
-  // Build a set of buyer IDs that already have introductions (persisted in DB).
-  // This ensures accepted buyers stay hidden even after refresh or new AI searches.
-  const introducedBuyerIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const intro of introductions) {
-      if (intro.contact_id) ids.add(intro.contact_id);
-    }
-    return ids;
-  }, [introductions]);
-
-  const allBuyers = data?.buyers || [];
-  const available = allBuyers.filter(
-    (b) =>
-      !acceptedIds.has(b.buyer_id) &&
-      !rejectedIds.has(b.buyer_id) &&
-      !introducedBuyerIds.has(b.buyer_id),
-  );
-  const allInternal = available.filter(isInternal);
-  const allExternal = available.filter((b) => !isInternal(b));
-  const internalBuyers = allInternal.slice(0, internalVisible);
-  const externalBuyers = allExternal.slice(0, externalVisible);
-  const buyers = [...allInternal, ...allExternal];
 
   return (
     <Card>

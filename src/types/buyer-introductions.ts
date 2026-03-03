@@ -34,10 +34,32 @@ export interface BuyerIntroduction {
   buyer_feedback: string | null;
   next_step: string | null;
   expected_next_step_date: string | null;
+  score_snapshot: ScoreSnapshot | null;
   created_by: string;
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+}
+
+/** Subset of BuyerScore persisted at acceptance time so cards always render rich data. */
+export interface ScoreSnapshot {
+  composite_score: number;
+  service_score: number;
+  geography_score: number;
+  size_score: number;
+  bonus_score: number;
+  fit_signals: string[];
+  fit_reason: string;
+  tier: 'move_now' | 'strong' | 'speculative';
+  source: 'ai_seeded' | 'marketplace' | 'scored';
+  buyer_type: string | null;
+  hq_city: string | null;
+  hq_state: string | null;
+  has_fee_agreement: boolean;
+  pe_firm_name: string | null;
+  pe_firm_id: string | null;
+  acquisition_appetite: string | null;
+  company_website: string | null;
 }
 
 export interface IntroductionStatusLog {
@@ -82,6 +104,7 @@ export interface CreateBuyerIntroductionInput {
   expected_deal_size_high?: number;
   internal_champion?: string;
   internal_champion_email?: string;
+  score_snapshot?: ScoreSnapshot;
 }
 
 export interface UpdateBuyerIntroductionInput {

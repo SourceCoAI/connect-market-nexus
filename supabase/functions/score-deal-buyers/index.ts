@@ -19,6 +19,7 @@ interface BuyerScore {
   hq_city: string | null;
   has_fee_agreement: boolean;
   acquisition_appetite: string | null;
+  company_website: string | null;
   composite_score: number;
   service_score: number;
   geography_score: number;
@@ -431,7 +432,7 @@ Deno.serve(async (req: Request) => {
     const { data: buyers, error: buyerError } = await supabase
       .from('remarketing_buyers')
       .select(
-        'id, company_name, pe_firm_name, pe_firm_id, buyer_type, hq_state, hq_city, ' +
+        'id, company_name, company_website, pe_firm_name, pe_firm_id, buyer_type, hq_state, hq_city, ' +
           'target_services, target_industries, industry_vertical, ' +
           'target_geographies, geographic_footprint, ' +
           'target_ebitda_min, target_ebitda_max, ' +
@@ -557,6 +558,7 @@ Deno.serve(async (req: Request) => {
         hq_city: buyer.hq_city,
         has_fee_agreement: !!buyer.has_fee_agreement,
         acquisition_appetite: buyer.acquisition_appetite,
+        company_website: buyer.company_website || null,
         composite_score: composite,
         service_score: svc.score,
         geography_score: geo.score,

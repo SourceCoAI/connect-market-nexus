@@ -23,10 +23,11 @@ import {
   Zap,
   Star,
   HelpCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { BuyerIntroduction, IntroductionStatus } from '@/types/buyer-introductions';
+import type { BuyerIntroduction, IntroductionStatus, ScoreSnapshot } from '@/types/buyer-introductions';
 import { AddBuyerIntroductionDialog } from './AddBuyerIntroductionDialog';
 import { UpdateIntroductionStatusDialog } from './UpdateIntroductionStatusDialog';
 
@@ -320,17 +321,25 @@ function IntroductionBuyerRow({
 }) {
   const config = STATUS_CONFIG[buyer.introduction_status];
   const StatusIcon = config.icon;
+  const snap = buyer.score_snapshot as ScoreSnapshot | null;
 
-  // Use score data when available, fallback to introduction data
+  // Use live score data → persisted snapshot → raw introduction data
   const displayName = score?.company_name || buyer.buyer_name;
-  const firmName = score?.pe_firm_name || (buyer.buyer_firm_name !== buyer.buyer_name ? buyer.buyer_firm_name : null);
+  const firmName = score?.pe_firm_name || snap?.pe_firm_name || (buyer.buyer_firm_name !== buyer.buyer_name ? buyer.buyer_firm_name : null);
   const location = score
     ? (score.hq_city && score.hq_state ? `${score.hq_city}, ${score.hq_state}` : score.hq_state || formatBuyerType(score.buyer_type))
-    : buyer.internal_champion || '';
-  const fitReason = score?.fit_reason || buyer.targeting_reason;
-  const fitSignals = score?.fit_signals || [];
-  const tier = score ? TIER_CONFIG[score.tier] : null;
-  const sourceBadge = score ? (SOURCE_BADGE[score.source] || SOURCE_BADGE.scored) : null;
+    : snap
+      ? (snap.hq_city && snap.hq_state ? `${snap.hq_city}, ${snap.hq_state}` : snap.hq_state || formatBuyerType(snap.buyer_type))
+      : buyer.internal_champion || '';
+  const fitReason = score?.fit_reason || snap?.fit_reason || buyer.targeting_reason;
+  const fitSignals = score?.fit_signals || snap?.fit_signals || [];
+  const tierKey = score?.tier || snap?.tier;
+  const tier = tierKey ? TIER_CONFIG[tierKey] : null;
+  const sourceKey = score?.source || snap?.source;
+  const sourceBadge = sourceKey ? (SOURCE_BADGE[sourceKey] || SOURCE_BADGE.scored) : null;
+  const compositeScore = score?.composite_score ?? snap?.composite_score;
+  const hasFeeAgreement = score?.has_fee_agreement ?? snap?.has_fee_agreement ?? false;
+  const companyWebsite = score?.company_website || snap?.company_website || null;
 
   return (
     <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
@@ -355,22 +364,25 @@ function IntroductionBuyerRow({
                 {displayName}
               </span>
             )}
-            {firmName && (
-              <>
-                <span className="text-muted-foreground text-xs">/</span>
-                {score?.pe_firm_id ? (
-                  <Link to={`/admin/buyers/pe-firms/${score.pe_firm_id}`}>
-                    <span className="text-xs text-muted-foreground hover:underline truncate">
+            {firmName && (() => {
+              const firmId = score?.pe_firm_id || snap?.pe_firm_id;
+              return (
+                <>
+                  <span className="text-muted-foreground text-xs">/</span>
+                  {firmId ? (
+                    <Link to={`/admin/buyers/pe-firms/${firmId}`}>
+                      <span className="text-xs text-muted-foreground hover:underline truncate">
+                        {firmName}
+                      </span>
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-muted-foreground truncate">
                       {firmName}
                     </span>
-                  </Link>
-                ) : (
-                  <span className="text-xs text-muted-foreground truncate">
-                    {firmName}
-                  </span>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-1 text-[11.5px] text-muted-foreground mt-0.5">
             {location && (
@@ -379,11 +391,23 @@ function IntroductionBuyerRow({
                 {location}
               </>
             )}
-            {score?.has_fee_agreement && (
+            {hasFeeAgreement && (
               <span className="flex items-center gap-0.5 text-green-600 ml-1">
                 <FileCheck className="h-2.5 w-2.5" />
                 Fee
               </span>
+            )}
+            {companyWebsite && (
+              <a
+                href={companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Website
+              </a>
             )}
           </div>
         </div>
@@ -415,18 +439,18 @@ function IntroductionBuyerRow({
             </Badge>
           )}
 
-          {score && (
+          {compositeScore != null && (
             <span
               className={cn(
                 'text-[15px] font-bold min-w-[26px] text-right tabular-nums',
-                score.composite_score >= 70
+                compositeScore >= 70
                   ? 'text-emerald-600'
-                  : score.composite_score >= 55
+                  : compositeScore >= 55
                     ? 'text-amber-600'
                     : 'text-muted-foreground',
               )}
             >
-              {score.composite_score}
+              {compositeScore}
             </span>
           )}
 
@@ -474,21 +498,29 @@ function IntroducedBuyerRow({
 }) {
   const config = STATUS_CONFIG[buyer.introduction_status];
   const StatusIcon = config.icon;
+  const snap = buyer.score_snapshot as ScoreSnapshot | null;
 
   const daysSinceIntroduction = buyer.introduction_date
     ? Math.floor((Date.now() - new Date(buyer.introduction_date).getTime()) / (1000 * 60 * 60 * 24))
     : null;
 
-  // Use score data when available, fallback to introduction data
+  // Use live score data → persisted snapshot → raw introduction data
   const displayName = score?.company_name || buyer.buyer_name;
-  const firmName = score?.pe_firm_name || (buyer.buyer_firm_name !== buyer.buyer_name ? buyer.buyer_firm_name : null);
+  const firmName = score?.pe_firm_name || snap?.pe_firm_name || (buyer.buyer_firm_name !== buyer.buyer_name ? buyer.buyer_firm_name : null);
   const location = score
     ? (score.hq_city && score.hq_state ? `${score.hq_city}, ${score.hq_state}` : score.hq_state || formatBuyerType(score.buyer_type))
-    : '';
-  const fitReason = score?.fit_reason || buyer.targeting_reason;
-  const fitSignals = score?.fit_signals || [];
-  const tier = score ? TIER_CONFIG[score.tier] : null;
-  const sourceBadge = score ? (SOURCE_BADGE[score.source] || SOURCE_BADGE.scored) : null;
+    : snap
+      ? (snap.hq_city && snap.hq_state ? `${snap.hq_city}, ${snap.hq_state}` : snap.hq_state || formatBuyerType(snap.buyer_type))
+      : '';
+  const fitReason = score?.fit_reason || snap?.fit_reason || buyer.targeting_reason;
+  const fitSignals = score?.fit_signals || snap?.fit_signals || [];
+  const tierKey = score?.tier || snap?.tier;
+  const tier = tierKey ? TIER_CONFIG[tierKey] : null;
+  const sourceKey = score?.source || snap?.source;
+  const sourceBadge = sourceKey ? (SOURCE_BADGE[sourceKey] || SOURCE_BADGE.scored) : null;
+  const compositeScore = score?.composite_score ?? snap?.composite_score;
+  const hasFeeAgreement = score?.has_fee_agreement ?? snap?.has_fee_agreement ?? false;
+  const companyWebsite = score?.company_website || snap?.company_website || null;
 
   return (
     <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
@@ -513,22 +545,25 @@ function IntroducedBuyerRow({
                 {displayName}
               </span>
             )}
-            {firmName && (
-              <>
-                <span className="text-muted-foreground text-xs">/</span>
-                {score?.pe_firm_id ? (
-                  <Link to={`/admin/buyers/pe-firms/${score.pe_firm_id}`}>
-                    <span className="text-xs text-muted-foreground hover:underline truncate">
+            {firmName && (() => {
+              const firmId = score?.pe_firm_id || snap?.pe_firm_id;
+              return (
+                <>
+                  <span className="text-muted-foreground text-xs">/</span>
+                  {firmId ? (
+                    <Link to={`/admin/buyers/pe-firms/${firmId}`}>
+                      <span className="text-xs text-muted-foreground hover:underline truncate">
+                        {firmName}
+                      </span>
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-muted-foreground truncate">
                       {firmName}
                     </span>
-                  </Link>
-                ) : (
-                  <span className="text-xs text-muted-foreground truncate">
-                    {firmName}
-                  </span>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-1 text-[11.5px] text-muted-foreground mt-0.5">
             {location ? (
@@ -542,11 +577,23 @@ function IntroducedBuyerRow({
                 Intro by {buyer.introduced_by}
               </>
             ) : null}
-            {score?.has_fee_agreement && (
+            {hasFeeAgreement && (
               <span className="flex items-center gap-0.5 text-green-600 ml-1">
                 <FileCheck className="h-2.5 w-2.5" />
                 Fee
               </span>
+            )}
+            {companyWebsite && (
+              <a
+                href={companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Website
+              </a>
             )}
             {daysSinceIntroduction !== null && (
               <span className="ml-1">{daysSinceIntroduction}d in pipeline</span>
@@ -592,18 +639,18 @@ function IntroducedBuyerRow({
             </Badge>
           )}
 
-          {score && (
+          {compositeScore != null && (
             <span
               className={cn(
                 'text-[15px] font-bold min-w-[26px] text-right tabular-nums',
-                score.composite_score >= 70
+                compositeScore >= 70
                   ? 'text-emerald-600'
-                  : score.composite_score >= 55
+                  : compositeScore >= 55
                     ? 'text-amber-600'
                     : 'text-muted-foreground',
               )}
             >
-              {score.composite_score}
+              {compositeScore}
             </span>
           )}
 
