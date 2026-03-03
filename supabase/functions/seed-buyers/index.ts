@@ -32,7 +32,7 @@ interface SeedRequest {
 interface AISuggestedBuyer {
   company_name: string;
   company_website: string | null;
-  buyer_type: 'pe_firm' | 'platform' | 'strategic' | 'family_office';
+  buyer_type: 'private_equity' | 'corporate' | 'family_office' | 'search_fund' | 'independent_sponsor' | 'individual_buyer';
   pe_firm_name: string | null;
   hq_city: string | null;
   hq_state: string | null;
@@ -190,8 +190,8 @@ Return a JSON array of up to ${maxBuyers} buyers. Each object must have:
 {
   "company_name": "exact legal/common name",
   "company_website": "url or null",
-  "buyer_type": "pe_firm" | "platform" | "strategic" | "family_office",
-  "pe_firm_name": "PE sponsor name or null (for platform companies, name the PE backer)",
+  "buyer_type": "private_equity" | "corporate" | "family_office" | "search_fund" | "independent_sponsor" | "individual_buyer",
+  "pe_firm_name": "PE sponsor name or null (for PE-backed corporate buyers, name the PE backer)",
   "hq_city": "city or null",
   "hq_state": "2-letter state code or null",
   "thesis_summary": "their acquisition thesis in 1-2 sentences — what they invest in and why",
@@ -295,11 +295,11 @@ function parseClaudeResponse(responseText: string): AISuggestedBuyer[] {
     .map((b: Record<string, unknown>) => ({
       company_name: String(b.company_name || '').trim(),
       company_website: b.company_website ? String(b.company_website).trim() : null,
-      buyer_type: (['pe_firm', 'platform', 'strategic', 'family_office'].includes(
+      buyer_type: (['private_equity', 'corporate', 'family_office', 'search_fund', 'independent_sponsor', 'individual_buyer'].includes(
         String(b.buyer_type),
       )
         ? String(b.buyer_type)
-        : 'strategic') as AISuggestedBuyer['buyer_type'],
+        : 'corporate') as AISuggestedBuyer['buyer_type'],
       pe_firm_name: b.pe_firm_name ? String(b.pe_firm_name).trim() : null,
       hq_city: b.hq_city ? String(b.hq_city).trim() : null,
       hq_state: b.hq_state ? String(b.hq_state).trim().toUpperCase().slice(0, 2) : null,

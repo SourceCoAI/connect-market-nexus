@@ -141,7 +141,7 @@ const BuyerTableRow = ({
         </div>
       </TableCell>
 
-      {activeTab === 'pe_firm' ? (
+      {activeTab === 'private_equity' ? (
         <>
           {/* Type Column (PE Firms tab) */}
           <TableCell>

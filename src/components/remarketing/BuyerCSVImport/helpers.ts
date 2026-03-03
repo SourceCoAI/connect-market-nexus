@@ -402,15 +402,25 @@ export function buildBuyerFromRow(
         return;
       }
 
-      // Handle buyer type
+      // Handle buyer type - normalize to canonical values
       if (mapping.targetField === 'buyer_type') {
-        const lower = value.toLowerCase();
+        const lower = value.toLowerCase().trim();
         if (lower.includes('pe') || lower.includes('private equity'))
-          buyer.buyer_type = 'pe_firm';
-        else if (lower.includes('platform')) buyer.buyer_type = 'platform';
-        else if (lower.includes('strategic')) buyer.buyer_type = 'strategic';
-        else if (lower.includes('family')) buyer.buyer_type = 'family_office';
-        else buyer.buyer_type = 'other';
+          buyer.buyer_type = 'private_equity';
+        else if (lower.includes('platform') || lower.includes('portfolio company'))
+          buyer.buyer_type = 'corporate';
+        else if (lower.includes('strategic') || lower.includes('corporate') || lower.includes('operating'))
+          buyer.buyer_type = 'corporate';
+        else if (lower.includes('family'))
+          buyer.buyer_type = 'family_office';
+        else if (lower.includes('search') || lower.includes('eta'))
+          buyer.buyer_type = 'search_fund';
+        else if (lower.includes('independent') || lower.includes('fundless'))
+          buyer.buyer_type = 'independent_sponsor';
+        else if (lower.includes('individual') || lower.includes('wealth'))
+          buyer.buyer_type = 'individual_buyer';
+        else
+          buyer.buyer_type = 'corporate';
         return;
       }
 
@@ -445,7 +455,7 @@ export function buildBuyerFromRow(
   });
 
   // If pe_firm_name not set but we have it as company name, infer
-  if (!buyer.pe_firm_name && buyer.buyer_type === 'pe_firm') {
+  if (!buyer.pe_firm_name && buyer.buyer_type === 'private_equity') {
     buyer.pe_firm_name = buyer.company_name;
   }
 

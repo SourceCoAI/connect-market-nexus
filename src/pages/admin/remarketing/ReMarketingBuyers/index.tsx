@@ -198,8 +198,9 @@ const ReMarketingBuyers = () => {
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="all">All Buyers ({tabCounts.all})</TabsTrigger>
-          <TabsTrigger value="pe_firm">Sponsors & Firms ({tabCounts.pe_firm})</TabsTrigger>
-          <TabsTrigger value="platform">Platforms ({tabCounts.platform})</TabsTrigger>
+          <TabsTrigger value="private_equity">Sponsors & Firms ({tabCounts.private_equity})</TabsTrigger>
+          <TabsTrigger value="corporate">Corporates ({tabCounts.corporate})</TabsTrigger>
+          <TabsTrigger value="needs_review">Needs Review ({tabCounts.needs_review})</TabsTrigger>
           <TabsTrigger value="needs_agreements">
             Needs Agreements ({tabCounts.needs_agreements})
           </TabsTrigger>

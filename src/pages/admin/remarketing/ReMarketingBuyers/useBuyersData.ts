@@ -161,30 +161,34 @@ export const useBuyersData = () => {
 
   // Compute tab counts from loaded buyers
   const tabCounts = useMemo(() => {
-    if (!buyers) return { all: 0, pe_firm: 0, platform: 0, needs_agreements: 0, unsigned_agreements: 0 };
-    let pe_firm = 0,
-      platform = 0,
+    if (!buyers) return { all: 0, private_equity: 0, corporate: 0, needs_review: 0, needs_agreements: 0, unsigned_agreements: 0 };
+    let private_equity = 0,
+      corporate = 0,
+      needs_review = 0,
       needs_agreements = 0;
     buyers.forEach((b) => {
-      if (isSponsorType(b.buyer_type)) pe_firm++;
-      if (b.buyer_type === 'platform' || !b.buyer_type) platform++;
+      if (isSponsorType(b.buyer_type)) private_equity++;
+      if (b.buyer_type === 'corporate') corporate++;
+      if ((b as Record<string, unknown>).buyer_type_needs_review) needs_review++;
       if (!b.has_fee_agreement) needs_agreements++;
     });
     return {
       all: buyers.length,
-      pe_firm,
-      platform,
+      private_equity,
+      corporate,
+      needs_review,
       needs_agreements,
       unsigned_agreements: unsignedAgreements?.length ?? 0,
     };
   }, [buyers, unsignedAgreements]);
 
-  // Calculate platform counts per PE firm (for the PE Firms tab)
+  // Calculate platform (PE-backed corporate) counts per PE firm (for the PE Firms tab)
   const platformCountsByFirm = useMemo(() => {
     if (!buyers) return new Map<string, number>();
     const counts = new Map<string, number>();
     buyers.forEach((b) => {
-      if (b.pe_firm_name && !isSponsorType(b.buyer_type)) {
+      // Count corporate buyers that are PE-backed (formerly "platform" type)
+      if (b.pe_firm_name && (b.buyer_type === 'corporate' || !isSponsorType(b.buyer_type))) {
         counts.set(b.pe_firm_name, (counts.get(b.pe_firm_name) || 0) + 1);
       }
     });
@@ -276,11 +280,14 @@ export const useBuyersData = () => {
 
     // Tab filter
     switch (activeTab) {
-      case 'pe_firm':
+      case 'private_equity':
         result = result.filter((b) => isSponsorType(b.buyer_type));
         break;
-      case 'platform':
-        result = result.filter((b) => b.buyer_type === 'platform' || !b.buyer_type);
+      case 'corporate':
+        result = result.filter((b) => b.buyer_type === 'corporate');
+        break;
+      case 'needs_review':
+        result = result.filter((b) => (b as Record<string, unknown>).buyer_type_needs_review);
         break;
       case 'needs_agreements':
         result = result.filter((b) => !b.has_fee_agreement);

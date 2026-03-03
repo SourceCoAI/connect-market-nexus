@@ -163,8 +163,8 @@ ${guideContent.slice(0, 50000)}`;
                   name: { type: "string", description: "Buyer/firm name" },
                   type: {
                     type: "string",
-                    enum: ["pe_firm", "platform", "strategic", "family_office", "search_fund"],
-                    description: "Buyer type classification"
+                    enum: ["private_equity", "corporate", "family_office", "search_fund", "independent_sponsor", "individual_buyer"],
+                    description: "Buyer type classification. Use 'corporate' for any operating company including PE-backed platforms."
                   },
                   website: { type: "string", description: "Website URL if mentioned" },
                   parent_company: { type: "string", description: "Parent PE firm for platform companies" }
@@ -549,10 +549,16 @@ async function applyToUniverse(supabase: ReturnType<typeof createClient>, univer
   const buyerTypes = new Set(buyers.map(b => b.buyer_identity?.type).filter(Boolean));
   if (buyerTypes.size > 0) {
     universeUpdate.buyer_types_criteria = {
-      include_pe_firms: buyerTypes.has('pe_firm'),
-      include_platforms: buyerTypes.has('platform'),
-      include_strategic: buyerTypes.has('strategic'),
+      include_private_equity: buyerTypes.has('private_equity'),
+      include_corporate: buyerTypes.has('corporate'),
       include_family_office: buyerTypes.has('family_office'),
+      include_search_fund: buyerTypes.has('search_fund'),
+      include_independent_sponsor: buyerTypes.has('independent_sponsor'),
+      include_individual_buyer: buyerTypes.has('individual_buyer'),
+      // Legacy compat
+      include_pe_firms: buyerTypes.has('private_equity'),
+      include_platforms: buyerTypes.has('corporate'),
+      include_strategic: buyerTypes.has('corporate'),
     };
   }
 

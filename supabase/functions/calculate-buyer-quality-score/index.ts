@@ -67,22 +67,34 @@ const CONSUMER_EMAIL_DOMAINS = [
 ];
 
 // Buyer-type to Component 1 points map
+// Supports both canonical (DB) values and marketplace profile (camelCase) values
 const BUYER_TYPE_POINTS: Record<string, number> = {
-  privateEquity: 35,
-  'Private Equity': 35,
-  familyOffice: 30,
-  'Family Office': 30,
+  // Canonical DB values (remarketing_buyers)
+  private_equity: 35,
   corporate: 28,
-  Corporate: 28,
-  'Strategic Acquirer': 28,
+  family_office: 30,
+  independent_sponsor: 15,
+  search_fund: 10,
+  individual_buyer: 5,
+  // Marketplace profile values (camelCase)
+  privateEquity: 35,
+  familyOffice: 30,
   independentSponsor: 15,
-  'Independent Sponsor': 15,
   searchFund: 10,
-  'Search Fund': 10,
-  // Fallbacks
   individual: 5,
   advisor: 5,
   businessOwner: 5,
+  // Legacy display values (may still appear in older profiles)
+  'Private Equity': 35,
+  'Family Office': 30,
+  Corporate: 28,
+  'Strategic Acquirer': 28,
+  'Independent Sponsor': 15,
+  'Search Fund': 10,
+  // Legacy DB values
+  pe_firm: 35,
+  strategic: 28,
+  platform: 28,
   Buyer: 5,
 };
 

@@ -520,7 +520,7 @@ If the transcript is primarily an evaluation of a target company (not a discussi
           },
           buyer_type: {
             type: "string",
-            description: "Classify the buyer: 'pe_firm' (private equity fund), 'platform' (PE-backed operating company doing add-ons), 'strategic' (corporate acquirer), 'family_office', 'search_fund', 'independent_sponsor', or 'other'."
+            description: "Classify the buyer: 'private_equity' (PE fund with LP capital), 'corporate' (operating company including PE-backed platforms), 'family_office', 'search_fund', 'independent_sponsor', or 'individual_buyer'. If the company has real operations/revenue/customers, use 'corporate' not 'private_equity'."
           },
           industry_vertical: {
             type: "string",

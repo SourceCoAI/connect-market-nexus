@@ -112,7 +112,7 @@ const BuyersTable = ({
                 onClick={() => handleSort('company_name')}
               >
                 <span className="flex items-center">
-                  {activeTab === 'pe_firm' ? 'Firm Name' : 'Platform / Buyer'}
+                  {activeTab === 'private_equity' ? 'Firm Name' : 'Platform / Buyer'}
                   <SortIcon
                     column="company_name"
                     sortColumn={sortColumn}
@@ -120,7 +120,7 @@ const BuyersTable = ({
                   />
                 </span>
               </TableHead>
-              {activeTab === 'pe_firm' ? (
+              {activeTab === 'private_equity' ? (
                 <>
                   <TableHead className="w-[140px]">Type</TableHead>
                   <TableHead className="w-[110px] text-center">Platforms</TableHead>

@@ -32,10 +32,12 @@ export const BUYER_UNIVERSE_FIELDS: FilterFieldDef[] = [
     group: "Core",
     icon: Briefcase,
     options: [
-      { label: "PE Firm", value: "pe_firm" },
-      { label: "Platform", value: "platform" },
-      { label: "Strategic", value: "strategic" },
+      { label: "Private Equity Firm", value: "private_equity" },
+      { label: "Corporate / Strategic", value: "corporate" },
       { label: "Family Office", value: "family_office" },
+      { label: "Search Fund", value: "search_fund" },
+      { label: "Independent Sponsor", value: "independent_sponsor" },
+      { label: "Individual / Wealth Buyer", value: "individual_buyer" },
     ],
   },
   {

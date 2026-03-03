@@ -4,7 +4,7 @@ import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 
 interface WebsiteClassification {
   url: string;
-  classification: 'platform' | 'pe_firm' | 'unknown';
+  classification: 'corporate' | 'private_equity' | 'unknown';
   confidence: number;
   indicators: string[];
 }
@@ -97,7 +97,7 @@ serve(async (req) => {
 });
 
 function classifyWebsite(content: string, title: string, url: string): {
-  classification: 'platform' | 'pe_firm' | 'unknown';
+  classification: 'corporate' | 'private_equity' | 'unknown';
   confidence: number;
   indicators: string[];
 } {
@@ -157,17 +157,17 @@ function classifyWebsite(content: string, title: string, url: string): {
 
   // Determine classification
   const totalScore = peScore + platformScore;
-  let classification: 'platform' | 'pe_firm' | 'unknown';
+  let classification: 'corporate' | 'private_equity' | 'unknown';
   let confidence: number;
 
   if (totalScore < 20) {
     classification = 'unknown';
     confidence = 0.3;
   } else if (peScore > platformScore * 1.5) {
-    classification = 'pe_firm';
+    classification = 'private_equity';
     confidence = Math.min(0.95, 0.5 + (peScore / 100));
   } else if (platformScore > peScore * 1.5) {
-    classification = 'platform';
+    classification = 'corporate';
     confidence = Math.min(0.95, 0.5 + (platformScore / 100));
   } else {
     classification = 'unknown';

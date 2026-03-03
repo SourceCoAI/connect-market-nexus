@@ -458,10 +458,14 @@ function parseNumber(value: string | number | null | undefined): number | null {
 }
 
 function determineBuyerType(row: Record<string, unknown>): string {
-  if (row.pe_firm_name && row.platform_company_name) return 'platform';
-  if (row.pe_firm_name) return 'pe_firm';
-  if (row.platform_company_name) return 'strategic';
-  return 'other';
+  // PE-backed operating company (has both PE firm and platform name)
+  if (row.pe_firm_name && row.platform_company_name) return 'corporate';
+  // PE firm (has PE firm name but no platform company)
+  if (row.pe_firm_name) return 'private_equity';
+  // Operating company / strategic buyer
+  if (row.platform_company_name) return 'corporate';
+  // Unknown - will be flagged for review
+  return 'corporate';
 }
 
 function calculateTier(score: number): string {

@@ -359,11 +359,48 @@ serve(async (req) => {
         try {
           const mappedUniverseId = universeIdMap[String(row.tracker_id)] || null;
 
+          // Normalize buyer_type: if a pe_firm_name is present and different from company_name,
+          // this is a PE-backed corporate (was previously "platform"). Otherwise classify from
+          // the raw buyer_type field or default to needs_review.
+          const rawBuyerType = row.buyer_type as string | undefined;
+          let normalizedBuyerType: string | null = null;
+          let isPeBacked = false;
+
+          if (row.pe_firm_name && row.pe_firm_name !== (row.platform_company_name || row.company_name)) {
+            // Has a PE firm parent -> corporate + PE-backed
+            normalizedBuyerType = 'corporate';
+            isPeBacked = true;
+          } else if (rawBuyerType) {
+            // Normalize the raw buyer_type from import
+            const lower = String(rawBuyerType).trim().toLowerCase();
+            const typeMap: Record<string, string> = {
+              'pe_firm': 'private_equity', 'pe firm': 'private_equity', 'pe': 'private_equity',
+              'private equity': 'private_equity', 'private equity firm': 'private_equity',
+              'strategic': 'corporate', 'operating company': 'corporate', 'corporate': 'corporate',
+              'platform': 'corporate', 'platform company': 'corporate', 'portfolio company': 'corporate',
+              'family_office': 'family_office', 'family office': 'family_office', 'fo': 'family_office',
+              'search_fund': 'search_fund', 'search fund': 'search_fund', 'searcher': 'search_fund', 'eta': 'search_fund',
+              'independent_sponsor': 'independent_sponsor', 'independent sponsor': 'independent_sponsor', 'fundless sponsor': 'independent_sponsor',
+              'individual': 'individual_buyer', 'individual buyer': 'individual_buyer', 'individual_buyer': 'individual_buyer',
+            };
+            normalizedBuyerType = typeMap[lower] || null;
+            if (['platform', 'platform company', 'portfolio company'].includes(lower)) {
+              isPeBacked = true;
+            }
+          } else {
+            // No buyer_type provided, infer from pe_firm_name
+            normalizedBuyerType = row.pe_firm_name ? 'corporate' : null;
+            isPeBacked = !!row.pe_firm_name;
+          }
+
           const buyerData = {
             universe_id: mappedUniverseId,
             company_name: row.platform_company_name || row.company_name || 'Unknown',
             company_website: normalizeDomainUrl(row.platform_website as string | null | undefined) || null,
-            buyer_type: row.pe_firm_name ? 'platform' : 'strategic',
+            buyer_type: normalizedBuyerType,
+            buyer_type_source: 'import' as const,
+            buyer_type_needs_review: normalizedBuyerType === null,
+            is_pe_backed: isPeBacked,
             thesis_summary: row.thesis_summary || null,
 
             target_revenue_min: parseFloat(String(row.min_revenue)) || null,
