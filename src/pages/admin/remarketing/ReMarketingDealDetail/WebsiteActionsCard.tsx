@@ -14,6 +14,7 @@ import {
   Loader2,
   Pencil,
   PhoneCall,
+  Search,
   Sparkles,
   Store,
 } from 'lucide-react';
@@ -22,6 +23,7 @@ import { UniverseAssignmentButton } from '@/components/remarketing/deal-detail';
 
 interface DealForWebsiteActions {
   needs_owner_contact?: boolean | null;
+  needs_buyer_search?: boolean | null;
   category?: string | null;
   universe_build_flagged?: boolean | null;
   pushed_to_marketplace?: boolean | null;
@@ -49,6 +51,7 @@ interface WebsiteActionsCardProps {
   handleEnrichFromWebsite: () => void;
   setBuyerHistoryOpen: (v: boolean) => void;
   toggleContactOwnerMutation: { mutate: (v: boolean) => void; isPending: boolean };
+  toggleBuyerSearchMutation: { mutate: (v: boolean) => void; isPending: boolean };
   toggleUniverseFlagMutation: { mutate: (v: boolean) => void; isPending: boolean };
 }
 
@@ -63,16 +66,24 @@ export function WebsiteActionsCard({
   handleEnrichFromWebsite,
   setBuyerHistoryOpen,
   toggleContactOwnerMutation,
+  toggleBuyerSearchMutation,
   toggleUniverseFlagMutation,
 }: WebsiteActionsCardProps) {
   const needsContact = deal?.needs_owner_contact;
+  const needsBuyerSearch = deal?.needs_buyer_search;
 
   return (
-    <Card className={needsContact ? 'border-red-400 border-2 bg-red-50 dark:bg-red-950/20' : ''}>
+    <Card className={needsContact ? 'border-red-400 border-2 bg-red-50 dark:bg-red-950/20' : needsBuyerSearch ? 'border-blue-400 border-2 bg-blue-50 dark:bg-blue-950/20' : ''}>
       {needsContact && (
         <div className="bg-red-500 text-white text-sm font-semibold px-4 py-2 flex items-center gap-2 rounded-t-lg">
           <PhoneCall className="h-4 w-4 animate-pulse" />
           ACTION REQUIRED: Owner needs to be contacted — we have a buyer ready!
+        </div>
+      )}
+      {!needsContact && needsBuyerSearch && (
+        <div className="bg-blue-500 text-white text-sm font-semibold px-4 py-2 flex items-center gap-2 rounded-t-lg">
+          <Search className="h-4 w-4 animate-pulse" />
+          ACTION REQUIRED: Need to find a buyer for this deal
         </div>
       )}
       <CardHeader className="py-3">
@@ -158,6 +169,34 @@ export function WebsiteActionsCard({
                 {needsContact
                   ? 'This deal is flagged \u2014 team must contact the owner, we have a buyer ready! Click to clear.'
                   : 'Flag this deal to alert the team that the owner needs to be contacted (buyer is ready).'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={needsBuyerSearch ? 'default' : 'outline'}
+                  className={`gap-2 font-semibold ${
+                    needsBuyerSearch
+                      ? 'bg-blue-600 hover:bg-blue-700 border-blue-600 text-white shadow-md shadow-blue-200'
+                      : 'border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-500'
+                  }`}
+                  onClick={() => toggleBuyerSearchMutation.mutate(!needsBuyerSearch)}
+                  disabled={toggleBuyerSearchMutation.isPending}
+                >
+                  {toggleBuyerSearchMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className={`h-4 w-4 ${needsBuyerSearch ? 'animate-pulse' : ''}`} />
+                  )}
+                  {needsBuyerSearch ? 'Needs Buyer' : 'Flag: Find Buyer'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {needsBuyerSearch
+                  ? 'This deal is flagged — team needs to find a buyer for it. Click to clear.'
+                  : 'Flag this deal to indicate the team needs to find a buyer.'}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

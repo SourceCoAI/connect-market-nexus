@@ -153,6 +153,34 @@ export function useDealDetail() {
     onError: () => toast.error('Failed to update flag'),
   });
 
+  // Toggle "needs buyer search" flag
+  const toggleBuyerSearchMutation = useMutation({
+    mutationFn: async (flagged: boolean) => {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      const { error } = await supabase
+        .from('listings')
+        .update({
+          needs_buyer_search: flagged,
+          needs_buyer_search_at: flagged ? new Date().toISOString() : null,
+          needs_buyer_search_by: flagged ? user?.id : null,
+        })
+        .eq('id', dealId!);
+      if (error) throw error;
+    },
+    onSuccess: (_, flagged) => {
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
+      toast.success(
+        flagged ? 'Flagged: Need to find a buyer' : 'Find buyer flag cleared',
+      );
+    },
+    onError: () => toast.error('Failed to update flag'),
+  });
+
   // Company name editing
   const updateNameMutation = useMutation({
     mutationFn: async (newName: string) => {
@@ -288,6 +316,7 @@ export function useDealDetail() {
     updateDealMutation,
     toggleUniverseFlagMutation,
     toggleContactOwnerMutation,
+    toggleBuyerSearchMutation,
     updateNameMutation,
     // UI state
     isEnriching,

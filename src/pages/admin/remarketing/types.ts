@@ -48,6 +48,9 @@ export interface DealListing {
   // Contact owner flag
   needs_owner_contact: boolean | null;
   needs_owner_contact_at: string | null;
+  // Find buyer flag
+  needs_buyer_search: boolean | null;
+  needs_buyer_search_at: string | null;
   // Universe build flag
   universe_build_flagged: boolean | null;
   universe_build_flagged_at: string | null;

@@ -100,6 +100,7 @@ export function mapRpcRowToDeal(row: Record<string, any>) {
     deal_score: row.listing_deal_total_score ?? null,
     is_priority_target: row.listing_is_priority_target ?? null,
     needs_owner_contact: row.listing_needs_owner_contact ?? null,
+    needs_buyer_search: row.listing_needs_buyer_search ?? null,
 
     // Document distribution flags (populated below)
     memo_sent: false,
