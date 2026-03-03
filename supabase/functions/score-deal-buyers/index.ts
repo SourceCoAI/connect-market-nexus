@@ -523,7 +523,7 @@ Deno.serve(async (req: Request) => {
 
       const tier = classifyTier(composite, !!buyer.has_fee_agreement, buyer.acquisition_appetite);
 
-      // Build fit_reason: seed log why_relevant (best) > thesis_summary (good) > generated sentence
+      // Build fit_reason: seed log why_relevant (best) > thesis + deal context (good) > generated sentence
       const seedLogReason = seedLogMap.get(buyer.id);
       const rawThesis = (buyer.thesis_summary || '').trim();
       // Strip signal-like suffixes that may have been appended to thesis_summary by previous code
@@ -534,18 +534,39 @@ Deno.serve(async (req: Request) => {
       if (seedLogReason) {
         fit_reason = seedLogReason;
       } else if (thesisCleaned) {
-        const firstSentence = thesisCleaned.split('.').filter(s => s.trim())[0]?.trim() || thesisCleaned;
-        fit_reason = firstSentence.endsWith('.') ? firstSentence : `${firstSentence}.`;
+        // Use full thesis (not truncated) and append deal-specific scoring context
+        let reason = thesisCleaned.endsWith('.') ? thesisCleaned : `${thesisCleaned}.`;
+        // Append deal-specific match details for richer context
+        const matchDetails: string[] = [];
+        if (svc.score >= 100) matchDetails.push(`direct ${dealIndustry || 'industry'} overlap`);
+        else if (svc.score >= 60) matchDetails.push(`adjacent ${dealIndustry || 'industry'} fit`);
+        if (geo.score >= 80) matchDetails.push(dealState ? `covers ${dealState.toUpperCase()}` : 'national coverage');
+        else if (geo.score >= 60) matchDetails.push('regional overlap');
+        if (size.score >= 60) matchDetails.push('EBITDA range aligns');
+        if (matchDetails.length > 0) {
+          reason += ` Deal fit: ${matchDetails.join(', ')}.`;
+        }
+        fit_reason = reason;
       } else {
-        // Generate a human-readable sentence from scoring signals
+        // Generate a human-readable sentence from buyer context and scoring signals
+        const buyerTypeLabel = buyer.buyer_type === 'pe_firm' ? 'PE firm'
+          : buyer.buyer_type === 'platform' ? 'PE-backed platform'
+          : buyer.buyer_type === 'family_office' ? 'Family office'
+          : 'Strategic acquirer';
+        const locationStr = buyer.hq_city && buyer.hq_state
+          ? `${buyer.hq_city}, ${buyer.hq_state}`
+          : buyer.hq_state || '';
         const parts: string[] = [];
-        if (svc.score >= 60) parts.push(`aligns with ${dealIndustry || 'target'} industry focus`);
-        if (geo.score >= 60) parts.push(`geographic overlap in ${dealState?.toUpperCase() || 'target region'}`);
-        if (size.score >= 60) parts.push('EBITDA range fits deal size');
-        if (bonus.signals.length > 0) parts.push(bonus.signals[0].toLowerCase());
-        fit_reason = parts.length > 0
-          ? `${buyer.company_name} ${parts.join(', ')}.`
-          : 'Potential industry fit based on acquisition criteria.';
+        if (svc.score >= 100) parts.push(`targets ${dealIndustry || 'this'} industry directly`);
+        else if (svc.score >= 60) parts.push(`invests in adjacent ${dealIndustry || 'industry'} verticals`);
+        if (geo.score >= 100) parts.push(`active in ${dealState?.toUpperCase() || 'target geography'}`);
+        else if (geo.score >= 80) parts.push('national acquisition footprint');
+        else if (geo.score >= 60) parts.push('regional geographic overlap');
+        if (size.score >= 60) parts.push('EBITDA range matches deal size');
+        if (buyer.has_fee_agreement) parts.push('has existing fee agreement');
+        if (norm(buyer.acquisition_appetite) === 'aggressive') parts.push('actively acquiring');
+        const detail = parts.length > 0 ? ` that ${parts.join(', ')}` : '';
+        fit_reason = `${buyerTypeLabel}${locationStr ? ` based in ${locationStr}` : ''}${detail}.`;
       }
 
       scored.push({
