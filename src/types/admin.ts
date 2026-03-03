@@ -34,6 +34,14 @@ export interface AdminListing {
   internal_contact_info?: string;
   internal_notes?: string;
 
+  // Structured contact fields (tied to deal contact)
+  main_contact_first_name?: string | null;
+  main_contact_last_name?: string | null;
+  main_contact_name?: string | null;
+  main_contact_email?: string | null;
+  main_contact_phone?: string | null;
+  main_contact_linkedin?: string | null;
+
   // Deal metadata (used in admin pipeline, remarketing, buyer universe)
   ownership_structure?: string;
   seller_motivation?: string;
@@ -127,6 +135,14 @@ export interface CreateListingData {
   internal_deal_memo_link?: string;
   internal_contact_info?: string;
   internal_notes?: string;
+
+  // Structured contact fields (tied to deal contact)
+  main_contact_first_name?: string | null;
+  main_contact_last_name?: string | null;
+  main_contact_name?: string | null;
+  main_contact_email?: string | null;
+  main_contact_phone?: string | null;
+  main_contact_linkedin?: string | null;
 
   // Deal metadata (used in admin pipeline, remarketing, buyer universe)
   ownership_structure?: string;

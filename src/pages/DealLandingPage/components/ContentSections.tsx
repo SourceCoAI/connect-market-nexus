@@ -73,10 +73,36 @@ function CollapsibleSection({
 
 function AnonymizedContent({ text, dealData }: { text: string; dealData: DealData }) {
   const anonymized = stripIdentifyingInfo(text, dealData);
+  // Split into paragraphs — respect existing breaks, or split long blocks at sentences
+  const paragraphs = useMemo(() => {
+    let parts = anonymized.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
+    // If still one huge block (>400 chars), split at sentence boundaries
+    if (parts.length === 1 && parts[0].length > 400) {
+      const sentences = parts[0].match(/[^.!?]+[.!?]+/g) || [parts[0]];
+      const result: string[] = [];
+      let current = '';
+      for (const s of sentences) {
+        const trimmed = s.trim();
+        if (!trimmed) continue;
+        if (current.length + trimmed.length > 350 && current.length > 0) {
+          result.push(current.trim());
+          current = trimmed;
+        } else {
+          current += (current ? ' ' : '') + trimmed;
+        }
+      }
+      if (current.trim()) result.push(current.trim());
+      parts = result;
+    }
+    return parts;
+  }, [anonymized]);
+
   return (
-    <p className="text-sm leading-relaxed text-[#374151] font-['Inter',system-ui,sans-serif] whitespace-pre-line">
-      {anonymized}
-    </p>
+    <div className="space-y-3 text-sm leading-relaxed text-[#374151] font-['Inter',system-ui,sans-serif]">
+      {paragraphs.map((para, i) => (
+        <p key={i}>{para}</p>
+      ))}
+    </div>
   );
 }
 

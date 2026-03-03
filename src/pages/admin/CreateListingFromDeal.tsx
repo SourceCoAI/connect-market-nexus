@@ -107,6 +107,11 @@ export default function CreateListingFromDeal() {
         metric_4_custom_label: anonymized.metric_4_custom_label,
         metric_4_custom_value: anonymized.metric_4_custom_value,
         metric_4_custom_subtitle: anonymized.metric_4_custom_subtitle,
+        // Structured contact fields from deal
+        main_contact_first_name: anonymized.main_contact_first_name || null,
+        main_contact_last_name: anonymized.main_contact_last_name || null,
+        main_contact_email: anonymized.main_contact_email || null,
+        main_contact_phone: anonymized.main_contact_phone || null,
         custom_sections: [],
         tags: [],
         status: 'active',
