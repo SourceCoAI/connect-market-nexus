@@ -434,7 +434,7 @@ export const StructuredCriteriaPanel = ({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="text-sm">PE Firms</Label>
+            <Label className="text-sm">Private Equity Firms</Label>
             <Switch
               checked={buyerTypesCriteria.include_pe_firms ?? true}
               onCheckedChange={(checked) => onBuyerTypesCriteriaChange({
@@ -444,22 +444,12 @@ export const StructuredCriteriaPanel = ({
             />
           </div>
           <div className="flex items-center justify-between">
-            <Label className="text-sm">Platform Companies</Label>
+            <Label className="text-sm">Corporate / Strategic Buyers</Label>
             <Switch
               checked={buyerTypesCriteria.include_platforms ?? true}
               onCheckedChange={(checked) => onBuyerTypesCriteriaChange({
                 ...buyerTypesCriteria,
                 include_platforms: checked
-              })}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label className="text-sm">Strategic Acquirers</Label>
-            <Switch
-              checked={buyerTypesCriteria.include_strategic ?? true}
-              onCheckedChange={(checked) => onBuyerTypesCriteriaChange({
-                ...buyerTypesCriteria,
-                include_strategic: checked
               })}
             />
           </div>
@@ -470,6 +460,26 @@ export const StructuredCriteriaPanel = ({
               onCheckedChange={(checked) => onBuyerTypesCriteriaChange({
                 ...buyerTypesCriteria,
                 include_family_office: checked
+              })}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label className="text-sm">Independent Sponsors</Label>
+            <Switch
+              checked={buyerTypesCriteria.include_independent_sponsors ?? true}
+              onCheckedChange={(checked) => onBuyerTypesCriteriaChange({
+                ...buyerTypesCriteria,
+                include_independent_sponsors: checked
+              })}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label className="text-sm">Search Funds</Label>
+            <Switch
+              checked={buyerTypesCriteria.include_search_funds ?? true}
+              onCheckedChange={(checked) => onBuyerTypesCriteriaChange({
+                ...buyerTypesCriteria,
+                include_search_funds: checked
               })}
             />
           </div>

@@ -47,7 +47,7 @@ function fullRpcRow(overrides: Record<string, unknown> = {}) {
     admin_email: 'jane@sourceco.com',
 
     // Buyer profile (pre-joined)
-    buyer_type: 'strategic',
+    buyer_type: 'corporate',
     buyer_website: 'https://doecapital.com',
     buyer_quality_score: 90,
     buyer_tier: 1,

@@ -11,12 +11,30 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import TextAlign from '@tiptap/extension-text-align';
 import Image from '@tiptap/extension-image';
-import { 
-  Bold, Italic, List, ListOrdered, Heading1, Heading2, Heading3,
-  Table as TableIcon, Minus, Undo, Redo, Quote, Type, Maximize2,
-  Underline as UnderlineIcon, Link as LinkIcon, Highlighter,
-  Strikethrough as StrikethroughIcon, AlignLeft, AlignCenter,
-  AlignRight, AlignJustify, Image as ImageIcon
+import {
+  Bold,
+  Italic,
+  List,
+  ListOrdered,
+  Heading1,
+  Heading2,
+  Heading3,
+  Table as TableIcon,
+  Minus,
+  Undo,
+  Redo,
+  Quote,
+  Type,
+  Maximize2,
+  Underline as UnderlineIcon,
+  Link as LinkIcon,
+  Highlighter,
+  Strikethrough as StrikethroughIcon,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Button } from './button';
 import { Separator } from './separator';
@@ -78,20 +96,20 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
       const html = editor.getHTML();
       const json = editor.getJSON();
       const text = editor.getText();
-      
-      setWordCount(text.split(/\s+/).filter(word => word.length > 0).length);
+
+      setWordCount(text.split(/\s+/).filter((word) => word.length > 0).length);
       setCharCount(text.length);
-      
+
       onChange(html, json);
     },
     onSelectionUpdate: ({ editor }) => {
       const { from, to } = editor.state.selection;
       const hasSelection = from !== to;
-      
+
       if (hasSelection) {
         const start = editor.view.coordsAtPos(from);
         const end = editor.view.coordsAtPos(to);
-        
+
         setMenuPosition({
           top: start.top - 60,
           left: (start.left + end.left) / 2,
@@ -111,7 +129,7 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
 
   const setLink = useCallback(() => {
     if (!editor) return;
-    
+
     const previousUrl = editor.getAttributes('link').href;
     const url = window.prompt('URL', previousUrl);
 
@@ -137,7 +155,19 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
     return null;
   }
 
-  const ToolbarButton = ({ onClick, active, children, title, disabled }: { onClick: () => void; active?: boolean; children: ReactNode; title: string; disabled?: boolean }) => (
+  const ToolbarButton = ({
+    onClick,
+    active,
+    children,
+    title,
+    disabled,
+  }: {
+    onClick: () => void;
+    active?: boolean;
+    children: ReactNode;
+    title: string;
+    disabled?: boolean;
+  }) => (
     <Button
       type="button"
       variant="ghost"
@@ -145,8 +175,8 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "h-8 w-8 p-0 hover:bg-sourceco-muted/50",
-        active && "bg-sourceco-muted text-sourceco-accent"
+        'h-8 w-8 p-0 hover:bg-sourceco-muted/50',
+        active && 'bg-sourceco-muted text-sourceco-accent',
       )}
       title={title}
     >
@@ -155,10 +185,12 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
   );
 
   return (
-    <div className={cn(
-      "rounded-lg border border-border bg-background overflow-hidden transition-all",
-      isFullscreen && "fixed inset-4 z-50 shadow-2xl"
-    )}>
+    <div
+      className={cn(
+        'rounded-lg border border-border bg-background overflow-hidden transition-all',
+        isFullscreen && 'fixed inset-4 z-50 shadow-2xl',
+      )}
+    >
       {/* Main Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30 flex-wrap gap-2">
         <div className="flex items-center gap-0.5 flex-wrap">
@@ -170,7 +202,7 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
           >
             <Heading1 className="h-4 w-4" />
           </ToolbarButton>
-          
+
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
             active={editor.isActive('heading', { level: 2 })}
@@ -178,7 +210,7 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
           >
             <Heading2 className="h-4 w-4" />
           </ToolbarButton>
-          
+
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
             active={editor.isActive('heading', { level: 3 })}
@@ -261,11 +293,7 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
           <Separator orientation="vertical" className="h-6 mx-1" />
 
           {/* Advanced formatting */}
-          <ToolbarButton
-            onClick={setLink}
-            active={editor.isActive('link')}
-            title="Insert Link"
-          >
+          <ToolbarButton onClick={setLink} active={editor.isActive('link')} title="Insert Link">
             <LinkIcon className="h-4 w-4" />
           </ToolbarButton>
 
@@ -312,15 +340,14 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
           <Separator orientation="vertical" className="h-6 mx-1" />
 
           {/* Insert elements */}
-          <ToolbarButton
-            onClick={addImage}
-            title="Insert Image"
-          >
+          <ToolbarButton onClick={addImage} title="Insert Image">
             <ImageIcon className="h-4 w-4" />
           </ToolbarButton>
 
           <ToolbarButton
-            onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+            onClick={() =>
+              editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+            }
             title="Insert Table"
           >
             <TableIcon className="h-4 w-4" />
@@ -360,7 +387,7 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
           <Separator orientation="vertical" className="h-6" />
           <ToolbarButton
             onClick={() => setIsFullscreen(!isFullscreen)}
-            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
             <Maximize2 className="h-4 w-4" />
           </ToolbarButton>
@@ -368,12 +395,11 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
       </div>
 
       {/* Editor */}
-      <div className={cn(
-        "overflow-y-auto",
-        isFullscreen ? "h-[calc(100vh-8rem)]" : "max-h-[600px]"
-      )}>
+      <div
+        className={cn('overflow-y-auto', isFullscreen ? 'h-[calc(100vh-8rem)]' : 'max-h-[600px]')}
+      >
         <EditorContent editor={editor} />
-        
+
         {/* Floating Toolbar on Text Selection */}
         {showFloatingMenu && (
           <div
@@ -391,7 +417,7 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
             >
               <Heading1 className="h-4 w-4" />
             </ToolbarButton>
-            
+
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
               active={editor.isActive('heading', { level: 2 })}
@@ -399,7 +425,7 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
             >
               <Heading2 className="h-4 w-4" />
             </ToolbarButton>
-            
+
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
               active={editor.isActive('heading', { level: 3 })}
@@ -444,11 +470,7 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
 
             <Separator orientation="vertical" className="h-6 mx-1" />
 
-            <ToolbarButton
-              onClick={setLink}
-              active={editor.isActive('link')}
-              title="Link"
-            >
+            <ToolbarButton onClick={setLink} active={editor.isActive('link')} title="Link">
               <LinkIcon className="h-4 w-4" />
             </ToolbarButton>
 
@@ -467,15 +489,45 @@ export function PremiumRichTextEditor({ content, onChange }: PremiumRichTextEdit
       <div className="px-6 py-4 border-t border-border bg-muted/20">
         <details className="text-xs text-muted-foreground">
           <summary className="cursor-pointer font-medium text-foreground hover:text-sourceco-accent transition-colors">
-            Professional Writing Guidelines
+            Formatting &amp; Writing Guidelines
           </summary>
-          <ul className="mt-3 space-y-2 list-disc list-inside">
-            <li>Start with a compelling executive summary highlighting unique value proposition</li>
-            <li>Use clear headings to organize content (Business Overview, Market Position, Financials, Growth Opportunities)</li>
-            <li>Focus on quantifiable metrics and specific achievements</li>
-            <li>Address key buyer concerns: competitive moats, customer concentration, growth drivers</li>
-            <li>Maintain professional, investment-grade tone throughout</li>
-          </ul>
+          <div className="mt-3 space-y-3">
+            <div>
+              <p className="font-medium text-foreground mb-1">Formatting:</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li>
+                  Use <strong>H2 headings</strong> to define each section (Business Overview,
+                  Financial Highlights, Market Position, Growth Opportunities)
+                </li>
+                <li>
+                  Write <strong>short, direct sentences</strong> to introduce each section — then
+                  use <strong>bullet points</strong> for metrics, lists, and key data
+                </li>
+                <li>
+                  Use <strong>bold</strong> for important numbers, percentages, and key terms
+                </li>
+                <li>
+                  Break content into clear paragraphs — no walls of text. The goal is a clean,
+                  scannable layout
+                </li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium text-foreground mb-1">Content Tips:</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li>
+                  Lead with the most compelling differentiator (margins, scale, market position)
+                </li>
+                <li>
+                  Include quantifiable metrics: revenue, EBITDA, margins, team size, locations
+                </li>
+                <li>
+                  Address buyer concerns: competitive moats, customer concentration, growth drivers
+                </li>
+                <li>Maintain professional, investment-grade tone throughout</li>
+              </ul>
+            </div>
+          </div>
         </details>
       </div>
     </div>

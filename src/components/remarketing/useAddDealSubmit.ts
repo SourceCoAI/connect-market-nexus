@@ -236,7 +236,7 @@ export function useAddDealSubmit({
       resetForm();
       onDealCreated?.();
       onOpenChange(false);
-      navigate(`/admin/deals/${listing.id}`);
+      navigate(`/admin/deals/${listing.id}`, { state: { from: '/admin/deals' } });
 
       if (userId && (filesToUpload.length > 0 || linkToSave)) {
         uploadTranscriptsInBackground(listing.id, userId, filesToUpload, linkToSave);

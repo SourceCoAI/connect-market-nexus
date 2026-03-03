@@ -1,14 +1,16 @@
-import { lazy, Suspense } from "react";
-import { FormField, FormItem, FormControl, FormMessage } from "@/components/ui/form";
-import { UseFormReturn } from "react-hook-form";
-import { EDITOR_DESIGN } from "@/lib/editor-design-system";
-import { Sparkles, Loader2 } from "lucide-react";
+import { lazy, Suspense } from 'react';
+import { FormField, FormItem, FormControl, FormMessage } from '@/components/ui/form';
+import { UseFormReturn } from 'react-hook-form';
+import { EDITOR_DESIGN } from '@/lib/editor-design-system';
+import { Sparkles, Loader2 } from 'lucide-react';
 
 const PremiumRichTextEditor = lazy(() =>
-  import("@/components/ui/premium-rich-text-editor").then(m => ({ default: m.PremiumRichTextEditor }))
+  import('@/components/ui/premium-rich-text-editor').then((m) => ({
+    default: m.PremiumRichTextEditor,
+  })),
 );
-import { cn } from "@/lib/utils";
-import { stripHtml } from "@/lib/sanitize";
+import { cn } from '@/lib/utils';
+import { stripHtml } from '@/lib/sanitize';
 
 interface EditorDescriptionSectionProps {
   form: UseFormReturn<any>;
@@ -17,14 +19,25 @@ interface EditorDescriptionSectionProps {
   generatingField?: string | null;
 }
 
-export function EditorDescriptionSection({ form, onAiGenerate, isGenerating, generatingField }: EditorDescriptionSectionProps) {
+export function EditorDescriptionSection({
+  form,
+  onAiGenerate,
+  isGenerating,
+  generatingField,
+}: EditorDescriptionSectionProps) {
   const isFieldGenerating = isGenerating && generatingField === 'description';
 
   return (
-    <div className={cn(EDITOR_DESIGN.cardBg, EDITOR_DESIGN.cardBorder, "rounded-lg", EDITOR_DESIGN.cardPadding)}>
-      <div className={cn(EDITOR_DESIGN.microHeader, "mb-4 flex items-center justify-between")}>
-        <span>Description</span>
-        {/* GAP 5: AI generate button */}
+    <div
+      className={cn(
+        EDITOR_DESIGN.cardBg,
+        EDITOR_DESIGN.cardBorder,
+        'rounded-lg',
+        EDITOR_DESIGN.cardPadding,
+      )}
+    >
+      <div className={cn(EDITOR_DESIGN.microHeader, 'mb-2 flex items-center justify-between')}>
+        <span>Body Description</span>
         {onAiGenerate && (
           <button
             type="button"
@@ -32,11 +45,20 @@ export function EditorDescriptionSection({ form, onAiGenerate, isGenerating, gen
             disabled={isGenerating}
             className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
           >
-            {isFieldGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+            {isFieldGenerating ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Sparkles className="w-3 h-3" />
+            )}
             {isFieldGenerating ? 'Generating...' : 'Generate with AI'}
           </button>
         )}
       </div>
+      <p className="text-xs text-muted-foreground mb-4">
+        The full listing description shown to buyers. Use section headings, concise sentences, and
+        bullet points for key data — present information in the cleanest, most digestible way
+        possible.
+      </p>
 
       <FormField
         control={form.control}

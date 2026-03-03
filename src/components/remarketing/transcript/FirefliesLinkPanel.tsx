@@ -55,6 +55,7 @@ interface FirefliesLinkPanelProps {
   ffSearchLoading: boolean;
   onFfQuickSearch: () => void;
   ffResults: unknown[];
+  ffHasSearched: boolean;
   ffLinking: string | null;
   onLinkSearchResult: (transcript: {
     id: string;
@@ -68,6 +69,7 @@ interface FirefliesLinkPanelProps {
     external_participants?: { name: string; email?: string }[];
     participants?: unknown[];
   }) => void;
+  onClearResults: () => void;
 }
 
 export function FirefliesLinkPanel({
@@ -89,8 +91,10 @@ export function FirefliesLinkPanel({
   ffSearchLoading,
   onFfQuickSearch,
   ffResults,
+  ffHasSearched,
   ffLinking,
   onLinkSearchResult,
+  onClearResults,
 }: FirefliesLinkPanelProps) {
   const hasEmails = (contactEmails && contactEmails.length > 0) || !!contactEmail;
   const emailCount = contactEmails?.length || (contactEmail ? 1 : 0);
@@ -202,9 +206,16 @@ export function FirefliesLinkPanel({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-muted-foreground">
-                  {ffResults.length} result{ffResults.length !== 1 ? 's' : ''} found — click a title
-                  to view in Fireflies, or link to this deal
+                  {ffResults.length} result{ffResults.length !== 1 ? 's' : ''} found
                 </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={onClearResults}
+                >
+                  Clear results
+                </Button>
               </div>
               <div className="space-y-2 max-h-72 overflow-auto">
                 {(ffResults as FirefliesSearchResultItem[]).map((r) => (
@@ -298,8 +309,21 @@ export function FirefliesLinkPanel({
             </div>
           )}
 
-          {/* Empty state — only when no search has been performed */}
-          {!ffSearchLoading && ffResults.length === 0 && !ffQuery.trim() && (
+          {/* No results found — after a search returned 0 results */}
+          {!ffSearchLoading && ffResults.length === 0 && ffHasSearched && ffQuery.trim() && (
+            <div className="text-center py-3 px-4 bg-muted/30 rounded-lg">
+              <Search className="h-5 w-5 mx-auto text-muted-foreground mb-1.5" />
+              <p className="text-xs text-muted-foreground">
+                No calls found for &ldquo;{ffQuery.trim()}&rdquo;
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Try a different search term or use Paste Link to add a transcript directly
+              </p>
+            </div>
+          )}
+
+          {/* Empty state — no search has been performed yet */}
+          {!ffSearchLoading && ffResults.length === 0 && !ffHasSearched && !ffQuery.trim() && (
             <div className="text-center py-3 px-4 bg-muted/30 rounded-lg">
               <Search className="h-5 w-5 mx-auto text-muted-foreground mb-1.5" />
               <p className="text-xs text-muted-foreground">

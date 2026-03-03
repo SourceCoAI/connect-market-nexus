@@ -34,7 +34,7 @@ const BYPASS_RULES: Array<{
     test: (q) =>
       /\b(pipeline summary|pipeline overview|how.?s the pipeline|daily briefing|morning briefing|good morning|what.?s new|catch me up|give me a.*briefing|start.?of.?day|daily update)\b/i.test(
         q,
-      ) || /^(pipeline|summary|overview|briefing|daily)\b/i.test(q),
+      ) || /^(pipeline|summary|overview|briefing|daily)\b(?!.{0,20}\b(deal|buyer|universe|listing|company|score|contact|lead))/i.test(q),
     result: {
       category: 'DAILY_BRIEFING',
       tier: 'STANDARD',
@@ -253,14 +253,22 @@ const BYPASS_RULES: Array<{
     result: {
       category: 'BUYER_ANALYSIS',
       tier: 'STANDARD',
-      tools: ['search_buyers', 'get_top_buyers_for_deal', 'explain_buyer_score', 'query_deals'],
+      tools: ['search_buyers', 'get_top_buyers_for_deal', 'get_score_breakdown', 'query_deals'],
       confidence: 0.85,
     },
   },
   // Transcript / meeting questions
+  // NOTE: Excluded bare "call" — it's too ambiguous (matches "call history", "did we call X", "call me back").
+  // PhoneBurner call history and semantic search rules handle those cases with higher specificity.
+  // Also excluded bare "said"/"mentioned" to avoid blocking semantic search rule ("what did X say about").
   {
     test: (q) =>
-      /\b(transcripts?|call|meeting|fireflies|recording|said|mentions?|mentioned|discussed)\b/i.test(
+      // Skip queries about call history/logs (these route to ENGAGEMENT)
+      !/\b(call history|call log|call activity|did we call|have we called)\b/i.test(q) &&
+      // Skip queries better served by semantic search ("what did X say about Y")
+      !/\bwhat did\b.*\bsay\b/i.test(q) &&
+      !/\banyone\b.*\bmention/i.test(q) &&
+      /\b(transcripts?|call recording|meeting notes?|meeting with|fireflies|recording|said|mentions?|mentioned|discussed)\b/i.test(
         q,
       ),
     result: {
@@ -310,7 +318,29 @@ const BYPASS_RULES: Array<{
       confidence: 0.92,
     },
   },
-  // Select / filter / sort / action on table rows
+  // Select / filter / sort on UNIVERSE page → route to BUYER_UNIVERSE so tools stay scoped
+  {
+    test: (q, ctx) =>
+      (ctx.entity_type === 'universe' || ctx.page === 'universe_detail' || /\buniverse\b/i.test(q)) &&
+      /\b(select|check|pick|highlight|filter|show only|narrow|within \d+ miles|sort|order by|arrange|sort by)\b/i.test(
+        q,
+      ),
+    result: {
+      category: 'BUYER_UNIVERSE',
+      tier: 'STANDARD',
+      tools: [
+        'search_buyers',
+        'get_universe_buyer_fits',
+        'search_buyer_universes',
+        'select_table_rows',
+        'apply_table_filter',
+        'sort_table_column',
+        'trigger_page_action',
+      ],
+      confidence: 0.9,
+    },
+  },
+  // Select / filter / sort / action on table rows (non-universe pages)
   {
     test: (q) =>
       /\b(select|check|pick|highlight|filter|show only|narrow|within \d+ miles|sort|order by|arrange|sort by)\b/i.test(
@@ -407,7 +437,7 @@ const BYPASS_RULES: Array<{
   // Lead source queries — captarget, valuation calculator leads, go partners, etc.
   {
     test: (q) =>
-      /\b(cp target|captarget|go partners|marketplace|lead source|source|valuation lead|calculator lead|leads tracker)\b/i.test(
+      /\b(cp target|captarget|go partners|marketplace|lead source|lead sources|valuation lead|calculator lead|leads tracker)\b/i.test(
         q,
       ),
     result: {
@@ -624,7 +654,7 @@ const BYPASS_RULES: Array<{
     result: {
       category: 'ENGAGEMENT',
       tier: 'STANDARD',
-      tools: ['get_buyer_history', 'explain_buyer_score'],
+      tools: ['get_buyer_history', 'get_score_breakdown'],
       confidence: 0.87,
     },
   },
@@ -637,7 +667,7 @@ const BYPASS_RULES: Array<{
     result: {
       category: 'BUYER_ANALYSIS',
       tier: 'STANDARD',
-      tools: ['explain_buyer_score'],
+      tools: ['get_score_breakdown'],
       confidence: 0.92,
     },
   },
@@ -1159,7 +1189,7 @@ Categories:
 - PLATFORM_GUIDE: Questions about how to use the platform, what features do, how workflows work, what the chatbot can do
 - GENERAL: Other / unclear intent
 
-Available tools: query_deals, get_deal_details, get_deal_activities, get_deal_tasks, get_deal_documents, get_deal_memos, get_deal_communication, get_deal_scoring_adjustments, get_deal_referrals, get_pipeline_summary, search_buyers, get_buyer_profile, get_score_breakdown, get_top_buyers_for_deal, get_buyer_signals, get_buyer_history, search_lead_sources, search_valuation_leads, search_inbound_leads, get_referral_data, search_pe_contacts, get_firm_agreements, get_nda_logs, get_connection_requests, get_connection_messages, search_buyer_universes, get_universe_details, get_outreach_records, search_transcripts, get_meeting_action_items, get_outreach_status, get_analytics, get_enrichment_status, get_industry_trackers, get_current_user_context, create_deal_task, complete_deal_task, add_deal_note, log_deal_activity, update_deal_stage, grant_data_room_access, select_table_rows, apply_table_filter, sort_table_column, navigate_to_page, explain_buyer_score, semantic_transcript_search, get_follow_up_queue, get_call_history, search_contacts, get_stale_deals, get_document_engagement, enrich_contact, find_contact, push_to_phoneburner, push_to_smartlead, send_document, google_search_companies, save_contacts_to_crm, reassign_deal_task, convert_to_pipeline_deal, get_data_quality_report, detect_buyer_conflicts, get_deal_health, match_leads_to_deals, generate_eod_recap, get_smartlead_campaigns, get_smartlead_campaign_stats, get_smartlead_email_history, retrieve_knowledge, research_industry
+Available tools: query_deals, get_deal_details, get_deal_activities, get_deal_tasks, get_deal_documents, get_deal_memos, get_deal_communication, get_deal_scoring_adjustments, get_deal_referrals, get_pipeline_summary, search_buyers, get_buyer_profile, get_score_breakdown, get_top_buyers_for_deal, get_buyer_signals, get_buyer_history, search_lead_sources, search_valuation_leads, search_inbound_leads, get_referral_data, search_pe_contacts, get_firm_agreements, get_nda_logs, get_connection_requests, get_connection_messages, search_buyer_universes, get_universe_details, get_outreach_records, search_transcripts, get_meeting_action_items, get_outreach_status, get_analytics, get_enrichment_status, get_industry_trackers, get_current_user_context, create_deal_task, complete_deal_task, add_deal_note, log_deal_activity, update_deal_stage, grant_data_room_access, select_table_rows, apply_table_filter, sort_table_column, navigate_to_page, semantic_transcript_search, get_follow_up_queue, get_call_history, search_contacts, get_stale_deals, get_document_engagement, enrich_contact, find_contact, push_to_phoneburner, push_to_smartlead, send_document, google_search_companies, save_contacts_to_crm, reassign_deal_task, convert_to_pipeline_deal, get_data_quality_report, detect_buyer_conflicts, get_deal_health, match_leads_to_deals, generate_eod_recap, get_smartlead_campaigns, get_smartlead_campaign_stats, get_smartlead_email_history, retrieve_knowledge, research_industry
 
 Respond with JSON only:
 {"category":"CATEGORY","tier":"QUICK|STANDARD|DEEP","tools":["tool1","tool2"],"confidence":0.0-1.0}

@@ -76,6 +76,8 @@ All tasks created by AI (via create_task, create_deal_task, or standup extractio
 
 11. ERROR HANDLING: Explain what went wrong in plain language. Offer recovery options. If a tool returns partial results, say so.
 
+12. ALWAYS RESPOND WITH TEXT: After executing tools, you MUST always provide a natural language text response summarizing what was found or done. Never end your turn with only tool calls and no text. The user sees your text response in a chat panel — if you produce no text, they see a blank message. Even if tool results are self-explanatory, always write a brief summary.
+
 CAPABILITIES OVERVIEW:
 You can search deals, buyers, contacts, and leads across all sources (CapTarget, GP Partners, Marketplace, Inbound, Valuation, Pipeline). You can analyze scores, track outreach, manage data room access, and generate reports. You can enrich contacts via LinkedIn/Prospeo, push to PhoneBurner/Smartlead, send NDAs/fee agreements via DocuSeal, search call transcripts semantically, and take UI actions (select rows, filter, sort, navigate). You can create tasks, add notes, update stages, and log activities.
 
@@ -119,6 +121,13 @@ Also use get_task_inbox for the user's personal task queue. Every follow-up item
 - search_buyer_universes → buyer universes. Use for "find the HVAC universe".
 - get_top_buyers_for_deal → scored buyers for a specific deal. Use for "buyers in the [deal] universe in OK".
 
+CRITICAL — UNIVERSE-SCOPED QUERIES:
+When the user asks about buyers in a specific deal's universe or a named universe, ALWAYS scope by universe_id or deal_id:
+- "Buyers in the MPG deal universe" → get_top_buyers_for_deal(deal_id) or search_buyers(universe_id)
+- "Auto buyers in the [deal] universe" → get_top_buyers_for_deal(deal_id), NOT search_buyers(industry: "auto")
+- Generic industry terms like "auto" match MULTIPLE universes (e.g. "Auto Services" AND "Collision/Auto Body"). Always resolve to a specific universe_id first.
+If search_buyers returns a universe_warning in results, re-query with the correct universe_id.
+
 KEY BEHAVIORS:
 - search_buyers industry param auto-matches universe names (e.g. "HVAC" finds buyers in "Residential HVAC, Plumbing and Electrical" universe even if buyer record itself doesn't mention HVAC).
 - search_buyers state filter checks BOTH hq_state and geographic_footprint — returns ALL matching buyers.
@@ -128,7 +137,7 @@ KEY BEHAVIORS:
 FORMAT: Return buyer matches as: name, type, HQ, revenue range, key services, alignment score.`,
 
   BUYER_ANALYSIS: `Present scores with context: composite, geography, service, size, owner goals, portfolio, business_model, acquisition.
-Explain score drivers and flags. Use get_score_breakdown for per-dimension breakdown. Use explain_buyer_score for human-readable explanations with data source citations.
+Explain score drivers and flags. Use get_score_breakdown for per-dimension breakdown and human-readable explanations with data source citations.
 Pair search_buyers with get_buyer_profile for deep-dives (note: top 10 scored deals only).
 For "recommended buyers" or "buyer strategy", prefer get_recommended_buyers — it synthesizes across ALL data sources: scores, transcripts (call + buyer + deal), buyer universes, outreach records, and full deal context in a single call.
 For "competitors": clarify if they mean competing acquirers or industry competitors.
@@ -169,7 +178,7 @@ TASK CREATION — CRITICAL:
   REMARKETING: `1. SEARCH to find matching entities and IDs, 2. Call select_table_rows or apply_table_filter, 3. Confirm what was selected.
 Always combine data query with UI action.
 When recommending buyers, reference specific names in **bold**, explain fit reasoning using thesis, geography, size, and services.
-Use explain_buyer_score or get_score_breakdown for per-dimension justification (geography, size, service, composite).
+Use get_score_breakdown for per-dimension justification (geography, size, service, composite).
 Prioritize PENDING status buyers unless asked otherwise.
 DATA PROVENANCE: Never attribute PE firm data to platform companies. Distinguish data from call transcripts vs website enrichment. If transcript data is unavailable, say so — never infer.`,
 
@@ -180,7 +189,20 @@ DATA PROVENANCE: Never attribute PE firm data to platform companies. Distinguish
   OUTREACH_DRAFT: `Draft with: 1) Subject line 2) Body (professional, concise, specific) 3) Call to action.
 Use actual buyer/deal details — never generic templates.`,
 
-  BUYER_UNIVERSE: `Use search_buyer_universes to find, get_universe_details for criteria, get_top_buyers_for_deal with state filter for geographic counts, get_universe_buyer_fits for fit/not-fit analysis.
+  BUYER_UNIVERSE: `CRITICAL WORKFLOW — ALWAYS scope to the specific universe:
+1. If the user references a DEAL's buyer universe (e.g. "buyers in the MPG deal universe"):
+   a. First get the deal via query_deals to find the deal_id.
+   b. Then use get_top_buyers_for_deal(deal_id, state) to get scored buyers for THAT deal's universe. This automatically scopes to the deal's assigned universe.
+   c. NEVER use search_buyers with an industry keyword as a substitute — this searches ALL buyers across ALL universes and will return results from the wrong universe (e.g. searching "auto" matches both "Auto Services" and "Collision/Auto Body" universes).
+2. If the user references a UNIVERSE by name (e.g. "the auto buyer universe"):
+   a. First use search_buyer_universes(search) to find the exact universe and its ID.
+   b. Then use search_buyers(universe_id) to search within THAT specific universe only.
+   c. NEVER use search_buyers with industry keyword instead of universe_id — ambiguous terms like "auto" match multiple unrelated universes.
+3. For geographic counts within a universe, use get_top_buyers_for_deal(deal_id, state, limit:1000) or search_buyers(universe_id, state).
+4. Use get_universe_details for criteria, get_universe_buyer_fits for fit/not-fit analysis.
+
+WHY THIS MATTERS: Universe names can share keywords (e.g. "Auto Services" and "Collision/Auto Body" both contain "auto"). Generic industry searches will cross-contaminate results across universes. Always resolve to a specific universe_id or deal_id first.
+
 Always show universe name, total count, and filtered count.
 Compare buyers against fit criteria (size, geography, services, scoring behavior). Reference the industry research guide (ma_guide_content) when explaining market dynamics and buyer positioning.
 Suggest universe improvements when alignment is low. Use select_table_rows to highlight recommended buyers in the UI.`,
@@ -284,7 +306,7 @@ PRESENTATION RULES:
 - Include deal investment thesis and owner goals context when explaining recommendations
 
 Use generate_buyer_narrative for a written strategy document with full multi-source synthesis.
-Use explain_buyer_score or get_score_breakdown for per-dimension justification.
+Use get_score_breakdown for per-dimension justification.
 Use draft_outreach_email when the user wants to draft outreach to a recommended buyer.
 Use search_transcripts or semantic_transcript_search if the user wants to dig deeper into specific call content.`,
 

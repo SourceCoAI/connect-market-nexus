@@ -81,7 +81,7 @@ export function AddBuyerToUniverseDialog({
           pe_firm_name: peFirmName.trim() || null,
           pe_firm_website: normalizedPeFirmWebsite,
           business_summary: notes.trim() || null,
-          buyer_type: peFirmName.trim() ? 'pe_firm' : 'platform',
+          buyer_type: peFirmName.trim() ? 'private_equity' : 'corporate',
         })
         .select('id')
         .single();

@@ -191,6 +191,7 @@ export function DealTranscriptSection({
       ffSearchLoading={ff.ffSearchLoading}
       onFfQuickSearch={ff.handleFfQuickSearch}
       ffResults={ff.ffResults}
+      ffHasSearched={ff.ffHasSearched}
       ffLinking={ff.ffLinking}
       onLinkSearchResult={
         ff.handleLinkSearchResult as unknown as (transcript: {
@@ -198,6 +199,7 @@ export function DealTranscriptSection({
           [key: string]: unknown;
         }) => void
       }
+      onClearResults={ff.clearFfResults}
     />
   );
 

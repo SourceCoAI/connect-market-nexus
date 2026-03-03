@@ -76,10 +76,13 @@ export interface ServiceCriteria {
 }
 
 export interface BuyerTypesCriteria {
-  include_pe_firms?: boolean;
-  include_platforms?: boolean;
-  include_strategic?: boolean;
+  include_pe_firms?: boolean;       // private_equity buyers
+  include_platforms?: boolean;      // corporate buyers (legacy name kept for DB compat)
+  include_strategic?: boolean;      // corporate buyers (legacy alias)
   include_family_office?: boolean;
+  include_independent_sponsors?: boolean;
+  include_search_funds?: boolean;
+  include_individual_buyers?: boolean;
 }
 
 // Nested scoring behavior sub-interfaces
@@ -180,9 +183,81 @@ export interface DocumentReference {
   auto_generated?: boolean;
 }
 
-export type BuyerType = 'pe_firm' | 'platform' | 'strategic' | 'family_office' | 'independent_sponsor' | 'search_fund' | 'other';
+export type BuyerType = 'private_equity' | 'corporate' | 'family_office' | 'independent_sponsor' | 'search_fund' | 'individual_buyer';
+
+/** Legacy buyer type values that may still exist in the database before migration */
+export type LegacyBuyerType = 'pe_firm' | 'platform' | 'strategic' | 'other';
+
+/** Source of the buyer_type classification */
+export type BuyerTypeSource = 'ai_auto' | 'admin_manual' | 'import' | 'signup';
+
 export type ScoreTier = 'A' | 'B' | 'C' | 'D' | 'F';
 export type ScoreStatus = 'pending' | 'approved' | 'passed' | 'hidden';
+
+/** Canonical buyer type options for dropdowns and forms */
+export const REMARKETING_BUYER_TYPE_OPTIONS: { value: BuyerType; label: string }[] = [
+  { value: 'private_equity', label: 'Private Equity' },
+  { value: 'corporate', label: 'Corporate / Strategic' },
+  { value: 'family_office', label: 'Family Office' },
+  { value: 'independent_sponsor', label: 'Independent Sponsor' },
+  { value: 'search_fund', label: 'Search Fund' },
+  { value: 'individual_buyer', label: 'Individual Buyer' },
+];
+
+/**
+ * Normalize any buyer_type string (legacy or variant) to a canonical BuyerType.
+ * Returns null if the value cannot be mapped.
+ */
+export function normalizeBuyerType(raw: string | null | undefined): BuyerType | null {
+  if (!raw) return null;
+  const v = raw.trim().toLowerCase();
+  const map: Record<string, BuyerType> = {
+    // Canonical values
+    private_equity: 'private_equity',
+    corporate: 'corporate',
+    family_office: 'family_office',
+    independent_sponsor: 'independent_sponsor',
+    search_fund: 'search_fund',
+    individual_buyer: 'individual_buyer',
+    // Legacy remarketing values
+    pe_firm: 'private_equity',
+    'pe firm': 'private_equity',
+    pe: 'private_equity',
+    'private equity': 'private_equity',
+    'private equity firm': 'private_equity',
+    strategic: 'corporate',
+    'operating company': 'corporate',
+    company: 'corporate',
+    corp: 'corporate',
+    platform: 'corporate', // platform → corporate + is_pe_backed handled separately
+    'platform company': 'corporate',
+    'portfolio company': 'corporate',
+    fo: 'family_office',
+    'family office': 'family_office',
+    'search fund': 'search_fund',
+    searcher: 'search_fund',
+    eta: 'search_fund',
+    'independent sponsor': 'independent_sponsor',
+    'fundless sponsor': 'independent_sponsor',
+    'ind sponsor': 'independent_sponsor',
+    individual: 'individual_buyer',
+    'individual buyer': 'individual_buyer',
+    'private buyer': 'individual_buyer',
+    'wealth buyer': 'individual_buyer',
+    'personal acquisition': 'individual_buyer',
+    // Marketplace camelCase values
+    privateequity: 'private_equity',
+    familyoffice: 'family_office',
+    searchfund: 'search_fund',
+    independentsponsor: 'independent_sponsor',
+    businessowner: 'corporate',
+    advisor: 'corporate',
+    // Fallback
+    other: 'corporate',
+    buyer: 'corporate',
+  };
+  return map[v] ?? null;
+}
 
 export interface ReMarketingBuyer {
   id: string;
@@ -217,6 +292,16 @@ export interface ReMarketingBuyer {
   acquisition_timeline?: string | null;
   acquisition_appetite?: string | null;
   total_acquisitions?: number;
+  // Classification metadata
+  buyer_type_confidence?: number | null;
+  buyer_type_reasoning?: string | null;
+  buyer_type_source?: BuyerTypeSource | null;
+  buyer_type_needs_review?: boolean;
+  buyer_type_classified_at?: string | null;
+  buyer_type_ai_recommendation?: BuyerType | null;
+  // PE backing (separate from buyer_type)
+  is_pe_backed?: boolean;
+  pe_firm_id?: string | null;
   // Relations
   contacts?: ReMarketingBuyerContact[];
   universe?: ReMarketingBuyerUniverse;

@@ -34,14 +34,12 @@ interface AddBuyerIntroductionDialogProps {
 }
 
 const BUYER_TYPES = [
-  { value: 'pe_firm', label: 'PE Firm' },
-  { value: 'platform', label: 'Platform' },
-  { value: 'strategic', label: 'Strategic' },
+  { value: 'private_equity', label: 'PE Firm' },
+  { value: 'corporate', label: 'Corporate' },
   { value: 'family_office', label: 'Family Office' },
   { value: 'independent_sponsor', label: 'Independent Sponsor' },
   { value: 'search_fund', label: 'Search Fund' },
   { value: 'individual', label: 'Individual' },
-  { value: 'other', label: 'Other' },
 ];
 
 export function AddBuyerIntroductionDialog({

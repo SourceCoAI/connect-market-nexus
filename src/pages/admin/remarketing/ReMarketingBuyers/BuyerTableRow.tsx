@@ -81,7 +81,7 @@ const BuyerTableRow = ({
     <TableRow
       key={buyer.id}
       className="cursor-pointer hover:bg-muted/50 group"
-      onClick={() => navigate(detailPath)}
+      onClick={() => navigate(detailPath, { state: { from: '/admin/buyers' } })}
     >
       {/* Checkbox */}
       <TableCell
@@ -141,7 +141,7 @@ const BuyerTableRow = ({
         </div>
       </TableCell>
 
-      {activeTab === 'pe_firm' ? (
+      {activeTab === 'private_equity' ? (
         <>
           {/* Type Column (PE Firms tab) */}
           <TableCell>
@@ -315,7 +315,7 @@ const BuyerTableRow = ({
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(detailPath);
+                  navigate(detailPath, { state: { from: '/admin/buyers' } });
                 }}
               >
                 <Pencil className="h-4 w-4 mr-2" />

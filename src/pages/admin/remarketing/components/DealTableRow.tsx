@@ -69,7 +69,7 @@ export const DealTableRow = ({
   listing: DealListing;
   index: number;
   stats: { totalMatches?: number; approved?: number; passed?: number } | null;
-  navigate: (path: string) => void;
+  navigate: (path: string, options?: { state?: Record<string, unknown> }) => void;
   formatCurrency: (value: number | null) => string;
   formatWebsiteDomain: (url: string | null) => string | null;
   getEffectiveWebsite: (listing: DealListing) => string | null;
@@ -166,7 +166,7 @@ export const DealTableRow = ({
         isDragging && "bg-muted/80 opacity-80 shadow-lg z-50",
         listing.is_priority_target && "bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
       )}
-      onClick={() => navigate(`/admin/deals/${listing.id}`)}
+      onClick={() => navigate(`/admin/deals/${listing.id}`, { state: { from: '/admin/deals' } })}
     >
       {/* Checkbox */}
       <TableCell
@@ -497,7 +497,7 @@ export const DealTableRow = ({
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/admin/deals/${listing.id}`);
+                navigate(`/admin/deals/${listing.id}`, { state: { from: '/admin/deals' } });
               }}
             >
               <Building2 className="h-4 w-4 mr-2" />

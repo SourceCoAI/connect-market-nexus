@@ -30,8 +30,7 @@ interface DealHeaderDeal {
 
 interface DealHeaderProps {
   deal: DealHeaderDeal;
-  backTo: string | null;
-  navigate: (to: string | number) => void;
+  backTo: string;
   displayName: string;
   listedName: string | null;
   dataCompleteness: number;
@@ -48,7 +47,6 @@ interface DealHeaderProps {
 export function DealHeader({
   deal,
   backTo,
-  navigate,
   displayName,
   listedName,
   dataCompleteness,
@@ -65,19 +63,12 @@ export function DealHeader({
     <div className="flex items-start justify-between">
       <div>
         <div className="flex items-center gap-2 mb-2">
-          {backTo ? (
-            <Button variant="ghost" size="sm" asChild>
-              <Link to={backTo}>
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back
-              </Link>
-            </Button>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to={backTo}>
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back
-            </Button>
-          )}
+            </Link>
+          </Button>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {isEditingName ? (

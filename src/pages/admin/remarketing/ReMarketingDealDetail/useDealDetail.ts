@@ -11,7 +11,7 @@ export function useDealDetail() {
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const backTo = (location.state as { from?: string } | null)?.from || null;
+  const backTo = (location.state as { from?: string } | null)?.from || '/admin/deals';
   const queryClient = useQueryClient();
 
   const [isEnriching, setIsEnriching] = useState(false);

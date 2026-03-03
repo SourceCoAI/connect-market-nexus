@@ -34,12 +34,11 @@ interface AddBuyerToDealDialogProps {
 const BUYER_TYPES = [
   { value: 'pe_platform', label: 'PE Platform' },
   { value: 'pe_add_on', label: 'PE Add-on' },
-  { value: 'strategic', label: 'Strategic' },
+  { value: 'corporate', label: 'Corporate' },
   { value: 'independent_sponsor', label: 'Independent Sponsor' },
   { value: 'family_office', label: 'Family Office' },
   { value: 'search_fund', label: 'Search Fund' },
   { value: 'individual', label: 'Individual' },
-  { value: 'other', label: 'Other' },
 ];
 
 export function AddBuyerToDealDialog({

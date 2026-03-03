@@ -348,6 +348,7 @@ const ReMarketingDashboard = () => {
                     <td className="py-2.5 pr-3">
                       <Link
                         to={`/admin/deals/${deal.id}`}
+                        state={{ from: '/admin' }}
                         className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
                       >
                         {deal.internal_company_name || deal.title || '—'}

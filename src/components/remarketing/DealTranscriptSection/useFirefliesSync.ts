@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { DealTranscript } from './types';
@@ -45,11 +45,28 @@ export function useFirefliesSync({
   const [ffQuery, setFfQuery] = useState(companyName || '');
   const [ffSearchLoading, setFfSearchLoading] = useState(false);
   const [ffResults, setFfResults] = useState<FirefliesSearchResult[]>([]);
+  const [ffHasSearched, setFfHasSearched] = useState(false);
   const [ffLinking, setFfLinking] = useState<string | null>(null);
   const [firefliesUrl, setFirefliesUrl] = useState('');
   const [linkingUrl, setLinkingUrl] = useState(false);
   const [ffUploading, setFfUploading] = useState(false);
   const ffFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clear results when query is emptied
+  const handleFfQueryChange = useCallback((val: string) => {
+    setFfQuery(val);
+    if (!val.trim()) {
+      setFfResults([]);
+      setFfHasSearched(false);
+    }
+  }, []);
+
+  // Clear search results and reset state
+  const clearFfResults = useCallback(() => {
+    setFfResults([]);
+    setFfHasSearched(false);
+    setFfQuery('');
+  }, []);
 
   // Build the full list of emails to search (deduped)
   const allContactEmails = Array.from(
@@ -106,6 +123,7 @@ export function useFirefliesSync({
     const trimmed = ffQuery.trim();
     if (!trimmed) return;
     setFfSearchLoading(true);
+    setFfHasSearched(true);
     const toastId = toast.loading(`Searching Fireflies for "${trimmed}"...`);
     try {
       const { data, error } = await supabase.functions.invoke('search-fireflies-for-buyer', {
@@ -301,9 +319,10 @@ export function useFirefliesSync({
     syncLoading,
     lastSynced,
     ffQuery,
-    setFfQuery,
+    setFfQuery: handleFfQueryChange,
     ffSearchLoading,
     ffResults,
+    ffHasSearched,
     ffLinking,
     firefliesUrl,
     setFirefliesUrl,
@@ -316,5 +335,6 @@ export function useFirefliesSync({
     handleLinkSearchResult,
     handleLinkByUrl,
     handleFfFileUpload,
+    clearFfResults,
   };
 }

@@ -43,9 +43,8 @@ const TIER_OPTIONS = [
 
 const BUYER_TYPE_OPTIONS = [
   { value: 'all', label: 'All Types' },
-  { value: 'pe_firm', label: 'PE Firms' },
-  { value: 'platform', label: 'Platforms' },
-  { value: 'strategic', label: 'Strategic' },
+  { value: 'private_equity', label: 'PE Firms' },
+  { value: 'corporate', label: 'Corporate' },
   { value: 'family_office', label: 'Family Office' },
 ];
 

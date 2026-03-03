@@ -159,28 +159,24 @@ export default function CreateListingFromDeal() {
         const sections = teaserMemo?.content?.sections;
 
         if (sections && Array.isArray(sections) && sections.length > 0) {
-          // Build custom_sections matching the same logic the edge function uses
-          // when syncing back to the listing (filter out header/contact, map to {title, description})
-          const customSections = sections
-            .filter(
-              (s: { key: string }) => s.key !== 'header_block' && s.key !== 'contact_information',
-            )
-            .map((s: { title: string; content: string }) => ({
-              title: s.title,
-              description: s.content,
-            }));
-
-          // Use company_overview section as the listing description
-          const companyOverview = sections.find(
-            (s: { key: string }) => s.key === 'company_overview',
+          // Merge all AI sections into the body description with clear section headings.
+          // This replaces the old custom_sections approach — everything goes into
+          // the description for a single, easy-to-edit rich text block.
+          const contentSections = sections.filter(
+            (s: { key: string }) => s.key !== 'header_block' && s.key !== 'contact_information',
           );
+
+          // Build a formatted description with section headings and content
+          const formattedDescription = contentSections
+            .map((s: { title: string; content: string }) => `${s.title}\n\n${s.content}`)
+            .join('\n\n');
 
           setPrefilled((prev) => {
             if (!prev) return prev;
             return {
               ...prev,
-              custom_sections: customSections,
-              description: companyOverview?.content || prev.description,
+              custom_sections: [],
+              description: formattedDescription || prev.description,
             };
           });
           toast.success('AI content generated — review and edit before saving.');

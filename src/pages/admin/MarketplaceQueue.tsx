@@ -240,7 +240,7 @@ const MarketplaceQueue = () => {
               <Card
                 key={deal.id}
                 className="hover:border-blue-200 transition-colors cursor-pointer"
-                onClick={() => navigate(`/admin/deals/${deal.id}`)}
+                onClick={() => navigate(`/admin/deals/${deal.id}`, { state: { from: '/admin/marketplace/queue' } })}
               >
                 <CardContent className="py-4">
                   <div className="flex items-start justify-between gap-4">
@@ -309,7 +309,7 @@ const MarketplaceQueue = () => {
                           className="h-8 text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/admin/deals/${existingListing.id}?tab=marketplace`);
+                            navigate(`/admin/deals/${existingListing.id}?tab=marketplace`, { state: { from: '/admin/marketplace/queue' } });
                           }}
                         >
                           <Eye className="h-3.5 w-3.5 mr-1" />

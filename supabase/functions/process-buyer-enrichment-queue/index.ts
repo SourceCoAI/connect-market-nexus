@@ -72,44 +72,22 @@ Deno.serve(async (req) => {
       console.log(`Recovered ${staleItems.length} stale processing items`);
     }
 
-    // BUG-3 FIX: Use pg_advisory_xact_lock via RPC for mutual exclusion.
-    // The previous pattern (SELECT processing items, then skip if any) had a TOCTOU race:
-    // two concurrent invocations could both see zero active items and both proceed.
-    // If the RPC isn't available yet, fall back to the original check-then-skip pattern
-    // which is still *mostly* safe because individual item claims use atomic status checks.
+    // Advisory lock (best-effort): do NOT hard-stop on lock contention.
+    // Session-level advisory locks can linger with pooled connections and stall the queue.
+    // We still attempt the lock for observability, but rely on atomic row-claiming below
+    // to safely prevent duplicate processing.
     const { data: lockAcquired, error: lockError } = await supabase.rpc(
       'try_acquire_queue_processor_lock',
       { p_queue_name: 'buyer_enrichment' },
     );
 
-    if (lockError?.code === 'PGRST202' || lockError?.code === '42883') {
-      // RPC not deployed yet — fall back to original guard
-      const { data: activeItems } = await supabase
-        .from('buyer_enrichment_queue')
-        .select('id')
-        .eq('status', 'processing')
-        .limit(1);
+    if (lockError && lockError.code !== 'PGRST202' && lockError.code !== '42883') {
+      console.warn('Queue lock RPC error (continuing with atomic claims):', lockError);
+    }
 
-      if (activeItems && activeItems.length > 0) {
-        console.log('Another processor is active (fallback guard), skipping this run');
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'Skipped - another processor active',
-            processed: 0,
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
-      }
-    } else if (lockAcquired === false) {
-      console.log('Another processor holds the lock, skipping this run');
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Skipped - another processor holds lock',
-          processed: 0,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    if (lockAcquired === false) {
+      console.warn(
+        'Queue lock is currently held; continuing with atomic claim strategy to avoid lock-induced stalls',
       );
     }
 
@@ -284,8 +262,8 @@ Deno.serve(async (req) => {
         await new Promise((r) => setTimeout(r, waitMs));
       }
 
-      // Mark as processing
-      await supabase
+      // Atomically claim this item; if another worker already claimed it, skip safely.
+      const { data: claimedItem, error: claimError } = await supabase
         .from('buyer_enrichment_queue')
         .update({
           status: 'processing',
@@ -294,7 +272,19 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         })
         .eq('id', item.id)
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle();
+
+      if (claimError) {
+        console.error(`Failed to claim queue item ${item.id}:`, claimError);
+        break;
+      }
+
+      if (!claimedItem) {
+        console.log(`Buyer ${item.buyer_id} was claimed by another worker, skipping`);
+        continue;
+      }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), PROCESSING_TIMEOUT_MS);

@@ -78,7 +78,7 @@ export const usePEFirmData = () => {
         `
         )
         .eq("pe_firm_name", firm.company_name)
-        .neq("buyer_type", "pe_firm")
+        .neq("buyer_type", "private_equity")
         .eq("archived", false)
         .order("company_name");
 
@@ -273,7 +273,8 @@ export const usePEFirmData = () => {
       const { error } = await supabase.from("remarketing_buyers").insert({
         company_name: newPlatform.company_name,
         company_website: newPlatform.company_website || null,
-        buyer_type: "platform",
+        buyer_type: "corporate",
+        is_pe_backed: true,
         pe_firm_name: firm?.company_name,
         universe_id: newPlatform.universe_id || null,
         thesis_summary: newPlatform.thesis_summary || null,

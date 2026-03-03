@@ -15,7 +15,6 @@ import { EditorDescriptionSection } from './editor-sections/EditorDescriptionSec
 import { EditorHeroDescriptionSection } from './editor-sections/EditorHeroDescriptionSection';
 import { EditorVisualsSection } from './editor-sections/EditorVisualsSection';
 import { EditorInternalCard } from './editor-sections/EditorInternalCard';
-import { EditorLandingPageContentSection } from './editor-sections/EditorLandingPageContentSection';
 import { EditorLivePreview } from './editor-sections/EditorLivePreview';
 
 // Form schema - location accepts array from select component and transforms to string
@@ -443,26 +442,25 @@ export function ImprovedListingEditor({
 
             {/* MAIN CONTENT - Card grid */}
             <div className="grid grid-cols-[540px_1fr] gap-8 mb-6">
-              {/* Left: Company Overview */}
+              {/* Left: Company Overview (includes marketplace title, geography, type, industry) */}
               <EditorInternalCard
                 form={formForSections}
                 dealIdentifier={listing?.deal_identifier}
               />
 
-              {/* Right: Financial */}
-              <EditorFinancialCard form={formForSections} isReadOnly={isDealSourced} sourceDealId={effectiveDealId} />
+              {/* Right: Financial + Image stacked */}
+              <div className="space-y-6">
+                <EditorFinancialCard form={formForSections} isReadOnly={isDealSourced} />
+                <EditorVisualsSection
+                  imagePreview={imagePreview}
+                  imageError={imageError}
+                  onImageSelect={handleImageSelect}
+                  onRemoveImage={handleRemoveImage}
+                />
+              </div>
             </div>
 
-            {/* FULL WIDTH - Description */}
-            <div className="mb-6">
-              <EditorDescriptionSection
-                form={formForSections}
-                isGenerating={isGenerating}
-                generatingField={generatingField}
-              />
-            </div>
-
-            {/* FULL WIDTH - Hero Description */}
+            {/* FULL WIDTH - Hero Description (above Body Description) */}
             <div className="mb-6">
               <EditorHeroDescriptionSection
                 form={formForSections}
@@ -471,19 +469,17 @@ export function ImprovedListingEditor({
               />
             </div>
 
-            {/* FULL WIDTH - Landing Page Content */}
+            {/* FULL WIDTH - Body Description (rich text editor) */}
             <div className="mb-6">
-              <EditorLandingPageContentSection form={formForSections} />
+              <EditorDescriptionSection
+                form={formForSections}
+                isGenerating={isGenerating}
+                generatingField={generatingField}
+              />
             </div>
 
-            {/* Two-column: Image + Live Preview */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <EditorVisualsSection
-                imagePreview={imagePreview}
-                imageError={imageError}
-                onImageSelect={handleImageSelect}
-                onRemoveImage={handleRemoveImage}
-              />
+            {/* Live Preview */}
+            <div className="mb-6">
               <EditorLivePreview
                 formValues={
                   form.watch() as unknown as React.ComponentProps<

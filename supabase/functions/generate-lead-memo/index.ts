@@ -194,53 +194,82 @@ Deno.serve(async (req: Request) => {
       if (teaserError) throw teaserError;
       results.anonymous_teaser = teaser;
 
-      // Sync anonymous teaser to listing as ONE unified text block.
-      // Instead of splitting into separate custom_sections (which are hard to
-      // manage/edit), we merge all sections into a single description with
-      // section headers as bold dividers within the text.
-      const contentSections = teaserContent.sections
-        .filter((s: MemoSection) => s.key !== 'header_block' && s.key !== 'contact_information');
+      // Sync anonymous teaser content to the appropriate listing row.
+      //
+      // The deal row (is_internal_deal=true) should NOT have its description
+      // overwritten with marketplace teaser content — that causes the deal
+      // page to display marketplace listing text instead of deal notes.
+      //
+      // Strategy:
+      //  - Always save custom_sections on the deal row (used by memo renderers).
+      //  - Only write description/description_html/hero_description to the
+      //    marketplace listing child row (source_deal_id → deal_id,
+      //    is_internal_deal=false), if one exists.
+      const contentSections = teaserContent.sections.filter(
+        (s: MemoSection) => s.key !== 'header_block' && s.key !== 'contact_information',
+      );
 
-      // Also keep custom_sections populated for backwards compatibility
+      // Keep custom_sections populated for backwards compatibility
       // with landing pages and detail views that render them
-      const customSections = contentSections
-        .map((s: MemoSection) => ({ title: s.title, description: s.content }));
+      const customSections = contentSections.map((s: MemoSection) => ({
+        title: s.title,
+        description: s.content,
+      }));
 
-      // Build ONE unified description from all sections
-      const unifiedDescription = contentSections
-        .map((s: MemoSection) => `**${s.title}**\n\n${s.content}`)
-        .join('\n\n---\n\n');
-
-      // Build unified HTML
-      const unifiedHtml = contentSections
-        .map((s: MemoSection) => {
-          const sectionContent = s.content
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/^/, '<p>')
-            .replace(/$/, '</p>');
-          return `<h3 style="font-size:16px;font-weight:bold;color:#1a1a2e;margin:24px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #e0e0e0;">${s.title}</h3>${sectionContent}`;
-        })
-        .join('');
-
-      const listingUpdate: Record<string, unknown> = {
-        custom_sections: customSections,
-        description: unifiedDescription,
-        description_html: `<div class="unified-memo">${unifiedHtml}</div>`,
-      };
-
-      // Generate a compelling hero_description from the memo content.
-      // The hero is the first thing buyers see on cards and landing pages —
-      // it must be a concise 2-3 sentence elevator pitch, not just a data dump.
-      listingUpdate.hero_description = buildHeroFromMemo(teaserContent.sections, deal);
-
-      const { error: syncError } = await supabaseAdmin
+      // Save custom_sections on the deal row (does NOT touch description)
+      const { error: dealSyncError } = await supabaseAdmin
         .from('listings')
-        .update(listingUpdate)
+        .update({ custom_sections: customSections })
         .eq('id', deal_id);
-      if (syncError) {
-        console.error('Failed to sync teaser sections to listing:', syncError);
+      if (dealSyncError) {
+        console.error('Failed to sync custom_sections to deal:', dealSyncError);
+      }
+
+      // Check if a marketplace listing (child row) exists for this deal
+      const { data: marketplaceListing } = await supabaseAdmin
+        .from('listings')
+        .select('id')
+        .eq('source_deal_id', deal_id)
+        .eq('is_internal_deal', false)
+        .maybeSingle();
+
+      if (marketplaceListing) {
+        // Build ONE unified description from all sections
+        const unifiedDescription = contentSections
+          .map((s: MemoSection) => `**${s.title}**\n\n${s.content}`)
+          .join('\n\n---\n\n');
+
+        // Build unified HTML
+        const unifiedHtml = contentSections
+          .map((s: MemoSection) => {
+            const sectionContent = s.content
+              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+              .replace(/\*(.*?)\*/g, '<em>$1</em>')
+              .replace(/\n\n/g, '</p><p>')
+              .replace(/^/, '<p>')
+              .replace(/$/, '</p>');
+            return `<h3 style="font-size:16px;font-weight:bold;color:#1a1a2e;margin:24px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #e0e0e0;">${s.title}</h3>${sectionContent}`;
+          })
+          .join('');
+
+        const listingUpdate: Record<string, unknown> = {
+          custom_sections: customSections,
+          description: unifiedDescription,
+          description_html: `<div class="unified-memo">${unifiedHtml}</div>`,
+        };
+
+        // Generate a compelling hero_description from the memo content.
+        // The hero is the first thing buyers see on cards and landing pages —
+        // it must be a concise 2-3 sentence elevator pitch, not just a data dump.
+        listingUpdate.hero_description = buildHeroFromMemo(teaserContent.sections, deal);
+
+        const { error: syncError } = await supabaseAdmin
+          .from('listings')
+          .update(listingUpdate)
+          .eq('id', marketplaceListing.id);
+        if (syncError) {
+          console.error('Failed to sync teaser sections to marketplace listing:', syncError);
+        }
       }
     }
 
@@ -436,12 +465,14 @@ function buildDataContext(
  * Extracts the opening sentences from company_overview and combines with key financial
  * highlights from financial_overview to create a concise elevator pitch.
  */
-function buildHeroFromMemo(
-  sections: MemoSection[],
-  deal: Record<string, unknown>,
-): string {
-  const overview = sections.find((s) => s.key === 'company_overview');
-  const financial = sections.find((s) => s.key === 'financial_overview');
+function buildHeroFromMemo(sections: MemoSection[], _deal: Record<string, unknown>): string {
+  // Support both new keys (business_overview, deal_snapshot) and legacy keys (company_overview, financial_overview)
+  const overview =
+    sections.find((s) => s.key === 'business_overview') ||
+    sections.find((s) => s.key === 'company_overview');
+  const financial =
+    sections.find((s) => s.key === 'deal_snapshot') ||
+    sections.find((s) => s.key === 'financial_overview');
   const growth = sections.find((s) => s.key === 'growth_opportunities');
 
   const heroParts: string[] = [];
@@ -823,23 +854,32 @@ async function generateMemo(
     ? context.deal.geographic_states
     : [];
 
-  const systemPrompt = `You are a VP at a buy-side investment bank writing an investment memo for the partners at a private equity firm. This memo will go to the investment committee.
-...
+  const systemPrompt = `You are a senior M&A advisor writing a marketplace listing for a tech-enabled investment bank. Your listing will be seen by PE firms, family offices, and strategic acquirers who review dozens of teasers per week.
+
+YOUR GOAL: Write a listing that makes a qualified buyer stop scrolling and request a connection within 60 seconds of reading.
+
+WRITING PRINCIPLES:
+- Lead with what makes this company a compelling acquisition, not a description of what they do
+- Every sentence must earn its place — no filler, no throat-clearing
+- Use specific facts, metrics, and concrete details in every paragraph
+- Mix short paragraphs (2-3 sentences) with structured bullet points
+- Write for scanability — buyers skim before they read
+- Tone: confident, direct, professional but not stiff
 ${
   isAnonymous
-    ? `MEMO TYPE: Anonymous Teaser (blind profile)
+    ? `
+MEMO TYPE: Anonymous Teaser (blind profile)
 
-CRITICAL ANONYMITY RULES — VIOLATION OF ANY OF THESE WILL RESULT IN THE MEMO BEING REJECTED:
-- NO company name — use ONLY the codename "${projectCodename}" throughout the memo
-- NO owner/CEO name or any individual's name — refer to as "the owner," "the founder," "senior leadership," etc.
-- NO street address, city name, or specific state names (e.g., do NOT write "Arizona," "Texas," "New York," etc.)
-- Use ONLY broad regional descriptors: "${regionName} United States" or "multiple markets across the ${regionName}" — NEVER name specific states or cities
+CRITICAL ANONYMITY RULES — VIOLATION OF ANY WILL RESULT IN REJECTION:
+- NO company name — use ONLY the codename "${projectCodename}"
+- NO owner/CEO name — use "the owner," "the founder," "leadership"
+- NO street address, city name, or specific state names
+- Use ONLY broad regional descriptors: "${regionName} United States"
 - NO website URL, email address, or phone number
-- NO specific client, customer, partner, vendor, or supplier names (e.g., do NOT name "Carfax," "Parts Plus," "ASA," specific brand partnerships, etc.)
+- NO specific client, customer, partner, vendor, or supplier names
 - NO branded service program names that could identify the company
-- Financial data as ranges only (e.g., "$4.5M–$5.5M revenue", "28%–32% EBITDA margin")
-- Services described generically (e.g., "automotive maintenance and repair" not the brand name of the service)
-- NO founding year, founding date, or specific years in operation — these combined with industry and geography can identify the company. Do NOT write "founded in 2005" or "25+ years in operation." Instead, use only vague descriptors like "long-standing" or "well-established" without any numbers
+- NO founding year or specific years in operation
+- Financial data as ranges within 10-15% of actual figures (e.g., $4.5M–$5.5M revenue, 28%–32% EBITDA margin)
 ${companyName ? `- BANNED TERMS (these are the actual company identifiers — NEVER include them): "${companyName}"` : ''}
 ${
   companyWebsite
@@ -853,30 +893,69 @@ ${contactName ? `, "${contactName}"` : ''}
 ${addressCity ? `\n- BANNED LOCATION: "${addressCity}" — do NOT mention this city` : ''}
 ${geoStates.length > 0 ? `\n- BANNED STATES: ${geoStates.map((s: string) => `"${s}"`).join(', ')} — do NOT name these states individually` : ''}
 
-REQUIRED SECTIONS (9 sections — follow this exact structure — be EXHAUSTIVE with detail, this is a comprehensive investment document for an investment committee, NOT a short summary):
-1. key: "company_overview" / title: "Company Overview" — THIS IS THE MOST IMPORTANT SECTION. It becomes the primary listing description buyers see. Write 4-6 rich, substantive paragraphs. This must read like a compelling investment thesis, NOT a generic template.
-   - Paragraph 1: What the company does, its business model (how it makes money — B2B/B2C/mixed, recurring/project/contract-based, subscription/transactional), and how services interrelate. Be specific about what sets the revenue model apart.
-   - Paragraph 2: Geographic presence (region only — NEVER name states or cities), operational scale (employee count range, number of locations). Do NOT include years in operation or founding year — these are identifying. Paint a picture of the operational footprint.
-   - Paragraph 3: Competitive advantages and market position — certifications (described generically), preferred relationships, proprietary processes or technology, customer lock-in mechanisms, brand reputation, barriers to entry. What makes this business hard to replicate?
-   - Paragraph 4: Customer base quality — types of customers served (without naming specific accounts), recurring/repeat dynamics, contract vs. spot revenue, customer diversification or concentration characteristics, end-market exposure.
-   - Paragraph 5 (if data supports): Growth trajectory and acquisition attractiveness — how the business has grown, why a PE buyer would want this (platform potential, add-on opportunity, geographic gap-filler), and what investment would unlock.
-   - Paragraph 6 (if data supports): Owner context — why they are seeking a transaction, preferred deal structure, transition willingness. Only include if this information exists in the data.
-   Every sentence must contain at least one SPECIFIC fact, metric, or concrete detail from the provided data. Do NOT use vague phrases like "well-positioned" or "strong reputation" — state the actual evidence.
-2. key: "financial_overview" / title: "Financial Overview" — Present a 3-year (or best available) annual summary table PLUS YTD as ranges: Revenue range, Gross Profit range, EBITDA range, EBITDA margin range, owner compensation add-backs (range), adjusted EBITDA range. Then a narrative paragraph covering: revenue trend and CAGR, margin evolution, revenue concentration risk, recurring vs. project revenue split, capex requirements (range), and working capital characteristics.
-3. key: "services_operations" / title: "Services & Operations" — 3-5 paragraphs. All service lines with estimated revenue mix percentages (as ranges), operational footprint and geographic reach (region only — NEVER name specific states or cities), certifications described generically (e.g., "industry-standard certifications" not specific named programs), facilities (size ranges without addresses), capacity utilization, seasonal patterns, and key operational differentiators. Do NOT name specific vendor or partner companies.
-4. key: "ownership_management" / title: "Ownership & Management" — 2-3 paragraphs. Owner/operator background: years in industry (no name), how long they have owned the business, day-to-day role and involvement level, management team depth (tenure ranges, functional coverage), whether there is a layer of management that would allow a transition, and what the owner is seeking from a transaction partner. No names — refer to as "the owner," "the founder," "senior leadership," etc.
-5. key: "employees_workforce" / title: "Employees & Workforce" — Total headcount range, breakdown by function (field/technical, office/admin, management), key management depth and average tenure range, compensation structure (hourly vs. salary, benefit programs), training and certification programs (described generically), union status, and retention characteristics. Describe the workforce quality and any concentration risk without naming individuals.
-6. key: "facilities_locations" / title: "Facilities & Locations" — Number of locations (region only, no cities, states, or addresses), approximate total square footage range, owned vs. leased breakdown, lease term ranges and renewal options, condition of facilities, and any planned expansions or consolidations.
-7. key: "growth_opportunities" / title: "Growth Opportunities" — 3-4 paragraphs. Organic expansion opportunities (geographic, service line, pricing), M&A bolt-on potential, cross-sell opportunities, technology-driven efficiencies or margin improvement levers, and any identified demand tailwinds. Be specific about actionable initiatives a buyer could execute.
-8. key: "key_risks" / title: "Key Considerations" — Customer concentration (top-customer revenue share as range), key-person dependency, regulatory or licensing factors (described generically, no state-specific references), competitive dynamics, end-market cyclicality, capital requirements for growth, and any other material risks. Present a balanced assessment — do not omit negatives.
-9. key: "transaction_overview" / title: "Transaction Overview" — Transaction structure the owner is seeking (full sale, majority recap, growth partner), asking price or valuation range if known, preferred timeline, ideal buyer profile and characteristics, owner's transition willingness and preferred period, and any deal requirements or deal-breakers. No names.
+REQUIRED SECTIONS (6 sections — follow this exact structure):
 
-IMPORTANT — COMPLETENESS RULES:
+1. key: "business_overview" / title: "Business Overview"
+Write 2-3 SHORT, punchy paragraphs (2-4 sentences each).
+
+Paragraph 1 (THE HOOK): Open with what makes this company a compelling acquisition. Lead with the strongest selling point — margins, market position, recurring revenue, growth, or competitive moat. Then explain the business model (B2B/B2C, recurring/project, subscription/transactional).
+
+Paragraph 2: Operational scale and geographic presence (region only). Employee count range, number of locations. Competitive advantages — certifications, preferred relationships, proprietary processes.
+
+Paragraph 3 (if data supports): Customer base quality, revenue diversification, growth trajectory.
+
+CRITICAL: The first two sentences are the most important text in the entire listing. They appear in the listing card preview. Make them count.
+
+2. key: "deal_snapshot" / title: "Deal Snapshot"
+Structured quick-reference block buyers check first. Present as labeled fields, NOT paragraphs:
+
+**Revenue:** $X.XM–$X.XM (most recent year)
+**EBITDA:** $X.XM–$X.XM (XX%–XX% margin)
+**Employees:** XX (range acceptable)
+**Location:** ${regionName} United States
+**Service Lines:** [list core categories]
+**Revenue Mix:** XX% [type A] / XX% [type B]
+**Customer Base:** [brief descriptor]
+**Real Estate:** Owned / Leased / N/A
+**Ownership Objective:** [1-sentence summary]
+
+Only include fields where you have data. No placeholders.
+
+3. key: "investment_highlights" / title: "Key Investment Highlights"
+4-6 bullet points. Each bullet has:
+- A **bold headline** (3-6 words)
+- 1-2 sentences of supporting detail with specific facts/metrics
+
+Focus on: revenue quality, margin strength, competitive moat, scalability, real estate/hard asset value, operating efficiency.
+
+4. key: "services_scope" / title: "Services & Scope"
+Two sub-sections:
+
+**Core Services** — Bullet list of primary service offerings. 1 line each. Include revenue mix % as ranges where available.
+
+**Delivery & Capacity** — 1-2 short paragraphs: operational footprint (region only), delivery model, equipment/facilities (generic), capacity utilization, seasonal patterns.
+
+5. key: "growth_opportunities" / title: "Growth & Value Creation Opportunities"
+3-5 bullet points. Same format as Investment Highlights:
+**Bold headline** + 1-2 sentences of detail.
+
+Focus on ACTIONABLE initiatives a buyer could execute.
+Be specific. "Expand geographically" is weak.
+"Replicate single-facility model in adjacent metros, leveraging existing carrier relationships with multi-state coverage" is strong.
+
+6. key: "owner_objectives" / title: "Owner Objectives & Ideal Partner"
+Two sub-sections:
+
+**Owner Objectives** — 1-2 sentences. Why seeking a transaction? What are they open to? Transition willingness?
+
+**Ideal Partner Profile** — 2-3 bullet points with bold buyer type labels describing the types of acquirers this business would appeal to and why.
+
+COMPLETENESS RULES:
 - Only write about information you actually have from the data provided
 - If you do not have data for a metric or topic, simply OMIT it — do NOT write placeholder text, do NOT add "[DATA NEEDED: ...]" or "[VERIFY: ...]" tags
-- Write substantive paragraphs for topics where data exists; skip topics where it does not
-- Each section should contain ONLY factual content derived from the provided data — no filler, no speculation, no placeholder markers
-- Do NOT repeat the same information across multiple sections — each section should cover its assigned topic without restating content from other sections`
+- No filler, no speculation, no placeholder markers
+- Do NOT repeat the same information across sections
+- If a section has fewer than 2 substantive bullets/sentences, merge into the most relevant adjacent section`
     : `MEMO TYPE: Full Lead Memo (confidential, post-NDA)
 
 Include all identifying information: company name, owner, address, website, contact details. Use exact financial figures.
@@ -900,6 +979,12 @@ IMPORTANT — COMPLETENESS RULES:
 - Do NOT repeat the same information across multiple sections — each section should cover its assigned topic without restating content from other sections`
 }
 
+FORMATTING RULES:
+- **bold** for emphasis and bullet headlines
+- Bullet points (-) for Highlights, Growth, Services, Partner Profile
+- Short paragraphs (2-4 sentences) for Business Overview
+- Financial tables use | header | markdown format
+
 OUTPUT FORMAT:
 Return a JSON object with a "sections" array. Each section has:
 - "key": snake_case identifier (as specified above)
@@ -908,40 +993,47 @@ Return a JSON object with a "sections" array. Each section has:
 
 === FEW-SHOT EXAMPLES ===
 
-Example 1 — Anonymous Teaser Company Overview (Correct depth and detail — this is the MINIMUM quality bar):
-Company Overview:
-"${projectCodename} is a full-service restoration and reconstruction business operating across the ${regionName} United States, providing fire restoration, water mitigation, mold remediation, and commercial roofing services. The company operates on a hybrid revenue model combining insurance-referred restoration work (approximately 55%–65% of revenue) with direct-to-consumer retail projects, creating a diversified demand profile that provides resilience across economic cycles.
+Example 1 — Anonymous Teaser Business Overview (Correct hook-first style — this is the MINIMUM quality bar):
+Business Overview:
+"${projectCodename} is a high-margin restoration services platform generating $7.5M–$8.5M in revenue with 28%–32% EBITDA margins, anchored by preferred carrier relationships with multiple national insurance companies that drive 55%–65% of revenue through recurring referrals. The hybrid revenue model — combining insurance-referred restoration work with direct-to-consumer retail projects — creates a diversified demand profile resilient across economic cycles.
 
-The business operates from two locations in the ${regionName} region with a team of approximately 40–50 full-time employees, including dedicated project managers, certified technicians, and administrative support staff. The company has built deep institutional knowledge of regional building codes, insurance carrier processes, and subcontractor networks over an extended period of operation.
+The business operates from two locations in the ${regionName} United States with approximately 40–50 employees, including certified technicians and dedicated project managers. In-house textile cleaning capability eliminates third-party vendor dependency for contents restoration, improving both margins and turnaround times.
 
-The company maintains multiple industry-standard certifications and preferred vendor relationships with several national insurance carriers, which serve as a recurring referral pipeline and create meaningful barriers to entry for competitors. The company's in-house textile cleaning capability eliminates reliance on third-party vendors for contents restoration, improving both margins and turnaround times. These operational advantages, combined with a decades-long regional reputation, create a defensible market position.
+The customer base spans residential homeowners (55%–65%), commercial property managers (25%–35%), and municipal contracts (5%–10%), with insurance-referred work providing natural customer acquisition at minimal marketing cost."
 
-The customer base spans residential homeowners (approximately 55%–65%), commercial property managers and building owners (approximately 25%–35%), and government/municipal contracts (approximately 5%–10%). Insurance-referred work provides natural customer acquisition at minimal marketing cost, while commercial contracts tend to be recurring in nature with higher average project values.
+Example 2 — Deal Snapshot (Correct structured format):
+Deal Snapshot:
+"**Revenue:** $7.5M–$8.5M
+**EBITDA:** $2.1M–$2.7M (28%–32% margin)
+**Employees:** 40–50
+**Location:** ${regionName} United States
+**Service Lines:** Fire restoration, water mitigation, mold remediation, commercial roofing
+**Revenue Mix:** 55%–65% insurance-referred / 25%–35% commercial / 5%–10% municipal
+**Customer Base:** Diversified across residential, commercial, and government segments
+**Real Estate:** Leased (2 locations)
+**Ownership Objective:** Full exit within 12–18 months; willing to support 12-month transition"
 
-Revenue has grown from approximately $3.5M–$4.5M to $7.5M–$8.5M over the past five years, driven by geographic expansion, the addition of commercial roofing services, and deepening insurance carrier relationships. The business represents a platform opportunity in the fragmented restoration services market, with clear organic growth levers including geographic expansion, commercial segment growth, and potential bolt-on acquisitions of smaller regional operators.
+Example 3 — Key Investment Highlights (Correct bold-headline + detail format):
+Key Investment Highlights:
+"- **Recurring Insurance Carrier Revenue Pipeline** — Preferred vendor relationships with multiple national carriers generate 55%–65% of annual revenue through direct referrals, creating a predictable, low-cost customer acquisition channel.
+- **Above-Average EBITDA Margins** — 28%–32% EBITDA margins driven by in-house textile cleaning, efficient crew deployment, and a favorable insurance-to-retail revenue mix.
+- **Fragmented Market Platform Opportunity** — The restoration services industry remains highly fragmented, with clear bolt-on acquisition opportunities across the ${regionName} region.
+- **Vertically Integrated Capabilities** — In-house contents restoration eliminates third-party vendor dependency, shortening cycle times and protecting margins on high-value claims."
 
-The owner is seeking a full exit within approximately 12–18 months, primarily motivated by retirement after an extended ownership period. The owner has expressed willingness to support a transition period of up to one year to ensure continuity of key carrier relationships and customer accounts."
+Example 4 — Growth Opportunities (Correct actionable format):
+Growth & Value Creation Opportunities:
+"- **Geographic Expansion Into Adjacent Markets** — Replicate the two-facility model in adjacent metros across the ${regionName}, leveraging existing carrier relationships that provide multi-state coverage.
+- **Commercial Segment Acceleration** — Commercial contracts carry 15%–20% higher average project values; a dedicated business development hire could shift revenue mix from 25%–35% to 40%+ commercial.
+- **Technology-Driven Efficiency Gains** — Implementing project management automation and real-time crew dispatching could reduce administrative overhead by 10%–15% and improve job throughput."
 
-Example 2 — Full Memo Company Overview (Correct factual style with specifics):
-Company Overview:
-"Brook Capital LLC is a fee-based registered investment advisory firm headquartered in Wayne, New Jersey. Founded in 2013 and originally based in New York City, the firm relocated to northern New Jersey in 2017. Brook Capital manages approximately $900 million in assets under management across more than 200 household client relationships, with an average client AUM of approximately $2-$3 million.
+CRITICAL: Every paragraph must contain SPECIFIC facts, numbers, or concrete details. Do NOT write vague paragraphs like "The company has a strong reputation in the market." Instead write: "The company holds preferred vendor status with three national insurance carriers, generating approximately 60% of annual revenue through carrier referrals."`;
 
-The firm employs 11 individuals, including 7 licensed financial advisors. Brook Capital operates a fee-based model and does not engage in commission-based product sales. The firm provides comprehensive wealth management services including portfolio management, financial planning, tax planning, and estate planning. Revenue is generated through a tiered fee schedule based on AUM, creating a highly recurring and predictable revenue stream with minimal customer churn.
+  const userPrompt = `Generate ${isAnonymous ? 'an Anonymous Teaser marketplace listing' : 'a Full Lead Memo'} from the following company data.
 
-The firm serves affluent individuals and families, predominantly in the New York/New Jersey metropolitan area, with client retention rates exceeding 95% annually. The average client relationship tenure is approximately 5 years, reflecting the long-term nature of wealth management engagements and the trust-based advisory model."
-
-Example 3 — Financial Overview (Correct range-based approach):
-Financial Overview:
-"Revenue has ranged from approximately $15 million to $18 million over the past three fiscal years, reflecting a compound annual growth rate of approximately 8%–10%. EBITDA has been in the $2.5 million to $3.0 million range, with margins improving from approximately 15% to 17% as the service and maintenance segment has grown as a share of total revenue. The service and maintenance segment carries higher margins than the new construction segment, and ownership has been actively shifting the revenue mix toward recurring service contracts, which now represent approximately 35%–40% of total revenue compared to approximately 20% three years ago."
-
-CRITICAL: Every paragraph must contain SPECIFIC facts, numbers, or concrete details. Do NOT write vague paragraphs like "The company has a strong reputation in the market" or "The business is well-positioned for growth." Instead write: "The company has maintained preferred vendor status with three national insurance carriers for over a decade, generating approximately 60% of annual revenue through carrier referrals."`;
-
-  const userPrompt = `Generate a ${isAnonymous ? 'Anonymous Teaser' : 'Full Lead Memo'} from the following company data.
-
-=== CALL TRANSCRIPTS (highest priority — richest source of detail) ===
+=== CALL TRANSCRIPTS (highest priority) ===
 ${context.transcriptExcerpts || 'No transcripts available.'}
 
-=== ENRICHMENT DATA (website scrape + LinkedIn) ===
+=== ENRICHMENT DATA (website + LinkedIn) ===
 ${context.enrichmentData || 'No enrichment data available.'}
 
 === MANUAL DATA ENTRIES & GENERAL NOTES ===
@@ -952,12 +1044,19 @@ ${context.valuationData || 'No valuation data.'}
 
 DATA SOURCE PRIORITY: Transcripts > General Notes > Enrichment/Website > Manual entries.
 When sources conflict, prefer higher-priority sources.
+${
+  isAnonymous
+    ? `
+BUYER CONTEXT: This listing will primarily be seen by PE firms and family offices looking for add-on acquisitions in the $500K–$10M EBITDA range. Write to capture the attention of an associate or VP screening deals.
 
-Follow the memo template exactly. Use only the sections specified. Present financial data in a table.
+Follow the 6-section template exactly.`
+    : `
+Follow the memo template exactly. Use only the sections specified. Present financial data in a table.`
+}
 
 CRITICAL: Do NOT include any [DATA NEEDED: ...] or [VERIFY: ...] tags in your output. If data is missing, simply omit that topic — do not flag it. Write only about what you know from the provided data.${isAnonymous ? `\n\nCRITICAL ANONYMITY CHECK: Before returning the memo, verify that NONE of the following appear anywhere in your output: company name, website URL, owner name, city name, specific state names (like "Arizona", "Texas", "New York"), specific partner/vendor names, or phone numbers. Use only "${projectCodename}" as the company reference and "${regionName} United States" as the geographic reference.` : ''}
 
-Generate the memo now. Return ONLY the JSON object with "sections" array.`;
+Return ONLY the JSON object with "sections" array.`;
 
   const response = await fetchWithAutoRetry(
     ANTHROPIC_API_URL,
@@ -1142,15 +1241,22 @@ function markdownToHtml(text: string): string {
       /^\|?\s*[-:]+\s*(\|\s*[-:]+\s*)+\|?\s*$/.test(lines[1])
     ) {
       // Markdown table: header row + separator row + data rows
-      const headerCells = lines[0].split('|').map((c) => c.trim()).filter(Boolean);
-      let tableHtml = '<table style="width:100%;border-collapse:collapse;margin:12px 0;"><thead><tr>';
+      const headerCells = lines[0]
+        .split('|')
+        .map((c) => c.trim())
+        .filter(Boolean);
+      let tableHtml =
+        '<table style="width:100%;border-collapse:collapse;margin:12px 0;"><thead><tr>';
       for (const cell of headerCells) {
         tableHtml += `<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5;">${applyInlineFormatting(cell)}</th>`;
       }
       tableHtml += '</tr></thead><tbody>';
       for (let r = 2; r < lines.length; r++) {
         if (!lines[r].includes('|')) break;
-        const cells = lines[r].split('|').map((c) => c.trim()).filter(Boolean);
+        const cells = lines[r]
+          .split('|')
+          .map((c) => c.trim())
+          .filter(Boolean);
         tableHtml += '<tr>';
         for (const cell of cells) {
           tableHtml += `<td style="border:1px solid #ddd;padding:8px;">${applyInlineFormatting(cell)}</td>`;
@@ -1170,7 +1276,5 @@ function markdownToHtml(text: string): string {
 }
 
 function applyInlineFormatting(text: string): string {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
 }
