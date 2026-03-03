@@ -3623,6 +3623,10 @@ export type Database = {
           buyer_contact_id: string | null
           buyer_priority_score: number | null
           connection_request_id: string | null
+          contact_company: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
           created_at: string | null
           deal_score: number | null
           deleted_at: string | null
@@ -3660,6 +3664,10 @@ export type Database = {
           buyer_contact_id?: string | null
           buyer_priority_score?: number | null
           connection_request_id?: string | null
+          contact_company?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string | null
           deal_score?: number | null
           deleted_at?: string | null
@@ -3697,6 +3705,10 @@ export type Database = {
           buyer_contact_id?: string | null
           buyer_priority_score?: number | null
           connection_request_id?: string | null
+          contact_company?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string | null
           deal_score?: number | null
           deleted_at?: string | null

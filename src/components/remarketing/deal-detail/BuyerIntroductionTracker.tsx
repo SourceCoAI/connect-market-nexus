@@ -25,7 +25,7 @@ import {
   HelpCircle,
   ExternalLink,
 } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { BuyerIntroduction, IntroductionStatus, ScoreSnapshot } from '@/types/buyer-introductions';
 import { AddBuyerIntroductionDialog } from './AddBuyerIntroductionDialog';
