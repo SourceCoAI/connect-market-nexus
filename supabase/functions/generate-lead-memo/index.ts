@@ -194,56 +194,82 @@ Deno.serve(async (req: Request) => {
       if (teaserError) throw teaserError;
       results.anonymous_teaser = teaser;
 
-      // Sync anonymous teaser to listing as ONE unified text block.
-      // Instead of splitting into separate custom_sections (which are hard to
-      // manage/edit), we merge all sections into a single description with
-      // section headers as bold dividers within the text.
+      // Sync anonymous teaser content to the appropriate listing row.
+      //
+      // The deal row (is_internal_deal=true) should NOT have its description
+      // overwritten with marketplace teaser content — that causes the deal
+      // page to display marketplace listing text instead of deal notes.
+      //
+      // Strategy:
+      //  - Always save custom_sections on the deal row (used by memo renderers).
+      //  - Only write description/description_html/hero_description to the
+      //    marketplace listing child row (source_deal_id → deal_id,
+      //    is_internal_deal=false), if one exists.
       const contentSections = teaserContent.sections.filter(
         (s: MemoSection) => s.key !== 'header_block' && s.key !== 'contact_information',
       );
 
-      // Also keep custom_sections populated for backwards compatibility
+      // Keep custom_sections populated for backwards compatibility
       // with landing pages and detail views that render them
       const customSections = contentSections.map((s: MemoSection) => ({
         title: s.title,
         description: s.content,
       }));
 
-      // Build ONE unified description from all sections
-      const unifiedDescription = contentSections
-        .map((s: MemoSection) => `**${s.title}**\n\n${s.content}`)
-        .join('\n\n---\n\n');
-
-      // Build unified HTML
-      const unifiedHtml = contentSections
-        .map((s: MemoSection) => {
-          const sectionContent = s.content
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/^/, '<p>')
-            .replace(/$/, '</p>');
-          return `<h3 style="font-size:16px;font-weight:bold;color:#1a1a2e;margin:24px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #e0e0e0;">${s.title}</h3>${sectionContent}`;
-        })
-        .join('');
-
-      const listingUpdate: Record<string, unknown> = {
-        custom_sections: customSections,
-        description: unifiedDescription,
-        description_html: `<div class="unified-memo">${unifiedHtml}</div>`,
-      };
-
-      // Generate a compelling hero_description from the memo content.
-      // The hero is the first thing buyers see on cards and landing pages —
-      // it must be a concise 2-3 sentence elevator pitch, not just a data dump.
-      listingUpdate.hero_description = buildHeroFromMemo(teaserContent.sections, deal);
-
-      const { error: syncError } = await supabaseAdmin
+      // Save custom_sections on the deal row (does NOT touch description)
+      const { error: dealSyncError } = await supabaseAdmin
         .from('listings')
-        .update(listingUpdate)
+        .update({ custom_sections: customSections })
         .eq('id', deal_id);
-      if (syncError) {
-        console.error('Failed to sync teaser sections to listing:', syncError);
+      if (dealSyncError) {
+        console.error('Failed to sync custom_sections to deal:', dealSyncError);
+      }
+
+      // Check if a marketplace listing (child row) exists for this deal
+      const { data: marketplaceListing } = await supabaseAdmin
+        .from('listings')
+        .select('id')
+        .eq('source_deal_id', deal_id)
+        .eq('is_internal_deal', false)
+        .maybeSingle();
+
+      if (marketplaceListing) {
+        // Build ONE unified description from all sections
+        const unifiedDescription = contentSections
+          .map((s: MemoSection) => `**${s.title}**\n\n${s.content}`)
+          .join('\n\n---\n\n');
+
+        // Build unified HTML
+        const unifiedHtml = contentSections
+          .map((s: MemoSection) => {
+            const sectionContent = s.content
+              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+              .replace(/\*(.*?)\*/g, '<em>$1</em>')
+              .replace(/\n\n/g, '</p><p>')
+              .replace(/^/, '<p>')
+              .replace(/$/, '</p>');
+            return `<h3 style="font-size:16px;font-weight:bold;color:#1a1a2e;margin:24px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #e0e0e0;">${s.title}</h3>${sectionContent}`;
+          })
+          .join('');
+
+        const listingUpdate: Record<string, unknown> = {
+          custom_sections: customSections,
+          description: unifiedDescription,
+          description_html: `<div class="unified-memo">${unifiedHtml}</div>`,
+        };
+
+        // Generate a compelling hero_description from the memo content.
+        // The hero is the first thing buyers see on cards and landing pages —
+        // it must be a concise 2-3 sentence elevator pitch, not just a data dump.
+        listingUpdate.hero_description = buildHeroFromMemo(teaserContent.sections, deal);
+
+        const { error: syncError } = await supabaseAdmin
+          .from('listings')
+          .update(listingUpdate)
+          .eq('id', marketplaceListing.id);
+        if (syncError) {
+          console.error('Failed to sync teaser sections to marketplace listing:', syncError);
+        }
       }
     }
 
