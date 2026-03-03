@@ -18,7 +18,8 @@ import {
   Unlink,
   Briefcase,
   TrendingUp,
-  Upload
+  Upload,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,6 +71,10 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
     enrichDeals,
     cancelDealEnrichment,
     resetDealEnrichment,
+    selectedDealIds,
+    setSelectedDealIds,
+    isRemovingSelectedDeals,
+    setIsRemovingSelectedDeals,
   } = data;
 
   const {
@@ -349,6 +354,8 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
               deals={(universeDeals || []) as unknown as { id: string; added_at: string; status: string; listing: { id: string; title: string; [key: string]: unknown }; }[]}
               engagementStats={dealEngagementStats || {}}
               universeId={id}
+              selectedDealIds={selectedDealIds}
+              onSelectionChange={setSelectedDealIds}
               onRemoveDeal={async (dealId, _listingId) => {
                 try {
                   await supabase
@@ -382,6 +389,40 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
             />
           </CardContent>
         </Card>
+
+        {/* Bulk remove selected deals */}
+        {selectedDealIds.length > 0 && (
+          <div className="fixed bottom-6 right-6 z-50">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                setIsRemovingSelectedDeals(true);
+                try {
+                  await supabase
+                    .from('remarketing_universe_deals')
+                    .update({ status: 'archived' })
+                    .in('id', selectedDealIds);
+                  toast.success(`Removed ${selectedDealIds.length} deal${selectedDealIds.length > 1 ? 's' : ''} from universe`);
+                  setSelectedDealIds([]);
+                  refetchDeals();
+                } catch (error) {
+                  toast.error('Failed to remove deals');
+                } finally {
+                  setIsRemovingSelectedDeals(false);
+                }
+              }}
+              disabled={isRemovingSelectedDeals}
+              className="bg-background/95 backdrop-blur border shadow-sm text-destructive border-destructive/30 hover:bg-destructive/10"
+            >
+              {isRemovingSelectedDeals ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Remove Selected{` (${selectedDealIds.length})`}
+            </Button>
+          </div>
+        )}
       </TabsContent>
     </Tabs>
   );
