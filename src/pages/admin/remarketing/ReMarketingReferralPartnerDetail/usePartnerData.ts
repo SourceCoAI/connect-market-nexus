@@ -5,6 +5,7 @@ import { useFilterEngine } from '@/hooks/use-filter-engine';
 import { REFERRAL_PARTNER_DEAL_FIELDS } from '@/components/filters/filter-definitions';
 import type { SortField, SortDir } from './types';
 import { normalizeCompanyName } from './helpers';
+import { getDisplayLocation } from '@/lib/location-display';
 
 export function usePartnerData(partnerId: string | undefined) {
   const [hidePushed, setHidePushed] = useState(false);
@@ -144,11 +145,7 @@ export function usePartnerData(partnerId: string | undefined) {
           case 'industry':
             return (deal.category || '').toLowerCase();
           case 'location':
-            return (
-              deal.address_city && deal.address_state
-                ? `${deal.address_city}, ${deal.address_state}`
-                : deal.location || ''
-            ).toLowerCase();
+            return (getDisplayLocation(deal) || '').toLowerCase();
           case 'revenue':
             return deal.revenue ?? -Infinity;
           case 'ebitda':
