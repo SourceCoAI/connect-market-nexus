@@ -35,6 +35,7 @@ export { BuyerTableToolbar } from './BuyerTableToolbar';
 export { ScoringStyleCard } from './ScoringStyleCard';
 // Match Card Components
 export { BuyerMatchCard } from './BuyerMatchCard';
+export { ApproveBuyerMultiDealDialog } from './ApproveBuyerMultiDealDialog';
 
 // Table Components
 export { BuyerTableEnhanced } from './BuyerTableEnhanced';
