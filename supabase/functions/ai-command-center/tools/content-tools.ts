@@ -175,10 +175,11 @@ async function generateMeetingPrep(
         .eq('listing_id', dealId)
         .single(),
       supabase
-        .from('buyer_contacts')
+        .from('contacts')
         .select('*')
-        .eq('buyer_id', buyerId)
-        .order('is_primary_contact', { ascending: false }),
+        .eq('remarketing_buyer_id', buyerId)
+        .eq('archived', false)
+        .order('is_primary_at_firm', { ascending: false }),
     );
   }
 
@@ -240,10 +241,11 @@ async function draftOutreachEmail(
       .eq('listing_id', dealId)
       .single(),
     supabase
-      .from('buyer_contacts')
+      .from('contacts')
       .select('*')
-      .eq('buyer_id', buyerId)
-      .order('is_primary_contact', { ascending: false })
+      .eq('remarketing_buyer_id', buyerId)
+      .eq('archived', false)
+      .order('is_primary_at_firm', { ascending: false })
       .limit(3),
     supabase
       .from('deal_data_room_access')

@@ -104,7 +104,7 @@ const DEAL_FIELDS_FULL = `
   competitive_position, management_depth, customer_concentration,
   internal_company_name, project_name, deal_identifier,
   deal_owner_id, primary_owner_id, presented_by_admin_id,
-  need_buyer_universe, universe_build_flagged,
+  needs_buyer_search, universe_build_flagged,
   description, hero_description, tags, website,
   acquisition_type, revenue_model, customer_types, customer_geography,
   end_market_description, growth_trajectory, ownership_structure,

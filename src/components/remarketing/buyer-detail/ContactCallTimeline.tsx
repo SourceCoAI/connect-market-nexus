@@ -32,9 +32,10 @@ export function ContactCallTimeline({ buyerId }: ContactCallTimelineProps) {
     queryFn: async () => {
       // Fetch activities linked to any contact belonging to this buyer
       const { data: contacts } = await supabase
-        .from("buyer_contacts")
+        .from("contacts")
         .select("id")
-        .eq("buyer_id", buyerId);
+        .eq("remarketing_buyer_id", buyerId)
+        .eq("archived", false);
 
       if (!contacts?.length) return [];
 

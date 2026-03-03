@@ -17,8 +17,8 @@ export async function deleteUniverseWithRelated(universeId: string): Promise<{ e
     if (buyers && buyers.length > 0) {
       const buyerIds = buyers.map(b => b.id);
 
-      // Delete buyer_contacts
-      await supabase.from("buyer_contacts").delete().in("buyer_id", buyerIds);
+      // Archive contacts linked to these buyers in the unified contacts table
+      await supabase.from("contacts").update({ archived: true }).in("remarketing_buyer_id", buyerIds);
 
       // Delete buyer_transcripts
       await supabase.from("buyer_transcripts").delete().in("buyer_id", buyerIds);

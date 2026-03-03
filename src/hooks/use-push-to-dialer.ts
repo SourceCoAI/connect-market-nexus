@@ -11,7 +11,7 @@
 
 import { useState, useCallback } from "react";
 
-export type DialerEntityType = "buyer_contacts" | "buyers" | "listings" | "leads";
+export type DialerEntityType = "contacts" | "buyer_contacts" | "buyers" | "listings" | "leads";
 
 interface PushToDialerState {
   open: boolean;

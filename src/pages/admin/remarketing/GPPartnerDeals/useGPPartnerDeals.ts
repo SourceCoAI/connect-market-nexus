@@ -127,7 +127,7 @@ export function useGPPartnerDeals() {
             pushed_to_all_deals, pushed_to_all_deals_at, deal_source, status,
             created_at, enriched_at, deal_total_score, linkedin_employee_count,
             linkedin_employee_range, google_rating, google_review_count,
-            is_priority_target, need_buyer_universe, needs_owner_contact,
+            is_priority_target, needs_buyer_search, needs_owner_contact,
             category, executive_summary, industry, revenue, ebitda, location,
             address_city, address_state, deal_owner_id, remarketing_status,
             deal_owner:profiles!listings_deal_owner_id_fkey(id, first_name, last_name, email)

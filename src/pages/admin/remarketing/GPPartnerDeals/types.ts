@@ -20,7 +20,7 @@ export interface GPPartnerDeal {
   google_rating: number | null;
   google_review_count: number | null;
   is_priority_target: boolean | null;
-  need_buyer_universe: boolean | null;
+  needs_buyer_search: boolean | null;
   needs_owner_contact: boolean | null;
   category: string | null;
   executive_summary: string | null;

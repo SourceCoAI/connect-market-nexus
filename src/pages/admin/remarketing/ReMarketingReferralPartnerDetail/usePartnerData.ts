@@ -58,7 +58,7 @@ export function usePartnerData(partnerId: string | undefined) {
            enriched_at, deal_total_score, pushed_to_all_deals,
            linkedin_employee_count, linkedin_employee_range,
            google_review_count, google_rating, is_priority_target,
-           need_buyer_universe, needs_owner_contact,
+           needs_buyer_search, needs_owner_contact,
            main_contact_name, main_contact_title, main_contact_email, main_contact_phone, deal_source,
            remarketing_status`,
         )

@@ -22,11 +22,12 @@ export function useContactCallStats(buyerId: string | null) {
     queryFn: async () => {
       if (!buyerId) return emptyStats();
 
-      // Get buyer_contacts for this buyer
+      // Get contacts for this buyer from unified contacts table
       const { data: contacts } = await supabase
-        .from('buyer_contacts')
+        .from('contacts')
         .select('id')
-        .eq('buyer_id', buyerId);
+        .eq('remarketing_buyer_id', buyerId)
+        .eq('archived', false);
 
       const contactIds = (contacts || []).map((c: { id: string }) => c.id);
       if (contactIds.length === 0) return emptyStats();

@@ -461,20 +461,24 @@ function DealRowActions({
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async () => {
-            const newVal = !deal.need_buyer_universe;
+            const newVal = !deal.needs_buyer_search;
+            const now = new Date().toISOString();
             const { error } = await supabase
               .from('listings')
-              .update({ need_buyer_universe: newVal } as never)
+              .update({
+                needs_buyer_search: newVal,
+                needs_buyer_search_at: newVal ? now : null,
+              } as never)
               .eq('id', deal.id);
             if (!error) {
-              sonnerToast.success(newVal ? 'Flagged: Needs Buyer Universe' : 'Flag removed');
+              sonnerToast.success(newVal ? 'Flagged: Find Buyer' : 'Flag removed');
               queryClient.invalidateQueries({ queryKey: ['remarketing', 'gp-partner-deals'] });
             }
           }}
-          className={deal.need_buyer_universe ? 'text-blue-600' : ''}
+          className={deal.needs_buyer_search ? 'text-blue-600' : ''}
         >
-          <Users className={cn('h-4 w-4 mr-2', deal.need_buyer_universe && 'text-blue-600')} />
-          {deal.need_buyer_universe ? '\u2713 Needs Buyer Universe' : 'Flag: Needs Buyer Universe'}
+          <Users className={cn('h-4 w-4 mr-2', deal.needs_buyer_search && 'text-blue-600')} />
+          {deal.needs_buyer_search ? '\u2713 Find Buyer' : 'Flag: Find Buyer'}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async () => {

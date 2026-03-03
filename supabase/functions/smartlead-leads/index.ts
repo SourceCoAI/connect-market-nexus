@@ -48,14 +48,16 @@ async function resolveFromBuyerContacts(
   supabase: ReturnType<typeof createClient>,
   ids: string[],
 ): Promise<ResolvedLead[]> {
+  // Read from unified contacts table instead of legacy buyer_contacts
   const { data: contacts } = await supabase
-    .from('buyer_contacts')
-    .select('id, name, email, phone, title, company_type, buyer_id, linkedin_url')
-    .in('id', ids);
+    .from('contacts')
+    .select('id, first_name, last_name, email, phone, title, remarketing_buyer_id, linkedin_url')
+    .in('id', ids)
+    .eq('archived', false);
 
   if (!contacts?.length) return [];
 
-  const buyerIds = [...new Set(contacts.map((c: { buyer_id: string }) => c.buyer_id))];
+  const buyerIds = [...new Set(contacts.map((c: { remarketing_buyer_id: string | null }) => c.remarketing_buyer_id).filter(Boolean))];
   const { data: buyers } = await supabase
     .from('remarketing_buyers')
     .select('id, company_name')
@@ -63,15 +65,14 @@ async function resolveFromBuyerContacts(
   const buyerMap = new Map((buyers || []).map((b: { id: string; company_name?: string }) => [b.id, b]));
 
   return contacts
-    .filter((c: { email?: string }) => c.email)
-    .map((c: { id: string; name?: string; email?: string; phone?: string; title?: string; company_type?: string; buyer_id: string; linkedin_url?: string }) => {
-      const parts = (c.name || '').split(' ');
-      const buyer = buyerMap.get(c.buyer_id);
+    .filter((c: { email?: string | null }) => c.email)
+    .map((c: { id: string; first_name?: string | null; last_name?: string | null; email?: string | null; phone?: string | null; title?: string | null; remarketing_buyer_id: string | null; linkedin_url?: string | null }) => {
+      const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
       return {
         email: c.email!,
-        first_name: parts[0] || '',
-        last_name: parts.slice(1).join(' ') || '',
-        company_name: buyer?.company_name || c.company_type || '',
+        first_name: c.first_name || '',
+        last_name: c.last_name || '',
+        company_name: buyer?.company_name || '',
         phone_number: c.phone || '',
         linkedin_profile: c.linkedin_url || '',
         custom_fields: {
@@ -89,11 +90,12 @@ async function resolveFromBuyers(
   supabase: ReturnType<typeof createClient>,
   buyerIds: string[],
 ): Promise<ResolvedLead[]> {
-  // Get contacts linked to these buyers
+  // Get contacts linked to these buyers from unified contacts table
   const { data: contacts } = await supabase
-    .from('buyer_contacts')
-    .select('id, name, email, phone, title, buyer_id, company_type, linkedin_url')
-    .in('buyer_id', buyerIds);
+    .from('contacts')
+    .select('id, first_name, last_name, email, phone, title, remarketing_buyer_id, linkedin_url')
+    .in('remarketing_buyer_id', buyerIds)
+    .eq('archived', false);
 
   const { data: buyers } = await supabase
     .from('remarketing_buyers')
@@ -110,18 +112,17 @@ async function resolveFromBuyers(
     const key = c.email.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    const buyer = buyerMap.get(c.buyer_id);
-    const parts = (c.name || '').split(' ');
+    const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
     result.push({
       email: c.email,
-      first_name: parts[0] || '',
-      last_name: parts.slice(1).join(' ') || '',
-      company_name: buyer?.company_name || c.company_type || '',
+      first_name: c.first_name || '',
+      last_name: c.last_name || '',
+      company_name: buyer?.company_name || '',
       phone_number: c.phone || '',
       linkedin_profile: c.linkedin_url || '',
       custom_fields: {
         sourceco_contact_id: c.id,
-        sourceco_buyer_id: c.buyer_id,
+        sourceco_buyer_id: c.remarketing_buyer_id || '',
         source: 'SourceCo Platform',
       },
       _source_id: c.id,
@@ -130,7 +131,7 @@ async function resolveFromBuyers(
   }
 
   // Fallback: buyer-level contact info for buyers with no sub-contacts
-  const buyersWithContacts = new Set((contacts || []).map((c: { buyer_id: string }) => c.buyer_id));
+  const buyersWithContacts = new Set((contacts || []).map((c: { remarketing_buyer_id: string | null }) => c.remarketing_buyer_id).filter(Boolean));
   for (const buyerId of buyerIds) {
     if (buyersWithContacts.has(buyerId)) continue;
     const buyer = buyerMap.get(buyerId);

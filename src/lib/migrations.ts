@@ -754,8 +754,6 @@ export const TABLES_WITH_RLS: string[] = [
   'generic_email_domains',
   'agreement_audit_log',
   'buyers',
-  'buyer_contacts',
-  'buyer_deal_scores',
   'call_intelligence',
 ];
 

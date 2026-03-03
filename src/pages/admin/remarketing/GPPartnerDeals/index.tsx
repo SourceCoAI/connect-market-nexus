@@ -81,7 +81,6 @@ export default function GPPartnerDeals() {
       for (const dealId of dealIds) {
         await supabase.from('enrichment_queue').delete().eq('listing_id', dealId);
         await supabase.from('remarketing_scores').delete().eq('listing_id', dealId);
-        await supabase.from('buyer_deal_scores').delete().eq('deal_id', dealId);
       }
       const { error } = await supabase.from('listings').delete().in('id', dealIds);
       if (error) throw error;

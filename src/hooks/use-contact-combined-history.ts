@@ -84,11 +84,12 @@ export function useContactCombinedHistory(buyerId: string | null) {
       const entries: UnifiedActivityEntry[] = [];
 
       // ── 1. PhoneBurner Call Activities ──
-      // Get contacts belonging to this buyer first
+      // Get contacts belonging to this buyer from unified contacts table
       const { data: contacts } = await supabase
-        .from('buyer_contacts')
+        .from('contacts')
         .select('id')
-        .eq('buyer_id', buyerId);
+        .eq('remarketing_buyer_id', buyerId)
+        .eq('archived', false);
 
       const contactIds = (contacts || []).map((c) => c.id);
 

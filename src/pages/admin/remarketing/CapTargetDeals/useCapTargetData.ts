@@ -190,7 +190,7 @@ export function useCapTargetData() {
             pushed_to_all_deals, pushed_to_all_deals_at, deal_source, status, created_at,
             enriched_at, deal_total_score, linkedin_employee_count, linkedin_employee_range,
             google_rating, google_review_count, captarget_status, is_priority_target,
-            need_buyer_universe, needs_owner_contact,
+            needs_buyer_search, needs_owner_contact,
             category, executive_summary, industry, remarketing_status
           `,
           )

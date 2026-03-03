@@ -72,34 +72,36 @@ async function resolveFromBuyerContacts(
   supabase: ReturnType<typeof createClient>,
   ids: string[],
 ): Promise<ResolvedContact[]> {
+  // Read from unified contacts table instead of legacy buyer_contacts
   const { data: contacts } = await supabase
-    .from('buyer_contacts')
-    .select('id, name, email, phone, title, buyer_id, company_type, last_contacted_date')
-    .in('id', ids);
+    .from('contacts')
+    .select('id, first_name, last_name, email, phone, title, remarketing_buyer_id, updated_at')
+    .in('id', ids)
+    .eq('archived', false);
 
   if (!contacts?.length) return [];
 
-  const buyerIds = [...new Set(contacts.map((c: { buyer_id: string }) => c.buyer_id))];
+  const buyerIds = [...new Set(contacts.map((c: { remarketing_buyer_id: string | null }) => c.remarketing_buyer_id).filter(Boolean))];
   const { data: buyers } = await supabase
     .from('remarketing_buyers')
     .select('id, company_name, pe_firm_name, buyer_type, target_services, target_geographies')
     .in('id', buyerIds);
   const buyerMap = new Map<string, BuyerRow>((buyers || []).map((b: BuyerRow) => [b.id, b]));
 
-  return contacts.map((c: { id: string; name: string; phone: string | null; email: string | null; title: string | null; buyer_id: string; company_type?: string; last_contacted_date: string | null }) => {
-    const buyer = buyerMap.get(c.buyer_id);
+  return contacts.map((c: { id: string; first_name: string | null; last_name: string | null; phone: string | null; email: string | null; title: string | null; remarketing_buyer_id: string | null; updated_at: string | null }) => {
+    const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
     return {
       id: c.id,
-      name: c.name,
+      name: [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Unknown',
       phone: c.phone,
       email: c.email,
       title: c.title,
-      company: buyer?.company_name || c.company_type || null,
+      company: buyer?.company_name || null,
       source_entity: 'buyer_contact',
-      last_contacted_date: c.last_contacted_date,
+      last_contacted_date: c.updated_at,
       extra_context: {
         sourceco_id: c.id,
-        sourceco_buyer_id: c.buyer_id,
+        sourceco_buyer_id: c.remarketing_buyer_id || '',
         buyer_type: buyer?.buyer_type || '',
         pe_firm: buyer?.pe_firm_name || '',
         target_services: Array.isArray(buyer?.target_services)
@@ -117,15 +119,12 @@ async function resolveFromBuyers(
   supabase: ReturnType<typeof createClient>,
   buyerIds: string[],
 ): Promise<ResolvedContact[]> {
-  const { data: rmContacts } = await supabase
-    .from('remarketing_buyer_contacts')
-    .select('id, buyer_id, name, email, phone, role, company_type, is_primary')
-    .in('buyer_id', buyerIds);
-
-  const { data: bcContacts } = await supabase
-    .from('buyer_contacts')
-    .select('id, buyer_id, name, email, phone, title, company_type, last_contacted_date, is_primary_contact')
-    .in('buyer_id', buyerIds);
+  // Read from unified contacts table (consolidates both buyer_contacts and remarketing_buyer_contacts)
+  const { data: allContacts } = await supabase
+    .from('contacts')
+    .select('id, first_name, last_name, email, phone, title, remarketing_buyer_id, is_primary_at_firm, updated_at')
+    .in('remarketing_buyer_id', buyerIds)
+    .eq('archived', false);
 
   const { data: buyers } = await supabase
     .from('remarketing_buyers')
@@ -137,41 +136,23 @@ async function resolveFromBuyers(
   const result: ResolvedContact[] = [];
   const buyersWithContacts = new Set<string>();
 
-  for (const c of (rmContacts || []).sort(
-    (a: { is_primary?: boolean }, b: { is_primary?: boolean }) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0),
+  for (const c of (allContacts || []).sort(
+    (a: { is_primary_at_firm?: boolean }, b: { is_primary_at_firm?: boolean }) => (b.is_primary_at_firm ? 1 : 0) - (a.is_primary_at_firm ? 1 : 0),
   )) {
     const key = `${c.email?.toLowerCase() || ''}-${c.phone || ''}`;
     if (seen.has(key) && key !== '-') continue;
     seen.add(key);
-    buyersWithContacts.add(c.buyer_id);
-    const buyer = buyerMap.get(c.buyer_id);
-    result.push({
-      id: `rm-${c.id}`,
-      name: c.name,
-      phone: c.phone,
-      email: c.email,
-      title: c.role,
-      company: buyer?.company_name || c.company_type || null,
-      source_entity: 'remarketing_buyer',
-      last_contacted_date: null,
-    });
-  }
-
-  for (const c of (bcContacts || []) as { id: string; buyer_id: string; name: string; email?: string; phone?: string; title?: string; company_type?: string; last_contacted_date?: string; is_primary_contact?: boolean }[]) {
-    const key = `${c.email?.toLowerCase() || ''}-${c.phone || ''}`;
-    if (seen.has(key) && key !== '-') continue;
-    seen.add(key);
-    buyersWithContacts.add(c.buyer_id);
-    const buyer = buyerMap.get(c.buyer_id);
+    if (c.remarketing_buyer_id) buyersWithContacts.add(c.remarketing_buyer_id);
+    const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
     result.push({
       id: c.id,
-      name: c.name,
+      name: [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Unknown',
       phone: c.phone,
       email: c.email,
       title: c.title,
-      company: buyer?.company_name || c.company_type || null,
+      company: buyer?.company_name || null,
       source_entity: 'buyer_contact',
-      last_contacted_date: c.last_contacted_date,
+      last_contacted_date: c.updated_at,
     });
   }
 
