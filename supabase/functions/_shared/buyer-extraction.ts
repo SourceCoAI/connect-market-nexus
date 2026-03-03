@@ -302,11 +302,6 @@ export const PROMPT_3B_PE_INTELLIGENCE = {
       target_industries: { type: 'array', items: { type: 'string' }, description: 'Industries the PE firm focuses on' },
       target_services: { type: 'array', items: { type: 'string' }, description: 'Service types of interest' },
       acquisition_appetite: { type: 'string', description: "Activity level, e.g., 'Very Active - 15-20 deals annually'" },
-      // Size criteria extracted from website (e.g., "We target companies with $1M-$5M EBITDA")
-      min_ebitda: { type: 'number', description: 'Minimum target EBITDA in millions (e.g., 1 for $1M). Extract from investment criteria sections if explicitly stated.' },
-      max_ebitda: { type: 'number', description: 'Maximum target EBITDA in millions (e.g., 5 for $5M). Extract from investment criteria sections if explicitly stated.' },
-      min_revenue: { type: 'number', description: 'Minimum target revenue in millions. Extract from investment criteria if explicitly stated.' },
-      max_revenue: { type: 'number', description: 'Maximum target revenue in millions. Extract from investment criteria if explicitly stated.' },
       // Portfolio
       portfolio_companies: { type: 'array', items: { type: 'string' }, description: 'List of portfolio company names' },
       num_platforms: { type: 'integer', description: 'Number of platform investments' },
@@ -316,12 +311,11 @@ export const PROMPT_3B_PE_INTELLIGENCE = {
 
 export const PROMPT_3B_SYSTEM = `You are an M&A research analyst extracting PE firm intelligence from website content.
 
-Extract FIVE categories of information:
+Extract FOUR categories of information:
 1. FIRM IDENTITY: The PE firm's official name and buyer classification
 2. ACQUISITION HISTORY: Recent deals, total count, frequency
 3. INVESTMENT FOCUS: Target industries, services, and activity level
-4. SIZE CRITERIA: If the website explicitly states target EBITDA or revenue ranges (e.g., "$1M-$5M EBITDA", "revenue between $5M and $50M"), extract them as numbers in millions. ONLY extract if explicitly stated on the website — do NOT infer from portfolio company sizes.
-5. PORTFOLIO: Current and past portfolio company names
+4. PORTFOLIO: Current and past portfolio company names
 
 For buyer_type classification:
 - "pe_firm": Traditional private equity fund (e.g., "XYZ Capital Partners")
@@ -400,8 +394,8 @@ export async function extractGeography(
 export async function extractPEIntelligence(
   content: string, geminiApiKey: string, rateLimitConfig?: RateLimitConfig
 ): Promise<AIExtractionResult> {
-  console.log('Running Prompt 3b: Combined PE Intelligence (Acquisitions + Activity + Portfolio + Size Criteria)');
-  const userPrompt = `Website Content:\n\n${content.substring(0, 50000)}\n\nExtract the PE firm name, classify the buyer type, and extract acquisition history, investment focus areas, portfolio companies, and investment size criteria (target EBITDA and revenue ranges if explicitly stated). Do NOT extract thesis, strategic priorities, or thesis confidence.`;
+  console.log('Running Prompt 3b: Combined PE Intelligence (Acquisitions + Activity + Portfolio)');
+  const userPrompt = `Website Content:\n\n${content.substring(0, 50000)}\n\nExtract the PE firm name, classify the buyer type, and extract acquisition history, investment focus areas, and portfolio companies. Do NOT extract thesis, strategic priorities, thesis confidence, or size criteria (EBITDA/revenue ranges).`;
   return await callBuyerGemini(PROMPT_3B_SYSTEM, userPrompt, PROMPT_3B_PE_INTELLIGENCE, geminiApiKey, rateLimitConfig);
 }
 
@@ -485,26 +479,6 @@ export function validateGeography(extracted: AIExtractionResult): AIExtractionRe
       }
     }
   }
-
-  return { ...extracted, data };
-}
-
-export function validateSizeCriteria(extracted: AIExtractionResult): AIExtractionResult {
-  if (!extracted?.data) return extracted;
-  const data = extracted.data;
-
-  // Check for EBITDA multiple confusion (values under 20 are almost certainly multiples like 3x, 5x, 10x)
-  // Threshold lowered from 100 to 20: AI may return values in thousands (e.g., 50 = $50K EBITDA)
-  const checkForMultiple = (value: number | null, fieldName: string) => {
-    if (value && value > 0 && value < 20) {
-      console.warn(`[validateSizeCriteria] Possible EBITDA multiple detected for ${fieldName}: ${value} — clearing value`);
-      return null;
-    }
-    return value;
-  };
-
-  data.min_ebitda = checkForMultiple(data.min_ebitda, 'min_ebitda');
-  data.max_ebitda = checkForMultiple(data.max_ebitda, 'max_ebitda');
 
   return { ...extracted, data };
 }

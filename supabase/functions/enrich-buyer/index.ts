@@ -629,12 +629,6 @@ Deno.serve(async (req) => {
             result: r,
             url: platformWebsite,
           })),
-        () =>
-          extractPEIntelligence(platformContent, geminiApiKey, _rateLimitConfig).then((r) => ({
-            name: 'pe_intelligence',
-            result: r,
-            url: platformWebsite,
-          })),
       );
     } else if (peContent) {
       // No platform content — only extract geography from PE site

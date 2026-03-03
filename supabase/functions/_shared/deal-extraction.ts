@@ -22,7 +22,7 @@ import { normalizeState } from './geography.ts';
 
 export const DEAL_SCRAPE_TIMEOUT_MS = 30000; // 30 seconds per page
 export const DEAL_AI_TIMEOUT_MS = 45000; // 45 seconds
-export const DEAL_MIN_CONTENT_LENGTH = 50; // Minimum chars to proceed with AI
+export const DEAL_MIN_CONTENT_LENGTH = 200; // Minimum chars to proceed with AI (aligned with buyer enrichment)
 
 export const DEAL_AI_RETRY_CONFIG = {
   maxRetries: 3,
@@ -745,7 +745,13 @@ export function mapTranscriptToListing(
     if (ebitdaAmount != null) out.ebitda = ebitdaAmount;
 
     const marginPct = toFiniteNumber(ebitda?.margin_percentage);
-    if (marginPct != null) out.ebitda_margin = marginPct / 100;
+    if (marginPct != null) {
+      if (marginPct > 0 && marginPct <= 100) {
+        out.ebitda_margin = marginPct / 100;
+      } else {
+        console.warn(`Rejecting out-of-range ebitda_margin_percentage: ${marginPct}% (must be 0-100)`);
+      }
+    }
 
     if (ebitda) out.ebitda_is_inferred = !!ebitda.is_inferred;
     if (ebitda?.source_quote) out.ebitda_source_quote = ebitda.source_quote;
