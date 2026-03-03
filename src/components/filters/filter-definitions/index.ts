@@ -15,3 +15,5 @@ export { CAPTARGET_FIELDS } from "./captarget-fields";
 export { GP_PARTNER_FIELDS } from "./gp-partner-fields";
 export { VALUATION_LEAD_FIELDS } from "./valuation-lead-fields";
 export { ACTIVITY_FIELDS } from "./activity-fields";
+export { REFERRAL_PARTNER_DEAL_FIELDS } from "./referral-partner-deal-fields";
+export { REFERRAL_PARTNERS_LIST_FIELDS } from "./referral-partners-list-fields";

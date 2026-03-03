@@ -1,10 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -23,7 +22,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Search,
   Plus,
   MoreHorizontal,
   Handshake,
@@ -39,6 +37,9 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { AddPartnerDialog } from '@/components/remarketing/AddPartnerDialog';
 import { SubmissionReviewQueue } from '@/components/remarketing/SubmissionReviewQueue';
+import { FilterBar } from '@/components/filters/FilterBar';
+import { REFERRAL_PARTNERS_LIST_FIELDS } from '@/components/filters/filter-definitions';
+import { useFilterEngine } from '@/hooks/use-filter-engine';
 
 interface ReferralPartner {
   id: string;
@@ -56,23 +57,7 @@ interface ReferralPartner {
 export default function ReMarketingReferralPartners() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  // URL-persisted filter state (survives browser Back navigation)
   const [searchParams, setSearchParams] = useSearchParams();
-  const searchQuery = searchParams.get('q') ?? '';
-  const setSearchQuery = useCallback(
-    (v: string) => {
-      setSearchParams(
-        (p) => {
-          const n = new URLSearchParams(p);
-          if (v) n.set('q', v);
-          else n.delete('q');
-          return n;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
   const activeTab = searchParams.get('tab') ?? 'partners';
   const setActiveTab = useCallback(
     (v: string) => {
@@ -258,18 +243,16 @@ export default function ReMarketingReferralPartners() {
     },
   });
 
-  // Filter partners
-  const filteredPartners = useMemo(() => {
-    if (!partners) return [];
-    if (!searchQuery.trim()) return partners;
-    const q = searchQuery.toLowerCase();
-    return partners.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.company?.toLowerCase().includes(q) ||
-        p.email?.toLowerCase().includes(q),
-    );
-  }, [partners, searchQuery]);
+  // Filter engine (search + advanced filters)
+  const {
+    filteredItems: filteredPartners,
+    filterState,
+    setFilterState,
+    fieldDefinitions,
+    dynamicOptions,
+    totalCount,
+    filteredCount,
+  } = useFilterEngine(partners || [], REFERRAL_PARTNERS_LIST_FIELDS);
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto">
@@ -313,17 +296,15 @@ export default function ReMarketingReferralPartners() {
 
         {/* Partners Tab */}
         <TabsContent value="partners" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search partners..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
+          <FilterBar
+            filterState={filterState}
+            onFilterStateChange={setFilterState}
+            fieldDefinitions={fieldDefinitions}
+            dynamicOptions={dynamicOptions}
+            totalCount={totalCount}
+            filteredCount={filteredCount}
+            compact
+          />
 
           <Card>
             <CardContent className="p-0">
@@ -335,7 +316,9 @@ export default function ReMarketingReferralPartners() {
                 <div className="text-center py-12 text-muted-foreground">
                   <Handshake className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">
-                    {searchQuery ? 'No partners match your search' : 'No referral partners yet'}
+                    {filterState.search || filterState.rules.length > 0
+                      ? 'No partners match your filters'
+                      : 'No referral partners yet'}
                   </p>
                 </div>
               ) : (
