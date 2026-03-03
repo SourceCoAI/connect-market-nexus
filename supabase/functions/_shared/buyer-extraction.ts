@@ -99,8 +99,6 @@ export const FIELD_TO_COLUMN_MAP: Record<string, string> = {
 
 // Location page patterns for discovery
 // Ordered by specificity — more specific patterns first for better matching
-// Location page patterns for discovery
-// Ordered by specificity — more specific patterns first for better matching
 // NOTE: /about and /contact removed — they match virtually every website and
 // waste scraping slots on pages that rarely contain location data.
 export const LOCATION_PATTERNS = [
