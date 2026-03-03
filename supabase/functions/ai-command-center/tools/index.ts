@@ -235,6 +235,9 @@ const TOOL_CATEGORIES: Record<string, string[]> = {
     'get_follow_up_queue',
     'get_connection_requests',
     'google_search_companies',
+    'clay_find_email',
+    'enrich_contact',
+    'find_contact',
     'retrieve_knowledge',
   ],
 
