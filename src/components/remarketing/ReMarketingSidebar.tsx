@@ -62,6 +62,11 @@ export function ReMarketingSidebar() {
       icon: <Briefcase className="h-5 w-5" />,
     },
     {
+      label: 'SourceCo Deals',
+      href: '/admin/remarketing/leads/sourceco',
+      icon: <Briefcase className="h-5 w-5" />,
+    },
+    {
       label: 'Valuation Leads',
       href: '/admin/remarketing/leads/valuation',
       icon: <Calculator className="h-5 w-5" />,

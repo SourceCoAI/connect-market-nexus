@@ -234,6 +234,11 @@ export function UnifiedAdminSidebar({
             icon: <Briefcase className="h-4 w-4" />,
           },
           {
+            label: 'SourceCo Deals',
+            href: '/admin/remarketing/leads/sourceco',
+            icon: <Briefcase className="h-4 w-4" />,
+          },
+          {
             label: 'Valuation Leads',
             href: '/admin/remarketing/leads/valuation',
             icon: <Calculator className="h-4 w-4" />,
