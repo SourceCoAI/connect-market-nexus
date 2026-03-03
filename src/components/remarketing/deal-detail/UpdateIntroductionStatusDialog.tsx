@@ -28,8 +28,8 @@ import {
   Target,
   Calendar,
   CheckCircle,
-  Clock,
-  X,
+  ThumbsDown,
+  Send,
 } from 'lucide-react';
 import type {
   BuyerIntroduction,
@@ -44,15 +44,6 @@ interface UpdateIntroductionStatusDialogProps {
   listingId: string;
 }
 
-const INTRODUCTION_METHODS = [
-  'Virtual Meeting',
-  'In-Person Meeting',
-  'Email Introduction',
-  'Phone Call',
-  'Conference/Event',
-  'Other',
-];
-
 export function UpdateIntroductionStatusDialog({
   open,
   onOpenChange,
@@ -62,47 +53,39 @@ export function UpdateIntroductionStatusDialog({
   const { updateStatus, isUpdating } = useBuyerIntroductions(listingId);
 
   const [newStatus, setNewStatus] = useState<IntroductionStatus>(buyer.introduction_status);
-  const [introductionDate, setIntroductionDate] = useState(buyer.introduction_date || '');
-  const [introducedBy, setIntroducedBy] = useState(buyer.introduced_by || '');
-  const [introductionMethod, setIntroductionMethod] = useState(buyer.introduction_method || '');
+  const [scheduledDate, setScheduledDate] = useState(buyer.introduction_scheduled_date || '');
   const [introductionNotes, setIntroductionNotes] = useState(buyer.introduction_notes || '');
-  const [passedDate, setPassedDate] = useState(buyer.passed_date || '');
   const [passedReason, setPassedReason] = useState(buyer.passed_reason || '');
   const [buyerFeedback, setBuyerFeedback] = useState(buyer.buyer_feedback || '');
   const [nextStep, setNextStep] = useState(buyer.next_step || '');
   const [expectedNextStepDate, setExpectedNextStepDate] = useState(
     buyer.expected_next_step_date || '',
   );
-  const [scheduledDate, setScheduledDate] = useState(buyer.introduction_scheduled_date || '');
 
   const handleSubmit = () => {
     const updates: UpdateBuyerIntroductionInput = {
       introduction_status: newStatus,
     };
 
-    if (newStatus === 'introduction_scheduled') {
+    if (newStatus === 'meeting_scheduled') {
       updates.introduction_scheduled_date = scheduledDate || undefined;
     }
 
-    if (newStatus === 'introduced' || newStatus === 'passed' || newStatus === 'rejected') {
-      updates.introduction_date = introductionDate || undefined;
-      updates.introduced_by = introducedBy || undefined;
-      updates.introduction_method = introductionMethod || undefined;
+    if (newStatus === 'not_a_fit') {
+      updates.passed_date = new Date().toISOString().split('T')[0];
+      updates.passed_reason = passedReason || undefined;
+      updates.buyer_feedback = buyerFeedback || undefined;
+    }
+
+    if (newStatus === 'fit_and_interested') {
+      updates.buyer_feedback = buyerFeedback || undefined;
+      updates.next_step = nextStep || undefined;
+      updates.expected_next_step_date = expectedNextStepDate || undefined;
       updates.introduction_notes = introductionNotes || undefined;
     }
 
-    if (newStatus === 'passed' || newStatus === 'rejected') {
-      updates.passed_date = passedDate || new Date().toISOString().split('T')[0];
-      updates.passed_reason = passedReason || undefined;
-      updates.buyer_feedback = buyerFeedback || undefined;
-      updates.next_step = nextStep || undefined;
-      updates.expected_next_step_date = expectedNextStepDate || undefined;
-    }
-
-    if (newStatus === 'introduced') {
-      updates.buyer_feedback = buyerFeedback || undefined;
-      updates.next_step = nextStep || undefined;
-      updates.expected_next_step_date = expectedNextStepDate || undefined;
+    if (newStatus === 'outreach_initiated') {
+      updates.introduction_notes = introductionNotes || undefined;
     }
 
     updateStatus(
@@ -185,44 +168,51 @@ export function UpdateIntroductionStatusDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="not_introduced">
+                <SelectItem value="outreach_initiated">
                   <span className="flex items-center gap-2">
-                    <Target className="h-3.5 w-3.5 text-amber-600" />
-                    Not Yet Introduced
+                    <Send className="h-3.5 w-3.5 text-amber-600" />
+                    Outreach Initiated
                   </span>
                 </SelectItem>
-                <SelectItem value="introduction_scheduled">
+                <SelectItem value="meeting_scheduled">
                   <span className="flex items-center gap-2">
                     <Calendar className="h-3.5 w-3.5 text-blue-600" />
-                    Introduction Scheduled
+                    Meeting Scheduled
                   </span>
                 </SelectItem>
-                <SelectItem value="introduced">
+                <SelectItem value="not_a_fit">
                   <span className="flex items-center gap-2">
-                    <Clock className="h-3.5 w-3.5 text-purple-600" />
-                    Introduced (Awaiting Outcome)
+                    <ThumbsDown className="h-3.5 w-3.5 text-slate-500" />
+                    Not a Fit
                   </span>
                 </SelectItem>
-                <SelectItem value="passed">
+                <SelectItem value="fit_and_interested">
                   <span className="flex items-center gap-2">
                     <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
-                    Passed (Moving Forward)
-                  </span>
-                </SelectItem>
-                <SelectItem value="rejected">
-                  <span className="flex items-center gap-2">
-                    <X className="h-3.5 w-3.5 text-slate-500" />
-                    Rejected (Not Interested)
+                    Fit & Interested
                   </span>
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Scheduled Date (for introduction_scheduled) */}
-          {newStatus === 'introduction_scheduled' && (
+          {/* Notes (for outreach_initiated) */}
+          {newStatus === 'outreach_initiated' && (
             <div className="space-y-2">
-              <Label>Scheduled Date</Label>
+              <Label>Outreach Notes</Label>
+              <Textarea
+                value={introductionNotes}
+                onChange={(e) => setIntroductionNotes(e.target.value)}
+                placeholder="Details about the outreach..."
+                rows={2}
+              />
+            </div>
+          )}
+
+          {/* Scheduled Date (for meeting_scheduled) */}
+          {newStatus === 'meeting_scheduled' && (
+            <div className="space-y-2">
+              <Label>Meeting Date</Label>
               <Input
                 type="date"
                 value={scheduledDate}
@@ -231,63 +221,45 @@ export function UpdateIntroductionStatusDialog({
             </div>
           )}
 
-          {/* Introduction Details (for introduced, passed, rejected) */}
-          {(newStatus === 'introduced' || newStatus === 'passed' || newStatus === 'rejected') && (
+          {/* Not a Fit Details */}
+          {newStatus === 'not_a_fit' && (
             <div className="border-t pt-4 space-y-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Introduction Details
+                Not a Fit Details
               </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Introduction Date</Label>
-                  <Input
-                    type="date"
-                    value={introductionDate}
-                    onChange={(e) => setIntroductionDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Introduced By</Label>
-                  <Input
-                    value={introducedBy}
-                    onChange={(e) => setIntroducedBy(e.target.value)}
-                    placeholder="Sarah Mitchell"
-                  />
-                </div>
-              </div>
               <div className="space-y-2">
-                <Label>Introduction Method</Label>
-                <Select value={introductionMethod} onValueChange={setIntroductionMethod}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INTRODUCTION_METHODS.map((method) => (
-                      <SelectItem key={method} value={method}>
-                        {method}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Introduction Notes</Label>
+                <Label>Reason</Label>
                 <Textarea
-                  value={introductionNotes}
-                  onChange={(e) => setIntroductionNotes(e.target.value)}
-                  placeholder="How did the introduction go?"
+                  value={passedReason}
+                  onChange={(e) => setPassedReason(e.target.value)}
+                  placeholder="e.g. Not aligned on valuation, wrong geography..."
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Buyer Feedback</Label>
+                <Textarea
+                  value={buyerFeedback}
+                  onChange={(e) => setBuyerFeedback(e.target.value)}
+                  placeholder="What did the buyer say?"
                   rows={2}
                 />
               </div>
             </div>
           )}
 
-          {/* Feedback & Next Steps (for introduced, passed, rejected) */}
-          {(newStatus === 'introduced' || newStatus === 'passed' || newStatus === 'rejected') && (
+          {/* Fit & Interested Details */}
+          {newStatus === 'fit_and_interested' && (
             <div className="border-t pt-4 space-y-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Feedback & Next Steps
+                Fit & Interested Details
               </p>
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+                <p className="text-xs text-emerald-700">
+                  This buyer will be moved to <strong>Buyers Introduced</strong> and a new{' '}
+                  <strong>opportunity</strong> will be created in the deal pipeline.
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label>Buyer Feedback</Label>
                 <Textarea
@@ -302,7 +274,7 @@ export function UpdateIntroductionStatusDialog({
                 <Input
                   value={nextStep}
                   onChange={(e) => setNextStep(e.target.value)}
-                  placeholder="e.g. Management presentation"
+                  placeholder="e.g. Management presentation, LOI discussion"
                 />
               </div>
               <div className="space-y-2">
@@ -313,35 +285,12 @@ export function UpdateIntroductionStatusDialog({
                   onChange={(e) => setExpectedNextStepDate(e.target.value)}
                 />
               </div>
-            </div>
-          )}
-
-          {/* Pass/Reject Reason (for passed, rejected) */}
-          {(newStatus === 'passed' || newStatus === 'rejected') && (
-            <div className="border-t pt-4 space-y-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                {newStatus === 'passed' ? 'Pass Details' : 'Rejection Details'}
-              </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{newStatus === 'passed' ? 'Passed Date' : 'Rejected Date'}</Label>
-                  <Input
-                    type="date"
-                    value={passedDate}
-                    onChange={(e) => setPassedDate(e.target.value)}
-                  />
-                </div>
-              </div>
               <div className="space-y-2">
-                <Label>Reason</Label>
+                <Label>Notes</Label>
                 <Textarea
-                  value={passedReason}
-                  onChange={(e) => setPassedReason(e.target.value)}
-                  placeholder={
-                    newStatus === 'passed'
-                      ? 'e.g. Very interested, wants to move to LOI'
-                      : 'e.g. Not aligned on valuation'
-                  }
+                  value={introductionNotes}
+                  onChange={(e) => setIntroductionNotes(e.target.value)}
+                  placeholder="Additional context about the buyer's interest..."
                   rows={2}
                 />
               </div>

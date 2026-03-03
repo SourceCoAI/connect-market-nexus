@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+import { logDealActivity } from '@/lib/deal-activity-logger';
 import type {
   BuyerIntroduction,
   CreateBuyerIntroductionInput,
@@ -32,15 +33,14 @@ export function useBuyerIntroductions(listingId: string | undefined) {
 
   const notIntroduced = introductions.filter(
     (i) =>
-      i.introduction_status === 'not_introduced' ||
-      i.introduction_status === 'introduction_scheduled',
+      i.introduction_status === 'outreach_initiated' ||
+      i.introduction_status === 'meeting_scheduled',
   );
 
   const introducedAndPassed = introductions.filter(
     (i) =>
-      i.introduction_status === 'introduced' ||
-      i.introduction_status === 'passed' ||
-      i.introduction_status === 'rejected',
+      i.introduction_status === 'fit_and_interested' ||
+      i.introduction_status === 'not_a_fit',
   );
 
   const createMutation = useMutation({
@@ -53,7 +53,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
         .from('buyer_introductions' as never)
         .insert({
           ...input,
-          introduction_status: 'not_introduced',
+          introduction_status: 'outreach_initiated',
           created_by: user.id,
         } as never)
         .select()
@@ -97,16 +97,140 @@ export function useBuyerIntroductions(listingId: string | undefined) {
         } as never);
       }
 
-      return data as unknown as BuyerIntroduction;
+      const updatedRecord = data as unknown as BuyerIntroduction;
+
+      // When status changes to fit_and_interested, create a deal pipeline opportunity
+      if (
+        updates.introduction_status === 'fit_and_interested' &&
+        oldRecord?.introduction_status !== 'fit_and_interested'
+      ) {
+        await createDealFromIntroduction(updatedRecord);
+      }
+
+      return updatedRecord;
     },
-    onSuccess: () => {
+    onSuccess: (_data, { updates }) => {
       queryClient.invalidateQueries({ queryKey });
-      toast.success('Introduction status updated');
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['deal-stages'] });
+
+      if (updates.introduction_status === 'fit_and_interested') {
+        toast.success('Buyer marked as Fit & Interested — opportunity created in deal pipeline');
+      } else {
+        toast.success('Introduction status updated');
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message || 'Failed to update status');
     },
   });
+
+  /**
+   * Creates a deal in the deal_pipeline when a buyer is marked as Fit & Interested.
+   * Finds the first active deal stage and creates the opportunity there.
+   */
+  async function createDealFromIntroduction(buyer: BuyerIntroduction) {
+    try {
+      // Get the first (default) deal stage
+      const { data: stages, error: stageError } = await supabase
+        .from('deal_stages')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('position', { ascending: true })
+        .limit(1);
+
+      if (stageError) throw stageError;
+
+      const firstStage = stages?.[0];
+      if (!firstStage) {
+        console.error('No active deal stages found for opportunity creation');
+        return;
+      }
+
+      // Look up listing title for the deal title
+      let listingTitle = '';
+      if (buyer.listing_id) {
+        const { data: listing } = await supabase
+          .from('listings')
+          .select('title')
+          .eq('id', buyer.listing_id)
+          .single();
+        listingTitle = listing?.title || '';
+      }
+
+      // Create the deal in the pipeline
+      const dealTitle = `${buyer.buyer_firm_name} — ${listingTitle || buyer.company_name}`;
+
+      // Upsert buyer contact if we have email
+      let buyerContactId: string | null = null;
+      if (buyer.buyer_email) {
+        const nameParts = buyer.buyer_name.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        const { data: contact } = await supabase
+          .from('contacts')
+          .upsert(
+            {
+              first_name: firstName,
+              last_name: lastName,
+              email: buyer.buyer_email.toLowerCase().trim(),
+              phone: buyer.buyer_phone || null,
+              contact_type: 'buyer',
+              source: 'remarketing_fit_interested',
+            },
+            { onConflict: 'email' },
+          )
+          .select('id')
+          .single();
+
+        if (contact) {
+          buyerContactId = contact.id;
+        }
+      }
+
+      const { data: newDeal, error: dealError } = await supabase
+        .from('deal_pipeline')
+        .insert({
+          title: dealTitle,
+          description: `Auto-created from remarketing: ${buyer.buyer_name} at ${buyer.buyer_firm_name} marked as Fit & Interested.${buyer.buyer_feedback ? `\n\nBuyer feedback: ${buyer.buyer_feedback}` : ''}${buyer.next_step ? `\nNext step: ${buyer.next_step}` : ''}`,
+          stage_id: firstStage.id,
+          listing_id: buyer.listing_id,
+          source: 'remarketing',
+          nda_status: 'not_sent',
+          fee_agreement_status: 'not_sent',
+          buyer_contact_id: buyerContactId,
+          remarketing_buyer_id: buyer.id,
+          value: buyer.expected_deal_size_low || 0,
+          probability: 25,
+          priority: 'medium',
+        } as never)
+        .select()
+        .single();
+
+      if (dealError) throw dealError;
+
+      // Log the deal creation activity
+      if (newDeal?.id) {
+        await logDealActivity({
+          dealId: newDeal.id,
+          activityType: 'deal_created',
+          title: 'Opportunity Created from Remarketing',
+          description: `Deal created automatically when ${buyer.buyer_name} (${buyer.buyer_firm_name}) was marked as Fit & Interested`,
+          metadata: {
+            buyer_introduction_id: buyer.id,
+            buyer_name: buyer.buyer_name,
+            buyer_firm: buyer.buyer_firm_name,
+            source: 'remarketing_fit_interested',
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Failed to create deal from introduction:', error);
+      // Don't fail the status update, just log and show a warning
+      toast.error('Status updated but failed to create deal pipeline opportunity. Please create it manually.');
+    }
+  }
 
   const archiveMutation = useMutation({
     mutationFn: async (id: string) => {

@@ -10,8 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Target,
   CheckCircle,
-  Clock,
-  X,
+  ThumbsDown,
   Search,
   UserPlus,
   Calendar,
@@ -40,30 +39,25 @@ const STATUS_CONFIG: Record<
   IntroductionStatus,
   { label: string; color: string; icon: typeof CheckCircle }
 > = {
-  not_introduced: {
-    label: 'Not Introduced',
+  outreach_initiated: {
+    label: 'Outreach Initiated',
     color: 'bg-amber-100 text-amber-700 border-amber-200',
-    icon: Target,
+    icon: Send,
   },
-  introduction_scheduled: {
-    label: 'Scheduled',
+  meeting_scheduled: {
+    label: 'Meeting Scheduled',
     color: 'bg-blue-100 text-blue-700 border-blue-200',
     icon: Calendar,
   },
-  introduced: {
-    label: 'Awaiting Outcome',
-    color: 'bg-purple-100 text-purple-700 border-purple-200',
-    icon: Clock,
+  not_a_fit: {
+    label: 'Not a Fit',
+    color: 'bg-slate-100 text-slate-600 border-slate-200',
+    icon: ThumbsDown,
   },
-  passed: {
-    label: 'Moving Forward',
+  fit_and_interested: {
+    label: 'Fit & Interested',
     color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     icon: CheckCircle,
-  },
-  rejected: {
-    label: 'Not Interested',
-    color: 'bg-slate-100 text-slate-600 border-slate-200',
-    icon: X,
   },
 };
 
@@ -140,9 +134,8 @@ export function BuyerIntroductionTracker({
   const stats = {
     total: introductions.length,
     notIntroduced: notIntroduced.length,
-    introduced: introductions.filter((i) => i.introduction_status === 'introduced').length,
-    passed: introductions.filter((i) => i.introduction_status === 'passed').length,
-    rejected: introductions.filter((i) => i.introduction_status === 'rejected').length,
+    fitAndInterested: introductions.filter((i) => i.introduction_status === 'fit_and_interested').length,
+    notAFit: introductions.filter((i) => i.introduction_status === 'not_a_fit').length,
   };
 
   if (isLoading) {
@@ -227,13 +220,13 @@ export function BuyerIntroductionTracker({
         </CardContent>
       </Card>
 
-      {/* ─── Section 2: Buyers Introduced — Passed or Interested ─── */}
+      {/* ─── Section 2: Buyers Introduced ─── */}
       <Card>
         <CardHeader className="pb-4">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Send className="h-4 w-4" />
-              Buyers Introduced — Passed or Interested
+              <CheckCircle className="h-4 w-4" />
+              Buyers Introduced
               {filteredIntroducedPassed.length > 0 && (
                 <Badge variant="secondary" className="text-xs ml-1">
                   {filteredIntroducedPassed.length}
@@ -241,20 +234,15 @@ export function BuyerIntroductionTracker({
               )}
             </CardTitle>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span>Buyers that have been introduced to this deal</span>
-              {stats.introduced > 0 && (
-                <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">
-                  {stats.introduced} Awaiting Outcome
-                </Badge>
-              )}
-              {stats.passed > 0 && (
+              <span>Buyers that have been evaluated for this deal</span>
+              {stats.fitAndInterested > 0 && (
                 <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
-                  {stats.passed} Moving Forward
+                  {stats.fitAndInterested} Fit & Interested
                 </Badge>
               )}
-              {stats.rejected > 0 && (
+              {stats.notAFit > 0 && (
                 <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200">
-                  {stats.rejected} Not Interested
+                  {stats.notAFit} Not a Fit
                 </Badge>
               )}
             </div>

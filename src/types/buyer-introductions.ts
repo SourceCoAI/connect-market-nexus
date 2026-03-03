@@ -1,9 +1,8 @@
 export type IntroductionStatus =
-  | 'not_introduced'
-  | 'introduction_scheduled'
-  | 'introduced'
-  | 'passed'
-  | 'rejected';
+  | 'outreach_initiated'
+  | 'meeting_scheduled'
+  | 'not_a_fit'
+  | 'fit_and_interested';
 
 export interface BuyerIntroduction {
   id: string;
