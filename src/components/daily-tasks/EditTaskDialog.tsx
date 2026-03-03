@@ -21,17 +21,19 @@ import {
 import { Loader2 } from 'lucide-react';
 import { useEditTask } from '@/hooks/useDailyTasks';
 import { useExistingTags } from '@/hooks/useTaskTags';
-import { TASK_TYPE_OPTIONS } from '@/types/daily-tasks';
+import { TASK_TYPE_OPTIONS, DEAL_TASK_TYPE_OPTIONS } from '@/types/daily-tasks';
 import { TagInput } from './TagInput';
-import type { DailyStandupTaskWithRelations, TaskType } from '@/types/daily-tasks';
+import type { DailyStandupTaskWithRelations, TaskType, TaskEntityType } from '@/types/daily-tasks';
 
 interface EditTaskDialogProps {
   task: DailyStandupTaskWithRelations | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  entityType?: TaskEntityType;
 }
 
-export function EditTaskDialog({ task, open, onOpenChange }: EditTaskDialogProps) {
+export function EditTaskDialog({ task, open, onOpenChange, entityType }: EditTaskDialogProps) {
+  const taskTypeOptions = entityType === 'deal' ? DEAL_TASK_TYPE_OPTIONS : TASK_TYPE_OPTIONS;
   const editTask = useEditTask();
   const { toast } = useToast();
   const { data: existingTags } = useExistingTags();
@@ -109,7 +111,7 @@ export function EditTaskDialog({ task, open, onOpenChange }: EditTaskDialogProps
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TASK_TYPE_OPTIONS.map((opt) => (
+                  {taskTypeOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>

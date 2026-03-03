@@ -13,7 +13,11 @@ export type TaskType =
   | 'buyer_qualification'
   | 'seller_relationship'
   | 'buyer_ic_followup'
-  | 'other';
+  | 'other'
+  | 'call'
+  | 'email'
+  | 'find_buyers'
+  | 'contact_buyers';
 
 export type TaskStatus =
   | 'pending_approval'
@@ -169,6 +173,10 @@ export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   seller_relationship: 'Seller Relationship',
   buyer_ic_followup: 'Buyer IC Follow-up',
   other: 'Other',
+  call: 'Call',
+  email: 'Email',
+  find_buyers: 'Find Buyers',
+  contact_buyers: 'Contact Buyers',
 };
 
 export const TASK_TYPE_COLORS: Record<TaskType, string> = {
@@ -185,6 +193,10 @@ export const TASK_TYPE_COLORS: Record<TaskType, string> = {
   seller_relationship: 'bg-rose-100 text-rose-800 border-rose-200',
   buyer_ic_followup: 'bg-violet-100 text-violet-800 border-violet-200',
   other: 'bg-slate-100 text-slate-800 border-slate-200',
+  call: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  email: 'bg-sky-100 text-sky-800 border-sky-200',
+  find_buyers: 'bg-lime-100 text-lime-800 border-lime-200',
+  contact_buyers: 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200',
 };
 
 export const TASK_TYPE_OPTIONS: { value: TaskType; label: string }[] = [
@@ -201,6 +213,13 @@ export const TASK_TYPE_OPTIONS: { value: TaskType; label: string }[] = [
   { value: 'seller_relationship', label: 'Seller Relationship' },
   { value: 'buyer_ic_followup', label: 'Buyer IC Follow-up' },
   { value: 'other', label: 'Other' },
+];
+
+export const DEAL_TASK_TYPE_OPTIONS: { value: TaskType; label: string }[] = [
+  { value: 'call', label: 'Call' },
+  { value: 'email', label: 'Email' },
+  { value: 'find_buyers', label: 'Find Buyers' },
+  { value: 'contact_buyers', label: 'Contact Buyers' },
 ];
 
 export const ENTITY_TYPE_LABELS: Record<TaskEntityType, string> = {
@@ -263,6 +282,10 @@ export const TASK_TYPE_SCORES: Record<TaskType, number> = {
   buyer_ic_followup: 40,
   update_pipeline: 30,
   other: 40,
+  call: 80,
+  email: 70,
+  find_buyers: 50,
+  contact_buyers: 75,
 };
 
 // ─── Analytics Types ───
