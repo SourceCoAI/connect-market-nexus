@@ -266,6 +266,7 @@ export default function GlobalApprovalsPage() {
                       <span className="text-muted-foreground">Deal:</span>
                       <Link
                         to={`/admin/deals/${entry.deal_id}`}
+                        state={{ from: '/admin/approvals' }}
                         className="text-primary hover:underline font-medium"
                       >
                         {entry.deal_title}

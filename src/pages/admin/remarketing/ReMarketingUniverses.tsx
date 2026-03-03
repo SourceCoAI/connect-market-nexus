@@ -506,7 +506,7 @@ const ReMarketingUniverses = () => {
                           key={deal.id}
                           deal={deal}
                           index={idx}
-                          onNavigate={() => navigate(`/admin/deals/${deal.id}`)}
+                          onNavigate={() => navigate(`/admin/deals/${deal.id}`, { state: { from: '/admin/buyers/universes' } })}
                           onCreateClick={(e) => {
                             e.stopPropagation();
                             setSearchParams((prev) => {

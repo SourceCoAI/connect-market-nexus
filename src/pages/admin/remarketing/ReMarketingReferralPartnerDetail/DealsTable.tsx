@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -101,8 +101,11 @@ export function DealsTable({
   partnerId,
 }: DealsTableProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const orderedIds = deals.map((d) => d.id);
+  const navToDeal = (dealId: string) =>
+    navigate(`/admin/deals/${dealId}`, { state: { from: location.pathname } });
   const { handleToggle } = useShiftSelect(orderedIds, selectedDealIds, setSelectedDealIds);
 
   return (
@@ -192,7 +195,7 @@ export function DealsTable({
               </TableCell>
               <TableCell
                 className="font-medium"
-                onClick={() => navigate(`/admin/deals/${deal.id}`)}
+                onClick={() => navToDeal(deal.id)}
               >
                 <div className="flex items-center gap-1.5">
                   {isEnriched && <Sparkles className="h-3 w-3 text-amber-500 flex-shrink-0" />}
@@ -205,7 +208,7 @@ export function DealsTable({
               </TableCell>
               <TableCell
                 className="text-sm text-muted-foreground"
-                onClick={() => navigate(`/admin/deals/${deal.id}`)}
+                onClick={() => navToDeal(deal.id)}
               >
                 {deal.website ? (
                   <a
@@ -225,13 +228,13 @@ export function DealsTable({
               </TableCell>
               <TableCell
                 className="text-sm text-muted-foreground"
-                onClick={() => navigate(`/admin/deals/${deal.id}`)}
+                onClick={() => navToDeal(deal.id)}
               >
                 {deal.category || '-'}
               </TableCell>
               <TableCell
                 className="text-sm text-muted-foreground"
-                onClick={() => navigate(`/admin/deals/${deal.id}`)}
+                onClick={() => navToDeal(deal.id)}
               >
                 {deal.address_city && deal.address_state
                   ? `${deal.address_city}, ${deal.address_state}`
@@ -239,17 +242,17 @@ export function DealsTable({
               </TableCell>
               <TableCell
                 className="text-right text-sm"
-                onClick={() => navigate(`/admin/deals/${deal.id}`)}
+                onClick={() => navToDeal(deal.id)}
               >
                 {formatCurrency(deal.revenue)}
               </TableCell>
               <TableCell
                 className="text-right text-sm"
-                onClick={() => navigate(`/admin/deals/${deal.id}`)}
+                onClick={() => navToDeal(deal.id)}
               >
                 {formatCurrency(deal.ebitda)}
               </TableCell>
-              <TableCell onClick={() => navigate(`/admin/deals/${deal.id}`)}>
+              <TableCell onClick={() => navToDeal(deal.id)}>
                 {deal.status === 'active' ? (
                   <Badge className="bg-green-100 text-green-800 border-green-200">Active</Badge>
                 ) : deal.status === 'pending_referral_review' ? (
@@ -264,7 +267,7 @@ export function DealsTable({
                   <Badge variant="secondary">{deal.status || 'Draft'}</Badge>
                 )}
               </TableCell>
-              <TableCell onClick={() => navigate(`/admin/deals/${deal.id}`)}>
+              <TableCell onClick={() => navToDeal(deal.id)}>
                 {(() => {
                   const score = deal.deal_total_score;
                   if (score == null)
@@ -278,7 +281,7 @@ export function DealsTable({
                   return <span className={`text-sm font-semibold ${color}`}>{score}</span>;
                 })()}
               </TableCell>
-              <TableCell onClick={() => navigate(`/admin/deals/${deal.id}`)}>
+              <TableCell onClick={() => navToDeal(deal.id)}>
                 {deal.main_contact_name ? (
                   <div className="text-xs space-y-0.5">
                     <div className="font-medium">{deal.main_contact_name}</div>
@@ -299,7 +302,7 @@ export function DealsTable({
                   <span className="text-xs text-muted-foreground">-</span>
                 )}
               </TableCell>
-              <TableCell onClick={() => navigate(`/admin/deals/${deal.id}`)}>
+              <TableCell onClick={() => navToDeal(deal.id)}>
                 {deal.linkedin_employee_count ? (
                   <div className="flex items-center gap-1 text-xs">
                     <Users className="h-3 w-3 text-blue-600" />
@@ -311,12 +314,12 @@ export function DealsTable({
                   <span className="text-xs text-muted-foreground">-</span>
                 )}
               </TableCell>
-              <TableCell onClick={() => navigate(`/admin/deals/${deal.id}`)}>
+              <TableCell onClick={() => navToDeal(deal.id)}>
                 <span className="text-xs text-muted-foreground">
                   {deal.linkedin_employee_range || '-'}
                 </span>
               </TableCell>
-              <TableCell onClick={() => navigate(`/admin/deals/${deal.id}`)}>
+              <TableCell onClick={() => navToDeal(deal.id)}>
                 {deal.google_rating ? (
                   <div className="flex items-center gap-1 text-xs">
                     <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
@@ -326,7 +329,7 @@ export function DealsTable({
                   <span className="text-xs text-muted-foreground">-</span>
                 )}
               </TableCell>
-              <TableCell onClick={() => navigate(`/admin/deals/${deal.id}`)}>
+              <TableCell onClick={() => navToDeal(deal.id)}>
                 {deal.google_review_count ? (
                   <span className="text-xs font-medium">
                     {deal.google_review_count.toLocaleString()}
@@ -337,7 +340,7 @@ export function DealsTable({
               </TableCell>
               <TableCell
                 className="text-sm text-muted-foreground"
-                onClick={() => navigate(`/admin/deals/${deal.id}`)}
+                onClick={() => navToDeal(deal.id)}
               >
                 {format(new Date(deal.created_at), 'MMM d, yyyy')}
               </TableCell>
@@ -349,7 +352,7 @@ export function DealsTable({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => navigate(`/admin/deals/${deal.id}`)}>
+                    <DropdownMenuItem onClick={() => navToDeal(deal.id)}>
                       <ExternalLink className="h-3 w-3 mr-2" />
                       View Deal
                     </DropdownMenuItem>
