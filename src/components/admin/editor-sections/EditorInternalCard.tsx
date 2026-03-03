@@ -11,6 +11,8 @@ import { EDITOR_DESIGN } from "@/lib/editor-design-system";
 import { cn } from "@/lib/utils";
 import { STATUS_TAGS } from "@/constants/statusTags";
 import { ChevronDown } from "lucide-react";
+import { EnhancedMultiCategorySelect } from "@/components/ui/enhanced-category-select";
+import { EnhancedMultiLocationSelect } from "@/components/ui/enhanced-location-select";
 
 interface EditorInternalCardProps {
   form: UseFormReturn<any>;
@@ -32,6 +34,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
   const [isOpen, setIsOpen] = useState(true);
   const { data: sourceCoAdmins, isLoading: loadingAdmins } = useSourceCoAdmins();
   const visibleToBuyerTypes = form.watch('visible_to_buyer_types') || [];
+  const acquisitionType = form.watch('acquisition_type');
 
   const handleBuyerTypeToggle = (value: string) => {
     const current = visibleToBuyerTypes || [];
@@ -134,10 +137,137 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
             />
           </div>
 
-          {/* Geography & Industry */}
+          {/* Title */}
           <div className={cn("pt-3", EDITOR_DESIGN.subtleDivider, EDITOR_DESIGN.microFieldSpacing)}>
-            <div className={EDITOR_DESIGN.microLabel}>Geography & Industry</div>
-            <p className="text-[11px] text-muted-foreground">Set in the top bar: Categories (industry) and Location (geography)</p>
+            <div className={EDITOR_DESIGN.microLabel}>Title</div>
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      placeholder="Business Title"
+                      {...field}
+                      value={field.value || ''}
+                      className={cn(EDITOR_DESIGN.miniHeight, "text-sm font-medium", EDITOR_DESIGN.inputBg)}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Industry */}
+          <div className={EDITOR_DESIGN.microFieldSpacing}>
+            <div className={EDITOR_DESIGN.microLabel}>Industry</div>
+            <FormField
+              control={form.control}
+              name="categories"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <EnhancedMultiCategorySelect
+                      value={field.value || []}
+                      onValueChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Geography */}
+          <div className={EDITOR_DESIGN.microFieldSpacing}>
+            <div className={EDITOR_DESIGN.microLabel}>Geography</div>
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <EnhancedMultiLocationSelect
+                      value={Array.isArray(field.value) ? field.value : (field.value ? [field.value] : [])}
+                      onValueChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Platform / Add-on */}
+          <div className={EDITOR_DESIGN.microFieldSpacing}>
+            <div className={EDITOR_DESIGN.microLabel}>Type</div>
+            <div className="inline-flex rounded-md border border-border bg-muted/40 p-0.5">
+              <button
+                type="button"
+                onClick={() => form.setValue('acquisition_type', 'platform')}
+                className={cn(
+                  "px-3 py-1.5 rounded text-sm font-medium transition-all",
+                  acquisitionType === 'platform'
+                    ? "bg-white text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Platform
+              </button>
+              <button
+                type="button"
+                onClick={() => form.setValue('acquisition_type', 'add_on')}
+                className={cn(
+                  "px-3 py-1.5 rounded text-sm font-medium transition-all",
+                  acquisitionType === 'add_on'
+                    ? "bg-white text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Add-on
+              </button>
+            </div>
+          </div>
+
+          {/* Team Size */}
+          <div className={EDITOR_DESIGN.microFieldSpacing}>
+            <div className={EDITOR_DESIGN.microLabel}>Team Size</div>
+            <div className="grid grid-cols-2 gap-2">
+              <FormField
+                control={form.control}
+                name="full_time_employees"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="Full-time"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
+                        className={cn(EDITOR_DESIGN.miniHeight, "text-sm", EDITOR_DESIGN.inputBg)}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="part_time_employees"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="Part-time"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
+                        className={cn(EDITOR_DESIGN.miniHeight, "text-sm", EDITOR_DESIGN.inputBg)}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
 
           {/* Structured Contact Fields */}

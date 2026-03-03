@@ -10,7 +10,6 @@ import { parseCurrency } from '@/lib/currency-utils';
 import { Loader2, Save, Target, ExternalLink } from 'lucide-react';
 
 // Import section components
-import { EditorTopBar } from './editor-sections/EditorTopBar';
 import { EditorFinancialCard } from './editor-sections/EditorFinancialCard';
 import { EditorDescriptionSection } from './editor-sections/EditorDescriptionSection';
 import { EditorHeroDescriptionSection } from './editor-sections/EditorHeroDescriptionSection';
@@ -440,9 +439,6 @@ export function ImprovedListingEditor({
                 </a>
               </div>
             )}
-
-            {/* TOP BAR - Critical fields */}
-            <EditorTopBar form={formForSections} />
 
             {/* MAIN CONTENT - Card grid */}
             <div className="grid grid-cols-[540px_1fr] gap-8 mb-6">
