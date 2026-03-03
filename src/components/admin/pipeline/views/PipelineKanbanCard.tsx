@@ -120,7 +120,7 @@ export function PipelineKanbanCard({ deal, onDealClick, isDragging }: PipelineKa
       <div
         className="px-4 pt-3.5 pb-2.5"
         style={{
-          backgroundColor: deal.needs_owner_contact ? '#FFF0F0' : '#FCF9F0',
+          backgroundColor: deal.needs_owner_contact ? '#FFF0F0' : deal.needs_buyer_search ? '#EFF6FF' : '#FCF9F0',
           borderBottom: '1px solid #E5DDD0',
         }}
       >

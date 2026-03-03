@@ -39,6 +39,7 @@ const ReMarketingDealDetail = () => {
     updateDealMutation,
     toggleUniverseFlagMutation,
     toggleContactOwnerMutation,
+    toggleBuyerSearchMutation,
     updateNameMutation,
     isEnriching,
     enrichmentProgress,
@@ -164,6 +165,7 @@ const ReMarketingDealDetail = () => {
             handleAnalyzeNotes={handleAnalyzeNotes}
             updateDealMutation={updateDealMutation}
             toggleContactOwnerMutation={toggleContactOwnerMutation}
+            toggleBuyerSearchMutation={toggleBuyerSearchMutation}
             toggleUniverseFlagMutation={toggleUniverseFlagMutation}
             queryClient={queryClient}
           />

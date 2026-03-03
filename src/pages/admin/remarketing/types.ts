@@ -45,6 +45,9 @@ export interface DealListing {
   // Deal owner
   deal_owner_id: string | null;
   deal_owner: { id: string; first_name: string | null; last_name: string | null; email: string } | null;
+  // Buyer search flag
+  needs_buyer_search: boolean | null;
+  needs_buyer_search_at: string | null;
   // Contact owner flag
   needs_owner_contact: boolean | null;
   needs_owner_contact_at: string | null;

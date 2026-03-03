@@ -6799,6 +6799,9 @@ export type Database = {
           metric_4_type: string | null
           need_buyer_universe: boolean | null
           need_owner_contact: boolean | null
+          needs_buyer_search: boolean | null
+          needs_buyer_search_at: string | null
+          needs_buyer_search_by: string | null
           needs_owner_contact: boolean | null
           needs_owner_contact_at: string | null
           needs_owner_contact_by: string | null
@@ -6990,6 +6993,9 @@ export type Database = {
           metric_4_type?: string | null
           need_buyer_universe?: boolean | null
           need_owner_contact?: boolean | null
+          needs_buyer_search?: boolean | null
+          needs_buyer_search_at?: string | null
+          needs_buyer_search_by?: string | null
           needs_owner_contact?: boolean | null
           needs_owner_contact_at?: string | null
           needs_owner_contact_by?: string | null
@@ -7181,6 +7187,9 @@ export type Database = {
           metric_4_type?: string | null
           need_buyer_universe?: boolean | null
           need_owner_contact?: boolean | null
+          needs_buyer_search?: boolean | null
+          needs_buyer_search_at?: string | null
+          needs_buyer_search_by?: string | null
           needs_owner_contact?: boolean | null
           needs_owner_contact_at?: string | null
           needs_owner_contact_by?: string | null
@@ -11468,6 +11477,9 @@ export type Database = {
           metric_4_type: string | null
           need_buyer_universe: boolean | null
           need_owner_contact: boolean | null
+          needs_buyer_search: boolean | null
+          needs_buyer_search_at: string | null
+          needs_buyer_search_by: string | null
           needs_owner_contact: boolean | null
           needs_owner_contact_at: string | null
           needs_owner_contact_by: string | null
@@ -11683,6 +11695,7 @@ export type Database = {
           listing_internal_company_name: string
           listing_is_priority_target: boolean
           listing_location: string
+          listing_needs_buyer_search: boolean
           listing_needs_owner_contact: boolean
           listing_revenue: number
           listing_title: string

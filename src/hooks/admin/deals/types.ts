@@ -102,6 +102,7 @@ export interface Deal {
   deal_score?: number | null;
   is_priority_target?: boolean | null;
   needs_owner_contact?: boolean | null;
+  needs_buyer_search?: boolean | null;
 
   // Document distribution flags
   memo_sent?: boolean;
@@ -162,6 +163,7 @@ interface _DealRpcRow {
   listing_deal_total_score: number | null;
   listing_is_priority_target: boolean | null;
   listing_needs_owner_contact: boolean | null;
+  listing_needs_buyer_search: boolean | null;
   admin_id: string | null;
   admin_first_name: string | null;
   admin_last_name: string | null;

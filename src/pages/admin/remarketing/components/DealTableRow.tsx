@@ -37,6 +37,7 @@ import {
   Network,
   GitBranch,
   GripVertical,
+  Search,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useSortable } from "@dnd-kit/sortable";
@@ -60,6 +61,7 @@ export const DealTableRow = ({
   onDelete,
   onTogglePriority,
   onToggleUniverseBuild,
+  onToggleBuyerSearch,
   onUpdateRank,
   adminProfiles,
   onAssignOwner,
@@ -82,6 +84,7 @@ export const DealTableRow = ({
   onDelete: (dealId: string, dealName: string) => void;
   onTogglePriority: (dealId: string, currentStatus: boolean) => void;
   onToggleUniverseBuild: (dealId: string, currentStatus: boolean) => void;
+  onToggleBuyerSearch: (dealId: string, currentStatus: boolean) => void;
   onUpdateRank: (dealId: string, newRank: number) => Promise<void> | void;
   adminProfiles?: Record<string, { id: string; email: string; first_name: string; last_name: string; displayName: string }>;
   onAssignOwner: (dealId: string, ownerId: string | null) => void;
@@ -107,6 +110,7 @@ export const DealTableRow = ({
   const isEnriched = !!listing.enriched_at;
   const displayName = listing.internal_company_name || listing.title;
   const needsOwnerContact = !!listing.needs_owner_contact;
+  const needsBuyerSearch = !!listing.needs_buyer_search;
   const needsUniverseBuild = !!listing.universe_build_flagged;
 
   // Buyer universe membership for this listing
@@ -197,11 +201,12 @@ export const DealTableRow = ({
         </div>
       </TableCell>
 
-      {/* Deal Name — red cell if needs owner contact */}
+      {/* Deal Name — red cell if needs owner contact, blue if needs buyer search */}
       <TableCell
         style={{ width: columnWidths.dealName, minWidth: 100 }}
         className={cn(
-          needsOwnerContact && "bg-red-100 border-l-2 border-red-500 dark:bg-red-950/40"
+          needsOwnerContact && "bg-red-100 border-l-2 border-red-500 dark:bg-red-950/40",
+          !needsOwnerContact && needsBuyerSearch && "bg-blue-100 border-l-2 border-blue-500 dark:bg-blue-950/40"
         )}
       >
         <div>
@@ -231,6 +236,18 @@ export const DealTableRow = ({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="font-semibold">Owner needs to be contacted — buyer is ready!</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {needsBuyerSearch && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center">
+                    <Search className="h-3.5 w-3.5 text-blue-500 animate-pulse shrink-0" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="font-semibold">Need to find a buyer for this deal</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -541,6 +558,16 @@ export const DealTableRow = ({
             >
               <Network className={cn("h-4 w-4 mr-2", listing.universe_build_flagged && "text-blue-600")} />
               {listing.universe_build_flagged ? "Remove Universe Build Flag" : "Flag: Build Buyer Universe"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleBuyerSearch(listing.id, listing.needs_buyer_search || false);
+              }}
+              className={listing.needs_buyer_search ? "text-blue-600" : ""}
+            >
+              <Search className={cn("h-4 w-4 mr-2", listing.needs_buyer_search && "text-blue-600")} />
+              {listing.needs_buyer_search ? "Remove Find Buyer Flag" : "Flag: Find Buyer"}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

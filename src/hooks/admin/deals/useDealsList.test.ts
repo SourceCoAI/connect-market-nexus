@@ -32,6 +32,7 @@ function fullRpcRow(overrides: Record<string, unknown> = {}) {
     listing_deal_total_score: 85,
     listing_is_priority_target: true,
     listing_needs_owner_contact: false,
+    listing_needs_buyer_search: false,
 
     // Contact info (sourced from connection_requests via RPC JOIN)
     contact_name: 'John Doe',

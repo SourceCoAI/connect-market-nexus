@@ -306,6 +306,42 @@ export function useDealsActions({
     [toast, user?.id, setLocalOrder],
   );
 
+  const handleToggleBuyerSearch = useCallback(
+    async (dealId: string, currentStatus: boolean) => {
+      const ns = !currentStatus;
+      const now = new Date().toISOString();
+      setLocalOrder((prev) =>
+        prev.map((d) =>
+          d.id === dealId
+            ? { ...d, needs_buyer_search: ns, needs_buyer_search_at: ns ? now : null }
+            : d,
+        ),
+      );
+      const { error } = await supabase
+        .from('listings')
+        .update({
+          needs_buyer_search: ns,
+          needs_buyer_search_at: ns ? now : null,
+          needs_buyer_search_by: ns ? user?.id : null,
+        })
+        .eq('id', dealId);
+      if (error) {
+        setLocalOrder((prev) =>
+          prev.map((d) => (d.id === dealId ? { ...d, needs_buyer_search: currentStatus } : d)),
+        );
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+      toast({
+        title: ns ? 'Flagged: Find Buyer' : 'Flag removed',
+        description: ns
+          ? 'Deal flagged — a buyer needs to be found'
+          : 'Find buyer flag removed',
+      });
+    },
+    [toast, user?.id, setLocalOrder],
+  );
+
   const handleAssignOwner = useCallback(
     async (dealId: string, ownerId: string | null) => {
       const ownerProfile = ownerId && adminProfiles ? adminProfiles[ownerId] : null;
@@ -582,6 +618,7 @@ export function useDealsActions({
     handleDeleteDeal,
     handleTogglePriority,
     handleToggleUniverseBuild,
+    handleToggleBuyerSearch,
     handleAssignOwner,
     handleBulkAssignOwner,
     handleBulkArchive,

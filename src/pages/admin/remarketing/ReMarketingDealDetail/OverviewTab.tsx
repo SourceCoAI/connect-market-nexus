@@ -117,6 +117,7 @@ interface OverviewTabProps {
     isPending: boolean;
   };
   toggleContactOwnerMutation: { mutate: (v: boolean) => void; isPending: boolean };
+  toggleBuyerSearchMutation: { mutate: (v: boolean) => void; isPending: boolean };
   toggleUniverseFlagMutation: { mutate: (v: boolean) => void; isPending: boolean };
   queryClient: QueryClient;
 }
@@ -141,6 +142,7 @@ export function OverviewTab({
   handleAnalyzeNotes,
   updateDealMutation,
   toggleContactOwnerMutation,
+  toggleBuyerSearchMutation,
   toggleUniverseFlagMutation,
   queryClient,
 }: OverviewTabProps) {
@@ -167,6 +169,7 @@ export function OverviewTab({
         handleEnrichFromWebsite={handleEnrichFromWebsite}
         setBuyerHistoryOpen={setBuyerHistoryOpen}
         toggleContactOwnerMutation={toggleContactOwnerMutation}
+        toggleBuyerSearchMutation={toggleBuyerSearchMutation}
         toggleUniverseFlagMutation={toggleUniverseFlagMutation}
       />
 

@@ -81,6 +81,7 @@ export function useDealsData() {
             address_state, referral_partner_id, referral_partners(id, name),
             deal_source, deal_owner_id,
             deal_owner:profiles!listings_deal_owner_id_fkey(id, first_name, last_name, email),
+            needs_buyer_search, needs_buyer_search_at,
             needs_owner_contact, needs_owner_contact_at,
             universe_build_flagged, universe_build_flagged_at, universe_build_flagged_by,
             is_internal_deal,
