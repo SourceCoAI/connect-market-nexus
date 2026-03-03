@@ -23,6 +23,7 @@ import {
   Zap,
   Star,
   HelpCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -338,6 +339,7 @@ function IntroductionBuyerRow({
   const sourceBadge = sourceKey ? (SOURCE_BADGE[sourceKey] || SOURCE_BADGE.scored) : null;
   const compositeScore = score?.composite_score ?? snap?.composite_score;
   const hasFeeAgreement = score?.has_fee_agreement ?? snap?.has_fee_agreement ?? false;
+  const companyWebsite = score?.company_website || snap?.company_website || null;
 
   return (
     <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
@@ -394,6 +396,18 @@ function IntroductionBuyerRow({
                 <FileCheck className="h-2.5 w-2.5" />
                 Fee
               </span>
+            )}
+            {companyWebsite && (
+              <a
+                href={companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Website
+              </a>
             )}
           </div>
         </div>
@@ -506,6 +520,7 @@ function IntroducedBuyerRow({
   const sourceBadge = sourceKey ? (SOURCE_BADGE[sourceKey] || SOURCE_BADGE.scored) : null;
   const compositeScore = score?.composite_score ?? snap?.composite_score;
   const hasFeeAgreement = score?.has_fee_agreement ?? snap?.has_fee_agreement ?? false;
+  const companyWebsite = score?.company_website || snap?.company_website || null;
 
   return (
     <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
@@ -567,6 +582,18 @@ function IntroducedBuyerRow({
                 <FileCheck className="h-2.5 w-2.5" />
                 Fee
               </span>
+            )}
+            {companyWebsite && (
+              <a
+                href={companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Website
+              </a>
             )}
             {daysSinceIntroduction !== null && (
               <span className="ml-1">{daysSinceIntroduction}d in pipeline</span>

@@ -12,6 +12,7 @@ export interface BuyerScore {
   hq_city: string | null;
   has_fee_agreement: boolean;
   acquisition_appetite: string | null;
+  company_website: string | null;
   composite_score: number;
   service_score: number;
   geography_score: number;

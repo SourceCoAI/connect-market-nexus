@@ -59,6 +59,7 @@ export interface ScoreSnapshot {
   pe_firm_name: string | null;
   pe_firm_id: string | null;
   acquisition_appetite: string | null;
+  company_website: string | null;
 }
 
 export interface IntroductionStatusLog {

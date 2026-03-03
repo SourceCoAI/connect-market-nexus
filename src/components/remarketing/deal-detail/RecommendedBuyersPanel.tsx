@@ -28,6 +28,7 @@ import {
   Database,
   Globe,
   ChevronDown,
+  ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -164,6 +165,18 @@ function BuyerCard({
                 <FileCheck className="h-2.5 w-2.5" />
                 Fee
               </span>
+            )}
+            {buyer.company_website && (
+              <a
+                href={buyer.company_website.startsWith('http') ? buyer.company_website : `https://${buyer.company_website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Website
+              </a>
             )}
           </div>
         </div>
@@ -368,6 +381,7 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
               pe_firm_name: buyer.pe_firm_name,
               pe_firm_id: buyer.pe_firm_id,
               acquisition_appetite: buyer.acquisition_appetite,
+              company_website: buyer.company_website,
             },
           },
           {
