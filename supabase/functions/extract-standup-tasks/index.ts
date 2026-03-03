@@ -2,7 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
-import { callClaude, CLAUDE_MODELS } from '../_shared/claude-client.ts';
+import { fetchWithAutoRetry } from '../_shared/ai-providers.ts';
 
 // ─── Types ───
 
@@ -220,24 +220,41 @@ async function extractTasksWithAI(
 ): Promise<ExtractedTask[]> {
   const systemPrompt = buildExtractionPrompt(teamMembers, today);
 
-  const response = await callClaude({
-    model: CLAUDE_MODELS.sonnet,
-    maxTokens: 4096,
-    systemPrompt,
-    messages: [
-      {
-        role: 'user',
-        content: `Here is the meeting transcript:\n\n${transcriptText}`,
+  const apiKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not configured');
+
+  const response = await fetchWithAutoRetry(
+    'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
-    ],
-    timeoutMs: 60000,
-  });
+      body: JSON.stringify({
+        model: 'gemini-2.0-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Here is the meeting transcript:\n\n${transcriptText}` },
+        ],
+        temperature: 0,
+        max_tokens: 4096,
+      }),
+      signal: AbortSignal.timeout(60000),
+    },
+    { maxRetries: 2, baseDelayMs: 2000, callerName: 'Gemini/extract-standup-tasks' },
+  );
 
-  const textBlock = response.content.find((b) => b.type === 'text');
-  if (!textBlock?.text) return [];
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error ${response.status}: ${errorText.substring(0, 300)}`);
+  }
 
-  // Parse the JSON from the response
-  const jsonMatch = textBlock.text.match(/\[[\s\S]*\]/);
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || '';
+
+  // Parse the JSON array from the response
+  const jsonMatch = content.match(/\[[\s\S]*\]/);
   if (!jsonMatch) return [];
 
   try {

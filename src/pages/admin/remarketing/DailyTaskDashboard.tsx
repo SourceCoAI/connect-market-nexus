@@ -36,7 +36,6 @@ import {
   ShieldCheck,
   XCircle,
   Tag,
-  FileSignature,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn, getLocalDateString } from '@/lib/utils';
@@ -53,68 +52,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { DailyStandupTaskWithRelations } from '@/types/daily-tasks';
-
-// ─── Unsigned agreement item from firm_agreements table ───
-interface UnsignedAgreementItem {
-  id: string;
-  primary_company_name: string;
-  type: 'nda' | 'fee_agreement';
-  status: string | null;
-  sent_at: string | null;
-}
-
-// ─── Section displaying outstanding unsigned NDAs / fee agreements ───
-function UnsignedAgreementsSection({ items }: { items: UnsignedAgreementItem[] }) {
-  if (items.length === 0) return null;
-
-  return (
-    <Card>
-      <CardHeader className="pb-2 pt-4 px-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
-              <FileSignature className="h-4 w-4 text-orange-600" />
-            </div>
-            <CardTitle className="text-sm font-semibold">Unsigned Agreements</CardTitle>
-            <Badge variant="outline" className="border-orange-300 text-orange-700 text-[10px]">
-              {items.length} outstanding
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 pt-1 space-y-2">
-        {items.map((item) => (
-          <div
-            key={`${item.type}-${item.id}`}
-            className="flex items-center justify-between rounded-lg border px-3 py-2"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <Badge
-                variant="outline"
-                className={cn(
-                  'text-[10px] shrink-0',
-                  item.type === 'nda'
-                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                    : 'bg-teal-50 text-teal-700 border-teal-200',
-                )}
-              >
-                {item.type === 'nda' ? 'NDA' : 'Fee Agreement'}
-              </Badge>
-              <span className="text-sm truncate">
-                Awaiting Signature &mdash; {item.primary_company_name}
-              </span>
-            </div>
-            <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
-              {item.sent_at
-                ? `Sent ${new Date(item.sent_at).toLocaleDateString()}`
-                : item.status || 'Sent'}
-            </span>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
 
 // ─── Group tasks by assignee into separate sections ───
 interface TaskGroup {
@@ -275,58 +212,6 @@ const DailyTaskDashboard = () => {
   });
   const teamMembers = teamMembersRaw || [];
 
-  // Fetch unsigned NDA / fee agreement items
-  const { data: unsignedAgreements } = useQuery({
-    queryKey: ['unsigned-agreements-dashboard'],
-    queryFn: async () => {
-      const items: UnsignedAgreementItem[] = [];
-
-      // Unsigned NDAs (sent but not signed)
-      const { data: unsignedNdas } = await supabase
-        .from('firm_agreements')
-        .select('id, primary_company_name, nda_status, nda_sent_at')
-        .eq('nda_signed', false)
-        .in('nda_status', ['sent', 'viewed', 'pending']);
-
-      for (const row of unsignedNdas || []) {
-        items.push({
-          id: row.id,
-          primary_company_name: row.primary_company_name,
-          type: 'nda',
-          status: row.nda_status,
-          sent_at: row.nda_sent_at,
-        });
-      }
-
-      // Unsigned fee agreements (sent but not signed)
-      const { data: unsignedFees } = await supabase
-        .from('firm_agreements')
-        .select('id, primary_company_name, fee_agreement_status, fee_agreement_sent_at')
-        .eq('fee_agreement_signed', false)
-        .in('fee_agreement_status', ['sent', 'viewed', 'pending']);
-
-      for (const row of unsignedFees || []) {
-        items.push({
-          id: row.id,
-          primary_company_name: row.primary_company_name,
-          type: 'fee_agreement',
-          status: row.fee_agreement_status,
-          sent_at: row.fee_agreement_sent_at,
-        });
-      }
-
-      // Sort by sent date (oldest first — most urgent)
-      items.sort((a, b) => {
-        if (!a.sent_at) return 1;
-        if (!b.sent_at) return -1;
-        return new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime();
-      });
-
-      return items;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
   // Separate tasks by approval status
   const pendingApprovalTasks = useMemo(() => {
     if (!tasks) return [];
@@ -452,7 +337,7 @@ const DailyTaskDashboard = () => {
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Today's Tasks</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Deal & remarketing action items from standup
+            Deal follow-up tasks & assignments
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -526,11 +411,6 @@ const DailyTaskDashboard = () => {
           </CardContent>
         </Card>
       </div>
-
-      {/* Unsigned NDA / Fee Agreements */}
-      {unsignedAgreements && unsignedAgreements.length > 0 && (
-        <UnsignedAgreementsSection items={unsignedAgreements} />
-      )}
 
       {/* Pending Approval Banner (leadership only) */}
       {pendingApprovalTasks.length > 0 && (

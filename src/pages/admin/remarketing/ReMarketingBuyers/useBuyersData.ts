@@ -110,9 +110,58 @@ export const useBuyersData = () => {
     },
   });
 
+  // Fetch unsigned NDA / fee agreement items for the "Unsigned Agreements" tab
+  const { data: unsignedAgreements } = useQuery({
+    queryKey: ['unsigned-agreements-buyers-tab'],
+    queryFn: async () => {
+      const items: { id: string; primary_company_name: string; type: 'nda' | 'fee_agreement'; status: string | null; sent_at: string | null }[] = [];
+
+      const { data: unsignedNdas } = await supabase
+        .from('firm_agreements')
+        .select('id, primary_company_name, nda_status, nda_sent_at')
+        .eq('nda_signed', false)
+        .in('nda_status', ['sent', 'viewed', 'pending']);
+
+      for (const row of unsignedNdas || []) {
+        items.push({
+          id: row.id,
+          primary_company_name: row.primary_company_name,
+          type: 'nda',
+          status: row.nda_status,
+          sent_at: row.nda_sent_at,
+        });
+      }
+
+      const { data: unsignedFees } = await supabase
+        .from('firm_agreements')
+        .select('id, primary_company_name, fee_agreement_status, fee_agreement_sent_at')
+        .eq('fee_agreement_signed', false)
+        .in('fee_agreement_status', ['sent', 'viewed', 'pending']);
+
+      for (const row of unsignedFees || []) {
+        items.push({
+          id: row.id,
+          primary_company_name: row.primary_company_name,
+          type: 'fee_agreement',
+          status: row.fee_agreement_status,
+          sent_at: row.fee_agreement_sent_at,
+        });
+      }
+
+      items.sort((a, b) => {
+        if (!a.sent_at) return 1;
+        if (!b.sent_at) return -1;
+        return new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime();
+      });
+
+      return items;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Compute tab counts from loaded buyers
   const tabCounts = useMemo(() => {
-    if (!buyers) return { all: 0, pe_firm: 0, platform: 0, needs_agreements: 0 };
+    if (!buyers) return { all: 0, pe_firm: 0, platform: 0, needs_agreements: 0, unsigned_agreements: 0 };
     let pe_firm = 0,
       platform = 0,
       needs_agreements = 0;
@@ -121,8 +170,14 @@ export const useBuyersData = () => {
       if (b.buyer_type === 'platform' || !b.buyer_type) platform++;
       if (!b.has_fee_agreement) needs_agreements++;
     });
-    return { all: buyers.length, pe_firm, platform, needs_agreements };
-  }, [buyers]);
+    return {
+      all: buyers.length,
+      pe_firm,
+      platform,
+      needs_agreements,
+      unsigned_agreements: unsignedAgreements?.length ?? 0,
+    };
+  }, [buyers, unsignedAgreements]);
 
   // Calculate platform counts per PE firm (for the PE Firms tab)
   const platformCountsByFirm = useMemo(() => {
@@ -410,6 +465,7 @@ export const useBuyersData = () => {
     filteredBuyers,
     totalPages,
     pagedBuyers,
+    unsignedAgreements,
 
     // Mutations
     createMutation,

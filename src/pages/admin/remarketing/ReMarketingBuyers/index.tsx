@@ -10,13 +10,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Sparkles, Download } from 'lucide-react';
+import { Search, Sparkles, Download, FileSignature } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBuyerEnrichmentProgress } from '@/hooks/useBuyerEnrichmentProgress';
 import { EnrichmentProgressIndicator } from '@/components/remarketing/EnrichmentProgressIndicator';
 import { BuyerCSVImport } from '@/components/remarketing';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
+import { Badge } from '@/components/ui/badge';
 import { useBuyersData } from './useBuyersData';
 import AddBuyerDialog from './AddBuyerDialog';
 import BuyersTable from './BuyersTable';
@@ -52,6 +53,7 @@ const ReMarketingBuyers = () => {
     filteredBuyers,
     totalPages,
     pagedBuyers,
+    unsignedAgreements,
 
     createMutation,
     deleteMutation,
@@ -201,6 +203,10 @@ const ReMarketingBuyers = () => {
           <TabsTrigger value="needs_agreements">
             Needs Agreements ({tabCounts.needs_agreements})
           </TabsTrigger>
+          <TabsTrigger value="unsigned_agreements" className="gap-1.5">
+            <FileSignature className="h-3.5 w-3.5" />
+            Unsigned Agreements ({tabCounts.unsigned_agreements})
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -274,27 +280,71 @@ const ReMarketingBuyers = () => {
         </CardContent>
       </Card>
 
-      {/* Buyers Table */}
-      <BuyersTable
-        activeTab={activeTab}
-        buyersLoading={buyersLoading}
-        filteredBuyers={filteredBuyers}
-        pagedBuyers={pagedBuyers}
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        totalPages={totalPages}
-        selectedIds={selectedIds}
-        buyers={buyers}
-        platformCountsByFirm={platformCountsByFirm}
-        buyerIdsWithTranscripts={buyerIdsWithTranscripts}
-        sortColumn={sortColumn}
-        sortDirection={sortDirection}
-        toggleSelect={toggleSelect}
-        toggleSelectAll={toggleSelectAll}
-        handleSort={handleSort}
-        handleEnrichBuyer={handleEnrichBuyer}
-        deleteMutation={deleteMutation}
-      />
+      {/* Unsigned Agreements Tab Content */}
+      {activeTab === 'unsigned_agreements' ? (
+        <Card>
+          <CardContent className="p-0">
+            {!unsignedAgreements || unsignedAgreements.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground">
+                <FileSignature className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p>No unsigned agreements outstanding.</p>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {unsignedAgreements.map((item) => (
+                  <div
+                    key={`${item.type}-${item.id}`}
+                    className="flex items-center justify-between px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Badge
+                        variant="outline"
+                        className={
+                          item.type === 'nda'
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 text-xs shrink-0'
+                            : 'bg-teal-50 text-teal-700 border-teal-200 text-xs shrink-0'
+                        }
+                      >
+                        {item.type === 'nda' ? 'NDA' : 'Fee Agreement'}
+                      </Badge>
+                      <span className="text-sm font-medium truncate">
+                        {item.primary_company_name}
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0 ml-4">
+                      {item.sent_at
+                        ? `Sent ${new Date(item.sent_at).toLocaleDateString()}`
+                        : item.status || 'Sent'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        /* Buyers Table */
+        <BuyersTable
+          activeTab={activeTab}
+          buyersLoading={buyersLoading}
+          filteredBuyers={filteredBuyers}
+          pagedBuyers={pagedBuyers}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          totalPages={totalPages}
+          selectedIds={selectedIds}
+          buyers={buyers}
+          platformCountsByFirm={platformCountsByFirm}
+          buyerIdsWithTranscripts={buyerIdsWithTranscripts}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          toggleSelect={toggleSelect}
+          toggleSelectAll={toggleSelectAll}
+          handleSort={handleSort}
+          handleEnrichBuyer={handleEnrichBuyer}
+          deleteMutation={deleteMutation}
+        />
+      )}
     </div>
   );
 };
