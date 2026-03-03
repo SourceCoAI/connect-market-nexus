@@ -7,6 +7,7 @@ import type {
   BuyerIntroduction,
   CreateBuyerIntroductionInput,
   UpdateBuyerIntroductionInput,
+  ScoreSnapshot,
 } from '@/types/buyer-introductions';
 
 export function useBuyerIntroductions(listingId: string | undefined) {

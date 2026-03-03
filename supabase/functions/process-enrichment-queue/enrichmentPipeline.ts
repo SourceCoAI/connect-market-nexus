@@ -23,16 +23,25 @@ type ListingContext = {
 
 type StepResult = { ok: true; fieldsUpdated: string[] } | { ok: false; error: string };
 
+type CallFnOptions = {
+  timeoutMs?: number;
+};
+
 async function callFn(
   input: EnrichmentPipelineInput,
   fnName: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  options?: CallFnOptions,
 ): Promise<{ ok: boolean; status: number; json: Record<string, unknown> | null }>
 {
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   if (!anonKey) {
     throw new Error('SUPABASE_ANON_KEY is not set — cannot make internal function calls');
   }
+
+  // Hard cap at 45s to stay below edge runtime constraints while allowing
+  // slower enrich-deal transcript/website extraction runs to finish.
+  const timeoutMs = Math.min(Math.max(options?.timeoutMs ?? input.timeoutMs, 1000), 45000);
 
   const res = await fetch(`${input.supabaseUrl}/functions/v1/${fnName}`, {
     method: 'POST',
@@ -45,7 +54,7 @@ async function callFn(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(Math.min(input.timeoutMs, 20000)), // Cap individual call at 20s to leave headroom within the per-item budget
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   let json: Record<string, unknown> | null = null;
@@ -73,7 +82,12 @@ export async function runListingEnrichmentPipeline(
   // 1) Website scrape + AI extraction (writes enriched_at + structured intelligence)
   // skipExternalEnrichment=true: LinkedIn/Google are called at the pipeline level (step 2)
   // to avoid nested edge-function timeout chains (queue→enrich-deal→apify would cascade-timeout)
-  const enrichDeal = await callFn(input, 'enrich-deal', { dealId: input.listingId, skipExternalEnrichment: true, forceReExtract: input.force === true });
+  const enrichDeal = await callFn(
+    input,
+    'enrich-deal',
+    { dealId: input.listingId, skipExternalEnrichment: true, forceReExtract: input.force === true },
+    { timeoutMs: 38000 },
+  );
 
   // 409 = concurrent modification (another process enriched this deal) — treat as success
   if (enrichDeal.status === 409 && enrichDeal.json?.error_code === 'concurrent_modification') {
@@ -125,14 +139,14 @@ export async function runListingEnrichmentPipeline(
         city: enrichedListing.address_city,
         state: enrichedListing.address_state,
         companyWebsite: enrichedListing.website,
-      }),
+      }, { timeoutMs: 10000 }),
       callFn(input, 'apify-google-reviews', {
         dealId: input.listingId,
         businessName: companyName,
         address: enrichedListing.address,
         city: enrichedListing.address_city,
         state: enrichedListing.address_state,
-      }),
+      }, { timeoutMs: 10000 }),
     ]);
 
     // Process LinkedIn result — non-fatal
