@@ -42,9 +42,6 @@ export const EditDialogs = ({
       <EditInvestmentCriteriaDialog
         open={activeEditDialog === 'investment'}
         onOpenChange={(open) => !open && setActiveEditDialog(null)}
-        data={{
-          investmentThesis: buyer?.thesis_summary,
-        }}
         onSave={(data) => onSave(data)}
         isSaving={isSaving}
       />

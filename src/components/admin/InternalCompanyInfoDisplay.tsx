@@ -166,15 +166,6 @@ export function InternalCompanyInfoDisplay({ listing }: InternalCompanyInfoDispl
           </div>
         )}
 
-        {/* Internal Notes */}
-        {listing.internal_notes && (
-          <div>
-            <div className="font-medium text-sm text-slate-700 dark:text-slate-300 mb-2">Internal Notes</div>
-            <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-              {listing.internal_notes}
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

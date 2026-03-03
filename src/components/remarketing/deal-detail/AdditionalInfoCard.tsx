@@ -15,14 +15,12 @@ import { toast } from "sonner";
 
 interface AdditionalInfoCardProps {
   otherNotes: string | null;
-  internalNotes: string | null;
   keyRisks?: string | null;
   technologySystems?: string | null;
   realEstateInfo?: string | null;
   growthTrajectory?: string | null;
-  onSave: (data: { 
-    otherNotes: string; 
-    internalNotes: string;
+  onSave: (data: {
+    otherNotes: string;
     keyRisks?: string;
     technologySystems?: string;
     realEstateInfo?: string;
@@ -30,12 +28,11 @@ interface AdditionalInfoCardProps {
   }) => Promise<void>;
 }
 
-export const AdditionalInfoCard = ({ 
-  otherNotes, internalNotes, keyRisks, technologySystems, realEstateInfo, growthTrajectory, onSave
+export const AdditionalInfoCard = ({
+  otherNotes, keyRisks, technologySystems, realEstateInfo, growthTrajectory, onSave
 }: AdditionalInfoCardProps) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editedOtherNotes, setEditedOtherNotes] = useState(otherNotes || "");
-  const [editedInternalNotes, setEditedInternalNotes] = useState(internalNotes || "");
   const [editedKeyRisks, setEditedKeyRisks] = useState(keyRisks || "");
   const [editedTechnologySystems, setEditedTechnologySystems] = useState(technologySystems || "");
   const [editedRealEstateInfo, setEditedRealEstateInfo] = useState(realEstateInfo || "");
@@ -45,17 +42,17 @@ export const AdditionalInfoCard = ({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSave({ otherNotes: editedOtherNotes, internalNotes: editedInternalNotes, keyRisks: editedKeyRisks, technologySystems: editedTechnologySystems, realEstateInfo: editedRealEstateInfo, growthTrajectory: editedGrowthTrajectory });
+      await onSave({ otherNotes: editedOtherNotes, keyRisks: editedKeyRisks, technologySystems: editedTechnologySystems, realEstateInfo: editedRealEstateInfo, growthTrajectory: editedGrowthTrajectory });
       setIsEditOpen(false);
       toast.success("Additional information updated");
     } catch { toast.error("Failed to save"); } finally { setIsSaving(false); }
   };
 
   const openEdit = () => {
-    setEditedOtherNotes(otherNotes || ""); setEditedInternalNotes(internalNotes || ""); setEditedKeyRisks(keyRisks || ""); setEditedTechnologySystems(technologySystems || ""); setEditedRealEstateInfo(realEstateInfo || ""); setEditedGrowthTrajectory(growthTrajectory || ""); setIsEditOpen(true);
+    setEditedOtherNotes(otherNotes || ""); setEditedKeyRisks(keyRisks || ""); setEditedTechnologySystems(technologySystems || ""); setEditedRealEstateInfo(realEstateInfo || ""); setEditedGrowthTrajectory(growthTrajectory || ""); setIsEditOpen(true);
   };
 
-  const hasContent = otherNotes || internalNotes || keyRisks || technologySystems || realEstateInfo || growthTrajectory;
+  const hasContent = otherNotes || keyRisks || technologySystems || realEstateInfo || growthTrajectory;
 
   const InfoField = ({
     icon: Icon,
@@ -106,7 +103,6 @@ export const AdditionalInfoCard = ({
               </div>
               <InfoField icon={GrowthIcon} label="Growth Trajectory" value={growthTrajectory} />
               <InfoField icon={FileText} label="Other Notes" value={otherNotes} />
-              {internalNotes && <div className="border-t pt-4 mt-4"><InfoField icon={FileText} label="Internal Notes (Private)" value={internalNotes} /></div>}
             </div>
           ) : (
             <div className="text-center py-4 text-muted-foreground">
@@ -128,7 +124,6 @@ export const AdditionalInfoCard = ({
             </div>
             <div><Label htmlFor="growthTrajectory">Growth Trajectory</Label><Textarea id="growthTrajectory" placeholder="20% YoY growth..." value={editedGrowthTrajectory} onChange={(e) => setEditedGrowthTrajectory(e.target.value)} className="mt-1.5 min-h-[80px]" /></div>
             <div><Label htmlFor="otherNotes">Other Notes</Label><Textarea id="otherNotes" placeholder="Additional information..." value={editedOtherNotes} onChange={(e) => setEditedOtherNotes(e.target.value)} className="mt-1.5 min-h-[80px]" /></div>
-            <div><Label htmlFor="internalNotes">Internal Notes (Private)</Label><Textarea id="internalNotes" placeholder="Internal team notes..." value={editedInternalNotes} onChange={(e) => setEditedInternalNotes(e.target.value)} className="mt-1.5 min-h-[80px]" /></div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={isSaving}>{isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save</Button></DialogFooter>
         </DialogContent>

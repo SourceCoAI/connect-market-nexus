@@ -59,7 +59,6 @@ export const IntelligenceTab = ({
         />
 
         <InvestmentCriteriaCard
-          investmentThesis={buyer?.thesis_summary}
           onEdit={() => setActiveEditDialog('investment')}
           className="bg-accent/20"
         />

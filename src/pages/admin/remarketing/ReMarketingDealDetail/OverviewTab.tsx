@@ -345,7 +345,6 @@ export function OverviewTab({
 
       <AdditionalInfoCard
         otherNotes={deal.owner_notes}
-        internalNotes={deal.internal_notes}
         keyRisks={deal.key_risks as string | null}
         technologySystems={deal.technology_systems as string | null}
         realEstateInfo={deal.real_estate_info as string | null}
@@ -353,7 +352,6 @@ export function OverviewTab({
         onSave={async (data) => {
           await updateDealMutation.mutateAsync({
             owner_notes: data.otherNotes,
-            internal_notes: data.internalNotes,
             key_risks: data.keyRisks,
             technology_systems: data.technologySystems,
             real_estate_info: data.realEstateInfo,
