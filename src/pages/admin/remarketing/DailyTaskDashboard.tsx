@@ -171,6 +171,7 @@ const DailyTaskDashboard = () => {
   const isLeadership = teamRole === 'owner' || teamRole === 'admin';
 
   const [view, setView] = useState<'my' | 'all'>('my');
+  const [entityFilter, setEntityFilter] = useState<'all' | 'deal' | 'buyer'>('all');
   const [showCompleted, setShowCompleted] = useState(false);
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -212,15 +213,27 @@ const DailyTaskDashboard = () => {
   });
   const teamMembers = teamMembersRaw || [];
 
+  // Entity filter helper
+  const matchesEntityFilter = useMemo(() => {
+    if (entityFilter === 'all') return () => true;
+    const dealTypes = new Set(['deal', 'listing']);
+    const buyerTypes = new Set(['buyer', 'contact']);
+    return (t: DailyStandupTaskWithRelations) => {
+      const et = t.entity_type;
+      if (entityFilter === 'deal') return !et || dealTypes.has(et);
+      return buyerTypes.has(et);
+    };
+  }, [entityFilter]);
+
   // Separate tasks by approval status
   const pendingApprovalTasks = useMemo(() => {
     if (!tasks) return [];
-    return tasks.filter((t) => t.status === 'pending_approval');
-  }, [tasks]);
+    return tasks.filter((t) => t.status === 'pending_approval' && matchesEntityFilter(t));
+  }, [tasks, matchesEntityFilter]);
 
   const approvedTasks = useMemo(() => {
     if (!tasks) return [];
-    let filtered = tasks.filter((t) => t.status !== 'pending_approval');
+    let filtered = tasks.filter((t) => t.status !== 'pending_approval' && matchesEntityFilter(t));
 
     // Apply tag filter
     if (selectedTags.size > 0) {
@@ -232,7 +245,7 @@ const DailyTaskDashboard = () => {
     }
 
     return filtered;
-  }, [tasks, selectedTags]);
+  }, [tasks, selectedTags, matchesEntityFilter]);
 
   // Stats (only from approved tasks)
   const stats = useMemo(() => {
@@ -247,7 +260,9 @@ const DailyTaskDashboard = () => {
 
   // Filter approved tasks into today/future/completed
   const todayTasks = useMemo(() => {
-    return approvedTasks.filter((t) => t.due_date === today || t.status === 'overdue');
+    return approvedTasks.filter(
+      (t) => t.status !== 'completed' && (t.due_date <= today || t.status === 'overdue'),
+    );
   }, [approvedTasks, today]);
 
   const futureTasks = useMemo(() => {
@@ -494,6 +509,24 @@ const DailyTaskDashboard = () => {
             <ListChecks className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />
             All Tasks
           </button>
+        </div>
+
+        {/* Entity type filter */}
+        <div className="flex items-center gap-1 rounded-lg border bg-white p-0.5">
+          {(['all', 'deal', 'buyer'] as const).map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setEntityFilter(filter)}
+              className={cn(
+                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                entityFilter === filter
+                  ? 'bg-gray-900 text-white'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {filter === 'all' ? 'All Types' : filter === 'deal' ? 'Deal Tasks' : 'Buyer Tasks'}
+            </button>
+          ))}
         </div>
 
         <div className="flex items-center gap-2">

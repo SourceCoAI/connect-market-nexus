@@ -24,7 +24,8 @@ import {
 import { Loader2, ListChecks, Calendar, ArrowRight } from 'lucide-react';
 import { useApplyTaskTemplate } from '@/hooks/useTaskActions';
 import { useToast } from '@/hooks/use-toast';
-import { DEAL_PROCESS_TEMPLATES } from '@/types/daily-tasks';
+import { DEAL_PROCESS_TEMPLATES, BUYER_ENGAGEMENT_TEMPLATES } from '@/types/daily-tasks';
+import type { TaskEntityType } from '@/types/daily-tasks';
 
 interface TaskTemplateDialogProps {
   open: boolean;
@@ -32,6 +33,7 @@ interface TaskTemplateDialogProps {
   listingId: string;
   listingName?: string;
   teamMembers: { id: string; name: string }[];
+  entityType?: TaskEntityType;
 }
 
 export function TaskTemplateDialog({
@@ -40,13 +42,16 @@ export function TaskTemplateDialog({
   listingId,
   listingName,
   teamMembers,
+  entityType,
 }: TaskTemplateDialogProps) {
   const applyTemplate = useApplyTaskTemplate();
   const { toast } = useToast();
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [assigneeId, setAssigneeId] = useState('');
 
-  const template = DEAL_PROCESS_TEMPLATES[selectedIndex];
+  const isBuyerEntity = entityType === 'buyer' || entityType === 'contact';
+  const templates = isBuyerEntity ? BUYER_ENGAGEMENT_TEMPLATES : DEAL_PROCESS_TEMPLATES;
+  const template = templates[selectedIndex];
 
   const handleApply = async () => {
     if (!assigneeId) {
@@ -81,7 +86,7 @@ export function TaskTemplateDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ListChecks className="h-5 w-5" />
-            Start Deal Process
+            {isBuyerEntity ? 'Start Buyer Engagement' : 'Start Deal Process'}
           </DialogTitle>
         </DialogHeader>
 
@@ -104,7 +109,7 @@ export function TaskTemplateDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {DEAL_PROCESS_TEMPLATES.map((t, idx) => (
+                {templates.map((t, idx) => (
                   <SelectItem key={idx} value={String(idx)}>
                     {t.name}
                   </SelectItem>

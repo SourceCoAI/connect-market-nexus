@@ -31,7 +31,7 @@ export async function recomputeRanks() {
   const { data: tasks } = await supabase
     .from('daily_standup_tasks' as never)
     .select('id, priority_score, is_pinned, pinned_rank, created_at')
-    .in('status', ['pending_approval', 'pending', 'overdue'])
+    .in('status', ['pending_approval', 'pending', 'in_progress', 'overdue'])
     .order('priority_score', { ascending: false })
     .order('created_at', { ascending: true });
 
@@ -181,10 +181,52 @@ export function useApproveTask() {
         .eq('status', 'pending_approval');
 
       if (error) throw error;
+
+      // Log approval to activity log
+      try {
+        await supabase.from('rm_task_activity_log' as never).insert({
+          task_id: taskId,
+          user_id: user?.id,
+          action: 'status_changed',
+          old_value: { status: 'pending_approval' },
+          new_value: { status: 'pending', approved_by: user?.id },
+        } as never);
+      } catch (logErr) {
+        console.error('Failed to log approval activity:', logErr);
+      }
+
+      // Notify assignee that their task is approved and ready to action
+      try {
+        const { data: taskRaw } = await supabase
+          .from('daily_standup_tasks' as never)
+          .select('id, title, assignee_id, entity_type, entity_id')
+          .eq('id', taskId)
+          .single();
+        const task = taskRaw as TaskRecord | null;
+
+        if (task?.assignee_id && task.assignee_id !== user?.id) {
+          await supabase.from('admin_notifications').insert({
+            admin_id: task.assignee_id,
+            notification_type: 'task_approved',
+            title: 'Task Approved',
+            message: `Your task "${task.title}" has been approved and is ready to action`,
+            deal_id: task.entity_type === 'deal' ? task.entity_id : null,
+            task_id: taskId,
+            action_url: task.entity_type === 'deal'
+              ? `/admin/deals/pipeline?deal=${task.entity_id}&tab=tasks`
+              : '/admin/daily-tasks',
+            metadata: { task_title: task.title, approved_by: user?.id },
+          });
+        }
+      } catch (notifErr) {
+        console.error('Failed to send approval notification:', notifErr);
+      }
+
       await recomputeRanks();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['admin-notifications'] });
     },
   });
 }
@@ -197,6 +239,13 @@ export function useApproveAllTasks() {
 
   return useMutation({
     mutationFn: async () => {
+      // Fetch pending tasks before bulk-approving for activity logging & notifications
+      const { data: pendingRaw } = await supabase
+        .from('daily_standup_tasks' as never)
+        .select('id, title, assignee_id, entity_type, entity_id')
+        .eq('status', 'pending_approval');
+      const pendingTasks = (pendingRaw || []) as TaskRecord[];
+
       const { error } = await supabase
         .from('daily_standup_tasks' as never)
         .update({
@@ -207,10 +256,51 @@ export function useApproveAllTasks() {
         .eq('status', 'pending_approval');
 
       if (error) throw error;
+
+      // Log approval activity for each task
+      if (pendingTasks.length > 0) {
+        try {
+          await supabase.from('rm_task_activity_log' as never).insert(
+            pendingTasks.map((t) => ({
+              task_id: t.id,
+              user_id: user?.id,
+              action: 'status_changed',
+              old_value: { status: 'pending_approval' },
+              new_value: { status: 'pending', approved_by: user?.id },
+            })) as never,
+          );
+        } catch (logErr) {
+          console.error('Failed to log bulk approval activity:', logErr);
+        }
+
+        // Notify assignees
+        try {
+          const notifications = pendingTasks
+            .filter((t) => t.assignee_id && t.assignee_id !== user?.id)
+            .map((t) => ({
+              admin_id: t.assignee_id,
+              notification_type: 'task_approved',
+              title: 'Task Approved',
+              message: `Your task "${t.title}" has been approved and is ready to action`,
+              deal_id: t.entity_type === 'deal' ? t.entity_id : null,
+              task_id: t.id,
+              action_url: '/admin/daily-tasks',
+              metadata: { task_title: t.title, approved_by: user?.id },
+            }));
+
+          if (notifications.length > 0) {
+            await supabase.from('admin_notifications').insert(notifications);
+          }
+        } catch (notifErr) {
+          console.error('Failed to send bulk approval notifications:', notifErr);
+        }
+      }
+
       await recomputeRanks();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['admin-notifications'] });
     },
   });
 }

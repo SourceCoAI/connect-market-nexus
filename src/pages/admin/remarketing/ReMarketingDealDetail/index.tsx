@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Building2, Eye, Activity, UserPlus, FolderOpen, ListChecks } from 'lucide-react';
-import { CreateTaskButton, EntityTasksTab } from '@/components/daily-tasks';
+import { CreateTaskButton, EntityTasksTab, DealSignalsPanel } from '@/components/daily-tasks';
 import { useDealDetail } from './useDealDetail';
 import { CapTargetInfoCard } from './CapTargetInfoCard';
 import { SalesforceInfoCard } from './SalesforceInfoCard';
@@ -186,6 +186,7 @@ const ReMarketingDealDetail = () => {
         </TabsContent>
 
         <TabsContent value="tasks" className="space-y-6">
+          <DealSignalsPanel dealId={dealId!} />
           <EntityTasksTab
             entityType="deal"
             entityId={dealId!}

@@ -305,16 +305,19 @@ function extractDealReference(text: string): string {
   const patterns = [
     /(?:owner of|for|regarding|about|on)\s+([A-Z][A-Za-z'']+(?:\s+[A-Z&][A-Za-z'']*)*)/,
     /([A-Z][A-Za-z'']+(?:\s+[A-Z&][A-Za-z'']*){1,4})\s+(?:deal|listing|company|business)/i,
-    // Specific deal name patterns from the meetings
-    /\b(Supernova|Clark'?s?\s*Mechanical|Sax\s*Metering|Orlando\s*Auto\s*Body|Aaron\s*Grinder|Aftercare\s*Restoration|Chilton\s*Collision|Quality\s*Collision|Fleet\s*Response|Trinity\s*Hunt|Lobster\s*Roll|Quick\s*Lube|Clear\s*Choice|Ace\s*Garage\s*Door|California\s*Collision|Best\s*Tech|NGP\s*Partners|Uncommon\s*Capital|Crash\s*Champion)\b/i,
   ];
+
+  const commonWords = new Set([
+    'The', 'This', 'That', 'These', 'Those', 'Team', 'Monday', 'Tuesday',
+    'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January',
+    'February', 'March', 'April', 'May', 'June', 'July', 'August',
+  ]);
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) {
       const ref = match[1]?.trim();
-      // Filter out common non-deal words
-      if (ref && !['The', 'This', 'That', 'These', 'Those', 'Team', 'Bill', 'Brandon', 'Oz', 'Tomos', 'Tom', 'Kyle', 'Adam', 'Nisant', 'Vasanth', 'Myl', 'Lindsay'].includes(ref)) {
+      if (ref && !commonWords.has(ref)) {
         return ref;
       }
     }
@@ -584,6 +587,41 @@ async function matchDeal(
   return null;
 }
 
+async function matchBuyer(
+  text: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<{ id: string; company_name: string } | null> {
+  if (!text) return null;
+  // Extract potential buyer/firm name references from task text
+  const buyerPatterns = [
+    /(?:buyer|firm|partner|group|capital|fund|equity)\s+([A-Z][A-Za-z''&]+(?:\s+[A-Z&][A-Za-z''&]*)*)/i,
+    /([A-Z][A-Za-z''&]+(?:\s+[A-Z&][A-Za-z''&]*){0,3})\s+(?:buyer|firm|partner|group|capital|fund|equity)/i,
+    /(?:introduce|send|share|follow.?up|contact|reach out to)\s+([A-Z][A-Za-z''&]+(?:\s+[A-Z&][A-Za-z''&]*){0,3})/,
+  ];
+
+  for (const pattern of buyerPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      const name = match[1]?.trim();
+      if (!name || name.length < 3) continue;
+      const sanitized = name.replace(/[(),."'\\]/g, '').trim();
+      if (!sanitized) continue;
+
+      const { data: buyers } = await supabase
+        .from('remarketing_buyers')
+        .select('id, company_name')
+        .ilike('company_name', `%${sanitized}%`)
+        .limit(1);
+
+      if (buyers && buyers.length > 0) {
+        return { id: buyers[0].id, company_name: buyers[0].company_name };
+      }
+    }
+  }
+
+  return null;
+}
+
 async function loadAllEbitdaValues(supabase: ReturnType<typeof createClient>): Promise<number[]> {
   const { data: allDeals } = await supabase
     .from('deal_pipeline')
@@ -790,6 +828,7 @@ async function processSingleMeeting(
   for (const task of extractedTasks) {
     const assigneeId = matchAssignee(task.assignee_name, teamMembers);
     const dealMatch = await matchDeal(task.deal_reference, supabase);
+    const buyerMatch = await matchBuyer(task.title, supabase);
 
     const priorityScore = computePriorityScore(
       {
@@ -805,6 +844,25 @@ async function processSingleMeeting(
     const needsReview = !assigneeId || task.confidence === 'low';
     const shouldAutoApprove =
       autoApproveEnabled && task.confidence === 'high' && assigneeId !== null && !needsReview;
+
+    // Determine entity linking: prefer deal > buyer > null
+    let entityType: string | null = null;
+    let entityId: string | null = null;
+    let secondaryEntityType: string | null = null;
+    let secondaryEntityId: string | null = null;
+
+    if (dealMatch) {
+      entityType = 'deal';
+      entityId = dealMatch.id;
+      // If buyer also matched, link as secondary entity
+      if (buyerMatch) {
+        secondaryEntityType = 'buyer';
+        secondaryEntityId = buyerMatch.id;
+      }
+    } else if (buyerMatch) {
+      entityType = 'buyer';
+      entityId = buyerMatch.id;
+    }
 
     taskRecords.push({
       title: task.title,
@@ -824,8 +882,10 @@ async function processSingleMeeting(
       approved_by: shouldAutoApprove ? 'system' : null,
       approved_at: shouldAutoApprove ? new Date().toISOString() : null,
       source: 'ai',
-      entity_type: dealMatch ? 'listing' : null,
-      entity_id: dealMatch?.listing_id || null,
+      entity_type: entityType,
+      entity_id: entityId,
+      secondary_entity_type: secondaryEntityType,
+      secondary_entity_id: secondaryEntityId,
     });
   }
 

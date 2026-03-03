@@ -542,6 +542,74 @@ export const DEAL_PROCESS_TEMPLATES: TaskTemplateStage[] = [
   },
 ];
 
+// ─── Buyer Engagement Templates ───
+
+export const BUYER_ENGAGEMENT_TEMPLATES: TaskTemplateStage[] = [
+  {
+    name: 'Initial Outreach',
+    description: 'First contact and introduction with buyer',
+    tasks: [
+      { title: 'Send teaser to buyer', task_type: 'send_materials', due_offset_days: 1 },
+      { title: 'Follow up on teaser review', task_type: 'follow_up_with_buyer', due_offset_days: 5 },
+      { title: 'Schedule intro call with buyer', task_type: 'schedule_call', due_offset_days: 7 },
+    ],
+  },
+  {
+    name: 'NDA & CIM Phase',
+    description: 'NDA execution and CIM delivery to buyer',
+    tasks: [
+      { title: 'Send NDA to buyer', task_type: 'nda_execution', due_offset_days: 1 },
+      { title: 'Follow up on unsigned NDA', task_type: 'nda_execution', due_offset_days: 7 },
+      {
+        title: 'Send CIM after NDA signed',
+        task_type: 'send_materials',
+        due_offset_days: 1,
+        depends_on_index: 0,
+      },
+      { title: 'Follow up on CIM review', task_type: 'follow_up_with_buyer', due_offset_days: 7 },
+    ],
+  },
+  {
+    name: 'Management Presentation',
+    description: 'Schedule and conduct management presentation with buyer',
+    tasks: [
+      { title: 'Schedule management presentation', task_type: 'schedule_call', due_offset_days: 7 },
+      {
+        title: 'Send prep materials for presentation',
+        task_type: 'send_materials',
+        due_offset_days: 3,
+      },
+      {
+        title: 'Follow up post-presentation for feedback',
+        task_type: 'follow_up_with_buyer',
+        due_offset_days: 3,
+      },
+      { title: 'Collect IOI from buyer', task_type: 'ioi_loi_process', due_offset_days: 14 },
+    ],
+  },
+  {
+    name: 'Buyer IC Follow-up',
+    description: 'Track buyer investment committee process',
+    tasks: [
+      {
+        title: 'Follow up on IC meeting date',
+        task_type: 'buyer_ic_followup',
+        due_offset_days: 3,
+      },
+      {
+        title: 'Send additional data requested by IC',
+        task_type: 'send_materials',
+        due_offset_days: 5,
+      },
+      {
+        title: 'Follow up on IC decision',
+        task_type: 'buyer_ic_followup',
+        due_offset_days: 10,
+      },
+    ],
+  },
+];
+
 // ─── v3.1 — Snooze Presets ───
 
 export const SNOOZE_PRESETS = [
