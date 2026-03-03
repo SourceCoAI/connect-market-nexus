@@ -162,11 +162,30 @@ export function useAIToolCalling(
     }
 
     // Add the assistant message
-    if (fullText || toolCalls.length > 0 || confirmation) {
+    if (fullText || toolCalls.length > 0 || uiActions.length > 0 || confirmation) {
+      // Generate fallback content when tools executed but Claude returned no text
+      let content = fullText;
+      if (!content && toolCalls.length > 0 && !confirmation) {
+        const succeeded = toolCalls.filter((t) => t.status === 'success');
+        const failed = toolCalls.filter((t) => t.status === 'error');
+        const parts: string[] = [];
+        if (succeeded.length > 0) {
+          parts.push(
+            `Executed ${succeeded.length} tool${succeeded.length > 1 ? 's' : ''}: ${succeeded.map((t) => t.name.replace(/_/g, ' ')).join(', ')}.`,
+          );
+        }
+        if (failed.length > 0) {
+          parts.push(
+            `${failed.length} tool${failed.length > 1 ? 's' : ''} failed: ${failed.map((t) => t.name.replace(/_/g, ' ')).join(', ')}.`,
+          );
+        }
+        content = parts.join(' ') || 'Processing complete.';
+      }
+
       const assistantMsg: AIMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: fullText,
+        content,
         timestamp: new Date(),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         uiActions: uiActions.length > 0 ? uiActions : undefined,

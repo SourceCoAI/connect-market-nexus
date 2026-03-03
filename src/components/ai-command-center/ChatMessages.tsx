@@ -146,10 +146,15 @@ export function MessageBubble({
         )}
 
         {/* Message content */}
-        {message.content && (
+        {message.content ? (
           <div className="text-base prose prose-base max-w-none [&_*]:text-[#0E101A] [&_a]:text-[#DEC76B]">
             <ReactMarkdown>{message.content}</ReactMarkdown>
           </div>
+        ) : (
+          !isUser &&
+          !message.pendingConfirmation && (
+            <div className="text-sm text-muted-foreground italic">Processing complete.</div>
+          )
         )}
 
         {/* Confirmation prompt */}
