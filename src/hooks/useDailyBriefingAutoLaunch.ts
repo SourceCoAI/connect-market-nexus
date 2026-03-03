@@ -66,12 +66,12 @@ export function useDailyBriefingAutoLaunch(enabled = true) {
     // Mark as triggered in ref to prevent duplicate triggers on re-render
     hasTriggered.current = true;
 
-    // Delay auto-launch slightly to let the page render.
-    // localStorage is updated only AFTER the event fires successfully,
-    // so if the timer is cancelled (e.g. quick navigation), the briefing
-    // will retry on next mount.
+    // Set localStorage immediately so that concurrent mounts or fast
+    // navigation cannot dispatch the briefing event more than once per day.
+    localStorage.setItem(STORAGE_KEY, today);
+
+    // Delay the actual dispatch slightly to let the page render.
     const timer = setTimeout(() => {
-      localStorage.setItem(STORAGE_KEY, today);
       window.dispatchEvent(
         new CustomEvent('ai-command-center:open', {
           detail: {

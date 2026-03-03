@@ -52,18 +52,31 @@ export function useAIConversation(
   const conversationIdRef = useRef<string>(crypto.randomUUID());
   const persistedRef = useRef(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track whether we're restoring from sessionStorage to avoid re-persisting stale data
+  const restoringRef = useRef(false);
 
   // Load persisted conversation from sessionStorage on mount
   useEffect(() => {
     const saved = sessionStorage.getItem('ai-cc-messages');
     const savedId = sessionStorage.getItem('ai-cc-conversation-id');
+    const savedDbId = sessionStorage.getItem('ai-cc-db-id');
     if (saved && savedId) {
       try {
+        restoringRef.current = true;
         const parsed = JSON.parse(saved) as AIMessage[];
         setMessages(parsed.map((m) => ({ ...m, timestamp: new Date(m.timestamp) })));
         conversationIdRef.current = savedId;
+        if (savedDbId) {
+          setActiveConversationDbId(savedDbId);
+        }
         persistedRef.current = true;
+        // Clear restoring flag after the current render cycle so the
+        // persistMessagesEffect triggered by setMessages doesn't re-save.
+        requestAnimationFrame(() => {
+          restoringRef.current = false;
+        });
       } catch {
+        restoringRef.current = false;
         /* ignore corrupt data */
       }
     }
@@ -87,6 +100,15 @@ export function useAIConversation(
   useEffect(() => {
     loadConversationHistory();
   }, []);
+
+  // Persist activeConversationDbId to sessionStorage so it survives page reloads
+  useEffect(() => {
+    if (activeConversationDbId) {
+      sessionStorage.setItem('ai-cc-db-id', activeConversationDbId);
+    } else {
+      sessionStorage.removeItem('ai-cc-db-id');
+    }
+  }, [activeConversationDbId]);
 
   // Save current conversation to database (debounced)
   const persistToDatabase = useCallback(
@@ -172,6 +194,7 @@ export function useAIConversation(
     conversationIdRef.current = crypto.randomUUID();
     sessionStorage.removeItem('ai-cc-messages');
     sessionStorage.removeItem('ai-cc-conversation-id');
+    sessionStorage.removeItem('ai-cc-db-id');
   }, []);
 
   // Archive a conversation from history
@@ -192,6 +215,9 @@ export function useAIConversation(
   const persistMessagesEffect = useCallback(
     (messages: AIMessage[], loading: boolean) => {
       if (messages.length === 0 || loading) return;
+      // Skip persistence when we're restoring from sessionStorage to avoid
+      // creating duplicate database rows on page reload.
+      if (restoringRef.current) return;
       // SessionStorage for instant reload
       try {
         sessionStorage.setItem('ai-cc-messages', JSON.stringify(messages.slice(-20)));

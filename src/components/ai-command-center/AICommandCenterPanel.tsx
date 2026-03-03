@@ -234,7 +234,13 @@ export function AICommandCenterPanel({
       setIsOpen(true);
       setIsMinimized(false);
       if (detail?.query) {
-        // Small delay to ensure panel is rendered before sending message
+        // Daily briefing and other auto-launch sources should start a fresh
+        // conversation so they don't append to a stale session.
+        if (detail.source === 'daily_briefing_auto_launch') {
+          startNewConversation();
+        }
+        // Small delay to ensure panel is rendered (and new conversation state
+        // is flushed) before sending message
         setTimeout(() => {
           sendMessage(detail.query);
         }, 300);
@@ -243,7 +249,7 @@ export function AICommandCenterPanel({
 
     window.addEventListener('ai-command-center:open', handleExternalOpen);
     return () => window.removeEventListener('ai-command-center:open', handleExternalOpen);
-  }, [sendMessage]);
+  }, [sendMessage, startNewConversation]);
 
   // ---------- Floating bubble (closed) ----------
   if (!isOpen) {
