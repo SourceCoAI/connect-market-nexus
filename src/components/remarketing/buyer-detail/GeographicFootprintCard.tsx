@@ -22,12 +22,19 @@ export const GeographicFootprintCard = ({
   className,
 }: GeographicFootprintCardProps) => {
   // Group operating locations by state
+  // Handles variations: "Dallas, TX", "Dallas,TX", "Los Angeles, CA, USA", "Denver"
   const locationsByState = operatingLocations?.length
     ? operatingLocations.reduce((acc, loc) => {
-        const parts = loc.split(", ");
-        const state = parts[parts.length - 1] || "Other";
+        // Strip trailing ", USA" or ", US"
+        const cleaned = loc.replace(/,\s*(USA|US)\s*$/i, "");
+        // Match the last 2-letter state code after a comma
+        const stateMatch = cleaned.match(/,\s*([A-Z]{2})\s*$/i);
+        const state = stateMatch ? stateMatch[1].toUpperCase() : "Other";
+        const city = stateMatch
+          ? cleaned.substring(0, cleaned.lastIndexOf(",")).trim()
+          : cleaned.trim();
         if (!acc[state]) acc[state] = [];
-        acc[state].push(parts.slice(0, -1).join(", ") || loc);
+        acc[state].push(city || loc);
         return acc;
       }, {} as Record<string, string[]>)
     : null;

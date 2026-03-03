@@ -24,8 +24,8 @@ import {
   Building,
   ExternalLink,
   DollarSign,
-  // Loader2 removed - unused
   FileCheck,
+  Check,
 } from "lucide-react";
 import { IntelligenceBadge } from "./IntelligenceBadge";
 import { AlignmentScoreBadge } from "./AlignmentScoreBadge";
@@ -60,6 +60,7 @@ interface BuyerTableRowProps {
   onEnrich?: (buyerId: string) => void;
   onDelete?: (buyerId: string) => void;
   onToggleFeeAgreement?: (buyerId: string, currentStatus: boolean) => void;
+  onApprove?: (buyerId: string, buyerName: string) => void;
   universeId?: string;
   hasTranscript: boolean;
 }
@@ -89,6 +90,7 @@ export const BuyerTableRow = memo(function BuyerTableRow({
   onEnrich,
   onDelete,
   onToggleFeeAgreement,
+  onApprove,
   universeId,
   hasTranscript,
 }: BuyerTableRowProps) {
@@ -251,6 +253,21 @@ export const BuyerTableRow = memo(function BuyerTableRow({
 
       {/* Actions Column */}
       <TableCell>
+        <div className="flex items-center gap-1">
+        {onApprove && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2 text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              onApprove(buyer.id, buyer.company_name);
+            }}
+          >
+            <Check className="h-3 w-3 mr-1" />
+            Approve
+          </Button>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
             <Button
@@ -300,6 +317,7 @@ export const BuyerTableRow = memo(function BuyerTableRow({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </TableCell>
     </TableRow>
   );

@@ -83,7 +83,7 @@ function fuzzyContains(target: string, query: string): boolean {
 // ---------- Quick vs Full field sets ----------
 
 const DEAL_FIELDS_QUICK = `
-  id, title, status, status_label, deal_source, industry, category, categories, revenue, ebitda,
+  id, title, status, deal_source, industry, category, categories, revenue, ebitda,
   location, address_state, geographic_states, services, service_mix, tags,
   deal_total_score, is_priority_target, remarketing_status,
   deal_owner_id, primary_owner_id, updated_at
@@ -92,7 +92,7 @@ const DEAL_FIELDS_QUICK = `
   .trim();
 
 const DEAL_FIELDS_FULL = `
-  id, title, status, status_label, status_tag, deal_source, industry, industry_tier_name, category, categories,
+  id, title, status, status_tag, deal_source, industry, industry_tier_name, category, categories,
   revenue, ebitda, ebitda_margin,
   location, address_city, address_state, address_zip, geographic_states,
   services, service_mix, business_model,

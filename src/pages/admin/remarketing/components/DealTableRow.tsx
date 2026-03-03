@@ -43,6 +43,7 @@ import { format } from "date-fns";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { getDisplayLocation } from "@/lib/location-display";
 import type { DealListing, ColumnWidths } from "../types";
 import { EditableRankCell } from "./EditableRankCell";
 
@@ -117,48 +118,7 @@ export const DealTableRow = ({
   const listingUniverses = universesByListing?.[listing.id] || [];
   const hasUniverses = listingUniverses.length > 0;
 
-  // City, State display only - normalize state to abbreviation
-  const normalizeState = (state: string | null): string | null => {
-    if (!state) return null;
-    const cleaned = state.trim().toUpperCase();
-    const stateMatch = cleaned.match(/^([A-Z]{2})\b/);
-    if (stateMatch) return stateMatch[1];
-    const stateMap: Record<string, string> = {
-      'MARYLAND': 'MD', 'CALIFORNIA': 'CA', 'TEXAS': 'TX', 'NEW YORK': 'NY',
-      'FLORIDA': 'FL', 'ILLINOIS': 'IL', 'PENNSYLVANIA': 'PA', 'OHIO': 'OH',
-      'GEORGIA': 'GA', 'MICHIGAN': 'MI', 'NORTH CAROLINA': 'NC', 'NEW JERSEY': 'NJ',
-      'VIRGINIA': 'VA', 'WASHINGTON': 'WA', 'ARIZONA': 'AZ', 'MASSACHUSETTS': 'MA',
-      'TENNESSEE': 'TN', 'INDIANA': 'IN', 'MISSOURI': 'MO', 'WISCONSIN': 'WI',
-      'COLORADO': 'CO', 'MINNESOTA': 'MN', 'SOUTH CAROLINA': 'SC', 'ALABAMA': 'AL',
-      'LOUISIANA': 'LA', 'KENTUCKY': 'KY', 'OREGON': 'OR', 'OKLAHOMA': 'OK',
-      'CONNECTICUT': 'CT', 'UTAH': 'UT', 'IOWA': 'IA', 'NEVADA': 'NV',
-      'ARKANSAS': 'AR', 'KANSAS': 'KS', 'MISSISSIPPI': 'MS', 'NEW MEXICO': 'NM',
-      'NEBRASKA': 'NE', 'IDAHO': 'ID', 'WEST VIRGINIA': 'WV', 'HAWAII': 'HI',
-      'NEW HAMPSHIRE': 'NH', 'MAINE': 'ME', 'MONTANA': 'MT', 'RHODE ISLAND': 'RI',
-      'DELAWARE': 'DE', 'SOUTH DAKOTA': 'SD', 'NORTH DAKOTA': 'ND', 'ALASKA': 'AK',
-      'VERMONT': 'VT', 'WYOMING': 'WY'
-    };
-    return stateMap[cleaned] || null;
-  };
-
-  const getLocationDisplay = (): string | null => {
-    if (listing.address_city && listing.address_state) {
-      const city = listing.address_city.trim();
-      const state = normalizeState(listing.address_state);
-      if (city && state) {
-        return `${city}, ${state}`;
-      }
-    }
-    if (listing.geographic_states && listing.geographic_states.length === 1) {
-      const state = listing.geographic_states[0];
-      if (state && state.length === 2) {
-        return state;
-      }
-    }
-    return null;
-  };
-
-  const geographyDisplay = getLocationDisplay();
+  const geographyDisplay = getDisplayLocation(listing);
   const qualityScore = listing.deal_total_score ?? null;
 
   return (

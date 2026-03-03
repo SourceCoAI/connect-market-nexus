@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { type UniverseDeal, type DealEngagement } from './useUniverseDealsFilters';
+import { getDisplayLocation } from '@/lib/location-display';
 
 export const formatCurrency = (value: number | null | undefined) => {
   if (!value) return '\u2014';
@@ -101,12 +102,15 @@ export const UniverseDealRow = ({
                 </Badge>
               )}
             </div>
-            {deal.listing.location && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                <span className="truncate">{deal.listing.location}</span>
-              </div>
-            )}
+            {(() => {
+              const loc = getDisplayLocation(deal.listing);
+              return loc && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  <span className="truncate">{loc}</span>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </TableCell>

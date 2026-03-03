@@ -16,6 +16,7 @@ import {
 import { Link } from "react-router-dom";
 import { ScoreBadge } from "@/components/shared/ScoreBadge";
 import { DealSourceBadge } from "@/components/remarketing";
+import { getDisplayLocation } from "@/lib/location-display";
 import type { ScoreTier } from "@/types/remarketing";
 
 interface DealHeaderDeal {
@@ -156,17 +157,15 @@ export function DealHeader({
         {listedName && (
           <p className="text-sm text-muted-foreground mt-0.5">Listed as: {listedName}</p>
         )}
-        {(deal.address_city && deal.address_state) ? (
-          <p className="text-muted-foreground flex items-center gap-1 mt-1">
-            <MapPin className="h-4 w-4" />
-            {deal.address_city}, {deal.address_state}
-          </p>
-        ) : deal.location ? (
-          <p className="text-muted-foreground flex items-center gap-1 mt-1">
-            <MapPin className="h-4 w-4" />
-            {deal.location}
-          </p>
-        ) : null}
+        {(() => {
+          const loc = getDisplayLocation(deal);
+          return loc && (
+            <p className="text-muted-foreground flex items-center gap-1 mt-1">
+              <MapPin className="h-4 w-4" />
+              {loc}
+            </p>
+          );
+        })()}
       </div>
       <div className="flex items-center gap-2">
         {tier && <ScoreBadge variant="tier" tier={tier as ScoreTier} size="lg" />}

@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { getDisplayLocation } from '@/lib/location-display';
 import { toast } from 'sonner';
 import { DealSourceBadge } from '@/components/remarketing/DealSourceBadge';
 import { useShiftSelect } from '@/hooks/useShiftSelect';
@@ -236,9 +237,7 @@ export function DealsTable({
                 className="text-sm text-muted-foreground"
                 onClick={() => navToDeal(deal.id)}
               >
-                {deal.address_city && deal.address_state
-                  ? `${deal.address_city}, ${deal.address_state}`
-                  : deal.location || '-'}
+                {getDisplayLocation(deal) || '-'}
               </TableCell>
               <TableCell
                 className="text-right text-sm"
