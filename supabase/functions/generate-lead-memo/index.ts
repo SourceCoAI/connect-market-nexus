@@ -934,7 +934,7 @@ Example 3 — Financial Overview (Correct range-based approach):
 Financial Overview:
 "Revenue has ranged from approximately $15 million to $18 million over the past three fiscal years, reflecting a compound annual growth rate of approximately 8%–10%. EBITDA has been in the $2.5 million to $3.0 million range, with margins improving from approximately 15% to 17% as the service and maintenance segment has grown as a share of total revenue. The service and maintenance segment carries higher margins than the new construction segment, and ownership has been actively shifting the revenue mix toward recurring service contracts, which now represent approximately 35%–40% of total revenue compared to approximately 20% three years ago."
 
-CRITICAL: Every paragraph must contain SPECIFIC facts, numbers, or concrete details. Do NOT write vague paragraphs like "The company has a strong reputation in the market" or "The business is well-positioned for growth." Instead write: "The company has maintained preferred vendor status with three national insurance carriers for over a decade, generating approximately 60% of annual revenue through carrier referrals.";
+CRITICAL: Every paragraph must contain SPECIFIC facts, numbers, or concrete details. Do NOT write vague paragraphs like "The company has a strong reputation in the market" or "The business is well-positioned for growth." Instead write: "The company has maintained preferred vendor status with three national insurance carriers for over a decade, generating approximately 60% of annual revenue through carrier referrals."`;
 
   const userPrompt = `Generate a ${isAnonymous ? 'Anonymous Teaser' : 'Full Lead Memo'} from the following company data.
 
