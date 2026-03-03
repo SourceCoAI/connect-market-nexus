@@ -90,6 +90,14 @@ interface DatabaseListingInsert {
   // Source deal linkage
   source_deal_id?: string | null;
 
+  // Structured contact fields (tied to deal contact)
+  main_contact_first_name?: string | null;
+  main_contact_last_name?: string | null;
+  main_contact_name?: string | null;
+  main_contact_email?: string | null;
+  main_contact_phone?: string | null;
+  main_contact_linkedin?: string | null;
+
   // Content sections (populated by lead memo generator)
   custom_sections?: Array<{ title: string; description: string }> | null;
 
@@ -202,6 +210,17 @@ export function useRobustListingCreation() {
 
           // Source deal linkage
           source_deal_id: listing.source_deal_id || null,
+
+          // Structured contact fields (tied to deal contact)
+          main_contact_first_name: listing.main_contact_first_name || null,
+          main_contact_last_name: listing.main_contact_last_name || null,
+          main_contact_name: listing.main_contact_name ||
+            (listing.main_contact_first_name || listing.main_contact_last_name
+              ? `${listing.main_contact_first_name || ''} ${listing.main_contact_last_name || ''}`.trim()
+              : null),
+          main_contact_email: listing.main_contact_email || null,
+          main_contact_phone: listing.main_contact_phone || null,
+          main_contact_linkedin: listing.main_contact_linkedin || null,
 
           // Content sections (populated by lead memo generator)
           custom_sections: listing.custom_sections || null,

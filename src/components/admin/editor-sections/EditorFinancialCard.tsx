@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { FormField, FormItem, FormControl } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { UseFormReturn } from 'react-hook-form';
 import { EnhancedCurrencyInput } from '@/components/ui/enhanced-currency-input';
 import { EDITOR_DESIGN } from '@/lib/editor-design-system';
@@ -15,8 +14,6 @@ interface EditorFinancialCardProps {
 
 export function EditorFinancialCard({ form, isReadOnly = false }: EditorFinancialCardProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const metric3Type = form.watch('metric_3_type') || 'employees';
-  const metric4Type = form.watch('metric_4_type') || 'ebitda_margin';
   const revenue = form.watch('revenue') || 0;
   const ebitda = form.watch('ebitda') || 0;
   const calculatedMargin = revenue > 0 ? ((ebitda / revenue) * 100).toFixed(1) : '0.0';
@@ -138,177 +135,6 @@ export function EditorFinancialCard({ form, isReadOnly = false }: EditorFinancia
                 {calculatedMargin}%
               </span>
             </div>
-          </div>
-
-          {/* Team Size */}
-          <div className={EDITOR_DESIGN.compactFieldSpacing}>
-            <div className={EDITOR_DESIGN.microLabel}>Team Size</div>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                placeholder="FT"
-                disabled={isReadOnly}
-                {...form.register('full_time_employees', { valueAsNumber: true })}
-                className={cn(
-                  EDITOR_DESIGN.compactHeight,
-                  'text-sm',
-                  EDITOR_DESIGN.inputBg,
-                  isReadOnly && 'opacity-60 cursor-not-allowed',
-                )}
-              />
-              <span className="text-muted-foreground">+</span>
-              <Input
-                type="number"
-                placeholder="PT"
-                disabled={isReadOnly}
-                {...form.register('part_time_employees', { valueAsNumber: true })}
-                className={cn(
-                  EDITOR_DESIGN.compactHeight,
-                  'text-sm',
-                  EDITOR_DESIGN.inputBg,
-                  isReadOnly && 'opacity-60 cursor-not-allowed',
-                )}
-              />
-            </div>
-          </div>
-
-          {/* Metric 3 */}
-          <div className={EDITOR_DESIGN.compactFieldSpacing}>
-            <div className="flex items-center gap-2">
-              <span className={cn(EDITOR_DESIGN.microLabel)}>Metric 3</span>
-              <div className="flex gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => form.setValue('metric_3_type', 'employees')}
-                  className={cn(
-                    EDITOR_DESIGN.toggleButton,
-                    metric3Type === 'employees'
-                      ? EDITOR_DESIGN.toggleButtonActive
-                      : EDITOR_DESIGN.toggleButtonInactive,
-                  )}
-                >
-                  Team
-                </button>
-                <button
-                  type="button"
-                  onClick={() => form.setValue('metric_3_type', 'custom')}
-                  className={cn(
-                    EDITOR_DESIGN.toggleButton,
-                    metric3Type === 'custom'
-                      ? EDITOR_DESIGN.toggleButtonActive
-                      : EDITOR_DESIGN.toggleButtonInactive,
-                  )}
-                >
-                  Custom
-                </button>
-              </div>
-            </div>
-            {metric3Type === 'custom' ? (
-              <div className="space-y-1.5 pt-1.5">
-                <Input
-                  placeholder="Label"
-                  {...form.register('metric_3_custom_label')}
-                  className={cn(
-                    EDITOR_DESIGN.miniHeight,
-                    EDITOR_DESIGN.compactInputText,
-                    EDITOR_DESIGN.inputBg,
-                  )}
-                />
-                <Input
-                  placeholder="Value"
-                  {...form.register('metric_3_custom_value')}
-                  className={cn(
-                    EDITOR_DESIGN.miniHeight,
-                    EDITOR_DESIGN.compactInputText,
-                    EDITOR_DESIGN.inputBg,
-                  )}
-                />
-                <Input
-                  placeholder="Subtitle (optional)"
-                  {...form.register('metric_3_custom_subtitle')}
-                  className={cn(
-                    EDITOR_DESIGN.microHeight,
-                    EDITOR_DESIGN.compactInputText,
-                    EDITOR_DESIGN.inputBg,
-                    'border-dashed',
-                  )}
-                />
-              </div>
-            ) : (
-              <div className="pt-1.5 text-sm text-muted-foreground">
-                {form.watch('full_time_employees') || 0} FT +{' '}
-                {form.watch('part_time_employees') || 0} PT
-              </div>
-            )}
-          </div>
-
-          {/* Metric 4 */}
-          <div className={EDITOR_DESIGN.compactFieldSpacing}>
-            <div className="flex items-center gap-2">
-              <span className={cn(EDITOR_DESIGN.microLabel)}>Metric 4</span>
-              <div className="flex gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => form.setValue('metric_4_type', 'ebitda_margin')}
-                  className={cn(
-                    EDITOR_DESIGN.toggleButton,
-                    metric4Type === 'ebitda_margin'
-                      ? EDITOR_DESIGN.toggleButtonActive
-                      : EDITOR_DESIGN.toggleButtonInactive,
-                  )}
-                >
-                  Margin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => form.setValue('metric_4_type', 'custom')}
-                  className={cn(
-                    EDITOR_DESIGN.toggleButton,
-                    metric4Type === 'custom'
-                      ? EDITOR_DESIGN.toggleButtonActive
-                      : EDITOR_DESIGN.toggleButtonInactive,
-                  )}
-                >
-                  Custom
-                </button>
-              </div>
-            </div>
-            {metric4Type === 'custom' ? (
-              <div className="space-y-1.5 pt-1.5">
-                <Input
-                  placeholder="Label"
-                  {...form.register('metric_4_custom_label')}
-                  className={cn(
-                    EDITOR_DESIGN.miniHeight,
-                    EDITOR_DESIGN.compactInputText,
-                    EDITOR_DESIGN.inputBg,
-                  )}
-                />
-                <Input
-                  placeholder="Value"
-                  {...form.register('metric_4_custom_value')}
-                  className={cn(
-                    EDITOR_DESIGN.miniHeight,
-                    EDITOR_DESIGN.compactInputText,
-                    EDITOR_DESIGN.inputBg,
-                  )}
-                />
-                <Input
-                  placeholder="Subtitle (optional)"
-                  {...form.register('metric_4_custom_subtitle')}
-                  className={cn(
-                    EDITOR_DESIGN.microHeight,
-                    EDITOR_DESIGN.compactInputText,
-                    EDITOR_DESIGN.inputBg,
-                    'border-dashed',
-                  )}
-                />
-              </div>
-            ) : (
-              <div className="pt-1.5 text-sm font-medium text-primary tabular-nums">
-                {calculatedMargin}%
-              </div>
-            )}
           </div>
         </div>
       )}

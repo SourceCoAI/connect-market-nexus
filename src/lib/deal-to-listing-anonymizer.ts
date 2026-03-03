@@ -91,6 +91,11 @@ export interface AnonymizedListingData {
   metric_4_custom_label: string;
   metric_4_custom_value: string;
   metric_4_custom_subtitle: string;
+  // Structured contact fields (from deal)
+  main_contact_first_name: string;
+  main_contact_last_name: string;
+  main_contact_email: string;
+  main_contact_phone: string;
 }
 
 /**
@@ -268,16 +273,56 @@ function generateAnonymousTitle(deal: DealData): string {
 }
 
 /**
+ * Break a long text block into readable paragraphs.
+ * Splits on existing paragraph breaks first, then breaks very long paragraphs
+ * at sentence boundaries to keep each paragraph concise.
+ */
+function formatIntoParagraphs(text: string): string {
+  // Split on existing paragraph breaks (double newlines, or single with blank lines)
+  let paragraphs = text.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
+
+  // If we got only one big block, try splitting on single newlines
+  if (paragraphs.length === 1 && paragraphs[0].length > 400) {
+    paragraphs = text.split(/\n/).filter((p) => p.trim().length > 0);
+  }
+
+  // If still a single block, split at sentence boundaries to create paragraphs
+  if (paragraphs.length === 1 && paragraphs[0].length > 400) {
+    const sentences = paragraphs[0].match(/[^.!?]+[.!?]+/g) || [paragraphs[0]];
+    const result: string[] = [];
+    let current = '';
+
+    for (const sentence of sentences) {
+      const trimmed = sentence.trim();
+      if (!trimmed) continue;
+
+      if (current.length + trimmed.length > 350 && current.length > 0) {
+        result.push(current.trim());
+        current = trimmed;
+      } else {
+        current += (current ? ' ' : '') + trimmed;
+      }
+    }
+    if (current.trim()) result.push(current.trim());
+    paragraphs = result;
+  }
+
+  return paragraphs.map((p) => p.trim()).join('\n\n');
+}
+
+/**
  * Generate an anonymous description from executive summary or description.
  * Builds a comprehensive multi-paragraph overview using ALL available deal data.
  * This is the primary text buyers see — it must be detailed and compelling.
+ * Output is formatted with paragraph breaks for readability.
  */
 function generateAnonymousDescription(deal: DealData): string {
   const source = deal.executive_summary || deal.description || '';
 
-  // If we have existing text, anonymize it
+  // If we have existing text, anonymize it and format into paragraphs
   if (source && source.length > 100) {
-    return stripIdentifyingInfo(source, deal);
+    const anonymized = stripIdentifyingInfo(source, deal);
+    return formatIntoParagraphs(anonymized);
   }
 
   // Otherwise build a structured description from deal fields — be EXHAUSTIVE
@@ -539,5 +584,14 @@ export function anonymizeDealToListing(deal: DealData): AnonymizedListingData {
     metric_4_custom_label: '',
     metric_4_custom_value: '',
     metric_4_custom_subtitle: '',
+    // Structured contact fields — split deal's main_contact_name into first/last
+    main_contact_first_name: deal.main_contact_name
+      ? deal.main_contact_name.trim().split(/\s+/)[0] || ''
+      : '',
+    main_contact_last_name: deal.main_contact_name
+      ? deal.main_contact_name.trim().split(/\s+/).slice(1).join(' ') || ''
+      : '',
+    main_contact_email: deal.main_contact_email || '',
+    main_contact_phone: deal.main_contact_phone || '',
   };
 }

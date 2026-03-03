@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { FormField, FormItem, FormControl } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UseFormReturn } from "react-hook-form";
 import { useSourceCoAdmins } from "@/hooks/admin/use-source-co-admins";
@@ -52,7 +51,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
         <span className={EDITOR_DESIGN.microHeader}>Company Overview</span>
         <ChevronDown className={cn("h-4 w-4 text-foreground/60 transition-transform", !isOpen && "-rotate-90")} />
       </button>
-      
+
       {isOpen && (
         <div className="space-y-3">
           {/* Deal ID */}
@@ -62,7 +61,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
               {dealIdentifier || "Auto-generated"}
             </code>
           </div>
-          
+
           {/* Company */}
           <div className={EDITOR_DESIGN.microFieldSpacing}>
             <div className={EDITOR_DESIGN.microLabel}>Company</div>
@@ -83,7 +82,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
               )}
             />
           </div>
-          
+
           {/* Owner */}
           <div className={EDITOR_DESIGN.microFieldSpacing}>
             <div className={EDITOR_DESIGN.microLabel}>Owner</div>
@@ -125,7 +124,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
               className={cn(EDITOR_DESIGN.miniHeight, "text-xs font-mono", EDITOR_DESIGN.inputBg)}
             />
           </div>
-          
+
           {/* CRM Links */}
           <div className={cn("pt-3", EDITOR_DESIGN.subtleDivider, "space-y-2")}>
             <Input
@@ -134,40 +133,47 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
               className={cn(EDITOR_DESIGN.miniHeight, "text-xs font-mono", EDITOR_DESIGN.inputBg)}
             />
           </div>
-          
-          {/* Investment Context */}
+
+          {/* Geography & Industry */}
           <div className={cn("pt-3", EDITOR_DESIGN.subtleDivider, EDITOR_DESIGN.microFieldSpacing)}>
-            <div className={EDITOR_DESIGN.microLabel}>Investment Context</div>
-            <Textarea
-              rows={3}
-              placeholder="Why is this a good deal? Key thesis points..."
-              {...form.register('owner_notes')}
-              className={cn("text-xs resize-none", EDITOR_DESIGN.inputBg, EDITOR_DESIGN.inputBorder, "rounded p-2")}
-            />
+            <div className={EDITOR_DESIGN.microLabel}>Geography & Industry</div>
+            <p className="text-[11px] text-muted-foreground">Set in the top bar: Categories (industry) and Location (geography)</p>
           </div>
-          
-          {/* Contact Info */}
+
+          {/* Structured Contact Fields */}
           <div className={cn("pt-3", EDITOR_DESIGN.subtleDivider, EDITOR_DESIGN.microFieldSpacing)}>
-            <div className={EDITOR_DESIGN.microLabel}>Contacts</div>
-            <Textarea
-              rows={2}
-              placeholder="Contact information..."
-              {...form.register('internal_contact_info')}
-              className={cn("text-xs resize-none", EDITOR_DESIGN.inputBg, EDITOR_DESIGN.inputBorder, "rounded p-2")}
+            <div className={EDITOR_DESIGN.microLabel}>Deal Contact</div>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                placeholder="First name"
+                {...form.register('main_contact_first_name')}
+                className={cn(EDITOR_DESIGN.miniHeight, "text-sm", EDITOR_DESIGN.inputBg)}
+              />
+              <Input
+                placeholder="Last name"
+                {...form.register('main_contact_last_name')}
+                className={cn(EDITOR_DESIGN.miniHeight, "text-sm", EDITOR_DESIGN.inputBg)}
+              />
+            </div>
+            <Input
+              placeholder="Email"
+              type="email"
+              {...form.register('main_contact_email')}
+              className={cn(EDITOR_DESIGN.miniHeight, "text-sm", EDITOR_DESIGN.inputBg)}
+            />
+            <Input
+              placeholder="Phone"
+              type="tel"
+              {...form.register('main_contact_phone')}
+              className={cn(EDITOR_DESIGN.miniHeight, "text-sm", EDITOR_DESIGN.inputBg)}
+            />
+            <Input
+              placeholder="LinkedIn URL"
+              {...form.register('main_contact_linkedin')}
+              className={cn(EDITOR_DESIGN.miniHeight, "text-xs font-mono", EDITOR_DESIGN.inputBg)}
             />
           </div>
-          
-          {/* Internal Notes */}
-          <div className={EDITOR_DESIGN.microFieldSpacing}>
-            <div className={EDITOR_DESIGN.microLabel}>Internal Notes</div>
-            <Textarea
-              rows={3}
-              placeholder="Additional internal context..."
-              {...form.register('internal_notes')}
-              className={cn("text-xs resize-none", EDITOR_DESIGN.inputBg, EDITOR_DESIGN.inputBorder, "rounded p-2")}
-            />
-          </div>
-          
+
           {/* Status */}
           <div className={cn("pt-3", EDITOR_DESIGN.subtleDivider, EDITOR_DESIGN.microFieldSpacing)}>
             <div className={EDITOR_DESIGN.microLabel}>Status</div>
@@ -196,7 +202,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
               )}
             />
           </div>
-          
+
           {/* Status Tag */}
           <div className={EDITOR_DESIGN.microFieldSpacing}>
             <div className={EDITOR_DESIGN.microLabel}>Tag</div>
@@ -224,7 +230,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
               )}
             />
           </div>
-          
+
           {/* Visible To */}
           <div className={cn("pt-3", EDITOR_DESIGN.subtleDivider)}>
             <div className={cn(EDITOR_DESIGN.microLabel, "mb-1")}>Visible To</div>

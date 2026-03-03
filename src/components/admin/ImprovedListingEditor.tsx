@@ -59,6 +59,13 @@ const listingFormSchema = z.object({
   internal_contact_info: z.string().nullable().optional(),
   internal_notes: z.string().nullable().optional(),
 
+  // Structured contact fields (tied to deal contact)
+  main_contact_first_name: z.string().nullable().optional(),
+  main_contact_last_name: z.string().nullable().optional(),
+  main_contact_email: z.string().nullable().optional(),
+  main_contact_phone: z.string().nullable().optional(),
+  main_contact_linkedin: z.string().nullable().optional(),
+
   // Metrics fields
   custom_metric_label: z.string().nullable().optional(),
   custom_metric_value: z.string().nullable().optional(),
@@ -132,6 +139,12 @@ type ListingFormInput = {
   internal_deal_memo_link?: string;
   internal_contact_info?: string;
   internal_notes?: string;
+  // Structured contact fields (tied to deal contact)
+  main_contact_first_name?: string;
+  main_contact_last_name?: string;
+  main_contact_email?: string;
+  main_contact_phone?: string;
+  main_contact_linkedin?: string;
   // Content sections (populated by lead memo generator)
   custom_sections?: unknown;
 };
@@ -188,6 +201,12 @@ const convertListingToFormInput = (listing?: AdminListing): ListingFormInput => 
     internal_deal_memo_link: listing?.internal_deal_memo_link || '',
     internal_contact_info: listing?.internal_contact_info || '',
     internal_notes: listing?.internal_notes || '',
+    // Structured contact fields (tied to deal contact)
+    main_contact_first_name: listing?.main_contact_first_name || '',
+    main_contact_last_name: listing?.main_contact_last_name || '',
+    main_contact_email: listing?.main_contact_email || '',
+    main_contact_phone: listing?.main_contact_phone || '',
+    main_contact_linkedin: listing?.main_contact_linkedin || '',
     // Content sections (populated by lead memo generator)
     custom_sections: listing?.custom_sections || null,
   };
@@ -366,6 +385,12 @@ export function ImprovedListingEditor({
         internal_deal_memo_link: formData.internal_deal_memo_link || null,
         internal_contact_info: formData.internal_contact_info || null,
         internal_notes: formData.internal_notes || null,
+        // Structured contact fields (tied to deal contact)
+        main_contact_first_name: formData.main_contact_first_name || null,
+        main_contact_last_name: formData.main_contact_last_name || null,
+        main_contact_email: formData.main_contact_email || null,
+        main_contact_phone: formData.main_contact_phone || null,
+        main_contact_linkedin: formData.main_contact_linkedin || null,
         // Content sections (populated by lead memo generator)
         custom_sections: formData.custom_sections || null,
       };
