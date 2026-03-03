@@ -110,11 +110,12 @@ export const useUpdateLeadNDAStatus = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       
       // Log activity if this connection request has a deal
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: deal, error: dealError } = await supabase
         .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
-        .maybeSingle();
+        .maybeSingle() as { data: any; error: any };
       if (dealError) throw dealError;
       
       if (deal) {
@@ -199,7 +200,7 @@ export const useUpdateLeadNDAEmailStatus = () => {
         .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
-        .maybeSingle();
+        .maybeSingle() as { data: any; error: any };
       if (dealError) throw dealError;
       
       if (deal) {
@@ -273,7 +274,7 @@ export const useUpdateLeadFeeAgreementStatus = () => {
         .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
-        .maybeSingle();
+        .maybeSingle() as { data: any; error: any };
       if (dealError) throw dealError;
       
       if (deal) {
@@ -358,7 +359,7 @@ export const useUpdateLeadFeeAgreementEmailStatus = () => {
         .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
-        .maybeSingle();
+        .maybeSingle() as { data: any; error: any };
       if (dealError) throw dealError;
       
       if (deal) {

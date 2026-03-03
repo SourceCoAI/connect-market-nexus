@@ -6778,6 +6778,9 @@ export type Database = {
           location: string | null
           location_radius_requirement: string | null
           main_contact_email: string | null
+          main_contact_first_name: string | null
+          main_contact_last_name: string | null
+          main_contact_linkedin: string | null
           main_contact_name: string | null
           main_contact_phone: string | null
           main_contact_title: string | null
@@ -6966,6 +6969,9 @@ export type Database = {
           location?: string | null
           location_radius_requirement?: string | null
           main_contact_email?: string | null
+          main_contact_first_name?: string | null
+          main_contact_last_name?: string | null
+          main_contact_linkedin?: string | null
           main_contact_name?: string | null
           main_contact_phone?: string | null
           main_contact_title?: string | null
@@ -7154,6 +7160,9 @@ export type Database = {
           location?: string | null
           location_radius_requirement?: string | null
           main_contact_email?: string | null
+          main_contact_first_name?: string | null
+          main_contact_last_name?: string | null
+          main_contact_linkedin?: string | null
           main_contact_name?: string | null
           main_contact_phone?: string | null
           main_contact_title?: string | null
@@ -10979,11 +10988,11 @@ export type Database = {
       buyer_introduction_summary: {
         Row: {
           company_name: string | null
-          introduced_awaiting_outcome: number | null
+          fit_and_interested_buyers: number | null
           listing_id: string | null
-          passed_buyers: number | null
+          meetings_scheduled: number | null
+          not_a_fit_buyers: number | null
           pending_introductions: number | null
-          rejected_buyers: number | null
           total_tracked_buyers: number | null
         }
         Relationships: []
@@ -11438,6 +11447,9 @@ export type Database = {
           location: string | null
           location_radius_requirement: string | null
           main_contact_email: string | null
+          main_contact_first_name: string | null
+          main_contact_last_name: string | null
+          main_contact_linkedin: string | null
           main_contact_name: string | null
           main_contact_phone: string | null
           main_contact_title: string | null

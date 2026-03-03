@@ -111,6 +111,7 @@ export function useBuyerEngagementHistory(buyerId: string | undefined, emailDoma
       }
 
       // 3. Pipeline deals (via remarketing_buyer_id or connection_request linkage)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: pipelineDeals } = await supabase
         .from('deal_pipeline')
         .select(`
@@ -120,7 +121,7 @@ export function useBuyerEngagementHistory(buyerId: string | undefined, emailDoma
         `)
         .eq('remarketing_buyer_id', buyerId)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as { data: any[] | null; error: any };
 
       for (const d of pipelineDeals || []) {
         const stage = d.stage as { id?: string; name?: string; stage_type?: string } | null;
