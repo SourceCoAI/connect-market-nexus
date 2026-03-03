@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
+import { useNewRecommendedBuyers, type BuyerScore } from '@/hooks/admin/use-new-recommended-buyers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,9 @@ import {
   MapPin,
   FileCheck,
   ChevronRight,
+  Zap,
+  Star,
+  HelpCircle,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -62,16 +66,35 @@ const STATUS_CONFIG: Record<
   },
 };
 
-function formatDealSize(low: number | null, high: number | null): string {
-  if (!low && !high) return '--';
-  const fmt = (n: number) => {
-    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(0)}M`;
-    if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-    return `$${n}`;
+const TIER_CONFIG: Record<BuyerScore['tier'], { label: string; color: string; icon: typeof Zap }> = {
+  move_now: {
+    label: 'Move Now',
+    color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    icon: Zap,
+  },
+  strong: { label: 'Strong', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: Star },
+  speculative: {
+    label: 'Speculative',
+    color: 'bg-amber-100 text-amber-800 border-amber-200',
+    icon: HelpCircle,
+  },
+};
+
+const SOURCE_BADGE: Record<BuyerScore['source'], { label: string; color: string }> = {
+  ai_seeded: { label: 'AI Search', color: 'bg-purple-100 text-purple-700' },
+  marketplace: { label: 'Marketplace', color: 'bg-blue-100 text-blue-700' },
+  scored: { label: 'Buyer Pool', color: 'bg-gray-100 text-gray-600' },
+};
+
+function formatBuyerType(type: string | null): string {
+  if (!type) return '';
+  const map: Record<string, string> = {
+    pe_firm: 'PE Firm',
+    platform: 'Platform',
+    strategic: 'Strategic',
+    family_office: 'Family Office',
   };
-  if (low && high) return `${fmt(low)} - ${fmt(high)}`;
-  if (low) return `${fmt(low)}+`;
-  return `Up to ${fmt(high!)}`;
+  return map[type] || type.replace('_', ' ');
 }
 
 export function BuyerIntroductionTracker({
@@ -80,6 +103,16 @@ export function BuyerIntroductionTracker({
 }: BuyerIntroductionTrackerProps) {
   const { introductions, notIntroduced, introducedAndPassed, isLoading } =
     useBuyerIntroductions(listingId);
+  const { data: scoredData } = useNewRecommendedBuyers(listingId);
+
+  // Build a lookup map: buyer_id → BuyerScore (shares React Query cache with RecommendedBuyersPanel)
+  const scoreMap = useMemo(() => {
+    const map = new Map<string, BuyerScore>();
+    if (scoredData?.buyers) {
+      for (const b of scoredData.buyers) map.set(b.buyer_id, b);
+    }
+    return map;
+  }, [scoredData]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -182,6 +215,7 @@ export function BuyerIntroductionTracker({
               <IntroductionBuyerRow
                 key={buyer.id}
                 buyer={buyer}
+                score={buyer.contact_id ? scoreMap.get(buyer.contact_id) : undefined}
                 onSelect={(b) => {
                   setSelectedBuyer(b);
                   setUpdateDialogOpen(true);
@@ -240,6 +274,7 @@ export function BuyerIntroductionTracker({
               <IntroducedBuyerRow
                 key={buyer.id}
                 buyer={buyer}
+                score={buyer.contact_id ? scoreMap.get(buyer.contact_id) : undefined}
                 onSelect={(b) => {
                   setSelectedBuyer(b);
                   setUpdateDialogOpen(true);
@@ -276,19 +311,26 @@ export function BuyerIntroductionTracker({
 // ─── Introduction Buyer Row (matches RecommendedBuyersPanel BuyerCard style) ───
 function IntroductionBuyerRow({
   buyer,
+  score,
   onSelect,
 }: {
   buyer: BuyerIntroduction;
+  score?: BuyerScore;
   onSelect: (b: BuyerIntroduction) => void;
 }) {
   const config = STATUS_CONFIG[buyer.introduction_status];
   const StatusIcon = config.icon;
 
-  const nameContent = (
-    <span className="font-semibold text-[13.5px] hover:underline truncate">
-      {buyer.buyer_name}
-    </span>
-  );
+  // Use score data when available, fallback to introduction data
+  const displayName = score?.company_name || buyer.buyer_name;
+  const firmName = score?.pe_firm_name || (buyer.buyer_firm_name !== buyer.buyer_name ? buyer.buyer_firm_name : null);
+  const location = score
+    ? (score.hq_city && score.hq_state ? `${score.hq_city}, ${score.hq_state}` : score.hq_state || formatBuyerType(score.buyer_type))
+    : buyer.internal_champion || '';
+  const fitReason = score?.fit_reason || buyer.targeting_reason;
+  const fitSignals = score?.fit_signals || [];
+  const tier = score ? TIER_CONFIG[score.tier] : null;
+  const sourceBadge = score ? (SOURCE_BADGE[score.source] || SOURCE_BADGE.scored) : null;
 
   return (
     <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
@@ -303,54 +345,95 @@ function IntroductionBuyerRow({
         <div className="shrink-0 min-w-[160px]">
           <div className="flex items-center gap-1.5">
             {buyer.contact_id ? (
-              <Link to={`/admin/buyers/${buyer.contact_id}`}>{nameContent}</Link>
+              <Link to={`/admin/buyers/${buyer.contact_id}`}>
+                <span className="font-semibold text-[13.5px] hover:underline truncate">
+                  {displayName}
+                </span>
+              </Link>
             ) : (
-              nameContent
+              <span className="font-semibold text-[13.5px] truncate">
+                {displayName}
+              </span>
             )}
-            {buyer.buyer_firm_name && buyer.buyer_firm_name !== buyer.buyer_name && (
+            {firmName && (
               <>
                 <span className="text-muted-foreground text-xs">/</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {buyer.buyer_firm_name}
-                </span>
+                {score?.pe_firm_id ? (
+                  <Link to={`/admin/buyers/pe-firms/${score.pe_firm_id}`}>
+                    <span className="text-xs text-muted-foreground hover:underline truncate">
+                      {firmName}
+                    </span>
+                  </Link>
+                ) : (
+                  <span className="text-xs text-muted-foreground truncate">
+                    {firmName}
+                  </span>
+                )}
               </>
             )}
           </div>
           <div className="flex items-center gap-1 text-[11.5px] text-muted-foreground mt-0.5">
-            {buyer.internal_champion && (
+            {location && (
               <>
                 <MapPin className="h-2.5 w-2.5" />
-                {buyer.internal_champion}
+                {location}
               </>
             )}
-            {buyer.expected_deal_size_low || buyer.expected_deal_size_high ? (
-              <span className="flex items-center gap-0.5 ml-1">
+            {score?.has_fee_agreement && (
+              <span className="flex items-center gap-0.5 text-green-600 ml-1">
                 <FileCheck className="h-2.5 w-2.5" />
-                {formatDealSize(buyer.expected_deal_size_low, buyer.expected_deal_size_high)}
+                Fee
               </span>
-            ) : null}
+            )}
           </div>
         </div>
 
-        {/* Targeting reason tags */}
+        {/* Fit signal tags */}
         <div className="flex-1 flex flex-wrap gap-1 min-w-0">
-          {buyer.targeting_reason && (
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap truncate max-w-[200px]">
-              {buyer.targeting_reason.split(' - ')[0]}
+          {fitSignals.slice(0, 3).map((signal, i) => (
+            <span
+              key={i}
+              className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap"
+            >
+              {signal}
             </span>
-          )}
+          ))}
         </div>
 
-        {/* Status badge + action */}
+        {/* Source + Tier + Score + Status + Action */}
         <div className="flex items-center gap-2 shrink-0">
+          {sourceBadge && (
+            <Badge variant="outline" className={cn('text-[10px]', sourceBadge.color)}>
+              {sourceBadge.label}
+            </Badge>
+          )}
+
+          {tier && (
+            <Badge variant="outline" className={cn('text-[11px] gap-0.5', tier.color)}>
+              <tier.icon className="h-3 w-3" />
+              {tier.label}
+            </Badge>
+          )}
+
+          {score && (
+            <span
+              className={cn(
+                'text-[15px] font-bold min-w-[26px] text-right tabular-nums',
+                score.composite_score >= 70
+                  ? 'text-emerald-600'
+                  : score.composite_score >= 55
+                    ? 'text-amber-600'
+                    : 'text-muted-foreground',
+              )}
+            >
+              {score.composite_score}
+            </span>
+          )}
+
           <Badge variant="outline" className={cn('text-[11px] gap-0.5', config.color)}>
             <StatusIcon className="h-3 w-3" />
             {config.label}
           </Badge>
-
-          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-            {format(new Date(buyer.created_at), 'MMM d')}
-          </span>
 
           <div className="w-px h-5 bg-border mx-0.5" />
 
@@ -370,21 +453,23 @@ function IntroductionBuyerRow({
       </div>
 
       {/* Fit reason line */}
-      {buyer.targeting_reason && buyer.targeting_reason.includes(' - ') && (
+      {fitReason && (
         <p className="text-xs text-muted-foreground leading-relaxed mt-2.5 pt-2.5 border-t pl-11">
-          {buyer.targeting_reason.split(' - ').slice(1).join(' - ')}
+          {fitReason}
         </p>
       )}
     </div>
   );
 }
 
-// ─── Introduced & Passed Buyer Row (same style) ───
+// ─── Introduced & Passed Buyer Row (same BuyerCard style) ───
 function IntroducedBuyerRow({
   buyer,
+  score,
   onSelect,
 }: {
   buyer: BuyerIntroduction;
+  score?: BuyerScore;
   onSelect: (b: BuyerIntroduction) => void;
 }) {
   const config = STATUS_CONFIG[buyer.introduction_status];
@@ -394,11 +479,16 @@ function IntroducedBuyerRow({
     ? Math.floor((Date.now() - new Date(buyer.introduction_date).getTime()) / (1000 * 60 * 60 * 24))
     : null;
 
-  const nameContent = (
-    <span className="font-semibold text-[13.5px] hover:underline truncate">
-      {buyer.buyer_name}
-    </span>
-  );
+  // Use score data when available, fallback to introduction data
+  const displayName = score?.company_name || buyer.buyer_name;
+  const firmName = score?.pe_firm_name || (buyer.buyer_firm_name !== buyer.buyer_name ? buyer.buyer_firm_name : null);
+  const location = score
+    ? (score.hq_city && score.hq_state ? `${score.hq_city}, ${score.hq_state}` : score.hq_state || formatBuyerType(score.buyer_type))
+    : '';
+  const fitReason = score?.fit_reason || buyer.targeting_reason;
+  const fitSignals = score?.fit_signals || [];
+  const tier = score ? TIER_CONFIG[score.tier] : null;
+  const sourceBadge = score ? (SOURCE_BADGE[score.source] || SOURCE_BADGE.scored) : null;
 
   return (
     <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
@@ -413,25 +503,50 @@ function IntroducedBuyerRow({
         <div className="shrink-0 min-w-[160px]">
           <div className="flex items-center gap-1.5">
             {buyer.contact_id ? (
-              <Link to={`/admin/buyers/${buyer.contact_id}`}>{nameContent}</Link>
+              <Link to={`/admin/buyers/${buyer.contact_id}`}>
+                <span className="font-semibold text-[13.5px] hover:underline truncate">
+                  {displayName}
+                </span>
+              </Link>
             ) : (
-              nameContent
+              <span className="font-semibold text-[13.5px] truncate">
+                {displayName}
+              </span>
             )}
-            {buyer.buyer_firm_name && buyer.buyer_firm_name !== buyer.buyer_name && (
+            {firmName && (
               <>
                 <span className="text-muted-foreground text-xs">/</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {buyer.buyer_firm_name}
-                </span>
+                {score?.pe_firm_id ? (
+                  <Link to={`/admin/buyers/pe-firms/${score.pe_firm_id}`}>
+                    <span className="text-xs text-muted-foreground hover:underline truncate">
+                      {firmName}
+                    </span>
+                  </Link>
+                ) : (
+                  <span className="text-xs text-muted-foreground truncate">
+                    {firmName}
+                  </span>
+                )}
               </>
             )}
           </div>
           <div className="flex items-center gap-1 text-[11.5px] text-muted-foreground mt-0.5">
-            {buyer.introduced_by && (
+            {location ? (
+              <>
+                <MapPin className="h-2.5 w-2.5" />
+                {location}
+              </>
+            ) : buyer.introduced_by ? (
               <>
                 <MapPin className="h-2.5 w-2.5" />
                 Intro by {buyer.introduced_by}
               </>
+            ) : null}
+            {score?.has_fee_agreement && (
+              <span className="flex items-center gap-0.5 text-green-600 ml-1">
+                <FileCheck className="h-2.5 w-2.5" />
+                Fee
+              </span>
             )}
             {daysSinceIntroduction !== null && (
               <span className="ml-1">{daysSinceIntroduction}d in pipeline</span>
@@ -439,10 +554,18 @@ function IntroducedBuyerRow({
           </div>
         </div>
 
-        {/* Tags area */}
+        {/* Fit signal tags + next step tags */}
         <div className="flex-1 flex flex-wrap gap-1 min-w-0">
+          {fitSignals.slice(0, 3).map((signal, i) => (
+            <span
+              key={i}
+              className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap"
+            >
+              {signal}
+            </span>
+          ))}
           {buyer.next_step && (
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium whitespace-nowrap truncate max-w-[200px]">
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium whitespace-nowrap truncate max-w-[200px]">
               Next: {buyer.next_step}
             </span>
           )}
@@ -454,18 +577,40 @@ function IntroducedBuyerRow({
           )}
         </div>
 
-        {/* Status badge + actions */}
+        {/* Source + Tier + Score + Status + Action */}
         <div className="flex items-center gap-2 shrink-0">
+          {sourceBadge && (
+            <Badge variant="outline" className={cn('text-[10px]', sourceBadge.color)}>
+              {sourceBadge.label}
+            </Badge>
+          )}
+
+          {tier && (
+            <Badge variant="outline" className={cn('text-[11px] gap-0.5', tier.color)}>
+              <tier.icon className="h-3 w-3" />
+              {tier.label}
+            </Badge>
+          )}
+
+          {score && (
+            <span
+              className={cn(
+                'text-[15px] font-bold min-w-[26px] text-right tabular-nums',
+                score.composite_score >= 70
+                  ? 'text-emerald-600'
+                  : score.composite_score >= 55
+                    ? 'text-amber-600'
+                    : 'text-muted-foreground',
+              )}
+            >
+              {score.composite_score}
+            </span>
+          )}
+
           <Badge variant="outline" className={cn('text-[11px] gap-0.5', config.color)}>
             <StatusIcon className="h-3 w-3" />
             {config.label}
           </Badge>
-
-          {buyer.introduction_date && (
-            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-              {format(new Date(buyer.introduction_date), 'MMM d')}
-            </span>
-          )}
 
           <div className="w-px h-5 bg-border mx-0.5" />
 
@@ -484,11 +629,20 @@ function IntroducedBuyerRow({
         </div>
       </div>
 
-      {/* Feedback line */}
-      {buyer.buyer_feedback && (
-        <p className="text-xs text-muted-foreground leading-relaxed mt-2.5 pt-2.5 border-t pl-11 italic">
-          &ldquo;{buyer.buyer_feedback}&rdquo;
-        </p>
+      {/* Fit reason or feedback line */}
+      {(fitReason || buyer.buyer_feedback) && (
+        <div className="mt-2.5 pt-2.5 border-t pl-11 space-y-1.5">
+          {fitReason && (
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {fitReason}
+            </p>
+          )}
+          {buyer.buyer_feedback && (
+            <p className="text-xs text-muted-foreground leading-relaxed italic">
+              &ldquo;{buyer.buyer_feedback}&rdquo;
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
