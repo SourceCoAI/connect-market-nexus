@@ -4,15 +4,18 @@ import { UseFormReturn } from 'react-hook-form';
 import { EnhancedCurrencyInput } from '@/components/ui/enhanced-currency-input';
 import { EDITOR_DESIGN } from '@/lib/editor-design-system';
 import { cn } from '@/lib/utils';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface EditorFinancialCardProps {
   form: UseFormReturn<any>;
   /** When true, financial fields are locked because they're inherited from the source deal. */
   isReadOnly?: boolean;
+  /** The source deal ID — used to link to the deal for editing financials. */
+  sourceDealId?: string | null;
 }
 
-export function EditorFinancialCard({ form, isReadOnly = false }: EditorFinancialCardProps) {
+export function EditorFinancialCard({ form, isReadOnly = false, sourceDealId }: EditorFinancialCardProps) {
   const [isOpen, setIsOpen] = useState(true);
   const revenue = form.watch('revenue') || 0;
   const ebitda = form.watch('ebitda') || 0;
@@ -39,15 +42,26 @@ export function EditorFinancialCard({ form, isReadOnly = false }: EditorFinancia
       {isOpen && (
         <div className="space-y-4">
           {isReadOnly && (
-            <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-1.5">
-              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Financials inherited from source deal
+            <div className="flex items-center justify-between gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-1.5">
+              <div className="flex items-center gap-2">
+                <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fillRule="evenodd"
+                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Financials inherited from source deal
+              </div>
+              {sourceDealId && (
+                <Link
+                  to={`/admin/deals/${sourceDealId}`}
+                  className="inline-flex items-center gap-1 font-medium text-amber-700 hover:text-amber-900 underline underline-offset-2"
+                >
+                  Edit in Deal
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              )}
             </div>
           )}
           {/* Revenue */}

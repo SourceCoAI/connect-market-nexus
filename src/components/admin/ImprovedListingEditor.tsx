@@ -216,7 +216,8 @@ export function ImprovedListingEditor({
   isLoading = false,
   sourceDealId,
 }: ImprovedListingEditorProps) {
-  const isDealSourced = !!sourceDealId;
+  const effectiveDealId = sourceDealId || listing?.source_deal_id || null;
+  const isDealSourced = !!effectiveDealId;
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(listing?.image_url || null);
   const [isImageChanged, setIsImageChanged] = useState(false);
