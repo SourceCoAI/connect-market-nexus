@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,6 +8,8 @@ import {
   UniverseDealsTable,
   BuyerTableToolbar,
   EnrichmentProgressIndicator,
+  ApproveBuyerMultiDealDialog,
+  BulkApproveForDealsDialog,
 } from "@/components/remarketing";
 import { FilterBar, BUYER_UNIVERSE_FIELDS } from "@/components/filters";
 import { useFilterEngine } from "@/hooks/use-filter-engine";
@@ -20,6 +23,7 @@ import {
   TrendingUp,
   Upload,
   Trash2,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -84,6 +88,17 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
     handleToggleFeeAgreement,
     handleRemoveSelectedBuyers,
   } = handlers;
+
+  // Approval dialog state
+  const [singleApproval, setSingleApproval] = useState<{
+    open: boolean;
+    buyerId: string;
+    buyerName: string;
+  }>({ open: false, buyerId: '', buyerName: '' });
+  const [bulkApproval, setBulkApproval] = useState<{
+    open: boolean;
+    buyerIds: string[];
+  }>({ open: false, buyerIds: [] });
 
   // Use the filter engine for advanced filtering
   const {
@@ -182,6 +197,12 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
               buyerIdsWithTranscripts={buyerIdsWithTranscripts}
               selectable={true}
               onRemoveFromUniverse={handleRemoveBuyersFromUniverse}
+              onApprove={(buyerId, buyerName) =>
+                setSingleApproval({ open: true, buyerId, buyerName })
+              }
+              onBulkApprove={(buyerIds) =>
+                setBulkApproval({ open: true, buyerIds })
+              }
               onEnrich={handleEnrichSingleBuyer}
               onDelete={handleDeleteBuyer}
               onToggleFeeAgreement={handleToggleFeeAgreement}
@@ -191,8 +212,16 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
           </CardContent>
         </Card>
 
-        {/* Always-visible bulk action button (requested) */}
-        <div className="fixed bottom-6 right-6 z-50">
+        {/* Always-visible bulk action buttons */}
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+          <Button
+            onClick={() => setBulkApproval({ open: true, buyerIds: selectedBuyerIds })}
+            disabled={selectedBuyerIds.length === 0}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm backdrop-blur"
+          >
+            <Check className="h-4 w-4 mr-2" />
+            Approve{selectedBuyerIds.length ? ` (${selectedBuyerIds.length})` : ""}
+          </Button>
           <Button
             variant="outline"
             onClick={handleRemoveSelectedBuyers}
@@ -207,6 +236,23 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
             Remove Selected{selectedBuyerIds.length ? ` (${selectedBuyerIds.length})` : ""}
           </Button>
         </div>
+
+        {/* Single buyer approval dialog */}
+        <ApproveBuyerMultiDealDialog
+          open={singleApproval.open}
+          onOpenChange={(open) => setSingleApproval((prev) => ({ ...prev, open }))}
+          buyerId={singleApproval.buyerId}
+          buyerName={singleApproval.buyerName}
+          currentListingId=""
+        />
+
+        {/* Bulk buyer approval dialog */}
+        <BulkApproveForDealsDialog
+          open={bulkApproval.open}
+          onOpenChange={(open) => setBulkApproval((prev) => ({ ...prev, open }))}
+          buyerIds={bulkApproval.buyerIds}
+          buyerCount={bulkApproval.buyerIds.length}
+        />
       </TabsContent>
 
       <TabsContent value="deals">

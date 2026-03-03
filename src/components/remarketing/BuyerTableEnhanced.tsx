@@ -20,6 +20,7 @@ import {
   XCircle,
   Loader2,
   Unlink,
+  Check,
 } from "lucide-react";
 import {
   TooltipProvider,
@@ -87,6 +88,10 @@ interface BuyerTableEnhancedProps {
   onSelectionChange?: (selectedIds: string[]) => void;
   /** Called when user clicks "Remove from Universe" on selected items */
   onRemoveFromUniverse?: (buyerIds: string[]) => Promise<void>;
+  /** Called when user clicks "Approve" on a single buyer row */
+  onApprove?: (buyerId: string, buyerName: string) => void;
+  /** Called when user clicks "Approve" on the bulk action bar */
+  onBulkApprove?: (buyerIds: string[]) => void;
   /** When provided, back navigation from buyer detail returns to this universe */
   universeId?: string;
   /** Called when user toggles fee agreement on a buyer */
@@ -104,6 +109,8 @@ export const BuyerTableEnhanced = ({
   selectable = false,
   onSelectionChange,
   onRemoveFromUniverse,
+  onApprove,
+  onBulkApprove,
   universeId,
   onToggleFeeAgreement,
 }: BuyerTableEnhancedProps) => {
@@ -325,7 +332,7 @@ export const BuyerTableEnhanced = ({
   return (
     <TooltipProvider>
       {/* Bulk Action Bar */}
-       {selectable && selectedIds.size > 0 && onRemoveFromUniverse && (
+       {selectable && selectedIds.size > 0 && (onRemoveFromUniverse || onBulkApprove) && (
         <div className="sticky top-0 z-20 bg-background border rounded-lg p-3 shadow-sm mb-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="text-sm font-medium">
@@ -341,20 +348,34 @@ export const BuyerTableEnhanced = ({
               Clear
             </Button>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-destructive border-destructive/30 hover:bg-destructive/10"
-            onClick={handleRemoveFromUniverse}
-            disabled={isRemoving}
-          >
-            {isRemoving ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <Unlink className="h-4 w-4 mr-1" />
+          <div className="flex items-center gap-2">
+            {onBulkApprove && (
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => onBulkApprove(Array.from(selectedIds))}
+              >
+                <Check className="h-4 w-4 mr-1" />
+                Approve {selectedIds.size}
+              </Button>
             )}
-             Remove {selectedIds.size} from Universe
-          </Button>
+            {onRemoveFromUniverse && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                onClick={handleRemoveFromUniverse}
+                disabled={isRemoving}
+              >
+                {isRemoving ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Unlink className="h-4 w-4 mr-1" />
+                )}
+                Remove {selectedIds.size} from Universe
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -401,7 +422,7 @@ export const BuyerTableEnhanced = ({
                 Intel
                 <ResizeHandle column="intel" />
               </TableHead>
-              <TableHead className="w-[50px]"></TableHead>
+              <TableHead className="w-[120px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -434,6 +455,7 @@ export const BuyerTableEnhanced = ({
                       onEnrich={onEnrich}
                       onDelete={onDelete}
                       onToggleFeeAgreement={onToggleFeeAgreement}
+                      onApprove={onApprove}
                       universeId={universeId}
                       hasTranscript={buyerIdsWithTranscripts.has(buyer.id)}
                     />
@@ -461,6 +483,7 @@ export const BuyerTableEnhanced = ({
                   onEnrich={onEnrich}
                   onDelete={onDelete}
                   onToggleFeeAgreement={onToggleFeeAgreement}
+                  onApprove={onApprove}
                   universeId={universeId}
                   hasTranscript={buyerIdsWithTranscripts.has(buyer.id)}
                 />
