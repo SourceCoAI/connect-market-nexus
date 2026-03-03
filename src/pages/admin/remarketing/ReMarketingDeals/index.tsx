@@ -656,6 +656,7 @@ const ReMarketingDeals = () => {
                             onDelete={h.handleDeleteDeal}
                             onTogglePriority={h.handleTogglePriority}
                             onToggleUniverseBuild={h.handleToggleUniverseBuild}
+                            onToggleBuyerSearch={h.handleToggleBuyerSearch}
                             adminProfiles={h.adminProfiles}
                             onAssignOwner={h.handleAssignOwner}
                             universesByListing={h.universeDealMap ?? {}}
