@@ -23,7 +23,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAddEntityTask } from '@/hooks/useTaskActions';
 import { useTeamMembers } from '@/hooks/use-team-members';
 import { getLocalDateString } from '@/lib/utils';
-import { TASK_TYPE_OPTIONS } from '@/types/daily-tasks';
+import { TASK_TYPE_OPTIONS, DEAL_TASK_TYPE_OPTIONS } from '@/types/daily-tasks';
 import type { TaskEntityType, TaskType, TaskPriority } from '@/types/daily-tasks';
 
 interface CreateTaskButtonProps {
@@ -40,8 +40,9 @@ export function CreateTaskButton({
   dealId,
 }: CreateTaskButtonProps) {
   const [open, setOpen] = useState(false);
+  const taskTypeOptions = entityType === 'deal' ? DEAL_TASK_TYPE_OPTIONS : TASK_TYPE_OPTIONS;
   const [title, setTitle] = useState('');
-  const [taskType, setTaskType] = useState<TaskType>('other');
+  const [taskType, setTaskType] = useState<TaskType>(entityType === 'deal' ? 'call' : 'other');
   const [assigneeId, setAssigneeId] = useState('');
   const [dueDate, setDueDate] = useState(getLocalDateString());
   const [priority, setPriority] = useState<TaskPriority>('medium');
@@ -53,7 +54,7 @@ export function CreateTaskButton({
 
   const resetForm = () => {
     setTitle('');
-    setTaskType('other');
+    setTaskType(entityType === 'deal' ? 'call' : 'other');
     setAssigneeId(user?.id || '');
     setDueDate(getLocalDateString());
     setPriority('medium');
@@ -133,7 +134,7 @@ export function CreateTaskButton({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TASK_TYPE_OPTIONS.map((opt) => (
+                  {taskTypeOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value} className="text-xs">
                       {opt.label}
                     </SelectItem>

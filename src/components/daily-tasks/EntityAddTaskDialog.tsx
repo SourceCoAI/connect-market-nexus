@@ -27,7 +27,7 @@ import { Loader2 } from 'lucide-react';
 import { useAddEntityTask } from '@/hooks/useTaskActions';
 import { useTeamMembers } from '@/hooks/use-team-members';
 import { getLocalDateString } from '@/lib/utils';
-import { TASK_TYPE_OPTIONS, ENTITY_TYPE_LABELS, PRIORITY_LABELS } from '@/types/daily-tasks';
+import { TASK_TYPE_OPTIONS, DEAL_TASK_TYPE_OPTIONS, ENTITY_TYPE_LABELS, PRIORITY_LABELS } from '@/types/daily-tasks';
 import type { TaskType, TaskPriority, TaskEntityType } from '@/types/daily-tasks';
 
 interface EntityAddTaskDialogProps {
@@ -52,11 +52,12 @@ export function EntityAddTaskDialog({
   const addTask = useAddEntityTask();
   const { data: fetchedMembers } = useTeamMembers();
   const teamMembers = teamMembersProp?.length ? teamMembersProp : fetchedMembers || [];
+  const taskTypeOptions = entityType === 'deal' ? DEAL_TASK_TYPE_OPTIONS : TASK_TYPE_OPTIONS;
   const { toast } = useToast();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
-  const [taskType, setTaskType] = useState<TaskType>('other');
+  const [taskType, setTaskType] = useState<TaskType>(entityType === 'deal' ? 'call' : 'other');
   const [dueDate, setDueDate] = useState(getLocalDateString());
   const [priority, setPriority] = useState<TaskPriority>('medium');
 
@@ -81,7 +82,7 @@ export function EntityAddTaskDialog({
       setTitle('');
       setDescription('');
       setAssigneeId('');
-      setTaskType('other');
+      setTaskType(entityType === 'deal' ? 'call' : 'other');
       setDueDate(getLocalDateString());
       setPriority('medium');
       onOpenChange(false);
@@ -152,7 +153,7 @@ export function EntityAddTaskDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TASK_TYPE_OPTIONS.map((opt) => (
+                  {taskTypeOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>

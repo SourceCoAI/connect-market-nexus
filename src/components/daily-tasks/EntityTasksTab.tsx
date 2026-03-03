@@ -247,6 +247,7 @@ export function EntityTasksTab({
         task={editTask}
         open={!!editTask}
         onOpenChange={(open) => !open && setEditTask(null)}
+        entityType={entityType}
       />
       <ReassignDialog
         task={reassignTask}
