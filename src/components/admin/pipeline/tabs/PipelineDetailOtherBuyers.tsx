@@ -32,6 +32,7 @@ export function PipelineDetailOtherBuyers({ deal }: PipelineDetailOtherBuyersPro
     queryFn: async () => {
       if (!deal.listing_id) return [];
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('deal_pipeline')
         .select(
@@ -54,11 +55,11 @@ export function PipelineDetailOtherBuyers({ deal }: PipelineDetailOtherBuyersPro
         .neq('id', deal.deal_id)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(50) as { data: any[] | null; error: any };
 
       if (error) throw error;
 
-      return (data || []).map((d) => ({
+      return (data || []).map((d: any) => ({
         id: d.id,
         title: d.title,
         contact_name: d.contact_name,

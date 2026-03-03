@@ -57,6 +57,7 @@ export function DealContactHistoryTab({
   const { data: associatedBuyers = [], isLoading: buyersLoading } = useQuery({
     queryKey: ['deal-contact-history-buyers', listingId],
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase
         .from('deal_pipeline')
         .select(
@@ -71,19 +72,12 @@ export function DealContactHistoryTab({
         )
         .eq('listing_id', listingId)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as { data: any[] | null; error: any };
 
       if (error) throw error;
 
       return (data || []).map(
-        (d: {
-          id: string;
-          contact_name: string | null;
-          contact_email: string | null;
-          contact_phone: string | null;
-          remarketing_buyer_id: string | null;
-          remarketing_buyers: { company_name: string; buyer_type: string | null } | null;
-        }) => ({
+        (d: any) => ({
           id: d.id,
           dealId: d.id,
           buyerName: d.remarketing_buyers?.company_name || d.contact_name || 'Unknown',
