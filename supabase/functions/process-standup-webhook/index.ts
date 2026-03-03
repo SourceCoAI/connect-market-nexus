@@ -134,7 +134,10 @@ serve(async (req) => {
     }
 
     // Trigger extraction
-    console.log(`Processing standup meeting: "${meetingTitle}" (${transcriptId})`);
+    // Auto-detect: use Fireflies-native mode when Gemini key is not configured
+    const hasGeminiKey = !!(Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY'));
+    const useFirefliesActions = !hasGeminiKey;
+    console.log(`Processing standup meeting: "${meetingTitle}" (${transcriptId}) [mode: ${useFirefliesActions ? 'fireflies-native' : 'ai'}]`);
 
     const extractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-standup-tasks`, {
       method: 'POST',
@@ -145,6 +148,7 @@ serve(async (req) => {
       body: JSON.stringify({
         fireflies_transcript_id: transcriptId,
         meeting_title: meetingTitle,
+        use_fireflies_actions: useFirefliesActions,
       }),
     });
 
