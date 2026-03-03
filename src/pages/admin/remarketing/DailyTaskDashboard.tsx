@@ -188,7 +188,11 @@ const DailyTaskDashboard = () => {
 
   const today = getLocalDateString();
 
-  const { data: tasks, isLoading } = useDailyTasks({
+  const {
+    data: tasks,
+    isLoading,
+    error: tasksError,
+  } = useDailyTasks({
     view,
     includeCompleted: showCompleted,
   });
@@ -259,15 +263,19 @@ const DailyTaskDashboard = () => {
   }, [approvedTasks]);
 
   // Filter approved tasks into today/future/completed
+  // Guard against null/missing due_date — treat as "today" so the task is always visible
   const todayTasks = useMemo(() => {
     return approvedTasks.filter(
-      (t) => t.status !== 'completed' && (t.due_date <= today || t.status === 'overdue'),
+      (t) =>
+        t.status !== 'completed' &&
+        ((t.due_date ?? '') <= today || !t.due_date || t.status === 'overdue'),
     );
   }, [approvedTasks, today]);
 
   const futureTasks = useMemo(() => {
     return approvedTasks.filter(
-      (t) => t.due_date > today && t.status !== 'overdue' && t.status !== 'completed',
+      (t) =>
+        !!t.due_date && t.due_date > today && t.status !== 'overdue' && t.status !== 'completed',
     );
   }, [approvedTasks, today]);
 
@@ -351,9 +359,7 @@ const DailyTaskDashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Today's Tasks</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Deal follow-up tasks & assignments
-          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">Deal follow-up tasks & assignments</p>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/admin/daily-tasks/analytics">
@@ -587,25 +593,52 @@ const DailyTaskDashboard = () => {
             <Skeleton key={i} className="h-32 w-full rounded-lg" />
           ))}
         </div>
+      ) : tasksError ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-400" />
+            <p className="font-medium text-red-700 mb-1">Failed to load tasks</p>
+            <p className="text-sm text-muted-foreground">
+              {tasksError instanceof Error ? tasksError.message : 'An unexpected error occurred'}
+            </p>
+          </CardContent>
+        </Card>
       ) : !tasks || tasks.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <ListChecks className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <p className="text-muted-foreground">
-              No tasks yet today. Tasks will appear after the daily standup is processed.
+              {view === 'my'
+                ? 'No tasks assigned to you. Switch to "All Tasks" to see the full team view.'
+                : 'No tasks yet today. Tasks will appear after the daily standup is processed.'}
             </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() => setAddDialogOpen(true)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Manual Task
-            </Button>
+            <div className="flex items-center justify-center gap-2 mt-4">
+              {view === 'my' && (
+                <Button variant="outline" size="sm" onClick={() => setView('all')}>
+                  <Users className="h-4 w-4 mr-2" />
+                  View All Tasks
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => setAddDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Manual Task
+              </Button>
+            </div>
           </CardContent>
         </Card>
-      ) : approvedTasks.length > 0 ? (
+      ) : approvedTasks.length === 0 && pendingApprovalTasks.length > 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <ShieldCheck className="h-10 w-10 mx-auto mb-3 text-amber-400" />
+            <p className="text-sm text-muted-foreground">
+              All {pendingApprovalTasks.length} tasks are awaiting approval above.
+              {isLeadership
+                ? ' Approve them to move tasks to your active list.'
+                : ' Ask a team lead to approve pending tasks.'}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
         <div className="space-y-6">
           {/* Today & Overdue */}
           {todayTasks.length > 0 && (
@@ -666,8 +699,21 @@ const DailyTaskDashboard = () => {
               ))}
             </div>
           )}
+
+          {/* Fallback: approved tasks exist but none match today/future/completed filters */}
+          {todayTasks.length === 0 && futureTasks.length === 0 && completedTasks.length === 0 && (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <ListChecks className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+                <p className="text-sm text-muted-foreground">
+                  {approvedTasks.length} task{approvedTasks.length !== 1 ? 's' : ''} found but none
+                  match the current filters. Try enabling "Show Completed" or adjusting filters.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
-      ) : null}
+      )}
 
       {/* Dialogs */}
       <AddTaskDialog
