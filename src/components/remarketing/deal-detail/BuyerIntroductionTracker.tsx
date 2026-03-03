@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
 import { useNewRecommendedBuyers, type BuyerScore } from '@/hooks/admin/use-new-recommended-buyers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +42,8 @@ import {
   ExternalLink,
   X,
   Trash2,
+  Globe,
+  Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -120,8 +129,27 @@ export function BuyerIntroductionTracker({
     isLoading,
     batchArchiveIntroductions,
     isBatchArchiving,
+    sendBuyerToUniverse,
+    isSendingToUniverse,
   } = useBuyerIntroductions(listingId);
   const { data: scoredData } = useNewRecommendedBuyers(listingId);
+
+  // Fetch the deal's assigned buyer universe
+  const { data: universeAssignment } = useQuery({
+    queryKey: ['remarketing', 'deal-universe', listingId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('remarketing_universe_deals')
+        .select('id, universe_id, remarketing_buyer_universes(id, name)')
+        .eq('listing_id', listingId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as { id: string; universe_id: string; remarketing_buyer_universes: { id: string; name: string } } | null;
+    },
+    enabled: !!listingId,
+  });
 
   // Build a lookup map: buyer_id → BuyerScore (shares React Query cache with RecommendedBuyersPanel)
   const scoreMap = useMemo(() => {
@@ -353,6 +381,9 @@ export function BuyerIntroductionTracker({
                     setSelectedBuyer(b);
                     setUpdateDialogOpen(true);
                   }}
+                  universeAssignment={universeAssignment}
+                  onSendToUniverse={sendBuyerToUniverse}
+                  isSendingToUniverse={isSendingToUniverse}
                 />
               ))}
             </>
@@ -430,6 +461,9 @@ export function BuyerIntroductionTracker({
                     setSelectedBuyer(b);
                     setUpdateDialogOpen(true);
                   }}
+                  universeAssignment={universeAssignment}
+                  onSendToUniverse={sendBuyerToUniverse}
+                  isSendingToUniverse={isSendingToUniverse}
                 />
               ))}
             </>
@@ -492,6 +526,12 @@ export function BuyerIntroductionTracker({
   );
 }
 
+interface UniverseAssignmentData {
+  id: string;
+  universe_id: string;
+  remarketing_buyer_universes: { id: string; name: string };
+}
+
 // ─── Introduction Buyer Row (matches RecommendedBuyersPanel BuyerCard style) ───
 function IntroductionBuyerRow({
   buyer,
@@ -499,12 +539,18 @@ function IntroductionBuyerRow({
   selected,
   onToggleSelect,
   onSelect,
+  universeAssignment,
+  onSendToUniverse,
+  isSendingToUniverse,
 }: {
   buyer: BuyerIntroduction;
   score?: BuyerScore;
   selected: boolean;
   onToggleSelect: (id: string) => void;
   onSelect: (b: BuyerIntroduction) => void;
+  universeAssignment?: UniverseAssignmentData | null;
+  onSendToUniverse: (args: { buyer: BuyerIntroduction; universeId: string }) => void;
+  isSendingToUniverse: boolean;
 }) {
   const config = STATUS_CONFIG[buyer.introduction_status];
   const StatusIcon = config.icon;
@@ -674,6 +720,33 @@ function IntroductionBuyerRow({
             <ChevronRight className="h-3.5 w-3.5" />
             Update
           </Button>
+
+          {universeAssignment && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2.5 text-xs gap-1 hover:bg-purple-50 hover:border-purple-500 hover:text-purple-700"
+                  disabled={isSendingToUniverse}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSendToUniverse({ buyer, universeId: universeAssignment.universe_id });
+                  }}
+                >
+                  {isSendingToUniverse ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Globe className="h-3.5 w-3.5" />
+                  )}
+                  Universe
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Send to {universeAssignment.remarketing_buyer_universes.name}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
 
@@ -694,12 +767,18 @@ function IntroducedBuyerRow({
   selected,
   onToggleSelect,
   onSelect,
+  universeAssignment,
+  onSendToUniverse,
+  isSendingToUniverse,
 }: {
   buyer: BuyerIntroduction;
   score?: BuyerScore;
   selected: boolean;
   onToggleSelect: (id: string) => void;
   onSelect: (b: BuyerIntroduction) => void;
+  universeAssignment?: UniverseAssignmentData | null;
+  onSendToUniverse: (args: { buyer: BuyerIntroduction; universeId: string }) => void;
+  isSendingToUniverse: boolean;
 }) {
   const config = STATUS_CONFIG[buyer.introduction_status];
   const StatusIcon = config.icon;
@@ -892,6 +971,33 @@ function IntroducedBuyerRow({
             <ChevronRight className="h-3.5 w-3.5" />
             Update
           </Button>
+
+          {universeAssignment && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2.5 text-xs gap-1 hover:bg-purple-50 hover:border-purple-500 hover:text-purple-700"
+                  disabled={isSendingToUniverse}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSendToUniverse({ buyer, universeId: universeAssignment.universe_id });
+                  }}
+                >
+                  {isSendingToUniverse ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Globe className="h-3.5 w-3.5" />
+                  )}
+                  Universe
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Send to {universeAssignment.remarketing_buyer_universes.name}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
 
