@@ -1837,6 +1837,72 @@ export type Database = {
         }
         Relationships: []
       }
+      clay_enrichment_requests: {
+        Row: {
+          company_name: string | null
+          completed_at: string | null
+          created_at: string
+          domain: string | null
+          expires_at: string
+          first_name: string | null
+          id: string
+          last_name: string | null
+          linkedin_url: string | null
+          raw_callback_payload: Json | null
+          request_id: string
+          request_type: string
+          result_data: Json | null
+          result_email: string | null
+          source_entity_id: string | null
+          source_function: string
+          status: string
+          title: string | null
+          workspace_id: string
+        }
+        Insert: {
+          company_name?: string | null
+          completed_at?: string | null
+          created_at?: string
+          domain?: string | null
+          expires_at?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          linkedin_url?: string | null
+          raw_callback_payload?: Json | null
+          request_id: string
+          request_type: string
+          result_data?: Json | null
+          result_email?: string | null
+          source_entity_id?: string | null
+          source_function: string
+          status?: string
+          title?: string | null
+          workspace_id: string
+        }
+        Update: {
+          company_name?: string | null
+          completed_at?: string | null
+          created_at?: string
+          domain?: string | null
+          expires_at?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          linkedin_url?: string | null
+          raw_callback_payload?: Json | null
+          request_id?: string
+          request_type?: string
+          result_data?: Json | null
+          result_email?: string | null
+          source_entity_id?: string | null
+          source_function?: string
+          status?: string
+          title?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       collection_items: {
         Row: {
           added_at: string
