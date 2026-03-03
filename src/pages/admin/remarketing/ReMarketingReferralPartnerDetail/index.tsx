@@ -59,6 +59,7 @@ import { SubmissionReviewQueue } from '@/components/remarketing/SubmissionReview
 import { EnrichmentProgressIndicator } from '@/components/remarketing/EnrichmentProgressIndicator';
 import { SingleDealEnrichmentDialog } from '@/components/remarketing/SingleDealEnrichmentDialog';
 
+import { FilterBar } from '@/components/filters/FilterBar';
 import { usePartnerData } from './usePartnerData';
 import { usePartnerActions } from './usePartnerActions';
 import { DealsTable } from './DealsTable';
@@ -312,7 +313,7 @@ export default function ReMarketingReferralPartnerDetail() {
         {/* Deals Table */}
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <CardTitle className="text-lg">
                   Referred Deals ({data.deals?.length || 0})
@@ -362,32 +363,42 @@ export default function ReMarketingReferralPartnerDetail() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <button
-                  onClick={() => data.setHidePushed((h) => !h)}
-                  className={cn(
-                    'flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors',
-                    data.hidePushed
-                      ? 'bg-primary/10 border-primary/30 text-primary font-medium'
-                      : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/50',
-                  )}
-                >
-                  <EyeOff className="h-3.5 w-3.5" />
-                  {data.hidePushed ? 'Showing Un-Pushed Only' : 'Hide Pushed'}
-                </button>
-                <button
-                  onClick={() => data.setHideNotFit((h) => !h)}
-                  className={cn(
-                    'flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors',
-                    data.hideNotFit
-                      ? 'bg-orange-100 border-orange-300 text-orange-700 font-medium'
-                      : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/50',
-                  )}
-                >
-                  <ThumbsDown className="h-3.5 w-3.5" />
-                  {data.hideNotFit ? 'Not Fit Hidden' : 'Show Not Fit'}
-                </button>
               </div>
             </div>
+            <FilterBar
+              filterState={data.filterState}
+              onFilterStateChange={data.setFilterState}
+              fieldDefinitions={data.fieldDefinitions}
+              dynamicOptions={data.dynamicOptions}
+              totalCount={data.totalCount}
+              filteredCount={data.sortedDeals.length}
+              compact
+            >
+              <button
+                onClick={() => data.setHidePushed((h) => !h)}
+                className={cn(
+                  'flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors whitespace-nowrap',
+                  data.hidePushed
+                    ? 'bg-primary/10 border-primary/30 text-primary font-medium'
+                    : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                )}
+              >
+                <EyeOff className="h-3.5 w-3.5" />
+                {data.hidePushed ? 'Un-Pushed Only' : 'Hide Pushed'}
+              </button>
+              <button
+                onClick={() => data.setHideNotFit((h) => !h)}
+                className={cn(
+                  'flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors whitespace-nowrap',
+                  data.hideNotFit
+                    ? 'bg-orange-100 border-orange-300 text-orange-700 font-medium'
+                    : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                )}
+              >
+                <ThumbsDown className="h-3.5 w-3.5" />
+                {data.hideNotFit ? 'Not Fit Hidden' : 'Show Not Fit'}
+              </button>
+            </FilterBar>
           </CardHeader>
 
           {/* Bulk Actions */}

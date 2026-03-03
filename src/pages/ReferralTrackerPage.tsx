@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -15,7 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Loader2, Lock, Building2, ChevronDown, Users } from 'lucide-react';
+import { Loader2, Lock, Building2, ChevronDown, Users, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ReferralSubmissionForm } from '@/components/remarketing/ReferralSubmissionForm';
 import { ReferralCSVUpload } from '@/components/remarketing/ReferralCSVUpload';
@@ -88,6 +95,65 @@ export default function ReferralTrackerPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [partner, setPartner] = useState<PartnerData | null>(null);
   const [deals, setDeals] = useState<DealRow[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [locationFilter, setLocationFilter] = useState<string>('all');
+
+  // Derive unique categories, statuses, and locations from deals
+  const filterOptions = useMemo(() => {
+    const categories = new Set<string>();
+    const statuses = new Set<string>();
+    const locations = new Set<string>();
+    for (const d of deals) {
+      if (d.category) categories.add(d.category);
+      if (d.status) statuses.add(d.status);
+      if (d.location) locations.add(d.location);
+    }
+    return {
+      categories: Array.from(categories).sort(),
+      statuses: Array.from(statuses).sort(),
+      locations: Array.from(locations).sort(),
+    };
+  }, [deals]);
+
+  // Filtered deals
+  const filteredDeals = useMemo(() => {
+    return deals.filter((deal) => {
+      // Text search
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesSearch =
+          (deal.title || '').toLowerCase().includes(q) ||
+          (deal.category || '').toLowerCase().includes(q) ||
+          (deal.location || '').toLowerCase().includes(q) ||
+          (deal.website || '').toLowerCase().includes(q) ||
+          (deal.main_contact_name || '').toLowerCase().includes(q) ||
+          (deal.main_contact_email || '').toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+      }
+      // Category filter
+      if (categoryFilter !== 'all' && deal.category !== categoryFilter) return false;
+      // Status filter
+      if (statusFilter !== 'all' && deal.status !== statusFilter) return false;
+      // Location filter
+      if (locationFilter !== 'all' && deal.location !== locationFilter) return false;
+      return true;
+    });
+  }, [deals, searchQuery, categoryFilter, statusFilter, locationFilter]);
+
+  const hasActiveFilters =
+    searchQuery.trim() !== '' ||
+    categoryFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    locationFilter !== 'all';
+
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('all');
+    setStatusFilter('all');
+    setLocationFilter('all');
+  };
 
   const fetchData = useCallback(async () => {
     if (!shareToken || !authenticated) return;
@@ -287,7 +353,7 @@ export default function ReferralTrackerPage() {
           <CardHeader>
             <CardTitle className="text-foreground">Your Referrals</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-sourceco-accent" />
@@ -298,6 +364,88 @@ export default function ReferralTrackerPage() {
                 <p className="text-sm">No referrals yet. Submit your first below.</p>
               </div>
             ) : (
+              <>
+                {/* Search & Filters */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search referrals..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 h-9 bg-sourceco-form border-sourceco-form text-foreground placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  {filterOptions.categories.length > 1 && (
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                      <SelectTrigger className="w-[160px] h-9 bg-sourceco-form border-sourceco-form text-foreground">
+                        <SelectValue placeholder="Industry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Industries</SelectItem>
+                        {filterOptions.categories.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {filterOptions.statuses.length > 1 && (
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[140px] h-9 bg-sourceco-form border-sourceco-form text-foreground">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        {filterOptions.statuses.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {filterOptions.locations.length > 1 && (
+                    <Select value={locationFilter} onValueChange={setLocationFilter}>
+                      <SelectTrigger className="w-[160px] h-9 bg-sourceco-form border-sourceco-form text-foreground">
+                        <SelectValue placeholder="Location" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Locations</SelectItem>
+                        {filterOptions.locations.map((l) => (
+                          <SelectItem key={l} value={l}>
+                            {l}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {hasActiveFilters && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAllFilters}
+                      className="h-9 text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {hasActiveFilters && (
+                  <p className="text-xs text-muted-foreground">
+                    Showing <span className="font-medium text-foreground">{filteredDeals.length}</span> of{' '}
+                    <span className="font-medium text-foreground">{deals.length}</span> referrals
+                  </p>
+                )}
+
+                {filteredDeals.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Search className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No referrals match your search</p>
+                  </div>
+                ) : (
               <div className="border border-sourceco-form rounded-lg overflow-auto">
                 <Table className="table-fixed w-full" style={{ minWidth: '1100px' }}>
                   <TableHeader>
@@ -365,7 +513,7 @@ export default function ReferralTrackerPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {deals.map((deal) => (
+                    {filteredDeals.map((deal) => (
                       <TableRow
                         key={deal.id}
                         className={`border-sourceco-form ${deal.is_priority_target ? 'bg-amber-50' : ''}`}
@@ -471,6 +619,8 @@ export default function ReferralTrackerPage() {
                   </TableBody>
                 </Table>
               </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
