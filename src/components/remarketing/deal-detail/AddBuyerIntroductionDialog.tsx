@@ -39,7 +39,7 @@ const BUYER_TYPES = [
   { value: 'family_office', label: 'Family Office' },
   { value: 'independent_sponsor', label: 'Independent Sponsor' },
   { value: 'search_fund', label: 'Search Fund' },
-  { value: 'individual', label: 'Individual' },
+  { value: 'individual_buyer', label: 'Individual' },
 ];
 
 export function AddBuyerIntroductionDialog({

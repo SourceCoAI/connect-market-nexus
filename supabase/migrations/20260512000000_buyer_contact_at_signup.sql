@@ -343,6 +343,7 @@ CREATE TRIGGER trg_sync_marketplace_buyer_on_signup
 
 -- Step 3a: Create remarketing_buyers for profiles without one
 -- (Only for profiles with a company name and no existing buyer match)
+-- DISTINCT ON prevents duplicate buyers when multiple profiles share a company name
 INSERT INTO public.remarketing_buyers (
   company_name,
   buyer_type,
@@ -359,7 +360,7 @@ INSERT INTO public.remarketing_buyers (
   extraction_sources,
   data_last_updated
 )
-SELECT
+SELECT DISTINCT ON (lower(trim(COALESCE(NULLIF(TRIM(p.company_name), ''), NULLIF(TRIM(p.company), '')))))
   COALESCE(NULLIF(TRIM(p.company_name), ''), NULLIF(TRIM(p.company), '')) AS company_name,
   CASE
     WHEN p.buyer_type ILIKE '%privateequity%' OR p.buyer_type ILIKE '%private equity%' OR p.buyer_type ILIKE 'pe%' THEN 'private_equity'
@@ -410,6 +411,7 @@ WHERE p.remarketing_buyer_id IS NULL
         OR lower(trim(rb.company_name)) = lower(trim(COALESCE(NULLIF(TRIM(p.company_name), ''), NULLIF(TRIM(p.company), ''))))
       )
   )
+ORDER BY lower(trim(COALESCE(NULLIF(TRIM(p.company_name), ''), NULLIF(TRIM(p.company), '')))), p.created_at DESC
 ON CONFLICT DO NOTHING;
 
 

@@ -283,7 +283,7 @@ export const PROMPT_3B_PE_INTELLIGENCE = {
     properties: {
       // PE Firm Identity
       pe_firm_name: { type: 'string', description: 'Official name of the PE / investment firm as stated on the website' },
-      buyer_type: { type: 'string', enum: ['pe_firm', 'platform', 'strategic', 'family_office', 'other'], description: "Classify this buyer: 'pe_firm' (private equity fund), 'platform' (PE-backed operating platform doing add-ons), 'strategic' (corporate acquirer), 'family_office', or 'other'" },
+      buyer_type: { type: 'string', enum: ['private_equity', 'corporate', 'family_office', 'independent_sponsor', 'search_fund', 'individual_buyer'], description: "Classify this buyer: 'private_equity' (PE fund), 'corporate' (strategic/operating company including PE-backed platforms), 'family_office', 'independent_sponsor', 'search_fund', or 'individual_buyer'" },
       // Acquisition History
       recent_acquisitions: {
         type: 'array',
@@ -318,11 +318,12 @@ Extract FOUR categories of information:
 4. PORTFOLIO: Current and past portfolio company names
 
 For buyer_type classification:
-- "pe_firm": Traditional private equity fund (e.g., "XYZ Capital Partners")
-- "platform": PE-backed operating company actively doing add-on acquisitions
-- "strategic": Corporate/strategic acquirer (non-PE)
+- "private_equity": Traditional private equity fund (e.g., "XYZ Capital Partners")
+- "corporate": Corporate/strategic acquirer, including PE-backed operating platforms doing add-ons
 - "family_office": Family office investor
-- "other": None of the above
+- "independent_sponsor": Independent or fundless sponsor
+- "search_fund": Search fund or entrepreneur through acquisition
+- "individual_buyer": Individual or private buyer
 
 CRITICAL: Do NOT extract investment thesis, strategic priorities, or thesis confidence.
 These fields MUST come from direct conversations with the platform company, not websites.

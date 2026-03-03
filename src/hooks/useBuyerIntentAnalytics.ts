@@ -213,6 +213,7 @@ function formatIntentLabel(intent: string): string {
 
 function formatBuyerType(type: string): string {
   const typeMap: Record<string, string> = {
+    // Marketplace camelCase values (from profiles.buyer_type)
     'corporate': 'Corporate',
     'privateEquity': 'Private Equity',
     'familyOffice': 'Family Office',
@@ -221,7 +222,13 @@ function formatBuyerType(type: string): string {
     'independentSponsor': 'Independent Sponsor',
     'advisor': 'Advisor',
     'businessOwner': 'Business Owner',
+    // Canonical snake_case values (from remarketing_buyers.buyer_type)
+    'private_equity': 'Private Equity',
+    'family_office': 'Family Office',
+    'search_fund': 'Search Fund',
+    'independent_sponsor': 'Independent Sponsor',
+    'individual_buyer': 'Individual',
   };
-  
+
   return typeMap[type] || type;
 }

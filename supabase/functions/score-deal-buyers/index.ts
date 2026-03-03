@@ -488,7 +488,7 @@ Deno.serve(async (req: Request) => {
     const { data: buyers, error: buyerError } = await supabase
       .from('remarketing_buyers')
       .select(
-        'id, company_name, company_website, pe_firm_name, pe_firm_id, buyer_type, hq_state, hq_city, ' +
+        'id, company_name, company_website, pe_firm_name, pe_firm_id, buyer_type, is_pe_backed, hq_state, hq_city, ' +
           'target_services, target_industries, industry_vertical, ' +
           'target_geographies, geographic_footprint, ' +
           'target_ebitda_min, target_ebitda_max, ' +
@@ -693,11 +693,12 @@ Deno.serve(async (req: Request) => {
         fit_reason = reason;
       } else {
         // Generate a human-readable sentence from buyer context and scoring signals
-        const buyerTypeLabel = buyer.buyer_type === 'private_equity' || buyer.buyer_type === 'pe_firm' ? 'PE firm'
+        const buyerTypeLabel = buyer.buyer_type === 'private_equity' ? 'PE firm'
           : buyer.buyer_type === 'corporate' ? (buyer.is_pe_backed ? 'PE-backed corporate' : 'Corporate acquirer')
           : buyer.buyer_type === 'family_office' ? 'Family office'
           : buyer.buyer_type === 'independent_sponsor' ? 'Independent sponsor'
           : buyer.buyer_type === 'search_fund' ? 'Search fund'
+          : buyer.buyer_type === 'individual_buyer' ? 'Individual buyer'
           : 'Buyer';
         const locationStr = buyer.hq_city && buyer.hq_state
           ? `${buyer.hq_city}, ${buyer.hq_state}`

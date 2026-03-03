@@ -35,6 +35,9 @@ export const BUYER_UNIVERSE_FIELDS: FilterFieldDef[] = [
       { label: "PE Firm", value: "private_equity" },
       { label: "Corporate", value: "corporate" },
       { label: "Family Office", value: "family_office" },
+      { label: "Ind. Sponsor", value: "independent_sponsor" },
+      { label: "Search Fund", value: "search_fund" },
+      { label: "Individual", value: "individual_buyer" },
     ],
   },
   {

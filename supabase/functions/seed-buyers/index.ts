@@ -535,7 +535,7 @@ Deno.serve(async (req: Request) => {
 
         // ── Resolve PE firm parent (lookup or auto-create) ──
         let resolvedPeFirmId: string | null = null;
-        if (suggested.pe_firm_name && suggested.buyer_type !== 'pe_firm') {
+        if (suggested.pe_firm_name && suggested.buyer_type !== 'private_equity') {
           const normPeFirmName = normalizeCompanyName(suggested.pe_firm_name);
           const existingPeFirmId = nameToId.get(normPeFirmName);
 
@@ -547,7 +547,7 @@ Deno.serve(async (req: Request) => {
               .from('remarketing_buyers')
               .insert({
                 company_name: suggested.pe_firm_name,
-                buyer_type: 'pe_firm',
+                buyer_type: 'private_equity',
                 ai_seeded: true,
                 ai_seeded_at: now,
                 ai_seeded_from_deal_id: listingId,
