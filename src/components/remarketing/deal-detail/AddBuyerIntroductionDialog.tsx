@@ -86,15 +86,23 @@ export function AddBuyerIntroductionDialog({
   const buyerOptions = useMemo(() => {
     if (!buyers) return [];
     return buyers.map((b) => {
-      const parts = [b.company_name];
-      if (b.buyer_type) parts.push(`(${b.buyer_type.replace(/_/g, ' ')})`);
-      if (b.pe_firm_name) parts.push(`— ${b.pe_firm_name}`);
-      if (b.hq_city && b.hq_state) parts.push(`[${b.hq_city}, ${b.hq_state}]`);
-      else if (b.hq_state) parts.push(`[${b.hq_state}]`);
+      // Primary label: company name + buyer type badge
+      const label = b.buyer_type
+        ? `${b.company_name} (${b.buyer_type.replace(/_/g, ' ')})`
+        : b.company_name;
+
+      // Secondary description: PE firm and location on a separate line
+      const descParts: string[] = [];
+      if (b.pe_firm_name) descParts.push(`PE Firm: ${b.pe_firm_name}`);
+      if (b.hq_city && b.hq_state) descParts.push(`${b.hq_city}, ${b.hq_state}`);
+      else if (b.hq_state) descParts.push(b.hq_state);
+      const description = descParts.length > 0 ? descParts.join(' · ') : undefined;
+
       return {
         value: b.id,
-        label: parts.join(' '),
-        searchTerms: [b.company_name, b.buyer_type, b.pe_firm_name, b.hq_state, b.company_website]
+        label,
+        description,
+        searchTerms: [b.company_name, b.buyer_type?.replace(/_/g, ' '), b.pe_firm_name, b.hq_state, b.hq_city, b.company_website]
           .filter(Boolean)
           .join(' ')
           .toLowerCase(),

@@ -19,6 +19,7 @@ import {
 interface ComboboxOption {
   value: string;
   label: string;
+  description?: string;
   searchTerms?: string;
 }
 
@@ -51,11 +52,19 @@ export function Combobox({
   const [searchValue, setSearchValue] = React.useState("");
 
   const selectedOption = options.find((option) => option.value === value);
-  
+
   // Check if current search matches any existing option
   const hasExactMatch = options.some(
     (option) => option.value.toLowerCase() === searchValue.toLowerCase()
   );
+
+  // Word-based substring filter: every word in the search must appear in the value
+  const wordFilter = React.useCallback((value: string, search: string) => {
+    const normalizedValue = value.toLowerCase();
+    const words = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return 1;
+    return words.every((word) => normalizedValue.includes(word)) ? 1 : 0;
+  }, []);
   
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -84,7 +93,7 @@ export function Combobox({
         onTouchMoveCapture={(e) => e.stopPropagation()}
         onScrollCapture={(e) => e.stopPropagation()}
       >
-        <Command>
+        <Command filter={wordFilter}>
           <CommandInput 
             placeholder={searchPlaceholder}
             value={searchValue}
@@ -126,11 +135,18 @@ export function Combobox({
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "mr-2 h-4 w-4 shrink-0",
                       value === option.value ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  <span className="truncate">{option.label}</span>
+                  <div className="min-w-0">
+                    <span className="truncate block">{option.label}</span>
+                    {option.description && (
+                      <span className="truncate block text-xs text-muted-foreground">
+                        {option.description}
+                      </span>
+                    )}
+                  </div>
                 </CommandItem>
               ))}
             </CommandGroup>
