@@ -96,12 +96,15 @@ export interface BuyerTypeConfig {
 }
 
 export interface BuyerTypesCriteriaSchema {
-  // Legacy boolean flags (backward compatibility)
-  include_pe_firms?: boolean;
-  include_platforms?: boolean;
-  include_strategic?: boolean;
+  // Boolean flags for buyer type filtering
+  include_pe_firms?: boolean;       // private_equity buyers
+  include_platforms?: boolean;      // corporate buyers (legacy name kept for DB compat)
+  include_strategic?: boolean;      // corporate buyers (legacy alias)
   include_family_office?: boolean;
-  
+  include_independent_sponsors?: boolean;
+  include_search_funds?: boolean;
+  include_individual_buyers?: boolean;
+
   // Ranked buyer type configurations
   buyer_types?: BuyerTypeConfig[];
 }

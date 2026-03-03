@@ -30,7 +30,7 @@ export function useBuyerData(id: string | undefined, isNew: boolean) {
         .from('remarketing_buyers')
         .select('id, company_name')
         .eq('company_name', buyer.pe_firm_name)
-        .eq('buyer_type', 'pe_firm')
+        .eq('buyer_type', 'private_equity')
         .eq('archived', false)
         .maybeSingle();
       if (error) return null;

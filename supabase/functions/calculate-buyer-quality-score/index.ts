@@ -67,22 +67,35 @@ const CONSUMER_EMAIL_DOMAINS = [
 ];
 
 // Buyer-type to Component 1 points map
+// Supports canonical remarketing values, marketplace camelCase, and display labels
 const BUYER_TYPE_POINTS: Record<string, number> = {
-  privateEquity: 35,
-  'Private Equity': 35,
-  familyOffice: 30,
-  'Family Office': 30,
+  // Canonical remarketing values
+  private_equity: 35,
+  family_office: 30,
   corporate: 28,
-  Corporate: 28,
-  'Strategic Acquirer': 28,
+  independent_sponsor: 15,
+  search_fund: 10,
+  individual_buyer: 5,
+  // Marketplace camelCase values
+  privateEquity: 35,
+  familyOffice: 30,
   independentSponsor: 15,
-  'Independent Sponsor': 15,
   searchFund: 10,
-  'Search Fund': 10,
-  // Fallbacks
   individual: 5,
   advisor: 5,
   businessOwner: 5,
+  // Display labels
+  'Private Equity': 35,
+  'Family Office': 30,
+  Corporate: 28,
+  'Strategic Acquirer': 28,
+  'Independent Sponsor': 15,
+  'Search Fund': 10,
+  // Legacy remarketing values
+  pe_firm: 35,
+  platform: 28,
+  strategic: 28,
+  other: 5,
   Buyer: 5,
 };
 

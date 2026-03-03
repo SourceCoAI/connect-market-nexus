@@ -116,7 +116,7 @@ RULES:
 For EACH buyer, extract:
 
 ### buyer_identity
-Name, type (pe_firm|platform|strategic|family_office|search_fund), website if mentioned, parent_company if applicable.
+Name, type (private_equity|corporate|family_office|independent_sponsor|search_fund|individual_buyer), website if mentioned, parent_company if applicable.
 
 ### size_criteria
 Extract revenue_min, revenue_max, ebitda_min, ebitda_max, location_range, confidence (0-100), and source ("stated"|"inferred_from_deals"|"inferred_from_context"). If a sweet spot is mentioned, convert to a ±20% min/max range.
@@ -163,7 +163,7 @@ ${guideContent.slice(0, 50000)}`;
                   name: { type: "string", description: "Buyer/firm name" },
                   type: {
                     type: "string",
-                    enum: ["pe_firm", "platform", "strategic", "family_office", "search_fund"],
+                    enum: ["private_equity", "corporate", "family_office", "independent_sponsor", "search_fund", "individual_buyer"],
                     description: "Buyer type classification"
                   },
                   website: { type: "string", description: "Website URL if mentioned" },
@@ -549,10 +549,12 @@ async function applyToUniverse(supabase: ReturnType<typeof createClient>, univer
   const buyerTypes = new Set(buyers.map(b => b.buyer_identity?.type).filter(Boolean));
   if (buyerTypes.size > 0) {
     universeUpdate.buyer_types_criteria = {
-      include_pe_firms: buyerTypes.has('pe_firm'),
-      include_platforms: buyerTypes.has('platform'),
-      include_strategic: buyerTypes.has('strategic'),
+      include_pe_firms: buyerTypes.has('pe_firm') || buyerTypes.has('private_equity'),
+      include_platforms: buyerTypes.has('platform') || buyerTypes.has('corporate'),
+      include_strategic: buyerTypes.has('strategic') || buyerTypes.has('corporate'),
       include_family_office: buyerTypes.has('family_office'),
+      include_independent_sponsors: buyerTypes.has('independent_sponsor'),
+      include_search_funds: buyerTypes.has('search_fund'),
     };
   }
 

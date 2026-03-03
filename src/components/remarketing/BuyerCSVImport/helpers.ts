@@ -93,7 +93,7 @@ export const TARGET_FIELDS = [
     value: 'buyer_type',
     label: 'Buyer Type',
     required: false,
-    description: 'Type of buyer (PE firm, platform, strategic, family office)',
+    description: 'Type of buyer (private equity, corporate, family office)',
   },
   {
     value: 'investment_date',
@@ -406,11 +406,11 @@ export function buildBuyerFromRow(
       if (mapping.targetField === 'buyer_type') {
         const lower = value.toLowerCase();
         if (lower.includes('pe') || lower.includes('private equity'))
-          buyer.buyer_type = 'pe_firm';
-        else if (lower.includes('platform')) buyer.buyer_type = 'platform';
-        else if (lower.includes('strategic')) buyer.buyer_type = 'strategic';
+          buyer.buyer_type = 'private_equity';
+        else if (lower.includes('platform') || lower.includes('strategic') || lower.includes('corporate'))
+          buyer.buyer_type = 'corporate';
         else if (lower.includes('family')) buyer.buyer_type = 'family_office';
-        else buyer.buyer_type = 'other';
+        else buyer.buyer_type = null;
         return;
       }
 
@@ -445,7 +445,7 @@ export function buildBuyerFromRow(
   });
 
   // If pe_firm_name not set but we have it as company name, infer
-  if (!buyer.pe_firm_name && buyer.buyer_type === 'pe_firm') {
+  if (!buyer.pe_firm_name && buyer.buyer_type === 'private_equity') {
     buyer.pe_firm_name = buyer.company_name;
   }
 

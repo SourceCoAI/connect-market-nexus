@@ -549,10 +549,12 @@ Deno.serve(async (req: Request) => {
         fit_reason = reason;
       } else {
         // Generate a human-readable sentence from buyer context and scoring signals
-        const buyerTypeLabel = buyer.buyer_type === 'pe_firm' ? 'PE firm'
-          : buyer.buyer_type === 'platform' ? 'PE-backed platform'
+        const buyerTypeLabel = buyer.buyer_type === 'private_equity' || buyer.buyer_type === 'pe_firm' ? 'PE firm'
+          : buyer.buyer_type === 'corporate' ? (buyer.is_pe_backed ? 'PE-backed corporate' : 'Corporate acquirer')
           : buyer.buyer_type === 'family_office' ? 'Family office'
-          : 'Strategic acquirer';
+          : buyer.buyer_type === 'independent_sponsor' ? 'Independent sponsor'
+          : buyer.buyer_type === 'search_fund' ? 'Search fund'
+          : 'Buyer';
         const locationStr = buyer.hq_city && buyer.hq_state
           ? `${buyer.hq_city}, ${buyer.hq_state}`
           : buyer.hq_state || '';

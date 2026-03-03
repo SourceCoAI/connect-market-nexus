@@ -211,7 +211,7 @@ export const BuyerTableRow = memo(function BuyerTableRow({
                 <span className="text-sm">{buyer.pe_firm_name}</span>
               )}
             </div>
-          ) : buyer.buyer_type === 'pe_firm' ? (
+          ) : buyer.buyer_type === 'private_equity' ? (
             <Badge variant="outline" className="text-xs">
               PE Firm
             </Badge>

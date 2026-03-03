@@ -92,6 +92,7 @@ export const LISTING_STATUSES = {
 // ── Buyer types (display labels) ─────────────────────────────────────
 
 export const BUYER_TYPE_LABELS: Record<string, string> = {
+  // Marketplace (profiles table) camelCase values
   corporate: 'Corporate Development',
   privateEquity: 'Private Equity',
   familyOffice: 'Family Office',
@@ -100,6 +101,17 @@ export const BUYER_TYPE_LABELS: Record<string, string> = {
   independentSponsor: 'Independent Sponsor',
   advisor: 'Advisor / Banker',
   businessOwner: 'Business Owner',
+  // Remarketing (remarketing_buyers table) canonical values
+  private_equity: 'Private Equity',
+  family_office: 'Family Office',
+  independent_sponsor: 'Independent Sponsor',
+  search_fund: 'Search Fund',
+  individual_buyer: 'Individual Buyer',
+  // Legacy remarketing values
+  pe_firm: 'Private Equity',
+  platform: 'Corporate (PE-Backed)',
+  strategic: 'Corporate / Strategic',
+  other: 'Other',
 } as const;
 
 // ── Error handling ───────────────────────────────────────────────────

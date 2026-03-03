@@ -363,7 +363,9 @@ serve(async (req) => {
             universe_id: mappedUniverseId,
             company_name: row.platform_company_name || row.company_name || 'Unknown',
             company_website: normalizeDomainUrl(row.platform_website as string | null | undefined) || null,
-            buyer_type: row.pe_firm_name ? 'platform' : 'strategic',
+            buyer_type: 'corporate',
+            is_pe_backed: !!row.pe_firm_name,
+            buyer_type_source: 'import',
             thesis_summary: row.thesis_summary || null,
 
             target_revenue_min: parseFloat(String(row.min_revenue)) || null,
