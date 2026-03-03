@@ -1,10 +1,15 @@
 import { describe, it, expect } from 'vitest';
+import { createElement } from 'react';
 import { renderHook, act } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { useSimplePagination } from './use-simple-pagination';
+
+const wrapper = ({ children }: { children: React.ReactNode }) =>
+  createElement(BrowserRouter, null, children);
 
 describe('useSimplePagination', () => {
   it('initializes with default state', () => {
-    const { result } = renderHook(() => useSimplePagination());
+    const { result } = renderHook(() => useSimplePagination(), { wrapper });
 
     expect(result.current.state.page).toBe(1);
     expect(result.current.state.perPage).toBe(20);
@@ -14,7 +19,7 @@ describe('useSimplePagination', () => {
   });
 
   it('updates page number', () => {
-    const { result } = renderHook(() => useSimplePagination());
+    const { result } = renderHook(() => useSimplePagination(), { wrapper });
 
     act(() => {
       result.current.setPage(3);
@@ -24,7 +29,7 @@ describe('useSimplePagination', () => {
   });
 
   it('updates per page and resets to page 1', () => {
-    const { result } = renderHook(() => useSimplePagination());
+    const { result } = renderHook(() => useSimplePagination(), { wrapper });
 
     act(() => {
       result.current.setPage(5);
@@ -39,7 +44,7 @@ describe('useSimplePagination', () => {
   });
 
   it('sets filters and resets to page 1', () => {
-    const { result } = renderHook(() => useSimplePagination());
+    const { result } = renderHook(() => useSimplePagination(), { wrapper });
 
     act(() => {
       result.current.setPage(3);
@@ -54,7 +59,7 @@ describe('useSimplePagination', () => {
   });
 
   it('resets all filters', () => {
-    const { result } = renderHook(() => useSimplePagination());
+    const { result } = renderHook(() => useSimplePagination(), { wrapper });
 
     act(() => {
       result.current.setFilters({
@@ -79,7 +84,7 @@ describe('useSimplePagination', () => {
   });
 
   it('preserves perPage when resetting filters', () => {
-    const { result } = renderHook(() => useSimplePagination());
+    const { result } = renderHook(() => useSimplePagination(), { wrapper });
 
     act(() => {
       result.current.setPerPage(50);

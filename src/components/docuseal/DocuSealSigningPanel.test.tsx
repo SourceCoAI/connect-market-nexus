@@ -71,8 +71,8 @@ describe('DocuSealSigningPanel', () => {
 
     fireEvent.click(screen.getByTestId('mock-complete'));
 
-    expect(screen.getByText("NDA signed — you're in.")).toBeInTheDocument();
-    expect(screen.getByText(/Full access unlocked/)).toBeInTheDocument();
+    expect(screen.getByText('Document signed successfully.')).toBeInTheDocument();
+    expect(screen.getByText('Your access has been updated.')).toBeInTheDocument();
     expect(onCompleted).toHaveBeenCalledWith({ signed: true });
   });
 

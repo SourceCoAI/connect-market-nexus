@@ -15,19 +15,19 @@ import {
 
 describe('financial-parser: formatCurrency', () => {
   it('formats billions', () => {
-    expect(formatCurrency(1500000000)).toBe('1.5B');
+    expect(formatCurrency(1500000000)).toBe('$1.5B');
   });
 
   it('formats millions', () => {
-    expect(formatCurrency(5000000)).toBe('5.0M');
+    expect(formatCurrency(5000000)).toBe('$5.0M');
   });
 
   it('formats thousands', () => {
-    expect(formatCurrency(50000)).toBe('50K');
+    expect(formatCurrency(50000)).toBe('$50,000');
   });
 
   it('formats small numbers as-is', () => {
-    expect(formatCurrency(999)).toBe('999');
+    expect(formatCurrency(999)).toBe('$999');
   });
 });
 
@@ -72,7 +72,9 @@ describe('calculateIndustryMatchScore', () => {
 
 describe('extractFinancialMetrics', () => {
   it('extracts revenue from "$5M annual revenue"', () => {
-    const result = extractFinancialMetrics('Company generates $5M annual revenue with strong growth');
+    const result = extractFinancialMetrics(
+      'Company generates $5M annual revenue with strong growth',
+    );
     expect(result.revenue).toBeDefined();
     expect(result.revenue!.value).toBe(5000000);
     expect(result.revenue!.display).toBe('$5M');
@@ -101,7 +103,9 @@ describe('extractFinancialMetrics', () => {
   });
 
   it('extracts competitive advantages', () => {
-    const result = extractFinancialMetrics('Strong barriers to entry and brand loyalty in the market');
+    const result = extractFinancialMetrics(
+      'Strong barriers to entry and brand loyalty in the market',
+    );
     expect(result.competitiveAdvantages).toContain('barriers to entry');
     expect(result.competitiveAdvantages).toContain('brand loyalty');
   });
@@ -132,7 +136,13 @@ describe('extractFinancialMetrics', () => {
 describe('generateRiskAssessment', () => {
   it('returns Low risk for high revenue and margin', () => {
     const extracted = extractFinancialMetrics('');
-    const result = generateRiskAssessment('Strong company', 'Technology', 15000000, 3500000, extracted);
+    const result = generateRiskAssessment(
+      'Strong company',
+      'Technology',
+      15000000,
+      3500000,
+      extracted,
+    );
     expect(result.level).toBe('Low');
   });
 
@@ -144,19 +154,33 @@ describe('generateRiskAssessment', () => {
 
   it('includes industry-specific risks', () => {
     const extracted = extractFinancialMetrics('');
-    const result = generateRiskAssessment('Tech company', 'Technology', 5000000, 1000000, extracted);
+    const result = generateRiskAssessment(
+      'Tech company',
+      'Technology',
+      5000000,
+      1000000,
+      extracted,
+    );
     expect(result.industryRisks.length).toBeGreaterThan(0);
   });
 
   it('recognizes recurring revenue as risk mitigation', () => {
     const extracted = extractFinancialMetrics('SaaS subscription model');
     const result = generateRiskAssessment('SaaS company', 'Technology', 3000000, 300000, extracted);
-    expect(result.mitigationFactors.some(f => f.includes('Recurring revenue'))).toBe(true);
+    expect(result.mitigationFactors.some((f) => f.includes('Recurring revenue'))).toBe(true);
   });
 
   it('confidence is capped at 1.0', () => {
-    const extracted = extractFinancialMetrics('barriers to entry and brand loyalty with growing demand');
-    const result = generateRiskAssessment('Great company', 'Technology', 20000000, 5000000, extracted);
+    const extracted = extractFinancialMetrics(
+      'barriers to entry and brand loyalty with growing demand',
+    );
+    const result = generateRiskAssessment(
+      'Great company',
+      'Technology',
+      20000000,
+      5000000,
+      extracted,
+    );
     expect(result.confidence).toBeLessThanOrEqual(1.0);
   });
 });

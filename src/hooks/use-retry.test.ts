@@ -4,10 +4,12 @@ import { retryConditions } from './use-retry';
 describe('retryConditions', () => {
   describe('networkOnly', () => {
     it('returns true for network errors', () => {
-      expect(retryConditions.networkOnly({ name: 'NetworkError' })).toBe(true);
+      const networkError = new Error('network');
+      networkError.name = 'NetworkError';
+      expect(retryConditions.networkOnly(networkError)).toBe(true);
       expect(retryConditions.networkOnly({ code: 'NETWORK_ERROR' })).toBe(true);
-      expect(retryConditions.networkOnly({ message: 'network request failed' })).toBe(true);
-      expect(retryConditions.networkOnly({ message: 'fetch error occurred' })).toBe(true);
+      expect(retryConditions.networkOnly(new Error('network request failed'))).toBe(true);
+      expect(retryConditions.networkOnly(new Error('fetch error occurred'))).toBe(true);
     });
 
     it('returns falsy for non-network errors', () => {
@@ -43,9 +45,9 @@ describe('retryConditions', () => {
     });
 
     it('returns false for auth-related errors', () => {
-      expect(retryConditions.nonAuthErrors({ message: 'auth failed' })).toBe(false);
-      expect(retryConditions.nonAuthErrors({ message: 'Unauthorized access' })).toBe(false);
-      expect(retryConditions.nonAuthErrors({ message: 'Forbidden resource' })).toBe(false);
+      expect(retryConditions.nonAuthErrors(new Error('auth failed'))).toBe(false);
+      expect(retryConditions.nonAuthErrors(new Error('Unauthorized access'))).toBe(false);
+      expect(retryConditions.nonAuthErrors(new Error('Forbidden resource'))).toBe(false);
     });
   });
 
