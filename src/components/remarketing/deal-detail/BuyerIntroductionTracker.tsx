@@ -86,6 +86,9 @@ function formatBuyerType(type: string | null): string {
     private_equity: 'PE Firm',
     corporate: 'Corporate',
     family_office: 'Family Office',
+    independent_sponsor: 'Ind. Sponsor',
+    search_fund: 'Search Fund',
+    individual_buyer: 'Individual',
   };
   return map[type] || type.replace('_', ' ');
 }
