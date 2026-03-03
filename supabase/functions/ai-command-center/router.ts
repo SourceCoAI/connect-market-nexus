@@ -548,13 +548,13 @@ const BYPASS_RULES: Array<{
       confidence: 0.87,
     },
   },
-  // LinkedIn URL pasted — enrich that person's contact info via Prospeo
+  // LinkedIn URL pasted — enrich that person's contact info via Prospeo + Clay
   {
     test: (q) => /linkedin\.com\/in\//i.test(q),
     result: {
       category: 'CONTACTS',
       tier: 'STANDARD',
-      tools: ['enrich_contact', 'search_contacts', 'save_contacts_to_crm'],
+      tools: ['enrich_contact', 'clay_find_email', 'search_contacts', 'save_contacts_to_crm'],
       confidence: 0.95,
     },
   },
@@ -586,9 +586,20 @@ const BYPASS_RULES: Array<{
         'search_contacts',
         'search_pe_contacts',
         'enrich_contact',
+        'clay_find_email',
         'get_buyer_profile',
       ],
       confidence: 0.87,
+    },
+  },
+  // Clay email lookup — explicit "clay" keyword or "use clay"
+  {
+    test: (q) => /\bclay\b/i.test(q),
+    result: {
+      category: 'CONTACT_ENRICHMENT',
+      tier: 'STANDARD',
+      tools: ['clay_find_email', 'enrich_contact', 'search_contacts'],
+      confidence: 0.95,
     },
   },
   // Deal documents and memos — looking up existing docs
@@ -733,12 +744,18 @@ const BYPASS_RULES: Array<{
   // Industry research — "tell me about X industry", "prep me for a call with X"
   {
     test: (q) =>
-      /\b(tell me about|what should I know about|prep me for|don.?t know anything about|research the|industry overview|industry primer|what do PE buyers look for in)\b/i.test(q) &&
-      /\b(industry|vertical|sector|space|market|company|business)\b/i.test(q),
+      /\b(tell me about|what should I know about|prep me for|don.?t know anything about|research the|industry overview|industry primer|what do PE buyers look for in)\b/i.test(
+        q,
+      ) && /\b(industry|vertical|sector|space|market|company|business)\b/i.test(q),
     result: {
       category: 'INDUSTRY',
       tier: 'DEEP',
-      tools: ['research_industry', 'google_search_companies', 'semantic_transcript_search', 'retrieve_knowledge'],
+      tools: [
+        'research_industry',
+        'google_search_companies',
+        'semantic_transcript_search',
+        'retrieve_knowledge',
+      ],
       confidence: 0.88,
     },
   },
@@ -750,15 +767,21 @@ const BYPASS_RULES: Array<{
     result: {
       category: 'INDUSTRY',
       tier: 'DEEP',
-      tools: ['research_industry', 'google_search_companies', 'semantic_transcript_search', 'retrieve_knowledge'],
+      tools: [
+        'research_industry',
+        'google_search_companies',
+        'semantic_transcript_search',
+        'retrieve_knowledge',
+      ],
       confidence: 0.85,
     },
   },
   // Industry research — "what questions should I ask a X company"
   {
     test: (q) =>
-      /\b(what questions|due diligence questions|diligence questions|questions.*ask|questions.*call)\b/i.test(q) &&
-      /\b(industry|company|business|firm|shop|vertical|sector)\b/i.test(q),
+      /\b(what questions|due diligence questions|diligence questions|questions.*ask|questions.*call)\b/i.test(
+        q,
+      ) && /\b(industry|company|business|firm|shop|vertical|sector)\b/i.test(q),
     result: {
       category: 'INDUSTRY',
       tier: 'DEEP',
@@ -859,7 +882,13 @@ const BYPASS_RULES: Array<{
     result: {
       category: 'CONTACT_ENRICHMENT',
       tier: 'STANDARD',
-      tools: ['enrich_contact', 'search_contacts', 'search_pe_contacts', 'find_contact'],
+      tools: [
+        'enrich_contact',
+        'clay_find_email',
+        'search_contacts',
+        'search_pe_contacts',
+        'find_contact',
+      ],
       confidence: 0.9,
     },
   },

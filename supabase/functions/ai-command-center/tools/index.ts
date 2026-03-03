@@ -42,10 +42,7 @@ import { taskTools, executeTaskTool } from './task-tools.ts';
 import { industryResearchTools, executeIndustryResearchTool } from './industry-research-tools.ts';
 import { firefliesSummaryTools, executeFirefliesSummaryTool } from './fireflies-summary-tools.ts';
 import { alertTools, executeAlertTool } from './alert-tools.ts';
-import {
-  recommendedBuyerTools,
-  executeRecommendedBuyerTool,
-} from './recommended-buyer-tools.ts';
+import { recommendedBuyerTools, executeRecommendedBuyerTool } from './recommended-buyer-tools.ts';
 
 // ---------- Tool Result Types ----------
 
@@ -328,6 +325,7 @@ const TOOL_CATEGORIES: Record<string, string[]> = {
     'get_call_history',
     'enrich_contact', // merged: was enrich_buyer_contacts + enrich_linkedin_contact
     'find_contact', // merged: was find_contact_linkedin + find_and_enrich_person
+    'clay_find_email',
     'send_document',
   ],
 
@@ -358,6 +356,7 @@ const TOOL_CATEGORIES: Record<string, string[]> = {
     'google_search_companies',
     'enrich_contact', // merged: was enrich_buyer_contacts + enrich_linkedin_contact
     'find_contact', // merged: was find_contact_linkedin + find_and_enrich_person
+    'clay_find_email',
     'save_contacts_to_crm',
     'search_contacts',
     'search_pe_contacts',
@@ -399,6 +398,7 @@ const TOOL_CATEGORIES: Record<string, string[]> = {
   GOOGLE_SEARCH: [
     'google_search_companies',
     'enrich_contact', // merged: was enrich_buyer_contacts
+    'clay_find_email',
     'search_buyers',
     'search_lead_sources',
   ],
@@ -539,6 +539,7 @@ export async function executeTool(
   const ENRICHMENT_TOOLS = new Set([
     'enrich_contact',
     'find_contact',
+    'clay_find_email',
     // Legacy names (backward compat)
     'enrich_buyer_contacts',
     'enrich_linkedin_contact',

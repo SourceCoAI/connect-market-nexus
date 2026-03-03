@@ -39,6 +39,8 @@ import {
   pushToPhoneBurner,
   agreementToolDefinitions,
   sendDocument,
+  clayToolDefinitions,
+  clayFindEmail,
 } from './integration/index.ts';
 
 // ---------- Tool definitions ----------
@@ -50,6 +52,7 @@ export const integrationActionTools: ClaudeTool[] = [
   ...enrichmentToolDefinitions,
   ...outreachToolDefinitions,
   ...agreementToolDefinitions,
+  ...clayToolDefinitions,
 ];
 
 // ---------- Executor ----------
@@ -82,6 +85,8 @@ export async function executeIntegrationActionTool(
       return pushToPhoneBurner(supabase, args, userId);
     case 'send_document':
       return sendDocument(supabase, args, userId);
+    case 'clay_find_email':
+      return clayFindEmail(supabase, args, userId);
     // Backward compatibility aliases for old tool names
     case 'enrich_buyer_contacts':
       return enrichBuyerContacts(supabase, args, userId);
