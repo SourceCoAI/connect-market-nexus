@@ -185,18 +185,6 @@ export function useValuationLeadsQueries() {
     totalCount: engineTotal,
   } = useFilterEngine(leads ?? [], VALUATION_LEAD_FIELDS);
 
-  // Default filter: "Website is not empty"
-  useEffect(() => {
-    if (filterState.rules.length === 0) {
-      setFilterState((prev) => ({
-        ...prev,
-        conjunction: 'and',
-        rules: [
-          { id: 'default-website-filter', field: 'website', operator: 'is_not_empty', value: '' },
-        ],
-      }));
-    }
-  }, [filterState.rules.length, setFilterState]);
 
   // Apply tab + timeframe on top of engine-filtered results, then sort
   const filteredLeads = useMemo(() => {
