@@ -224,6 +224,33 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_view_state: {
+        Row: {
+          admin_id: string
+          created_at: string | null
+          id: string
+          last_viewed_at: string
+          updated_at: string | null
+          view_type: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string | null
+          id?: string
+          last_viewed_at?: string
+          updated_at?: string | null
+          view_type: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string | null
+          id?: string
+          last_viewed_at?: string
+          updated_at?: string | null
+          view_type?: string
+        }
+        Relationships: []
+      }
       agreement_audit_log: {
         Row: {
           agreement_type: string
@@ -5943,6 +5970,7 @@ export type Database = {
       }
       global_activity_queue: {
         Row: {
+          actor_id: string | null
           classification: string
           completed_at: string | null
           completed_items: number
@@ -5950,16 +5978,23 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          entity_id: string | null
+          entity_type: string | null
           error_log: Json | null
+          error_message: string | null
+          event_type: string
           failed_items: number
           id: string
           operation_type: string
+          processed_at: string | null
+          processor: string | null
           queued_at: string
           started_at: string | null
           status: string
           total_items: number
         }
         Insert: {
+          actor_id?: string | null
           classification?: string
           completed_at?: string | null
           completed_items?: number
@@ -5967,16 +6002,23 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
           error_log?: Json | null
+          error_message?: string | null
+          event_type?: string
           failed_items?: number
           id?: string
           operation_type: string
+          processed_at?: string | null
+          processor?: string | null
           queued_at?: string
           started_at?: string | null
           status?: string
           total_items?: number
         }
         Update: {
+          actor_id?: string | null
           classification?: string
           completed_at?: string | null
           completed_items?: number
@@ -5984,10 +6026,16 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
           error_log?: Json | null
+          error_message?: string | null
+          event_type?: string
           failed_items?: number
           id?: string
           operation_type?: string
+          processed_at?: string | null
+          processor?: string | null
           queued_at?: string
           started_at?: string | null
           status?: string
@@ -10894,6 +10942,102 @@ export type Database = {
       }
     }
     Views: {
+      admin_connection_requests_views_v2: {
+        Row: {
+          admin_id: string | null
+          created_at: string | null
+          id: string | null
+          last_viewed_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          last_viewed_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          last_viewed_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      admin_deal_sourcing_views_v2: {
+        Row: {
+          admin_id: string | null
+          created_at: string | null
+          id: string | null
+          last_viewed_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          last_viewed_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          last_viewed_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      admin_owner_leads_views_v2: {
+        Row: {
+          admin_id: string | null
+          created_at: string | null
+          id: string | null
+          last_viewed_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          last_viewed_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          last_viewed_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      admin_users_views_v2: {
+        Row: {
+          admin_id: string | null
+          created_at: string | null
+          id: string | null
+          last_viewed_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          last_viewed_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          last_viewed_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       buyer_introduction_summary: {
         Row: {
           company_name: string | null
@@ -11628,6 +11772,43 @@ export type Database = {
           score_count: number
         }[]
       }
+      claim_events: {
+        Args: {
+          p_batch_size?: number
+          p_event_type: string
+          p_processor: string
+        }
+        Returns: {
+          actor_id: string | null
+          classification: string
+          completed_at: string | null
+          completed_items: number
+          context_json: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          entity_id: string | null
+          entity_type: string | null
+          error_log: Json | null
+          error_message: string | null
+          event_type: string
+          failed_items: number
+          id: string
+          operation_type: string
+          processed_at: string | null
+          processor: string | null
+          queued_at: string
+          started_at: string | null
+          status: string
+          total_items: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "global_activity_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       cleanup_old_notifications: { Args: never; Returns: undefined }
       cleanup_zombie_extractions: { Args: never; Returns: number }
       complete_enrichment_job: {
@@ -11636,6 +11817,10 @@ export type Database = {
       }
       convert_inbound_lead_to_request: {
         Args: { p_lead_id: string; p_listing_id: string }
+        Returns: string
+      }
+      create_pipeline_deal: {
+        Args: { p_connection_request_id: string }
         Returns: string
       }
       decrement_provider_concurrent: {
@@ -11651,6 +11836,16 @@ export type Database = {
         Returns: boolean
       }
       demote_admin_user: { Args: { target_user_id: string }; Returns: boolean }
+      emit_event: {
+        Args: {
+          p_actor_id?: string
+          p_entity_id?: string
+          p_entity_type?: string
+          p_event_type: string
+          p_metadata?: Json
+        }
+        Returns: string
+      }
       enhanced_merge_or_create_connection_request: {
         Args: {
           p_lead_company?: string
@@ -12279,6 +12474,10 @@ export type Database = {
         Args: { event_type: string; metadata?: Json; user_id?: string }
         Returns: undefined
       }
+      mark_event_failed: {
+        Args: { p_error_message: string; p_event_id: string }
+        Returns: undefined
+      }
       mark_overdue_standup_tasks: { Args: never; Returns: number }
       match_deal_alerts_with_listing: {
         Args: { listing_data: Json }
@@ -12425,6 +12624,14 @@ export type Database = {
       try_acquire_queue_processor_lock: {
         Args: { p_queue_name: string }
         Returns: boolean
+      }
+      update_agreement_status: {
+        Args: {
+          p_field: string
+          p_firm_agreement_id: string
+          p_new_status: string
+        }
+        Returns: undefined
       }
       update_agreement_via_user: {
         Args: {

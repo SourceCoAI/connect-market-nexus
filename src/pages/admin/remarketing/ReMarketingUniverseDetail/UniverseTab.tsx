@@ -345,6 +345,39 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
                   )}
                   Score All Deals
                 </Button>
+                {selectedDealIds.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      setIsRemovingSelectedDeals(true);
+                      try {
+                        await supabase
+                          .from('remarketing_universe_deals')
+                          .update({ status: 'archived' })
+                          .in('id', selectedDealIds);
+                        toast.success(
+                          `Removed ${selectedDealIds.length} deal${selectedDealIds.length > 1 ? 's' : ''} from universe`,
+                        );
+                        setSelectedDealIds([]);
+                        refetchDeals();
+                      } catch (error) {
+                        toast.error('Failed to remove deals');
+                      } finally {
+                        setIsRemovingSelectedDeals(false);
+                      }
+                    }}
+                    disabled={isRemovingSelectedDeals}
+                    className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                  >
+                    {isRemovingSelectedDeals ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 mr-2" />
+                    )}
+                    Remove Selected{` (${selectedDealIds.length})`}
+                  </Button>
+                )}
                 {dealQueueProgress.isEnriching || dealQueueProgress.isPaused ? (
                   <Button variant="destructive" size="sm" onClick={cancelDealQueueEnrichment}>
                     Cancel Enrichment
@@ -453,41 +486,6 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
           </CardContent>
         </Card>
 
-        {/* Bulk remove selected deals */}
-        {selectedDealIds.length > 0 && (
-          <div className="fixed bottom-6 right-6 z-50">
-            <Button
-              variant="outline"
-              onClick={async () => {
-                setIsRemovingSelectedDeals(true);
-                try {
-                  await supabase
-                    .from('remarketing_universe_deals')
-                    .update({ status: 'archived' })
-                    .in('id', selectedDealIds);
-                  toast.success(
-                    `Removed ${selectedDealIds.length} deal${selectedDealIds.length > 1 ? 's' : ''} from universe`,
-                  );
-                  setSelectedDealIds([]);
-                  refetchDeals();
-                } catch (error) {
-                  toast.error('Failed to remove deals');
-                } finally {
-                  setIsRemovingSelectedDeals(false);
-                }
-              }}
-              disabled={isRemovingSelectedDeals}
-              className="bg-background/95 backdrop-blur border shadow-sm text-destructive border-destructive/30 hover:bg-destructive/10"
-            >
-              {isRemovingSelectedDeals ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4 mr-2" />
-              )}
-              Remove Selected{` (${selectedDealIds.length})`}
-            </Button>
-          </div>
-        )}
       </TabsContent>
     </Tabs>
   );
