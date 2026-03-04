@@ -25,7 +25,7 @@ function RouteErrorBoundary({ name, children }: { name: string; children: ReactN
             operation: 'route render',
             metadata: { componentStack: errorInfo.componentStack },
           },
-          'error',
+          'high',
         );
       }}
       showDetails={import.meta.env.DEV}

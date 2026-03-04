@@ -378,6 +378,7 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
               pe_firm_id: buyer.pe_firm_id,
               acquisition_appetite: buyer.acquisition_appetite,
               company_website: buyer.company_website,
+              is_publicly_traded: buyer.is_publicly_traded ?? null,
             },
           },
           {

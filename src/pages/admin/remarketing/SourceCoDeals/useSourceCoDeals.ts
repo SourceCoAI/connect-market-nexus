@@ -140,7 +140,7 @@ export function useSourceCoDeals() {
         if (error) throw error;
 
         if (data && data.length > 0) {
-          allData.push(...(data as SourceCoDeal[]));
+          allData.push(...(data as unknown as SourceCoDeal[]));
           offset += batchSize;
           hasMore = data.length === batchSize;
         } else {

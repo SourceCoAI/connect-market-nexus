@@ -20,8 +20,8 @@ export function WebhookDeliveryLog({ webhookConfigId }: WebhookDeliveryLogProps)
   const { data: deliveries = [], isLoading } = useQuery({
     queryKey: ['webhook-deliveries', webhookConfigId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('webhook_deliveries')
+      const { data, error } = await (supabase
+        .from('webhook_deliveries' as any) as any)
         .select('*')
         .eq('webhook_config_id', webhookConfigId)
         .order('created_at', { ascending: false })

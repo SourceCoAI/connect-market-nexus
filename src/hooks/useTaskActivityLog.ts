@@ -15,8 +15,8 @@ export function useTaskActivityLog(taskId: string | null) {
     queryKey: [ACTIVITY_LOG_KEY, taskId],
     enabled: !!taskId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('rm_task_activity_log')
+      const { data, error } = await (supabase
+        .from('rm_task_activity_log' as any) as any)
         .select(
           `
           *,

@@ -411,7 +411,7 @@ export async function writeAuditLog(entry: {
   newData?: Record<string, unknown>;
 }): Promise<DatabaseResult<unknown>> {
   return safeQuery(async () => {
-    return supabase.from('audit_log').insert({
+    return (supabase.from('audit_log' as any) as any).insert({
       table_name: entry.tableName,
       record_id: entry.recordId ?? null,
       action: entry.action,
