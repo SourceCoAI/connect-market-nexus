@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -434,6 +435,17 @@ export default function ValuationLeads() {
 
       {/* Upload Dialog */}
       <ValuationLeadUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} />
+
+      {/* Lead Detail Drawer */}
+      <ValuationLeadDetailDrawer
+        lead={detailLead}
+        open={!!detailLead}
+        onOpenChange={(open) => { if (!open) setDetailLead(null); }}
+        onPushToDeals={handlePushToAllDeals}
+        onMarkNotFit={handleMarkNotFit}
+        onViewDeal={(listingId) => navigate('/admin/deals/' + listingId, { state: { from: '/admin/remarketing/leads/valuation' } })}
+        isPushing={isPushing}
+      />
 
       {/* Leads Table */}
       <ValuationLeadsTable
