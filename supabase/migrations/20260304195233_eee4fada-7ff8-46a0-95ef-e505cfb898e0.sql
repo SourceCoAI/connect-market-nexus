@@ -1,0 +1,1 @@
+ALTER TABLE valuation_leads DROP CONSTRAINT IF EXISTS chk_calculator_type;

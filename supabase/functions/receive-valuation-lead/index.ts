@@ -154,99 +154,121 @@ serve(async (req: Request) => {
       .eq("excluded", false)
       .maybeSingle();
 
-    let vlError: { message: string } | null = null;
+    // ─── Try structured upsert, fall back to minimal safe insert ──
+    try {
+      let vlError: { message: string } | null = null;
 
-    if (existing) {
-      // ─── MERGE logic: preserve first-touch data, augment with new submission ──
-      const isUpgrade = leadSource === "full_report" && existing.lead_source === "initial_unlock";
+      if (existing) {
+        // ─── MERGE logic: preserve first-touch data, augment with new submission ──
+        const isUpgrade = leadSource === "full_report" && existing.lead_source === "initial_unlock";
 
-      const updatePayload: Record<string, unknown> = {
-        // Always update with latest data
-        full_name,
-        website: website ?? null,
-        business_name: businessNameFromDomain(website) ?? null,
-        industry: serviceType ?? null,
-        region: region ?? null,
-        location: locationStr,
-        revenue,
-        ebitda,
-        valuation_low: toNum(businessValue?.low),
-        valuation_mid: toNum(businessValue?.mid),
-        valuation_high: toNum(businessValue?.high),
-        quality_tier: (vr?.tier as string) ?? null,
-        quality_label: qualityLabel?.label ?? null,
-        buyer_lane: buyerLane?.title ?? null,
-        growth_trend: growthTrend,
-        owner_dependency: ownerDependency,
-        locations_count: locationsCount,
-        raw_calculator_inputs: calculator_inputs,
-        raw_valuation_results: valuation_result,
-        calculator_specific_data: propertyValue ? { propertyValue } : {},
-        submission_count: (existing.submission_count ?? 1) + 1,
-        updated_at: now,
-      };
+        const updatePayload: Record<string, unknown> = {
+          full_name,
+          website: website ?? null,
+          business_name: businessNameFromDomain(website) ?? null,
+          industry: serviceType ?? null,
+          region: region ?? null,
+          location: locationStr,
+          revenue,
+          ebitda,
+          valuation_low: toNum(businessValue?.low),
+          valuation_mid: toNum(businessValue?.mid),
+          valuation_high: toNum(businessValue?.high),
+          quality_tier: (vr?.tier as string) ?? null,
+          quality_label: qualityLabel?.label ?? null,
+          buyer_lane: buyerLane?.title ?? null,
+          growth_trend: growthTrend,
+          owner_dependency: ownerDependency,
+          locations_count: locationsCount,
+          raw_calculator_inputs: calculator_inputs,
+          raw_valuation_results: valuation_result,
+          calculator_specific_data: propertyValue ? { propertyValue } : {},
+          submission_count: (existing.submission_count ?? 1) + 1,
+          updated_at: now,
+        };
 
-      if (isUpgrade) {
-        // Upgrading from initial_unlock → full_report
-        updatePayload.lead_source = "full_report";
-        updatePayload.initial_unlock_at = existing.created_at; // preserve first touch
+        if (isUpgrade) {
+          updatePayload.lead_source = "full_report";
+          updatePayload.initial_unlock_at = existing.created_at;
+        } else {
+          updatePayload.lead_source = leadSource;
+        }
+
+        const { error } = await supabaseAdmin
+          .from("valuation_leads")
+          .update(updatePayload)
+          .eq("id", existing.id);
+        vlError = error;
       } else {
-        // Same source re-submission — keep existing lead_source
-        updatePayload.lead_source = leadSource;
+        const insertPayload = {
+          calculator_type: calculatorType,
+          full_name,
+          email,
+          website: website ?? null,
+          business_name: businessNameFromDomain(website) ?? null,
+          industry: serviceType ?? null,
+          region: region ?? null,
+          location: locationStr,
+          revenue,
+          ebitda,
+          valuation_low: toNum(businessValue?.low),
+          valuation_mid: toNum(businessValue?.mid),
+          valuation_high: toNum(businessValue?.high),
+          quality_tier: (vr?.tier as string) ?? null,
+          quality_label: qualityLabel?.label ?? null,
+          buyer_lane: buyerLane?.title ?? null,
+          growth_trend: growthTrend,
+          owner_dependency: ownerDependency,
+          locations_count: locationsCount,
+          lead_source: leadSource,
+          source_submission_id: body.external_lead_id ?? null,
+          raw_calculator_inputs: calculator_inputs,
+          raw_valuation_results: valuation_result,
+          calculator_specific_data: propertyValue ? { propertyValue } : {},
+          submission_count: 1,
+          updated_at: now,
+        };
+
+        const { error } = await supabaseAdmin
+          .from("valuation_leads")
+          .insert(insertPayload);
+        vlError = error;
       }
 
-      const { error } = await supabaseAdmin
-        .from("valuation_leads")
-        .update(updatePayload)
-        .eq("id", existing.id);
-      vlError = error;
-    } else {
-      // ─── New lead insert ──
-      const insertPayload = {
-        calculator_type: calculatorType,
-        full_name,
-        email,
-        website: website ?? null,
-        business_name: businessNameFromDomain(website) ?? null,
-        industry: serviceType ?? null,
-        region: region ?? null,
-        location: locationStr,
-        revenue,
-        ebitda,
-        valuation_low: toNum(businessValue?.low),
-        valuation_mid: toNum(businessValue?.mid),
-        valuation_high: toNum(businessValue?.high),
-        quality_tier: (vr?.tier as string) ?? null,
-        quality_label: qualityLabel?.label ?? null,
-        buyer_lane: buyerLane?.title ?? null,
-        growth_trend: growthTrend,
-        owner_dependency: ownerDependency,
-        locations_count: locationsCount,
-        lead_source: leadSource,
-        source_submission_id: body.external_lead_id ?? null,
-        raw_calculator_inputs: calculator_inputs,
-        raw_valuation_results: valuation_result,
-        calculator_specific_data: propertyValue ? { propertyValue } : {},
-        submission_count: 1,
-        updated_at: now,
-      };
+      if (vlError) {
+        throw new Error(`Structured insert failed: ${vlError.message}`);
+      }
 
-      const { error } = await supabaseAdmin
-        .from("valuation_leads")
-        .insert(insertPayload);
-      vlError = error;
+      console.log(`Lead ingested: ${email} → incoming_leads + valuation_leads (${calculatorType}, source=${leadSource}, existing=${!!existing})`);
+    } catch (structuredErr) {
+      // ─── FALLBACK: minimal safe insert so the lead is NEVER lost ──
+      console.error("Structured valuation_leads insert failed, attempting minimal fallback:", structuredErr);
+
+      try {
+        const { error: fallbackErr } = await supabaseAdmin
+          .from("valuation_leads")
+          .upsert({
+            email,
+            full_name,
+            calculator_type: calculatorType || "unknown",
+            lead_source: leadSource,
+            raw_calculator_inputs: calculator_inputs,
+            raw_valuation_results: valuation_result,
+            updated_at: now,
+          }, { onConflict: "email,calculator_type" });
+
+        if (fallbackErr) {
+          console.error("Minimal fallback also failed:", fallbackErr);
+          // Still return 200 — incoming_leads has the data
+        } else {
+          console.log(`Lead saved via FALLBACK: ${email} → valuation_leads (minimal, type=${calculatorType})`);
+        }
+      } catch (fallbackCatchErr) {
+        console.error("Fallback catch error:", fallbackCatchErr);
+      }
     }
 
-    if (vlError) {
-      console.error("valuation_leads sync error:", vlError);
-      return new Response(
-        JSON.stringify({ error: "Lead saved to staging but failed to sync to valuation_leads", detail: vlError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    console.log(`Lead ingested: ${email} → incoming_leads + valuation_leads (${calculatorType}, source=${leadSource}, existing=${!!existing})`);
-
+    // Always return 200 — incoming_leads is the source of truth backup
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
