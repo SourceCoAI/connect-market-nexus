@@ -70,8 +70,10 @@ export function AddBuyerIntroductionDialog({
     queryKey: ['remarketing-buyers-intro-search'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('remarketing_buyers')
-        .select('id, company_name, company_website, buyer_type, pe_firm_name, hq_state, hq_city, is_publicly_traded')
+        .from('buyers')
+        .select(
+          'id, company_name, company_website, buyer_type, pe_firm_name, hq_state, hq_city, is_publicly_traded',
+        )
         .eq('archived', false)
         .order('company_name')
         .limit(5000);
@@ -89,9 +91,8 @@ export function AddBuyerIntroductionDialog({
       const typeParts: string[] = [];
       if (b.buyer_type) typeParts.push(b.buyer_type.replace(/_/g, ' '));
       if (b.is_publicly_traded) typeParts.push('Public');
-      const label = typeParts.length > 0
-        ? `${b.company_name} (${typeParts.join(' · ')})`
-        : b.company_name;
+      const label =
+        typeParts.length > 0 ? `${b.company_name} (${typeParts.join(' · ')})` : b.company_name;
 
       // Secondary description: PE firm and location on a separate line
       const descParts: string[] = [];
@@ -104,7 +105,14 @@ export function AddBuyerIntroductionDialog({
         value: b.id,
         label,
         description,
-        searchTerms: [b.company_name, b.buyer_type?.replace(/_/g, ' '), b.pe_firm_name, b.hq_state, b.hq_city, b.company_website]
+        searchTerms: [
+          b.company_name,
+          b.buyer_type?.replace(/_/g, ' '),
+          b.pe_firm_name,
+          b.hq_state,
+          b.hq_city,
+          b.company_website,
+        ]
           .filter(Boolean)
           .join(' ')
           .toLowerCase(),

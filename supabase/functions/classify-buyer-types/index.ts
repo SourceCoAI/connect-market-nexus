@@ -18,8 +18,12 @@ import { callClaude, CLAUDE_MODELS } from '../_shared/claude-client.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 
 const VALID_TYPES = new Set([
-  'private_equity', 'corporate', 'family_office',
-  'search_fund', 'independent_sponsor', 'individual_buyer',
+  'private_equity',
+  'corporate',
+  'family_office',
+  'search_fund',
+  'independent_sponsor',
+  'individual_buyer',
 ]);
 
 const SYSTEM_PROMPT = `You are a senior M&A analyst at a lower-middle market investment bank. Classify buyers into exactly one of six categories.
@@ -68,8 +72,10 @@ Deno.serve(async (req: Request) => {
 
     // Fetch buyers that need classification
     let query = supabase
-      .from('remarketing_buyers')
-      .select('id, company_name, pe_firm_name, thesis_summary, company_website, buyer_type, buyer_type_source')
+      .from('buyers')
+      .select(
+        'id, company_name, pe_firm_name, thesis_summary, company_website, buyer_type, buyer_type_source',
+      )
       .eq('archived', false)
       .order('created_at', { ascending: true })
       .range(offset, offset + batchSize - 1);
@@ -81,23 +87,32 @@ Deno.serve(async (req: Request) => {
     const { data: buyers, error: fetchError } = await query;
 
     if (fetchError) {
-      return new Response(JSON.stringify({ error: 'Failed to fetch buyers', details: fetchError.message }), {
-        status: 500, headers: { ...headers, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch buyers', details: fetchError.message }),
+        {
+          status: 500,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     if (!buyers || buyers.length === 0) {
-      return new Response(JSON.stringify({ message: 'No more buyers to classify', classified: 0 }), {
-        headers: { ...headers, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ message: 'No more buyers to classify', classified: 0 }),
+        {
+          headers: { ...headers, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
-    const buyerList = buyers.map(b => ({
+    const buyerList = buyers.map((b) => ({
       id: b.id,
       company_name: b.company_name,
       pe_firm_name: b.pe_firm_name || null,
       thesis_snippet: (b.thesis_summary || '').slice(0, 200),
-      website_domain: b.company_website ? b.company_website.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] : null,
+      website_domain: b.company_website
+        ? b.company_website.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]
+        : null,
       current_type: b.buyer_type || 'unclassified',
     }));
 
@@ -116,7 +131,10 @@ Deno.serve(async (req: Request) => {
       .map((b: { text: string }) => b.text)
       .join('');
 
-    let cleaned = responseText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    let cleaned = responseText
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*/g, '')
+      .trim();
     const start = cleaned.indexOf('[');
     const end = cleaned.lastIndexOf(']');
     if (start >= 0 && end > start) cleaned = cleaned.substring(start, end + 1);
@@ -148,8 +166,11 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      const buyer = buyers.find(b => b.id === classification.id);
-      if (!buyer) { skipped++; continue; }
+      const buyer = buyers.find((b) => b.id === classification.id);
+      if (!buyer) {
+        skipped++;
+        continue;
+      }
 
       // Never auto-overwrite admin manual classifications
       if (buyer.buyer_type_source === 'admin_manual') {
@@ -203,7 +224,7 @@ Deno.serve(async (req: Request) => {
         }
 
         const { error: updateError } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .update(updateData)
           .eq('id', classification.id);
 
@@ -217,24 +238,30 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return new Response(JSON.stringify({
-      auto_applied: autoApplied,
-      staged_for_review: stagedForReview,
-      skipped,
-      total_in_batch: buyers.length,
-      offset,
-      next_offset: offset + batchSize,
-      dry_run: dryRun,
-      results,
-      usage: claudeResponse.usage,
-    }), {
-      headers: { ...headers, 'Content-Type': 'application/json' },
-    });
-
+    return new Response(
+      JSON.stringify({
+        auto_applied: autoApplied,
+        staged_for_review: stagedForReview,
+        skipped,
+        total_in_batch: buyers.length,
+        offset,
+        next_offset: offset + batchSize,
+        dry_run: dryRun,
+        results,
+        usage: claudeResponse.usage,
+      }),
+      {
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      },
+    );
   } catch (error) {
     console.error('classify-buyer-types error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error', details: String(error) }), {
-      status: 500, headers: { ...headers, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ error: 'Internal server error', details: String(error) }),
+      {
+        status: 500,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      },
+    );
   }
 });

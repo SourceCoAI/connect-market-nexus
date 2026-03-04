@@ -27,10 +27,13 @@ export default function EmailCapture({ listingId }: EmailCaptureProps) {
         setIsDismissed(true);
         return;
       }
-    } catch {}
+    } catch {
+      /* ignore storage errors */
+    }
 
     const handleScroll = () => {
-      const scrollPercent = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+      const scrollPercent =
+        (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
       if (scrollPercent > 60 && !isDismissed && !isSubmitted) {
         setIsVisible(true);
       }
@@ -43,7 +46,11 @@ export default function EmailCapture({ listingId }: EmailCaptureProps) {
   const handleDismiss = () => {
     setIsDismissed(true);
     setIsVisible(false);
-    try { sessionStorage.setItem('sourceco_email_capture_dismissed', 'true'); } catch {}
+    try {
+      sessionStorage.setItem('sourceco_email_capture_dismissed', 'true');
+    } catch {
+      /* ignore */
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -62,7 +69,11 @@ export default function EmailCapture({ listingId }: EmailCaptureProps) {
         source: 'landing_page_email_capture',
       });
       setIsSubmitted(true);
-      try { sessionStorage.setItem('sourceco_email_capture_dismissed', 'true'); } catch {}
+      try {
+        sessionStorage.setItem('sourceco_email_capture_dismissed', 'true');
+      } catch {
+        /* ignore */
+      }
     } catch {
       // Silently fail — non-critical
     } finally {

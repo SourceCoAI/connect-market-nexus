@@ -187,20 +187,20 @@ export function buildEdgeFunctionTests(): TestDef[] {
     await tableReadable('buyer_seed_cache');
   });
 
-  add(C16, 'remarketing_buyers has ai_seeded column', async () => {
-    await columnExists('remarketing_buyers', 'ai_seeded');
+  add(C16, 'buyers has ai_seeded column', async () => {
+    await columnExists('buyers', 'ai_seeded');
   });
 
-  add(C16, 'remarketing_buyers has ai_seeded_at column', async () => {
-    await columnExists('remarketing_buyers', 'ai_seeded_at');
+  add(C16, 'buyers has ai_seeded_at column', async () => {
+    await columnExists('buyers', 'ai_seeded_at');
   });
 
-  add(C16, 'remarketing_buyers has ai_seeded_from_deal_id column', async () => {
-    await columnExists('remarketing_buyers', 'ai_seeded_from_deal_id');
+  add(C16, 'buyers has ai_seeded_from_deal_id column', async () => {
+    await columnExists('buyers', 'ai_seeded_from_deal_id');
   });
 
-  add(C16, 'remarketing_buyers has verification_status column', async () => {
-    await columnExists('remarketing_buyers', 'verification_status');
+  add(C16, 'buyers has verification_status column', async () => {
+    await columnExists('buyers', 'verification_status');
   });
 
   add(C16, 'buyer_seed_log has required columns', async () => {
@@ -255,7 +255,7 @@ export function buildEdgeFunctionTests(): TestDef[] {
 
   add(C16, 'AI-seeded buyers have valid metadata', async () => {
     const { data, error } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select(
         'id, company_name, ai_seeded, ai_seeded_at, ai_seeded_from_deal_id, verification_status',
       )
@@ -284,7 +284,7 @@ export function buildEdgeFunctionTests(): TestDef[] {
 
     const buyerIds = [...new Set(logs.map((l) => l.remarketing_buyer_id))];
     const { data: buyers, error: buyerError } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('id')
       .in('id', buyerIds.slice(0, 30));
     if (buyerError) throw new Error(buyerError.message);
@@ -338,9 +338,13 @@ export function buildEdgeFunctionTests(): TestDef[] {
           const ctx = (error as { context: Response }).context;
           if (ctx && typeof ctx.json === 'function') {
             const body = await ctx.json();
-            msg = body?.error ? `${body.error}${body.details ? `: ${body.details}` : ''}` : JSON.stringify(body);
+            msg = body?.error
+              ? `${body.error}${body.details ? `: ${body.details}` : ''}`
+              : JSON.stringify(body);
           }
-        } catch { /* fall through */ }
+        } catch {
+          /* fall through */
+        }
       }
       if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
         throw new Error(`Network failure calling score-deal-buyers: ${msg}`);
@@ -368,11 +372,7 @@ export function buildEdgeFunctionTests(): TestDef[] {
   // --- Seed engine functional test ---
   add(C16, 'seed-buyers returns valid response for real deal', async (ctx) => {
     if (!ctx.testDealId) {
-      const { data: listing } = await supabase
-        .from('listings')
-        .select('id')
-        .limit(1)
-        .single();
+      const { data: listing } = await supabase.from('listings').select('id').limit(1).single();
       if (!listing) throw new Error('No listings found to test seeding');
       ctx.testDealId = listing.id;
     }
@@ -387,9 +387,13 @@ export function buildEdgeFunctionTests(): TestDef[] {
           const ctx = (error as { context: Response }).context;
           if (ctx && typeof ctx.json === 'function') {
             const body = await ctx.json();
-            msg = body?.error ? `${body.error}${body.details ? `: ${body.details}` : ''}` : JSON.stringify(body);
+            msg = body?.error
+              ? `${body.error}${body.details ? `: ${body.details}` : ''}`
+              : JSON.stringify(body);
           }
-        } catch { /* fall through */ }
+        } catch {
+          /* fall through */
+        }
       }
       if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
         throw new Error(`Network failure calling seed-buyers: ${msg}`);
@@ -425,10 +429,10 @@ export function buildEdgeFunctionTests(): TestDef[] {
     console.log(`Seed log entries for test deal: ${data?.length || 0}`);
   });
 
-  add(C16, 'AI-seeded buyers are in remarketing_buyers table', async (ctx) => {
+  add(C16, 'AI-seeded buyers are in buyers table', async (ctx) => {
     if (!ctx.testDealId) return;
     const { data, error } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('id, company_name, ai_seeded, verification_status')
       .eq('ai_seeded', true)
       .eq('ai_seeded_from_deal_id', ctx.testDealId)
@@ -441,7 +445,6 @@ export function buildEdgeFunctionTests(): TestDef[] {
       }
     }
   });
-
 
   return tests;
 }

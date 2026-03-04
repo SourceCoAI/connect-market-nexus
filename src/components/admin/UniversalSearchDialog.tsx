@@ -8,7 +8,11 @@ import {
   CommandGroup,
   CommandItem,
 } from '@/components/ui/command';
-import { useUniversalSearch, getCategoryConfig, type SearchCategory } from '@/hooks/admin/use-universal-search';
+import {
+  useUniversalSearch,
+  getCategoryConfig,
+  type SearchCategory,
+} from '@/hooks/admin/use-universal-search';
 import {
   Building2,
   Briefcase,
@@ -31,7 +35,7 @@ const CATEGORY_ICONS: Record<SearchCategory, React.ReactNode> = {
   inbound_leads: <Mail className="h-4 w-4 shrink-0" />,
   owner_leads: <ClipboardList className="h-4 w-4 shrink-0" />,
   referral_partners: <Handshake className="h-4 w-4 shrink-0" />,
-  remarketing_buyers: <Users className="h-4 w-4 shrink-0" />,
+  buyers: <Users className="h-4 w-4 shrink-0" />,
 };
 
 interface UniversalSearchDialogProps {
@@ -53,7 +57,7 @@ export function UniversalSearchDialog({ open, onOpenChange }: UniversalSearchDia
       onOpenChange(false);
       navigate(href);
     },
-    [navigate, onOpenChange]
+    [navigate, onOpenChange],
   );
 
   const categoryOrder: SearchCategory[] = [
@@ -65,7 +69,7 @@ export function UniversalSearchDialog({ open, onOpenChange }: UniversalSearchDia
     'inbound_leads',
     'owner_leads',
     'referral_partners',
-    'remarketing_buyers',
+    'buyers',
   ];
 
   return (

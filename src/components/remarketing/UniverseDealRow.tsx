@@ -69,9 +69,7 @@ export const UniverseDealRow = ({
       onClick={() =>
         navigate(
           `/admin/deals/${deal.listing.id}`,
-          universeId
-            ? { state: { from: `/admin/buyers/universes/${universeId}` } }
-            : undefined,
+          universeId ? { state: { from: `/admin/buyers/universes/${universeId}` } } : undefined,
         )
       }
     >
@@ -92,9 +90,7 @@ export const UniverseDealRow = ({
           <div className="min-w-0 overflow-hidden">
             <div className="flex items-center gap-2">
               <span className="font-medium text-foreground truncate">
-                {deal.listing.internal_company_name ||
-                  deal.listing.title ||
-                  'Untitled Deal'}
+                {deal.listing.internal_company_name || deal.listing.title || 'Untitled Deal'}
               </span>
               {deal.listing.enriched_at && (
                 <Badge variant="secondary" className="text-xs px-1.5 shrink-0">
@@ -104,11 +100,13 @@ export const UniverseDealRow = ({
             </div>
             {(() => {
               const loc = getDisplayLocation(deal.listing);
-              return loc && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  <span className="truncate">{loc}</span>
-                </div>
+              return (
+                loc && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <MapPin className="h-3 w-3" />
+                    <span className="truncate">{loc}</span>
+                  </div>
+                )
               );
             })()}
           </div>
@@ -216,9 +214,7 @@ export const UniverseDealRow = ({
       </TableCell>
 
       <TableCell style={{ width: w('revenue') }} className="text-right">
-        <span className="text-sm font-medium">
-          {formatCurrency(deal.listing.revenue)}
-        </span>
+        <span className="text-sm font-medium">{formatCurrency(deal.listing.revenue)}</span>
       </TableCell>
 
       <TableCell style={{ width: w('ebitda') }} className="text-right">

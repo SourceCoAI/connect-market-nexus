@@ -76,9 +76,9 @@ export interface ServiceCriteria {
 }
 
 export interface BuyerTypesCriteria {
-  include_pe_firms?: boolean;       // private_equity buyers
-  include_platforms?: boolean;      // corporate buyers (legacy name kept for DB compat)
-  include_strategic?: boolean;      // corporate buyers (legacy alias)
+  include_pe_firms?: boolean; // private_equity buyers
+  include_platforms?: boolean; // corporate buyers (legacy name kept for DB compat)
+  include_strategic?: boolean; // corporate buyers (legacy alias)
   include_family_office?: boolean;
   include_independent_sponsors?: boolean;
   include_search_funds?: boolean;
@@ -120,23 +120,23 @@ export interface ScoringBehavior {
   require_thesis_match?: boolean;
   // Industry preset
   industry_preset?: 'collision_repair' | 'software' | 'hvac' | 'pest_control' | 'custom';
-  
+
   // Geography Scoring
   geography_strictness?: 'strict' | 'moderate' | 'flexible';
   single_location_matching?: 'exact_state' | 'adjacent_states' | 'same_region';
   multi_location_matching?: 'same_region' | 'national' | 'any';
   allow_national_buyers?: boolean;
-  
+
   // Size/Revenue Scoring
   size_strictness?: 'strict' | 'moderate' | 'flexible';
   below_minimum_handling?: 'disqualify' | 'penalize' | 'allow';
   penalize_single_location?: boolean;
-  
+
   // Service Matching
   service_matching_mode?: 'keyword' | 'semantic' | 'hybrid';
   require_primary_focus?: boolean;
   excluded_services_dealbreaker?: boolean;
-  
+
   // Engagement Overrides
   can_override_geography?: boolean;
   can_override_size?: boolean;
@@ -183,10 +183,13 @@ export interface DocumentReference {
   auto_generated?: boolean;
 }
 
-export type BuyerType = 'private_equity' | 'corporate' | 'family_office' | 'independent_sponsor' | 'search_fund' | 'individual_buyer';
-
-/** Legacy buyer type values that may still exist in the database before migration */
-export type LegacyBuyerType = 'pe_firm' | 'platform' | 'strategic' | 'other';
+export type BuyerType =
+  | 'private_equity'
+  | 'corporate'
+  | 'family_office'
+  | 'independent_sponsor'
+  | 'search_fund'
+  | 'individual_buyer';
 
 /** Source of the buyer_type classification */
 export type BuyerTypeSource = 'ai_auto' | 'admin_manual' | 'import' | 'signup';

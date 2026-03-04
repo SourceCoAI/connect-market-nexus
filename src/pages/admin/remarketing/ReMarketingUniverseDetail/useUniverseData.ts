@@ -115,7 +115,7 @@ export function useUniverseData() {
       if (isNew) return null;
 
       const { data, error } = await supabase
-        .from('remarketing_buyer_universes')
+        .from('buyer_universes')
         .select('*')
         .eq('id', id!)
         .single();
@@ -133,7 +133,7 @@ export function useUniverseData() {
       if (isNew) return [];
 
       const { data, error } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select(
           'id, company_name, company_website, platform_website, pe_firm_website, buyer_type, pe_firm_name, hq_city, hq_state, business_summary, thesis_summary, target_geographies, geographic_footprint, service_regions, operating_locations, alignment_score, alignment_reasoning, alignment_checked_at, has_fee_agreement',
         )
@@ -192,7 +192,7 @@ export function useUniverseData() {
         {
           event: '*',
           schema: 'public',
-          table: 'remarketing_buyers',
+          table: 'buyers',
           filter: `universe_id=eq.${id}`,
         },
         (_payload) => {
@@ -387,7 +387,7 @@ export function useUniverseData() {
 
           // Write back to database
           const { error: updateError } = await supabase
-            .from('remarketing_buyer_universes')
+            .from('buyer_universes')
             .update({ documents: updatedDocs })
             .eq('id', id);
 
@@ -424,7 +424,7 @@ export function useUniverseData() {
 
       if (isNew) {
         const { data, error } = await supabase
-          .from('remarketing_buyer_universes')
+          .from('buyer_universes')
           .insert([saveData] as never)
           .select()
           .single();
@@ -432,10 +432,7 @@ export function useUniverseData() {
         if (error) throw error;
         return data;
       } else {
-        const { error } = await supabase
-          .from('remarketing_buyer_universes')
-          .update(saveData)
-          .eq('id', id!);
+        const { error } = await supabase.from('buyer_universes').update(saveData).eq('id', id!);
 
         if (error) throw error;
       }

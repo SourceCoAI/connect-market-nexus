@@ -29,29 +29,43 @@ export default function DealLandingPage() {
       }
       localStorage.setItem('sourceco_last_deal_viewed', id);
       localStorage.setItem('sourceco_last_deal_title', deal.title);
-    } catch { /* localStorage unavailable */ }
+    } catch {
+      /* localStorage unavailable */
+    }
 
     // Record anonymous page view for this specific listing
     const sessionId = sessionStorage.getItem('sourceco_session_id') || crypto.randomUUID();
-    try { sessionStorage.setItem('sourceco_session_id', sessionId); } catch {}
+    try {
+      sessionStorage.setItem('sourceco_session_id', sessionId);
+    } catch {
+      /* ignore */
+    }
 
     // GAP J fix: Deduplicate views per session+page
     const viewKey = `sourceco_viewed_${id}`;
     try {
       if (sessionStorage.getItem(viewKey)) return; // Already tracked this page in this session
       sessionStorage.setItem(viewKey, '1');
-    } catch {}
+    } catch {
+      /* ignore */
+    }
 
     // GAP B fix: only insert columns that exist on page_views table
     // Use utm_source/utm_content to store listing context since event_type/event_data don't exist
-    supabase.from('page_views').insert({
-      session_id: sessionId,
-      page_path: `/deals/${id}`,
-      page_title: deal.title,
-      referrer: document.referrer || null,
-      utm_source: 'deal_landing_page',
-      utm_content: id,
-    }).then(() => {}, () => {});
+    supabase
+      .from('page_views')
+      .insert({
+        session_id: sessionId,
+        page_path: `/deals/${id}`,
+        page_title: deal.title,
+        referrer: document.referrer || null,
+        utm_source: 'deal_landing_page',
+        utm_content: id,
+      })
+      .then(
+        () => {},
+        () => {},
+      );
   }, [id, deal]);
 
   if (isLoading) {
@@ -96,7 +110,11 @@ export default function DealLandingPage() {
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* Mobile sidebar (above content on mobile) */}
           <div className="lg:hidden">
-            <DealSidebar executiveSummaryUrl={deal.executive_summary} listingId={deal.id} presentedByAdminId={deal.presented_by_admin_id} />
+            <DealSidebar
+              executiveSummaryUrl={deal.executive_summary}
+              listingId={deal.id}
+              presentedByAdminId={deal.presented_by_admin_id}
+            />
           </div>
 
           {/* Left column — content + form */}
@@ -110,7 +128,11 @@ export default function DealLandingPage() {
           {/* Right column — sticky sidebar (desktop) */}
           <div className="hidden lg:block lg:w-[32%]">
             <div className="sticky top-20">
-              <DealSidebar executiveSummaryUrl={deal.executive_summary} listingId={deal.id} presentedByAdminId={deal.presented_by_admin_id} />
+              <DealSidebar
+                executiveSummaryUrl={deal.executive_summary}
+                listingId={deal.id}
+                presentedByAdminId={deal.presented_by_admin_id}
+              />
             </div>
           </div>
         </div>

@@ -44,7 +44,7 @@ export function SendMemoDialog({ memo, dealId, onClose }: SendMemoDialogProps) {
     queryKey: ['buyers-for-memo-send', buyerSearch],
     queryFn: async () => {
       let query = supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('id, company_name, pe_firm_name, email_domain')
         .eq('archived', false)
         .order('company_name')

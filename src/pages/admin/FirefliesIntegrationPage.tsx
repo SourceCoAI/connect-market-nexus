@@ -56,7 +56,7 @@ function useFirefliesStats() {
 
       // Total active buyers
       const { count: totalBuyers } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('id', { count: 'exact', head: true })
         .eq('archived', false);
 
@@ -99,7 +99,7 @@ function useRecentPairings() {
     queryFn: async () => {
       const { data: recentBuyer } = await supabase
         .from('buyer_transcripts')
-        .select('id, title, call_date, created_at, buyer:remarketing_buyers(company_name)')
+        .select('id, title, call_date, created_at, buyer:buyers(company_name)')
         .order('created_at', { ascending: false })
         .limit(5);
 

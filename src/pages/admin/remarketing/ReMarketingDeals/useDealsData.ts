@@ -119,7 +119,7 @@ export function useDealsData() {
     queryKey: ['remarketing', 'universes-list'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('remarketing_buyer_universes')
+        .from('buyer_universes')
         .select('id, name')
         .eq('archived', false)
         .order('name');
@@ -134,12 +134,12 @@ export function useDealsData() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('remarketing_universe_deals')
-        .select('listing_id, universe_id, remarketing_buyer_universes(id, name)')
+        .select('listing_id, universe_id, buyer_universes(id, name)')
         .limit(5000);
       if (error) throw error;
       const map: Record<string, { id: string; name: string }[]> = {};
       data?.forEach((row) => {
-        const u = row.remarketing_buyer_universes as { id: string; name: string } | null;
+        const u = row.buyer_universes as { id: string; name: string } | null;
         if (!u || !u.name) return;
         if (!map[row.listing_id]) map[row.listing_id] = [];
         map[row.listing_id].push({ id: u.id, name: u.name });

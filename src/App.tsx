@@ -12,6 +12,28 @@ import { Toaster as SonnerToaster } from '@/components/ui/sonner';
 import { SimpleToastProvider } from '@/components/ui/simple-toast';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { errorHandler } from '@/lib/error-handler';
+
+/** Lightweight boundary for route groups — isolates crashes to the failing section */
+function RouteErrorBoundary({ name, children }: { name: string; children: ReactNode }) {
+  return (
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        errorHandler(
+          error,
+          {
+            component: name,
+            operation: 'route render',
+            metadata: { componentStack: errorInfo.componentStack },
+          },
+          'error',
+        );
+      }}
+      showDetails={import.meta.env.DEV}
+    >
+      {children}
+    </ErrorBoundary>
+  );
+}
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { RoleGate } from '@/components/admin/RoleGate';
 
@@ -99,9 +121,7 @@ const WebhooksPage = lazyWithRetry(() => import('@/pages/admin/settings/Webhooks
 const TranscriptAnalytics = lazyWithRetry(
   () => import('@/pages/admin/analytics/TranscriptAnalytics'),
 );
-const WebsiteAnalytics = lazyWithRetry(
-  () => import('@/pages/admin/analytics/WebsiteAnalytics'),
-);
+const WebsiteAnalytics = lazyWithRetry(() => import('@/pages/admin/analytics/WebsiteAnalytics'));
 const EnrichmentQueue = lazyWithRetry(() => import('@/pages/admin/EnrichmentQueue'));
 const MarketplaceQueue = lazyWithRetry(() => import('@/pages/admin/MarketplaceQueue'));
 const CreateListingFromDeal = lazyWithRetry(() => import('@/pages/admin/CreateListingFromDeal'));
@@ -260,7 +280,9 @@ function App() {
               path="/"
               element={
                 <ProtectedRoute requireApproved={true}>
-                  <MainLayout />
+                  <RouteErrorBoundary name="BuyerRoutes">
+                    <MainLayout />
+                  </RouteErrorBoundary>
                 </ProtectedRoute>
               }
             >
@@ -280,7 +302,9 @@ function App() {
               path="/admin"
               element={
                 <ProtectedRoute requireAdmin={true}>
-                  <AdminLayout />
+                  <RouteErrorBoundary name="AdminRoutes">
+                    <AdminLayout />
+                  </RouteErrorBoundary>
                 </ProtectedRoute>
               }
             >
@@ -481,7 +505,10 @@ function App() {
               <Route path="documents" element={<DocumentTrackingPage />} />
 
               {/* ANALYTICS */}
-              <Route path="analytics" element={<Navigate to="/admin/analytics/website" replace />} />
+              <Route
+                path="analytics"
+                element={<Navigate to="/admin/analytics/website" replace />}
+              />
               <Route path="analytics/website" element={<WebsiteAnalytics />} />
               <Route path="analytics/remarketing" element={<ReMarketingAnalytics />} />
               <Route path="analytics/transcripts" element={<TranscriptAnalytics />} />

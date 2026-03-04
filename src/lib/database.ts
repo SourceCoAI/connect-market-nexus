@@ -411,13 +411,13 @@ export async function writeAuditLog(entry: {
   newData?: Record<string, unknown>;
 }): Promise<DatabaseResult<unknown>> {
   return safeQuery(async () => {
-    return supabase.from('audit_log' as never).insert({
+    return supabase.from('audit_log').insert({
       table_name: entry.tableName,
       record_id: entry.recordId ?? null,
       action: entry.action,
       old_data: entry.oldData ?? null,
       new_data: entry.newData ?? null,
-    } as never);
+    });
   });
 }
 

@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
   DialogContent,
@@ -8,17 +8,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Loader2, FolderPlus } from "lucide-react";
-import { toast } from "sonner";
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Loader2, FolderPlus } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface BulkAssignUniverseDialogProps {
   open: boolean;
@@ -34,17 +34,17 @@ export function BulkAssignUniverseDialog({
   onComplete,
 }: BulkAssignUniverseDialogProps) {
   const queryClient = useQueryClient();
-  const [selectedUniverse, setSelectedUniverse] = useState("");
+  const [selectedUniverse, setSelectedUniverse] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
 
   const { data: universes } = useQuery({
-    queryKey: ["remarketing", "universes-list"],
+    queryKey: ['remarketing', 'universes-list'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("remarketing_buyer_universes")
-        .select("id, name")
-        .eq("archived", false)
-        .order("name");
+        .from('buyer_universes')
+        .select('id, name')
+        .eq('archived', false)
+        .order('name');
       if (error) throw error;
       return data || [];
     },
@@ -56,56 +56,58 @@ export function BulkAssignUniverseDialog({
     setIsAssigning(true);
 
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
       if (authError) throw authError;
 
       // Check which deals are already in this universe
       const { data: existing, error: existingError } = await supabase
-        .from("remarketing_universe_deals")
-        .select("listing_id")
-        .eq("universe_id", selectedUniverse)
-        .eq("status", "active")
-        .in("listing_id", dealIds);
+        .from('remarketing_universe_deals')
+        .select('listing_id')
+        .eq('universe_id', selectedUniverse)
+        .eq('status', 'active')
+        .in('listing_id', dealIds);
       if (existingError) throw existingError;
 
-      const existingIds = new Set((existing || []).map(e => e.listing_id));
-      const newDealIds = dealIds.filter(id => !existingIds.has(id));
+      const existingIds = new Set((existing || []).map((e) => e.listing_id));
+      const newDealIds = dealIds.filter((id) => !existingIds.has(id));
 
       if (newDealIds.length === 0) {
-        toast.info("All selected deals are already in this universe.");
+        toast.info('All selected deals are already in this universe.');
         setIsAssigning(false);
         return;
       }
 
-      const rows = newDealIds.map(dealId => ({
+      const rows = newDealIds.map((dealId) => ({
         universe_id: selectedUniverse,
         listing_id: dealId,
         added_by: user?.id,
-        status: "active" as const,
+        status: 'active' as const,
       }));
 
-      const { error } = await supabase
-        .from("remarketing_universe_deals")
-        .insert(rows);
+      const { error } = await supabase.from('remarketing_universe_deals').insert(rows);
 
       if (error) throw error;
 
       const skipped = dealIds.length - newDealIds.length;
-      const msg = skipped > 0
-        ? `Added ${newDealIds.length} deal(s) to universe (${skipped} already existed)`
-        : `Added ${newDealIds.length} deal(s) to universe`;
+      const msg =
+        skipped > 0
+          ? `Added ${newDealIds.length} deal(s) to universe (${skipped} already existed)`
+          : `Added ${newDealIds.length} deal(s) to universe`;
       toast.success(msg);
 
       // Queue background scoring for all new deals
-      const { queueDealScoring } = await import("@/lib/remarketing/queueScoring");
+      const { queueDealScoring } = await import('@/lib/remarketing/queueScoring');
       await queueDealScoring({ universeId: selectedUniverse, listingIds: newDealIds });
 
-      queryClient.invalidateQueries({ queryKey: ["remarketing"] });
-      setSelectedUniverse("");
+      queryClient.invalidateQueries({ queryKey: ['remarketing'] });
+      setSelectedUniverse('');
       onOpenChange(false);
       onComplete();
     } catch (err) {
-      toast.error("Failed to assign deals to universe");
+      toast.error('Failed to assign deals to universe');
     } finally {
       setIsAssigning(false);
     }
@@ -117,7 +119,8 @@ export function BulkAssignUniverseDialog({
         <DialogHeader>
           <DialogTitle>Send to Buyer Universe</DialogTitle>
           <DialogDescription>
-            Add {dealIds.length} selected deal{dealIds.length > 1 ? "s" : ""} to a buyer universe for matching and outreach.
+            Add {dealIds.length} selected deal{dealIds.length > 1 ? 's' : ''} to a buyer universe
+            for matching and outreach.
           </DialogDescription>
         </DialogHeader>
 
@@ -127,7 +130,7 @@ export function BulkAssignUniverseDialog({
               <SelectValue placeholder="Select a universe..." />
             </SelectTrigger>
             <SelectContent>
-              {universes?.map(u => (
+              {universes?.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.name}
                 </SelectItem>

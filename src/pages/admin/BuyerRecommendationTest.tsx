@@ -157,13 +157,19 @@ export default function BuyerRecommendationTest() {
       setScoreResult(data);
       setScoreBuyers(data.buyers || []);
 
-      const moveNow = (data.buyers || []).filter((b: { tier: string }) => b.tier === 'move_now').length;
-      const strong = (data.buyers || []).filter((b: { tier: string }) => b.tier === 'strong').length;
-      const spec = (data.buyers || []).filter((b: { tier: string }) => b.tier === 'speculative').length;
+      const moveNow = (data.buyers || []).filter(
+        (b: { tier: string }) => b.tier === 'move_now',
+      ).length;
+      const strong = (data.buyers || []).filter(
+        (b: { tier: string }) => b.tier === 'strong',
+      ).length;
+      const spec = (data.buyers || []).filter(
+        (b: { tier: string }) => b.tier === 'speculative',
+      ).length;
 
       addLog(
         `Scored ${data.total} buyers — ${moveNow} move_now, ${strong} strong, ${spec} speculative` +
-        (data.cached ? ' (CACHED)' : ''),
+          (data.cached ? ' (CACHED)' : ''),
         elapsed,
       );
 
@@ -176,7 +182,11 @@ export default function BuyerRecommendationTest() {
           addLog(`WARN: Invalid tier "${buyer.tier}"`, undefined, false);
       }
     } catch (err) {
-      addLog(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`, Date.now() - t0, false);
+      addLog(
+        `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+        Date.now() - t0,
+        false,
+      );
     } finally {
       setScoring(false);
     }
@@ -218,8 +228,8 @@ export default function BuyerRecommendationTest() {
 
       addLog(
         `AI seeded ${data.total} buyers — ${inserted} new, ${enriched} enriched, ${dupes} dupes` +
-        (data.cached ? ' (CACHED)' : '') +
-        (data.model ? ` [model: ${data.model}]` : ''),
+          (data.cached ? ' (CACHED)' : '') +
+          (data.model ? ` [model: ${data.model}]` : ''),
         elapsed,
       );
 
@@ -230,11 +240,17 @@ export default function BuyerRecommendationTest() {
       // Validate seeded buyers
       for (const buyer of (data.seeded_buyers || []).slice(0, 3)) {
         if (!buyer.buyer_id) addLog('WARN: Seeded buyer missing buyer_id', undefined, false);
-        if (!['inserted', 'enriched_existing', 'probable_duplicate', 'cached'].includes(buyer.action))
+        if (
+          !['inserted', 'enriched_existing', 'probable_duplicate', 'cached'].includes(buyer.action)
+        )
           addLog(`WARN: Invalid action "${buyer.action}"`, undefined, false);
       }
     } catch (err) {
-      addLog(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`, Date.now() - t0, false);
+      addLog(
+        `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+        Date.now() - t0,
+        false,
+      );
     } finally {
       setSeeding(false);
     }
@@ -261,7 +277,9 @@ export default function BuyerRecommendationTest() {
         addLog(`Cache table query failed: ${cacheErr.message}`, undefined, false);
       } else if (cache) {
         const expired = cache.expires_at && new Date(cache.expires_at) < new Date();
-        addLog(`Cache: ${cache.buyer_count} buyers, scored ${cache.scored_at}${expired ? ' (EXPIRED)' : ''}`);
+        addLog(
+          `Cache: ${cache.buyer_count} buyers, scored ${cache.scored_at}${expired ? ' (EXPIRED)' : ''}`,
+        );
       } else {
         addLog('No cache entry for this deal');
       }
@@ -282,8 +300,10 @@ export default function BuyerRecommendationTest() {
 
       // Fetch AI-seeded buyers from this deal
       const { data: seededBuyers, error: seededErr } = await supabase
-        .from('remarketing_buyers')
-        .select('id, company_name, buyer_type, hq_state, ai_seeded, ai_seeded_at, verification_status')
+        .from('buyers')
+        .select(
+          'id, company_name, buyer_type, hq_state, ai_seeded, ai_seeded_at, verification_status',
+        )
         .eq('ai_seeded', true)
         .eq('ai_seeded_from_deal_id', dealId)
         .order('ai_seeded_at', { ascending: false })
@@ -293,7 +313,9 @@ export default function BuyerRecommendationTest() {
         addLog(`AI-seeded buyers query failed: ${seededErr.message}`, undefined, false);
       } else {
         addLog(`AI-seeded buyers from this deal: ${seededBuyers?.length || 0}`);
-        const pending = (seededBuyers || []).filter(b => b.verification_status === 'pending').length;
+        const pending = (seededBuyers || []).filter(
+          (b) => b.verification_status === 'pending',
+        ).length;
         if (pending > 0) {
           addLog(`  ${pending} still pending verification`);
         }
@@ -314,14 +336,18 @@ export default function BuyerRecommendationTest() {
       // Fetch deal info for context
       const { data: deal, error: dealErr } = await supabase
         .from('listings')
-        .select('id, title, industry, category, categories, ebitda, address_state, geographic_states')
+        .select(
+          'id, title, industry, category, categories, ebitda, address_state, geographic_states',
+        )
         .eq('id', dealId)
         .maybeSingle();
 
       if (dealErr) {
         addLog(`Deal query failed: ${dealErr.message}`, undefined, false);
       } else if (deal) {
-        addLog(`Deal: "${deal.title || 'Untitled'}" — ${deal.industry || 'no industry'}, ${deal.address_state || 'no state'}`);
+        addLog(
+          `Deal: "${deal.title || 'Untitled'}" — ${deal.industry || 'no industry'}, ${deal.address_state || 'no state'}`,
+        );
       } else {
         addLog('Deal not found — this listing ID may not exist', undefined, false);
       }
@@ -337,7 +363,11 @@ export default function BuyerRecommendationTest() {
         seed_cache_entries: seedCaches,
       });
     } catch (err) {
-      addLog(`DB inspection failed: ${err instanceof Error ? err.message : String(err)}`, Date.now() - t0, false);
+      addLog(
+        `DB inspection failed: ${err instanceof Error ? err.message : String(err)}`,
+        Date.now() - t0,
+        false,
+      );
     } finally {
       setInspecting(false);
     }
@@ -376,7 +406,11 @@ export default function BuyerRecommendationTest() {
 
       addLog('=== FULL PIPELINE TEST COMPLETE ===');
     } catch (err) {
-      addLog(`Pipeline error: ${err instanceof Error ? err.message : String(err)}`, undefined, false);
+      addLog(
+        `Pipeline error: ${err instanceof Error ? err.message : String(err)}`,
+        undefined,
+        false,
+      );
     } finally {
       setRunningFull(false);
     }
@@ -389,21 +423,25 @@ export default function BuyerRecommendationTest() {
         <p className="text-sm text-muted-foreground">
           Pick a deal to test the buyer recommendation and AI seeding engines against.
         </p>
-        <EntityPicker entity="deal" value={dealId} onChange={setDealId} placeholder="Select a deal to test…" />
-        {dealId && (
-          <p className="text-xs font-mono text-muted-foreground">Selected: {dealId}</p>
-        )}
+        <EntityPicker
+          entity="deal"
+          value={dealId}
+          onChange={setDealId}
+          placeholder="Select a deal to test…"
+        />
+        {dealId && <p className="text-xs font-mono text-muted-foreground">Selected: {dealId}</p>}
       </SectionCard>
 
       {/* Action Buttons */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={() => runScoring(true)}
-              disabled={!dealId || scoring || runningFull}
-            >
-              {scoring ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+            <Button onClick={() => runScoring(true)} disabled={!dealId || scoring || runningFull}>
+              {scoring ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
+              )}
               Score Buyers
             </Button>
             <Button
@@ -411,7 +449,11 @@ export default function BuyerRecommendationTest() {
               onClick={() => runSeeding(false)}
               disabled={!dealId || seeding || runningFull}
             >
-              {seeding ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              {seeding ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
               AI Search for Buyers
             </Button>
             <Button
@@ -419,7 +461,11 @@ export default function BuyerRecommendationTest() {
               onClick={() => runSeeding(true)}
               disabled={!dealId || seeding || runningFull}
             >
-              {seeding ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              {seeding ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
               AI Search (Force Refresh)
             </Button>
             <Button
@@ -427,7 +473,11 @@ export default function BuyerRecommendationTest() {
               onClick={inspectDb}
               disabled={!dealId || inspecting || runningFull}
             >
-              {inspecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
+              {inspecting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Database className="h-4 w-4 mr-2" />
+              )}
               Inspect DB
             </Button>
 
@@ -439,7 +489,11 @@ export default function BuyerRecommendationTest() {
               onClick={runFullPipeline}
               disabled={!dealId || runningFull}
             >
-              {runningFull ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
+              {runningFull ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4 mr-2" />
+              )}
               Run Full Pipeline
             </Button>
           </div>
@@ -462,7 +516,9 @@ export default function BuyerRecommendationTest() {
           ) : (
             <>
               <div className="flex items-center gap-4 text-sm">
-                <span>Total: <strong>{String(scoreResult.total ?? 0)}</strong></span>
+                <span>
+                  Total: <strong>{String(scoreResult.total ?? 0)}</strong>
+                </span>
                 {Boolean(scoreResult.cached) && <Badge variant="secondary">Cached</Badge>}
                 {String(scoreResult.scored_at ?? '') !== '' && (
                   <span className="text-xs text-muted-foreground">
@@ -497,13 +553,23 @@ export default function BuyerRecommendationTest() {
                               <td className="p-2 font-medium max-w-[180px] truncate">
                                 {String(b.company_name || '')}
                               </td>
-                              <td className="p-2 capitalize">{String(b.buyer_type || '').replace('_', ' ')}</td>
+                              <td className="p-2 capitalize">
+                                {String(b.buyer_type || '').replace('_', ' ')}
+                              </td>
                               <td className="p-2">{String(b.hq_state || '-')}</td>
-                              <td className="p-2 text-center font-mono font-bold">{String(b.composite_score)}</td>
-                              <td className="p-2 text-center font-mono">{String(b.service_score)}</td>
-                              <td className="p-2 text-center font-mono">{String(b.geography_score)}</td>
+                              <td className="p-2 text-center font-mono font-bold">
+                                {String(b.composite_score)}
+                              </td>
+                              <td className="p-2 text-center font-mono">
+                                {String(b.service_score)}
+                              </td>
+                              <td className="p-2 text-center font-mono">
+                                {String(b.geography_score)}
+                              </td>
                               <td className="p-2 text-center font-mono">{String(b.size_score)}</td>
-                              <td className="p-2"><TierBadge tier={String(b.tier)} /></td>
+                              <td className="p-2">
+                                <TierBadge tier={String(b.tier)} />
+                              </td>
                               <td className="p-2 max-w-[200px] truncate text-muted-foreground">
                                 {Array.isArray(b.fit_signals) ? b.fit_signals.join(', ') : '-'}
                               </td>
@@ -536,25 +602,33 @@ export default function BuyerRecommendationTest() {
           ) : (
             <>
               <div className="flex items-center gap-4 text-sm flex-wrap">
-                <span>Total: <strong>{String(seedResult.total ?? 0)}</strong></span>
+                <span>
+                  Total: <strong>{String(seedResult.total ?? 0)}</strong>
+                </span>
                 {Number(seedResult.inserted) > 0 && (
-                  <Badge className="bg-green-100 text-green-800">{String(seedResult.inserted)} New</Badge>
+                  <Badge className="bg-green-100 text-green-800">
+                    {String(seedResult.inserted)} New
+                  </Badge>
                 )}
                 {Number(seedResult.enriched_existing) > 0 && (
-                  <Badge className="bg-blue-100 text-blue-800">{String(seedResult.enriched_existing)} Updated</Badge>
+                  <Badge className="bg-blue-100 text-blue-800">
+                    {String(seedResult.enriched_existing)} Updated
+                  </Badge>
                 )}
                 {Number(seedResult.probable_duplicates) > 0 && (
                   <Badge variant="secondary">{String(seedResult.probable_duplicates)} Dupes</Badge>
                 )}
                 {Boolean(seedResult.cached) && <Badge variant="secondary">Cached</Badge>}
                 {String(seedResult.model ?? '') !== '' && (
-                  <span className="text-xs text-muted-foreground">Model: {String(seedResult.model)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Model: {String(seedResult.model)}
+                  </span>
                 )}
               </div>
               {seedResult.usage && (
                 <p className="text-xs text-muted-foreground">
-                  Tokens: {String((seedResult.usage as { input_tokens: number }).input_tokens)} in
-                  / {String((seedResult.usage as { output_tokens: number }).output_tokens)} out
+                  Tokens: {String((seedResult.usage as { input_tokens: number }).input_tokens)} in /{' '}
+                  {String((seedResult.usage as { output_tokens: number }).output_tokens)} out
                 </p>
               )}
               {Array.isArray(seedResult.seeded_buyers) && seedResult.seeded_buyers.length > 0 && (
@@ -570,28 +644,33 @@ export default function BuyerRecommendationTest() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(seedResult.seeded_buyers as Array<Record<string, unknown>>).map((b, i) => {
-                          const actionColor: Record<string, string> = {
-                            inserted: 'bg-green-100 text-green-800',
-                            enriched_existing: 'bg-blue-100 text-blue-800',
-                            probable_duplicate: 'bg-gray-100 text-gray-600',
-                            cached: 'bg-purple-100 text-purple-800',
-                          };
-                          return (
-                            <tr key={i} className="border-b last:border-0">
-                              <td className="p-2 font-medium">{String(b.company_name || '')}</td>
-                              <td className="p-2">
-                                <Badge variant="outline" className={`text-[10px] ${actionColor[String(b.action)] || ''}`}>
-                                  {String(b.action || '')}
-                                </Badge>
-                              </td>
-                              <td className="p-2">{b.was_new_record ? 'Yes' : 'No'}</td>
-                              <td className="p-2 max-w-[300px] truncate text-muted-foreground">
-                                {String(b.why_relevant || '-')}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                        {(seedResult.seeded_buyers as Array<Record<string, unknown>>).map(
+                          (b, i) => {
+                            const actionColor: Record<string, string> = {
+                              inserted: 'bg-green-100 text-green-800',
+                              enriched_existing: 'bg-blue-100 text-blue-800',
+                              probable_duplicate: 'bg-gray-100 text-gray-600',
+                              cached: 'bg-purple-100 text-purple-800',
+                            };
+                            return (
+                              <tr key={i} className="border-b last:border-0">
+                                <td className="p-2 font-medium">{String(b.company_name || '')}</td>
+                                <td className="p-2">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] ${actionColor[String(b.action)] || ''}`}
+                                  >
+                                    {String(b.action || '')}
+                                  </Badge>
+                                </td>
+                                <td className="p-2">{b.was_new_record ? 'Yes' : 'No'}</td>
+                                <td className="p-2 max-w-[300px] truncate text-muted-foreground">
+                                  {String(b.why_relevant || '-')}
+                                </td>
+                              </tr>
+                            );
+                          },
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -643,9 +722,11 @@ export default function BuyerRecommendationTest() {
           {/* AI-seeded buyers */}
           <div>
             <p className="text-xs font-medium mb-1">
-              AI-Seeded Buyers from This Deal ({Array.isArray(dbSnapshot.ai_seeded_buyers) ? dbSnapshot.ai_seeded_buyers.length : 0})
+              AI-Seeded Buyers from This Deal (
+              {Array.isArray(dbSnapshot.ai_seeded_buyers) ? dbSnapshot.ai_seeded_buyers.length : 0})
             </p>
-            {Array.isArray(dbSnapshot.ai_seeded_buyers) && dbSnapshot.ai_seeded_buyers.length > 0 ? (
+            {Array.isArray(dbSnapshot.ai_seeded_buyers) &&
+            dbSnapshot.ai_seeded_buyers.length > 0 ? (
               <div className="border rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -659,21 +740,32 @@ export default function BuyerRecommendationTest() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(dbSnapshot.ai_seeded_buyers as Array<Record<string, unknown>>).map((b, i) => (
-                        <tr key={i} className="border-b last:border-0">
-                          <td className="p-2 font-medium">{String(b.company_name || '')}</td>
-                          <td className="p-2 capitalize">{String(b.buyer_type || '').replace('_', ' ')}</td>
-                          <td className="p-2">{String(b.hq_state || '-')}</td>
-                          <td className="p-2 text-muted-foreground">
-                            {b.ai_seeded_at ? new Date(String(b.ai_seeded_at)).toLocaleString() : '-'}
-                          </td>
-                          <td className="p-2">
-                            <Badge variant={b.verification_status === 'pending' ? 'secondary' : 'outline'} className="text-[10px]">
-                              {String(b.verification_status || '-')}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
+                      {(dbSnapshot.ai_seeded_buyers as Array<Record<string, unknown>>).map(
+                        (b, i) => (
+                          <tr key={i} className="border-b last:border-0">
+                            <td className="p-2 font-medium">{String(b.company_name || '')}</td>
+                            <td className="p-2 capitalize">
+                              {String(b.buyer_type || '').replace('_', ' ')}
+                            </td>
+                            <td className="p-2">{String(b.hq_state || '-')}</td>
+                            <td className="p-2 text-muted-foreground">
+                              {b.ai_seeded_at
+                                ? new Date(String(b.ai_seeded_at)).toLocaleString()
+                                : '-'}
+                            </td>
+                            <td className="p-2">
+                              <Badge
+                                variant={
+                                  b.verification_status === 'pending' ? 'secondary' : 'outline'
+                                }
+                                className="text-[10px]"
+                              >
+                                {String(b.verification_status || '-')}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ),
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -698,7 +790,11 @@ export default function BuyerRecommendationTest() {
           {/* Seed cache */}
           <details className="text-xs">
             <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-              Seed Cache Entries ({Array.isArray(dbSnapshot.seed_cache_entries) ? dbSnapshot.seed_cache_entries.length : 0})
+              Seed Cache Entries (
+              {Array.isArray(dbSnapshot.seed_cache_entries)
+                ? dbSnapshot.seed_cache_entries.length
+                : 0}
+              )
             </summary>
             <div className="mt-2">
               <JsonBlock data={dbSnapshot.seed_cache_entries} />

@@ -2,14 +2,14 @@
  * seed-buyers – AI Buyer Seeding Engine
  *
  * Uses Claude to discover PE firms, platform companies, and strategic acquirers
- * that match a deal's criteria, then inserts them into remarketing_buyers.
+ * that match a deal's criteria, then inserts them into the buyers table.
  *
  * Flow:
  * 1. Auth guard (admin only)
  * 2. Fetch deal details from listings table
  * 3. Check buyer_seed_cache for recent results (90-day TTL)
  * 4. Call Claude to discover matching buyers
- * 5. Deduplicate against existing remarketing_buyers (by company name / website domain)
+ * 5. Deduplicate against existing buyers (by company name / website domain)
  * 6. Insert new buyers with ai_seeded=true
  * 7. Log each action to buyer_seed_log
  * 8. Update buyer_seed_cache
@@ -32,7 +32,13 @@ interface SeedRequest {
 interface AISuggestedBuyer {
   company_name: string;
   company_website: string | null;
-  buyer_type: 'private_equity' | 'corporate' | 'family_office' | 'independent_sponsor' | 'search_fund' | 'individual_buyer';
+  buyer_type:
+    | 'private_equity'
+    | 'corporate'
+    | 'family_office'
+    | 'independent_sponsor'
+    | 'search_fund'
+    | 'individual_buyer';
   pe_firm_name: string | null;
   hq_city: string | null;
   hq_state: string | null;
@@ -295,9 +301,14 @@ function parseClaudeResponse(responseText: string): AISuggestedBuyer[] {
     .map((b: Record<string, unknown>) => ({
       company_name: String(b.company_name || '').trim(),
       company_website: b.company_website ? String(b.company_website).trim() : null,
-      buyer_type: (['private_equity', 'corporate', 'family_office', 'independent_sponsor', 'search_fund', 'individual_buyer'].includes(
-        String(b.buyer_type),
-      )
+      buyer_type: ([
+        'private_equity',
+        'corporate',
+        'family_office',
+        'independent_sponsor',
+        'search_fund',
+        'individual_buyer',
+      ].includes(String(b.buyer_type))
         ? String(b.buyer_type)
         : 'corporate') as AISuggestedBuyer['buyer_type'],
       pe_firm_name: b.pe_firm_name ? String(b.pe_firm_name).trim() : null,
@@ -411,7 +422,7 @@ Deno.serve(async (req: Request) => {
       if (cached && cached.buyer_ids?.length > 0) {
         // Return the cached buyer IDs with their details
         const { data: cachedBuyers } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .select('id, company_name, buyer_type, hq_state, hq_city, ai_seeded, thesis_summary')
           .in('id', cached.buyer_ids);
 
@@ -437,7 +448,7 @@ Deno.serve(async (req: Request) => {
     // ── Fetch existing buyers for deduplication ──
     // Explicit limit required: Supabase config max_rows=1000 silently truncates without it
     const { data: existingBuyers } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('id, company_name, company_website')
       .eq('archived', false)
       .limit(10000);
@@ -509,7 +520,7 @@ Deno.serve(async (req: Request) => {
 
         // Update the existing record with AI seeding metadata
         await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .update({
             ai_seeded: true,
             ai_seeded_at: now,
@@ -542,9 +553,9 @@ Deno.serve(async (req: Request) => {
           if (existingPeFirmId) {
             resolvedPeFirmId = existingPeFirmId;
           } else {
-            // Auto-create the PE firm as a remarketing_buyers record
+            // Auto-create the PE firm as a buyers record
             const { data: newFirm, error: firmError } = await supabase
-              .from('remarketing_buyers')
+              .from('buyers')
               .insert({
                 company_name: suggested.pe_firm_name,
                 buyer_type: 'private_equity',
@@ -568,7 +579,7 @@ Deno.serve(async (req: Request) => {
         }
 
         const { data: inserted, error: insertError } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .insert({
             company_name: suggested.company_name,
             company_website: suggested.company_website,

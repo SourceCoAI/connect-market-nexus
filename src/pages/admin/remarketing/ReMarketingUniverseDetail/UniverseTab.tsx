@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { useState } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import {
   BuyerTableEnhanced,
   UniverseDealsTable,
@@ -10,9 +10,9 @@ import {
   EnrichmentProgressIndicator,
   ApproveBuyerMultiDealDialog,
   BulkApproveForDealsDialog,
-} from "@/components/remarketing";
-import { FilterBar, BUYER_UNIVERSE_FIELDS } from "@/components/filters";
-import { useFilterEngine } from "@/hooks/use-filter-engine";
+} from '@/components/remarketing';
+import { FilterBar, BUYER_UNIVERSE_FIELDS } from '@/components/filters';
+import { useFilterEngine } from '@/hooks/use-filter-engine';
 import {
   Users,
   Plus,
@@ -24,10 +24,10 @@ import {
   Upload,
   Trash2,
   Check,
-} from "lucide-react";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import type { UseUniverseDataReturn } from "./useUniverseData";
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import type { UseUniverseDataReturn } from './useUniverseData';
 
 interface UniverseTabProps {
   data: UseUniverseDataReturn;
@@ -54,8 +54,10 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
     setAddDealDialogOpen,
     setAddDealDefaultTab,
     setImportDealsDialogOpen,
-    isScoringAllDeals, setIsScoringAllDeals,
-    selectedBuyerIds, setSelectedBuyerIds,
+    isScoringAllDeals,
+    setIsScoringAllDeals,
+    selectedBuyerIds,
+    setSelectedBuyerIds,
     isRemovingSelected,
     queueProgress,
     cancelQueueEnrichment,
@@ -158,12 +160,12 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
                 }
                 resetAlignmentScoring();
                 await scoreAlignmentBuyers(
-                  buyers.map(b => ({
+                  buyers.map((b) => ({
                     id: b.id,
                     company_name: b.company_name,
-                    alignment_score: b.alignment_score ?? null
+                    alignment_score: b.alignment_score ?? null,
                   })),
-                  () => refetchBuyers()
+                  () => refetchBuyers(),
                 );
               }}
               onCancelAlignment={cancelAlignmentScoring}
@@ -176,14 +178,14 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
                 failed: queueProgress.failed,
                 creditsDepleted: false,
                 rateLimited: queueProgress.rateLimited > 0,
-                resetTime: queueProgress.rateLimitResetAt
+                resetTime: queueProgress.rateLimitResetAt,
               }}
               alignmentProgress={{
                 current: alignmentProgress.current,
                 total: alignmentProgress.total,
                 successful: alignmentProgress.successful,
                 failed: alignmentProgress.failed,
-                creditsDepleted: alignmentProgress.creditsDepleted
+                creditsDepleted: alignmentProgress.creditsDepleted,
               }}
               selectedCount={selectedBuyerIds.length}
               onRemoveSelected={handleRemoveSelectedBuyers}
@@ -192,7 +194,13 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
           </CardHeader>
           <CardContent className="p-0">
             <BuyerTableEnhanced
-              buyers={filteredBuyers as unknown as { id: string; company_name: string; [key: string]: unknown }[]}
+              buyers={
+                filteredBuyers as unknown as {
+                  id: string;
+                  company_name: string;
+                  [key: string]: unknown;
+                }[]
+              }
               showPEColumn={true}
               buyerIdsWithTranscripts={buyerIdsWithTranscripts}
               selectable={true}
@@ -200,9 +208,7 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
               onApprove={(buyerId, buyerName) =>
                 setSingleApproval({ open: true, buyerId, buyerName })
               }
-              onBulkApprove={(buyerIds) =>
-                setBulkApproval({ open: true, buyerIds })
-              }
+              onBulkApprove={(buyerIds) => setBulkApproval({ open: true, buyerIds })}
               onEnrich={handleEnrichSingleBuyer}
               onDelete={handleDeleteBuyer}
               onToggleFeeAgreement={handleToggleFeeAgreement}
@@ -220,7 +226,7 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
             className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm backdrop-blur"
           >
             <Check className="h-4 w-4 mr-2" />
-            Approve{selectedBuyerIds.length ? ` (${selectedBuyerIds.length})` : ""}
+            Approve{selectedBuyerIds.length ? ` (${selectedBuyerIds.length})` : ''}
           </Button>
           <Button
             variant="outline"
@@ -233,7 +239,7 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
             ) : (
               <Unlink className="h-4 w-4 mr-2" />
             )}
-            Remove Selected{selectedBuyerIds.length ? ` (${selectedBuyerIds.length})` : ""}
+            Remove Selected{selectedBuyerIds.length ? ` (${selectedBuyerIds.length})` : ''}
           </Button>
         </div>
 
@@ -283,13 +289,22 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
                   {universeDeals?.length || 0} deals
                 </span>
                 {(() => {
-                  const unenrichedCount = universeDeals?.filter((d) => !(d.listing as Record<string, unknown> | null)?.enriched_at).length || 0;
+                  const unenrichedCount =
+                    universeDeals?.filter(
+                      (d) => !(d.listing as Record<string, unknown> | null)?.enriched_at,
+                    ).length || 0;
                   return unenrichedCount > 0 ? (
-                    <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50 dark:bg-orange-950/30">
+                    <Badge
+                      variant="outline"
+                      className="text-orange-600 border-orange-300 bg-orange-50 dark:bg-orange-950/30"
+                    >
                       {unenrichedCount} unenriched
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30">
+                    <Badge
+                      variant="outline"
+                      className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30"
+                    >
                       All enriched
                     </Badge>
                   );
@@ -306,11 +321,15 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
                     }
                     setIsScoringAllDeals(true);
                     try {
-                      const listingIds = universeDeals.filter((d) => (d.listing as Record<string, unknown> | null)?.id).map((d) => (d.listing as { id: string }).id);
-                      const { queueDealScoring } = await import("@/lib/remarketing/queueScoring");
+                      const listingIds = universeDeals
+                        .filter((d) => (d.listing as Record<string, unknown> | null)?.id)
+                        .map((d) => (d.listing as { id: string }).id);
+                      const { queueDealScoring } = await import('@/lib/remarketing/queueScoring');
                       await queueDealScoring({ universeId: id!, listingIds });
                       toast.success(`Queued ${listingIds.length} deals for scoring`);
-                      queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal-engagement', id] });
+                      queryClient.invalidateQueries({
+                        queryKey: ['remarketing', 'deal-engagement', id],
+                      });
                     } catch (error) {
                       toast.error('Failed to score deals');
                     } finally {
@@ -326,28 +345,21 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
                   )}
                   Score All Deals
                 </Button>
-                {(dealQueueProgress.isEnriching || dealQueueProgress.isPaused) ? (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={cancelDealQueueEnrichment}
-                  >
+                {dealQueueProgress.isEnriching || dealQueueProgress.isPaused ? (
+                  <Button variant="destructive" size="sm" onClick={cancelDealQueueEnrichment}>
                     Cancel Enrichment
                   </Button>
                 ) : dealEnrichmentProgress.isRunning ? (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={cancelDealEnrichment}
-                  >
+                  <Button variant="destructive" size="sm" onClick={cancelDealEnrichment}>
                     Cancel Enrichment
                   </Button>
                 ) : (
                   (() => {
-                    const unenrichedDeals = universeDeals?.filter((d) => {
-                      const listing = d.listing as Record<string, unknown> | null;
-                      return listing?.id && !listing.enriched_at;
-                    }) || [];
+                    const unenrichedDeals =
+                      universeDeals?.filter((d) => {
+                        const listing = d.listing as Record<string, unknown> | null;
+                        return listing?.id && !listing.enriched_at;
+                      }) || [];
                     return unenrichedDeals.length > 0 ? (
                       <Button
                         variant="outline"
@@ -360,7 +372,7 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
                             return {
                               id: d.id,
                               listingId: listing.id,
-                              enrichedAt: listing.enriched_at
+                              enrichedAt: listing.enriched_at,
                             };
                           });
 
@@ -374,11 +386,7 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
                     ) : null;
                   })()
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setImportDealsDialogOpen(true)}
-                >
+                <Button variant="outline" size="sm" onClick={() => setImportDealsDialogOpen(true)}>
                   <Upload className="h-4 w-4 mr-1" />
                   Import Deals
                 </Button>
@@ -397,7 +405,14 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
           </CardHeader>
           <CardContent className="p-0">
             <UniverseDealsTable
-              deals={(universeDeals || []) as unknown as { id: string; added_at: string; status: string; listing: { id: string; title: string; [key: string]: unknown }; }[]}
+              deals={
+                (universeDeals || []) as unknown as {
+                  id: string;
+                  added_at: string;
+                  status: string;
+                  listing: { id: string; title: string; [key: string]: unknown };
+                }[]
+              }
               engagementStats={dealEngagementStats || {}}
               universeId={id}
               selectedDealIds={selectedDealIds}
@@ -416,16 +431,18 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
               }}
               onScoreDeal={async (listingId) => {
                 try {
-                  const { queueDealScoring } = await import("@/lib/remarketing/queueScoring");
+                  const { queueDealScoring } = await import('@/lib/remarketing/queueScoring');
                   await queueDealScoring({ universeId: id!, listingIds: [listingId] });
-                  queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal-engagement', id] });
+                  queryClient.invalidateQueries({
+                    queryKey: ['remarketing', 'deal-engagement', id],
+                  });
                 } catch (error) {
                   toast.error('Failed to score deal');
                 }
               }}
               onEnrichDeal={async (listingId) => {
                 try {
-                  const { queueDealEnrichment } = await import("@/lib/remarketing/queueEnrichment");
+                  const { queueDealEnrichment } = await import('@/lib/remarketing/queueEnrichment');
                   await queueDealEnrichment([listingId]);
                   refetchDeals();
                 } catch (error) {
@@ -448,7 +465,9 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
                     .from('remarketing_universe_deals')
                     .update({ status: 'archived' })
                     .in('id', selectedDealIds);
-                  toast.success(`Removed ${selectedDealIds.length} deal${selectedDealIds.length > 1 ? 's' : ''} from universe`);
+                  toast.success(
+                    `Removed ${selectedDealIds.length} deal${selectedDealIds.length > 1 ? 's' : ''} from universe`,
+                  );
                   setSelectedDealIds([]);
                   refetchDeals();
                 } catch (error) {

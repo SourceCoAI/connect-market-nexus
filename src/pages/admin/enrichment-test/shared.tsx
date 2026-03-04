@@ -186,7 +186,7 @@ export function EntityPicker({ entity, value, onChange, placeholder }: EntityPic
         }
       } else {
         const { data } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .select('id, company_name, pe_firm_name, hq_state')
           .order('created_at', { ascending: false })
           .limit(100);
@@ -195,8 +195,7 @@ export function EntityPicker({ entity, value, onChange, placeholder }: EntityPic
             data.map((b) => ({
               id: b.id,
               label: b.company_name || b.pe_firm_name || b.id.slice(0, 8),
-              subtitle:
-                [b.pe_firm_name, b.hq_state].filter(Boolean).join(' · ') || undefined,
+              subtitle: [b.pe_firm_name, b.hq_state].filter(Boolean).join(' · ') || undefined,
             })),
           );
         }
@@ -233,12 +232,12 @@ export function EntityPicker({ entity, value, onChange, placeholder }: EntityPic
         }
       } else {
         let { data } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .select('id, company_name')
           .is('data_last_updated', null)
           .limit(50);
         if (!data || data.length === 0) {
-          const res = await supabase.from('remarketing_buyers').select('id, company_name').limit(50);
+          const res = await supabase.from('buyers').select('id, company_name').limit(50);
           data = res.data;
         }
         if (data && data.length > 0) {

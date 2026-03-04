@@ -43,13 +43,15 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20250716182234',
     date: '2025-07-16',
-    purpose: 'Create categories table, migrate listings to multi-category support, add update_updated_at_column trigger function',
+    purpose:
+      'Create categories table, migrate listings to multi-category support, add update_updated_at_column trigger function',
     tables: ['categories', 'listings'],
   },
   {
     id: '20250716190234',
     date: '2025-07-16',
-    purpose: 'Security & reliability: fix admin RLS policies, create password_reset_tokens, audit_logs table, audit triggers on profiles',
+    purpose:
+      'Security & reliability: fix admin RLS policies, create password_reset_tokens, audit_logs table, audit triggers on profiles',
     tables: ['password_reset_tokens', 'audit_logs', 'profiles'],
   },
   {
@@ -61,19 +63,22 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20250717112819',
     date: '2025-07-17',
-    purpose: 'Add performance indexes on listings, connection_requests, saved_listings, and profiles',
+    purpose:
+      'Add performance indexes on listings, connection_requests, saved_listings, and profiles',
     tables: ['listings', 'connection_requests', 'saved_listings', 'profiles'],
   },
   {
     id: '20250717113836',
     date: '2025-07-17',
-    purpose: 'Add soft delete, data integrity constraints, validation triggers, materialized views for analytics, and RLS for soft-deleted listings',
+    purpose:
+      'Add soft delete, data integrity constraints, validation triggers, materialized views for analytics, and RLS for soft-deleted listings',
     tables: ['listings', 'profiles', 'connection_requests'],
   },
   {
     id: '20250717120629',
     date: '2025-07-17',
-    purpose: 'Database function security enhancement (SET search_path), OTP rate limiting table, updated admin/utility functions',
+    purpose:
+      'Database function security enhancement (SET search_path), OTP rate limiting table, updated admin/utility functions',
     tables: ['otp_rate_limits'],
   },
   {
@@ -85,8 +90,17 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20250721114715',
     date: '2025-07-21',
-    purpose: 'Create comprehensive analytics infrastructure: user_sessions, page_views, user_events, registration_funnel, listing_analytics, search_analytics, daily_metrics',
-    tables: ['user_sessions', 'page_views', 'user_events', 'registration_funnel', 'listing_analytics', 'search_analytics', 'daily_metrics'],
+    purpose:
+      'Create comprehensive analytics infrastructure: user_sessions, page_views, user_events, registration_funnel, listing_analytics, search_analytics, daily_metrics',
+    tables: [
+      'user_sessions',
+      'page_views',
+      'user_events',
+      'registration_funnel',
+      'listing_analytics',
+      'search_analytics',
+      'daily_metrics',
+    ],
   },
   {
     id: '20250721104047',
@@ -133,7 +147,8 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20250828132035',
     date: '2025-08-28',
-    purpose: 'Create inbound_leads and connection_request_contacts tables for manual/webflow lead intake',
+    purpose:
+      'Create inbound_leads and connection_request_contacts tables for manual/webflow lead intake',
     tables: ['inbound_leads', 'connection_request_contacts'],
   },
 
@@ -143,7 +158,8 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20250829140751',
     date: '2025-08-29',
-    purpose: 'Create comprehensive deal pipeline: deal_stages, deals, deal_tasks, deal_activities with auto-creation triggers from connection_requests and inbound_leads',
+    purpose:
+      'Create comprehensive deal pipeline: deal_stages, deals, deal_tasks, deal_activities with auto-creation triggers from connection_requests and inbound_leads',
     tables: ['deal_stages', 'deals', 'deal_tasks', 'deal_activities'],
   },
   {
@@ -241,7 +257,8 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20251120211917',
     date: '2025-11-20',
-    purpose: 'Create admin view tracking tables: admin_connection_requests_views, admin_users_views',
+    purpose:
+      'Create admin view tracking tables: admin_connection_requests_views, admin_users_views',
     tables: ['admin_connection_requests_views', 'admin_users_views'],
   },
   {
@@ -269,8 +286,9 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20260122172855',
     date: '2026-01-22',
-    purpose: 'Create remarketing system: remarketing_buyer_universes, remarketing_buyers, remarketing_buyer_contacts, remarketing_scores',
-    tables: ['remarketing_buyer_universes', 'remarketing_buyers', 'remarketing_buyer_contacts', 'remarketing_scores'],
+    purpose:
+      'Create remarketing system: remarketing_buyer_universes, remarketing_buyers, remarketing_buyer_contacts, remarketing_scores',
+    tables: ['buyer_universes', 'buyers', 'remarketing_buyer_contacts', 'remarketing_scores'],
   },
   {
     id: '20260122175318',
@@ -393,14 +411,22 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20260204_buyer_fit_criteria_extraction',
     date: '2026-02-04',
-    purpose: 'Create buyer_type_profiles, criteria_extraction_sources, criteria_extraction_history tables',
+    purpose:
+      'Create buyer_type_profiles, criteria_extraction_sources, criteria_extraction_history tables',
     tables: ['buyer_type_profiles', 'criteria_extraction_sources', 'criteria_extraction_history'],
   },
   {
     id: '20260207_chatbot_complete_v2',
     date: '2026-02-07',
-    purpose: 'Create chat system tables: chat_conversations, chat_analytics, chat_feedback, chat_smart_suggestions, chat_recommendations',
-    tables: ['chat_conversations', 'chat_analytics', 'chat_feedback', 'chat_smart_suggestions', 'chat_recommendations'],
+    purpose:
+      'Create chat system tables: chat_conversations, chat_analytics, chat_feedback, chat_smart_suggestions, chat_recommendations',
+    tables: [
+      'chat_conversations',
+      'chat_analytics',
+      'chat_feedback',
+      'chat_smart_suggestions',
+      'chat_recommendations',
+    ],
   },
   {
     id: '20260210_referral_partner_tracker',
@@ -447,7 +473,8 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20260218100000',
     date: '2026-02-18',
-    purpose: 'Create enrichment_jobs, enrichment_events, score_snapshots, scoring_weights_history tables for audit/enrichment/scoring infrastructure',
+    purpose:
+      'Create enrichment_jobs, enrichment_events, score_snapshots, scoring_weights_history tables for audit/enrichment/scoring infrastructure',
     tables: ['enrichment_jobs', 'enrichment_events', 'score_snapshots', 'scoring_weights_history'],
   },
   {
@@ -465,20 +492,52 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20260222300000',
     date: '2026-02-22',
-    purpose: 'Database hardening: add RLS to tables missing it, fix FK ON DELETE, add performance indexes',
-    tables: ['geographic_adjacency', 'enrichment_queue', 'connection_messages', 'deal_activities', 'deal_comments', 'deal_contacts', 'deal_notes', 'deal_tasks', 'deal_documents', 'deal_transcripts', 'deal_referrals', 'deal_scoring_adjustments'],
+    purpose:
+      'Database hardening: add RLS to tables missing it, fix FK ON DELETE, add performance indexes',
+    tables: [
+      'geographic_adjacency',
+      'enrichment_queue',
+      'connection_messages',
+      'deal_activities',
+      'deal_comments',
+      'deal_contacts',
+      'deal_notes',
+      'deal_tasks',
+      'deal_documents',
+      'deal_transcripts',
+      'deal_referrals',
+      'deal_scoring_adjustments',
+    ],
   },
   {
     id: '20260223000000',
     date: '2026-02-23',
-    purpose: 'Create data room system: data_room_documents, data_room_access, data_room_audit_log, lead_memos, memo_distribution_log, lead_memo_versions',
-    tables: ['data_room_documents', 'data_room_access', 'data_room_audit_log', 'lead_memos', 'memo_distribution_log', 'lead_memo_versions'],
+    purpose:
+      'Create data room system: data_room_documents, data_room_access, data_room_audit_log, lead_memos, memo_distribution_log, lead_memo_versions',
+    tables: [
+      'data_room_documents',
+      'data_room_access',
+      'data_room_audit_log',
+      'lead_memos',
+      'memo_distribution_log',
+      'lead_memo_versions',
+    ],
   },
   {
     id: '20260223100000',
     date: '2026-02-23',
-    purpose: 'Database hardening phase 3: comprehensive performance indexes, check constraints, updated_at triggers, enhanced audit_log table, generic audit trigger function, database health check',
-    tables: ['deals', 'deal_tasks', 'deal_comments', 'inbound_leads', 'email_delivery_logs', 'audit_log', 'listings', 'connection_requests'],
+    purpose:
+      'Database hardening phase 3: comprehensive performance indexes, check constraints, updated_at triggers, enhanced audit_log table, generic audit trigger function, database health check',
+    tables: [
+      'deals',
+      'deal_tasks',
+      'deal_comments',
+      'inbound_leads',
+      'email_delivery_logs',
+      'audit_log',
+      'listings',
+      'connection_requests',
+    ],
   },
   {
     id: '20260224000000',
@@ -489,7 +548,8 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20260225000000',
     date: '2026-02-25',
-    purpose: 'Firm agreement tracking system: firm_domain_aliases, generic_email_domains, agreement_audit_log',
+    purpose:
+      'Firm agreement tracking system: firm_domain_aliases, generic_email_domains, agreement_audit_log',
     tables: ['firm_domain_aliases', 'generic_email_domains', 'agreement_audit_log'],
   },
   {
@@ -501,8 +561,15 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20260227000000',
     date: '2026-02-27',
-    purpose: 'Document distribution system: deal_documents, document_tracked_links, document_release_log, deal_data_room_access, marketplace_approval_queue',
-    tables: ['deal_documents', 'document_tracked_links', 'document_release_log', 'deal_data_room_access', 'marketplace_approval_queue'],
+    purpose:
+      'Document distribution system: deal_documents, document_tracked_links, document_release_log, deal_data_room_access, marketplace_approval_queue',
+    tables: [
+      'deal_documents',
+      'document_tracked_links',
+      'document_release_log',
+      'deal_data_room_access',
+      'marketplace_approval_queue',
+    ],
   },
   {
     id: '20260228000000',
@@ -513,8 +580,16 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20260303100000',
     date: '2026-03-03',
-    purpose: 'Security hardening phase 2: add missing RLS to saved_listings and connection_requests, fix overly permissive policies, standardize admin checks, add auth guards to SECURITY DEFINER RPCs',
-    tables: ['saved_listings', 'connection_requests', 'buyers', 'admin_notifications', 'user_notifications', 'user_journeys'],
+    purpose:
+      'Security hardening phase 2: add missing RLS to saved_listings and connection_requests, fix overly permissive policies, standardize admin checks, add auth guards to SECURITY DEFINER RPCs',
+    tables: [
+      'saved_listings',
+      'connection_requests',
+      'buyers',
+      'admin_notifications',
+      'user_notifications',
+      'user_journeys',
+    ],
   },
 ];
 
@@ -522,13 +597,7 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
  * Key tables in the database, grouped by domain.
  */
 export const KEY_TABLES = {
-  core: [
-    'profiles',
-    'listings',
-    'connection_requests',
-    'saved_listings',
-    'categories',
-  ],
+  core: ['profiles', 'listings', 'connection_requests', 'saved_listings', 'categories'],
   deals: [
     'deals',
     'deal_stages',
@@ -552,8 +621,8 @@ export const KEY_TABLES = {
     'user_journeys',
   ],
   remarketing: [
-    'remarketing_buyer_universes',
-    'remarketing_buyers',
+    'buyer_universes',
+    'buyers',
     'remarketing_buyer_contacts',
     'remarketing_scores',
     'remarketing_universe_deals',
@@ -679,8 +748,8 @@ export const TABLES_WITH_RLS: string[] = [
   'captarget_sync_log',
   'captarget_sync_exclusions',
   // Remarketing
-  'remarketing_buyer_universes',
-  'remarketing_buyers',
+  'buyer_universes',
+  'buyers',
   'remarketing_buyer_contacts',
   'remarketing_scores',
   'remarketing_universe_deals',

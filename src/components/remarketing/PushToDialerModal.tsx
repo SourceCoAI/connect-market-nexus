@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import type { DialerEntityType } from "@/hooks/use-push-to-dialer";
+import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import type { DialerEntityType } from '@/hooks/use-push-to-dialer';
 import {
   usePhoneBurnerConnectedUsers,
   type PhoneBurnerConnectedUser,
-} from "@/hooks/use-phoneburner-users";
-import { Button } from "@/components/ui/button";
+} from '@/hooks/use-phoneburner-users';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -14,20 +14,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Phone,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-  Users,
-  AlertTriangle,
-} from "lucide-react";
-import { toast } from "sonner";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Phone, Loader2, AlertCircle, CheckCircle2, Users, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface PushToDialerModalProps {
   open: boolean;
@@ -53,10 +46,10 @@ export function PushToDialerModal({
   onOpenChange,
   contactIds,
   contactCount,
-  entityType = "contacts",
+  entityType = 'contacts',
 }: PushToDialerModalProps) {
   const [sessionName, setSessionName] = useState(
-    `Buyer Outreach - ${new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}`,
+    `Buyer Outreach - ${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`,
   );
   const [skipRecentDays] = useState(7);
   const [skipRecent, setSkipRecent] = useState(true);
@@ -66,16 +59,13 @@ export function PushToDialerModal({
     Array<{ user: PhoneBurnerConnectedUser; result: PushResult }>
   >([]);
 
-  const { data: connectedUsers = [], isLoading: usersLoading } =
-    usePhoneBurnerConnectedUsers();
+  const { data: connectedUsers = [], isLoading: usersLoading } = usePhoneBurnerConnectedUsers();
 
   const validUsers = connectedUsers.filter((u) => !u.is_expired);
 
   const toggleUser = (userId: string) => {
     setSelectedUserIds((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId],
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
     );
   };
 
@@ -89,10 +79,7 @@ export function PushToDialerModal({
 
   const pushMutation = useMutation({
     mutationFn: async () => {
-      const targetUsers =
-        selectedUserIds.length > 0
-          ? selectedUserIds
-          : [undefined]; // Push to calling user's own account if none selected
+      const targetUsers = selectedUserIds.length > 0 ? selectedUserIds : [undefined]; // Push to calling user's own account if none selected
 
       const results: Array<{
         user: PhoneBurnerConnectedUser | null;
@@ -100,18 +87,15 @@ export function PushToDialerModal({
       }> = [];
 
       for (const targetUserId of targetUsers) {
-        const { data, error } = await supabase.functions.invoke(
-          "phoneburner-push-contacts",
-          {
-            body: {
-              entity_type: entityType,
-              entity_ids: contactIds,
-              session_name: sessionName,
-              skip_recent_days: skipRecent ? skipRecentDays : 0,
-              ...(targetUserId ? { target_user_id: targetUserId } : {}),
-            },
+        const { data, error } = await supabase.functions.invoke('phoneburner-push-contacts', {
+          body: {
+            entity_type: entityType,
+            entity_ids: contactIds,
+            session_name: sessionName,
+            skip_recent_days: skipRecent ? skipRecentDays : 0,
+            ...(targetUserId ? { target_user_id: targetUserId } : {}),
           },
-        );
+        });
 
         if (error) {
           results.push({
@@ -139,9 +123,7 @@ export function PushToDialerModal({
         // Single user push — show simple result
         setResult(results[0].result);
         if (results[0].result.success && results[0].result.contacts_added > 0) {
-          toast.success(
-            `${results[0].result.contacts_added} contacts pushed to PhoneBurner`,
-          );
+          toast.success(`${results[0].result.contacts_added} contacts pushed to PhoneBurner`);
           // Open PhoneBurner dialer in new tab if redirect URL returned
           if (results[0].result.redirect_url) {
             window.open(results[0].result.redirect_url, '_blank');
@@ -151,18 +133,11 @@ export function PushToDialerModal({
         }
       } else {
         // Multi-user push — show combined results
-        const totalAdded = results.reduce(
-          (sum, r) => sum + (r.result.contacts_added || 0),
-          0,
-        );
-        const totalFailed = results.reduce(
-          (sum, r) => sum + (r.result.contacts_failed || 0),
-          0,
-        );
+        const totalAdded = results.reduce((sum, r) => sum + (r.result.contacts_added || 0), 0);
+        const totalFailed = results.reduce((sum, r) => sum + (r.result.contacts_failed || 0), 0);
         setMultiResults(
           results.filter(
-            (r): r is { user: PhoneBurnerConnectedUser; result: PushResult } =>
-              r.user !== null,
+            (r): r is { user: PhoneBurnerConnectedUser; result: PushResult } => r.user !== null,
           ),
         );
 
@@ -183,10 +158,8 @@ export function PushToDialerModal({
     },
     onError: (error) => {
       const msg = error instanceof Error ? error.message : String(error);
-      if (msg.includes("PB_NOT_CONNECTED")) {
-        toast.error(
-          "PhoneBurner not connected. Connect accounts in PhoneBurner Settings first.",
-        );
+      if (msg.includes('PB_NOT_CONNECTED')) {
+        toast.error('PhoneBurner not connected. Connect accounts in PhoneBurner Settings first.');
       } else {
         toast.error(`Push failed: ${msg}`);
       }
@@ -211,8 +184,8 @@ export function PushToDialerModal({
             Push to PhoneBurner
           </DialogTitle>
           <DialogDescription>
-            Push {contactCount} selected contact{contactCount !== 1 ? "s" : ""}{" "}
-            to PhoneBurner dial sessions
+            Push {contactCount} selected contact{contactCount !== 1 ? 's' : ''} to PhoneBurner dial
+            sessions
           </DialogDescription>
         </DialogHeader>
 
@@ -244,13 +217,10 @@ export function PushToDialerModal({
                   <div className="flex items-center gap-2 p-3 rounded-md bg-amber-50 dark:bg-amber-950/30 text-sm">
                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                     <span className="text-amber-800 dark:text-amber-200">
-                      No PhoneBurner accounts connected. Go to{" "}
-                      <a
-                        href="/admin/phoneburner/settings"
-                        className="underline font-medium"
-                      >
+                      No PhoneBurner accounts connected. Go to{' '}
+                      <a href="/admin/phoneburner/settings" className="underline font-medium">
                         PhoneBurner Settings
-                      </a>{" "}
+                      </a>{' '}
                       to connect accounts.
                     </span>
                   </div>
@@ -286,9 +256,7 @@ export function PushToDialerModal({
                             htmlFor={`pb-user-${user.user_id}`}
                             className="flex-1 cursor-pointer"
                           >
-                            <span className="text-sm font-medium">
-                              {user.label}
-                            </span>
+                            <span className="text-sm font-medium">{user.label}</span>
                             {user.phoneburner_user_email && (
                               <span className="text-xs text-muted-foreground ml-1.5">
                                 ({user.phoneburner_user_email})
@@ -300,9 +268,8 @@ export function PushToDialerModal({
                     </div>
                     {selectedUserIds.length === 0 && validUsers.length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        Select which PhoneBurner account(s) to push contacts to.
-                        Select multiple to push the same contacts to several
-                        reps.
+                        Select which PhoneBurner account(s) to push contacts to. Select multiple to
+                        push the same contacts to several reps.
                       </p>
                     )}
                   </div>
@@ -356,15 +323,13 @@ export function PushToDialerModal({
                     Pushing
                     {selectedUserIds.length > 1
                       ? ` to ${selectedUserIds.length} accounts...`
-                      : "..."}
+                      : '...'}
                   </>
                 ) : (
                   <>
                     <Phone className="mr-2 h-4 w-4" />
                     Push to Dialer
-                    {selectedUserIds.length > 1
-                      ? ` (${selectedUserIds.length} accounts)`
-                      : ""}
+                    {selectedUserIds.length > 1 ? ` (${selectedUserIds.length} accounts)` : ''}
                   </>
                 )}
               </Button>
@@ -390,11 +355,8 @@ export function PushToDialerModal({
                       <span className="font-medium">{user.label}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {r.contacts_added > 0
-                        ? `${r.contacts_added} added`
-                        : r.error || "0 added"}
-                      {r.contacts_excluded > 0 &&
-                        `, ${r.contacts_excluded} excluded`}
+                      {r.contacts_added > 0 ? `${r.contacts_added} added` : r.error || '0 added'}
+                      {r.contacts_excluded > 0 && `, ${r.contacts_excluded} excluded`}
                     </div>
                   </div>
                 ))}
@@ -419,7 +381,7 @@ export function PushToDialerModal({
                 <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10">
                   <AlertCircle className="h-5 w-5 text-destructive" />
                   <span className="text-sm font-medium">
-                    {result.error || "No contacts were pushed"}
+                    {result.error || 'No contacts were pushed'}
                   </span>
                 </div>
               )}

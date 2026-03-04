@@ -61,7 +61,7 @@ export const DealPipelinePanel = ({
           fee_agreement_status,
           created_at,
           remarketing_buyer_id,
-          remarketing_buyer:remarketing_buyers(id, company_name, buyer_type),
+          remarketing_buyer:buyers(id, company_name, buyer_type),
           stage:deal_stages(id, name, color),
           assigned_to_profile:profiles!deals_assigned_to_fkey(id, first_name, last_name)
         `,

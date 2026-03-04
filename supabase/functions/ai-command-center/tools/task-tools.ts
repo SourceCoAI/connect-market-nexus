@@ -498,7 +498,7 @@ async function getBuyerSpotlight(
       `
       id, buyer_id, deal_id, deal_stage_name, expected_contact_days,
       last_contacted_at, is_active,
-      remarketing_buyers(company_name, buyer_type)
+      buyers(company_name, buyer_type)
     `,
     )
     .eq('is_active', true)

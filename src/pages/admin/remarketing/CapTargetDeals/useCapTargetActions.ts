@@ -234,7 +234,7 @@ export function useCapTargetActions(
       }
 
       try {
-        const { queueDealQualityScoring } = await import("@/lib/remarketing/queueScoring");
+        const { queueDealQualityScoring } = await import('@/lib/remarketing/queueScoring');
         await queueDealQualityScoring({
           batchSource: 'captarget',
           unscoredOnly: mode === 'unscored',
@@ -348,7 +348,15 @@ export function useCapTargetActions(
       setIsEnriching(false);
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'captarget-deals'] });
     },
-    [user, startOrQueueMajorOp, completeOperation, updateProgress, queryClient, filteredDeals, setSelectedIds],
+    [
+      user,
+      startOrQueueMajorOp,
+      completeOperation,
+      updateProgress,
+      queryClient,
+      filteredDeals,
+      setSelectedIds,
+    ],
   );
 
   // ─── LinkedIn + Google only enrichment ──────────────────────────────
@@ -372,7 +380,7 @@ export function useCapTargetActions(
     }
 
     try {
-      const { queueExternalOnlyEnrichment } = await import("@/lib/remarketing/queueScoring");
+      const { queueExternalOnlyEnrichment } = await import('@/lib/remarketing/queueScoring');
       await queueExternalOnlyEnrichment({ dealSource: 'captarget', mode: 'missing' });
     } catch {
       if (activityItem) completeOperation.mutate({ id: activityItem.id, finalStatus: 'failed' });

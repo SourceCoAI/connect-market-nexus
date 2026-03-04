@@ -9,7 +9,7 @@
  * barrel-file imports (`from './BuyerCSVImport'`) continue to resolve.
  *
  * Data sources:
- *   File upload parsed by parseSpreadsheet utility; writes to remarketing_buyers
+ *   File upload parsed by parseSpreadsheet utility; writes to buyers
  *   table via Supabase client
  *
  * Used on:
@@ -28,12 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Upload,
-  FileSpreadsheet,
-  Loader2,
-  ChevronRight,
-} from 'lucide-react';
+import { Upload, FileSpreadsheet, Loader2, ChevronRight } from 'lucide-react';
 import { SPREADSHEET_ACCEPT } from '@/lib/parseSpreadsheet';
 
 import type { BuyerCSVImportProps } from './helpers';
@@ -139,7 +134,12 @@ export const BuyerCSVImport = ({
                     </p>
                     <p className="text-xs text-muted-foreground">CSV, XLS, or XLSX files</p>
                   </div>
-                  <input type="file" accept={SPREADSHEET_ACCEPT} className="hidden" onChange={handleFileUpload} />
+                  <input
+                    type="file"
+                    accept={SPREADSHEET_ACCEPT}
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
                 </label>
               </div>
             )}

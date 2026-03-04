@@ -1,7 +1,7 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { BuyerData, Contact, Transcript } from "./types";
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { BuyerData, Contact, Transcript } from './types';
 
 export function useBuyerData(id: string | undefined, isNew: boolean) {
   const { data: buyer, isLoading } = useQuery({
@@ -9,17 +9,13 @@ export function useBuyerData(id: string | undefined, isNew: boolean) {
     queryFn: async () => {
       if (isNew) return null;
 
-      const { data, error } = await supabase
-        .from('remarketing_buyers')
-        .select('*')
-        .eq('id', id!)
-        .maybeSingle();
+      const { data, error } = await supabase.from('buyers').select('*').eq('id', id!).maybeSingle();
 
       if (error) throw error;
       if (!data) return null;
       return data as unknown as BuyerData;
     },
-    enabled: !isNew
+    enabled: !isNew,
   });
 
   const { data: peFirmRecord } = useQuery({
@@ -27,7 +23,7 @@ export function useBuyerData(id: string | undefined, isNew: boolean) {
     queryFn: async () => {
       if (!buyer?.pe_firm_name) return null;
       const { data, error } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('id, company_name')
         .eq('company_name', buyer.pe_firm_name)
         .eq('buyer_type', 'private_equity')
@@ -65,7 +61,7 @@ export function useBuyerData(id: string | undefined, isNew: boolean) {
         is_primary: c.is_primary_at_firm,
       })) as Contact[];
     },
-    enabled: !isNew
+    enabled: !isNew,
   });
 
   const { data: transcripts = [] } = useQuery({
@@ -82,7 +78,7 @@ export function useBuyerData(id: string | undefined, isNew: boolean) {
       if (error) throw error;
       return (data || []) as unknown as Transcript[];
     },
-    enabled: !isNew
+    enabled: !isNew,
   });
 
   const { data: recentScores = [] } = useQuery({
@@ -92,14 +88,16 @@ export function useBuyerData(id: string | undefined, isNew: boolean) {
 
       const { data, error } = await supabase
         .from('remarketing_scores')
-        .select(`
+        .select(
+          `
           id,
           composite_score,
           tier,
           status,
           created_at,
           listing:listings(id, title)
-        `)
+        `,
+        )
         .eq('buyer_id', id!)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -107,7 +105,7 @@ export function useBuyerData(id: string | undefined, isNew: boolean) {
       if (error) throw error;
       return data || [];
     },
-    enabled: !isNew
+    enabled: !isNew,
   });
 
   const dataCompleteness = useMemo(() => {
@@ -135,11 +133,11 @@ export function useBuyerData(id: string | undefined, isNew: boolean) {
     if (!buyer) return [];
     const missing: string[] = [];
 
-    if (!buyer.target_geographies?.length) missing.push("geography preferences");
-    if (!buyer.target_revenue_min && !buyer.target_revenue_max) missing.push("size criteria");
-    if (!buyer.target_services?.length) missing.push("target services");
-    if (!buyer.thesis_summary) missing.push("investment thesis");
-    if (!buyer.business_summary) missing.push("business summary");
+    if (!buyer.target_geographies?.length) missing.push('geography preferences');
+    if (!buyer.target_revenue_min && !buyer.target_revenue_max) missing.push('size criteria');
+    if (!buyer.target_services?.length) missing.push('target services');
+    if (!buyer.thesis_summary) missing.push('investment thesis');
+    if (!buyer.business_summary) missing.push('business summary');
 
     return missing;
   }, [buyer]);

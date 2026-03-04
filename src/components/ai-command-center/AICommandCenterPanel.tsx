@@ -56,7 +56,7 @@ function getSuggestions(page?: string): string[] {
         'Prep me for my next meeting',
       ];
     case 'buyers_list':
-    case 'remarketing_buyers':
+    case 'buyers':
       return [
         'Select all buyers in Texas',
         'Filter to PE firms with fee agreements',

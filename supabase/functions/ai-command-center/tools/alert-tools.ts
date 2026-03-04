@@ -216,7 +216,7 @@ async function getProactiveAlerts(
           .from('remarketing_scores')
           .select(
             `buyer_id, listing_id, composite_score,
-             remarketing_buyers!inner(company_name, buyer_type, has_fee_agreement)`,
+             buyers!inner(company_name, buyer_type, has_fee_agreement)`,
           )
           .gte('composite_score', 70)
           .or('is_disqualified.eq.false,is_disqualified.is.null')
@@ -246,7 +246,7 @@ async function getProactiveAlerts(
           .from('remarketing_scores')
           .select(
             `buyer_id, listing_id, composite_score,
-             remarketing_buyers!inner(company_name, has_fee_agreement)`,
+             buyers!inner(company_name, has_fee_agreement)`,
           )
           .gte('composite_score', 75)
           .or('is_disqualified.eq.false,is_disqualified.is.null')
@@ -356,7 +356,7 @@ async function getProactiveAlerts(
       const key = `cold_buyer:${scorer.buyer_id}:${scorer.listing_id}`;
       if (isFilteredOut(key)) continue;
 
-      const buyer = scorer.remarketing_buyers as Record<string, unknown>;
+      const buyer = scorer.buyers as Record<string, unknown>;
       alerts.push({
         key,
         type: 'cold_buyer',
@@ -417,7 +417,7 @@ async function getProactiveAlerts(
   // Unsigned agreements for high-scoring buyers
   if (unsignedScorers) {
     for (const scorer of unsignedScorers) {
-      const buyer = scorer.remarketing_buyers as Record<string, unknown>;
+      const buyer = scorer.buyers as Record<string, unknown>;
       if (buyer.has_fee_agreement) continue;
 
       const key = `unsigned_agreement:${scorer.buyer_id}`;

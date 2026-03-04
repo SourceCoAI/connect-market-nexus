@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { invokeWithTimeout } from "@/lib/invoke-with-timeout";
-import { toast } from "sonner";
-import { BuyerData, Transcript, EditDialogType } from "./types";
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { invokeWithTimeout } from '@/lib/invoke-with-timeout';
+import { toast } from 'sonner';
+import { BuyerData, Transcript, EditDialogType } from './types';
 
 export function useBuyerMutations(
   id: string | undefined,
@@ -25,7 +25,7 @@ export function useBuyerMutations(
 
   const enrichMutation = useMutation({
     mutationFn: async () => {
-      const { queueBuyerEnrichment } = await import("@/lib/remarketing/queueEnrichment");
+      const { queueBuyerEnrichment } = await import('@/lib/remarketing/queueEnrichment');
       await queueBuyerEnrichment([id!]);
     },
     onSuccess: () => {
@@ -34,15 +34,12 @@ export function useBuyerMutations(
     },
     onError: (error: Error) => {
       toast.error(`Enrichment failed: ${error.message}`);
-    }
+    },
   });
 
   const updateBuyerMutation = useMutation({
     mutationFn: async (data: Record<string, unknown>) => {
-      const { error } = await supabase
-        .from('remarketing_buyers')
-        .update(data)
-        .eq('id', id!);
+      const { error } = await supabase.from('buyers').update(data).eq('id', id!);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -52,7 +49,7 @@ export function useBuyerMutations(
     },
     onError: () => {
       toast.error('Failed to update buyer');
-    }
+    },
   });
 
   const updateFeeAgreementMutation = useMutation({
@@ -67,19 +64,19 @@ export function useBuyerMutations(
           const firmWebsite = buyer.pe_firm_website || buyer.company_website;
 
           if (firmName) {
-            const { data: createdFirmId, error: createdFirmIdError } = await supabase.rpc('get_or_create_firm', {
-              p_company_name: firmName,
-              p_website: firmWebsite ?? undefined,
-              p_email: undefined,
-            });
+            const { data: createdFirmId, error: createdFirmIdError } = await supabase.rpc(
+              'get_or_create_firm',
+              {
+                p_company_name: firmName,
+                p_website: firmWebsite ?? undefined,
+                p_email: undefined,
+              },
+            );
             if (createdFirmIdError) throw createdFirmIdError;
 
             if (createdFirmId) {
               firmId = createdFirmId;
-              await supabase
-                .from('remarketing_buyers')
-                .update({ marketplace_firm_id: firmId })
-                .eq('id', id!);
+              await supabase.from('buyers').update({ marketplace_firm_id: firmId }).eq('id', id!);
             }
           }
         }
@@ -94,7 +91,7 @@ export function useBuyerMutations(
         }
 
         const { error } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .update({
             has_fee_agreement: true,
             fee_agreement_source: firmId ? 'marketplace_synced' : 'manual_override',
@@ -102,12 +99,17 @@ export function useBuyerMutations(
           .eq('id', id!);
         if (error) throw error;
       } else {
-        if (buyer.fee_agreement_source === 'marketplace_synced' || buyer.fee_agreement_source === 'pe_firm_inherited') {
-          throw new Error('This fee agreement comes from the marketplace. Remove it from Firm Agreements instead.');
+        if (
+          buyer.fee_agreement_source === 'marketplace_synced' ||
+          buyer.fee_agreement_source === 'pe_firm_inherited'
+        ) {
+          throw new Error(
+            'This fee agreement comes from the marketplace. Remove it from Firm Agreements instead.',
+          );
         }
 
         const { error } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .update({
             has_fee_agreement: false,
             fee_agreement_source: null,
@@ -123,7 +125,7 @@ export function useBuyerMutations(
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update fee agreement');
-    }
+    },
   });
 
   const addContactMutation = useMutation({
@@ -139,9 +141,8 @@ export function useBuyerMutations(
         firmId = buyer.marketplace_firm_id;
       }
 
-      const { error } = await supabase
-        .from('contacts')
-        .insert([{
+      const { error } = await supabase.from('contacts').insert([
+        {
           first_name: firstName,
           last_name: lastName,
           email: newContact.email || null,
@@ -153,18 +154,26 @@ export function useBuyerMutations(
           remarketing_buyer_id: id!,
           firm_id: firmId,
           source: 'remarketing_manual',
-        }]);
+        },
+      ]);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts', id] });
       toast.success('Contact added');
       setIsContactDialogOpen(false);
-      setNewContact({ name: '', email: '', phone: '', role: '', linkedin_url: '', is_primary: false });
+      setNewContact({
+        name: '',
+        email: '',
+        phone: '',
+        role: '',
+        linkedin_url: '',
+        is_primary: false,
+      });
     },
     onError: () => {
       toast.error('Failed to add contact');
-    }
+    },
   });
 
   const deleteContactMutation = useMutation({
@@ -182,7 +191,7 @@ export function useBuyerMutations(
     },
     onError: () => {
       toast.error('Failed to delete contact');
-    }
+    },
   });
 
   const addTranscriptMutation = useMutation({
@@ -215,7 +224,12 @@ export function useBuyerMutations(
         .single();
       if (error) throw error;
       const result = data as unknown as { id: string };
-      return { transcriptId: result.id, transcriptText: text, source, triggerExtract: !!triggerExtract };
+      return {
+        transcriptId: result.id,
+        transcriptText: text,
+        source,
+        triggerExtract: !!triggerExtract,
+      };
     },
     onSuccess: ({ transcriptId, transcriptText, source, triggerExtract }) => {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'transcripts', id] });
@@ -226,16 +240,20 @@ export function useBuyerMutations(
     },
     onError: () => {
       toast.error('Failed to add transcript');
-    }
+    },
   });
 
   const extractTranscriptMutation = useMutation({
-    mutationFn: async (params: { transcriptId: string; transcriptText?: string; source?: string }) => {
+    mutationFn: async (params: {
+      transcriptId: string;
+      transcriptText?: string;
+      source?: string;
+    }) => {
       let textToExtract = params.transcriptText;
       let sourceToUse = params.source || 'call';
 
       if (!textToExtract) {
-        const transcript = transcripts.find(t => t.id === params.transcriptId);
+        const transcript = transcripts.find((t) => t.id === params.transcriptId);
         if (transcript) {
           textToExtract = transcript.transcript_text;
           sourceToUse = transcript.source || 'call';
@@ -253,7 +271,9 @@ export function useBuyerMutations(
       }
 
       if (!textToExtract?.trim()) {
-        throw new Error('No transcript text available to extract from. Please add transcript content first.');
+        throw new Error(
+          'No transcript text available to extract from. Please add transcript content first.',
+        );
       }
 
       const { data, error } = await invokeWithTimeout<any>('extract-transcript', {
@@ -261,7 +281,7 @@ export function useBuyerMutations(
           buyerId: id,
           transcriptText: textToExtract,
           source: sourceToUse,
-          transcriptId: params.transcriptId
+          transcriptId: params.transcriptId,
         },
         timeoutMs: 120_000,
       });
@@ -274,15 +294,12 @@ export function useBuyerMutations(
     },
     onError: (error: Error) => {
       toast.error(`Extraction failed: ${error.message}`);
-    }
+    },
   });
 
   const deleteTranscriptMutation = useMutation({
     mutationFn: async (transcriptId: string) => {
-      const { error } = await supabase
-        .from('buyer_transcripts')
-        .delete()
-        .eq('id', transcriptId);
+      const { error } = await supabase.from('buyer_transcripts').delete().eq('id', transcriptId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -291,7 +308,7 @@ export function useBuyerMutations(
     },
     onError: () => {
       toast.error('Failed to delete transcript');
-    }
+    },
   });
 
   return {

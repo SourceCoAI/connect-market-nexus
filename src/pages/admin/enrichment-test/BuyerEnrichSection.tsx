@@ -47,7 +47,7 @@ export default function BuyerEnrichSection({ addLog, buyerId, onBuyerIdChange }:
     const t0 = Date.now();
     try {
       const { data: bData, error: bDataError } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('*')
         .eq('id', buyerId)
         .single();
@@ -91,7 +91,7 @@ export default function BuyerEnrichSection({ addLog, buyerId, onBuyerIdChange }:
       setResponse(data);
 
       const { data: aData, error: aDataError } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('*')
         .eq('id', buyerId)
         .single();

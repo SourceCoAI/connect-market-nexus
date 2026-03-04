@@ -1,9 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { GEMINI_API_URL, getGeminiHeaders, fetchWithAutoRetry } from "../_shared/ai-providers.ts";
-import { normalizeState, normalizeConfidenceScore } from "../_shared/criteria-validation.ts";
+import { GEMINI_API_URL, getGeminiHeaders, fetchWithAutoRetry } from '../_shared/ai-providers.ts';
+import { normalizeState } from '../_shared/criteria-validation.ts';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 // Gemini API configuration
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -83,7 +83,9 @@ async function extractCriteriaFromGuide(
   industryName: string,
 ): Promise<ExtractionResult> {
   console.log('[EXTRACTION_START] Beginning criteria extraction');
-  console.log(`[GUIDE_LENGTH] ${guideContent.length} characters, ~${Math.round(guideContent.split(/\s+/).length)} words`);
+  console.log(
+    `[GUIDE_LENGTH] ${guideContent.length} characters, ~${Math.round(guideContent.split(/\s+/).length)} words`,
+  );
 
   const systemPrompt = `You are an expert M&A advisor specializing in buyer universe analysis. You are extracting structured buyer fit criteria from a comprehensive industry M&A guide. These guides are written by SourceCo's team and contain detailed buyer profiles, market maps, and acquisition pattern analysis.
 
@@ -146,135 +148,166 @@ Return an array of buyer objects, one per buyer profiled in the document.
 DOCUMENT:
 ${guideContent.slice(0, 50000)}`;
 
-  const tools = [{
-    name: "extract_buyer_criteria",
-    description: "Extract structured buyer fit criteria from M&A guide for all profiled buyers",
-    input_schema: {
-      type: "object",
-      properties: {
-        buyers: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              buyer_identity: {
-                type: "object",
-                properties: {
-                  name: { type: "string", description: "Buyer/firm name" },
-                  type: {
-                    type: "string",
-                    enum: ["private_equity", "corporate", "family_office", "independent_sponsor", "search_fund", "individual_buyer"],
-                    description: "Buyer type classification"
-                  },
-                  website: { type: "string", description: "Website URL if mentioned" },
-                  parent_company: { type: "string", description: "Parent PE firm for platform companies" }
-                },
-                required: ["name", "type"]
-              },
-              size_criteria: {
-                type: "object",
-                properties: {
-                  revenue_min: { type: "number", description: "Min target revenue in raw dollars" },
-                  revenue_max: { type: "number", description: "Max target revenue in raw dollars" },
-                  ebitda_min: { type: "number", description: "Min target EBITDA in raw dollars" },
-                  ebitda_max: { type: "number", description: "Max target EBITDA in raw dollars" },
-                  location_range: { type: "string", description: "Number of locations range if mentioned" },
-                  confidence: { type: "number", description: "Confidence score 0-100" },
-                  source: {
-                    type: "string",
-                    enum: ["stated", "inferred_from_deals", "inferred_from_context"],
-                    description: "How criteria were determined"
-                  }
-                },
-                required: ["confidence"]
-              },
-              service_criteria: {
-                type: "object",
-                properties: {
-                  target_services: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Specific services they target. Break broad terms into sub-services."
-                  },
-                  service_exclusions: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Services they avoid"
-                  },
-                  service_notes: { type: "string", description: "Context about service preferences" },
-                  confidence: { type: "number", description: "Confidence 0-100" }
-                },
-                required: ["target_services", "confidence"]
-              },
-              geography_criteria: {
-                type: "object",
-                properties: {
-                  target_regions: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Standard US regions"
-                  },
-                  target_states: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "2-letter state codes. Map all deal locations to states."
-                  },
-                  geographic_exclusions: { type: "array", items: { type: "string" } },
-                  geographic_flexibility: {
-                    type: "string",
-                    enum: ["strict", "flexible", "national"]
-                  },
-                  confidence: { type: "number" },
-                  source: {
-                    type: "string",
-                    enum: ["stated", "inferred_from_deals", "inferred_from_context"]
-                  }
-                },
-                required: ["confidence"]
-              },
-              buyer_profile: {
-                type: "object",
-                properties: {
-                  typical_size_range: { type: "string" },
-                  geographic_focus: { type: "string" },
-                  service_preferences: { type: "array", items: { type: "string" } },
-                  strategic_rationale: { type: "string", description: "Why they acquire in this space" },
-                  typical_structure: { type: "string", description: "How they usually structure deals" },
-                  growth_strategies: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "How they grow portfolio companies post-acquisition"
-                  }
-                }
-              },
-              deal_history: {
-                type: "array",
-                items: {
-                  type: "object",
+  const tools = [
+    {
+      name: 'extract_buyer_criteria',
+      description: 'Extract structured buyer fit criteria from M&A guide for all profiled buyers',
+      input_schema: {
+        type: 'object',
+        properties: {
+          buyers: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                buyer_identity: {
+                  type: 'object',
                   properties: {
-                    company_name: { type: "string" },
-                    location: { type: "string" },
-                    approximate_size: { type: "string" },
-                    year: { type: "number" },
-                    services: { type: "array", items: { type: "string" } }
+                    name: { type: 'string', description: 'Buyer/firm name' },
+                    type: {
+                      type: 'string',
+                      enum: [
+                        'private_equity',
+                        'corporate',
+                        'family_office',
+                        'independent_sponsor',
+                        'search_fund',
+                        'individual_buyer',
+                      ],
+                      description: 'Buyer type classification',
+                    },
+                    website: { type: 'string', description: 'Website URL if mentioned' },
+                    parent_company: {
+                      type: 'string',
+                      description: 'Parent PE firm for platform companies',
+                    },
                   },
-                  required: ["company_name"]
+                  required: ['name', 'type'],
                 },
-                description: "All deals mentioned in the guide for this buyer"
-              }
+                size_criteria: {
+                  type: 'object',
+                  properties: {
+                    revenue_min: {
+                      type: 'number',
+                      description: 'Min target revenue in raw dollars',
+                    },
+                    revenue_max: {
+                      type: 'number',
+                      description: 'Max target revenue in raw dollars',
+                    },
+                    ebitda_min: { type: 'number', description: 'Min target EBITDA in raw dollars' },
+                    ebitda_max: { type: 'number', description: 'Max target EBITDA in raw dollars' },
+                    location_range: {
+                      type: 'string',
+                      description: 'Number of locations range if mentioned',
+                    },
+                    confidence: { type: 'number', description: 'Confidence score 0-100' },
+                    source: {
+                      type: 'string',
+                      enum: ['stated', 'inferred_from_deals', 'inferred_from_context'],
+                      description: 'How criteria were determined',
+                    },
+                  },
+                  required: ['confidence'],
+                },
+                service_criteria: {
+                  type: 'object',
+                  properties: {
+                    target_services: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description:
+                        'Specific services they target. Break broad terms into sub-services.',
+                    },
+                    service_exclusions: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: 'Services they avoid',
+                    },
+                    service_notes: {
+                      type: 'string',
+                      description: 'Context about service preferences',
+                    },
+                    confidence: { type: 'number', description: 'Confidence 0-100' },
+                  },
+                  required: ['target_services', 'confidence'],
+                },
+                geography_criteria: {
+                  type: 'object',
+                  properties: {
+                    target_regions: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: 'Standard US regions',
+                    },
+                    target_states: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: '2-letter state codes. Map all deal locations to states.',
+                    },
+                    geographic_exclusions: { type: 'array', items: { type: 'string' } },
+                    geographic_flexibility: {
+                      type: 'string',
+                      enum: ['strict', 'flexible', 'national'],
+                    },
+                    confidence: { type: 'number' },
+                    source: {
+                      type: 'string',
+                      enum: ['stated', 'inferred_from_deals', 'inferred_from_context'],
+                    },
+                  },
+                  required: ['confidence'],
+                },
+                buyer_profile: {
+                  type: 'object',
+                  properties: {
+                    typical_size_range: { type: 'string' },
+                    geographic_focus: { type: 'string' },
+                    service_preferences: { type: 'array', items: { type: 'string' } },
+                    strategic_rationale: {
+                      type: 'string',
+                      description: 'Why they acquire in this space',
+                    },
+                    typical_structure: {
+                      type: 'string',
+                      description: 'How they usually structure deals',
+                    },
+                    growth_strategies: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: 'How they grow portfolio companies post-acquisition',
+                    },
+                  },
+                },
+                deal_history: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      company_name: { type: 'string' },
+                      location: { type: 'string' },
+                      approximate_size: { type: 'string' },
+                      year: { type: 'number' },
+                      services: { type: 'array', items: { type: 'string' } },
+                    },
+                    required: ['company_name'],
+                  },
+                  description: 'All deals mentioned in the guide for this buyer',
+                },
+              },
+              required: ['buyer_identity', 'size_criteria', 'service_criteria'],
             },
-            required: ["buyer_identity", "size_criteria", "service_criteria"]
+            description: 'Array of buyer profiles extracted from the guide',
           },
-          description: "Array of buyer profiles extracted from the guide"
+          overall_confidence: {
+            type: 'number',
+            description: 'Overall extraction confidence 0-100 for the entire guide',
+          },
         },
-        overall_confidence: {
-          type: "number",
-          description: "Overall extraction confidence 0-100 for the entire guide"
-        }
+        required: ['buyers', 'overall_confidence'],
       },
-      required: ["buyers", "overall_confidence"]
-    }
-  }];
+    },
+  ];
 
   const startTime = Date.now();
 
@@ -283,7 +316,7 @@ ${guideContent.slice(0, 50000)}`;
   }
 
   // Convert tools to OpenAI format for Gemini
-  const openAITools = tools.map(t => ({
+  const openAITools = tools.map((t) => ({
     type: 'function' as const,
     function: { name: t.name, description: t.description, parameters: t.input_schema },
   }));
@@ -306,7 +339,7 @@ ${guideContent.slice(0, 50000)}`;
       }),
       signal: AbortSignal.timeout(EXTRACTION_TIMEOUT_MS),
     },
-    { maxRetries: MAX_RETRIES, baseDelayMs: 2000, callerName: 'extract-buyer-criteria' }
+    { maxRetries: MAX_RETRIES, baseDelayMs: 2000, callerName: 'extract-buyer-criteria' },
   );
 
   if (!response.ok) {
@@ -318,16 +351,19 @@ ${guideContent.slice(0, 50000)}`;
   const duration = Date.now() - startTime;
 
   console.log(`[EXTRACTION_COMPLETE] ${duration}ms`);
-  console.log(`[USAGE] Input: ${result.usage?.prompt_tokens}, Output: ${result.usage?.completion_tokens}`);
+  console.log(
+    `[USAGE] Input: ${result.usage?.prompt_tokens}, Output: ${result.usage?.completion_tokens}`,
+  );
 
   const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
   if (!toolCall?.function?.arguments) {
     throw new Error('No tool call found in Gemini response');
   }
 
-  const parsed = typeof toolCall.function.arguments === 'string'
-    ? JSON.parse(toolCall.function.arguments)
-    : toolCall.function.arguments;
+  const parsed =
+    typeof toolCall.function.arguments === 'string'
+      ? JSON.parse(toolCall.function.arguments)
+      : toolCall.function.arguments;
 
   return parsed;
 }
@@ -342,19 +378,32 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const { universe_id, guide_content, source_name, industry_name = 'Unknown Industry' }: ExtractionRequest = await req.json();
+    const {
+      universe_id,
+      guide_content,
+      source_name,
+      industry_name = 'Unknown Industry',
+    }: ExtractionRequest = await req.json();
 
     if (!universe_id || !guide_content) {
-      return new Response(JSON.stringify({ success: false, error: 'Missing required fields: universe_id, guide_content' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Missing required fields: universe_id, guide_content',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
-    console.log(`[REQUEST] Universe: ${universe_id}, Source: ${source_name}, Industry: ${industry_name}`);
+    console.log(
+      `[REQUEST] Universe: ${universe_id}, Source: ${source_name}, Industry: ${industry_name}`,
+    );
 
     // Create extraction source record
     const { data: sourceRecord, error: sourceError } = await supabase
@@ -366,10 +415,10 @@ serve(async (req) => {
         source_metadata: {
           industry_name,
           content_length: guide_content.length,
-          word_count: guide_content.split(/\s+/).length
+          word_count: guide_content.split(/\s+/).length,
         },
         extraction_status: 'processing',
-        extraction_started_at: new Date().toISOString()
+        extraction_started_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -396,16 +445,36 @@ serve(async (req) => {
           confidence_scores: {
             overall: overallConfidence,
             buyer_count: buyers.length,
-            avg_size_confidence: buyers.length > 0
-              ? Math.round(buyers.reduce((sum: number, b: ExtractedBuyer) => sum + (b.size_criteria?.confidence || 0), 0) / buyers.length)
-              : 0,
-            avg_service_confidence: buyers.length > 0
-              ? Math.round(buyers.reduce((sum: number, b: ExtractedBuyer) => sum + (b.service_criteria?.confidence || 0), 0) / buyers.length)
-              : 0,
-            avg_geography_confidence: buyers.length > 0
-              ? Math.round(buyers.reduce((sum: number, b: ExtractedBuyer) => sum + (b.geography_criteria?.confidence || 0), 0) / buyers.length)
-              : 0,
-          }
+            avg_size_confidence:
+              buyers.length > 0
+                ? Math.round(
+                    buyers.reduce(
+                      (sum: number, b: ExtractedBuyer) => sum + (b.size_criteria?.confidence || 0),
+                      0,
+                    ) / buyers.length,
+                  )
+                : 0,
+            avg_service_confidence:
+              buyers.length > 0
+                ? Math.round(
+                    buyers.reduce(
+                      (sum: number, b: ExtractedBuyer) =>
+                        sum + (b.service_criteria?.confidence || 0),
+                      0,
+                    ) / buyers.length,
+                  )
+                : 0,
+            avg_geography_confidence:
+              buyers.length > 0
+                ? Math.round(
+                    buyers.reduce(
+                      (sum: number, b: ExtractedBuyer) =>
+                        sum + (b.geography_criteria?.confidence || 0),
+                      0,
+                    ) / buyers.length,
+                  )
+                : 0,
+          },
         })
         .eq('id', sourceRecord.id);
 
@@ -416,7 +485,9 @@ serve(async (req) => {
       // Apply extracted criteria to the universe
       await applyToUniverse(supabase, universe_id, buyers);
 
-      console.log(`[SUCCESS] Extracted ${buyers.length} buyers with ${overallConfidence}% confidence`);
+      console.log(
+        `[SUCCESS] Extracted ${buyers.length} buyers with ${overallConfidence}% confidence`,
+      );
 
       return new Response(
         JSON.stringify({
@@ -425,43 +496,46 @@ serve(async (req) => {
           buyer_count: buyers.length,
           extracted_data: extractionResult,
           confidence: overallConfidence,
-          message: `Extracted criteria for ${buyers.length} buyers from M&A guide`
+          message: `Extracted criteria for ${buyers.length} buyers from M&A guide`,
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
+          status: 200,
+        },
       );
-
     } catch (extractionError: unknown) {
       await supabase
         .from('criteria_extraction_sources')
         .update({
           extraction_status: 'failed',
-          extraction_error: extractionError instanceof Error ? extractionError.message : String(extractionError),
-          extraction_completed_at: new Date().toISOString()
+          extraction_error:
+            extractionError instanceof Error ? extractionError.message : String(extractionError),
+          extraction_completed_at: new Date().toISOString(),
         })
         .eq('id', sourceRecord.id);
 
       throw extractionError;
     }
-
   } catch (error: unknown) {
     console.error('[ERROR]', error);
     return new Response(
       JSON.stringify({
         success: false,
-        error: (error as Error)?.message ?? String(error)
+        error: (error as Error)?.message ?? String(error),
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
-      }
+        status: 500,
+      },
     );
   }
 });
 
-async function applyToUniverse(supabase: ReturnType<typeof createClient>, universeId: string, buyers: ExtractedBuyer[]) {
+async function applyToUniverse(
+  supabase: ReturnType<typeof createClient>,
+  universeId: string,
+  buyers: ExtractedBuyer[],
+) {
   if (!buyers || buyers.length === 0) return;
 
   // Source priority enforcement: check if transcript-sourced criteria already exist
@@ -475,7 +549,9 @@ async function applyToUniverse(supabase: ReturnType<typeof createClient>, univer
 
   const hasTranscriptData = existingSources && existingSources.length > 0;
   if (hasTranscriptData) {
-    console.log(`[SOURCE_PRIORITY] Universe ${universeId} has ${existingSources.length} transcript source(s) — guide data will only fill empty fields`);
+    console.log(
+      `[SOURCE_PRIORITY] Universe ${universeId} has ${existingSources.length} transcript source(s) — guide data will only fill empty fields`,
+    );
   }
 
   // Aggregate criteria across all extracted buyers
@@ -504,10 +580,22 @@ async function applyToUniverse(supabase: ReturnType<typeof createClient>, univer
 
   // Build size criteria from all buyers using percentile-based aggregation
   // Prevents outlier buyers from creating meaninglessly wide ranges
-  const revenueMinVals = buyers.map(b => b.size_criteria?.revenue_min).filter(Boolean).sort((a: number, b: number) => a - b);
-  const revenueMaxVals = buyers.map(b => b.size_criteria?.revenue_max).filter(Boolean).sort((a: number, b: number) => a - b);
-  const ebitdaMinVals = buyers.map(b => b.size_criteria?.ebitda_min).filter(Boolean).sort((a: number, b: number) => a - b);
-  const ebitdaMaxVals = buyers.map(b => b.size_criteria?.ebitda_max).filter(Boolean).sort((a: number, b: number) => a - b);
+  const revenueMinVals = buyers
+    .map((b) => b.size_criteria?.revenue_min)
+    .filter(Boolean)
+    .sort((a: number, b: number) => a - b);
+  const revenueMaxVals = buyers
+    .map((b) => b.size_criteria?.revenue_max)
+    .filter(Boolean)
+    .sort((a: number, b: number) => a - b);
+  const ebitdaMinVals = buyers
+    .map((b) => b.size_criteria?.ebitda_min)
+    .filter(Boolean)
+    .sort((a: number, b: number) => a - b);
+  const ebitdaMaxVals = buyers
+    .map((b) => b.size_criteria?.ebitda_max)
+    .filter(Boolean)
+    .sort((a: number, b: number) => a - b);
 
   // Percentile helper: 25th for mins (conservative lower bound), 75th for maxes (conservative upper bound)
   const percentile = (arr: number[], p: number) => {
@@ -526,7 +614,7 @@ async function applyToUniverse(supabase: ReturnType<typeof createClient>, univer
       min_ebitda: percentile(ebitdaMinVals, 0.25),
       max_ebitda: percentile(ebitdaMaxVals, 0.75),
     };
-    Object.keys(sizeCriteria).forEach(key => {
+    Object.keys(sizeCriteria).forEach((key) => {
       if (sizeCriteria[key] === undefined) delete sizeCriteria[key];
     });
     universeUpdate.size_criteria = sizeCriteria;
@@ -546,7 +634,7 @@ async function applyToUniverse(supabase: ReturnType<typeof createClient>, univer
     };
   }
 
-  const buyerTypes = new Set(buyers.map(b => b.buyer_identity?.type).filter(Boolean));
+  const buyerTypes = new Set(buyers.map((b) => b.buyer_identity?.type).filter(Boolean));
   if (buyerTypes.size > 0) {
     universeUpdate.buyer_types_criteria = {
       include_pe_firms: buyerTypes.has('pe_firm') || buyerTypes.has('private_equity'),
@@ -560,25 +648,31 @@ async function applyToUniverse(supabase: ReturnType<typeof createClient>, univer
 
   // Build target_buyer_types array from extracted buyer profiles
   // This populates the TargetBuyerTypesPanel in the UI
-  const targetBuyerTypes = buyers.map((buyer: ExtractedBuyer, index: number) => ({
-    id: buyer.buyer_identity?.name
-      ? buyer.buyer_identity.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
-      : `buyer_${index + 1}`,
-    rank: index + 1,
-    name: buyer.buyer_identity?.name || `Buyer ${index + 1}`,
-    description: buyer.buyer_profile?.strategic_rationale
-      || buyer.buyer_profile?.geographic_focus
-      || `${buyer.buyer_identity?.type || 'Unknown'} buyer targeting ${buyer.service_criteria?.target_services?.slice(0, 3).join(', ') || 'various services'}`,
-    locations_min: buyer.size_criteria?.location_range
-      ? parseInt(String(buyer.size_criteria.location_range).split('-')[0]) || undefined
-      : undefined,
-    locations_max: buyer.size_criteria?.location_range
-      ? parseInt(String(buyer.size_criteria.location_range).split('-').pop() ?? '') || undefined
-      : undefined,
-    revenue_per_location: undefined,
-    deal_requirements: buyer.buyer_profile?.typical_structure || undefined,
-    enabled: true,
-  })).filter((t: { name?: string }) => t.name);
+  const targetBuyerTypes = buyers
+    .map((buyer: ExtractedBuyer, index: number) => ({
+      id: buyer.buyer_identity?.name
+        ? buyer.buyer_identity.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_|_$/g, '')
+        : `buyer_${index + 1}`,
+      rank: index + 1,
+      name: buyer.buyer_identity?.name || `Buyer ${index + 1}`,
+      description:
+        buyer.buyer_profile?.strategic_rationale ||
+        buyer.buyer_profile?.geographic_focus ||
+        `${buyer.buyer_identity?.type || 'Unknown'} buyer targeting ${buyer.service_criteria?.target_services?.slice(0, 3).join(', ') || 'various services'}`,
+      locations_min: buyer.size_criteria?.location_range
+        ? parseInt(String(buyer.size_criteria.location_range).split('-')[0]) || undefined
+        : undefined,
+      locations_max: buyer.size_criteria?.location_range
+        ? parseInt(String(buyer.size_criteria.location_range).split('-').pop() ?? '') || undefined
+        : undefined,
+      revenue_per_location: undefined,
+      deal_requirements: buyer.buyer_profile?.typical_structure || undefined,
+      enabled: true,
+    }))
+    .filter((t: { name?: string }) => t.name);
 
   if (targetBuyerTypes.length > 0) {
     universeUpdate.target_buyer_types = targetBuyerTypes;
@@ -588,7 +682,7 @@ async function applyToUniverse(supabase: ReturnType<typeof createClient>, univer
     // Source priority: if transcript data exists, only fill empty/null fields
     if (hasTranscriptData) {
       const { data: currentUniverse } = await supabase
-        .from('remarketing_buyer_universes')
+        .from('buyer_universes')
         .select('size_criteria, geography_criteria, service_criteria, buyer_types_criteria')
         .eq('id', universeId)
         .single();
@@ -604,7 +698,9 @@ async function applyToUniverse(supabase: ReturnType<typeof createClient>, univer
           }
         }
         if (fieldsSkipped.length > 0) {
-          console.log(`[SOURCE_PRIORITY] Skipped overwriting ${fieldsSkipped.join(', ')} — transcript data takes precedence`);
+          console.log(
+            `[SOURCE_PRIORITY] Skipped overwriting ${fieldsSkipped.join(', ')} — transcript data takes precedence`,
+          );
         }
       }
     }
@@ -615,14 +711,16 @@ async function applyToUniverse(supabase: ReturnType<typeof createClient>, univer
     }
 
     const { error } = await supabase
-      .from('remarketing_buyer_universes')
+      .from('buyer_universes')
       .update(universeUpdate)
       .eq('id', universeId);
 
     if (error) {
       console.error('[UNIVERSE_UPDATE_ERROR]', error);
     } else {
-      console.log(`[UNIVERSE_UPDATED] Applied ${Object.keys(universeUpdate).length} criteria sections (${targetBuyerTypes.length} buyer types) from ${buyers.length} buyers`);
+      console.log(
+        `[UNIVERSE_UPDATED] Applied ${Object.keys(universeUpdate).length} criteria sections (${targetBuyerTypes.length} buyer types) from ${buyers.length} buyers`,
+      );
     }
   }
 }

@@ -43,7 +43,6 @@ export const ROUTES = {
   // ReMarketing
   REMARKETING: '/admin/remarketing',
   REMARKETING_ACTIVITY_QUEUE: '/admin/remarketing/activity-queue',
-
 } as const;
 
 // ── Pagination ───────────────────────────────────────────────────────
@@ -101,7 +100,7 @@ export const BUYER_TYPE_LABELS: Record<string, string> = {
   independentSponsor: 'Independent Sponsor',
   advisor: 'Advisor / Banker',
   businessOwner: 'Business Owner',
-  // Remarketing (remarketing_buyers table) canonical values
+  // Remarketing (buyers table) canonical values
   private_equity: 'Private Equity',
   family_office: 'Family Office',
   independent_sponsor: 'Independent Sponsor',

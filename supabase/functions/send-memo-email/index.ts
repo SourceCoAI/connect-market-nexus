@@ -12,97 +12,97 @@
  *   - email_body: string (HTML email body)
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCorsHeaders } from "../_shared/cors.ts";
-import { requireAdmin } from "../_shared/auth.ts";
-import { sendViaBervo } from "../_shared/brevo-sender.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getCorsHeaders } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/auth.ts';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
   const auth = await requireAdmin(req, supabaseAdmin);
   if (!auth.isAdmin) {
     return new Response(JSON.stringify({ error: auth.error }), {
       status: auth.authenticated ? 403 : 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   try {
-    const {
-      memo_id,
-      buyer_id,
-      email_address,
-      email_subject,
-      email_body,
-    } = await req.json();
+    const { memo_id, buyer_id, email_address, email_subject, email_body } = await req.json();
 
     if (!memo_id || !buyer_id || !email_address || !email_subject || !email_body) {
       return new Response(
-        JSON.stringify({ error: "memo_id, buyer_id, email_address, email_subject, and email_body are all required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: 'memo_id, buyer_id, email_address, email_subject, and email_body are all required',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     // Fetch memo
     const { data: memo, error: memoError } = await supabaseAdmin
-      .from("lead_memos")
-      .select("*")
-      .eq("id", memo_id)
+      .from('lead_memos')
+      .select('*')
+      .eq('id', memo_id)
       .single();
 
     // Fetch deal info separately (no FK on lead_memos)
-    let dealTitle = "Deal";
+    let dealTitle = 'Deal';
     if (memo?.deal_id) {
       const { data: listing } = await supabaseAdmin
-        .from("listings")
-        .select("internal_company_name, title")
-        .eq("id", memo.deal_id)
+        .from('listings')
+        .select('internal_company_name, title')
+        .eq('id', memo.deal_id)
         .single();
       if (listing) {
-        dealTitle = listing.internal_company_name || listing.title || "Deal";
+        dealTitle = listing.internal_company_name || listing.title || 'Deal';
       }
     }
 
     if (memoError || !memo) {
-      return new Response(JSON.stringify({ error: "Memo not found" }), {
+      return new Response(JSON.stringify({ error: 'Memo not found' }), {
         status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Fetch buyer info for the distribution log
     const { data: buyer } = await supabaseAdmin
-      .from("remarketing_buyers")
-      .select("company_name, pe_firm_name")
-      .eq("id", buyer_id)
+      .from('buyers')
+      .select('company_name, pe_firm_name')
+      .eq('id', buyer_id)
       .single();
 
     // Get admin profile for sender name
     const { data: adminProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("full_name, email")
-      .eq("id", auth.userId)
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', auth.userId)
       .single();
 
-    const senderName = adminProfile?.full_name || "SourceCo Team";
-    const senderEmail = Deno.env.get("ADMIN_NOTIFICATION_EMAIL") || adminProfile?.email || Deno.env.get('DEALS_EMAIL') || 'deals@sourcecodeals.com';
+    const senderName = adminProfile?.full_name || 'SourceCo Team';
+    const senderEmail =
+      Deno.env.get('ADMIN_NOTIFICATION_EMAIL') ||
+      adminProfile?.email ||
+      Deno.env.get('DEALS_EMAIL') ||
+      'deals@sourcecodeals.com';
 
     // Send email via Brevo
     const emailResult = await sendViaBervo({
@@ -127,8 +127,8 @@ Deno.serve(async (req: Request) => {
         errorMessage: emailResult.error,
       });
       return new Response(
-        JSON.stringify({ error: "Failed to send email", details: emailResult.error }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: 'Failed to send email', details: emailResult.error }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -140,36 +140,34 @@ Deno.serve(async (req: Request) => {
     });
 
     // Log distribution
-    const { error: logError } = await supabaseAdmin
-      .from("memo_distribution_log")
-      .insert({
-        deal_id: memo.deal_id,
-        memo_id: memo.id,
-        remarketing_buyer_id: buyer_id,
-        memo_type: memo.memo_type,
-        channel: "email",
-        sent_by: auth.userId,
-        email_address,
-        email_subject,
-      });
+    const { error: logError } = await supabaseAdmin.from('memo_distribution_log').insert({
+      deal_id: memo.deal_id,
+      memo_id: memo.id,
+      remarketing_buyer_id: buyer_id,
+      memo_type: memo.memo_type,
+      channel: 'email',
+      sent_by: auth.userId,
+      email_address,
+      email_subject,
+    });
 
     if (logError) {
-      console.error("Distribution log error:", logError);
+      console.error('Distribution log error:', logError);
     }
 
     // Create in-app notification for the buyer (if they have an account)
     // Look up user by email
     const { data: buyerUsers } = await supabaseAdmin
-      .from("profiles")
-      .select("id, email")
-      .eq("email", email_address)
+      .from('profiles')
+      .select('id, email')
+      .eq('email', email_address)
       .limit(1);
 
     if (buyerUsers && buyerUsers.length > 0) {
       const buyerUserId = buyerUsers[0].id;
-      await supabaseAdmin.from("user_notifications").insert({
+      await supabaseAdmin.from('user_notifications').insert({
         user_id: buyerUserId,
-        notification_type: "memo_shared",
+        notification_type: 'memo_shared',
         title: `New memo shared: ${dealTitle}`,
         message: `A ${memo.memo_type === 'teaser' ? 'teaser' : 'lead memo'} has been shared with you for ${dealTitle}.`,
         metadata: {
@@ -182,10 +180,10 @@ Deno.serve(async (req: Request) => {
     }
 
     // Log audit event
-    await supabaseAdmin.rpc("log_data_room_event", {
+    await supabaseAdmin.rpc('log_data_room_event', {
       p_deal_id: memo.deal_id,
       p_user_id: auth.userId,
-      p_action: "send_memo_email",
+      p_action: 'send_memo_email',
       p_metadata: {
         memo_id: memo.id,
         memo_type: memo.memo_type,
@@ -194,19 +192,18 @@ Deno.serve(async (req: Request) => {
         email_address,
         email_subject,
       },
-      p_ip_address: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null,
-      p_user_agent: req.headers.get("user-agent") || null,
+      p_ip_address: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
+      p_user_agent: req.headers.get('user-agent') || null,
     });
 
-    return new Response(
-      JSON.stringify({ success: true, message_id: emailResult.messageId }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ success: true, message_id: emailResult.messageId }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    console.error("Send memo email error:", error);
+    console.error('Send memo email error:', error);
     return new Response(
-      JSON.stringify({ error: "Failed to send memo email", details: (error as Error).message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: 'Failed to send memo email', details: (error as Error).message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
 });

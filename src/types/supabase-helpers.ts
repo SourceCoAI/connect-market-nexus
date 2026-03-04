@@ -80,10 +80,10 @@ export type BuyerContactRow = TableRow<'contacts'>;
 export type BuyerContactInsert = TableInsert<'contacts'>;
 export type BuyerContactUpdate = TableUpdate<'contacts'>;
 
-// ReMarketing Buyer Universes
-export type BuyerUniverseRow = TableRow<'remarketing_buyer_universes'>;
-export type BuyerUniverseInsert = TableInsert<'remarketing_buyer_universes'>;
-export type BuyerUniverseUpdate = TableUpdate<'remarketing_buyer_universes'>;
+// Buyer Universes
+export type BuyerUniverseRow = TableRow<'buyer_universes'>;
+export type BuyerUniverseInsert = TableInsert<'buyer_universes'>;
+export type BuyerUniverseUpdate = TableUpdate<'buyer_universes'>;
 
 // Admin Notifications
 export type AdminNotificationRow = TableRow<'admin_notifications'>;
@@ -167,8 +167,11 @@ export type DealId = Brand<string, 'DealId'>;
 export type ConnectionRequestId = Brand<string, 'ConnectionRequestId'>;
 
 /** Async function return type unwrapper */
-export type AsyncReturnType<T extends (...args: unknown[]) => Promise<unknown>> =
-  T extends (...args: unknown[]) => Promise<infer R> ? R : never;
+export type AsyncReturnType<T extends (...args: unknown[]) => Promise<unknown>> = T extends (
+  ...args: unknown[]
+) => Promise<infer R>
+  ? R
+  : never;
 
 /** Record with string keys and values of type T */
 export type StringRecord<T = string> = Record<string, T>;

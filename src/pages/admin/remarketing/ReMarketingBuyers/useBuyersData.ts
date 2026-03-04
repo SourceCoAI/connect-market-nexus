@@ -38,11 +38,11 @@ export const useBuyersData = () => {
     queryKey: ['remarketing', 'buyers', universeFilter],
     queryFn: async () => {
       let query = supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select(
           `
           *,
-          universe:remarketing_buyer_universes(id, name),
+          universe:buyer_universes(id, name),
           firm_agreement:firm_agreements!remarketing_buyers_marketplace_firm_id_fkey(
             id,
             nda_signed,
@@ -100,7 +100,7 @@ export const useBuyersData = () => {
     queryKey: ['remarketing', 'universes'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('remarketing_buyer_universes')
+        .from('buyer_universes')
         .select('id, name')
         .eq('archived', false)
         .order('name');
@@ -114,7 +114,13 @@ export const useBuyersData = () => {
   const { data: unsignedAgreements } = useQuery({
     queryKey: ['unsigned-agreements-buyers-tab'],
     queryFn: async () => {
-      const items: { id: string; primary_company_name: string; type: 'nda' | 'fee_agreement'; status: string | null; sent_at: string | null }[] = [];
+      const items: {
+        id: string;
+        primary_company_name: string;
+        type: 'nda' | 'fee_agreement';
+        status: string | null;
+        sent_at: string | null;
+      }[] = [];
 
       const { data: unsignedNdas } = await supabase
         .from('firm_agreements')
@@ -161,7 +167,15 @@ export const useBuyersData = () => {
 
   // Compute tab counts from loaded buyers
   const tabCounts = useMemo(() => {
-    if (!buyers) return { all: 0, private_equity: 0, corporate: 0, needs_review: 0, needs_agreements: 0, unsigned_agreements: 0 };
+    if (!buyers)
+      return {
+        all: 0,
+        private_equity: 0,
+        corporate: 0,
+        needs_review: 0,
+        needs_agreements: 0,
+        unsigned_agreements: 0,
+      };
     let private_equity = 0,
       corporate = 0,
       needs_review = 0,
@@ -207,7 +221,7 @@ export const useBuyersData = () => {
       // Check for duplicate buyer by domain
       if (normalizedWebsite) {
         const query = supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .select('id, company_name, company_website')
           .eq('archived', false)
           .not('company_website', 'is', null);
@@ -227,7 +241,7 @@ export const useBuyersData = () => {
         }
       }
 
-      const { error } = await supabase.from('remarketing_buyers').insert({
+      const { error } = await supabase.from('buyers').insert({
         company_name: newBuyer.company_name,
         company_website: normalizedWebsite,
         buyer_type: newBuyer.buyer_type || null,
@@ -264,7 +278,7 @@ export const useBuyersData = () => {
   // Delete buyer mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('remarketing_buyers').delete().eq('id', id);
+      const { error } = await supabase.from('buyers').delete().eq('id', id);
 
       if (error) throw error;
     },

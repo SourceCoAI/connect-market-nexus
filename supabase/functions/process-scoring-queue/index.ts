@@ -219,9 +219,7 @@ Deno.serve(async (req: Request) => {
         const buyers: BuyerScore[] = data.buyers || [];
 
         if (buyers.length === 0) {
-          console.log(
-            `[process-scoring-queue] No buyers scored for listing ${item.listing_id}`,
-          );
+          console.log(`[process-scoring-queue] No buyers scored for listing ${item.listing_id}`);
         } else {
           // Upsert scored buyers into remarketing_scores
           // Process in chunks to avoid hitting request size limits
@@ -276,10 +274,7 @@ Deno.serve(async (req: Request) => {
         consecutiveFailures = 0;
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error(
-          `[process-scoring-queue] Failed for listing ${item.listing_id}:`,
-          errorMsg,
-        );
+        console.error(`[process-scoring-queue] Failed for listing ${item.listing_id}:`, errorMsg);
 
         const newStatus = item.attempts >= MAX_ATTEMPTS ? 'failed' : 'pending';
         await supabase
@@ -344,9 +339,7 @@ Deno.serve(async (req: Request) => {
               if (attempt < 2) await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
             }
           }
-          console.error(
-            '[process-scoring-queue] Self-continuation failed after 3 attempts',
-          );
+          console.error('[process-scoring-queue] Self-continuation failed after 3 attempts');
         };
         triggerContinuation().catch((err) => {
           console.warn('[process-scoring-queue] Continuation trigger failed:', err);

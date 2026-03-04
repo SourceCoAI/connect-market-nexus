@@ -115,9 +115,9 @@ Key components: Buyer Marketplace, Admin Dashboard, ReMarketing Engine (outbound
   terminology: {
     title: 'SourceCo Terminology',
     content: `- Deal/Listing: a business being marketed for acquisition (listings table).
-- Remarketing Buyer: external buyer (PE/strategic/platform) tracked in remarketing_buyers. Not a platform user.
+- Remarketing Buyer: external buyer (PE/strategic/platform) tracked in buyers table. Not a platform user.
 - Marketplace Buyer: registered platform user who browses deals (profiles table).
-- Universe: named buyer grouping for targeted outreach (remarketing_buyer_universes) with geography, size, services criteria.
+- Universe: named buyer grouping for targeted outreach (buyer_universes) with geography, size, services criteria.
 - Score: composite buyer-deal fit score (0-100) across geography, size, service, owner goals, thesis alignment.
 - Tier: A (80-100), B (60-79), C (40-59), D (20-39), F (0-19).
 - Pipeline Stage: Lead, NDA, LOI, Due Diligence, Closed (and others as configured).
@@ -342,9 +342,9 @@ Flag stale outreach (no activity in 5+ business days) and overdue next actions.`
   data_sources: {
     title: 'Data Sources Reference',
     content: `- listings: deals/sellers, captarget leads, marketplace listings.
-- remarketing_buyers: buyer universe, PE firms, platform companies with scores.
+- buyers: buyer universe, PE firms, platform companies with scores.
 - remarketing_scores: buyer-deal scoring data.
-- remarketing_buyer_universes: named universes with criteria and weights.
+- buyer_universes: named universes with criteria and weights.
 - call_transcripts + deal_transcripts + buyer_transcripts: meeting recordings.
 - valuation_leads: HVAC, collision, auto shop, general calculator leads.
 - deal_activities: deal activity log. daily_standup_tasks: unified task system (entity_type='deal' for deal tasks).

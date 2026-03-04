@@ -88,7 +88,7 @@ export const UnlinkedListingsWidget = () => {
     queryKey: ['remarketing', 'universes'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('remarketing_buyer_universes')
+        .from('buyer_universes')
         .select('id, name')
         .eq('archived', false)
         .order('name');

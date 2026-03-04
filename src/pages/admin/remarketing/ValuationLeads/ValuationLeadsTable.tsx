@@ -530,9 +530,7 @@ export function ValuationLeadsTable({
                                   needs_buyer_search_at: newVal ? now : null,
                                 })
                                 .eq('id', lead.pushed_listing_id);
-                              sonnerToast.success(
-                                newVal ? 'Flagged: Find Buyer' : 'Flag removed',
-                              );
+                              sonnerToast.success(newVal ? 'Flagged: Find Buyer' : 'Flag removed');
                               queryClient.invalidateQueries({
                                 queryKey: ['remarketing', 'valuation-leads'],
                               });

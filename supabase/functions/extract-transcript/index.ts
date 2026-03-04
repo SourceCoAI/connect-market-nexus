@@ -1,6 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { DEFAULT_GEMINI_MODEL, callGeminiWithTool } from "../_shared/ai-providers.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { DEFAULT_GEMINI_MODEL, callGeminiWithTool } from '../_shared/ai-providers.ts';
 
 interface ExtractionSource {
   type: string;
@@ -16,7 +16,7 @@ interface RecentAcquisition {
   date?: string;
   location?: string;
 }
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 interface ExtractTranscriptRequest {
   buyerId?: string;
@@ -68,7 +68,13 @@ interface BuyerInsights {
   strategic_priorities?: string[];
   target_industries?: string[];
   target_geography?: { regions?: string[]; states?: string[]; notes?: string };
-  deal_size_range?: { revenue_min?: number; revenue_max?: number; ebitda_min?: number; ebitda_max?: number; notes?: string };
+  deal_size_range?: {
+    revenue_min?: number;
+    revenue_max?: number;
+    ebitda_min?: number;
+    ebitda_max?: number;
+    notes?: string;
+  };
   acquisition_timeline?: string;
   acquisition_appetite?: string;
   acquisition_frequency?: string;
@@ -90,24 +96,31 @@ interface BuyerInsights {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
 
   const corsHeaders = getCorsHeaders(req);
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+      throw new Error('GEMINI_API_KEY is not configured');
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body: ExtractTranscriptRequest = await req.json();
-    const { buyerId, transcriptText, source, transcriptId, transcript_id, entity_type = 'both' } = body;
+    const {
+      buyerId,
+      transcriptText,
+      source: _source,
+      transcriptId,
+      transcript_id,
+      entity_type = 'both',
+    } = body;
 
     let transcriptTextToProcess: string;
     let buyerIdToUpdate: string | undefined = buyerId;
@@ -126,10 +139,10 @@ serve(async (req) => {
         .single();
 
       if (transcriptError || !transcript) {
-        return new Response(
-          JSON.stringify({ error: "Transcript not found" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: 'Transcript not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       transcriptTextToProcess = transcript.transcript_text;
@@ -142,8 +155,8 @@ serve(async (req) => {
         .eq('id', transcript_id);
     } else {
       return new Response(
-        JSON.stringify({ error: "Must provide either transcriptText+buyerId or transcript_id" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: 'Must provide either transcriptText+buyerId or transcript_id' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -156,7 +169,13 @@ serve(async (req) => {
       insights.ceo_detected = true;
 
       if (buyerIdToUpdate && listingIdToUpdate) {
-        await createEngagementSignal(supabase, listingIdToUpdate, buyerIdToUpdate, 'ceo_involvement', 40);
+        await createEngagementSignal(
+          supabase,
+          listingIdToUpdate,
+          buyerIdToUpdate,
+          'ceo_involvement',
+          40,
+        );
       }
     }
 
@@ -164,14 +183,19 @@ serve(async (req) => {
       console.log(`[TranscriptExtraction] Extracting deal insights`);
       const dealInsights = await extractDealInsights(transcriptTextToProcess, GEMINI_API_KEY);
       insights.deal = dealInsights;
-      await updateListingFromTranscript(supabase, listingIdToUpdate, dealInsights, transcriptIdForTracking || 'direct');
+      await updateListingFromTranscript(
+        supabase,
+        listingIdToUpdate,
+        dealInsights,
+        transcriptIdForTracking || 'direct',
+      );
     }
 
     if ((entity_type === 'buyer' || entity_type === 'both') && buyerIdToUpdate) {
       console.log(`[TranscriptExtraction] Extracting buyer insights for ${buyerIdToUpdate}`);
 
       const { data: buyerContext } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('company_name, pe_firm_name')
         .eq('id', buyerIdToUpdate)
         .single();
@@ -180,11 +204,16 @@ serve(async (req) => {
         transcriptTextToProcess,
         GEMINI_API_KEY,
         buyerContext?.company_name || undefined,
-        buyerContext?.pe_firm_name || undefined
+        buyerContext?.pe_firm_name || undefined,
       );
       insights.buyer = buyerInsights;
 
-      await updateBuyerFromTranscript(supabase, buyerIdToUpdate, buyerInsights, transcriptIdForTracking || 'direct');
+      await updateBuyerFromTranscript(
+        supabase,
+        buyerIdToUpdate,
+        buyerInsights,
+        transcriptIdForTracking || 'direct',
+      );
 
       if (buyerTranscriptIdToUpdate) {
         const { error: transcriptUpdateError } = await supabase
@@ -192,14 +221,19 @@ serve(async (req) => {
           .update({
             processed_at: new Date().toISOString(),
             extracted_insights: buyerInsights,
-            extraction_status: 'completed'
+            extraction_status: 'completed',
           })
           .eq('id', buyerTranscriptIdToUpdate);
 
         if (transcriptUpdateError) {
-          console.error(`[TranscriptExtraction] Failed to update buyer_transcripts record:`, transcriptUpdateError);
+          console.error(
+            `[TranscriptExtraction] Failed to update buyer_transcripts record:`,
+            transcriptUpdateError,
+          );
         } else {
-          console.log(`[TranscriptExtraction] Updated buyer_transcripts ${buyerTranscriptIdToUpdate} as processed`);
+          console.log(
+            `[TranscriptExtraction] Updated buyer_transcripts ${buyerTranscriptIdToUpdate} as processed`,
+          );
         }
       }
     }
@@ -216,7 +250,7 @@ serve(async (req) => {
         .eq('id', transcript_id);
 
       if (updateError) {
-        console.error("Failed to update transcript:", updateError);
+        console.error('Failed to update transcript:', updateError);
       }
     }
 
@@ -229,13 +263,13 @@ serve(async (req) => {
         key_quotes: keyQuotes,
         ceo_detected: ceoDetected,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
-    console.error("Extract transcript error:", error);
+    console.error('Extract transcript error:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
 });
@@ -251,22 +285,26 @@ function detectCEOInvolvement(transcript: string): boolean {
     /\bI (own|founded|built) (the|this) (business|company)/i,
     /\bI('m| am) the owner/i,
   ];
-  return ceoPatterns.some(pattern => pattern.test(transcript));
+  return ceoPatterns.some((pattern) => pattern.test(transcript));
 }
 
-async function createEngagementSignal(supabase: SupabaseClient, listingId: string, buyerId: string, signalType: string, signalValue: number) {
-  const { error } = await supabase
-    .from('engagement_signals')
-    .insert({
-      listing_id: listingId,
-      buyer_id: buyerId,
-      signal_type: signalType,
-      signal_value: signalValue,
-      source: 'system_detected',
-      notes: 'Auto-detected from call transcript',
-    });
+async function createEngagementSignal(
+  supabase: SupabaseClient,
+  listingId: string,
+  buyerId: string,
+  signalType: string,
+  signalValue: number,
+) {
+  const { error } = await supabase.from('engagement_signals').insert({
+    listing_id: listingId,
+    buyer_id: buyerId,
+    signal_type: signalType,
+    signal_value: signalValue,
+    source: 'system_detected',
+    notes: 'Auto-detected from call transcript',
+  });
   if (error) {
-    console.error("Failed to create engagement signal:", error);
+    console.error('Failed to create engagement signal:', error);
   } else {
     console.log(`[EngagementSignal] Created ${signalType} signal (+${signalValue} pts)`);
   }
@@ -284,105 +322,134 @@ RULES:
 6. Distinguish between: revenue, gross profit, EBITDA, SDE, net income, cash flow. Owners use these terms loosely — categorize based on context, not the word they used.`;
 
   const tool = {
-    type: "function",
+    type: 'function',
     function: {
-      name: "extract_deal_insights",
-      description: "Extract all deal-relevant information from a transcript including financials, owner details, company details, and deal specifics",
+      name: 'extract_deal_insights',
+      description:
+        'Extract all deal-relevant information from a transcript including financials, owner details, company details, and deal specifics',
       parameters: {
-        type: "object",
+        type: 'object',
         properties: {
           financial_metrics: {
-            type: "object",
+            type: 'object',
             properties: {
               revenue: {
-                type: "object",
+                type: 'object',
                 properties: {
-                  value: { type: "number", description: "Annual revenue in raw dollars (e.g., 5000000 for $5M)" },
-                  period: { type: "string", description: "Time period: TTM, FY2025, etc." },
-                  source_quote: { type: "string", description: "Exact verbatim quote where revenue was mentioned" }
-                }
+                  value: {
+                    type: 'number',
+                    description: 'Annual revenue in raw dollars (e.g., 5000000 for $5M)',
+                  },
+                  period: { type: 'string', description: 'Time period: TTM, FY2025, etc.' },
+                  source_quote: {
+                    type: 'string',
+                    description: 'Exact verbatim quote where revenue was mentioned',
+                  },
+                },
               },
               ebitda: {
-                type: "object",
+                type: 'object',
                 properties: {
-                  value: { type: "number", description: "EBITDA/SDE in raw dollars" },
-                  margin: { type: "number", description: "EBITDA margin as decimal (0.18 for 18%)" },
-                  source_quote: { type: "string", description: "Exact verbatim quote" }
-                }
+                  value: { type: 'number', description: 'EBITDA/SDE in raw dollars' },
+                  margin: {
+                    type: 'number',
+                    description: 'EBITDA margin as decimal (0.18 for 18%)',
+                  },
+                  source_quote: { type: 'string', description: 'Exact verbatim quote' },
+                },
               },
               growth_rate: {
-                type: "object",
+                type: 'object',
                 properties: {
-                  value: { type: "number", description: "Growth rate as decimal (0.15 for 15%)" },
-                  period: { type: "string", description: "Time period for growth rate" },
-                  source_quote: { type: "string" }
-                }
+                  value: { type: 'number', description: 'Growth rate as decimal (0.15 for 15%)' },
+                  period: { type: 'string', description: 'Time period for growth rate' },
+                  source_quote: { type: 'string' },
+                },
               },
               other_metrics: {
-                type: "array",
+                type: 'array',
                 items: {
-                  type: "object",
+                  type: 'object',
                   properties: {
-                    metric_name: { type: "string", description: "E.g., average job size, customer count, backlog" },
-                    value: { type: "string", description: "Value of the metric (number or description)" },
-                    source_quote: { type: "string" }
+                    metric_name: {
+                      type: 'string',
+                      description: 'E.g., average job size, customer count, backlog',
+                    },
+                    value: {
+                      type: 'string',
+                      description: 'Value of the metric (number or description)',
+                    },
+                    source_quote: { type: 'string' },
                   },
-                  required: ["metric_name", "value"]
+                  required: ['metric_name', 'value'],
                 },
-                description: "Any financial metrics that don't fit main categories"
-              }
-            }
+                description: "Any financial metrics that don't fit main categories",
+              },
+            },
           },
           owner_details: {
-            type: "object",
+            type: 'object',
             properties: {
-              name: { type: "string" },
-              role: { type: "string" },
-              age_or_tenure: { type: "string", description: "Age or years in business" },
-              motivation: { type: "string", description: "Why they're selling/exploring options" },
-              timeline: { type: "string", description: "Desired timeline for transaction" },
-              compensation: { type: "string", description: "Owner compensation if mentioned (salary, benefits, perks)" }
-            }
+              name: { type: 'string' },
+              role: { type: 'string' },
+              age_or_tenure: { type: 'string', description: 'Age or years in business' },
+              motivation: { type: 'string', description: "Why they're selling/exploring options" },
+              timeline: { type: 'string', description: 'Desired timeline for transaction' },
+              compensation: {
+                type: 'string',
+                description: 'Owner compensation if mentioned (salary, benefits, perks)',
+              },
+            },
           },
           company_details: {
-            type: "object",
+            type: 'object',
             properties: {
-              name: { type: "string" },
-              industry: { type: "string", description: "Most specific industry label" },
-              location: { type: "string", description: "City, ST format" },
-              employees: { type: "number", description: "Total employee count (FT + PT)" },
-              founded: { type: "number", description: "4-digit founding year" },
+              name: { type: 'string' },
+              industry: { type: 'string', description: 'Most specific industry label' },
+              location: { type: 'string', description: 'City, ST format' },
+              employees: { type: 'number', description: 'Total employee count (FT + PT)' },
+              founded: { type: 'number', description: '4-digit founding year' },
               services: {
-                type: "array",
-                items: { type: "string" },
-                description: "All services/products mentioned"
-              }
-            }
+                type: 'array',
+                items: { type: 'string' },
+                description: 'All services/products mentioned',
+              },
+            },
           },
           deal_details: {
-            type: "object",
+            type: 'object',
             properties: {
-              asking_price: { type: "number", description: "Asking price in raw dollars" },
-              valuation_multiple: { type: "string", description: "E.g., '4-6x EBITDA', '1.2x revenue'" },
-              deal_type: { type: "string", description: "Full sale, majority recap, partnership, etc." },
-              deal_stage: { type: "string", description: "Early exploration, LOI, due diligence, etc." },
-              broker_involved: { type: "boolean" },
-              broker_name: { type: "string" }
-            }
+              asking_price: { type: 'number', description: 'Asking price in raw dollars' },
+              valuation_multiple: {
+                type: 'string',
+                description: "E.g., '4-6x EBITDA', '1.2x revenue'",
+              },
+              deal_type: {
+                type: 'string',
+                description: 'Full sale, majority recap, partnership, etc.',
+              },
+              deal_stage: {
+                type: 'string',
+                description: 'Early exploration, LOI, due diligence, etc.',
+              },
+              broker_involved: { type: 'boolean' },
+              broker_name: { type: 'string' },
+            },
           },
           key_takeaways: {
-            type: "array",
-            items: { type: "string" },
-            description: "5-8 most important facts from this call. Prioritize: financial data, owner situation, deal timing, red flags, competitive advantages."
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              '5-8 most important facts from this call. Prioritize: financial data, owner situation, deal timing, red flags, competitive advantages.',
           },
           follow_up_needed: {
-            type: "array",
-            items: { type: "string" },
-            description: "Questions that remain unanswered after this call."
-          }
-        }
-      }
-    }
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Questions that remain unanswered after this call.',
+          },
+        },
+      },
+    },
   };
 
   const result = await callGeminiWithTool(
@@ -392,7 +459,7 @@ RULES:
     apiKey,
     DEFAULT_GEMINI_MODEL,
     45000,
-    8192
+    8192,
   );
 
   return (result.data as DealInsights) || {};
@@ -402,7 +469,7 @@ async function extractBuyerInsights(
   transcriptText: string,
   apiKey: string,
   platformCompanyName?: string,
-  peFirmName?: string
+  peFirmName?: string,
 ): Promise<BuyerInsights> {
   const companyContext = platformCompanyName
     ? `\n\nKNOWN ENTITIES:
@@ -456,142 +523,172 @@ If the transcript is primarily an evaluation of a target company (not a discussi
 - missing_information: explain that this was a target evaluation call`;
 
   const tool = {
-    type: "function",
+    type: 'function',
     function: {
-      name: "extract_buyer_thesis",
-      description: "Extract the platform company's acquisition thesis and buyer profile from a transcript. NEVER extract a target company's data as if it belongs to the buyer.",
+      name: 'extract_buyer_thesis',
+      description:
+        "Extract the platform company's acquisition thesis and buyer profile from a transcript. NEVER extract a target company's data as if it belongs to the buyer.",
       parameters: {
-        type: "object",
+        type: 'object',
         properties: {
           thesis_summary: {
-            type: "string",
-            description: "The platform company's OWN acquisition thesis — what they're looking to buy and why. NOT the target company's description. Leave empty if this is a target evaluation call."
+            type: 'string',
+            description:
+              "The platform company's OWN acquisition thesis — what they're looking to buy and why. NOT the target company's description. Leave empty if this is a target evaluation call.",
           },
           is_evaluation_call: {
-            type: "boolean",
-            description: "Set to true if this is primarily a target evaluation call rather than a thesis discussion. When true, operational fields should be empty."
+            type: 'boolean',
+            description:
+              'Set to true if this is primarily a target evaluation call rather than a thesis discussion. When true, operational fields should be empty.',
           },
           strategic_priorities: {
-            type: "array",
-            items: { type: "string" },
-            description: "The platform company's strategic goals and priorities. NOT the target's goals."
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              "The platform company's strategic goals and priorities. NOT the target's goals.",
           },
           target_industries: {
-            type: "array",
-            items: { type: "string" },
-            description: "Industries the buyer is targeting for acquisitions."
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Industries the buyer is targeting for acquisitions.',
           },
           target_geography: {
-            type: "object",
+            type: 'object',
             properties: {
-              regions: { type: "array", items: { type: "string" }, description: "Regional targets (e.g., 'Southeast', 'Mid-Atlantic')" },
-              states: { type: "array", items: { type: "string" }, description: "2-letter state codes of target geographies" },
-              notes: { type: "string", description: "Additional geographic context" }
+              regions: {
+                type: 'array',
+                items: { type: 'string' },
+                description: "Regional targets (e.g., 'Southeast', 'Mid-Atlantic')",
+              },
+              states: {
+                type: 'array',
+                items: { type: 'string' },
+                description: '2-letter state codes of target geographies',
+              },
+              notes: { type: 'string', description: 'Additional geographic context' },
             },
-            description: "Where the buyer wants to acquire companies."
+            description: 'Where the buyer wants to acquire companies.',
           },
           deal_size_range: {
-            type: "object",
+            type: 'object',
             properties: {
-              revenue_min: { type: "number" },
-              revenue_max: { type: "number" },
-              ebitda_min: { type: "number" },
-              ebitda_max: { type: "number" },
-              notes: { type: "string" }
+              revenue_min: { type: 'number' },
+              revenue_max: { type: 'number' },
+              ebitda_min: { type: 'number' },
+              ebitda_max: { type: 'number' },
+              notes: { type: 'string' },
             },
-            description: "Target acquisition size criteria."
+            description: 'Target acquisition size criteria.',
           },
           acquisition_timeline: {
-            type: "string",
-            description: "How actively is the buyer looking? E.g., 'active', 'exploring', 'paused'. Use 'insufficient' if not discussed."
+            type: 'string',
+            description:
+              "How actively is the buyer looking? E.g., 'active', 'exploring', 'paused'. Use 'insufficient' if not discussed.",
           },
           acquisition_appetite: {
-            type: "string",
-            description: "Activity level and pace. E.g., 'Very Active - doing 3-4 deals per year', 'Moderate - 1-2 per year', 'Just starting acquisition strategy'. Include any specifics about how many deals they want to do."
+            type: 'string',
+            description:
+              "Activity level and pace. E.g., 'Very Active - doing 3-4 deals per year', 'Moderate - 1-2 per year', 'Just starting acquisition strategy'. Include any specifics about how many deals they want to do.",
           },
           acquisition_frequency: {
-            type: "string",
-            description: "How often they acquire. E.g., '2-3 per year', 'Monthly', 'Opportunistic'. Extract from statements like 'we try to do about one deal a quarter'."
+            type: 'string',
+            description:
+              "How often they acquire. E.g., '2-3 per year', 'Monthly', 'Opportunistic'. Extract from statements like 'we try to do about one deal a quarter'.",
           },
           target_services: {
-            type: "array",
-            items: { type: "string" },
-            description: "Specific service types the buyer wants to acquire. E.g., ['HVAC', 'plumbing', 'electrical'], ['commercial roofing', 'waterproofing']. Different from services_offered — these are what they WANT to buy."
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              "Specific service types the buyer wants to acquire. E.g., ['HVAC', 'plumbing', 'electrical'], ['commercial roofing', 'waterproofing']. Different from services_offered — these are what they WANT to buy.",
           },
           buyer_type: {
-            type: "string",
-            description: "Classify the buyer: 'private_equity' (PE fund with LP capital), 'corporate' (operating company acquiring for growth), 'family_office', 'search_fund', 'independent_sponsor', or 'individual_buyer'. If the company has real operations/revenue/customers, always use 'corporate' regardless of acquisition volume."
+            type: 'string',
+            description:
+              "Classify the buyer: 'private_equity' (PE fund with LP capital), 'corporate' (operating company acquiring for growth), 'family_office', 'search_fund', 'independent_sponsor', or 'individual_buyer'. If the company has real operations/revenue/customers, always use 'corporate' regardless of acquisition volume.",
           },
           industry_vertical: {
-            type: "string",
-            description: "The buyer's primary industry vertical. E.g., 'Home Services - HVAC', 'Facility Services', 'Environmental Services', 'Healthcare Services'."
+            type: 'string',
+            description:
+              "The buyer's primary industry vertical. E.g., 'Home Services - HVAC', 'Facility Services', 'Environmental Services', 'Healthcare Services'.",
           },
           revenue_model: {
-            type: "string",
-            description: "How the platform company generates revenue. E.g., 'Recurring maintenance contracts (60%) and project-based installation work (40%)', 'Insurance restoration referrals and direct-to-consumer'. 1-3 sentences."
+            type: 'string',
+            description:
+              "How the platform company generates revenue. E.g., 'Recurring maintenance contracts (60%) and project-based installation work (40%)', 'Insurance restoration referrals and direct-to-consumer'. 1-3 sentences.",
           },
           deal_structure_preferences: {
-            type: "string",
-            description: "Preferred deal structures discussed. E.g., 'Prefers majority recaps with owner rollover', 'Full buyouts only', 'Open to earnouts', 'Wants seller to stay 2-3 years'. Include any mention of earnouts, rollover equity, seller notes, transition periods."
+            type: 'string',
+            description:
+              "Preferred deal structures discussed. E.g., 'Prefers majority recaps with owner rollover', 'Full buyouts only', 'Open to earnouts', 'Wants seller to stay 2-3 years'. Include any mention of earnouts, rollover equity, seller notes, transition periods.",
           },
           management_team_notes: {
-            type: "string",
-            description: "Notes about the buyer's management team or operating capabilities discussed. E.g., 'Has a dedicated integration team', 'CEO has 20 years industry experience', 'Looking for deals where owner stays to run operations'."
+            type: 'string',
+            description:
+              "Notes about the buyer's management team or operating capabilities discussed. E.g., 'Has a dedicated integration team', 'CEO has 20 years industry experience', 'Looking for deals where owner stays to run operations'.",
           },
           integration_approach: {
-            type: "string",
-            description: "How the buyer integrates acquisitions. E.g., 'Keep the brand and local management, centralize back-office', 'Full rebrand within 6 months', 'Light touch - just add shared services'. Include any operational integration details discussed."
+            type: 'string',
+            description:
+              "How the buyer integrates acquisitions. E.g., 'Keep the brand and local management, centralize back-office', 'Full rebrand within 6 months', 'Light touch - just add shared services'. Include any operational integration details discussed.",
           },
           recent_acquisitions: {
-            type: "array",
+            type: 'array',
             items: {
-              type: "object",
+              type: 'object',
               properties: {
-                company_name: { type: "string" },
-                date: { type: "string", description: "YYYY-MM or YYYY format" },
-                location: { type: "string", description: "City, ST format" }
+                company_name: { type: 'string' },
+                date: { type: 'string', description: 'YYYY-MM or YYYY format' },
+                location: { type: 'string', description: 'City, ST format' },
               },
-              required: ["company_name"]
+              required: ['company_name'],
             },
-            description: "Any acquisitions the buyer mentions having completed. E.g., 'We just closed on ABC Plumbing in Dallas last month'."
+            description:
+              "Any acquisitions the buyer mentions having completed. E.g., 'We just closed on ABC Plumbing in Dallas last month'.",
           },
           portfolio_companies: {
-            type: "array",
-            items: { type: "string" },
-            description: "Names of portfolio companies or platforms the buyer mentions owning or operating."
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'Names of portfolio companies or platforms the buyer mentions owning or operating.',
           },
           key_quotes: {
-            type: "array",
-            items: { type: "string" },
-            description: "5-8 most revealing verbatim quotes from the BUYER that capture their acquisition thesis, preferences, deal criteria, or strategic priorities. NOT quotes from the target company."
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              '5-8 most revealing verbatim quotes from the BUYER that capture their acquisition thesis, preferences, deal criteria, or strategic priorities. NOT quotes from the target company.',
           },
           services_offered: {
-            type: "array",
-            items: { type: "string" },
-            description: "Services the PLATFORM COMPANY itself provides (NOT the target's services). Leave empty if this is a target evaluation call."
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              "Services the PLATFORM COMPANY itself provides (NOT the target's services). Leave empty if this is a target evaluation call.",
           },
           business_summary: {
-            type: "string",
-            description: "Summary of the PLATFORM COMPANY's own business (NOT the target being evaluated). Leave empty if this is a target evaluation call."
+            type: 'string',
+            description:
+              "Summary of the PLATFORM COMPANY's own business (NOT the target being evaluated). Leave empty if this is a target evaluation call.",
           },
           operating_locations: {
-            type: "array",
-            items: { type: "string" },
-            description: "'City, ST' format. Only the PLATFORM COMPANY's own physical locations. NOT PE firm HQ. NOT target company locations."
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              "'City, ST' format. Only the PLATFORM COMPANY's own physical locations. NOT PE firm HQ. NOT target company locations.",
           },
           geographic_footprint: {
-            type: "array",
-            items: { type: "string" },
-            description: "2-letter state codes where the PLATFORM COMPANY physically operates. NOT PE firm HQ states. NOT target company states."
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              '2-letter state codes where the PLATFORM COMPANY physically operates. NOT PE firm HQ states. NOT target company states.',
           },
           missing_information: {
-            type: "array",
-            items: { type: "string" },
-            description: "EVERYTHING the transcript did NOT cover. If this is a target evaluation call, note that the buyer's thesis/criteria were not discussed."
-          }
-        }
-      }
-    }
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              "EVERYTHING the transcript did NOT cover. If this is a target evaluation call, note that the buyer's thesis/criteria were not discussed.",
+          },
+        },
+      },
+    },
   };
 
   const result = await callGeminiWithTool(
@@ -601,18 +698,21 @@ If the transcript is primarily an evaluation of a target company (not a discussi
     apiKey,
     DEFAULT_GEMINI_MODEL,
     45000,
-    8192
+    8192,
   );
 
   const insights = (result.data as BuyerInsights) || {};
 
-  if (insights.is_evaluation_call && (!insights.missing_information || insights.missing_information.length === 0)) {
+  if (
+    insights.is_evaluation_call &&
+    (!insights.missing_information || insights.missing_information.length === 0)
+  ) {
     insights.missing_information = [
-      "What specific services/verticals are you targeting for add-ons?",
-      "What geographic markets are you prioritizing?",
-      "What is your target size range (revenue/EBITDA)?",
-      "What is your acquisition timeline?",
-      "What are your deal structure preferences?"
+      'What specific services/verticals are you targeting for add-ons?',
+      'What geographic markets are you prioritizing?',
+      'What is your target size range (revenue/EBITDA)?',
+      'What is your acquisition timeline?',
+      'What are your deal structure preferences?',
     ];
   }
 
@@ -631,17 +731,24 @@ If the transcript is primarily an evaluation of a target company (not a discussi
   return insights;
 }
 
-async function updateListingFromTranscript(supabase: SupabaseClient, listingId: string, insights: DealInsights, transcriptId: string) {
+async function updateListingFromTranscript(
+  supabase: SupabaseClient,
+  listingId: string,
+  insights: DealInsights,
+  transcriptId: string,
+) {
   const updates: Record<string, unknown> = {};
 
   // Financial metrics
   if (insights.financial_metrics?.revenue?.value) {
     updates.revenue = insights.financial_metrics.revenue.value;
-    if (insights.financial_metrics.revenue.source_quote) updates.revenue_source_quote = insights.financial_metrics.revenue.source_quote;
+    if (insights.financial_metrics.revenue.source_quote)
+      updates.revenue_source_quote = insights.financial_metrics.revenue.source_quote;
   }
   if (insights.financial_metrics?.ebitda?.value) {
     updates.ebitda = insights.financial_metrics.ebitda.value;
-    if (insights.financial_metrics.ebitda.margin) updates.ebitda_margin = insights.financial_metrics.ebitda.margin;
+    if (insights.financial_metrics.ebitda.margin)
+      updates.ebitda_margin = insights.financial_metrics.ebitda.margin;
   }
   if (insights.financial_metrics?.growth_rate?.value) {
     // Append growth rate info to financial_notes if not already captured
@@ -653,7 +760,7 @@ async function updateListingFromTranscript(supabase: SupabaseClient, listingId: 
   if (insights.financial_metrics?.other_metrics?.length) {
     // Append other metrics to financial_notes
     const otherMetricsText = insights.financial_metrics.other_metrics
-      .map(m => `${m.metric_name}: ${m.value}`)
+      .map((m) => `${m.metric_name}: ${m.value}`)
       .join('; ');
     const existingNotes = (updates.financial_notes as string) || '';
     updates.financial_notes = existingNotes
@@ -663,7 +770,8 @@ async function updateListingFromTranscript(supabase: SupabaseClient, listingId: 
 
   // Owner & transaction details
   if (insights.owner_details?.motivation) updates.owner_goals = insights.owner_details.motivation;
-  if (insights.owner_details?.timeline) updates.transition_preferences = insights.owner_details.timeline;
+  if (insights.owner_details?.timeline)
+    updates.transition_preferences = insights.owner_details.timeline;
   if (insights.owner_details?.compensation) {
     // Append owner compensation to financial_notes
     const existingNotes = (updates.financial_notes as string) || '';
@@ -673,9 +781,11 @@ async function updateListingFromTranscript(supabase: SupabaseClient, listingId: 
 
   // Company details
   if (insights.company_details?.industry) updates.industry = insights.company_details.industry;
-  if (insights.company_details?.employees) updates.full_time_employees = insights.company_details.employees;
+  if (insights.company_details?.employees)
+    updates.full_time_employees = insights.company_details.employees;
   if (insights.company_details?.founded) updates.founded_year = insights.company_details.founded;
-  if (insights.company_details?.services?.length) updates.services = insights.company_details.services;
+  if (insights.company_details?.services?.length)
+    updates.services = insights.company_details.services;
   if (insights.company_details?.location) {
     // Extract city and state from "City, ST" format
     const locMatch = insights.company_details.location.match(/^(.+),\s*([A-Z]{2})$/);
@@ -686,7 +796,8 @@ async function updateListingFromTranscript(supabase: SupabaseClient, listingId: 
   }
 
   // Deal details
-  if (insights.deal_details?.asking_price) updates.asking_price = insights.deal_details.asking_price;
+  if (insights.deal_details?.asking_price)
+    updates.asking_price = insights.deal_details.asking_price;
   if (insights.deal_details?.deal_type) {
     // Append deal type info to owner_goals if not already there
     const existingGoals = (updates.owner_goals as string) || '';
@@ -704,25 +815,40 @@ async function updateListingFromTranscript(supabase: SupabaseClient, listingId: 
   if (insights.key_takeaways?.length) {
     const existingNotes = (updates.financial_notes as string) || '';
     const takeawayText = insights.key_takeaways.join('\n');
-    updates.financial_notes = existingNotes ? `${existingNotes}\n\nKey Takeaways:\n${takeawayText}` : `Key Takeaways:\n${takeawayText}`;
+    updates.financial_notes = existingNotes
+      ? `${existingNotes}\n\nKey Takeaways:\n${takeawayText}`
+      : `Key Takeaways:\n${takeawayText}`;
   }
-  if (insights.follow_up_needed?.length) updates.financial_followup_questions = insights.follow_up_needed;
+  if (insights.follow_up_needed?.length)
+    updates.financial_followup_questions = insights.follow_up_needed;
 
   if (Object.keys(updates).length > 0) {
-    updates.extraction_sources = { transcript_id: transcriptId, extracted_at: new Date().toISOString() };
+    updates.extraction_sources = {
+      transcript_id: transcriptId,
+      extracted_at: new Date().toISOString(),
+    };
     const { error } = await supabase.from('listings').update(updates).eq('id', listingId);
     if (error) {
-      console.error("Failed to update listing from transcript:", error);
+      console.error('Failed to update listing from transcript:', error);
     } else {
-      console.log(`[TranscriptExtraction] Updated listing ${listingId} with ${Object.keys(updates).length} fields`);
+      console.log(
+        `[TranscriptExtraction] Updated listing ${listingId} with ${Object.keys(updates).length} fields`,
+      );
     }
   }
 }
 
-async function updateBuyerFromTranscript(supabase: SupabaseClient, buyerId: string, insights: BuyerInsights, transcriptId: string) {
+async function updateBuyerFromTranscript(
+  supabase: SupabaseClient,
+  buyerId: string,
+  insights: BuyerInsights,
+  transcriptId: string,
+) {
   const { data: existingBuyer } = await supabase
-    .from('remarketing_buyers')
-    .select('extraction_sources, thesis_summary, strategic_priorities, target_industries, services_offered, business_summary, operating_locations, geographic_footprint, key_quotes, target_geographies, acquisition_timeline, acquisition_appetite, acquisition_frequency, target_services, buyer_type, industry_vertical, revenue_model, recent_acquisitions, portfolio_companies, notes')
+    .from('buyers')
+    .select(
+      'extraction_sources, thesis_summary, strategic_priorities, target_industries, services_offered, business_summary, operating_locations, geographic_footprint, key_quotes, target_geographies, acquisition_timeline, acquisition_appetite, acquisition_frequency, target_services, buyer_type, industry_vertical, revenue_model, recent_acquisitions, portfolio_companies, notes',
+    )
     .eq('id', buyerId)
     .single();
 
@@ -744,7 +870,10 @@ async function updateBuyerFromTranscript(supabase: SupabaseClient, buyerId: stri
 
   if (shouldUpdate('thesis_summary', insights.thesis_summary) && !insights.is_evaluation_call) {
     // Always update thesis if we have new data and existing is empty, or new is longer
-    if (!existing.thesis_summary || insights.thesis_summary!.length > (existing.thesis_summary || '').length) {
+    if (
+      !existing.thesis_summary ||
+      insights.thesis_summary!.length > (existing.thesis_summary || '').length
+    ) {
       updates.thesis_summary = insights.thesis_summary;
     }
   }
@@ -764,21 +893,30 @@ async function updateBuyerFromTranscript(supabase: SupabaseClient, buyerId: stri
     if (merged.length > 0) updates.target_geographies = merged;
   }
 
-  if (shouldUpdate('acquisition_timeline', insights.acquisition_timeline) && insights.acquisition_timeline !== 'insufficient') {
+  if (
+    shouldUpdate('acquisition_timeline', insights.acquisition_timeline) &&
+    insights.acquisition_timeline !== 'insufficient'
+  ) {
     if (!existing.acquisition_timeline || existing.acquisition_timeline === 'insufficient') {
       updates.acquisition_timeline = insights.acquisition_timeline;
     }
   }
 
   if (insights.deal_size_range) {
-    if (insights.deal_size_range.revenue_min) updates.target_revenue_min = insights.deal_size_range.revenue_min;
-    if (insights.deal_size_range.revenue_max) updates.target_revenue_max = insights.deal_size_range.revenue_max;
-    if (insights.deal_size_range.ebitda_min) updates.target_ebitda_min = insights.deal_size_range.ebitda_min;
-    if (insights.deal_size_range.ebitda_max) updates.target_ebitda_max = insights.deal_size_range.ebitda_max;
+    if (insights.deal_size_range.revenue_min)
+      updates.target_revenue_min = insights.deal_size_range.revenue_min;
+    if (insights.deal_size_range.revenue_max)
+      updates.target_revenue_max = insights.deal_size_range.revenue_max;
+    if (insights.deal_size_range.ebitda_min)
+      updates.target_ebitda_min = insights.deal_size_range.ebitda_min;
+    if (insights.deal_size_range.ebitda_max)
+      updates.target_ebitda_max = insights.deal_size_range.ebitda_max;
   }
 
   if (shouldUpdate('services_offered', insights.services_offered)) {
-    const newServices = Array.isArray(insights.services_offered) ? insights.services_offered.join(', ') : String(insights.services_offered);
+    const newServices = Array.isArray(insights.services_offered)
+      ? insights.services_offered.join(', ')
+      : String(insights.services_offered);
     if (!existing.services_offered || existing.services_offered.trim() === '') {
       updates.services_offered = newServices;
     }
@@ -793,13 +931,17 @@ async function updateBuyerFromTranscript(supabase: SupabaseClient, buyerId: stri
   }
 
   if (insights.operating_locations?.length) {
-    const existingLocs = Array.isArray(existing.operating_locations) ? existing.operating_locations : [];
+    const existingLocs = Array.isArray(existing.operating_locations)
+      ? existing.operating_locations
+      : [];
     const merged = mergeArrays(existingLocs, insights.operating_locations);
     if (merged.length > 0) updates.operating_locations = merged;
   }
 
   if (insights.geographic_footprint?.length) {
-    const existingGeo = Array.isArray(existing.geographic_footprint) ? existing.geographic_footprint : [];
+    const existingGeo = Array.isArray(existing.geographic_footprint)
+      ? existing.geographic_footprint
+      : [];
     const merged = mergeArrays(existingGeo, insights.geographic_footprint);
     if (merged.length > 0) updates.geographic_footprint = merged;
   }
@@ -828,7 +970,10 @@ async function updateBuyerFromTranscript(supabase: SupabaseClient, buyerId: stri
     }
   }
 
-  if (shouldUpdate('industry_vertical', insights.industry_vertical) && !insights.is_evaluation_call) {
+  if (
+    shouldUpdate('industry_vertical', insights.industry_vertical) &&
+    !insights.is_evaluation_call
+  ) {
     if (!existing.industry_vertical || existing.industry_vertical.trim() === '') {
       updates.industry_vertical = insights.industry_vertical;
     }
@@ -841,10 +986,14 @@ async function updateBuyerFromTranscript(supabase: SupabaseClient, buyerId: stri
   }
 
   if (insights.recent_acquisitions?.length) {
-    const existingAcqs = Array.isArray(existing.recent_acquisitions) ? existing.recent_acquisitions : [];
-    const existingNames = new Set(existingAcqs.map((a: RecentAcquisition) => (a.company_name || '').toLowerCase()));
+    const existingAcqs = Array.isArray(existing.recent_acquisitions)
+      ? existing.recent_acquisitions
+      : [];
+    const existingNames = new Set(
+      existingAcqs.map((a: RecentAcquisition) => (a.company_name || '').toLowerCase()),
+    );
     const newAcqs = insights.recent_acquisitions.filter(
-      a => !existingNames.has((a.company_name || '').toLowerCase())
+      (a) => !existingNames.has((a.company_name || '').toLowerCase()),
     );
     if (newAcqs.length > 0) {
       updates.recent_acquisitions = [...existingAcqs, ...newAcqs];
@@ -888,16 +1037,18 @@ async function updateBuyerFromTranscript(supabase: SupabaseClient, buyerId: stri
       type: 'transcript',
       transcript_id: transcriptId,
       extracted_at: new Date().toISOString(),
-      fields_extracted: Object.keys(updates).filter(k => k !== 'extraction_sources')
+      fields_extracted: Object.keys(updates).filter((k) => k !== 'extraction_sources'),
     };
     updates.extraction_sources = [...existingSources, newSource];
     updates.data_last_updated = new Date().toISOString();
 
-    const { error } = await supabase.from('remarketing_buyers').update(updates).eq('id', buyerId);
+    const { error } = await supabase.from('buyers').update(updates).eq('id', buyerId);
     if (error) {
-      console.error("Failed to update buyer from transcript:", error);
+      console.error('Failed to update buyer from transcript:', error);
     } else {
-      console.log(`[TranscriptExtraction] Updated buyer ${buyerId} with ${Object.keys(updates).length} fields (thesis_summary: ${!!updates.thesis_summary}). Total extraction sources: ${(updates.extraction_sources as ExtractionSource[]).length}`);
+      console.log(
+        `[TranscriptExtraction] Updated buyer ${buyerId} with ${Object.keys(updates).length} fields (thesis_summary: ${!!updates.thesis_summary}). Total extraction sources: ${(updates.extraction_sources as ExtractionSource[]).length}`,
+      );
     }
   } else if (insights.is_evaluation_call) {
     const existingSources = (existing.extraction_sources || []) as ExtractionSource[];
@@ -909,17 +1060,19 @@ async function updateBuyerFromTranscript(supabase: SupabaseClient, buyerId: stri
           transcript_id: transcriptId,
           extracted_at: new Date().toISOString(),
           status: 'insufficient_data',
-          note: 'Target evaluation call — no buyer thesis data extracted'
-        }
+          note: 'Target evaluation call — no buyer thesis data extracted',
+        },
       ],
       data_last_updated: new Date().toISOString(),
     };
 
-    const { error } = await supabase.from('remarketing_buyers').update(insufficientUpdate).eq('id', buyerId);
+    const { error } = await supabase.from('buyers').update(insufficientUpdate).eq('id', buyerId);
     if (error) {
-      console.error("Failed to update buyer with insufficient status:", error);
+      console.error('Failed to update buyer with insufficient status:', error);
     } else {
-      console.log(`[TranscriptExtraction] Marked transcript ${transcriptId} as insufficient for buyer ${buyerId} — no overwrites. Total extraction sources: ${(insufficientUpdate.extraction_sources as ExtractionSource[]).length}`);
+      console.log(
+        `[TranscriptExtraction] Marked transcript ${transcriptId} as insufficient for buyer ${buyerId} — no overwrites. Total extraction sources: ${(insufficientUpdate.extraction_sources as ExtractionSource[]).length}`,
+      );
     }
   }
 }

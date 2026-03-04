@@ -46,12 +46,12 @@ export function DocumentDistributionTab({
   const [activeTab, setActiveTab] = useState('marketing');
   const { data: pendingCount = 0 } = usePendingApprovalCount(dealId);
 
-  // Fetch buyers from remarketing_buyers + their contacts from unified contacts table
+  // Fetch buyers from buyers + their contacts from unified contacts table
   const { data: fetchedBuyers = [] } = useQuery({
     queryKey: ['distribution-buyers'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select(
           `
           id, company_name,

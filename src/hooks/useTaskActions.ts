@@ -39,9 +39,9 @@ export function useSnoozeTask() {
       if (error) throw error;
 
       // Log activity
-      await supabase.from('rm_task_activity_log' as never).insert({
+      await supabase.from('rm_task_activity_log').insert({
         task_id: taskId,
-        user_id: user?.id,
+        user_id: user?.id ?? '',
         action: 'snoozed',
         new_value: { snoozed_until: snoozedUntil, days },
       } as never);
@@ -71,9 +71,9 @@ export function useUnsnoozeTask() {
 
       if (error) throw error;
 
-      await supabase.from('rm_task_activity_log' as never).insert({
+      await supabase.from('rm_task_activity_log').insert({
         task_id: taskId,
-        user_id: user?.id,
+        user_id: user?.id ?? '',
         action: 'status_changed',
         old_value: { status: 'snoozed' },
         new_value: { status: 'pending' },
@@ -107,9 +107,9 @@ export function useConfirmAITask() {
 
       if (error) throw error;
 
-      await supabase.from('rm_task_activity_log' as never).insert({
+      await supabase.from('rm_task_activity_log').insert({
         task_id: taskId,
-        user_id: user?.id,
+        user_id: user?.id ?? '',
         action: 'confirmed',
         new_value: updates,
       } as never);
@@ -139,9 +139,9 @@ export function useDismissAITask() {
 
       if (error) throw error;
 
-      await supabase.from('rm_task_activity_log' as never).insert({
+      await supabase.from('rm_task_activity_log').insert({
         task_id: taskId,
-        user_id: user?.id,
+        user_id: user?.id ?? '',
         action: 'dismissed',
       } as never);
     },
@@ -167,9 +167,9 @@ export function useCancelTask() {
 
       if (error) throw error;
 
-      await supabase.from('rm_task_activity_log' as never).insert({
+      await supabase.from('rm_task_activity_log').insert({
         task_id: taskId,
-        user_id: user?.id,
+        user_id: user?.id ?? '',
         action: 'cancelled',
       } as never);
     },
@@ -234,12 +234,12 @@ export function useApplyTaskTemplate() {
         createdTaskIds.push((data as Record<string, unknown>).id as string);
 
         // Log activity
-        await supabase.from('rm_task_activity_log' as never).insert({
+        await supabase.from('rm_task_activity_log').insert({
           task_id: (data as Record<string, unknown>).id as string,
-          user_id: user?.id,
+          user_id: user?.id ?? '',
           action: 'created',
           new_value: { source: 'template', template_stage: template.name },
-        } as never);
+        });
       }
 
       return createdTaskIds;
@@ -301,12 +301,12 @@ export function useAddEntityTask() {
       if (error) throw error;
 
       // Log activity
-      await supabase.from('rm_task_activity_log' as never).insert({
+      await supabase.from('rm_task_activity_log').insert({
         task_id: (data as Record<string, unknown>).id as string,
-        user_id: user?.id,
+        user_id: user?.id ?? '',
         action: 'created',
         new_value: { entity_type: task.entity_type, entity_id: task.entity_id },
-      } as never);
+      });
 
       // Deal activity logging when task is linked to a deal
       if (task.entity_type === 'deal' && task.entity_id) {

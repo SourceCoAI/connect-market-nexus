@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
@@ -27,7 +28,7 @@ serve(async (req) => {
     // Find pending or processing generations
     const { data: generations, error: fetchError } = await supabase
       .from('ma_guide_generations')
-      .select('*, remarketing_buyer_universes!inner(name, description, ma_guide_qa_context)')
+      .select('*, buyer_universes!inner(name, description, ma_guide_qa_context)')
       .in('status', ['pending', 'processing'])
       .order('created_at', { ascending: true })
       .limit(1); // Process one at a time
@@ -45,7 +46,7 @@ serve(async (req) => {
     }
 
     const generation = generations[0];
-    const universe = generation.remarketing_buyer_universes;
+    const universe = generation.buyer_universes;
 
     console.log(
       `[process-ma-guide-queue] Processing generation ${generation.id}, phase ${generation.phases_completed}/${TOTAL_PHASES}`,
@@ -151,7 +152,7 @@ serve(async (req) => {
           Promise.allSettled(searchTerms.slice(0, 3).map((term) => searchFireflies(term, 10))),
           // Fetch buyers at the same time
           supabase
-            .from('remarketing_buyers')
+            .from('buyers')
             .select('pe_firm_name, company_name')
             .eq('universe_id', generation.universe_id)
             .limit(10),
@@ -335,7 +336,7 @@ serve(async (req) => {
 
       // Update universe with final content
       await supabase
-        .from('remarketing_buyer_universes')
+        .from('buyer_universes')
         .update({
           ma_guide_content: newContent,
           ...(result.criteria ? { fit_criteria: result.criteria } : {}),

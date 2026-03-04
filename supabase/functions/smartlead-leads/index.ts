@@ -57,33 +57,52 @@ async function resolveFromBuyerContacts(
 
   if (!contacts?.length) return [];
 
-  const buyerIds = [...new Set(contacts.map((c: { remarketing_buyer_id: string | null }) => c.remarketing_buyer_id).filter(Boolean))];
+  const buyerIds = [
+    ...new Set(
+      contacts
+        .map((c: { remarketing_buyer_id: string | null }) => c.remarketing_buyer_id)
+        .filter(Boolean),
+    ),
+  ];
   const { data: buyers } = await supabase
-    .from('remarketing_buyers')
+    .from('buyers')
     .select('id, company_name')
     .in('id', buyerIds);
-  const buyerMap = new Map((buyers || []).map((b: { id: string; company_name?: string }) => [b.id, b]));
+  const buyerMap = new Map(
+    (buyers || []).map((b: { id: string; company_name?: string }) => [b.id, b]),
+  );
 
   return contacts
     .filter((c: { email?: string | null }) => c.email)
-    .map((c: { id: string; first_name?: string | null; last_name?: string | null; email?: string | null; phone?: string | null; title?: string | null; remarketing_buyer_id: string | null; linkedin_url?: string | null }) => {
-      const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
-      return {
-        email: c.email!,
-        first_name: c.first_name || '',
-        last_name: c.last_name || '',
-        company_name: buyer?.company_name || '',
-        phone_number: c.phone || '',
-        linkedin_profile: c.linkedin_url || '',
-        custom_fields: {
-          sourceco_contact_id: c.id,
-          contact_title: c.title || '',
-          source: 'SourceCo Platform',
-        },
-        _source_id: c.id,
-        _source_type: 'buyer_contact',
-      };
-    });
+    .map(
+      (c: {
+        id: string;
+        first_name?: string | null;
+        last_name?: string | null;
+        email?: string | null;
+        phone?: string | null;
+        title?: string | null;
+        remarketing_buyer_id: string | null;
+        linkedin_url?: string | null;
+      }) => {
+        const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
+        return {
+          email: c.email!,
+          first_name: c.first_name || '',
+          last_name: c.last_name || '',
+          company_name: buyer?.company_name || '',
+          phone_number: c.phone || '',
+          linkedin_profile: c.linkedin_url || '',
+          custom_fields: {
+            sourceco_contact_id: c.id,
+            contact_title: c.title || '',
+            source: 'SourceCo Platform',
+          },
+          _source_id: c.id,
+          _source_type: 'buyer_contact',
+        };
+      },
+    );
 }
 
 async function resolveFromBuyers(
@@ -98,10 +117,20 @@ async function resolveFromBuyers(
     .eq('archived', false);
 
   const { data: buyers } = await supabase
-    .from('remarketing_buyers')
+    .from('buyers')
     .select('id, company_name, contact_name, contact_email, contact_phone')
     .in('id', buyerIds);
-  const buyerMap = new Map((buyers || []).map((b: { id: string; company_name?: string; contact_name?: string; contact_email?: string; contact_phone?: string }) => [b.id, b]));
+  const buyerMap = new Map(
+    (buyers || []).map(
+      (b: {
+        id: string;
+        company_name?: string;
+        contact_name?: string;
+        contact_email?: string;
+        contact_phone?: string;
+      }) => [b.id, b],
+    ),
+  );
 
   const seen = new Set<string>();
   const result: ResolvedLead[] = [];
@@ -131,7 +160,11 @@ async function resolveFromBuyers(
   }
 
   // Fallback: buyer-level contact info for buyers with no sub-contacts
-  const buyersWithContacts = new Set((contacts || []).map((c: { remarketing_buyer_id: string | null }) => c.remarketing_buyer_id).filter(Boolean));
+  const buyersWithContacts = new Set(
+    (contacts || [])
+      .map((c: { remarketing_buyer_id: string | null }) => c.remarketing_buyer_id)
+      .filter(Boolean),
+  );
   for (const buyerId of buyerIds) {
     if (buyersWithContacts.has(buyerId)) continue;
     const buyer = buyerMap.get(buyerId);
@@ -173,22 +206,31 @@ async function resolveFromListings(
 
   return listings
     .filter((l: { main_contact_email?: string }) => l.main_contact_email)
-    .map((l: { id: string; title?: string; internal_company_name?: string; main_contact_name?: string; main_contact_email?: string; main_contact_phone?: string }) => {
-      const parts = (l.main_contact_name || '').split(' ');
-      return {
-        email: l.main_contact_email!,
-        first_name: parts[0] || '',
-        last_name: parts.slice(1).join(' ') || '',
-        company_name: l.internal_company_name || l.title || '',
-        phone_number: l.main_contact_phone || '',
-        custom_fields: {
-          sourceco_listing_id: l.id,
-          source: 'SourceCo Platform',
-        },
-        _source_id: l.id,
-        _source_type: 'listing',
-      };
-    });
+    .map(
+      (l: {
+        id: string;
+        title?: string;
+        internal_company_name?: string;
+        main_contact_name?: string;
+        main_contact_email?: string;
+        main_contact_phone?: string;
+      }) => {
+        const parts = (l.main_contact_name || '').split(' ');
+        return {
+          email: l.main_contact_email!,
+          first_name: parts[0] || '',
+          last_name: parts.slice(1).join(' ') || '',
+          company_name: l.internal_company_name || l.title || '',
+          phone_number: l.main_contact_phone || '',
+          custom_fields: {
+            sourceco_listing_id: l.id,
+            source: 'SourceCo Platform',
+          },
+          _source_id: l.id,
+          _source_type: 'listing',
+        };
+      },
+    );
 }
 
 async function resolveFromLeads(
@@ -204,23 +246,32 @@ async function resolveFromLeads(
 
   return leads
     .filter((l: { email?: string }) => l.email)
-    .map((l: { id: string; name?: string; email?: string; phone_number?: string; company_name?: string; role?: string }) => {
-      const parts = (l.name || '').split(' ');
-      return {
-        email: l.email!,
-        first_name: parts[0] || '',
-        last_name: parts.slice(1).join(' ') || '',
-        company_name: l.company_name || '',
-        phone_number: l.phone_number || '',
-        custom_fields: {
-          sourceco_lead_id: l.id,
-          lead_role: l.role || '',
-          source: 'SourceCo Platform',
-        },
-        _source_id: l.id,
-        _source_type: 'inbound_lead',
-      };
-    });
+    .map(
+      (l: {
+        id: string;
+        name?: string;
+        email?: string;
+        phone_number?: string;
+        company_name?: string;
+        role?: string;
+      }) => {
+        const parts = (l.name || '').split(' ');
+        return {
+          email: l.email!,
+          first_name: parts[0] || '',
+          last_name: parts.slice(1).join(' ') || '',
+          company_name: l.company_name || '',
+          phone_number: l.phone_number || '',
+          custom_fields: {
+            sourceco_lead_id: l.id,
+            lead_role: l.role || '',
+            source: 'SourceCo Platform',
+          },
+          _source_id: l.id,
+          _source_type: 'inbound_lead',
+        };
+      },
+    );
 }
 
 // ─── Main handler ───────────────────────────────────────────────────────────

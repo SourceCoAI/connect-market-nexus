@@ -20,7 +20,7 @@ export type SearchCategory =
   | 'inbound_leads'
   | 'owner_leads'
   | 'referral_partners'
-  | 'remarketing_buyers';
+  | 'buyers';
 
 const CATEGORY_CONFIG: Record<SearchCategory, { label: string; color: string }> = {
   deals: { label: 'Pipeline Deals', color: 'text-blue-600' },
@@ -31,7 +31,7 @@ const CATEGORY_CONFIG: Record<SearchCategory, { label: string; color: string }> 
   inbound_leads: { label: 'Inbound Leads', color: 'text-cyan-600' },
   owner_leads: { label: 'Owner/Seller Leads', color: 'text-amber-600' },
   referral_partners: { label: 'Referral Partners', color: 'text-rose-600' },
-  remarketing_buyers: { label: 'Remarketing Buyers', color: 'text-teal-600' },
+  buyers: { label: 'Remarketing Buyers', color: 'text-teal-600' },
 };
 
 export function getCategoryConfig(cat: SearchCategory) {
@@ -56,7 +56,9 @@ export function useUniversalSearch() {
           d.contact_name,
           d.contact_email,
           d.buyer_name,
-        ].filter(Boolean).join(' · '),
+        ]
+          .filter(Boolean)
+          .join(' · '),
         category: 'deals' as SearchCategory,
         href: `/admin/deals`,
         meta: [d.stage_name, d.contact_company, d.buyer_company].filter(Boolean).join(' | '),
@@ -71,7 +73,9 @@ export function useUniversalSearch() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('listings')
-        .select('id, title, internal_company_name, description, location, category, industry, website, deal_source')
+        .select(
+          'id, title, internal_company_name, description, location, category, industry, website, deal_source',
+        )
         .eq('remarketing_status', 'active')
         .order('created_at', { ascending: false })
         .limit(2000);
@@ -94,7 +98,9 @@ export function useUniversalSearch() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('listings')
-        .select('id, title, internal_company_name, captarget_client_name, main_contact_name, main_contact_email, website, industry')
+        .select(
+          'id, title, internal_company_name, captarget_client_name, main_contact_name, main_contact_email, website, industry',
+        )
         .eq('deal_source', 'captarget')
         .order('created_at', { ascending: false })
         .limit(2000);
@@ -102,7 +108,9 @@ export function useUniversalSearch() {
       return (data ?? []).map((l) => ({
         id: l.id,
         title: l.internal_company_name || l.title || 'Untitled',
-        subtitle: [l.captarget_client_name, l.main_contact_name, l.main_contact_email].filter(Boolean).join(' · '),
+        subtitle: [l.captarget_client_name, l.main_contact_name, l.main_contact_email]
+          .filter(Boolean)
+          .join(' · '),
         category: 'captarget' as SearchCategory,
         href: `/admin/remarketing/leads/captarget`,
         meta: [l.website, l.industry].filter(Boolean).join(' | '),
@@ -117,7 +125,9 @@ export function useUniversalSearch() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('listings')
-        .select('id, title, internal_company_name, main_contact_name, main_contact_email, website, industry')
+        .select(
+          'id, title, internal_company_name, main_contact_name, main_contact_email, website, industry',
+        )
         .eq('deal_source', 'gp_partners')
         .order('created_at', { ascending: false })
         .limit(2000);
@@ -229,8 +239,10 @@ export function useUniversalSearch() {
     queryKey: ['universal-search', 'remarketing-buyers'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('remarketing_buyers')
-        .select('id, company_name, company_website, buyer_type, pe_firm_name, thesis_summary, hq_city, hq_state')
+        .from('buyers')
+        .select(
+          'id, company_name, company_website, buyer_type, pe_firm_name, thesis_summary, hq_city, hq_state',
+        )
         .eq('archived', false)
         .order('company_name')
         .limit(2000);
@@ -238,8 +250,14 @@ export function useUniversalSearch() {
       return (data ?? []).map((b) => ({
         id: b.id,
         title: b.company_name || 'Unknown',
-        subtitle: [b.buyer_type, b.pe_firm_name, b.hq_city && b.hq_state ? `${b.hq_city}, ${b.hq_state}` : b.hq_state].filter(Boolean).join(' · '),
-        category: 'remarketing_buyers' as SearchCategory,
+        subtitle: [
+          b.buyer_type,
+          b.pe_firm_name,
+          b.hq_city && b.hq_state ? `${b.hq_city}, ${b.hq_state}` : b.hq_state,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        category: 'buyers' as SearchCategory,
         href: `/admin/remarketing/buyers/${b.id}`,
         meta: [b.company_website, b.thesis_summary?.slice(0, 80)].filter(Boolean).join(' | '),
       }));
@@ -258,36 +276,41 @@ export function useUniversalSearch() {
     referralQuery.isLoading ||
     buyersQuery.isLoading;
 
-  const allResults: UniversalSearchResult[] = useMemo(() => [
-    ...(dealsQuery.data ?? []),
-    ...(allDealsQuery.data ?? []),
-    ...(captargetQuery.data ?? []),
-    ...(gpPartnersQuery.data ?? []),
-    ...(valuationQuery.data ?? []),
-    ...(inboundQuery.data ?? []),
-    ...(ownerQuery.data ?? []),
-    ...(referralQuery.data ?? []),
-    ...(buyersQuery.data ?? []),
-  ], [
-    dealsQuery.data,
-    allDealsQuery.data,
-    captargetQuery.data,
-    gpPartnersQuery.data,
-    valuationQuery.data,
-    inboundQuery.data,
-    ownerQuery.data,
-    referralQuery.data,
-    buyersQuery.data,
-  ]);
+  const allResults: UniversalSearchResult[] = useMemo(
+    () => [
+      ...(dealsQuery.data ?? []),
+      ...(allDealsQuery.data ?? []),
+      ...(captargetQuery.data ?? []),
+      ...(gpPartnersQuery.data ?? []),
+      ...(valuationQuery.data ?? []),
+      ...(inboundQuery.data ?? []),
+      ...(ownerQuery.data ?? []),
+      ...(referralQuery.data ?? []),
+      ...(buyersQuery.data ?? []),
+    ],
+    [
+      dealsQuery.data,
+      allDealsQuery.data,
+      captargetQuery.data,
+      gpPartnersQuery.data,
+      valuationQuery.data,
+      inboundQuery.data,
+      ownerQuery.data,
+      referralQuery.data,
+      buyersQuery.data,
+    ],
+  );
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
     if (!q) return [];
     const tokens = q.split(/\s+/);
-    return allResults.filter((r) => {
-      const haystack = [r.title, r.subtitle, r.meta].filter(Boolean).join(' ').toLowerCase();
-      return tokens.every((t) => haystack.includes(t));
-    }).slice(0, 50);
+    return allResults
+      .filter((r) => {
+        const haystack = [r.title, r.subtitle, r.meta].filter(Boolean).join(' ').toLowerCase();
+        return tokens.every((t) => haystack.includes(t));
+      })
+      .slice(0, 50);
   }, [query, allResults]);
 
   const grouped = useMemo(() => {

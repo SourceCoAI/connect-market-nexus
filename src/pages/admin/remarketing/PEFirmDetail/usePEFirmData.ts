@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useState, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export const usePEFirmData = () => {
   const { id } = useParams<{ id: string }>();
@@ -12,30 +12,30 @@ export const usePEFirmData = () => {
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
   const [isAddPlatformDialogOpen, setIsAddPlatformDialogOpen] = useState(false);
   const [newContact, setNewContact] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    role: "",
-    linkedin_url: "",
+    name: '',
+    email: '',
+    phone: '',
+    role: '',
+    linkedin_url: '',
     is_primary: false,
   });
   const [newPlatform, setNewPlatform] = useState({
-    company_name: "",
-    company_website: "",
-    universe_id: "",
-    thesis_summary: "",
+    company_name: '',
+    company_website: '',
+    universe_id: '',
+    thesis_summary: '',
   });
 
   // Fetch the PE firm record
   const { data: firm, isLoading: firmLoading } = useQuery({
-    queryKey: ["remarketing", "pe-firm", id],
+    queryKey: ['remarketing', 'pe-firm', id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("remarketing_buyers")
+        .from('buyers')
         .select(
           `
           *,
-          universe:remarketing_buyer_universes(id, name),
+          universe:buyer_universes(id, name),
           firm_agreement:firm_agreements!remarketing_buyers_marketplace_firm_id_fkey(
             id,
             nda_signed,
@@ -44,9 +44,9 @@ export const usePEFirmData = () => {
             fee_agreement_signed_at,
             primary_company_name
           )
-        `
+        `,
         )
-        .eq("id", id!)
+        .eq('id', id!)
         .maybeSingle();
 
       if (error) throw error;
@@ -56,12 +56,12 @@ export const usePEFirmData = () => {
 
   // Fetch platform companies linked to this PE firm (by matching pe_firm_name to firm's company_name)
   const { data: platforms = [], isLoading: platformsLoading } = useQuery({
-    queryKey: ["remarketing", "pe-firm-platforms", firm?.company_name],
+    queryKey: ['remarketing', 'pe-firm-platforms', firm?.company_name],
     queryFn: async () => {
       if (!firm?.company_name) return [];
 
       const { data, error } = await supabase
-        .from("remarketing_buyers")
+        .from('buyers')
         .select(
           `
           id,
@@ -74,13 +74,13 @@ export const usePEFirmData = () => {
           hq_state,
           has_fee_agreement,
           marketplace_firm_id,
-          universe:remarketing_buyer_universes(id, name)
-        `
+          universe:buyer_universes(id, name)
+        `,
         )
-        .eq("pe_firm_name", firm.company_name)
-        .neq("buyer_type", "private_equity")
-        .eq("archived", false)
-        .order("company_name");
+        .eq('pe_firm_name', firm.company_name)
+        .neq('buyer_type', 'private_equity')
+        .eq('archived', false)
+        .order('company_name');
 
       if (error) throw error;
       return data || [];
@@ -90,20 +90,20 @@ export const usePEFirmData = () => {
 
   // Fetch contacts from unified contacts table
   const { data: contacts = [] } = useQuery({
-    queryKey: ["remarketing", "contacts", id],
+    queryKey: ['remarketing', 'contacts', id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("contacts")
-        .select("id, first_name, last_name, email, phone, linkedin_url, title, is_primary_at_firm")
-        .eq("remarketing_buyer_id", id!)
-        .eq("contact_type", "buyer")
-        .eq("archived", false)
-        .order("is_primary_at_firm", { ascending: false });
+        .from('contacts')
+        .select('id, first_name, last_name, email, phone, linkedin_url, title, is_primary_at_firm')
+        .eq('remarketing_buyer_id', id!)
+        .eq('contact_type', 'buyer')
+        .eq('archived', false)
+        .order('is_primary_at_firm', { ascending: false });
 
       if (error) throw error;
       return (data || []).map((c) => ({
         id: c.id,
-        name: `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Unknown",
+        name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Unknown',
         email: c.email,
         phone: c.phone,
         role: c.title,
@@ -117,7 +117,7 @@ export const usePEFirmData = () => {
   // Fetch deal scores across all platforms under this firm
   const platformIds = useMemo(() => platforms.map((p) => p.id), [platforms]);
   const { data: dealScores = [] } = useQuery({
-    queryKey: ["remarketing", "pe-firm-deal-activity", platformIds],
+    queryKey: ['remarketing', 'pe-firm-deal-activity', platformIds],
     queryFn: async () => {
       if (platformIds.length === 0) return [];
 
@@ -133,7 +133,7 @@ export const usePEFirmData = () => {
       for (let i = 0; i < platformIds.length; i += 100) {
         const chunk = platformIds.slice(i, i + 100);
         const { data, error } = await supabase
-          .from("remarketing_scores")
+          .from('remarketing_scores')
           .select(
             `
             id,
@@ -143,10 +143,10 @@ export const usePEFirmData = () => {
             created_at,
             buyer_id,
             listing:listings(id, title)
-          `
+          `,
           )
-          .in("buyer_id", chunk)
-          .order("created_at", { ascending: false })
+          .in('buyer_id', chunk)
+          .order('created_at', { ascending: false })
           .limit(50);
 
         if (error) {
@@ -162,13 +162,13 @@ export const usePEFirmData = () => {
 
   // Fetch transcripts for this PE firm
   const { data: transcripts = [] } = useQuery({
-    queryKey: ["remarketing", "transcripts", id],
+    queryKey: ['remarketing', 'transcripts', id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("buyer_transcripts")
-        .select("*")
-        .eq("buyer_id", id!)
-        .order("created_at", { ascending: false });
+        .from('buyer_transcripts')
+        .select('*')
+        .eq('buyer_id', id!)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
@@ -177,13 +177,13 @@ export const usePEFirmData = () => {
 
   // Fetch universes for add platform dialog
   const { data: universes } = useQuery({
-    queryKey: ["remarketing", "universes"],
+    queryKey: ['remarketing', 'universes'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("remarketing_buyer_universes")
-        .select("id, name")
-        .eq("archived", false)
-        .order("name");
+        .from('buyer_universes')
+        .select('id, name')
+        .eq('archived', false)
+        .order('name');
       if (error) throw error;
       return data;
     },
@@ -192,9 +192,9 @@ export const usePEFirmData = () => {
   // Deal activity aggregation
   const dealStats = useMemo(() => {
     const totalScored = dealScores.length;
-    const approved = dealScores.filter((s) => s.status === "approved").length;
-    const pending = dealScores.filter((s) => s.status === "pending").length;
-    const passed = dealScores.filter((s) => s.status === "passed").length;
+    const approved = dealScores.filter((s) => s.status === 'approved').length;
+    const pending = dealScores.filter((s) => s.status === 'pending').length;
+    const passed = dealScores.filter((s) => s.status === 'passed').length;
     const responseRate = totalScored > 0 ? Math.round((approved / totalScored) * 100) : 0;
     return { totalScored, approved, pending, passed, responseRate };
   }, [dealScores]);
@@ -202,30 +202,26 @@ export const usePEFirmData = () => {
   // Mutations
   const updateFirmMutation = useMutation({
     mutationFn: async (data: Record<string, unknown>) => {
-      const { error } = await supabase
-        .from("remarketing_buyers")
-        .update(data)
-        .eq("id", id!);
+      const { error } = await supabase.from('buyers').update(data).eq('id', id!);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["remarketing", "pe-firm", id] });
-      toast.success("Firm updated");
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'pe-firm', id] });
+      toast.success('Firm updated');
     },
     onError: () => {
-      toast.error("Failed to update firm");
+      toast.error('Failed to update firm');
     },
   });
 
   const addContactMutation = useMutation({
     mutationFn: async () => {
       const nameParts = newContact.name.trim().split(/\s+/);
-      const firstName = nameParts[0] || "Unknown";
-      const lastName = nameParts.slice(1).join(" ") || "";
+      const firstName = nameParts[0] || 'Unknown';
+      const lastName = nameParts.slice(1).join(' ') || '';
 
-      const { error } = await supabase
-        .from("contacts")
-        .insert([{
+      const { error } = await supabase.from('contacts').insert([
+        {
           first_name: firstName,
           last_name: lastName,
           email: newContact.email || null,
@@ -233,47 +229,55 @@ export const usePEFirmData = () => {
           title: newContact.role || null,
           linkedin_url: newContact.linkedin_url || null,
           is_primary_at_firm: newContact.is_primary,
-          contact_type: "buyer" as const,
+          contact_type: 'buyer' as const,
           remarketing_buyer_id: id!,
           firm_id: firm?.marketplace_firm_id ?? null,
-          source: "remarketing_manual",
-        }]);
+          source: 'remarketing_manual',
+        },
+      ]);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["remarketing", "contacts", id] });
-      toast.success("Contact added");
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts', id] });
+      toast.success('Contact added');
       setIsContactDialogOpen(false);
-      setNewContact({ name: "", email: "", phone: "", role: "", linkedin_url: "", is_primary: false });
+      setNewContact({
+        name: '',
+        email: '',
+        phone: '',
+        role: '',
+        linkedin_url: '',
+        is_primary: false,
+      });
     },
     onError: () => {
-      toast.error("Failed to add contact");
+      toast.error('Failed to add contact');
     },
   });
 
   const deleteContactMutation = useMutation({
     mutationFn: async (contactId: string) => {
       const { error } = await supabase
-        .from("contacts")
+        .from('contacts')
         .update({ archived: true, updated_at: new Date().toISOString() })
-        .eq("id", contactId);
+        .eq('id', contactId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["remarketing", "contacts", id] });
-      toast.success("Contact deleted");
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts', id] });
+      toast.success('Contact deleted');
     },
     onError: () => {
-      toast.error("Failed to delete contact");
+      toast.error('Failed to delete contact');
     },
   });
 
   const addPlatformMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("remarketing_buyers").insert({
+      const { error } = await supabase.from('buyers').insert({
         company_name: newPlatform.company_name,
         company_website: newPlatform.company_website || null,
-        buyer_type: "corporate",
+        buyer_type: 'corporate',
         is_pe_backed: true,
         pe_firm_name: firm?.company_name,
         universe_id: newPlatform.universe_id || null,
@@ -282,10 +286,15 @@ export const usePEFirmData = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["remarketing", "pe-firm-platforms"] });
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'pe-firm-platforms'] });
       toast.success(`${newPlatform.company_name} added as a platform company`);
       setIsAddPlatformDialogOpen(false);
-      setNewPlatform({ company_name: "", company_website: "", universe_id: "", thesis_summary: "" });
+      setNewPlatform({
+        company_name: '',
+        company_website: '',
+        universe_id: '',
+        thesis_summary: '',
+      });
     },
     onError: (error: Error) => {
       toast.error(error.message);

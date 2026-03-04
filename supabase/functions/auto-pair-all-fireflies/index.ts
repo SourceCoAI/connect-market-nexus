@@ -198,7 +198,7 @@ serve(async (req) => {
     const nameToBuyerIds = new Map<string, Set<string>>();
     {
       let buyerQuery = supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('id, company_name, pe_firm_name')
         .eq('archived', false);
 

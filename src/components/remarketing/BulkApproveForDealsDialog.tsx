@@ -57,14 +57,16 @@ export function BulkApproveForDealsDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('remarketing_scores')
-        .select(`
+        .select(
+          `
           id,
           listing_id,
           buyer_id,
           composite_score,
           status,
           listing:listings!remarketing_scores_listing_id_fkey(id, title, location, category)
-        `)
+        `,
+        )
         .in('buyer_id', buyerIds)
         .order('composite_score', { ascending: false });
 
@@ -74,7 +76,12 @@ export function BulkApproveForDealsDialog({
       const groupMap = new Map<string, DealGroup>();
       for (const s of data || []) {
         const listingId = s.listing_id;
-        const listing = s.listing as { id: string; title: string; location: string | null; category: string | null } | null;
+        const listing = s.listing as {
+          id: string;
+          title: string;
+          location: string | null;
+          category: string | null;
+        } | null;
         if (!listingId || !listing) continue;
 
         let group = groupMap.get(listingId);
@@ -178,9 +185,7 @@ export function BulkApproveForDealsDialog({
 
       // Fire-and-forget: discover contacts for all buyers
       for (const buyerId of buyerIds) {
-        supabase.functions
-          .invoke('find-buyer-contacts', { body: { buyerId } })
-          .catch(() => {});
+        supabase.functions.invoke('find-buyer-contacts', { body: { buyerId } }).catch(() => {});
       }
     },
     onSuccess: () => {
@@ -212,9 +217,12 @@ export function BulkApproveForDealsDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Approve {buyerCount} Buyer{buyerCount !== 1 ? 's' : ''} for Deals</DialogTitle>
+          <DialogTitle>
+            Approve {buyerCount} Buyer{buyerCount !== 1 ? 's' : ''} for Deals
+          </DialogTitle>
           <DialogDescription>
-            Select which deals to approve the selected buyers for. Only deals where buyers have been scored are shown.
+            Select which deals to approve the selected buyers for. Only deals where buyers have been
+            scored are shown.
           </DialogDescription>
         </DialogHeader>
 
@@ -234,12 +242,7 @@ export function BulkApproveForDealsDialog({
                   Deals with Pending Approvals ({groups.length})
                 </p>
                 {groups.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-xs"
-                    onClick={selectAll}
-                  >
+                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={selectAll}>
                     Select All
                   </Button>
                 )}

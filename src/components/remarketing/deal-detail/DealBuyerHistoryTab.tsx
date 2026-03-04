@@ -42,8 +42,8 @@ export function DealBuyerHistoryTab({ listingId, listingTitle }: DealBuyerHistor
   const { data: entries, isLoading } = useQuery({
     queryKey: ['deal-buyer-history', listingId],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await supabase
+       
+      const { data, error } = (await supabase
         .from('deal_pipeline')
         .select(
           `
@@ -61,19 +61,19 @@ export function DealBuyerHistoryTab({ listingId, listingTitle }: DealBuyerHistor
           connection_request_id,
           deal_stages!deals_stage_id_fkey ( name, color ),
           profiles!deals_assigned_to_fkey ( first_name, last_name ),
-          remarketing_buyers!deals_remarketing_buyer_id_fkey ( company_name, buyer_type )
+          buyers!deals_remarketing_buyer_id_fkey ( company_name, buyer_type )
         `,
         )
         .eq('listing_id', listingId)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false }) as { data: any[] | null; error: any };
+        .order('created_at', { ascending: false })) as { data: any[] | null; error: any };
 
       if (error) throw error;
 
       return (data || []).map((d: Record<string, unknown>) => {
         const deal_stages = d.deal_stages as { name: string; color: string } | null;
         const profiles = d.profiles as { first_name: string; last_name: string } | null;
-        const remarketing_buyers = d.remarketing_buyers as {
+        const buyers = d.buyers as {
           company_name: string;
           buyer_type: string;
         } | null;
@@ -94,8 +94,8 @@ export function DealBuyerHistoryTab({ listingId, listingTitle }: DealBuyerHistor
           owner_first: profiles?.first_name || null,
           owner_last: profiles?.last_name || null,
           remarketing_buyer_id: d.remarketing_buyer_id as string | null,
-          buyer_company_name: remarketing_buyers?.company_name || null,
-          buyer_type: remarketing_buyers?.buyer_type || null,
+          buyer_company_name: buyers?.company_name || null,
+          buyer_type: buyers?.buyer_type || null,
           connection_request_id: d.connection_request_id as string | null,
         };
       }) as BuyerHistoryEntry[];

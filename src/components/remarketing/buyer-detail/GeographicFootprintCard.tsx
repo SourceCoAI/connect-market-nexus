@@ -1,8 +1,8 @@
-import { Globe, Pencil, MapPin } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Globe, Pencil, MapPin } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface GeographicFootprintCardProps {
   targetGeographies?: string[] | null;
@@ -24,19 +24,22 @@ export const GeographicFootprintCard = ({
   // Group operating locations by state
   // Handles variations: "Dallas, TX", "Dallas,TX", "Los Angeles, CA, USA", "Denver"
   const locationsByState = operatingLocations?.length
-    ? operatingLocations.reduce((acc, loc) => {
-        // Strip trailing ", USA" or ", US"
-        const cleaned = loc.replace(/,\s*(USA|US)\s*$/i, "");
-        // Match the last 2-letter state code after a comma
-        const stateMatch = cleaned.match(/,\s*([A-Z]{2})\s*$/i);
-        const state = stateMatch ? stateMatch[1].toUpperCase() : "Other";
-        const city = stateMatch
-          ? cleaned.substring(0, cleaned.lastIndexOf(",")).trim()
-          : cleaned.trim();
-        if (!acc[state]) acc[state] = [];
-        acc[state].push(city || loc);
-        return acc;
-      }, {} as Record<string, string[]>)
+    ? operatingLocations.reduce(
+        (acc, loc) => {
+          // Strip trailing ", USA" or ", US"
+          const cleaned = loc.replace(/,\s*(USA|US)\s*$/i, '');
+          // Match the last 2-letter state code after a comma
+          const stateMatch = cleaned.match(/,\s*([A-Z]{2})\s*$/i);
+          const state = stateMatch ? stateMatch[1].toUpperCase() : 'Other';
+          const city = stateMatch
+            ? cleaned.substring(0, cleaned.lastIndexOf(',')).trim()
+            : cleaned.trim();
+          if (!acc[state]) acc[state] = [];
+          acc[state].push(city || loc);
+          return acc;
+        },
+        {} as Record<string, string[]>,
+      )
     : null;
 
   const hasLocations = operatingLocations && operatingLocations.length > 0;
@@ -77,7 +80,7 @@ export const GeographicFootprintCard = ({
 
         {/* Service Coverage (service_regions - broader than footprint) */}
         {hasServiceRegions && (
-          <div className={hasFootprint ? "pt-3 border-t" : ""}>
+          <div className={hasFootprint ? 'pt-3 border-t' : ''}>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
               Service Coverage
             </p>
@@ -93,7 +96,7 @@ export const GeographicFootprintCard = ({
 
         {/* Operating Locations (City, State pairs) */}
         {hasLocations && locationsByState && (
-          <div className={(hasFootprint || hasServiceRegions) ? "pt-3 border-t" : ""}>
+          <div className={hasFootprint || hasServiceRegions ? 'pt-3 border-t' : ''}>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
               <MapPin className="h-3 w-3 inline mr-1" />
               Office Locations ({operatingLocations.length})
@@ -104,9 +107,7 @@ export const GeographicFootprintCard = ({
                   <Badge variant="outline" className="text-xs font-semibold">
                     {state} ({cities.length})
                   </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {cities.join(", ")}
-                  </span>
+                  <span className="text-sm text-muted-foreground">{cities.join(', ')}</span>
                 </div>
               ))}
             </div>
@@ -115,7 +116,7 @@ export const GeographicFootprintCard = ({
 
         {/* Target Acquisition Geographies */}
         {hasTargetGeos && (
-          <div className={(hasFootprint || hasServiceRegions || hasLocations) ? "pt-3 border-t" : ""}>
+          <div className={hasFootprint || hasServiceRegions || hasLocations ? 'pt-3 border-t' : ''}>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
               Target Acquisition Geographies
             </p>
@@ -131,7 +132,9 @@ export const GeographicFootprintCard = ({
 
         {/* Empty State */}
         {!hasAnyData && (
-          <p className="text-sm text-muted-foreground italic">No geographic preferences specified</p>
+          <p className="text-sm text-muted-foreground italic">
+            No geographic preferences specified
+          </p>
         )}
       </CardContent>
     </Card>

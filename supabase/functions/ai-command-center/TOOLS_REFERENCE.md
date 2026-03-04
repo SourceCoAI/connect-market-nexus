@@ -44,12 +44,12 @@ modules, each handling a specific domain (deals, buyers, transcripts, etc.).
 
 ### 2. Buyer Tools (`buyer-tools.ts`)
 
-| Tool                      | Description                                                     | Requires Confirmation |
-| ------------------------- | --------------------------------------------------------------- | --------------------- |
-| `search_buyers`           | Search remarketing_buyers by name, industry, state, type, score | No                    |
-| `get_buyer_profile`       | Deep-dive buyer profile with top 10 scored deals                | No                    |
-| `get_score_breakdown`     | Per-dimension score breakdown (geography, size, service, etc.)  | No                    |
-| `get_top_buyers_for_deal` | Scored buyers for a specific deal, with state filter            | No                    |
+| Tool                      | Description                                                    | Requires Confirmation |
+| ------------------------- | -------------------------------------------------------------- | --------------------- |
+| `search_buyers`           | Search buyers by name, industry, state, type, score            | No                    |
+| `get_buyer_profile`       | Deep-dive buyer profile with top 10 scored deals               | No                    |
+| `get_score_breakdown`     | Per-dimension score breakdown (geography, size, service, etc.) | No                    |
+| `get_top_buyers_for_deal` | Scored buyers for a specific deal, with state filter           | No                    |
 
 **Use cases:** "Find PE firms targeting HVAC", "Buyer profile for Acme Corp", "Top buyers for this deal in OK"
 

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
   updateGlobalQueueProgress,
@@ -196,7 +197,7 @@ Deno.serve(async (req) => {
       // Bypassed when force=true (explicit user re-enrichment request).
       if (!itemForce) {
         const { data: buyerData } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .select('data_last_updated, extraction_sources')
           .eq('id', item.buyer_id)
           .single();

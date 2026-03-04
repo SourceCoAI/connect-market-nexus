@@ -167,7 +167,7 @@ Extract matching companies as JSON array.`,
     console.log(`[discover-companies] Cross-referencing ${companies.length} companies against DB`);
 
     const { data: existingBuyers } = await supabaseAdmin
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('id, company_name')
       .eq('archived', false);
 

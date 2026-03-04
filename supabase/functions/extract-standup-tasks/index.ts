@@ -189,13 +189,19 @@ async function fetchSummary(transcriptId: string) {
  *   **Another Speaker**
  *   Their action item (MM:SS)
  */
-function parseFirefliesActionItems(actionItemsText: string, defaultDueDate: string): ExtractedTask[] {
+function parseFirefliesActionItems(
+  actionItemsText: string,
+  defaultDueDate: string,
+): ExtractedTask[] {
   if (!actionItemsText?.trim()) return [];
 
   const tasks: ExtractedTask[] = [];
   let currentSpeaker = 'Unassigned';
 
-  const lines = actionItemsText.split('\n').map((l) => l.trim()).filter(Boolean);
+  const lines = actionItemsText
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
 
   for (const line of lines) {
     // Check for speaker header: **Speaker Name**
@@ -211,7 +217,9 @@ function parseFirefliesActionItems(actionItemsText: string, defaultDueDate: stri
     // Parse action item — optionally with timestamp (MM:SS) at end
     const timestampMatch = line.match(/\((\d{1,2}:\d{2})\)\s*$/);
     const timestamp = timestampMatch ? timestampMatch[1] : '';
-    const taskText = timestampMatch ? line.replace(/\(\d{1,2}:\d{2}\)\s*$/, '').trim() : line.trim();
+    const taskText = timestampMatch
+      ? line.replace(/\(\d{1,2}:\d{2}\)\s*$/, '').trim()
+      : line.trim();
 
     if (!taskText || taskText.length < 5) continue;
 
@@ -238,7 +246,11 @@ function inferTaskType(text: string): string {
   const lower = text.toLowerCase();
 
   // Contact/call patterns
-  if (/\b(call|phone|reach out to.*owner|contact.*owner|leave message|follow.?up.*owner)\b/.test(lower)) {
+  if (
+    /\b(call|phone|reach out to.*owner|contact.*owner|leave message|follow.?up.*owner)\b/.test(
+      lower,
+    )
+  ) {
     return 'contact_owner';
   }
   if (/\b(schedule.*call|set up.*call|arrange.*meeting|book.*call)\b/.test(lower)) {
@@ -249,7 +261,11 @@ function inferTaskType(text: string): string {
   }
 
   // Buyer-related
-  if (/\b(buyer universe|buyer list|find.*buyer|identify.*buyer|source.*buyer|build.*buyer)\b/.test(lower)) {
+  if (
+    /\b(buyer universe|buyer list|find.*buyer|identify.*buyer|source.*buyer|build.*buyer)\b/.test(
+      lower,
+    )
+  ) {
     return 'build_buyer_universe';
   }
   if (/\b(contact.*buyer|reach out.*buyer|intro.*buyer|buyer.*outreach)\b/.test(lower)) {
@@ -263,7 +279,11 @@ function inferTaskType(text: string): string {
   }
 
   // Documents/materials
-  if (/\b(send|share|forward|distribute|email.*teaser|email.*cim|email.*memo|email.*nda)\b/.test(lower)) {
+  if (
+    /\b(send|share|forward|distribute|email.*teaser|email.*cim|email.*memo|email.*nda)\b/.test(
+      lower,
+    )
+  ) {
     if (/\bnda\b/.test(lower)) return 'nda_execution';
     return 'send_materials';
   }
@@ -278,10 +298,17 @@ function inferTaskType(text: string): string {
   if (/\b(due diligence|data room|diligence)\b/.test(lower)) {
     return 'due_diligence';
   }
-  if (/\b(update.*pipeline|update.*crm|update.*status|update.*system|update.*deal|update.*data|build.*data)\b/.test(lower)) {
+  if (
+    /\b(update.*pipeline|update.*crm|update.*status|update.*system|update.*deal|update.*data|build.*data)\b/.test(
+      lower,
+    )
+  ) {
     return 'update_pipeline';
   }
-  if (/\b(seller|owner.*relationship|maintain.*relationship)\b/.test(lower) && !/contact|call|reach/.test(lower)) {
+  if (
+    /\b(seller|owner.*relationship|maintain.*relationship)\b/.test(lower) &&
+    !/contact|call|reach/.test(lower)
+  ) {
     return 'seller_relationship';
   }
 
@@ -308,9 +335,27 @@ function extractDealReference(text: string): string {
   ];
 
   const commonWords = new Set([
-    'The', 'This', 'That', 'These', 'Those', 'Team', 'Monday', 'Tuesday',
-    'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January',
-    'February', 'March', 'April', 'May', 'June', 'July', 'August',
+    'The',
+    'This',
+    'That',
+    'These',
+    'Those',
+    'Team',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
   ]);
 
   for (const pattern of patterns) {
@@ -510,9 +555,7 @@ async function loadTeamMembers(supabase: ReturnType<typeof createClient>): Promi
     .select('user_id, profiles!inner(id, first_name, last_name)')
     .in('role', ['owner', 'admin', 'moderator']);
 
-  const { data: aliases } = await supabase
-    .from('team_member_aliases')
-    .select('profile_id, alias');
+  const { data: aliases } = await supabase.from('team_member_aliases').select('profile_id, alias');
 
   const aliasMap = new Map<string, string[]>();
   for (const a of aliases || []) {
@@ -521,13 +564,15 @@ async function loadTeamMembers(supabase: ReturnType<typeof createClient>): Promi
     aliasMap.set(a.profile_id, existing);
   }
 
-  return (teamRoles || []).map((r: { user_id: string; profiles: { id: string; first_name: string; last_name: string } }) => ({
-    id: r.user_id,
-    name: `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim(),
-    first_name: r.profiles.first_name || '',
-    last_name: r.profiles.last_name || '',
-    aliases: aliasMap.get(r.user_id) || [],
-  }));
+  return (teamRoles || []).map(
+    (r: { user_id: string; profiles: { id: string; first_name: string; last_name: string } }) => ({
+      id: r.user_id,
+      name: `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim(),
+      first_name: r.profiles.first_name || '',
+      last_name: r.profiles.last_name || '',
+      aliases: aliasMap.get(r.user_id) || [],
+    }),
+  );
 }
 
 function matchAssignee(name: string, teamMembers: TeamMember[]): string | null {
@@ -559,7 +604,12 @@ function matchAssignee(name: string, teamMembers: TeamMember[]): string | null {
 async function matchDeal(
   dealRef: string,
   supabase: ReturnType<typeof createClient>,
-): Promise<{ id: string; listing_id: string; ebitda: number | null; stage_name: string | null } | null> {
+): Promise<{
+  id: string;
+  listing_id: string;
+  ebitda: number | null;
+  stage_name: string | null;
+} | null> {
   if (!dealRef) return null;
   // Sanitize dealRef to prevent PostgREST filter injection
   const sanitized = dealRef.replace(/[(),."'\\]/g, '').trim();
@@ -576,7 +626,13 @@ async function matchDeal(
     .limit(1);
 
   if (deals && deals.length > 0) {
-    const deal = deals[0] as { id: string; listing_id: string; stage_id: string; deal_stages: { name: string } | null; listings: { ebitda: number | null; title: string; internal_company_name: string } };
+    const deal = deals[0] as {
+      id: string;
+      listing_id: string;
+      stage_id: string;
+      deal_stages: { name: string } | null;
+      listings: { ebitda: number | null; title: string; internal_company_name: string };
+    };
     return {
       id: deal.id,
       listing_id: deal.listing_id,
@@ -608,7 +664,7 @@ async function matchBuyer(
       if (!sanitized) continue;
 
       const { data: buyers } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('id, company_name')
         .ilike('company_name', `%${sanitized}%`)
         .limit(1);
@@ -740,8 +796,7 @@ async function processSingleMeeting(
     meetingDuration = summary.duration ? Math.round(summary.duration) : 0;
 
     if (summary.date) {
-      const dateNum =
-        typeof summary.date === 'number' ? summary.date : parseInt(summary.date, 10);
+      const dateNum = typeof summary.date === 'number' ? summary.date : parseInt(summary.date, 10);
       if (!isNaN(dateNum)) {
         meetingDate = new Date(dateNum).toISOString().split('T')[0];
       }
@@ -809,7 +864,8 @@ async function processSingleMeeting(
       meeting_duration_minutes: meetingDuration || null,
       transcript_url: transcriptUrl || null,
       tasks_extracted: extractedTasks.length,
-      tasks_unassigned: extractedTasks.filter((t) => !matchAssignee(t.assignee_name, teamMembers)).length,
+      tasks_unassigned: extractedTasks.filter((t) => !matchAssignee(t.assignee_name, teamMembers))
+        .length,
       extraction_confidence_avg:
         extractedTasks.length > 0
           ? extractedTasks.reduce((sum, t) => {

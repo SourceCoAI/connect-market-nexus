@@ -10,14 +10,10 @@ import { toast } from 'sonner';
 import type { UseUniverseDataReturn } from './useUniverseData';
 
 /**
- * T33 FIX: Sync key fields from marketplace firm_agreements to remarketing_buyers
+ * T33 FIX: Sync key fields from marketplace firm_agreements to buyers
  * so the same buyer shows consistent data across both views.
  */
-async function syncBuyerFromMarketplace(
-  client: typeof supabase,
-  buyerId: string,
-  firmId: string,
-) {
+async function syncBuyerFromMarketplace(client: typeof supabase, buyerId: string, firmId: string) {
   try {
     const { data: firmAgreement } = await client
       .from('firm_agreements')
@@ -35,10 +31,7 @@ async function syncBuyerFromMarketplace(
         updates.buyer_type = fa.buyer_type;
       }
       if (Object.keys(updates).length > 0) {
-        await client
-          .from('remarketing_buyers')
-          .update(updates)
-          .eq('id', buyerId);
+        await client.from('buyers').update(updates).eq('id', buyerId);
       }
     }
   } catch (err) {
@@ -146,7 +139,7 @@ export function useUniverseActions(data: UseUniverseDataReturn) {
     if (!buyerIds.length) return;
 
     const { error } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .update({ universe_id: null })
       .in('id', buyerIds);
 
@@ -178,10 +171,7 @@ export function useUniverseActions(data: UseUniverseDataReturn) {
   // Handler for single buyer removal from universe via row dropdown
   // Just unlinks from universe - buyer remains in All Buyers
   const handleDeleteBuyer = async (buyerId: string) => {
-    const { error } = await supabase
-      .from('remarketing_buyers')
-      .update({ universe_id: null })
-      .eq('id', buyerId);
+    const { error } = await supabase.from('buyers').update({ universe_id: null }).eq('id', buyerId);
 
     if (error) {
       toast.error('Failed to remove buyer');
@@ -197,7 +187,7 @@ export function useUniverseActions(data: UseUniverseDataReturn) {
 
     // Fetch the buyer to get website/firm info for marketplace bridging
     const { data: buyer, error: buyerError } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select(
         'id, company_name, company_website, pe_firm_name, pe_firm_website, buyer_type, marketplace_firm_id, fee_agreement_source',
       )
@@ -211,7 +201,7 @@ export function useUniverseActions(data: UseUniverseDataReturn) {
     }
 
     if (newStatus) {
-      // TURNING ON: Write to both remarketing_buyers AND firm_agreements
+      // TURNING ON: Write to both buyers AND firm_agreements
       let firmId = buyer.marketplace_firm_id;
 
       if (!firmId) {
@@ -233,12 +223,9 @@ export function useUniverseActions(data: UseUniverseDataReturn) {
           if (createdFirmId) {
             firmId = createdFirmId;
             // Link the buyer to the marketplace firm
-            await supabase
-              .from('remarketing_buyers')
-              .update({ marketplace_firm_id: firmId })
-              .eq('id', buyerId);
+            await supabase.from('buyers').update({ marketplace_firm_id: firmId }).eq('id', buyerId);
 
-            // T33 FIX: Sync key fields from firm_agreements to remarketing_buyers
+            // T33 FIX: Sync key fields from firm_agreements to buyers
             // so the same buyer shows consistent data across marketplace and remarketing views
             await syncBuyerFromMarketplace(supabase, buyerId, firmId);
           }
@@ -261,7 +248,7 @@ export function useUniverseActions(data: UseUniverseDataReturn) {
 
       // Update remarketing buyer directly (the trigger may also fire, but this ensures it)
       const { error } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .update({
           has_fee_agreement: true,
           fee_agreement_source: firmId ? 'marketplace_synced' : 'manual_override',
@@ -287,7 +274,7 @@ export function useUniverseActions(data: UseUniverseDataReturn) {
       }
 
       const { error } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .update({
           has_fee_agreement: false,
           fee_agreement_source: null,

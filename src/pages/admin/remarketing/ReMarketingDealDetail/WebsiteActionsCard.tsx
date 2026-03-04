@@ -73,7 +73,15 @@ export function WebsiteActionsCard({
   const needsBuyerSearch = deal?.needs_buyer_search;
 
   return (
-    <Card className={needsContact ? 'border-red-400 border-2 bg-red-50 dark:bg-red-950/20' : needsBuyerSearch ? 'border-blue-400 border-2 bg-blue-50 dark:bg-blue-950/20' : ''}>
+    <Card
+      className={
+        needsContact
+          ? 'border-red-400 border-2 bg-red-50 dark:bg-red-950/20'
+          : needsBuyerSearch
+            ? 'border-blue-400 border-2 bg-blue-50 dark:bg-blue-950/20'
+            : ''
+      }
+    >
       {needsContact && (
         <div className="bg-red-500 text-white text-sm font-semibold px-4 py-2 flex items-center gap-2 rounded-t-lg">
           <PhoneCall className="h-4 w-4 animate-pulse" />
@@ -250,7 +258,13 @@ export function WebsiteActionsCard({
   );
 }
 
-function PushToMarketplaceButton({ deal, dealId }: { deal: DealForWebsiteActions; dealId: string }) {
+function PushToMarketplaceButton({
+  deal,
+  dealId,
+}: {
+  deal: DealForWebsiteActions;
+  dealId: string;
+}) {
   const queryClient = useQueryClient();
 
   if (deal?.pushed_to_marketplace) {
@@ -285,29 +299,21 @@ function PushToMarketplaceButton({ deal, dealId }: { deal: DealForWebsiteActions
    */
   const gaps: string[] = [];
 
-  if (!deal?.website)
-    gaps.push('Website');
+  if (!deal?.website) gaps.push('Website');
 
-  if (deal?.revenue == null)
-    gaps.push('Revenue');
+  if (deal?.revenue == null) gaps.push('Revenue');
 
-  if (deal?.ebitda == null)
-    gaps.push('EBITDA');
+  if (deal?.ebitda == null) gaps.push('EBITDA');
 
-  if (!deal?.address_state && !deal?.location)
-    gaps.push('Location');
+  if (!deal?.address_state && !deal?.location) gaps.push('Location');
 
-  if (!deal?.category && !deal?.industry)
-    gaps.push('Category / Industry');
+  if (!deal?.category && !deal?.industry) gaps.push('Category / Industry');
 
-  if (!deal?.executive_summary && !deal?.description)
-    gaps.push('Description');
+  if (!deal?.executive_summary && !deal?.description) gaps.push('Description');
 
-  if (!deal?.main_contact_name)
-    gaps.push('Main contact name');
+  if (!deal?.main_contact_name) gaps.push('Main contact name');
 
-  if (!deal?.main_contact_email)
-    gaps.push('Main contact email');
+  if (!deal?.main_contact_email) gaps.push('Main contact email');
 
   return (
     <TooltipProvider>

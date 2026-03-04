@@ -13,8 +13,8 @@
  *   Body: { buyerId, skipLock? }
  *
  * DATABASE TABLES TOUCHED:
- *   READ:  remarketing_buyers, rate_limit_config
- *   WRITE: remarketing_buyers, enrichment_events, ai_cost_log
+ *   READ:  buyers, rate_limit_config
+ *   WRITE: buyers, enrichment_events, ai_cost_log
  *
  * EXTERNAL APIS:
  *   Firecrawl (website scraping and sitemap mapping)
@@ -312,7 +312,7 @@ Deno.serve(async (req) => {
 
     // Fetch buyer
     const { data: buyer, error: buyerError } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('*')
       .eq('id', buyerId)
       .single();
@@ -378,7 +378,7 @@ Deno.serve(async (req) => {
       // Atomic compare-and-set: only update if not recently locked
       // This prevents race conditions where two concurrent requests both read the old timestamp
       const { data: lockResult, error: lockError } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .update({ data_last_updated: now })
         .eq('id', buyerId)
         .or(`data_last_updated.is.null,data_last_updated.lt.${lockCutoff}`)
@@ -405,10 +405,7 @@ Deno.serve(async (req) => {
       }
     } else {
       // Queue-based call: just update timestamp without lock check
-      await supabase
-        .from('remarketing_buyers')
-        .update({ data_last_updated: now })
-        .eq('id', buyerId);
+      await supabase.from('buyers').update({ data_last_updated: now }).eq('id', buyerId);
     }
 
     console.log(
@@ -504,10 +501,7 @@ Deno.serve(async (req) => {
 
               // Scrape index pages (up to 2) + detail pages (up to 8), capped at 10 total
               // This ensures we capture both comprehensive listings AND individual addresses
-              const toScrape = [
-                ...indexPages.slice(0, 2),
-                ...detailPages.slice(0, 8),
-              ].slice(0, 10);
+              const toScrape = [...indexPages.slice(0, 2), ...detailPages.slice(0, 8)].slice(0, 10);
 
               console.log(
                 `Found ${locationPages.length} location pages (${indexPages.length} index, ${detailPages.length} detail), scraping ${toScrape.length}: ${toScrape.join(', ')}`,
@@ -691,7 +685,10 @@ Deno.serve(async (req) => {
                 // in extractGeography. Homepage content is often 50-70k chars and would push
                 // the most valuable location data past the cutoff.
                 geoContent =
-                  '--- LOCATION/BRANCH PAGES ---\n\n' + locationContent + '\n\n--- HOMEPAGE ---\n\n' + platformContent;
+                  '--- LOCATION/BRANCH PAGES ---\n\n' +
+                  locationContent +
+                  '\n\n--- HOMEPAGE ---\n\n' +
+                  platformContent;
                 console.log(
                   `Geography extraction using combined content: ${geoContent.length} chars (location pages ${locationContent.length} + homepage ${platformContent.length})`,
                 );
@@ -776,7 +773,7 @@ Deno.serve(async (req) => {
           evidenceRecords,
           fieldSourceMap,
         );
-        await supabase.from('remarketing_buyers').update(partialUpdate).eq('id', buyerId);
+        await supabase.from('buyers').update(partialUpdate).eq('id', buyerId);
       }
 
       if (be.code === 'rate_limited' && fieldsExtracted > 0) {
@@ -833,7 +830,7 @@ Deno.serve(async (req) => {
     );
 
     const { error: updateError } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .update(updateData)
       .eq('id', buyerId);
 

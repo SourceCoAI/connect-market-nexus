@@ -1,18 +1,18 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { AlertCircle, Target, Loader2, Sparkles } from "lucide-react";
-import { toast } from "sonner";
+} from '@/components/ui/select';
+import { AlertCircle, Target, Loader2, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AddToUniverseQuickActionProps {
   listingId: string;
@@ -25,18 +25,18 @@ export const AddToUniverseQuickAction = ({
   listingCategory,
   onUniverseAdded,
 }: AddToUniverseQuickActionProps) => {
-  const [selectedUniverse, setSelectedUniverse] = useState<string>("");
+  const [selectedUniverse, setSelectedUniverse] = useState<string>('');
   const [isAdding, setIsAdding] = useState(false);
 
   // Fetch available universes
   const { data: universes } = useQuery({
-    queryKey: ["remarketing", "universes"],
+    queryKey: ['remarketing', 'universes'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("remarketing_buyer_universes")
-        .select("id, name, description")
-        .eq("archived", false)
-        .order("name");
+        .from('buyer_universes')
+        .select('id, name, description')
+        .eq('archived', false)
+        .order('name');
 
       if (error) throw error;
       return data || [];
@@ -46,17 +46,14 @@ export const AddToUniverseQuickAction = ({
   // Find suggested universe based on category
   const suggestedUniverse = universes?.find((u) => {
     const universeName = u.name.toLowerCase();
-    const category = (listingCategory || "").toLowerCase();
-    return (
-      universeName.includes(category) ||
-      category.includes(universeName.split(" ")[0])
-    );
+    const category = (listingCategory || '').toLowerCase();
+    return universeName.includes(category) || category.includes(universeName.split(' ')[0]);
   });
 
   const handleAddAndScore = async () => {
     const universeId = selectedUniverse || suggestedUniverse?.id;
     if (!universeId) {
-      toast.error("Please select a universe");
+      toast.error('Please select a universe');
       return;
     }
 
@@ -68,25 +65,23 @@ export const AddToUniverseQuickAction = ({
       } = await supabase.auth.getUser();
 
       // Add deal to universe
-      const { error: linkError } = await supabase
-        .from("remarketing_universe_deals")
-        .insert({
-          universe_id: universeId,
-          listing_id: listingId,
-          added_by: user?.id,
-          status: "active",
-        });
+      const { error: linkError } = await supabase.from('remarketing_universe_deals').insert({
+        universe_id: universeId,
+        listing_id: listingId,
+        added_by: user?.id,
+        status: 'active',
+      });
 
       if (linkError) throw linkError;
 
       // Queue background scoring
-      const { queueDealScoring } = await import("@/lib/remarketing/queueScoring");
+      const { queueDealScoring } = await import('@/lib/remarketing/queueScoring');
       await queueDealScoring({ universeId, listingIds: [listingId] });
 
-      toast.success("Deal added to universe");
+      toast.success('Deal added to universe');
       onUniverseAdded();
     } catch (error) {
-      toast.error("Failed to add deal to universe");
+      toast.error('Failed to add deal to universe');
     } finally {
       setIsAdding(false);
     }
@@ -98,26 +93,19 @@ export const AddToUniverseQuickAction = ({
         <div className="flex flex-col items-center text-center gap-4">
           <AlertCircle className="h-10 w-10 text-amber-500" />
           <div>
-            <h3 className="font-semibold text-lg mb-1">
-              No buyer matches yet
-            </h3>
+            <h3 className="font-semibold text-lg mb-1">No buyer matches yet</h3>
             <p className="text-sm text-muted-foreground max-w-md">
-              This deal hasn't been added to a buyer universe. Add it to
-              automatically score against relevant buyers.
+              This deal hasn't been added to a buyer universe. Add it to automatically score against
+              relevant buyers.
             </p>
           </div>
 
           <div className="flex items-center gap-3 w-full max-w-md">
-            <Select
-              value={selectedUniverse}
-              onValueChange={setSelectedUniverse}
-            >
+            <Select value={selectedUniverse} onValueChange={setSelectedUniverse}>
               <SelectTrigger className="flex-1 bg-background">
                 <SelectValue
                   placeholder={
-                    suggestedUniverse
-                      ? `Suggested: ${suggestedUniverse.name}`
-                      : "Select a universe"
+                    suggestedUniverse ? `Suggested: ${suggestedUniverse.name}` : 'Select a universe'
                   }
                 />
               </SelectTrigger>

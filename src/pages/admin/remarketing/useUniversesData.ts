@@ -6,7 +6,10 @@ import { toast } from 'sonner';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { deleteUniverseWithRelated } from '@/lib/remarketing/cascadeDelete';
-import { useGlobalGateCheck, useGlobalActivityQueue } from '@/hooks/remarketing/useGlobalActivityQueue';
+import {
+  useGlobalGateCheck,
+  useGlobalActivityQueue,
+} from '@/hooks/remarketing/useGlobalActivityQueue';
 
 export interface FlaggedDeal {
   id: string;
@@ -102,7 +105,7 @@ export function useUniversesData() {
     queryKey: ['remarketing', 'universes-with-stats', showArchived],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('remarketing_buyer_universes')
+        .from('buyer_universes')
         .select('*')
         .eq('archived', showArchived)
         .order('created_at', { ascending: false });
@@ -117,7 +120,7 @@ export function useUniversesData() {
     queryKey: ['remarketing', 'universe-buyer-stats'],
     queryFn: async () => {
       const { data: buyers, error: buyersError } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('id, universe_id')
         .eq('archived', false)
         .limit(10000);
@@ -183,7 +186,7 @@ export function useUniversesData() {
     queryKey: ['remarketing', 'archived-universe-count'],
     queryFn: async () => {
       const { count, error } = await supabase
-        .from('remarketing_buyer_universes')
+        .from('buyer_universes')
         .select('id', { count: 'exact', head: true })
         .eq('archived', true);
 
@@ -280,7 +283,9 @@ export function useUniversesData() {
       })
       .catch((err) => console.warn('Worker trigger failed:', err));
 
-    toast.info(`Queued ${unenriched.length} deal${unenriched.length > 1 ? 's' : ''} for buyer universe generation`);
+    toast.info(
+      `Queued ${unenriched.length} deal${unenriched.length > 1 ? 's' : ''} for buyer universe generation`,
+    );
   }, [orderedFlagged, startOrQueueMajorOp]);
 
   // Deal-level enrichment
@@ -290,9 +295,7 @@ export function useUniversesData() {
     async (mode: 'unenriched' | 'all') => {
       if (!orderedFlagged?.length) return;
       const targets =
-        mode === 'unenriched'
-          ? orderedFlagged.filter((d) => !d.enriched_at)
-          : orderedFlagged;
+        mode === 'unenriched' ? orderedFlagged.filter((d) => !d.enriched_at) : orderedFlagged;
       if (!targets.length) {
         toast.info('No deals to enrich');
         return;
@@ -361,7 +364,7 @@ export function useUniversesData() {
   const createMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase
-        .from('remarketing_buyer_universes')
+        .from('buyer_universes')
         .insert({
           name: newName,
           description: newDescription || null,
@@ -388,10 +391,7 @@ export function useUniversesData() {
   // Archive/restore mutation
   const archiveMutation = useMutation({
     mutationFn: async ({ id, archived }: { id: string; archived: boolean }) => {
-      const { error } = await supabase
-        .from('remarketing_buyer_universes')
-        .update({ archived })
-        .eq('id', id);
+      const { error } = await supabase.from('buyer_universes').update({ archived }).eq('id', id);
 
       if (error) throw error;
     },
@@ -526,7 +526,9 @@ export function useUniversesData() {
         toast.error('Failed to remove deal from list');
       } else {
         toast.success('Deal removed from To Be Created list');
-        queryClient.invalidateQueries({ queryKey: ['remarketing', 'universe-build-flagged-deals'] });
+        queryClient.invalidateQueries({
+          queryKey: ['remarketing', 'universe-build-flagged-deals'],
+        });
       }
     },
     [queryClient],

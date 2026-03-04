@@ -113,7 +113,7 @@ async function researchIndustry(
   supabase: SupabaseClient,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
-  const industry = (args.industry as string || '').trim();
+  const industry = ((args.industry as string) || '').trim();
   const focus = (args.focus as string) || 'call_prep';
 
   if (!industry) {
@@ -198,10 +198,19 @@ async function researchIndustry(
 async function searchMAGuides(
   supabase: SupabaseClient,
   term: string,
-): Promise<Array<{ universe_name: string; universe_id: string; guide_excerpt: string; generated_at: string | null }>> {
+): Promise<
+  Array<{
+    universe_name: string;
+    universe_id: string;
+    guide_excerpt: string;
+    generated_at: string | null;
+  }>
+> {
   const { data, error } = await supabase
-    .from('remarketing_buyer_universes')
-    .select('id, name, ma_guide_content, ma_guide_generated_at, description, fit_criteria, service_criteria')
+    .from('buyer_universes')
+    .select(
+      'id, name, ma_guide_content, ma_guide_generated_at, description, fit_criteria, service_criteria',
+    )
     .eq('archived', false)
     .not('ma_guide_content', 'is', null);
 
@@ -214,7 +223,9 @@ async function searchMAGuides(
       u.description || '',
       u.fit_criteria || '',
       u.service_criteria || '',
-    ].join(' ').toLowerCase();
+    ]
+      .join(' ')
+      .toLowerCase();
     return searchText.includes(term);
   });
 
@@ -332,7 +343,7 @@ async function searchBuyers(
   term: string,
 ): Promise<{ matches: Record<string, unknown>[]; count: number }> {
   const { data, error } = await supabase
-    .from('remarketing_buyers')
+    .from('buyers')
     .select(
       'id, company_name, pe_firm_name, buyer_type, hq_state, target_services, target_industries, thesis_summary, acquisition_appetite, alignment_score',
     )

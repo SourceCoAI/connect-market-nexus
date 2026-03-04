@@ -824,16 +824,24 @@ const FULL_MEMO_EXPECTED_SECTIONS = [
   'INFORMATION NOT YET PROVIDED',
 ];
 
-const FULL_MEMO_REQUIRED_SECTIONS = [
-  'COMPANY OVERVIEW',
-  'INFORMATION NOT YET PROVIDED',
-];
+const FULL_MEMO_REQUIRED_SECTIONS = ['COMPANY OVERVIEW', 'INFORMATION NOT YET PROVIDED'];
 
 // Evaluative adjectives for audit warning (Check 6)
 const EVALUATIVE_ADJECTIVES = [
-  'strong', 'large', 'high', 'good', 'great', 'excellent',
-  'growing', 'stable', 'mature', 'efficient', 'clean', 'lean',
-  'tight', 'reliable',
+  'strong',
+  'large',
+  'high',
+  'good',
+  'great',
+  'excellent',
+  'growing',
+  'stable',
+  'mature',
+  'efficient',
+  'clean',
+  'lean',
+  'tight',
+  'reliable',
 ];
 
 // Parse markdown with ## headers into MemoSection array
@@ -849,7 +857,10 @@ function parseMarkdownToSections(markdown: string): MemoSection[] {
     const title = trimmed.substring(0, newlineIdx).trim();
     const content = trimmed.substring(newlineIdx + 1).trim();
     if (!content) continue;
-    const key = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '');
+    const key = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/(^_|_$)/g, '');
     sections.push({ key, title, content });
   }
   return sections;
@@ -1109,9 +1120,7 @@ Include all identifying information. Flag any data points where sources conflict
   let retryAppendix = '';
 
   for (let attempt = 0; attempt < 4; attempt++) {
-    const promptToSend = retryAppendix
-      ? `${userPrompt}\n\n${retryAppendix}`
-      : userPrompt;
+    const promptToSend = retryAppendix ? `${userPrompt}\n\n${retryAppendix}` : userPrompt;
 
     const response = await fetchWithAutoRetry(
       ANTHROPIC_API_URL,
@@ -1195,10 +1204,7 @@ const TEASER_EXPECTED_SECTIONS = [
   'OWNER OBJECTIVES',
 ];
 
-const TEASER_REQUIRED_SECTIONS = [
-  'BUSINESS OVERVIEW',
-  'DEAL SNAPSHOT',
-];
+const TEASER_REQUIRED_SECTIONS = ['BUSINESS OVERVIEW', 'DEAL SNAPSHOT'];
 
 // Blocking validation checks for anonymous teaser (Checks 3, 4, 5)
 function validateTeaserSections(sections: MemoSection[]): ValidationResult {
@@ -1260,7 +1266,10 @@ async function generateAnonymousTeaser(
   if (companyName) bannedIdentifiers.push(`"${companyName}"`);
   if (companyWebsite) {
     bannedIdentifiers.push(`"${companyWebsite}"`);
-    const domain = companyWebsite.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+    const domain = companyWebsite
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\/.*$/, '');
     bannedIdentifiers.push(`"${domain}"`);
   }
   if (contactName) bannedIdentifiers.push(`"${contactName}"`);
@@ -1268,9 +1277,10 @@ async function generateAnonymousTeaser(
   for (const s of geoStates) {
     if (s) bannedIdentifiers.push(`"${s}"`);
   }
-  const bannedTermsLine = bannedIdentifiers.length > 0
-    ? `\nBANNED IDENTIFYING TERMS (never include any of these): ${bannedIdentifiers.join(', ')}`
-    : '';
+  const bannedTermsLine =
+    bannedIdentifiers.length > 0
+      ? `\nBANNED IDENTIFYING TERMS (never include any of these): ${bannedIdentifiers.join(', ')}`
+      : '';
 
   const systemPrompt = `You are a senior analyst at a tech-enabled investment bank writing an anonymous marketplace listing. Your audience is PE firms, family offices, and strategic acquirers in the lower-middle market ($500K-$10M EBITDA range) who evaluate dozens of opportunities per week.
 
@@ -1379,9 +1389,7 @@ FINAL ANONYMITY CHECK: Before returning the memo, re-read every sentence. Confir
   let retryAppendix = '';
 
   for (let attempt = 0; attempt < 4; attempt++) {
-    const promptToSend = retryAppendix
-      ? `${userPrompt}\n\n${retryAppendix}`
-      : userPrompt;
+    const promptToSend = retryAppendix ? `${userPrompt}\n\n${retryAppendix}` : userPrompt;
 
     const response = await fetchWithAutoRetry(
       ANTHROPIC_API_URL,
@@ -1421,12 +1429,7 @@ FINAL ANONYMITY CHECK: Before returning the memo, re-read every sentence. Confir
     sections = stripDataNeededTags(sections);
 
     // Post-process: enforce anonymization by stripping any identifying info that leaked
-    sections = enforceAnonymization(
-      sections,
-      context.deal,
-      projectCodename,
-      regionName,
-    );
+    sections = enforceAnonymization(sections, context.deal, projectCodename, regionName);
 
     bestSections = sections;
 

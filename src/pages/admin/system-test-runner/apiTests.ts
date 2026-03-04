@@ -12,7 +12,14 @@
  */
 
 import type { TestDef } from './types';
-import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, columnExists, tableReadable, invokeEdgeFunction } from './types';
+import {
+  supabase,
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
+  columnExists,
+  tableReadable,
+  invokeEdgeFunction,
+} from './types';
 
 export function buildApiTests(): TestDef[] {
   const tests: TestDef[] = [];
@@ -515,7 +522,7 @@ export function buildApiTests(): TestDef[] {
     { name: 'lead_memos readable (Data Room memos)', table: 'lead_memos' },
     { name: 'data_room_access readable (Access tab)', table: 'data_room_access' },
     { name: 'document_release_log readable (Distribution tab)', table: 'document_release_log' },
-    { name: 'remarketing_buyers readable (Buyers page)', table: 'remarketing_buyers' },
+    { name: 'buyers readable (Buyers page)', table: 'buyers' },
     { name: 'contacts readable (Contacts tab)', table: 'contacts' },
     { name: 'firm_agreements readable', table: 'firm_agreements' },
     { name: 'profiles readable (Users page)', table: 'profiles' },

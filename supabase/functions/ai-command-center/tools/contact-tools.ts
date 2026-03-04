@@ -33,7 +33,7 @@ export const contactTools: ClaudeTool[] = [
         firm_name: {
           type: 'string',
           description:
-            'Search by firm/company name (e.g. "Trivest", "Audax"). Looks up the firm in firm_agreements and remarketing_buyers tables, then filters contacts by matching IDs.',
+            'Search by firm/company name (e.g. "Trivest", "Audax"). Looks up the firm in firm_agreements and buyers tables, then filters contacts by matching IDs.',
         },
         search: {
           type: 'string',
@@ -61,7 +61,7 @@ export const contactTools: ClaudeTool[] = [
   {
     name: 'search_contacts',
     description:
-      'Search the unified contacts table — the source of truth for ALL buyer and seller contacts since Feb 2026. Use contact_type to filter: "buyer" for PE/platform/independent buyers, "seller" for deal owners/principals. Seller contacts are linked to deals via listing_id. Buyer contacts link to remarketing_buyers via remarketing_buyer_id. Use has_email=false to find contacts missing email addresses. IMPORTANT: Use company_name to find contacts at a specific company — this searches both deal titles (for sellers) and buyer company names (for buyers) with fuzzy matching. For example, to find "Ryan at Essential Benefit Administrators", use search="Ryan" and company_name="Essential Benefit Administrators".',
+      'Search the unified contacts table — the source of truth for ALL buyer and seller contacts since Feb 2026. Use contact_type to filter: "buyer" for PE/platform/independent buyers, "seller" for deal owners/principals. Seller contacts are linked to deals via listing_id. Buyer contacts link to buyers via remarketing_buyer_id. Use has_email=false to find contacts missing email addresses. IMPORTANT: Use company_name to find contacts at a specific company — this searches both deal titles (for sellers) and buyer company names (for buyers) with fuzzy matching. For example, to find "Ryan at Essential Benefit Administrators", use search="Ryan" and company_name="Essential Benefit Administrators".',
     input_schema: {
       type: 'object',
       properties: {
@@ -241,9 +241,9 @@ async function searchPeContacts(
         .map((f: Record<string, unknown>) => f.id as string);
     }
 
-    // Also search remarketing_buyers for matching company/PE firm names (with fuzzy matching)
+    // Also search buyers for matching company/PE firm names (with fuzzy matching)
     const { data: buyers } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('id, company_name, pe_firm_name')
       .eq('archived', false)
       .limit(500);
@@ -538,9 +538,9 @@ async function resolveCompanyName(
     }
   }
 
-  // Search remarketing_buyers by company_name and pe_firm_name
+  // Search buyers by company_name and pe_firm_name
   const { data: buyers } = await supabase
-    .from('remarketing_buyers')
+    .from('buyers')
     .select('id, company_name, pe_firm_name')
     .eq('archived', false)
     .limit(2000);
@@ -693,7 +693,7 @@ async function searchContacts(
     }
   }
 
-  // Resolve company context from linked listings and remarketing_buyers
+  // Resolve company context from linked listings and buyers
   // This gives Claude the company name so it can auto-enrich without asking the user
   if (results.length > 0) {
     const listingIds = [...new Set(results.map((c) => c.listing_id as string).filter(Boolean))];
@@ -718,7 +718,7 @@ async function searchContacts(
 
     if (buyerIds.length > 0) {
       const { data: buyers } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('id, company_name, pe_firm_name')
         .in('id', buyerIds);
       if (buyers) {

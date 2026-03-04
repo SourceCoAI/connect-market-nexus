@@ -271,17 +271,11 @@ export function useBuyerIntroductions(listingId: string | undefined) {
   });
 
   const sendToUniverseMutation = useMutation({
-    mutationFn: async ({
-      buyer,
-      universeId,
-    }: {
-      buyer: BuyerIntroduction;
-      universeId: string;
-    }) => {
+    mutationFn: async ({ buyer, universeId }: { buyer: BuyerIntroduction; universeId: string }) => {
       // Check if this buyer already exists in the universe (by remarketing_buyer_id)
       if (buyer.remarketing_buyer_id) {
         const { data: existingBuyer } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .select('id, universe_id')
           .eq('id', buyer.remarketing_buyer_id)
           .single();
@@ -293,19 +287,21 @@ export function useBuyerIntroductions(listingId: string | undefined) {
 
       // Check for duplicate by company name in this universe
       const { data: duplicates } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('id, company_name')
         .eq('universe_id', universeId)
         .eq('archived', false)
         .ilike('company_name', buyer.buyer_name);
 
       if (duplicates && duplicates.length > 0) {
-        throw new Error(`A buyer named "${duplicates[0].company_name}" already exists in this universe`);
+        throw new Error(
+          `A buyer named "${duplicates[0].company_name}" already exists in this universe`,
+        );
       }
 
       // Create the buyer in the universe
       const { data: newBuyer, error } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .insert({
           universe_id: universeId,
           company_name: buyer.buyer_name,
@@ -314,7 +310,8 @@ export function useBuyerIntroductions(listingId: string | undefined) {
           buyer_type: (buyer.score_snapshot as ScoreSnapshot | null)?.buyer_type || 'platform',
           hq_city: (buyer.score_snapshot as ScoreSnapshot | null)?.hq_city || null,
           hq_state: (buyer.score_snapshot as ScoreSnapshot | null)?.hq_state || null,
-          has_fee_agreement: (buyer.score_snapshot as ScoreSnapshot | null)?.has_fee_agreement || false,
+          has_fee_agreement:
+            (buyer.score_snapshot as ScoreSnapshot | null)?.has_fee_agreement || false,
           notes: buyer.targeting_reason || null,
         } as never)
         .select('id')

@@ -76,8 +76,7 @@ Deno.serve(async (req) => {
   const rawBody = await req.text();
 
   // ── simple secret header check ──
-  const headerSecret =
-    req.headers.get('x-webhook-secret') || req.headers.get('X-Webhook-Secret');
+  const headerSecret = req.headers.get('x-webhook-secret') || req.headers.get('X-Webhook-Secret');
   let signatureValid = false;
   if (webhookSecret) {
     if (headerSecret === webhookSecret) {

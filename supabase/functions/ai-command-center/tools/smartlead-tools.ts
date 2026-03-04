@@ -404,7 +404,7 @@ async function getSmartleadEmailHistory(
   let buyerName: string | null = null;
   if (buyerId) {
     const { data: buyer } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('company_name')
       .eq('id', buyerId)
       .single();
@@ -412,15 +412,17 @@ async function getSmartleadEmailHistory(
   }
 
   // Build campaign participation list
-  const campaigns = (campaignLeads || []).map((cl: Record<string, unknown> & { campaign?: Record<string, unknown> }) => ({
-    campaign_name: cl.campaign?.name || 'Unknown',
-    campaign_status: cl.campaign?.status || 'Unknown',
-    email: cl.email,
-    lead_status: cl.lead_status,
-    lead_category: cl.lead_category,
-    last_activity_at: cl.last_activity_at,
-    created_at: cl.created_at,
-  }));
+  const campaigns = (campaignLeads || []).map(
+    (cl: Record<string, unknown> & { campaign?: Record<string, unknown> }) => ({
+      campaign_name: cl.campaign?.name || 'Unknown',
+      campaign_status: cl.campaign?.status || 'Unknown',
+      email: cl.email,
+      lead_status: cl.lead_status,
+      lead_category: cl.lead_category,
+      last_activity_at: cl.last_activity_at,
+      created_at: cl.created_at,
+    }),
+  );
 
   // Summarize events by type
   const eventSummary: Record<string, number> = {};
@@ -521,7 +523,7 @@ async function pushToSmartlead(
       .eq('archived', false);
 
     const { data: buyers } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('id, company_name')
       .in('id', entityIds);
     const buyerMap = new Map<string, string>();

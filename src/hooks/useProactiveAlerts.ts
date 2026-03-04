@@ -28,49 +28,50 @@ async function fetchAlertCounts(): Promise<AlertCounts> {
   const thirtyDaysAgo = new Date(now - 30 * 86400000).toISOString();
 
   // Run parallel lightweight count queries matching backend alert types
-  const [overdueRes, signalsRes, staleRes, veryStalRes, unsignedNdaRes, unsignedFeeRes] = await Promise.all([
-    // Overdue tasks for this user
-    supabase
-      .from('daily_standup_tasks')
-      .select('id', { count: 'exact', head: true })
-      .eq('assignee_id', userId)
-      .eq('status', 'overdue'),
+  const [overdueRes, signalsRes, staleRes, veryStalRes, unsignedNdaRes, unsignedFeeRes] =
+    await Promise.all([
+      // Overdue tasks for this user
+      supabase
+        .from('daily_standup_tasks')
+        .select('id', { count: 'exact', head: true })
+        .eq('assignee_id', userId)
+        .eq('status', 'overdue'),
 
-    // Unacknowledged critical/warning signals
-    supabase
-      .from('rm_deal_signals' as never)
-      .select('id', { count: 'exact', head: true })
-      .in('signal_type', ['critical', 'warning'])
-      .is('acknowledged_at', null),
+      // Unacknowledged critical/warning signals
+      supabase
+        .from('rm_deal_signals')
+        .select('id', { count: 'exact', head: true })
+        .in('signal_type', ['critical', 'warning'])
+        .is('acknowledged_at', null),
 
-    // Stale active deals (14+ days = warning)
-    supabase
-      .from('listings')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['active', 'new', 'under_review'])
-      .lt('updated_at', fourteenDaysAgo),
+      // Stale active deals (14+ days = warning)
+      supabase
+        .from('listings')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['active', 'new', 'under_review'])
+        .lt('updated_at', fourteenDaysAgo),
 
-    // Very stale deals (30+ days = critical)
-    supabase
-      .from('listings')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['active', 'new', 'under_review'])
-      .lt('updated_at', thirtyDaysAgo),
+      // Very stale deals (30+ days = critical)
+      supabase
+        .from('listings')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['active', 'new', 'under_review'])
+        .lt('updated_at', thirtyDaysAgo),
 
-    // Unsigned NDAs (sent but not signed)
-    supabase
-      .from('firm_agreements')
-      .select('id', { count: 'exact', head: true })
-      .eq('nda_signed', false)
-      .in('nda_status', ['sent', 'viewed', 'pending']),
+      // Unsigned NDAs (sent but not signed)
+      supabase
+        .from('firm_agreements')
+        .select('id', { count: 'exact', head: true })
+        .eq('nda_signed', false)
+        .in('nda_status', ['sent', 'viewed', 'pending']),
 
-    // Unsigned fee agreements (sent but not signed)
-    supabase
-      .from('firm_agreements')
-      .select('id', { count: 'exact', head: true })
-      .eq('fee_agreement_signed', false)
-      .in('fee_agreement_status', ['sent', 'viewed', 'pending']),
-  ]);
+      // Unsigned fee agreements (sent but not signed)
+      supabase
+        .from('firm_agreements')
+        .select('id', { count: 'exact', head: true })
+        .eq('fee_agreement_signed', false)
+        .in('fee_agreement_status', ['sent', 'viewed', 'pending']),
+    ]);
 
   const overdueCount = overdueRes.count || 0;
   const signalCount = signalsRes.count || 0;

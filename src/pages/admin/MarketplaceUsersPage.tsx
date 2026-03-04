@@ -71,7 +71,7 @@ const MarketplaceUsersPage = () => {
     queryKey: ['remarketing-buyers-marketplace-linked-count'],
     queryFn: async () => {
       const { count } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('id', { count: 'exact', head: true })
         .not('marketplace_firm_id', 'is', null);
       return count ?? 0;

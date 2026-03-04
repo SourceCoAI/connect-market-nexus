@@ -20,7 +20,7 @@ export function useDealSignals(options: { listingId?: string | null; dealId?: st
     enabled: !!filterKey,
     queryFn: async () => {
       let query = supabase
-        .from('rm_deal_signals' as never)
+        .from('rm_deal_signals')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
@@ -43,11 +43,11 @@ export function useAcknowledgeSignal() {
   return useMutation({
     mutationFn: async (signalId: string) => {
       const { error } = await supabase
-        .from('rm_deal_signals' as never)
+        .from('rm_deal_signals')
         .update({
-          acknowledged_by: user?.id,
+          acknowledged_by: user?.id ?? null,
           acknowledged_at: new Date().toISOString(),
-        } as never)
+        })
         .eq('id', signalId);
 
       if (error) throw error;

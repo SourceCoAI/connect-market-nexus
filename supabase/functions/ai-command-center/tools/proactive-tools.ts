@@ -131,7 +131,7 @@ async function getDataQualityReport(
   // Buyer profile quality
   if (focusArea === 'all' || focusArea === 'buyers') {
     const { data: buyers } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select(
         'id, company_name, data_completeness, geographic_footprint, target_services, target_revenue_min, target_revenue_max, website_url, buyer_type',
       )
@@ -362,7 +362,7 @@ async function detectBuyerConflicts(
   // Get buyer names
   const buyerIds = multiBuyers.map(([id]) => id);
   const { data: buyerNames } = await supabase
-    .from('remarketing_buyers')
+    .from('buyers')
     .select('id, company_name, pe_firm_name')
     .in('id', buyerIds);
 

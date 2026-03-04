@@ -57,8 +57,8 @@ export function DealContactHistoryTab({
   const { data: associatedBuyers = [], isLoading: buyersLoading } = useQuery({
     queryKey: ['deal-contact-history-buyers', listingId],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await supabase
+       
+      const { data, error } = (await supabase
         .from('deal_pipeline')
         .select(
           `
@@ -67,27 +67,25 @@ export function DealContactHistoryTab({
           contact_email,
           contact_phone,
           remarketing_buyer_id,
-          remarketing_buyers!deals_remarketing_buyer_id_fkey ( company_name, buyer_type )
+          buyers!deals_remarketing_buyer_id_fkey ( company_name, buyer_type )
         `,
         )
         .eq('listing_id', listingId)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false }) as { data: any[] | null; error: any };
+        .order('created_at', { ascending: false })) as { data: any[] | null; error: any };
 
       if (error) throw error;
 
-      return (data || []).map(
-        (d: any) => ({
-          id: d.id,
-          dealId: d.id,
-          buyerName: d.remarketing_buyers?.company_name || d.contact_name || 'Unknown',
-          buyerType: d.remarketing_buyers?.buyer_type || null,
-          contactName: d.contact_name,
-          contactEmail: d.contact_email,
-          contactPhone: d.contact_phone,
-          remarketing_buyer_id: d.remarketing_buyer_id,
-        }),
-      ) as AssociatedBuyer[];
+      return (data || []).map((d: any) => ({
+        id: d.id,
+        dealId: d.id,
+        buyerName: d.buyers?.company_name || d.contact_name || 'Unknown',
+        buyerType: d.buyers?.buyer_type || null,
+        contactName: d.contact_name,
+        contactEmail: d.contact_email,
+        contactPhone: d.contact_phone,
+        remarketing_buyer_id: d.remarketing_buyer_id,
+      })) as AssociatedBuyer[];
     },
     enabled: !!listingId,
   });

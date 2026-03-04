@@ -1,11 +1,33 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowUpDown, Download, CheckCheck, XCircle, MailPlus, ArrowDown, ArrowUp, Search, Eye, EyeOff } from "lucide-react";
-import type { SortOption, FilterTab } from "./types";
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  ArrowUpDown,
+  Download,
+  CheckCheck,
+  XCircle,
+  MailPlus,
+  ArrowDown,
+  ArrowUp,
+  Search,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
+import type { SortOption, FilterTab } from './types';
 
 interface MatchingControlsProps {
   // Universe
@@ -16,7 +38,14 @@ interface MatchingControlsProps {
   // Filter tabs
   activeTab: FilterTab;
   onTabChange: (tab: FilterTab) => void;
-  stats: { qualified: number; approved: number; passed: number; total: number; disqualified: number; disqualificationReason: string };
+  stats: {
+    qualified: number;
+    approved: number;
+    passed: number;
+    total: number;
+    disqualified: number;
+    disqualificationReason: string;
+  };
   outreachCount: number;
   // Sort
   sortBy: SortOption;
@@ -38,12 +67,27 @@ interface MatchingControlsProps {
 }
 
 export function MatchingControls({
-  linkedUniverses, selectedUniverse, onUniverseChange, universeMatchCounts,
-  activeTab, onTabChange, stats, outreachCount,
-  sortBy, sortDesc, onSortChange, onSortDescToggle,
-  searchQuery, onSearchChange,
-  hideDisqualified, onHideDisqualifiedToggle,
-  selectedCount, onBulkApprove, onBulkPassOpen, onExportCSV, onEmailDialogOpen,
+  linkedUniverses,
+  selectedUniverse,
+  onUniverseChange,
+  universeMatchCounts,
+  activeTab,
+  onTabChange,
+  stats,
+  outreachCount,
+  sortBy,
+  sortDesc,
+  onSortChange,
+  onSortDescToggle,
+  searchQuery,
+  onSearchChange,
+  hideDisqualified,
+  onHideDisqualifiedToggle,
+  selectedCount,
+  onBulkApprove,
+  onBulkPassOpen,
+  onExportCSV,
+  onEmailDialogOpen,
 }: MatchingControlsProps) {
   return (
     <div className="space-y-3">
@@ -60,7 +104,7 @@ export function MatchingControls({
               >
                 All ({stats.total})
               </Badge>
-              {linkedUniverses.map(u => (
+              {linkedUniverses.map((u) => (
                 <Badge
                   key={u.id}
                   variant={selectedUniverse === u.id ? 'default' : 'outline'}
@@ -80,9 +124,24 @@ export function MatchingControls({
         <Tabs value={activeTab} onValueChange={(v) => onTabChange(v as FilterTab)}>
           <TabsList>
             <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
-            <TabsTrigger value="approved" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Approved ({stats.approved})</TabsTrigger>
-            <TabsTrigger value="passed" className="data-[state=active]:bg-red-100 data-[state=active]:text-red-800">Passed ({stats.passed})</TabsTrigger>
-            <TabsTrigger value="outreach" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">Outreach ({outreachCount})</TabsTrigger>
+            <TabsTrigger
+              value="approved"
+              className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800"
+            >
+              Approved ({stats.approved})
+            </TabsTrigger>
+            <TabsTrigger
+              value="passed"
+              className="data-[state=active]:bg-red-100 data-[state=active]:text-red-800"
+            >
+              Passed ({stats.passed})
+            </TabsTrigger>
+            <TabsTrigger
+              value="outreach"
+              className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800"
+            >
+              Outreach ({outreachCount})
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -115,8 +174,17 @@ export function MatchingControls({
           </Button>
 
           {/* Disqualified toggle */}
-          <Button variant={hideDisqualified ? "default" : "outline"} size="sm" className="h-9 gap-1.5" onClick={onHideDisqualifiedToggle}>
-            {hideDisqualified ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          <Button
+            variant={hideDisqualified ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 gap-1.5"
+            onClick={onHideDisqualifiedToggle}
+          >
+            {hideDisqualified ? (
+              <EyeOff className="h-3.5 w-3.5" />
+            ) : (
+              <Eye className="h-3.5 w-3.5" />
+            )}
             {stats.disqualified > 0 && <span className="text-xs">({stats.disqualified})</span>}
           </Button>
 
@@ -134,13 +202,27 @@ export function MatchingControls({
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9">Actions ({selectedCount})</Button>
+                  <Button variant="outline" size="sm" className="h-9">
+                    Actions ({selectedCount})
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuItem onClick={onBulkApprove}><CheckCheck className="mr-2 h-4 w-4" />Approve All</DropdownMenuItem>
-                  <DropdownMenuItem onClick={onBulkPassOpen}><XCircle className="mr-2 h-4 w-4" />Pass All</DropdownMenuItem>
-                  <DropdownMenuItem onClick={onExportCSV}><Download className="mr-2 h-4 w-4" />Export CSV</DropdownMenuItem>
-                  <DropdownMenuItem onClick={onEmailDialogOpen}><MailPlus className="mr-2 h-4 w-4" />Email Selected</DropdownMenuItem>
+                  <DropdownMenuItem onClick={onBulkApprove}>
+                    <CheckCheck className="mr-2 h-4 w-4" />
+                    Approve All
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onBulkPassOpen}>
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Pass All
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onExportCSV}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onEmailDialogOpen}>
+                    <MailPlus className="mr-2 h-4 w-4" />
+                    Email Selected
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>

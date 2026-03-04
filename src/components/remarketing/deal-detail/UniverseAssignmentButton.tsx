@@ -1,17 +1,17 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Target, Loader2, FolderPlus } from "lucide-react";
-import { toast } from "sonner";
+} from '@/components/ui/select';
+import { Target, Loader2, FolderPlus } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface UniverseAssignmentButtonProps {
   dealId: string;
@@ -25,18 +25,18 @@ export function UniverseAssignmentButton({
   scoreCount = 0,
 }: UniverseAssignmentButtonProps) {
   const queryClient = useQueryClient();
-  const [selectedUniverse, setSelectedUniverse] = useState<string>("");
+  const [selectedUniverse, setSelectedUniverse] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
 
   // Fetch current universe assignment
   const { data: assignment, isLoading: assignmentLoading } = useQuery({
-    queryKey: ["remarketing", "deal-universe", dealId],
+    queryKey: ['remarketing', 'deal-universe', dealId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("remarketing_universe_deals")
-        .select("id, universe_id, remarketing_buyer_universes(id, name)")
-        .eq("listing_id", dealId)
-        .eq("status", "active")
+        .from('remarketing_universe_deals')
+        .select('id, universe_id, buyer_universes(id, name)')
+        .eq('listing_id', dealId)
+        .eq('status', 'active')
         .maybeSingle();
 
       if (error) throw error;
@@ -47,13 +47,13 @@ export function UniverseAssignmentButton({
 
   // Fetch available universes
   const { data: universes } = useQuery({
-    queryKey: ["remarketing", "universes-list"],
+    queryKey: ['remarketing', 'universes-list'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("remarketing_buyer_universes")
-        .select("id, name")
-        .eq("archived", false)
-        .order("name");
+        .from('buyer_universes')
+        .select('id, name')
+        .eq('archived', false)
+        .order('name');
 
       if (error) throw error;
       return data || [];
@@ -67,36 +67,34 @@ export function UniverseAssignmentButton({
         data: { user },
       } = await supabase.auth.getUser();
 
-      const { error } = await supabase
-        .from("remarketing_universe_deals")
-        .insert({
-          universe_id: universeId,
-          listing_id: dealId,
-          added_by: user?.id,
-          status: "active",
-        });
+      const { error } = await supabase.from('remarketing_universe_deals').insert({
+        universe_id: universeId,
+        listing_id: dealId,
+        added_by: user?.id,
+        status: 'active',
+      });
 
       if (error) throw error;
 
       // Queue background scoring
-      const { queueDealScoring } = await import("@/lib/remarketing/queueScoring");
+      const { queueDealScoring } = await import('@/lib/remarketing/queueScoring');
       await queueDealScoring({ universeId, listingIds: [dealId] });
 
       return universeId;
     },
     onSuccess: () => {
-      toast.success("Deal assigned to universe");
-      queryClient.invalidateQueries({ queryKey: ["remarketing", "deal-universe", dealId] });
-      setSelectedUniverse("");
+      toast.success('Deal assigned to universe');
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal-universe', dealId] });
+      setSelectedUniverse('');
     },
     onError: () => {
-      toast.error("Failed to assign deal to universe");
+      toast.error('Failed to assign deal to universe');
     },
   });
 
   const handleAssign = async () => {
     if (!selectedUniverse) {
-      toast.error("Please select a universe");
+      toast.error('Please select a universe');
       return;
     }
     setIsAssigning(true);
@@ -106,7 +104,6 @@ export function UniverseAssignmentButton({
       setIsAssigning(false);
     }
   };
-
 
   if (assignmentLoading) {
     return (
@@ -144,11 +141,7 @@ export function UniverseAssignmentButton({
           ))}
         </SelectContent>
       </Select>
-      <Button
-        onClick={handleAssign}
-        disabled={isAssigning || !selectedUniverse}
-        className="gap-2"
-      >
+      <Button onClick={handleAssign} disabled={isAssigning || !selectedUniverse} className="gap-2">
         {isAssigning ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />

@@ -217,7 +217,7 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         }
 
         const { data: inserted, error: buyerError } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .insert(buyer as never)
           .select('id')
           .single();
@@ -262,15 +262,11 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
           .filter((b): b is typeof b & { company_name: string } => !!b.company_name);
 
         if (buyersToInsert.length > 0) {
-          const { error } = await supabase
-            .from('remarketing_buyers')
-            .insert(buyersToInsert as never);
+          const { error } = await supabase.from('buyers').insert(buyersToInsert as never);
 
           if (error) {
             for (const buyer of buyersToInsert) {
-              const { error: singleError } = await supabase
-                .from('remarketing_buyers')
-                .insert(buyer as never);
+              const { error: singleError } = await supabase.from('buyers').insert(buyer as never);
 
               if (singleError) {
                 console.warn('Failed to import buyer:', buyer.company_name, singleError.message);

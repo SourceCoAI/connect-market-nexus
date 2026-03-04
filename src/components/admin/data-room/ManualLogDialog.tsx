@@ -3,7 +3,13 @@
  */
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,7 +35,7 @@ export function ManualLogDialog({ memo, dealId, onClose }: ManualLogDialogProps)
     queryKey: ['buyers-for-manual-log', buyerSearch],
     queryFn: async () => {
       let query = supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('id, company_name, pe_firm_name')
         .eq('archived', false)
         .order('company_name')
@@ -48,15 +54,18 @@ export function ManualLogDialog({ memo, dealId, onClose }: ManualLogDialogProps)
   const handleLog = () => {
     if (!selectedBuyerId) return;
 
-    logSend.mutate({
-      deal_id: dealId,
-      memo_id: memo.id,
-      remarketing_buyer_id: selectedBuyerId,
-      memo_type: memo.memo_type,
-      notes: notes || undefined,
-    }, {
-      onSuccess: () => onClose(),
-    });
+    logSend.mutate(
+      {
+        deal_id: dealId,
+        memo_id: memo.id,
+        remarketing_buyer_id: selectedBuyerId,
+        memo_type: memo.memo_type,
+        notes: notes || undefined,
+      },
+      {
+        onSuccess: () => onClose(),
+      },
+    );
   };
 
   return (
@@ -79,7 +88,7 @@ export function ManualLogDialog({ memo, dealId, onClose }: ManualLogDialogProps)
               className="mb-2"
             />
             <div className="max-h-48 overflow-y-auto space-y-1 border rounded-md p-2">
-              {buyers.map(buyer => (
+              {buyers.map((buyer) => (
                 <button
                   key={buyer.id}
                   className={`w-full text-left px-3 py-2 rounded text-sm transition-colors
@@ -111,11 +120,10 @@ export function ManualLogDialog({ memo, dealId, onClose }: ManualLogDialogProps)
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button
-            onClick={handleLog}
-            disabled={!selectedBuyerId || logSend.isPending}
-          >
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleLog} disabled={!selectedBuyerId || logSend.isPending}>
             {logSend.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (

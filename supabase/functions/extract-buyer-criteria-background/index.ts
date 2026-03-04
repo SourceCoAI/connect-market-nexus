@@ -265,7 +265,7 @@ async function processExtractionInBackground(
 
     // Update the universe with the extracted criteria
     await supabase
-      .from('remarketing_buyer_universes')
+      .from('buyer_universes')
       .update({
         size_criteria: extractedCriteria.size_criteria,
         service_criteria: extractedCriteria.service_criteria,

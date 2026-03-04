@@ -167,7 +167,7 @@ async function generateMeetingPrep(
   // Add buyer-specific queries if buyer is specified
   if (buyerId) {
     queries.push(
-      supabase.from('remarketing_buyers').select('*').eq('id', buyerId).single(),
+      supabase.from('buyers').select('*').eq('id', buyerId).single(),
       supabase
         .from('remarketing_scores')
         .select('*')
@@ -228,7 +228,7 @@ async function draftOutreachEmail(
       .eq('id', dealId)
       .single(),
     supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select(
         'id, company_name, pe_firm_name, buyer_type, target_services, target_geographies, target_revenue_min, target_revenue_max, thesis_summary, acquisition_appetite, business_summary',
       )

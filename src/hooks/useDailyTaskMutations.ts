@@ -184,13 +184,13 @@ export function useApproveTask() {
 
       // Log approval to activity log
       try {
-        await supabase.from('rm_task_activity_log' as never).insert({
+        await supabase.from('rm_task_activity_log').insert({
           task_id: taskId,
-          user_id: user?.id,
+          user_id: user?.id ?? '',
           action: 'status_changed',
           old_value: { status: 'pending_approval' },
           new_value: { status: 'pending', approved_by: user?.id },
-        } as never);
+        });
       } catch (logErr) {
         console.error('Failed to log approval activity:', logErr);
       }
@@ -212,9 +212,10 @@ export function useApproveTask() {
             message: `Your task "${task.title}" has been approved and is ready to action`,
             deal_id: task.entity_type === 'deal' ? task.entity_id : null,
             task_id: taskId,
-            action_url: task.entity_type === 'deal'
-              ? `/admin/deals/pipeline?deal=${task.entity_id}&tab=tasks`
-              : '/admin/daily-tasks',
+            action_url:
+              task.entity_type === 'deal'
+                ? `/admin/deals/pipeline?deal=${task.entity_id}&tab=tasks`
+                : '/admin/daily-tasks',
             metadata: { task_title: task.title, approved_by: user?.id },
           });
         }
@@ -260,14 +261,14 @@ export function useApproveAllTasks() {
       // Log approval activity for each task
       if (pendingTasks.length > 0) {
         try {
-          await supabase.from('rm_task_activity_log' as never).insert(
+          await supabase.from('rm_task_activity_log').insert(
             pendingTasks.map((t) => ({
               task_id: t.id,
-              user_id: user?.id,
+              user_id: user?.id ?? '',
               action: 'status_changed',
               old_value: { status: 'pending_approval' },
               new_value: { status: 'pending', approved_by: user?.id },
-            })) as never,
+            })),
           );
         } catch (logErr) {
           console.error('Failed to log bulk approval activity:', logErr);
@@ -540,13 +541,13 @@ export function usePinTask() {
       if (error) throw error;
 
       // Log the action
-      await supabase.from('task_pin_log' as never).insert({
+      await supabase.from('task_pin_log').insert({
         task_id: taskId,
         action: isPinning ? 'pinned' : 'unpinned',
         pinned_rank: rank,
         reason: reason || null,
-        performed_by: user?.id,
-      } as never);
+        performed_by: user?.id ?? '',
+      });
 
       await recomputeRanks();
     },

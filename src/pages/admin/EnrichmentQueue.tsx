@@ -317,7 +317,7 @@ export default function EnrichmentQueue() {
       const buyerLabels: Record<string, string> = {};
       if (buyerIds.length > 0) {
         const { data: buyers, error: buyersError } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .select('id, company_name')
           .in('id', buyerIds.slice(0, 100));
         if (buyersError) throw buyersError;
@@ -352,7 +352,7 @@ export default function EnrichmentQueue() {
       }
       if (scoringBuyerIds.length > 0) {
         const { data: sBuyers } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .select('id, company_name')
           .in('id', scoringBuyerIds.slice(0, 100));
         (sBuyers || []).forEach((b: BuyerLabel) => {

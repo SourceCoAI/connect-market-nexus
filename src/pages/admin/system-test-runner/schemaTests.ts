@@ -48,8 +48,8 @@ export function buildSchemaTests(): TestDef[] {
     });
   }
 
-  add(C1, 'remarketing_buyers has marketplace_firm_id column', async () => {
-    await columnExists('remarketing_buyers', 'marketplace_firm_id');
+  add(C1, 'buyers has marketplace_firm_id column', async () => {
+    await columnExists('buyers', 'marketplace_firm_id');
   });
 
   add(C1, 'data_room_access has contact_id column', async () => {
@@ -110,9 +110,9 @@ export function buildSchemaTests(): TestDef[] {
     if (!count || count === 0) throw new Error('No buyer contacts found');
   });
 
-  add(C1, 'marketplace_firm_id match ran on remarketing_buyers', async () => {
+  add(C1, 'marketplace_firm_id match ran on buyers', async () => {
     const { count, error } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('id', { count: 'exact', head: true })
       .not('marketplace_firm_id', 'is', null);
     if (error) throw new Error(error.message);
@@ -122,9 +122,7 @@ export function buildSchemaTests(): TestDef[] {
         .from('firm_agreements')
         .select('id', { count: 'exact', head: true });
       if (faCount && faCount > 0) {
-        throw new Error(
-          'firm_agreements exist but no remarketing_buyers have marketplace_firm_id set',
-        );
+        throw new Error('firm_agreements exist but no buyers have marketplace_firm_id set');
       }
     }
   });
@@ -139,11 +137,11 @@ export function buildSchemaTests(): TestDef[] {
   add(C2, 'Create buyer contact', async (ctx) => {
     // Get first buyer
     const { data: buyers, error: buyersError } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('id')
       .limit(1);
     if (buyersError) throw buyersError;
-    if (!buyers?.length) throw new Error('No remarketing_buyers found to test with');
+    if (!buyers?.length) throw new Error('No buyers found to test with');
     ctx.testBuyerId = buyers[0].id;
 
     const { data, error } = await supabase

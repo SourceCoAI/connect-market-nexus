@@ -10,7 +10,7 @@ const CHATBOT_RULES = [
     severity: 'critical' as const,
     rules: [
       'NEVER make up information or say something you are not certain of',
-      "It is ALWAYS better to say \"I don't know\" or \"I don't have that data\" than to make something up",
+      'It is ALWAYS better to say "I don\'t know" or "I don\'t have that data" than to make something up',
       'In M&A, one wrong number, one fabricated name, one made-up valuation can cost real money and destroy trust',
       'If the data is not in your tool results, you do not have it — period',
       'If you are not 100% certain of a fact, do not state it as fact — say "I\'m not sure" or "I\'d need to verify that"',
@@ -28,7 +28,7 @@ const CHATBOT_RULES = [
       'NEVER fabricate deal names, company names, buyer names, IDs, revenue figures, or ANY data',
       'NEVER invent placeholder IDs like "deal_001" — all real IDs are UUIDs',
       'When a tool returns ZERO results, say "No results found" — do NOT invent data',
-      "If uncertain, say \"I don't have that data\" — never speculate",
+      'If uncertain, say "I don\'t have that data" — never speculate',
     ],
   },
   {
@@ -92,7 +92,7 @@ const CHATBOT_RULES = [
       'CAN access: deals, buyers, contacts, transcripts, scores, outreach, engagement, tasks, documents',
       'CANNOT access: real-time market data, competitor intel, stock prices, external news, LinkedIn/Google',
       'Be explicit about boundaries — if a user asks for something outside your data, say so clearly',
-      'A buyer UNIVERSE is a subset — if empty, offer to search the full remarketing_buyers table',
+      'A buyer UNIVERSE is a subset — if empty, offer to search the full buyers table',
     ],
   },
   {

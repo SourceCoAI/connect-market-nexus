@@ -109,60 +109,78 @@ const STATE_REGIONS: Record<string, string> = {
 // overlapping terms.
 const SECTOR_SYNONYMS: Record<string, string[]> = {
   // Utilities / Infrastructure
-  'utility':             ['utilities', 'utility services', 'infrastructure', 'field services', 'municipal services'],
-  'utility services':    ['utility', 'utilities', 'infrastructure services', 'outsourced utility', 'municipal'],
-  'metering':            ['amr', 'ami', 'smart meter', 'meter reading', 'meter installation'],
-  'infrastructure':      ['utility', 'field services', 'municipal', 'outsourced services'],
+  utility: [
+    'utilities',
+    'utility services',
+    'infrastructure',
+    'field services',
+    'municipal services',
+  ],
+  'utility services': [
+    'utility',
+    'utilities',
+    'infrastructure services',
+    'outsourced utility',
+    'municipal',
+  ],
+  metering: ['amr', 'ami', 'smart meter', 'meter reading', 'meter installation'],
+  infrastructure: ['utility', 'field services', 'municipal', 'outsourced services'],
   // Home Services — each maps to "home services" as their shared parent but NOT
   // to each other's specific terms (hvac ≠ plumbing, plumbing ≠ roofing)
-  'home services':       ['residential services', 'home repair'],
-  'hvac':                ['mechanical', 'climate control', 'heating and cooling'],
-  'plumbing':            ['plumbing services', 'mechanical services', 'pipe services'],
-  'roofing':             ['roofing services', 'exterior services'],
-  'collision':           ['auto body', 'paint and body', 'auto repair'],
+  'home services': ['residential services', 'home repair'],
+  hvac: ['mechanical', 'climate control', 'heating and cooling'],
+  plumbing: ['plumbing services', 'mechanical services', 'pipe services'],
+  roofing: ['roofing services', 'exterior services'],
+  collision: ['auto body', 'paint and body', 'auto repair'],
   // Healthcare — each sub-vertical maps to its own close synonyms, NOT the
   // generic "healthcare" umbrella (prevents dental ↔ veterinary false matches)
-  'healthcare':          ['health services', 'medical services', 'patient care'],
-  'dental':              ['dental services', 'dental practice', 'orthodontics', 'oral health'],
-  'behavioral health':   ['mental health', 'therapy', 'counseling', 'psychiatric services'],
-  'veterinary':          ['animal health', 'pet care', 'veterinary services', 'animal hospital'],
+  healthcare: ['health services', 'medical services', 'patient care'],
+  dental: ['dental services', 'dental practice', 'orthodontics', 'oral health'],
+  'behavioral health': ['mental health', 'therapy', 'counseling', 'psychiatric services'],
+  veterinary: ['animal health', 'pet care', 'veterinary services', 'animal hospital'],
   // Staffing / Professional Services
-  'staffing':            ['workforce solutions', 'temporary staffing', 'talent acquisition', 'recruiting', 'employment services'],
-  'recruiting':          ['staffing', 'talent acquisition', 'executive search', 'workforce solutions'],
-  'consulting':          ['advisory', 'professional services', 'management consulting'],
-  'accounting':          ['bookkeeping', 'cpa', 'tax services', 'audit services'],
+  staffing: [
+    'workforce solutions',
+    'temporary staffing',
+    'talent acquisition',
+    'recruiting',
+    'employment services',
+  ],
+  recruiting: ['staffing', 'talent acquisition', 'executive search', 'workforce solutions'],
+  consulting: ['advisory', 'professional services', 'management consulting'],
+  accounting: ['bookkeeping', 'cpa', 'tax services', 'audit services'],
   // Construction / Trades — each maps to close synonyms, not generic "building services"
-  'electrical':          ['electrical services', 'electrical contracting', 'power systems'],
-  'construction':        ['general contracting', 'specialty contracting', 'trades'],
-  'fire protection':     ['fire safety', 'fire suppression', 'life safety', 'sprinkler systems'],
-  'restoration':         ['remediation', 'disaster recovery', 'reconstruction', 'water damage'],
+  electrical: ['electrical services', 'electrical contracting', 'power systems'],
+  construction: ['general contracting', 'specialty contracting', 'trades'],
+  'fire protection': ['fire safety', 'fire suppression', 'life safety', 'sprinkler systems'],
+  restoration: ['remediation', 'disaster recovery', 'reconstruction', 'water damage'],
   // Facility / Building Services
-  'janitorial':          ['commercial cleaning', 'custodial', 'cleaning services'],
+  janitorial: ['commercial cleaning', 'custodial', 'cleaning services'],
   'commercial cleaning': ['janitorial', 'custodial', 'cleaning services'],
-  'facility services':   ['building services', 'property services', 'facilities management'],
-  'building services':   ['facility services', 'property management', 'building maintenance'],
+  'facility services': ['building services', 'property services', 'facilities management'],
+  'building services': ['facility services', 'property management', 'building maintenance'],
   // Technology / IT
-  'it services':         ['managed services', 'msp', 'technology services', 'it support'],
-  'cybersecurity':       ['information security', 'managed security', 'infosec', 'network security'],
-  'software':            ['saas', 'technology', 'tech-enabled services'],
-  'telecom':             ['telecommunications', 'communications', 'wireless', 'connectivity'],
+  'it services': ['managed services', 'msp', 'technology services', 'it support'],
+  cybersecurity: ['information security', 'managed security', 'infosec', 'network security'],
+  software: ['saas', 'technology', 'tech-enabled services'],
+  telecom: ['telecommunications', 'communications', 'wireless', 'connectivity'],
   // Industrial / Manufacturing
-  'manufacturing':       ['production', 'fabrication', 'industrial', 'precision manufacturing'],
-  'distribution':        ['wholesale', 'supply chain', 'industrial distribution'],
-  'logistics':           ['transportation', 'freight', '3pl', 'warehousing'],
+  manufacturing: ['production', 'fabrication', 'industrial', 'precision manufacturing'],
+  distribution: ['wholesale', 'supply chain', 'industrial distribution'],
+  logistics: ['transportation', 'freight', '3pl', 'warehousing'],
   // Other Services
-  'landscaping':         ['grounds maintenance', 'outdoor services', 'lawn care', 'landscape services'],
-  'pest control':        ['extermination', 'pest management', 'termite control'],
-  'waste management':    ['waste services', 'recycling', 'hauling', 'waste collection'],
+  landscaping: ['grounds maintenance', 'outdoor services', 'lawn care', 'landscape services'],
+  'pest control': ['extermination', 'pest management', 'termite control'],
+  'waste management': ['waste services', 'recycling', 'hauling', 'waste collection'],
   'environmental services': ['remediation', 'environmental consulting', 'environmental compliance'],
-  'insurance':           ['insurance services', 'insurance brokerage', 'risk management'],
-  'food services':       ['food distribution', 'catering', 'food manufacturing'],
-  'automotive':          ['auto services', 'auto repair', 'collision', 'vehicle services'],
-  'education':           ['training', 'learning', 'ed tech', 'tutoring', 'educational services'],
+  insurance: ['insurance services', 'insurance brokerage', 'risk management'],
+  'food services': ['food distribution', 'catering', 'food manufacturing'],
+  automotive: ['auto services', 'auto repair', 'collision', 'vehicle services'],
+  education: ['training', 'learning', 'ed tech', 'tutoring', 'educational services'],
 };
 
 function expandTerms(terms: string[]): string[] {
-  const expanded = new Set(terms.map(t => t.toLowerCase()));
+  const expanded = new Set(terms.map((t) => t.toLowerCase()));
   for (const t of terms) {
     const synonyms = SECTOR_SYNONYMS[t.toLowerCase()] || [];
     for (const s of synonyms) expanded.add(s.toLowerCase());
@@ -174,14 +192,20 @@ function expandTerms(terms: string[]): string[] {
 
 function extractDealKeywords(deal: Record<string, unknown>): string[] {
   const richText = [
-    deal.executive_summary, deal.description, deal.hero_description,
-    deal.investment_thesis, deal.end_market_description,
-  ].filter(Boolean).join(' ').toLowerCase();
+    deal.executive_summary,
+    deal.description,
+    deal.hero_description,
+    deal.investment_thesis,
+    deal.end_market_description,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
 
   // Use word boundary matching to prevent false positives
   // (e.g. "dental" matching inside "accidental")
   const knownTerms = Object.keys(SECTOR_SYNONYMS);
-  return knownTerms.filter(term => {
+  return knownTerms.filter((term) => {
     const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`\\b${escaped}\\b`);
     return regex.test(richText);
@@ -196,7 +220,7 @@ function norm(s: string | null | undefined): string {
 
 /** Title-case a lowercase term for display: "utility services" → "Utility Services" */
 function titleCase(s: string): string {
-  return s.replace(/\b\w/g, c => c.toUpperCase());
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function normArray(arr: string[] | null | undefined): string[] {
@@ -214,7 +238,9 @@ function scoreService(
   buyerIndustryVertical: string,
 ): { score: number; signals: string[] } {
   const rawDealTerms = [...dealCategories, dealIndustry].filter(Boolean);
-  const rawBuyerTerms = [...buyerServices, ...buyerIndustries, buyerIndustryVertical].filter(Boolean);
+  const rawBuyerTerms = [...buyerServices, ...buyerIndustries, buyerIndustryVertical].filter(
+    Boolean,
+  );
 
   if (rawDealTerms.length === 0 || rawBuyerTerms.length === 0) {
     return { score: 0, signals: [] }; // No data — cannot score, don't inflate
@@ -430,10 +456,10 @@ Deno.serve(async (req: Request) => {
       const auth = await requireAdmin(req, supabase);
       if (!auth.isAdmin) {
         const status = auth.authenticated ? 403 : 401;
-        return new Response(
-          JSON.stringify({ error: auth.error }),
-          { status, headers: { ...headers, 'Content-Type': 'application/json' } },
-        );
+        return new Response(JSON.stringify({ error: auth.error }), {
+          status,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+        });
       }
     }
     // ── End auth guard ──
@@ -475,9 +501,9 @@ Deno.serve(async (req: Request) => {
       .from('listings')
       .select(
         'id, title, industry, category, categories, ebitda, address_state, geographic_states,' +
-        'executive_summary, description, hero_description, investment_thesis,' +
-        'end_market_description, business_model, revenue_model, customer_types,' +
-        'owner_goals, seller_motivation, transition_preferences'
+          'executive_summary, description, hero_description, investment_thesis,' +
+          'end_market_description, business_model, revenue_model, customer_types,' +
+          'owner_goals, seller_motivation, transition_preferences',
       )
       .eq('id', listingId)
       .single();
@@ -492,7 +518,7 @@ Deno.serve(async (req: Request) => {
     // ── Fetch ALL active, non-archived buyers ──
     // Explicit limit required: Supabase config max_rows=1000 silently truncates without it
     const { data: buyers, error: buyerError } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select(
         'id, company_name, company_website, pe_firm_name, pe_firm_id, buyer_type, is_pe_backed, hq_state, hq_city, ' +
           'target_services, target_industries, industry_vertical, ' +
@@ -540,12 +566,13 @@ Deno.serve(async (req: Request) => {
 
     const seedLogMap = new Map<string, string>();
     const seedLogAcquisitionsMap = new Map<string, string[]>();
-    for (const row of (seedLogRows || [])) {
+    for (const row of seedLogRows || []) {
       if (row.why_relevant) seedLogMap.set(row.remarketing_buyer_id, row.why_relevant);
-      if (row.known_acquisitions?.length) seedLogAcquisitionsMap.set(row.remarketing_buyer_id, row.known_acquisitions);
+      if (row.known_acquisitions?.length)
+        seedLogAcquisitionsMap.set(row.remarketing_buyer_id, row.known_acquisitions);
     }
     // Merge in acquisitions from other deals (don't overwrite deal-specific ones)
-    for (const row of (allAcquisitionRows || [])) {
+    for (const row of allAcquisitionRows || []) {
       if (!seedLogAcquisitionsMap.has(row.remarketing_buyer_id) && row.known_acquisitions?.length) {
         seedLogAcquisitionsMap.set(row.remarketing_buyer_id, row.known_acquisitions);
       }
@@ -608,29 +635,45 @@ Deno.serve(async (req: Request) => {
       const rawThesis = (buyer.thesis_summary || '').trim();
       // Strip signal-like suffixes that may have been appended to thesis_summary by previous code
       const thesisCleaned = rawThesis
-        .replace(/\.?\s*(Exact industry match:[^.]*|Adjacent industry:[^.]*|State match:[^.]*|Region match:[^.]*|National buyer|EBITDA [^.]*|Fee agreement signed|Aggressive [^.]*|\d+ acquisitions)\.?\s*/gi, '')
+        .replace(
+          /\.?\s*(Exact industry match:[^.]*|Adjacent industry:[^.]*|State match:[^.]*|Region match:[^.]*|National buyer|EBITDA [^.]*|Fee agreement signed|Aggressive [^.]*|\d+ acquisitions)\.?\s*/gi,
+          '',
+        )
         .trim();
 
       // Shared helpers for richer descriptions
-      const rawBuyerServices = (buyer.target_services as string[] || []).filter(Boolean);
-      const rawBuyerIndustriesList = (buyer.target_industries as string[] || []).filter(Boolean);
-      const buyerTypeLabel = buyer.buyer_type === 'pe_firm' ? 'PE firm'
-        : buyer.buyer_type === 'platform' ? 'PE-backed platform'
-        : buyer.buyer_type === 'family_office' ? 'Family office'
-        : 'Strategic acquirer';
-      const locationStr = buyer.hq_city && buyer.hq_state
-        ? `${buyer.hq_city}, ${buyer.hq_state}`
-        : buyer.hq_state || '';
-      const ebitdaMinStr = buyer.target_ebitda_min ? `$${(buyer.target_ebitda_min / 1_000_000).toFixed(1)}M` : null;
-      const ebitdaMaxStr = buyer.target_ebitda_max ? `$${(buyer.target_ebitda_max / 1_000_000).toFixed(1)}M` : null;
-      const ebitdaRangeStr = ebitdaMinStr && ebitdaMaxStr ? `${ebitdaMinStr}\u2013${ebitdaMaxStr}`
-        : ebitdaMinStr ? `${ebitdaMinStr}+`
-        : ebitdaMaxStr ? `up to ${ebitdaMaxStr}`
+      const _rawBuyerServices = ((buyer.target_services as string[]) || []).filter(Boolean);
+      const _rawBuyerIndustriesList = ((buyer.target_industries as string[]) || []).filter(Boolean);
+      const _buyerTypeLabel =
+        buyer.buyer_type === 'pe_firm'
+          ? 'PE firm'
+          : buyer.buyer_type === 'platform'
+            ? 'PE-backed platform'
+            : buyer.buyer_type === 'family_office'
+              ? 'Family office'
+              : 'Strategic acquirer';
+      const _locationStr =
+        buyer.hq_city && buyer.hq_state
+          ? `${buyer.hq_city}, ${buyer.hq_state}`
+          : buyer.hq_state || '';
+      const ebitdaMinStr = buyer.target_ebitda_min
+        ? `$${(buyer.target_ebitda_min / 1_000_000).toFixed(1)}M`
         : null;
+      const ebitdaMaxStr = buyer.target_ebitda_max
+        ? `$${(buyer.target_ebitda_max / 1_000_000).toFixed(1)}M`
+        : null;
+      const ebitdaRangeStr =
+        ebitdaMinStr && ebitdaMaxStr
+          ? `${ebitdaMinStr}\u2013${ebitdaMaxStr}`
+          : ebitdaMinStr
+            ? `${ebitdaMinStr}+`
+            : ebitdaMaxStr
+              ? `up to ${ebitdaMaxStr}`
+              : null;
 
       // Extract specific matching terms from scoring signals for use in descriptions
       const matchingServiceTerms = svc.signals
-        .map(s => {
+        .map((s) => {
           const m = s.match(/^(?:Exact industry match|Adjacent industry):\s*(.+)/i);
           return m?.[1]?.trim() || null;
         })
@@ -638,13 +681,13 @@ Deno.serve(async (req: Request) => {
 
       // Collect buyer's geographic coverage for richer geographic descriptions
       const rawBuyerGeos = [
-        ...(buyer.target_geographies as string[] || []),
-        ...(buyer.geographic_footprint as string[] || []),
+        ...((buyer.target_geographies as string[]) || []),
+        ...((buyer.geographic_footprint as string[]) || []),
       ].filter(Boolean);
-      const uniqueGeos = [...new Set(rawBuyerGeos.map(g => g.toUpperCase()))];
+      const uniqueGeos = [...new Set(rawBuyerGeos.map((g) => g.toUpperCase()))];
       // States the buyer covers beyond the deal state (for "also covers X, Y" detail)
       const otherCoveredStates = uniqueGeos
-        .filter(g => g.length === 2 && g !== dealState?.toUpperCase())
+        .filter((g) => g.length === 2 && g !== dealState?.toUpperCase())
         .slice(0, 4);
 
       let fit_reason: string;
@@ -657,21 +700,28 @@ Deno.serve(async (req: Request) => {
         const matchDetails: string[] = [];
         if (svc.score >= 100) {
           if (matchingServiceTerms.length > 0) {
-            matchDetails.push(`directly targets ${matchingServiceTerms.slice(0, 3).map(titleCase).join(', ')} \u2014 overlapping with ${dealIndustry || 'the deal'}`);
+            matchDetails.push(
+              `directly targets ${matchingServiceTerms.slice(0, 3).map(titleCase).join(', ')} \u2014 overlapping with ${dealIndustry || 'the deal'}`,
+            );
           } else {
             matchDetails.push(`directly targets ${dealIndustry || 'this industry'}`);
           }
         } else if (svc.score >= 60) {
           if (matchingServiceTerms.length > 0) {
-            matchDetails.push(`adjacent fit via ${matchingServiceTerms.slice(0, 2).map(titleCase).join(', ')} to ${dealIndustry || 'this industry'}${buyer.industry_vertical ? ` (${buyer.industry_vertical})` : ''}`);
+            matchDetails.push(
+              `adjacent fit via ${matchingServiceTerms.slice(0, 2).map(titleCase).join(', ')} to ${dealIndustry || 'this industry'}${buyer.industry_vertical ? ` (${buyer.industry_vertical})` : ''}`,
+            );
           } else {
-            matchDetails.push(`adjacent fit to ${dealIndustry || 'this industry'}${buyer.industry_vertical ? ` via ${buyer.industry_vertical}` : ''}`);
+            matchDetails.push(
+              `adjacent fit to ${dealIndustry || 'this industry'}${buyer.industry_vertical ? ` via ${buyer.industry_vertical}` : ''}`,
+            );
           }
         }
         if (geo.score >= 100) {
-          const geoDetail = otherCoveredStates.length > 0
-            ? `covers ${dealState?.toUpperCase() || 'target geography'} (also targets ${otherCoveredStates.join(', ')})`
-            : `actively covers ${dealState?.toUpperCase() || 'target geography'}`;
+          const geoDetail =
+            otherCoveredStates.length > 0
+              ? `covers ${dealState?.toUpperCase() || 'target geography'} (also targets ${otherCoveredStates.join(', ')})`
+              : `actively covers ${dealState?.toUpperCase() || 'target geography'}`;
           matchDetails.push(geoDetail);
         } else if (geo.score >= 80) {
           matchDetails.push('national acquisition footprint');
@@ -686,10 +736,13 @@ Deno.serve(async (req: Request) => {
           matchDetails.push('EBITDA near target range');
         }
         if (buyer.total_acquisitions && buyer.total_acquisitions > 0) {
-          matchDetails.push(`${buyer.total_acquisitions} completed acquisition${buyer.total_acquisitions > 1 ? 's' : ''}`);
+          matchDetails.push(
+            `${buyer.total_acquisitions} completed acquisition${buyer.total_acquisitions > 1 ? 's' : ''}`,
+          );
         }
         if (buyer.has_fee_agreement) matchDetails.push('fee agreement in place');
-        if (norm(buyer.acquisition_appetite) === 'aggressive') matchDetails.push('actively acquiring');
+        if (norm(buyer.acquisition_appetite) === 'aggressive')
+          matchDetails.push('actively acquiring');
         if (matchDetails.length > 0) {
           reason += ` Deal fit: ${matchDetails.join('; ')}.`;
         }
@@ -699,20 +752,32 @@ Deno.serve(async (req: Request) => {
         fit_reason = reason;
       } else {
         // Generate a human-readable sentence from buyer context and scoring signals
-        const buyerTypeLabel = buyer.buyer_type === 'private_equity' ? 'PE firm'
-          : buyer.buyer_type === 'corporate' ? (buyer.is_pe_backed ? 'PE-backed corporate' : 'Corporate acquirer')
-          : buyer.buyer_type === 'family_office' ? 'Family office'
-          : buyer.buyer_type === 'independent_sponsor' ? 'Independent sponsor'
-          : buyer.buyer_type === 'search_fund' ? 'Search fund'
-          : buyer.buyer_type === 'individual_buyer' ? 'Individual buyer'
-          : 'Buyer';
-        const locationStr = buyer.hq_city && buyer.hq_state
-          ? `${buyer.hq_city}, ${buyer.hq_state}`
-          : buyer.hq_state || '';
+        const buyerTypeLabel =
+          buyer.buyer_type === 'private_equity'
+            ? 'PE firm'
+            : buyer.buyer_type === 'corporate'
+              ? buyer.is_pe_backed
+                ? 'PE-backed corporate'
+                : 'Corporate acquirer'
+              : buyer.buyer_type === 'family_office'
+                ? 'Family office'
+                : buyer.buyer_type === 'independent_sponsor'
+                  ? 'Independent sponsor'
+                  : buyer.buyer_type === 'search_fund'
+                    ? 'Search fund'
+                    : buyer.buyer_type === 'individual_buyer'
+                      ? 'Individual buyer'
+                      : 'Buyer';
+        const locationStr =
+          buyer.hq_city && buyer.hq_state
+            ? `${buyer.hq_city}, ${buyer.hq_state}`
+            : buyer.hq_state || '';
         const parts: string[] = [];
         if (svc.score >= 100) parts.push(`targets ${dealIndustry || 'this'} industry directly`);
-        else if (svc.score >= 60) parts.push(`invests in adjacent ${dealIndustry || 'industry'} verticals`);
-        if (geo.score >= 100) parts.push(`active in ${dealState?.toUpperCase() || 'target geography'}`);
+        else if (svc.score >= 60)
+          parts.push(`invests in adjacent ${dealIndustry || 'industry'} verticals`);
+        if (geo.score >= 100)
+          parts.push(`active in ${dealState?.toUpperCase() || 'target geography'}`);
         else if (geo.score >= 80) parts.push('national acquisition footprint');
         else if (geo.score >= 60) parts.push('regional geographic overlap');
         if (size.score >= 60) parts.push('EBITDA range matches deal size');

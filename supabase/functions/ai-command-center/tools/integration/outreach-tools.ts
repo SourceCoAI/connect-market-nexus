@@ -110,7 +110,7 @@ export async function pushToPhoneBurner(
       const buyerMap = new Map<string, string>();
       if (buyerIds.length > 0) {
         const { data: buyers } = await supabase
-          .from('remarketing_buyers')
+          .from('buyers')
           .select('id, company_name')
           .in('id', buyerIds);
         for (const b of buyers || []) buyerMap.set(b.id, b.company_name);
@@ -145,7 +145,7 @@ export async function pushToPhoneBurner(
       .eq('archived', false);
 
     const { data: buyers } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('id, company_name')
       .in('id', entityIds);
     const buyerMap = new Map<string, string>();

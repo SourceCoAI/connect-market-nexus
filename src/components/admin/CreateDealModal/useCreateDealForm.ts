@@ -85,7 +85,9 @@ export function useCreateDealForm(
     try {
       const { data, error } = await supabase
         .from('connection_requests')
-        .select('id, listing_id, lead_name, created_at, deal_pipeline:deal_pipeline!deal_pipeline_connection_request_id_fkey(id, title)')
+        .select(
+          'id, listing_id, lead_name, created_at, deal_pipeline:deal_pipeline!deal_pipeline_connection_request_id_fkey(id, title)',
+        )
         .eq('lead_email', email)
         .eq('listing_id', listingId)
         .order('created_at', { ascending: false })
@@ -195,7 +197,7 @@ export function useCreateDealForm(
               contact_type: 'buyer',
               source: 'manual_deal_creation',
             },
-            { onConflict: 'email' }
+            { onConflict: 'email' },
           )
           .select('id')
           .single();
@@ -206,7 +208,14 @@ export function useCreateDealForm(
       }
 
       // Strip contact_* fields — they no longer exist on deal_pipeline
-      const { contact_name, contact_email, contact_company, contact_phone, contact_role, ...dealFields } = data;
+      const {
+        contact_name: _contact_name,
+        contact_email: _contact_email,
+        contact_company: _contact_company,
+        contact_phone: _contact_phone,
+        contact_role: _contact_role,
+        ...dealFields
+      } = data;
 
       const payload: Record<string, unknown> = {
         ...dealFields,

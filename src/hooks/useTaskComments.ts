@@ -17,7 +17,7 @@ export function useTaskComments(taskId: string | null) {
     enabled: !!taskId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('rm_task_comments' as never)
+        .from('rm_task_comments')
         .select(
           `
           *,
@@ -41,24 +41,24 @@ export function useAddTaskComment() {
   return useMutation({
     mutationFn: async ({ taskId, body }: { taskId: string; body: string }) => {
       const { data, error } = await supabase
-        .from('rm_task_comments' as never)
+        .from('rm_task_comments')
         .insert({
           task_id: taskId,
-          user_id: user?.id,
+          user_id: user?.id ?? '',
           body: body.trim(),
-        } as never)
+        })
         .select()
         .single();
 
       if (error) throw error;
 
       // Log activity
-      await supabase.from('rm_task_activity_log' as never).insert({
+      await supabase.from('rm_task_activity_log').insert({
         task_id: taskId,
-        user_id: user?.id,
+        user_id: user?.id ?? '',
         action: 'commented',
         new_value: { body: body.trim() },
-      } as never);
+      });
 
       return data;
     },
@@ -73,10 +73,7 @@ export function useDeleteTaskComment() {
 
   return useMutation({
     mutationFn: async ({ commentId, taskId }: { commentId: string; taskId: string }) => {
-      const { error } = await supabase
-        .from('rm_task_comments' as never)
-        .delete()
-        .eq('id', commentId);
+      const { error } = await supabase.from('rm_task_comments').delete().eq('id', commentId);
 
       if (error) throw error;
       return taskId;

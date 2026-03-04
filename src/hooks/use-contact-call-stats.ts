@@ -34,7 +34,9 @@ export function useContactCallStats(buyerId: string | null) {
 
       const { data: activities } = await supabase
         .from('contact_activities')
-        .select('activity_type, call_outcome, call_connected, call_duration_seconds, talk_time_seconds, call_started_at, disposition_label, disposition_code, user_name, callback_scheduled_date, phoneburner_status')
+        .select(
+          'activity_type, call_outcome, call_connected, call_duration_seconds, talk_time_seconds, call_started_at, disposition_label, disposition_code, user_name, callback_scheduled_date, phoneburner_status',
+        )
         .in('contact_id', contactIds)
         .eq('source_system', 'phoneburner')
         .order('call_started_at', { ascending: false });
@@ -106,7 +108,9 @@ export function useContactCallStatsByIds(contactIds: string[]) {
 
       const { data: activities } = await supabase
         .from('contact_activities')
-        .select('activity_type, call_outcome, call_connected, call_duration_seconds, talk_time_seconds, call_started_at, disposition_label, phoneburner_status, user_name, callback_scheduled_date')
+        .select(
+          'activity_type, call_outcome, call_connected, call_duration_seconds, talk_time_seconds, call_started_at, disposition_label, phoneburner_status, user_name, callback_scheduled_date',
+        )
         .in('contact_id', contactIds)
         .eq('source_system', 'phoneburner')
         .order('call_started_at', { ascending: false });

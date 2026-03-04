@@ -2,7 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { invokeWithTimeout } from '@/lib/invoke-with-timeout';
-import type { ContactList, CreateContactListInput, ContactListMember, CreateContactListMemberInput } from '@/types/contact-list';
+import type {
+  ContactList,
+  CreateContactListInput,
+  ContactListMember,
+  CreateContactListMemberInput,
+} from '@/types/contact-list';
 import { useToast } from '@/hooks/use-toast';
 
 const QUERY_KEY = ['admin', 'contact-lists'];
@@ -20,8 +25,10 @@ export function useContactLists() {
       if (error) throw error;
 
       // Fetch creator names separately (FK points to auth.users, not profiles)
-      const creatorIds = [...new Set((data ?? []).map((r) => r.created_by).filter(Boolean))] as string[];
-      let profileMap: Record<string, string> = {};
+      const creatorIds = [
+        ...new Set((data ?? []).map((r) => r.created_by).filter(Boolean)),
+      ] as string[];
+      const profileMap: Record<string, string> = {};
       if (creatorIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
@@ -79,7 +86,10 @@ export function useContactList(listId: string | undefined) {
 
       // Fetch call tracking data for these contacts
       const emails = (members ?? []).map((m) => m.contact_email).filter(Boolean);
-      let callData: Record<string, { last_call: string | null; total_calls: number; last_disposition: string | null }> = {};
+      const callData: Record<
+        string,
+        { last_call: string | null; total_calls: number; last_disposition: string | null }
+      > = {};
 
       if (emails.length > 0) {
         const { data: activities } = await supabase
@@ -93,7 +103,11 @@ export function useContactList(listId: string | undefined) {
             const email = a.contact_email;
             if (!email) continue;
             if (!callData[email]) {
-              callData[email] = { last_call: a.call_started_at, total_calls: 0, last_disposition: a.disposition_label };
+              callData[email] = {
+                last_call: a.call_started_at,
+                total_calls: 0,
+                last_disposition: a.disposition_label,
+              };
             }
             callData[email].total_calls++;
           }
@@ -125,19 +139,21 @@ export function useCreateContactList() {
   return useMutation({
     mutationFn: async (input: CreateContactListInput) => {
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error('Authentication required');
 
       // Create the list
       const insertData: Record<string, unknown> = {
-          name: input.name,
-          description: input.description || null,
-          list_type: input.list_type,
-          tags: input.tags || [],
-          filter_snapshot: input.filter_snapshot || null,
-          created_by: user.id,
-          contact_count: input.members.length,
-        };
+        name: input.name,
+        description: input.description || null,
+        list_type: input.list_type,
+        tags: input.tags || [],
+        filter_snapshot: input.filter_snapshot || null,
+        created_by: user.id,
+        contact_count: input.members.length,
+      };
       const { data: list, error: listError } = await supabase
         .from('contact_lists')
         .insert(insertData as Database['public']['Tables']['contact_lists']['Insert'])
@@ -190,7 +206,13 @@ export function useAddMembersToList() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ listId, members }: { listId: string; members: CreateContactListMemberInput[] }) => {
+    mutationFn: async ({
+      listId,
+      members,
+    }: {
+      listId: string;
+      members: CreateContactListMemberInput[];
+    }) => {
       if (members.length === 0) throw new Error('No contacts to add');
 
       // Upsert members to handle duplicates gracefully (unique on list_id + contact_email)
@@ -332,7 +354,9 @@ export function useEnrichListContacts() {
       return (data?.results ?? []) as EnrichResult[];
     },
     onSuccess: (results) => {
-      const found = results.filter((r) => r.source && r.source !== 'existing' && (r.email || r.phone));
+      const found = results.filter(
+        (r) => r.source && r.source !== 'existing' && (r.email || r.phone),
+      );
       if (found.length > 0) {
         toast({
           title: 'Contacts enriched',

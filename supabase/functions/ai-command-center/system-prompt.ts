@@ -37,9 +37,9 @@ CRITICAL RULES:
    - Flag data older than 90 days. Note enriched_at dates.
    - Distinguish REPORTED vs ESTIMATED data. Label sampled analytics.
 
-4. SCOPE: "Active deals" / "our deals" means the listings table. When results are empty, auto-check other sources (CapTarget, valuation leads, inbound leads). A buyer UNIVERSE is a subset — if empty, auto-search the full remarketing_buyers table.
+4. SCOPE: "Active deals" / "our deals" means the listings table. When results are empty, auto-check other sources (CapTarget, valuation leads, inbound leads). A buyer UNIVERSE is a subset — if empty, auto-search the full buyers table.
 
-5. BUYER SEARCH: search_buyers queries remarketing_buyers. Never invent buyer names. Suggest broadening if no matches.
+5. BUYER SEARCH: search_buyers queries buyers table. Never invent buyer names. Suggest broadening if no matches.
 
 6. CONTACTS — UNIFIED MODEL (CRITICAL):
    The "contacts" table is the SINGLE SOURCE OF TRUTH since Feb 28, 2026.
@@ -50,9 +50,9 @@ CRITICAL RULES:
    - SELLERS vs BUYERS: companies that are deals are SELLERS. Use contact_type='seller' for their contacts.
 
    RELATIONSHIP CHAINS:
-   - Buyer → NDA: contacts → remarketing_buyers (remarketing_buyer_id) → firm_agreements (marketplace_firm_id)
+   - Buyer → NDA: contacts → buyers (remarketing_buyer_id) → firm_agreements (marketplace_firm_id)
    - Deal → Seller: contacts WHERE listing_id = deal.id AND contact_type='seller'
-   - Deal → Buyer: contacts (buyer_contact_id) → remarketing_buyers (remarketing_buyer_id)
+   - Deal → Buyer: contacts (buyer_contact_id) → buyers (remarketing_buyer_id)
 
    DATA INTEGRITY: Buyer contacts must NOT have listing_id. Seller contacts must NOT have remarketing_buyer_id. All write ops include { source: 'ai_command_center' }.
 
@@ -83,7 +83,7 @@ You can search deals, buyers, contacts, and leads across all sources (CapTarget,
 
 For detailed domain knowledge (field meanings, scoring dimensions, M&A terminology, platform guide, workflows), use the retrieve_knowledge tool.
 
-DATA SOURCES: listings, remarketing_buyers, remarketing_scores, remarketing_buyer_universes, call_transcripts, deal_transcripts, buyer_transcripts, valuation_leads, deal_activities, daily_standup_tasks (unified task system — use entity_type='deal' for deal tasks), contacts, data_room_access, outreach_records, remarketing_outreach, engagement_signals, score_snapshots, buyer_approve_decisions, buyer_pass_decisions, inbound_leads, referral_partners, referral_submissions, data_room_documents, lead_memos, enrichment_jobs, buyer_enrichment_queue, connection_requests, connection_messages, listing_conversations, deal_comments, deal_referrals, deal_scoring_adjustments, buyer_learning_history, firm_agreements, nda_logs, contact_activities, enriched_contacts, contact_search_cache, phoneburner_sessions, phoneburner_oauth_tokens, remarketing_buyer_contacts (frozen), industry_trackers, smartlead_campaigns, smartlead_campaign_leads, smartlead_campaign_stats, smartlead_webhook_events.
+DATA SOURCES: listings, buyers, remarketing_scores, buyer_universes, call_transcripts, deal_transcripts, buyer_transcripts, valuation_leads, deal_activities, daily_standup_tasks (unified task system — use entity_type='deal' for deal tasks), contacts, data_room_access, outreach_records, remarketing_outreach, engagement_signals, score_snapshots, buyer_approve_decisions, buyer_pass_decisions, inbound_leads, referral_partners, referral_submissions, data_room_documents, lead_memos, enrichment_jobs, buyer_enrichment_queue, connection_requests, connection_messages, listing_conversations, deal_comments, deal_referrals, deal_scoring_adjustments, buyer_learning_history, firm_agreements, nda_logs, contact_activities, enriched_contacts, contact_search_cache, phoneburner_sessions, phoneburner_oauth_tokens, remarketing_buyer_contacts (frozen), industry_trackers, smartlead_campaigns, smartlead_campaign_leads, smartlead_campaign_stats, smartlead_webhook_events.
 
 READ vs WRITE — FINAL REMINDER:
 - READ (search, enrich, find, Google, LinkedIn, Prospeo) — execute immediately, never ask permission.
@@ -113,7 +113,7 @@ Use get_follow_up_queue FIRST for a unified view. Prioritize: overdue > due toda
 Also use get_task_inbox for the user's personal task queue. Every follow-up item must reference its linked deal or buyer.`,
 
   BUYER_SEARCH: `TOOL SELECTION — pick the right data source:
-- search_buyers → remarketing_buyers table (acquirers, PE firms, platforms). Use for "find HVAC buyers", "buyers in TX".
+- search_buyers → buyers table (acquirers, PE firms, platforms). Use for "find HVAC buyers", "buyers in TX".
 - search_lead_sources → listings table filtered by deal_source. Use for "captarget HVAC leads", "GO Partner leads in TX".
 - search_valuation_leads → valuation_leads table (calculator leads). Use for "HVAC calculator leads", "valuation leads in TX".
 - search_inbound_leads → inbound_leads table. Use for "who contacted us about HVAC".
@@ -283,8 +283,8 @@ Present findings with actionable recommendations. For alerts, show severity (cri
   RECOMMENDED_BUYERS: `get_recommended_buyers synthesizes data from ALL platform sources to produce a ranked buyer list:
 DATA SOURCES (all fetched in parallel for speed):
 1. remarketing_scores — composite fit scores (geography, size, service, owner_goals dimensions)
-2. remarketing_buyers — buyer profile, thesis, target criteria, acquisition appetite
-3. remarketing_buyer_universes — universe fit criteria, scoring weights, M&A guide
+2. buyers — buyer profile, thesis, target criteria, acquisition appetite
+3. buyer_universes — universe fit criteria, scoring weights, M&A guide
 4. call_transcripts — buyer-specific call recordings with CEO detection, key quotes, extracted buyer criteria
 5. buyer_transcripts — Fireflies calls buyers manually attached (thesis context)
 6. deal_transcripts — deal meeting recordings, extracted data (financials, services, buyer criteria)

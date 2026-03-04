@@ -9,17 +9,57 @@ import type { ToolResult } from './index.ts';
 
 // State name → code mapping for normalizing deal address_state (full names) to buyer hq_state (2-letter codes)
 const STATE_NAME_TO_CODE: Record<string, string> = {
-  alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA',
-  colorado: 'CO', connecticut: 'CT', delaware: 'DE', florida: 'FL', georgia: 'GA',
-  hawaii: 'HI', idaho: 'ID', illinois: 'IL', indiana: 'IN', iowa: 'IA',
-  kansas: 'KS', kentucky: 'KY', louisiana: 'LA', maine: 'ME', maryland: 'MD',
-  massachusetts: 'MA', michigan: 'MI', minnesota: 'MN', mississippi: 'MS', missouri: 'MO',
-  montana: 'MT', nebraska: 'NE', nevada: 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
-  'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND',
-  ohio: 'OH', oklahoma: 'OK', oregon: 'OR', pennsylvania: 'PA', 'rhode island': 'RI',
-  'south carolina': 'SC', 'south dakota': 'SD', tennessee: 'TN', texas: 'TX',
-  utah: 'UT', vermont: 'VT', virginia: 'VA', washington: 'WA', 'west virginia': 'WV',
-  wisconsin: 'WI', wyoming: 'WY', 'district of columbia': 'DC',
+  alabama: 'AL',
+  alaska: 'AK',
+  arizona: 'AZ',
+  arkansas: 'AR',
+  california: 'CA',
+  colorado: 'CO',
+  connecticut: 'CT',
+  delaware: 'DE',
+  florida: 'FL',
+  georgia: 'GA',
+  hawaii: 'HI',
+  idaho: 'ID',
+  illinois: 'IL',
+  indiana: 'IN',
+  iowa: 'IA',
+  kansas: 'KS',
+  kentucky: 'KY',
+  louisiana: 'LA',
+  maine: 'ME',
+  maryland: 'MD',
+  massachusetts: 'MA',
+  michigan: 'MI',
+  minnesota: 'MN',
+  mississippi: 'MS',
+  missouri: 'MO',
+  montana: 'MT',
+  nebraska: 'NE',
+  nevada: 'NV',
+  'new hampshire': 'NH',
+  'new jersey': 'NJ',
+  'new mexico': 'NM',
+  'new york': 'NY',
+  'north carolina': 'NC',
+  'north dakota': 'ND',
+  ohio: 'OH',
+  oklahoma: 'OK',
+  oregon: 'OR',
+  pennsylvania: 'PA',
+  'rhode island': 'RI',
+  'south carolina': 'SC',
+  'south dakota': 'SD',
+  tennessee: 'TN',
+  texas: 'TX',
+  utah: 'UT',
+  vermont: 'VT',
+  virginia: 'VA',
+  washington: 'WA',
+  'west virginia': 'WV',
+  wisconsin: 'WI',
+  wyoming: 'WY',
+  'district of columbia': 'DC',
 };
 
 /** Normalize a state string to a 2-letter code. Handles full names, codes, and mixed case. */
@@ -136,7 +176,7 @@ async function universeComparison(
 ): Promise<ToolResult> {
   // Fetch all universes with their stats
   let query = supabase
-    .from('remarketing_buyer_universes')
+    .from('buyer_universes')
     .select('id, name, description, buyer_count, deal_count, created_at')
     .eq('archived', false)
     .order('buyer_count', { ascending: false })
@@ -172,45 +212,49 @@ async function universeComparison(
   const _approvals = decisionsResult.data || [];
 
   // Aggregate per universe
-  const universeStats = universes.map((u: { id: string; name: string; buyer_count: number; deal_count: number }) => {
-    const uScores = scores.filter((s: { universe_id?: string }) => {
-      return s.universe_id === u.id;
-    });
-    const uOutreach = outreach.filter((o: { universe_id?: string }) => o.universe_id === u.id);
+  const universeStats = universes.map(
+    (u: { id: string; name: string; buyer_count: number; deal_count: number }) => {
+      const uScores = scores.filter((s: { universe_id?: string }) => {
+        return s.universe_id === u.id;
+      });
+      const uOutreach = outreach.filter((o: { universe_id?: string }) => o.universe_id === u.id);
 
-    const compositeScores = uScores.map((s: { composite_score?: number }) => s.composite_score).filter(Boolean) as number[];
-    const avgScore =
-      compositeScores.length > 0
-        ? Math.round(compositeScores.reduce((a, b) => a + b, 0) / compositeScores.length)
-        : null;
+      const compositeScores = uScores
+        .map((s: { composite_score?: number }) => s.composite_score)
+        .filter(Boolean) as number[];
+      const avgScore =
+        compositeScores.length > 0
+          ? Math.round(compositeScores.reduce((a, b) => a + b, 0) / compositeScores.length)
+          : null;
 
-    const statusBreakdown: Record<string, number> = {};
-    for (const s of uScores) {
-      statusBreakdown[s.status || 'unknown'] = (statusBreakdown[s.status || 'unknown'] || 0) + 1;
-    }
+      const statusBreakdown: Record<string, number> = {};
+      for (const s of uScores) {
+        statusBreakdown[s.status || 'unknown'] = (statusBreakdown[s.status || 'unknown'] || 0) + 1;
+      }
 
-    const outreachByStage: Record<string, number> = {};
-    for (const o of uOutreach) {
-      outreachByStage[o.stage || 'unknown'] = (outreachByStage[o.stage || 'unknown'] || 0) + 1;
-    }
+      const outreachByStage: Record<string, number> = {};
+      for (const o of uOutreach) {
+        outreachByStage[o.stage || 'unknown'] = (outreachByStage[o.stage || 'unknown'] || 0) + 1;
+      }
 
-    const approved = statusBreakdown['approved'] || 0;
-    const total = uScores.length || 1;
-    const conversionRate = Math.round((approved / total) * 100);
+      const approved = statusBreakdown['approved'] || 0;
+      const total = uScores.length || 1;
+      const conversionRate = Math.round((approved / total) * 100);
 
-    return {
-      universe_id: u.id,
-      universe_name: u.name,
-      buyer_count: u.buyer_count,
-      deal_count: u.deal_count,
-      scored_buyers: uScores.length,
-      avg_composite_score: avgScore,
-      conversion_rate_pct: conversionRate,
-      status_breakdown: statusBreakdown,
-      outreach_by_stage: outreachByStage,
-      total_outreach: uOutreach.length,
-    };
-  });
+      return {
+        universe_id: u.id,
+        universe_name: u.name,
+        buyer_count: u.buyer_count,
+        deal_count: u.deal_count,
+        scored_buyers: uScores.length,
+        avg_composite_score: avgScore,
+        conversion_rate_pct: conversionRate,
+        status_breakdown: statusBreakdown,
+        outreach_by_stage: outreachByStage,
+        total_outreach: uOutreach.length,
+      };
+    },
+  );
 
   // Sort by conversion rate
   universeStats.sort((a, b) => b.conversion_rate_pct - a.conversion_rate_pct);
@@ -221,7 +265,7 @@ async function universeComparison(
       universes: universeStats,
       total_universes: universeStats.length,
       best_conversion: universeStats[0]?.universe_name || 'N/A',
-      source_tables: ['remarketing_buyer_universes', 'remarketing_scores', 'outreach_records'],
+      source_tables: ['buyer_universes', 'remarketing_scores', 'outreach_records'],
     },
   };
 }
@@ -299,38 +343,51 @@ async function dealComparison(
   const outreach = outreachResult.data || [];
   const tasks = tasksResult.data || [];
 
-  const dealStats = deals.map((d: { id: string; title: string; revenue: number; ebitda: number; deal_total_score: number; status: string; address_state: string }) => {
-    const dScores = scores.filter((s: { listing_id: string }) => s.listing_id === d.id);
-    const dOutreach = outreach.filter((o: { deal_id: string }) => o.deal_id === d.id);
-    const dTasks = tasks.filter((t: { entity_id: string }) => t.entity_id === d.id);
+  const dealStats = deals.map(
+    (d: {
+      id: string;
+      title: string;
+      revenue: number;
+      ebitda: number;
+      deal_total_score: number;
+      status: string;
+      address_state: string;
+    }) => {
+      const dScores = scores.filter((s: { listing_id: string }) => s.listing_id === d.id);
+      const dOutreach = outreach.filter((o: { deal_id: string }) => o.deal_id === d.id);
+      const dTasks = tasks.filter((t: { entity_id: string }) => t.entity_id === d.id);
 
-    const composites = dScores.map((s: { composite_score?: number }) => s.composite_score).filter(Boolean) as number[];
-    const avgScore =
-      composites.length > 0
-        ? Math.round(composites.reduce((a: number, b: number) => a + b, 0) / composites.length)
-        : null;
+      const composites = dScores
+        .map((s: { composite_score?: number }) => s.composite_score)
+        .filter(Boolean) as number[];
+      const avgScore =
+        composites.length > 0
+          ? Math.round(composites.reduce((a: number, b: number) => a + b, 0) / composites.length)
+          : null;
 
-    const approved = dScores.filter((s: { status?: string }) => s.status === 'approved').length;
-    const passed = dScores.filter((s: { status?: string }) => s.status === 'passed').length;
+      const approved = dScores.filter((s: { status?: string }) => s.status === 'approved').length;
+      const passed = dScores.filter((s: { status?: string }) => s.status === 'passed').length;
 
-    return {
-      deal_id: d.id,
-      deal_name: d.title,
-      revenue: d.revenue,
-      ebitda: d.ebitda,
-      deal_score: d.deal_total_score,
-      status: d.status,
-      state: d.address_state,
-      total_buyers_scored: dScores.length,
-      avg_buyer_score: avgScore,
-      approved_buyers: approved,
-      passed_buyers: passed,
-      approval_rate_pct: dScores.length > 0 ? Math.round((approved / dScores.length) * 100) : 0,
-      active_outreach: dOutreach.length,
-      open_tasks: dTasks.filter((t: { status?: string }) => t.status === 'pending' || t.status === 'in_progress')
-        .length,
-    };
-  });
+      return {
+        deal_id: d.id,
+        deal_name: d.title,
+        revenue: d.revenue,
+        ebitda: d.ebitda,
+        deal_score: d.deal_total_score,
+        status: d.status,
+        state: d.address_state,
+        total_buyers_scored: dScores.length,
+        avg_buyer_score: avgScore,
+        approved_buyers: approved,
+        passed_buyers: passed,
+        approval_rate_pct: dScores.length > 0 ? Math.round((approved / dScores.length) * 100) : 0,
+        active_outreach: dOutreach.length,
+        open_tasks: dTasks.filter(
+          (t: { status?: string }) => t.status === 'pending' || t.status === 'in_progress',
+        ).length,
+      };
+    },
+  );
 
   return {
     data: {
@@ -352,7 +409,7 @@ async function buyerTypeAnalysis(
   _args: Record<string, unknown>,
 ): Promise<ToolResult> {
   const { data: buyers, error } = await supabase
-    .from('remarketing_buyers')
+    .from('buyers')
     .select(
       'id, buyer_type, alignment_score, has_fee_agreement, total_acquisitions, acquisition_appetite',
     )
@@ -393,7 +450,7 @@ async function buyerTypeAnalysis(
       analysis_type: 'buyer_type_analysis',
       types: analysis,
       total_buyers: (buyers || []).length,
-      source_tables: ['remarketing_buyers'],
+      source_tables: ['buyers'],
     },
   };
 }
@@ -554,10 +611,7 @@ async function geographyHeatmap(
   _args: Record<string, unknown>,
 ): Promise<ToolResult> {
   const [buyersResult, dealsResult] = await Promise.all([
-    supabase
-      .from('remarketing_buyers')
-      .select('hq_state, geographic_footprint')
-      .eq('archived', false),
+    supabase.from('buyers').select('hq_state, geographic_footprint').eq('archived', false),
     supabase.from('listings').select('address_state, geographic_states').is('deleted_at', null),
   ]);
 
@@ -605,7 +659,7 @@ async function geographyHeatmap(
       coverage_gaps: gaps.slice(0, 10),
       total_buyer_states: Object.keys(buyersByState).length,
       total_deal_states: Object.keys(dealsByState).length,
-      source_tables: ['remarketing_buyers', 'listings'],
+      source_tables: ['buyers', 'listings'],
     },
   };
 }

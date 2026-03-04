@@ -290,7 +290,11 @@ const MarketplaceQueue = () => {
               <Card
                 key={deal.id}
                 className="hover:border-blue-200 transition-colors cursor-pointer"
-                onClick={() => navigate(`/admin/deals/${deal.id}`, { state: { from: '/admin/marketplace/queue' } })}
+                onClick={() =>
+                  navigate(`/admin/deals/${deal.id}`, {
+                    state: { from: '/admin/marketplace/queue' },
+                  })
+                }
               >
                 <CardContent className="py-4">
                   <div className="flex items-start justify-between gap-4">
@@ -359,44 +363,50 @@ const MarketplaceQueue = () => {
                           className="h-8 text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/admin/deals/${existingListing.id}?tab=marketplace`, { state: { from: '/admin/marketplace/queue' } });
+                            navigate(`/admin/deals/${existingListing.id}?tab=marketplace`, {
+                              state: { from: '/admin/marketplace/queue' },
+                            });
                           }}
                         >
                           <Eye className="h-3.5 w-3.5 mr-1" />
                           View Listing
                         </Button>
-                      ) : (() => {
-                        const gaps = getListingGaps(deal);
-                        const canCreate = gaps.length === 0;
-                        return (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={`h-8 text-xs ${!canCreate ? 'border-gray-200 text-gray-400 cursor-not-allowed' : ''}`}
-                                    disabled={!canCreate}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigate(`/admin/marketplace/create-listing?fromDeal=${deal.id}`);
-                                    }}
-                                  >
-                                    <Plus className="h-3.5 w-3.5 mr-1" />
-                                    Create Listing
-                                  </Button>
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                {canCreate
-                                  ? 'Create an anonymous marketplace listing from this deal.'
-                                  : `Complete these before creating a listing:\n${gaps.map((g) => `• ${g}`).join('\n')}`}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        );
-                      })()}
+                      ) : (
+                        (() => {
+                          const gaps = getListingGaps(deal);
+                          const canCreate = gaps.length === 0;
+                          return (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className={`h-8 text-xs ${!canCreate ? 'border-gray-200 text-gray-400 cursor-not-allowed' : ''}`}
+                                      disabled={!canCreate}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(
+                                          `/admin/marketplace/create-listing?fromDeal=${deal.id}`,
+                                        );
+                                      }}
+                                    >
+                                      <Plus className="h-3.5 w-3.5 mr-1" />
+                                      Create Listing
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  {canCreate
+                                    ? 'Create an anonymous marketplace listing from this deal.'
+                                    : `Complete these before creating a listing:\n${gaps.map((g) => `• ${g}`).join('\n')}`}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })()
+                      )}
                       {deal.website && (
                         <Button
                           variant="ghost"

@@ -213,8 +213,8 @@ export function useContactHistory(
   const { data: associatedBuyers = [], isLoading: buyersLoading } = useQuery({
     queryKey: ['contact-history-tracker-buyers', listingId],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await supabase
+       
+      const { data, error } = (await supabase
         .from('deal_pipeline')
         .select(
           `
@@ -223,26 +223,25 @@ export function useContactHistory(
           contact_email,
           contact_phone,
           remarketing_buyer_id,
-          remarketing_buyers!deals_remarketing_buyer_id_fkey ( company_name, buyer_type )
+          buyers!deals_remarketing_buyer_id_fkey ( company_name, buyer_type )
         `,
         )
         .eq('listing_id', listingId)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false }) as { data: any[] | null; error: any };
+        .order('created_at', { ascending: false })) as { data: any[] | null; error: any };
 
       if (error) throw error;
 
       return (data || []).map((d: any) => ({
         id: d.id as string,
         buyerName:
-          ((d.remarketing_buyers as Record<string, unknown> | null)?.company_name as string) ||
+          ((d.buyers as Record<string, unknown> | null)?.company_name as string) ||
           (d.contact_name as string) ||
           'Unknown',
         contactName: d.contact_name as string | null,
         contactEmail: d.contact_email as string | null,
         remarketing_buyer_id: d.remarketing_buyer_id as string | null,
-        buyerType:
-          ((d.remarketing_buyers as Record<string, unknown> | null)?.buyer_type as string) || null,
+        buyerType: ((d.buyers as Record<string, unknown> | null)?.buyer_type as string) || null,
       }));
     },
     enabled: !!listingId,

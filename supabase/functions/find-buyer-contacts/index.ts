@@ -35,12 +35,17 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     let websites: string[] = [];
-    let buyer: { id: string; company_name: string; pe_firm_website: string | null; company_website: string | null } | null = null;
+    let buyer: {
+      id: string;
+      company_name: string;
+      pe_firm_website: string | null;
+      company_website: string | null;
+    } | null = null;
 
-    // Get buyer info if buyerId provided (use remarketing_buyers — the active schema)
+    // Get buyer info if buyerId provided (use buyers — the active schema)
     if (buyerId) {
       const { data, error } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('id, company_name, pe_firm_website, company_website')
         .eq('id', buyerId)
         .single();
@@ -209,7 +214,10 @@ serve(async (req) => {
           },
         );
         if (upsertError) {
-          console.error(`[find-buyer-contacts] Failed to save contact ${contact.name}:`, upsertError.message);
+          console.error(
+            `[find-buyer-contacts] Failed to save contact ${contact.name}:`,
+            upsertError.message,
+          );
         }
       }
     }
@@ -225,10 +233,13 @@ serve(async (req) => {
     );
   } catch (error: unknown) {
     console.error('[find-buyer-contacts] Error:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   }
 });
 
@@ -236,7 +247,16 @@ async function extractContactsWithAI(
   content: string,
   sourceUrl: string,
   apiKey: string,
-): Promise<{ name: string; title?: string; email?: string | null; linkedin_url?: string | null; role_category?: string; source_url?: string }[]> {
+): Promise<
+  {
+    name: string;
+    title?: string;
+    email?: string | null;
+    linkedin_url?: string | null;
+    role_category?: string;
+    source_url?: string;
+  }[]
+> {
   const systemPrompt = `You are an expert at extracting contact information from web pages. Extract all people mentioned with their roles.
 
 Return JSON array only:
@@ -291,7 +311,13 @@ Only include people with clear names and titles. Return empty array if no contac
     // Parse JSON from response
     const jsonMatch = responseContent.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
-      const contacts = JSON.parse(jsonMatch[0]) as { name: string; title?: string; email?: string | null; linkedin_url?: string | null; role_category?: string }[];
+      const contacts = JSON.parse(jsonMatch[0]) as {
+        name: string;
+        title?: string;
+        email?: string | null;
+        linkedin_url?: string | null;
+        role_category?: string;
+      }[];
       return contacts.map((c) => ({ ...c, source_url: sourceUrl }));
     }
 

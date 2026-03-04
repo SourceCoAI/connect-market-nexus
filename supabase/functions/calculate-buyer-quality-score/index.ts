@@ -380,7 +380,7 @@ const handler = async (req: Request): Promise<Response> => {
 
           let remarketingBuyer: Record<string, unknown> | null = null;
           const { data: rmBuyers } = await supabase
-            .from('remarketing_buyers')
+            .from('buyers')
             .select('buyer_type, thesis_summary')
             .or(`primary_contact_email.eq.${profile.email},marketplace_firm_id.not.is.null`)
             .limit(1);
@@ -450,7 +450,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Try to find a linked remarketing_buyer record
     let remarketingBuyer: Record<string, unknown> | null = null;
     const { data: rmBuyers } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('buyer_type, thesis_summary')
       .or(`primary_contact_email.eq.${profile.email},marketplace_firm_id.not.is.null`)
       .limit(1);

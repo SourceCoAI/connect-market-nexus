@@ -134,7 +134,7 @@ export const AddDealToUniverseDialog = ({
         .select(
           `
           listing_id,
-          universe:remarketing_buyer_universes(id, name)
+          universe:buyer_universes(id, name)
         `,
         )
         .eq('status', 'active');

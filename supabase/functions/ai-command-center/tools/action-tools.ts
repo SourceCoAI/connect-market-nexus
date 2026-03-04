@@ -654,7 +654,7 @@ async function convertToPipelineDeal(
 
   // Verify buyer exists
   const { data: buyer, error: buyerError } = await supabase
-    .from('remarketing_buyers')
+    .from('buyers')
     .select('id, company_name, pe_firm_name, buyer_type')
     .eq('id', buyerId)
     .single();

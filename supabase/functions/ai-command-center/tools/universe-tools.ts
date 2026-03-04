@@ -16,7 +16,7 @@ export const universeTools: ClaudeTool[] = [
   {
     name: 'search_buyer_universes',
     description: `Search and list buyer universes — the curated buyer lists built for specific industry verticals.
-DATA SOURCE: remarketing_buyer_universes table.
+DATA SOURCE: buyer_universes table.
 USE WHEN: "find the HVAC universe", "which universes exist", "universes for plumbing buyers".
 SEARCHABLE FIELDS: search param checks name, description, fit_criteria, service_criteria, geography_criteria, size_criteria, buyer_types_criteria.
 Each universe defines fit criteria, scoring weights, and which deals it applies to.
@@ -155,7 +155,7 @@ async function searchBuyerUniverses(
   const limit = Math.min(Number(args.limit) || 50, 200);
 
   let query = supabase
-    .from('remarketing_buyer_universes')
+    .from('buyer_universes')
     .select(
       'id, name, description, fit_criteria, size_criteria, geography_criteria, service_criteria, buyer_types_criteria, geography_weight, size_weight, service_weight, owner_goals_weight, archived, created_at, updated_at, ma_guide_content, ma_guide_generated_at',
     )
@@ -217,14 +217,14 @@ async function getUniverseDetails(
   const universeId = args.universe_id as string;
 
   const [universeResult, dealsResult, buyerCountResult] = await Promise.all([
-    supabase.from('remarketing_buyer_universes').select('*').eq('id', universeId).single(),
+    supabase.from('buyer_universes').select('*').eq('id', universeId).single(),
     supabase
       .from('remarketing_universe_deals')
       .select('id, listing_id, status, added_at, notes')
       .eq('universe_id', universeId)
       .eq('status', 'active'),
     supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('id', { count: 'exact', head: true })
       .eq('universe_id', universeId)
       .eq('archived', false),
@@ -235,7 +235,11 @@ async function getUniverseDetails(
   // Truncate ma_guide_content to save tokens (full guides can be 20K+)
   const universe = { ...universeResult.data };
   if (universe.ma_guide_content && universe.ma_guide_content.length > 6000) {
-    universe.ma_guide_content = universe.ma_guide_content.substring(0, 6000) + '\n\n[... guide truncated — full guide is ' + universeResult.data.ma_guide_content.length + ' chars]';
+    universe.ma_guide_content =
+      universe.ma_guide_content.substring(0, 6000) +
+      '\n\n[... guide truncated — full guide is ' +
+      universeResult.data.ma_guide_content.length +
+      ' chars]';
   }
 
   return {
@@ -257,7 +261,7 @@ async function getUniverseBuyerFits(
 
   // 1. Fetch all buyers in this universe
   const { data: buyers, error: buyersError } = await supabase
-    .from('remarketing_buyers')
+    .from('buyers')
     .select('id, company_name, alignment_score, has_fee_agreement')
     .eq('universe_id', universeId)
     .eq('archived', false)

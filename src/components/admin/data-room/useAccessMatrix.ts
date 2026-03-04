@@ -53,7 +53,7 @@ export function useAccessMatrix(dealId: string, projectName?: string | null) {
     queryKey: ['available-buyers-for-access', dealId, buyerSearch],
     queryFn: async () => {
       let firmsQuery = supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select(
           `
           id, company_name, pe_firm_name, email_domain, buyer_type,
@@ -77,7 +77,7 @@ export function useAccessMatrix(dealId: string, projectName?: string | null) {
         .select(
           `
           id, first_name, last_name, email, title,
-          buyer:remarketing_buyers!contacts_remarketing_buyer_id_fkey(id, company_name, pe_firm_name, buyer_type, archived)
+          buyer:buyers!contacts_remarketing_buyer_id_fkey(id, company_name, pe_firm_name, buyer_type, archived)
         `,
         )
         .eq('contact_type', 'buyer')

@@ -9,9 +9,9 @@
  * Tables: none (state-only hook; dialer resolution happens server-side)
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback } from 'react';
 
-export type DialerEntityType = "contacts" | "buyer_contacts" | "buyers" | "listings" | "leads";
+export type DialerEntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
 
 interface PushToDialerState {
   open: boolean;
@@ -26,16 +26,13 @@ interface PushToDialerState {
 export function usePushToDialer() {
   const [state, setState] = useState<PushToDialerState>({
     open: false,
-    entityType: "buyers",
+    entityType: 'buyers',
     entityIds: [],
   });
 
-  const openDialer = useCallback(
-    (entityType: DialerEntityType, entityIds: string[]) => {
-      setState({ open: true, entityType, entityIds });
-    },
-    [],
-  );
+  const openDialer = useCallback((entityType: DialerEntityType, entityIds: string[]) => {
+    setState({ open: true, entityType, entityIds });
+  }, []);
 
   const closeDialer = useCallback(() => {
     setState((prev) => ({ ...prev, open: false }));

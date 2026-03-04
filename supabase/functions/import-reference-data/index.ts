@@ -1,7 +1,7 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 interface ImportOptions {
   clearExisting?: boolean;
@@ -27,14 +27,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { dataType, data, options = {} } = await req.json() as ImportRequest;
+    const { dataType, data, options = {} } = (await req.json()) as ImportRequest;
 
     console.log(`Importing ${data.length} records of type: ${dataType}`);
 
     let result: { imported: number; errors: string[]; idMapping?: Record<string, string> } = {
       imported: 0,
       errors: [],
-      idMapping: {}
+      idMapping: {},
     };
 
     switch (dataType) {
@@ -61,20 +61,23 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (error) {
     console.error('Import error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
 
-async function importUniverses(supabase: SupabaseClient, data: Record<string, unknown>[], options: ImportOptions) {
+async function importUniverses(
+  supabase: SupabaseClient,
+  data: Record<string, unknown>[],
+  _options: ImportOptions,
+) {
   const idMapping: Record<string, string> = {};
   const errors: string[] = [];
   let imported = 0;
@@ -104,7 +107,7 @@ async function importUniverses(supabase: SupabaseClient, data: Record<string, un
       };
 
       const { data: inserted, error } = await supabase
-        .from('remarketing_buyer_universes')
+        .from('buyer_universes')
         .insert(universe)
         .select('id')
         .single();
@@ -126,7 +129,11 @@ async function importUniverses(supabase: SupabaseClient, data: Record<string, un
   return { imported, errors, idMapping };
 }
 
-async function importBuyers(supabase: SupabaseClient, data: Record<string, unknown>[], options: ImportOptions) {
+async function importBuyers(
+  supabase: SupabaseClient,
+  data: Record<string, unknown>[],
+  options: ImportOptions,
+) {
   const idMapping: Record<string, string> = {};
   const errors: string[] = [];
   let imported = 0;
@@ -148,7 +155,8 @@ async function importBuyers(supabase: SupabaseClient, data: Record<string, unkno
         target_revenue_max: parseNumber(row.max_revenue),
         target_ebitda_min: parseNumber(row.min_ebitda),
         target_ebitda_max: parseNumber(row.max_ebitda),
-        target_geographies: parseArrayField(row.target_geographies) || parseArrayField(row.geo_preferences) || [],
+        target_geographies:
+          parseArrayField(row.target_geographies) || parseArrayField(row.geo_preferences) || [],
         target_services: parseArrayField(row.services_offered) || [],
         target_industries: parseArrayField(row.industry_vertical) || [],
         geographic_footprint: parseArrayField(row.geographic_footprint) || [],
@@ -170,7 +178,8 @@ async function importBuyers(supabase: SupabaseClient, data: Record<string, unkno
         buyer_linkedin: row.buyer_linkedin || null,
         pe_firm_linkedin: row.pe_firm_linkedin || null,
         operating_locations: parseArrayField(row.operating_locations) || [],
-        has_fee_agreement: row.has_fee_agreement === 'true' || row.fee_agreement_status === 'signed',
+        has_fee_agreement:
+          row.has_fee_agreement === 'true' || row.fee_agreement_status === 'signed',
         business_summary: row.business_summary || null,
         industry_vertical: row.industry_vertical || null,
         specialized_focus: row.specialized_focus || null,
@@ -184,7 +193,7 @@ async function importBuyers(supabase: SupabaseClient, data: Record<string, unkno
       };
 
       const { data: inserted, error } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .insert(buyer)
         .select('id')
         .single();
@@ -206,7 +215,11 @@ async function importBuyers(supabase: SupabaseClient, data: Record<string, unkno
   return { imported, errors, idMapping };
 }
 
-async function importContacts(supabase: SupabaseClient, data: Record<string, unknown>[], options: ImportOptions) {
+async function importContacts(
+  supabase: SupabaseClient,
+  data: Record<string, unknown>[],
+  options: ImportOptions,
+) {
   const errors: string[] = [];
   let imported = 0;
   const buyerMapping = options.buyerIdMapping || {};
@@ -241,9 +254,7 @@ async function importContacts(supabase: SupabaseClient, data: Record<string, unk
         created_at: row.created_at || new Date().toISOString(),
       };
 
-      const { error } = await supabase
-        .from('remarketing_buyer_contacts')
-        .insert(contact);
+      const { error } = await supabase.from('remarketing_buyer_contacts').insert(contact);
 
       if (error) {
         console.error(`Error inserting contact ${row.name}:`, error);
@@ -260,15 +271,17 @@ async function importContacts(supabase: SupabaseClient, data: Record<string, unk
   return { imported, errors };
 }
 
-async function importScores(supabase: SupabaseClient, data: Record<string, unknown>[], options: ImportOptions) {
+async function importScores(
+  supabase: SupabaseClient,
+  data: Record<string, unknown>[],
+  options: ImportOptions,
+) {
   const errors: string[] = [];
   let imported = 0;
   const buyerMapping = options.buyerIdMapping || {};
 
   // First, get existing listings to try to map deal_ids
-  const { data: listings } = await supabase
-    .from('listings')
-    .select('id, title, domain');
+  const { data: listings } = await supabase.from('listings').select('id, title, domain');
 
   const listingByDomain: Record<string, string> = {};
   for (const listing of listings || []) {
@@ -300,7 +313,7 @@ async function importScores(supabase: SupabaseClient, data: Record<string, unkno
         owner_goals_score: 0,
         tier: calculateTier(parseFloat(row.composite_score) || 0),
         fit_reasoning: row.fit_reasoning || null,
-        status: row.passed_on_deal ? 'passed' : (row.interested ? 'approved' : 'pending'),
+        status: row.passed_on_deal ? 'passed' : row.interested ? 'approved' : 'pending',
         pass_reason: row.pass_reason || null,
         pass_category: row.pass_category || null,
         // New columns
@@ -322,9 +335,7 @@ async function importScores(supabase: SupabaseClient, data: Record<string, unkno
         continue;
       }
 
-      const { error } = await supabase
-        .from('remarketing_scores')
-        .insert(score);
+      const { error } = await supabase.from('remarketing_scores').insert(score);
 
       if (error) {
         errors.push(`Score: ${error.message}`);
@@ -340,7 +351,11 @@ async function importScores(supabase: SupabaseClient, data: Record<string, unkno
   return { imported, errors };
 }
 
-async function importTranscripts(supabase: SupabaseClient, data: Record<string, unknown>[], options: ImportOptions) {
+async function importTranscripts(
+  supabase: SupabaseClient,
+  data: Record<string, unknown>[],
+  options: ImportOptions,
+) {
   const errors: string[] = [];
   let imported = 0;
   const buyerMapping = options.buyerIdMapping || {};
@@ -362,9 +377,7 @@ async function importTranscripts(supabase: SupabaseClient, data: Record<string, 
         created_at: row.created_at || new Date().toISOString(),
       };
 
-      const { error } = await supabase
-        .from('buyer_transcripts')
-        .insert(transcript);
+      const { error } = await supabase.from('buyer_transcripts').insert(transcript);
 
       if (error) {
         errors.push(`Transcript: ${error.message}`);
@@ -380,7 +393,11 @@ async function importTranscripts(supabase: SupabaseClient, data: Record<string, 
   return { imported, errors };
 }
 
-async function importLearningHistory(supabase: SupabaseClient, data: Record<string, unknown>[], options: ImportOptions) {
+async function importLearningHistory(
+  supabase: SupabaseClient,
+  data: Record<string, unknown>[],
+  options: ImportOptions,
+) {
   const errors: string[] = [];
   let imported = 0;
   const buyerMapping = options.buyerIdMapping || {};
@@ -407,9 +424,7 @@ async function importLearningHistory(supabase: SupabaseClient, data: Record<stri
         continue;
       }
 
-      const { error } = await supabase
-        .from('buyer_learning_history')
-        .insert(history);
+      const { error } = await supabase.from('buyer_learning_history').insert(history);
 
       if (error) {
         errors.push(`Learning history: ${error.message}`);
@@ -445,7 +460,7 @@ function parseArrayField(value: string | string[] | null | undefined): string[] 
   } catch {
     // Try splitting by comma
     if (typeof value === 'string' && value.includes(',')) {
-      return value.split(',').map(s => s.trim());
+      return value.split(',').map((s) => s.trim());
     }
     return value ? [value] : null;
   }
@@ -453,7 +468,8 @@ function parseArrayField(value: string | string[] | null | undefined): string[] 
 
 function parseNumber(value: string | number | null | undefined): number | null {
   if (value === null || value === undefined || value === '') return null;
-  const num = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+  const num =
+    typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]/g, ''));
   return isNaN(num) ? null : num;
 }
 

@@ -1,7 +1,7 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -9,8 +9,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
+} from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Search as SearchIcon,
   ArrowUpDown,
@@ -21,11 +21,9 @@ import {
   Loader2,
   Unlink,
   Check,
-} from "lucide-react";
-import {
-  TooltipProvider,
-} from "@/components/ui/tooltip";
-import { BuyerTableRow } from "./BuyerTableRow";
+} from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { BuyerTableRow } from './BuyerTableRow';
 
 interface BuyerRow {
   id: string;
@@ -116,10 +114,14 @@ export const BuyerTableEnhanced = ({
 }: BuyerTableEnhancedProps) => {
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: 'company_name',
-    direction: 'asc'
+    direction: 'asc',
   });
   const [columnWidths, setColumnWidths] = useState<ColumnWidths>(DEFAULT_WIDTHS);
-  const resizingRef = useRef<{ column: keyof ColumnWidths; startX: number; startWidth: number } | null>(null);
+  const resizingRef = useRef<{
+    column: keyof ColumnWidths;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
 
   const sortedBuyers = useMemo(() => {
     return [...buyers].sort((a, b) => {
@@ -151,64 +153,70 @@ export const BuyerTableEnhanced = ({
       }
     });
   }, [buyers, sortConfig]);
-  
+
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isRemoving, setIsRemoving] = useState(false);
   const lastClickedIndexRef = useRef<number | null>(null);
 
-  const handleToggleSelect = useCallback((buyerId: string, checked: boolean, event?: React.MouseEvent) => {
-    // IMPORTANT: range selection must use the *visible row order* (sortedBuyers)
-    // otherwise Shift+click appears to “skip” rows when the table is sorted.
-    const currentIndex = sortedBuyers.findIndex(b => b.id === buyerId);
-    
-    // Shift+click: select range from last clicked to current
-    if (event?.shiftKey && lastClickedIndexRef.current !== null && currentIndex !== -1) {
-      const start = Math.min(lastClickedIndexRef.current, currentIndex);
-      const end = Math.max(lastClickedIndexRef.current, currentIndex);
-      const rangeIds = sortedBuyers.slice(start, end + 1).map(b => b.id);
-      
-      setSelectedIds(prev => {
-        const newSet = new Set(prev);
-        rangeIds.forEach(id => {
-          if (checked) {
-            newSet.add(id);
-          } else {
-            newSet.delete(id);
-          }
+  const handleToggleSelect = useCallback(
+    (buyerId: string, checked: boolean, event?: React.MouseEvent) => {
+      // IMPORTANT: range selection must use the *visible row order* (sortedBuyers)
+      // otherwise Shift+click appears to “skip” rows when the table is sorted.
+      const currentIndex = sortedBuyers.findIndex((b) => b.id === buyerId);
+
+      // Shift+click: select range from last clicked to current
+      if (event?.shiftKey && lastClickedIndexRef.current !== null && currentIndex !== -1) {
+        const start = Math.min(lastClickedIndexRef.current, currentIndex);
+        const end = Math.max(lastClickedIndexRef.current, currentIndex);
+        const rangeIds = sortedBuyers.slice(start, end + 1).map((b) => b.id);
+
+        setSelectedIds((prev) => {
+          const newSet = new Set(prev);
+          rangeIds.forEach((id) => {
+            if (checked) {
+              newSet.add(id);
+            } else {
+              newSet.delete(id);
+            }
+          });
+          onSelectionChange?.(Array.from(newSet));
+          return newSet;
         });
+        lastClickedIndexRef.current = currentIndex;
+        return;
+      }
+
+      // Normal click: toggle single item
+      lastClickedIndexRef.current = currentIndex;
+      setSelectedIds((prev) => {
+        const newSet = new Set(prev);
+        if (checked) {
+          newSet.add(buyerId);
+        } else {
+          newSet.delete(buyerId);
+        }
         onSelectionChange?.(Array.from(newSet));
         return newSet;
       });
-      lastClickedIndexRef.current = currentIndex;
-      return;
-    }
-    
-    // Normal click: toggle single item
-    lastClickedIndexRef.current = currentIndex;
-    setSelectedIds(prev => {
-      const newSet = new Set(prev);
-      if (checked) {
-        newSet.add(buyerId);
-      } else {
-        newSet.delete(buyerId);
-      }
-      onSelectionChange?.(Array.from(newSet));
-      return newSet;
-    });
-  }, [sortedBuyers, onSelectionChange]);
+    },
+    [sortedBuyers, onSelectionChange],
+  );
 
-  const handleSelectAll = useCallback((checked: boolean) => {
-    if (checked) {
-      const allIds = new Set(buyers.map(b => b.id));
-      setSelectedIds(allIds);
-      onSelectionChange?.(Array.from(allIds));
-    } else {
-      setSelectedIds(new Set());
-      onSelectionChange?.([]);
-    }
-    lastClickedIndexRef.current = null;
-  }, [buyers, onSelectionChange]);
+  const handleSelectAll = useCallback(
+    (checked: boolean) => {
+      if (checked) {
+        const allIds = new Set(buyers.map((b) => b.id));
+        setSelectedIds(allIds);
+        onSelectionChange?.(Array.from(allIds));
+      } else {
+        setSelectedIds(new Set());
+        onSelectionChange?.([]);
+      }
+      lastClickedIndexRef.current = null;
+    },
+    [buyers, onSelectionChange],
+  );
 
   const handleClearSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -234,42 +242,45 @@ export const BuyerTableEnhanced = ({
   const handleSort = (key: SortKey) => {
     setSortConfig((prev) => ({
       key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
     }));
   };
 
-  const handleMouseDown = useCallback((column: keyof ColumnWidths, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    resizingRef.current = {
-      column,
-      startX: e.clientX,
-      startWidth: columnWidths[column],
-    };
+  const handleMouseDown = useCallback(
+    (column: keyof ColumnWidths, e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      resizingRef.current = {
+        column,
+        startX: e.clientX,
+        startWidth: columnWidths[column],
+      };
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!resizingRef.current) return;
-      const delta = moveEvent.clientX - resizingRef.current.startX;
-      const newWidth = Math.max(MIN_WIDTH, resizingRef.current.startWidth + delta);
-      setColumnWidths((prev) => ({
-        ...prev,
-        [resizingRef.current!.column]: newWidth,
-      }));
-    };
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        if (!resizingRef.current) return;
+        const delta = moveEvent.clientX - resizingRef.current.startX;
+        const newWidth = Math.max(MIN_WIDTH, resizingRef.current.startWidth + delta);
+        setColumnWidths((prev) => ({
+          ...prev,
+          [resizingRef.current!.column]: newWidth,
+        }));
+      };
 
-    const handleMouseUp = () => {
-      resizingRef.current = null;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
+      const handleMouseUp = () => {
+        resizingRef.current = null;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  }, [columnWidths]);
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    },
+    [columnWidths],
+  );
 
   const SortButton = ({ label, sortKey }: { label: string; sortKey: SortKey }) => {
     const isActive = sortConfig.key === sortKey;
@@ -332,7 +343,7 @@ export const BuyerTableEnhanced = ({
   return (
     <TooltipProvider>
       {/* Bulk Action Bar */}
-       {selectable && selectedIds.size > 0 && (onRemoveFromUniverse || onBulkApprove) && (
+      {selectable && selectedIds.size > 0 && (onRemoveFromUniverse || onBulkApprove) && (
         <div className="sticky top-0 z-20 bg-background border rounded-lg p-3 shadow-sm mb-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="text-sm font-medium">
@@ -379,10 +390,7 @@ export const BuyerTableEnhanced = ({
         </div>
       )}
 
-      <div
-        ref={parentRef}
-        className={shouldVirtualize ? "max-h-[70vh] overflow-auto" : undefined}
-      >
+      <div ref={parentRef} className={shouldVirtualize ? 'max-h-[70vh] overflow-auto' : undefined}>
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
@@ -463,10 +471,13 @@ export const BuyerTableEnhanced = ({
                 })}
                 {/* Spacer for rows below viewport */}
                 {virtualizer.getVirtualItems().length > 0 && (
-                  <tr style={{
-                    height: virtualizer.getTotalSize() -
-                      (virtualizer.getVirtualItems()[virtualizer.getVirtualItems().length - 1].end)
-                  }} />
+                  <tr
+                    style={{
+                      height:
+                        virtualizer.getTotalSize() -
+                        virtualizer.getVirtualItems()[virtualizer.getVirtualItems().length - 1].end,
+                    }}
+                  />
                 )}
               </>
             ) : (

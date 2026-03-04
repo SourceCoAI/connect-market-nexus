@@ -194,10 +194,7 @@ export function DealsTable({
                   aria-label={`Select ${deal.title}`}
                 />
               </TableCell>
-              <TableCell
-                className="font-medium"
-                onClick={() => navToDeal(deal.id)}
-              >
+              <TableCell className="font-medium" onClick={() => navToDeal(deal.id)}>
                 <div className="flex items-center gap-1.5">
                   {isEnriched && <Sparkles className="h-3 w-3 text-amber-500 flex-shrink-0" />}
                   <span>
@@ -239,16 +236,10 @@ export function DealsTable({
               >
                 {getDisplayLocation(deal) || '-'}
               </TableCell>
-              <TableCell
-                className="text-right text-sm"
-                onClick={() => navToDeal(deal.id)}
-              >
+              <TableCell className="text-right text-sm" onClick={() => navToDeal(deal.id)}>
                 {formatCurrency(deal.revenue)}
               </TableCell>
-              <TableCell
-                className="text-right text-sm"
-                onClick={() => navToDeal(deal.id)}
-              >
+              <TableCell className="text-right text-sm" onClick={() => navToDeal(deal.id)}>
                 {formatCurrency(deal.ebitda)}
               </TableCell>
               <TableCell onClick={() => navToDeal(deal.id)}>
@@ -404,9 +395,7 @@ export function DealsTable({
                       <Users
                         className={cn('h-3 w-3 mr-2', deal.needs_buyer_search && 'text-blue-600')}
                       />
-                      {deal.needs_buyer_search
-                        ? 'Remove Find Buyer Flag'
-                        : 'Flag: Find Buyer'}
+                      {deal.needs_buyer_search ? 'Remove Find Buyer Flag' : 'Flag: Find Buyer'}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={async () => {

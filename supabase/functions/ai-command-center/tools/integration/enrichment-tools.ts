@@ -673,7 +673,7 @@ export async function enrichLinkedInContact(
         }
         if (!fallbackCompany && c.remarketing_buyer_id) {
           const { data: buyer } = await supabase
-            .from('remarketing_buyers')
+            .from('buyers')
             .select('company_name, pe_firm_name')
             .eq('id', c.remarketing_buyer_id as string)
             .single();
@@ -1020,7 +1020,7 @@ export async function findAndEnrichPerson(
     }
     if (!companyName && contact.remarketing_buyer_id) {
       const { data: buyer } = await supabase
-        .from('remarketing_buyers')
+        .from('buyers')
         .select('company_name, pe_firm_name')
         .eq('id', contact.remarketing_buyer_id as string)
         .single();
@@ -1809,7 +1809,7 @@ export async function findContactLinkedIn(
 
   if (buyerIds.length > 0) {
     const { data: buyers } = await supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select('id, company_name, pe_firm_name')
       .in('id', buyerIds);
     if (buyers) {

@@ -70,7 +70,6 @@ export type { DealIdMapping } from './DealMergePanel';
 // Transcript Components
 export { TranscriptSection } from './TranscriptSection';
 
-
 // Outreach/Introduction Components
 export { OutreachTimeline } from './OutreachTimeline';
 export { IntroductionStatusCard } from './IntroductionStatusCard';

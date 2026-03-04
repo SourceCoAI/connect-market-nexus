@@ -95,7 +95,7 @@ const ReMarketingIntroductions = () => {
         .select(
           `
           *,
-          buyer:remarketing_buyers(*)
+          buyer:buyers(*)
         `,
         )
         .eq('listing_id', listingId!)
@@ -376,7 +376,12 @@ const ReMarketingIntroductions = () => {
                                   {intro.buyer?.company_name}
                                 </Link>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <ScoreBadge variant="tier" tier={tier} size="sm" showLabel={false} />
+                                  <ScoreBadge
+                                    variant="tier"
+                                    tier={tier}
+                                    size="sm"
+                                    showLabel={false}
+                                  />
                                   <span className="text-xs text-muted-foreground">
                                     {intro.buyer?.buyer_type?.replace('_', ' ')}
                                   </span>
@@ -397,7 +402,11 @@ const ReMarketingIntroductions = () => {
                         </Collapsible>
                       </TableCell>
                       <TableCell className="text-center">
-                        <ScoreBadge variant="numeric" score={intro.composite_score || 0} size="sm" />
+                        <ScoreBadge
+                          variant="numeric"
+                          score={intro.composite_score || 0}
+                          size="sm"
+                        />
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex flex-col items-center gap-1">

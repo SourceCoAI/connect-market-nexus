@@ -126,8 +126,7 @@ export function UniverseRow({
             <p className="font-medium text-foreground">{universe.name}</p>
             {(() => {
               const desc =
-                universe.description ||
-                extractGuideDescription(universe.ma_guide_content);
+                universe.description || extractGuideDescription(universe.ma_guide_content);
               return desc ? (
                 <p className="text-sm text-muted-foreground line-clamp-2">{desc}</p>
               ) : (
@@ -185,13 +184,11 @@ export function UniverseRow({
                 e.stopPropagation();
                 const newVal = !universe.fee_agreement_required;
                 await supabase
-                  .from('remarketing_buyer_universes')
+                  .from('buyer_universes')
                   .update({ fee_agreement_required: newVal } as never)
                   .eq('id', universe.id);
                 queryClient.invalidateQueries({ queryKey: ['remarketing'] });
-                toast.success(
-                  newVal ? 'Fee agreement required' : 'Fee agreement not required',
-                );
+                toast.success(newVal ? 'Fee agreement required' : 'Fee agreement not required');
               }}
             >
               <Handshake

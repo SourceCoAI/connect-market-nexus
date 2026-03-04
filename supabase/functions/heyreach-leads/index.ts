@@ -55,7 +55,7 @@ async function resolveFromBuyerContacts(
 
   const buyerIds = [...new Set(contacts.map((c) => c.remarketing_buyer_id).filter(Boolean))];
   const { data: buyers } = await supabase
-    .from('remarketing_buyers')
+    .from('buyers')
     .select('id, company_name')
     .in('id', buyerIds);
   const buyerMap = new Map((buyers || []).map((b) => [b.id, b]));
@@ -89,7 +89,7 @@ async function resolveFromBuyers(
     .eq('archived', false);
 
   const { data: buyers } = await supabase
-    .from('remarketing_buyers')
+    .from('buyers')
     .select('id, company_name, contact_name, contact_email, contact_phone')
     .in('id', buyerIds);
   const buyerMap = new Map((buyers || []).map((b) => [b.id, b]));
@@ -454,10 +454,10 @@ Deno.serve(async (req) => {
 
         const linkedInLeads = leads.filter((l) => l.linkedInUrl);
         if (!linkedInLeads.length) {
-          return new Response(
-            JSON.stringify({ error: 'No contacts with LinkedIn URLs found' }),
-            { status: 404, headers: jsonHeaders },
-          );
+          return new Response(JSON.stringify({ error: 'No contacts with LinkedIn URLs found' }), {
+            status: 404,
+            headers: jsonHeaders,
+          });
         }
 
         const apiLeads = linkedInLeads.map((l) => ({
