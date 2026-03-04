@@ -16,7 +16,6 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import {
-  ExternalLink,
   Mail,
   Phone,
   Globe,

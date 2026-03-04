@@ -40,8 +40,10 @@ import { ValuationLeadUploadDialog } from './ValuationLeadUploadDialog';
 import { exportLeadsToCSV } from './helpers';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
+import { ValuationLeadDetailDrawer } from './ValuationLeadDetailDrawer';
 import type { Operator, FilterRule } from '@/components/filters';
 import type { SortColumn } from './types';
+import type { ValuationLead } from './types';
 
 // Re-export formatAge for any external importers
 export { formatAge } from './helpers';
@@ -51,6 +53,7 @@ export default function ValuationLeads() {
   const [dialerOpen, setDialerOpen] = useState(false);
   const [smartleadOpen, setSmartleadOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [detailLead, setDetailLead] = useState<ValuationLead | null>(null);
   const {
     leads,
     isLoading,
