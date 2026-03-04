@@ -66,8 +66,28 @@ export function ValuationLeadDetailDrawer({
           <SheetTitle className="text-xl font-bold">{businessName}</SheetTitle>
           <div className="flex flex-wrap items-center gap-2 mt-1">
             {lead.calculator_type && (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="text-xs capitalize">
                 {lead.calculator_type.replace(/_/g, ' ')}
+              </Badge>
+            )}
+            {lead.lead_source && (
+              <Badge variant="outline" className="text-xs">
+                {lead.lead_source === 'full_report' ? 'Full Report'
+                  : lead.lead_source === 'initial_unlock' ? 'Initial Unlock'
+                  : lead.lead_source === 'spreadsheet_upload' ? 'Spreadsheet Upload'
+                  : lead.lead_source.replace(/_/g, ' ')}
+              </Badge>
+            )}
+            {results?.tier && (
+              <Badge
+                className={cn('text-xs', {
+                  'bg-emerald-100 text-emerald-800 border-emerald-300': results.tier === 'A',
+                  'bg-amber-100 text-amber-800 border-amber-300': results.tier === 'B',
+                  'bg-red-100 text-red-800 border-red-300': results.tier === 'C',
+                })}
+                variant="outline"
+              >
+                Tier {results.tier}
               </Badge>
             )}
             {lead.quality_label && (
