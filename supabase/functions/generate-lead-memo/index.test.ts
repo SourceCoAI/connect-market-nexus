@@ -821,3 +821,262 @@ A commercial HVAC services provider operating in the Southwest region. The compa
     expect(validation.passed).toBe(true);
   });
 });
+
+// ─── IC-readiness tests: ensure clean output suitable for investment committee ───
+
+describe('IC-readiness: no "not provided" language in output', () => {
+  const NOT_PROVIDED_PATTERNS = [
+    /not yet provided/i,
+    /not provided/i,
+    /not stated/i,
+    /not confirmed/i,
+    /not discussed/i,
+    /information not yet/i,
+    /data not available/i,
+    /not yet available/i,
+  ];
+
+  function assertNoNotProvidedLanguage(sections: MemoSection[]) {
+    for (const section of sections) {
+      for (const pattern of NOT_PROVIDED_PATTERNS) {
+        expect(
+          pattern.test(section.content),
+          `Section "${section.title}" contains forbidden language matching ${pattern}: "${section.content}"`,
+        ).toBe(false);
+      }
+    }
+  }
+
+  it('full memo with complete data has no "not provided" language', () => {
+    const sections = fullMemoSections();
+    assertNoNotProvidedLanguage(sections);
+  });
+
+  it('full memo with only company overview has no "not provided" language', () => {
+    const sections = [
+      makeSection(
+        'company_overview',
+        'COMPANY OVERVIEW',
+        'Acme Corp is a commercial HVAC company founded in 2010 in Dallas, TX.',
+      ),
+    ];
+    const result = validateFullMemoSections(sections);
+    expect(result.passed).toBe(true);
+    assertNoNotProvidedLanguage(sections);
+  });
+
+  it('sparse financial snapshot (revenue only, no EBITDA) passes without gap language', () => {
+    const markdown = `## COMPANY OVERVIEW
+Acme Corp is a commercial HVAC company in Dallas, TX with 3 locations and 45 employees.
+
+## FINANCIAL SNAPSHOT
+- 2024 Revenue: $5,200,000`;
+
+    const sections = parseMarkdownToSections(markdown);
+    const result = validateFullMemoSections(sections);
+    expect(result.passed).toBe(true);
+    assertNoNotProvidedLanguage(sections);
+    // Verify only revenue is present, no EBITDA filler
+    expect(sections[1].content).not.toContain('EBITDA');
+  });
+
+  it('memo with only revenue and transaction info omits unstated sections cleanly', () => {
+    const markdown = `## COMPANY OVERVIEW
+XYZ Services LLC operates a plumbing business in Phoenix, AZ with 12 employees.
+
+## FINANCIAL SNAPSHOT
+- 2025 Revenue: $1,800,000
+
+## OWNERSHIP AND TRANSACTION
+- 100% owner-operated
+- **Transaction type:** Full sale
+- **Reason for sale:** Retirement`;
+
+    const sections = parseMarkdownToSections(markdown);
+    const result = validateFullMemoSections(sections);
+    expect(result.passed).toBe(true);
+    assertNoNotProvidedLanguage(sections);
+    // No SERVICES AND OPERATIONS, MANAGEMENT AND STAFFING, or KEY STRUCTURAL NOTES
+    expect(sections).toHaveLength(3);
+  });
+});
+
+describe('IC-readiness: INFORMATION NOT YET PROVIDED section is rejected', () => {
+  it('rejects a memo that includes an INFORMATION NOT YET PROVIDED section', () => {
+    const sections = [
+      makeSection('company_overview', 'COMPANY OVERVIEW', 'Acme Corp.'),
+      makeSection(
+        'information_not_yet_provided',
+        'INFORMATION NOT YET PROVIDED',
+        '- Customer concentration\n- Balance sheet',
+      ),
+    ];
+    const result = validateFullMemoSections(sections);
+    expect(result.passed).toBe(false);
+    expect(result.reason).toContain('Unexpected section header');
+  });
+});
+
+describe('IC-readiness: financial snapshot format', () => {
+  it('validates simple year-metric format', () => {
+    const markdown = `## COMPANY OVERVIEW
+ABC Corp is a collision repair business in Houston, TX with 5 locations and 85 employees.
+
+## FINANCIAL SNAPSHOT
+- 2024 Revenue: $12,500,000
+- 2024 EBITDA: $2,100,000
+- Owner Compensation: $450,000
+- Add-backs: $200,000 (personal vehicle $80,000, family health insurance $120,000)`;
+
+    const sections = parseMarkdownToSections(markdown);
+    const result = validateFullMemoSections(sections);
+    expect(result.passed).toBe(true);
+    const financial = sections.find((s) => s.title === 'FINANCIAL SNAPSHOT')!;
+    expect(financial.content).toContain('2024 Revenue: $12,500,000');
+    expect(financial.content).toContain('2024 EBITDA: $2,100,000');
+    expect(financial.content).toContain('Owner Compensation: $450,000');
+  });
+
+  it('validates multi-year financial data in simple line format', () => {
+    const markdown = `## COMPANY OVERVIEW
+DEF Corp is an IT services provider in Atlanta, GA.
+
+## FINANCIAL SNAPSHOT
+- 2024 Revenue: $8,200,000
+- 2023 Revenue: $7,100,000
+- 2022 Revenue: $6,500,000
+- 2024 EBITDA: $1,400,000`;
+
+    const sections = parseMarkdownToSections(markdown);
+    const result = validateFullMemoSections(sections);
+    expect(result.passed).toBe(true);
+    const financial = sections.find((s) => s.title === 'FINANCIAL SNAPSHOT')!;
+    expect(financial.content).toContain('2024 Revenue');
+    expect(financial.content).toContain('2023 Revenue');
+    expect(financial.content).toContain('2022 Revenue');
+  });
+
+  it('validates EBITDA-only snapshot without filler', () => {
+    const markdown = `## COMPANY OVERVIEW
+GHI Corp operates a staffing business in Chicago, IL.
+
+## FINANCIAL SNAPSHOT
+- 2025 EBITDA: $900,000`;
+
+    const sections = parseMarkdownToSections(markdown);
+    const result = validateFullMemoSections(sections);
+    expect(result.passed).toBe(true);
+    const financial = sections.find((s) => s.title === 'FINANCIAL SNAPSHOT')!;
+    // Should only have the one data point, nothing else
+    expect(financial.content.split('\n').filter((l: string) => l.trim()).length).toBe(1);
+  });
+});
+
+describe('IC-readiness: full realistic memo end-to-end', () => {
+  it('parses and validates a complete IC-ready memo', () => {
+    const markdown = `## COMPANY OVERVIEW
+Southwest Auto Group LLC (DBA "Southwest Collision") is a collision repair business founded in 2008, headquartered in Phoenix, AZ. The company operates 4 locations across the Phoenix metro area with 62 employees. Southwest provides auto body repair, paint services, and ADAS calibration to insurance carriers and retail customers.
+
+## FINANCIAL SNAPSHOT
+- 2024 Revenue: $9,800,000
+- 2023 Revenue: $8,500,000
+- 2024 EBITDA: $1,600,000
+- Owner Compensation: $380,000
+
+## SERVICES AND OPERATIONS
+- Auto body repair, refinishing, and ADAS calibration
+- 4 locations across Phoenix metro
+- 65% DRP (direct repair program) revenue, 35% retail/walk-in
+- 3 OEM certifications (Honda, Toyota, Hyundai)
+- Average cycle time: 6.2 days
+
+## OWNERSHIP AND TRANSACTION
+- 100% owned by single operator since founding
+- **Transaction type:** Full sale
+- **Reason for sale:** Owner turning 60, planning retirement within 18 months
+- **Valuation context:** Owner expects 5x EBITDA
+- Owner willing to stay 6-12 months for transition
+
+## MANAGEMENT AND STAFFING
+- 62 total employees across 4 locations
+- Each location has a general manager who runs day-to-day operations
+- Owner focuses on insurance carrier relationships and new location buildouts
+- 2 senior GMs have been with the company 8+ years
+
+## KEY STRUCTURAL NOTES
+- **Real estate:** 2 locations leased (3 and 5 year terms remaining), 2 locations owned by owner personally and leased to the business at market rate
+- Owner open to including real estate in the transaction or continuing lease
+- Arizona contractor license is transferable`;
+
+    const sections = parseMarkdownToSections(markdown);
+    expect(sections).toHaveLength(6);
+
+    const validation = validateFullMemoSections(sections);
+    expect(validation.passed).toBe(true);
+
+    // No "not provided" language anywhere
+    const allContent = sections.map((s) => s.content).join(' ');
+    expect(allContent).not.toMatch(/not yet provided/i);
+    expect(allContent).not.toMatch(/not provided/i);
+    expect(allContent).not.toMatch(/not stated/i);
+    expect(allContent).not.toMatch(/not confirmed/i);
+    expect(allContent).not.toMatch(/INFORMATION NOT YET PROVIDED/i);
+
+    // No banned marketing words
+    const cleaned = enforceBannedWords(sections);
+    for (let i = 0; i < sections.length; i++) {
+      expect(cleaned[i].content).toBe(sections[i].content);
+    }
+
+    // Financial snapshot is simple labeled lines
+    const financial = sections.find((s) => s.title === 'FINANCIAL SNAPSHOT')!;
+    const lines = financial.content.split('\n').filter((l: string) => l.trim());
+    expect(lines.length).toBe(4);
+    expect(lines[0]).toMatch(/2024 Revenue/);
+    expect(lines[1]).toMatch(/2023 Revenue/);
+    expect(lines[2]).toMatch(/2024 EBITDA/);
+    expect(lines[3]).toMatch(/Owner Compensation/);
+
+    // Word count under limit
+    const wordCount = allContent.split(/\s+/).filter((w: string) => w.length > 0).length;
+    expect(wordCount).toBeLessThanOrEqual(1000);
+
+    // No warnings
+    const warnings = runMemoWarnings(sections);
+    expect(warnings.warnings).toHaveLength(0);
+  });
+
+  it('parses and validates a sparse IC-ready memo (minimal data)', () => {
+    const markdown = `## COMPANY OVERVIEW
+JKL Plumbing Inc. is a residential plumbing company in El Paso, TX with approximately 8 employees. The owner operates the business full-time.
+
+## FINANCIAL SNAPSHOT
+- 2025 Revenue: $1,200,000
+
+## OWNERSHIP AND TRANSACTION
+- 100% owner-operated
+- **Transaction type:** Full sale
+- **Reason for sale:** Owner relocating out of state`;
+
+    const sections = parseMarkdownToSections(markdown);
+    expect(sections).toHaveLength(3);
+
+    const validation = validateFullMemoSections(sections);
+    expect(validation.passed).toBe(true);
+
+    // No gap language
+    const allContent = sections.map((s) => s.content).join(' ');
+    expect(allContent).not.toMatch(/not yet provided/i);
+    expect(allContent).not.toMatch(/not provided/i);
+    expect(allContent).not.toMatch(/not stated/i);
+    expect(allContent).not.toMatch(/balance sheet/i);
+    expect(allContent).not.toMatch(/customer concentration/i);
+
+    // Only 3 sections — omitted sections are just absent, not called out
+    const sectionTitles = sections.map((s) => s.title);
+    expect(sectionTitles).not.toContain('SERVICES AND OPERATIONS');
+    expect(sectionTitles).not.toContain('MANAGEMENT AND STAFFING');
+    expect(sectionTitles).not.toContain('KEY STRUCTURAL NOTES');
+    expect(sectionTitles).not.toContain('INFORMATION NOT YET PROVIDED');
+  });
+});
