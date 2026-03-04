@@ -47,6 +47,8 @@ CREATE INDEX IF NOT EXISTS idx_api_semaphore_cleanup
   WHERE released_at IS NULL;
 
 -- 3. Acquire a slot (returns slot ID or NULL if at capacity)
+-- Uses SELECT ... FOR UPDATE on the provider row to serialize concurrent access
+-- and prevent over-allocation (TOCTOU race condition fix).
 CREATE OR REPLACE FUNCTION acquire_api_slot(
   p_provider text,
   p_caller text,
@@ -54,6 +56,7 @@ CREATE OR REPLACE FUNCTION acquire_api_slot(
 )
 RETURNS uuid
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 DECLARE
   v_max integer;
@@ -65,16 +68,17 @@ BEGIN
   SET released_at = now()
   WHERE expires_at < now() AND released_at IS NULL;
 
-  -- Get configured limit
+  -- Lock the provider row to serialize concurrent acquire attempts
   SELECT max_concurrent INTO v_max
   FROM api_rate_limits
-  WHERE provider = p_provider;
+  WHERE provider = p_provider
+  FOR UPDATE;
 
   IF NOT FOUND THEN
     v_max := 3;  -- safe default
   END IF;
 
-  -- Count active slots
+  -- Count active slots (safe now because provider row is locked)
   SELECT count(*) INTO v_active
   FROM api_semaphore
   WHERE provider = p_provider
@@ -99,6 +103,7 @@ $$;
 CREATE OR REPLACE FUNCTION release_api_slot(p_slot_id uuid)
 RETURNS void
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 BEGIN
   UPDATE api_semaphore

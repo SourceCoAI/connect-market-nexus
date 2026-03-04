@@ -11,7 +11,7 @@ import { safeQuery, type DatabaseResult } from '@/lib/database';
 import type { BuyerSummary, BuyerWithProfile } from './types';
 
 const BUYER_SUMMARY_SELECT =
-  'id, company_name, buyer_type, thesis_summary, target_revenue_min, target_revenue_max, geographic_focus, status, created_at';
+  'id, company_name, buyer_type, thesis_summary, target_revenue_min, target_revenue_max, target_geographies, archived, created_at';
 
 /**
  * Fetch active buyers for admin views.
@@ -22,11 +22,10 @@ export async function getActiveBuyers(options?: {
   buyerType?: string;
 }): Promise<DatabaseResult<BuyerSummary[]>> {
   return safeQuery(async () => {
-    // Use the renamed table via the view if available, otherwise fallback
     let query = supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select(BUYER_SUMMARY_SELECT, { count: 'exact' })
-      .is('deleted_at', null)
+      .eq('archived', false)
       .order('created_at', { ascending: false });
 
     if (options?.buyerType) {
@@ -49,7 +48,7 @@ export async function getBuyerById(
 ): Promise<DatabaseResult<BuyerSummary>> {
   return safeQuery(async () => {
     return supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select(BUYER_SUMMARY_SELECT)
       .eq('id', id)
       .single();
@@ -57,24 +56,18 @@ export async function getBuyerById(
 }
 
 /**
- * Fetch buyer with joined profile data.
- * Uses the get_buyer_profile RPC once available (Phase 1).
- * Until then, does a manual join via two queries.
+ * Fetch buyer with marketplace firm info.
+ * For full profile data (name, email, etc.) use the get_buyer_profile RPC.
  */
 export async function getBuyerWithProfile(
   buyerId: string,
 ): Promise<DatabaseResult<BuyerWithProfile>> {
   return safeQuery(async () => {
     return supabase
-      .from('remarketing_buyers')
+      .from('buyers')
       .select(`
-        id, company_name, buyer_type, thesis_summary,
-        target_revenue_min, target_revenue_max, geographic_focus,
-        status, created_at,
-        marketplace_user_id,
-        profiles!remarketing_buyers_marketplace_user_id_fkey (
-          id, first_name, last_name, email, phone_number
-        )
+        ${BUYER_SUMMARY_SELECT},
+        marketplace_firm_id
       `)
       .eq('id', buyerId)
       .single();
@@ -87,20 +80,13 @@ export async function getBuyerWithProfile(
 export async function getBuyerMatchesForListing(
   listingId: string,
   options?: { limit?: number },
-): Promise<DatabaseResult<BuyerSummary[]>> {
+): Promise<DatabaseResult<{ composite_score: number; buyer_id: string }[]>> {
   return safeQuery(async () => {
     return supabase
       .from('remarketing_scores')
-      .select(`
-        score,
-        remarketing_buyers!inner (
-          id, company_name, buyer_type, thesis_summary,
-          target_revenue_min, target_revenue_max, geographic_focus,
-          status, created_at
-        )
-      `)
+      .select('composite_score, buyer_id')
       .eq('listing_id', listingId)
-      .order('score', { ascending: false })
+      .order('composite_score', { ascending: false })
       .limit(options?.limit ?? 50);
   });
 }

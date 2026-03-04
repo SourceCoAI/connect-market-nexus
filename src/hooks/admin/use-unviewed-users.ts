@@ -21,7 +21,7 @@ export function useUnviewedUsers() {
         .select('last_viewed_at')
         .eq('admin_id', user.id)
         .eq('view_type', 'users')
-        .single();
+        .maybeSingle();
       if (viewDataError) throw viewDataError;
 
       const lastViewedAt = viewData?.last_viewed_at;

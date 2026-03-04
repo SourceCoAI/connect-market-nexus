@@ -65,6 +65,29 @@ export interface TemplateDefinition {
 // Shared HTML helpers
 // ---------------------------------------------------------------------------
 
+/** Escape HTML special characters to prevent XSS in email templates. */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Sanitize a URL to only allow http/https schemes. */
+function sanitizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return url;
+    }
+    return '#';
+  } catch {
+    return '#';
+  }
+}
+
 function wrapInLayout(bodyHtml: string, preheader?: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -72,9 +95,9 @@ function wrapInLayout(bodyHtml: string, preheader?: string): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SourceCo</title>
-  ${preheader ? `<span style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${preheader}</span>` : ''}
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  ${preheader ? `<span style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${escapeHtml(preheader)}</span>` : ''}
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f4f5;">
     <tr>
       <td align="center" style="padding:32px 16px;">
@@ -108,19 +131,29 @@ function wrapInLayout(bodyHtml: string, preheader?: string): string {
 }
 
 function heading(text: string): string {
-  return `<h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#1a1a2e;">${text}</h2>`;
+  return `<h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#1a1a2e;">${escapeHtml(text)}</h2>`;
 }
 
 function paragraph(text: string): string {
-  return `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">${text}</p>`;
+  return `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">${escapeHtml(text)}</p>`;
+}
+
+/** Paragraph with raw HTML content (for template-controlled markup with escaped variables). */
+function rawParagraph(html: string): string {
+  return `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">${html}</p>`;
+}
+
+/** Bold text helper - escapes the value. */
+function bold(text: string): string {
+  return `<strong>${escapeHtml(text)}</strong>`;
 }
 
 function button(text: string, url: string): string {
   return `<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0;">
     <tr>
       <td style="border-radius:6px;background-color:#2563eb;">
-        <a href="${url}" target="_blank" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">
-          ${text}
+        <a href="${sanitizeUrl(url)}" target="_blank" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">
+          ${escapeHtml(text)}
         </a>
       </td>
     </tr>
@@ -201,7 +234,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('NDA Signature Required') +
       paragraph(`Hi ${v.firstName},`) +
-      paragraph(`To access confidential details for <strong>${v.dealTitle}</strong>, please sign the Non-Disclosure Agreement.`) +
+      rawParagraph(`To access confidential details for ${bold(v.dealTitle)}, please sign the Non-Disclosure Agreement.`) +
       button('Sign NDA', v.signUrl),
       `NDA required for ${v.dealTitle}`
     ),
@@ -213,7 +246,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('NDA Reminder') +
       paragraph(`Hi ${v.firstName},`) +
-      paragraph(`This is a reminder that your NDA for <strong>${v.dealTitle}</strong> is still pending. Please sign at your earliest convenience.`) +
+      rawParagraph(`This is a reminder that your NDA for ${bold(v.dealTitle)} is still pending. Please sign at your earliest convenience.`) +
       button('Sign NDA Now', v.signUrl),
     ),
   },
@@ -224,7 +257,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('Fee Agreement Required') +
       paragraph(`Hi ${v.firstName},`) +
-      paragraph(`To proceed with <strong>${v.dealTitle}</strong>, please review and sign the fee agreement.`) +
+      rawParagraph(`To proceed with ${bold(v.dealTitle)}, please review and sign the fee agreement.`) +
       button('Review & Sign', v.signUrl),
     ),
   },
@@ -235,7 +268,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('Fee Agreement Reminder') +
       paragraph(`Hi ${v.firstName},`) +
-      paragraph(`Your fee agreement for <strong>${v.dealTitle}</strong> is still pending.`) +
+      rawParagraph(`Your fee agreement for ${bold(v.dealTitle)} is still pending.`) +
       button('Sign Agreement', v.signUrl),
     ),
   },
@@ -248,7 +281,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('New Deal Match') +
       paragraph(`Hi ${v.firstName},`) +
-      paragraph(`We found a new deal that matches your criteria: <strong>${v.dealTitle}</strong>.`) +
+      rawParagraph(`We found a new deal that matches your criteria: ${bold(v.dealTitle)}.`) +
       paragraph(v.dealSummary) +
       button('View Deal', v.dealUrl),
       `New match: ${v.dealTitle}`
@@ -261,7 +294,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('Deal Referral') +
       paragraph(`Hi ${v.firstName},`) +
-      paragraph(`${v.referrerName} thinks you might be interested in <strong>${v.dealTitle}</strong>.`) +
+      rawParagraph(`${escapeHtml(v.referrerName)} thinks you might be interested in ${bold(v.dealTitle)}.`) +
       button('View Deal', v.dealUrl),
     ),
   },
@@ -272,7 +305,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('New Connection Request') +
       paragraph(`Hi ${v.firstName},`) +
-      paragraph(`${v.buyerName} has submitted a connection request for <strong>${v.dealTitle}</strong>.`) +
+      rawParagraph(`${escapeHtml(v.buyerName)} has submitted a connection request for ${bold(v.dealTitle)}.`) +
       button('View in Dashboard', v.dashboardUrl),
     ),
   },
@@ -283,7 +316,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('Response Received') +
       paragraph(`Hi ${v.firstName},`) +
-      paragraph(`You've received a response regarding <strong>${v.dealTitle}</strong>.`) +
+      rawParagraph(`You&#39;ve received a response regarding ${bold(v.dealTitle)}.`) +
       button('View Response', v.responseUrl),
     ),
   },
@@ -305,7 +338,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('Buyer Introduction') +
       paragraph(`Hi ${v.ownerName},`) +
-      paragraph(`We'd like to introduce you to ${v.buyerName} regarding <strong>${v.dealTitle}</strong>.`) +
+      rawParagraph(`We&#39;d like to introduce you to ${escapeHtml(v.buyerName)} regarding ${bold(v.dealTitle)}.`) +
       button('View Details', v.dashboardUrl),
     ),
   },
@@ -316,7 +349,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('New Inquiry') +
       paragraph(`Hi ${v.ownerName},`) +
-      paragraph(`${v.inquirerName} has a question about <strong>${v.dealTitle}</strong>:`) +
+      rawParagraph(`${escapeHtml(v.inquirerName)} has a question about ${bold(v.dealTitle)}:`) +
       `<blockquote style="margin:16px 0;padding:12px 16px;border-left:4px solid #2563eb;background:#f0f4ff;border-radius:0 4px 4px 0;">${paragraph(v.message)}</blockquote>` +
       button('Respond', v.dashboardUrl),
     ),
@@ -330,7 +363,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('New Task Assigned') +
       paragraph(`Hi ${v.firstName},`) +
-      paragraph(`A new task has been assigned to you: <strong>${v.taskTitle}</strong>.`) +
+      rawParagraph(`A new task has been assigned to you: ${bold(v.taskTitle)}.`) +
       button('View Task', v.taskUrl),
     ),
   },
@@ -340,8 +373,8 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     requiredVars: ['feedbackSubject', 'feedbackBody', 'submitterName', 'dashboardUrl'],
     buildHtml: (v) => wrapInLayout(
       heading('New Feedback') +
-      paragraph(`${v.submitterName} submitted feedback:`) +
-      paragraph(`<strong>${v.feedbackSubject}</strong>`) +
+      rawParagraph(`${escapeHtml(v.submitterName)} submitted feedback:`) +
+      rawParagraph(bold(v.feedbackSubject)) +
       paragraph(v.feedbackBody) +
       button('View in Dashboard', v.dashboardUrl),
     ),
@@ -419,14 +452,20 @@ export function resolveTemplate(
     };
   }
 
-  // Substitute {{var}} in subject
+  // Substitute {{var}} in subject using replaceAll (avoids regex ReDoS)
   let subject = template.subject;
   for (const [key, value] of Object.entries(variables)) {
-    subject = subject.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+    subject = subject.replaceAll(`{{${key}}}`, value);
   }
 
   // Build HTML
-  const htmlContent = template.buildHtml(variables);
+  let htmlContent: string;
+  try {
+    htmlContent = template.buildHtml(variables);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { subject: '', htmlContent: '', error: `Template build error for '${templateName}': ${message}` };
+  }
 
   return { subject, htmlContent };
 }

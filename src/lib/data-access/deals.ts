@@ -2,7 +2,7 @@
  * Deals Data Access
  *
  * All deal pipeline queries go through these functions.
- * The `deals` table (being renamed to `deal_pipeline`) tracks all active deals.
+ * The table is `deal_pipeline` (renamed from `deals`).
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -10,29 +10,29 @@ import { safeQuery, type DatabaseResult } from '@/lib/database';
 import type { DealSummary } from './types';
 
 const DEAL_SUMMARY_SELECT =
-  'id, listing_id, stage, source, buyer_priority_score, buyer_contact_id, seller_contact_id, assigned_admin_id, created_at, updated_at';
+  'id, listing_id, title, stage_id, source, buyer_priority_score, buyer_contact_id, seller_contact_id, assigned_to, created_at, updated_at';
 
 /**
  * Fetch deals for the pipeline view.
  */
 export async function getPipelineDeals(options?: {
-  stage?: string;
+  stageId?: string;
   assignedTo?: string;
   limit?: number;
   offset?: number;
 }): Promise<DatabaseResult<DealSummary[]>> {
   return safeQuery(async () => {
     let query = supabase
-      .from('deals')
-      .select(`${DEAL_SUMMARY_SELECT}, listings!inner(title)`, { count: 'exact' })
+      .from('deal_pipeline')
+      .select(DEAL_SUMMARY_SELECT, { count: 'exact' })
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
-    if (options?.stage) {
-      query = query.eq('stage', options.stage);
+    if (options?.stageId) {
+      query = query.eq('stage_id', options.stageId);
     }
     if (options?.assignedTo) {
-      query = query.eq('assigned_admin_id', options.assignedTo);
+      query = query.eq('assigned_to', options.assignedTo);
     }
     if (options?.limit) {
       const from = options.offset ?? 0;
@@ -52,8 +52,8 @@ export async function getDealById(
 ): Promise<DatabaseResult<DealSummary>> {
   return safeQuery(async () => {
     return supabase
-      .from('deals')
-      .select(`${DEAL_SUMMARY_SELECT}, listings(title)`)
+      .from('deal_pipeline')
+      .select(DEAL_SUMMARY_SELECT)
       .eq('id', id)
       .single();
   });
@@ -67,7 +67,7 @@ export async function getDealsForListing(
 ): Promise<DatabaseResult<DealSummary[]>> {
   return safeQuery(async () => {
     return supabase
-      .from('deals')
+      .from('deal_pipeline')
       .select(DEAL_SUMMARY_SELECT)
       .eq('listing_id', listingId)
       .is('deleted_at', null)
@@ -83,22 +83,10 @@ export async function getDealsForBuyer(
 ): Promise<DatabaseResult<DealSummary[]>> {
   return safeQuery(async () => {
     return supabase
-      .from('deals')
-      .select(`${DEAL_SUMMARY_SELECT}, listings(title)`)
+      .from('deal_pipeline')
+      .select(DEAL_SUMMARY_SELECT)
       .eq('buyer_contact_id', buyerContactId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
-  });
-}
-
-/**
- * Fetch deal stage counts for pipeline overview.
- * Uses the get_deals_with_details RPC for the full pipeline view.
- */
-export async function getDealStageCounts(): Promise<
-  DatabaseResult<{ stage: string; count: number }[]>
-> {
-  return safeQuery(async () => {
-    return supabase.rpc('get_deal_stage_counts');
   });
 }

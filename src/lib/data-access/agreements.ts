@@ -19,7 +19,7 @@ export async function getAgreementForFirm(
   return safeQuery(async () => {
     return supabase
       .from('firm_agreements')
-      .select('id, firm_name, nda_status, fee_agreement_status, nda_signed_at, fee_agreement_signed_at')
+      .select('id, primary_company_name, nda_status, fee_agreement_status, nda_signed_at, fee_agreement_signed_at')
       .eq('id', firmId)
       .single();
   });
@@ -51,7 +51,7 @@ export async function getAllAgreements(options?: {
   return safeQuery(async () => {
     let query = supabase
       .from('firm_agreements')
-      .select('id, firm_name, nda_status, fee_agreement_status, nda_signed_at, fee_agreement_signed_at')
+      .select('id, primary_company_name, nda_status, fee_agreement_status, nda_signed_at, fee_agreement_signed_at')
       .order('created_at', { ascending: false });
 
     if (options?.ndaStatus) {

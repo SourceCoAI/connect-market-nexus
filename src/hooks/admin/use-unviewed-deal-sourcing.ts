@@ -1,19 +1,19 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 import { useEffect } from 'react';
 
 // TODO: Phase 6 — migrate admin_view_state read to data access layer: getAdminLastViewed() from '@/lib/data-access'
 // The first query (.from('admin_view_state')) maps to getAdminLastViewed(adminId, 'deal_sourcing').
 // The second query (.from('deal_sourcing_requests') count) has no data access equivalent yet.
 export function useUnviewedDealSourcingCount() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ['unviewed-deal-sourcing-count'],
     queryFn: async () => {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
-      if (!user) return 0;
+      if (!user?.id) return 0;
 
       // Get admin's last viewed timestamp
       const { data: viewData, error: viewDataError } = await supabase
@@ -21,7 +21,7 @@ export function useUnviewedDealSourcingCount() {
         .select('last_viewed_at')
         .eq('admin_id', user.id)
         .eq('view_type', 'deal_sourcing')
-        .single();
+        .maybeSingle();
       if (viewDataError) throw viewDataError;
 
       const lastViewed = viewData?.last_viewed_at || '1970-01-01';
@@ -35,6 +35,8 @@ export function useUnviewedDealSourcingCount() {
       if (error) throw error;
       return count || 0;
     },
+    enabled: !!user?.id,
+    staleTime: 30000,
   });
 
   // Real-time subscription for new requests

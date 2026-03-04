@@ -25,7 +25,7 @@ export async function getAdminLastViewed(
       .select('view_type, last_viewed_at')
       .eq('admin_id', adminId)
       .eq('view_type', viewType)
-      .single();
+      .maybeSingle();
   });
 }
 

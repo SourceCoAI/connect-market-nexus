@@ -65,6 +65,7 @@ DECLARE
   v_buyer_priority  integer;
   v_stage_id        uuid;
   v_buyer_contact_id uuid;
+  v_remarketing_buyer_id uuid;
   v_seller_contact_id uuid;
   v_contact_name    text;
   v_listing_title   text;
@@ -72,6 +73,7 @@ DECLARE
   v_nda_status      text;
   v_fee_status      text;
   v_new_deal_id     uuid;
+  v_existing_deal_id uuid;
 BEGIN
   -- ── Step 1: Fetch the connection request ──────────────────────────────
   SELECT *
@@ -81,6 +83,18 @@ BEGIN
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'create_pipeline_deal: connection_request not found: %', p_connection_request_id;
+  END IF;
+
+  -- ── Step 1b: Guard against duplicate deals ──────────────────────────────
+  -- During the transition period, triggers may also create deals. Skip if one exists.
+  SELECT dp.id INTO v_existing_deal_id
+    FROM public.deal_pipeline dp
+   WHERE dp.connection_request_id = p_connection_request_id
+   LIMIT 1;
+
+  IF v_existing_deal_id IS NOT NULL THEN
+    -- Deal already exists for this connection request (likely created by trigger)
+    RETURN v_existing_deal_id;
   END IF;
 
   -- ── Step 2: Ensure source (replaces trg_ensure_source_from_lead) ──────
@@ -119,21 +133,30 @@ BEGIN
     v_buyer_priority := COALESCE(v_cr.buyer_priority_score, 0);
   END IF;
 
-  -- ── Step 4: Find the 'New Inquiry' stage ──────────────────────────────
+  -- ── Step 4: Find the default stage (was 'New Inquiry', renamed to 'Approved') ─
   SELECT ds.id
     INTO v_stage_id
     FROM public.deal_stages ds
-   WHERE ds.name = 'New Inquiry'
+   WHERE ds.name IN ('Approved', 'New Inquiry')
+   ORDER BY ds.position ASC
    LIMIT 1;
 
   IF v_stage_id IS NULL THEN
-    RAISE EXCEPTION 'create_pipeline_deal: deal_stages row with name "New Inquiry" not found';
+    -- Fallback: use the first stage by position
+    SELECT ds.id INTO v_stage_id
+      FROM public.deal_stages ds
+     ORDER BY ds.position ASC
+     LIMIT 1;
   END IF;
 
-  -- ── Step 5: Resolve buyer_contact_id ──────────────────────────────────
+  IF v_stage_id IS NULL THEN
+    RAISE EXCEPTION 'create_pipeline_deal: no deal_stages found';
+  END IF;
+
+  -- ── Step 5: Resolve buyer_contact_id and remarketing_buyer_id ─────────
   IF v_cr.user_id IS NOT NULL THEN
-    SELECT c.id
-      INTO v_buyer_contact_id
+    SELECT c.id, c.remarketing_buyer_id
+      INTO v_buyer_contact_id, v_remarketing_buyer_id
       FROM public.contacts c
      WHERE c.profile_id = v_cr.user_id
        AND c.contact_type = 'buyer'
@@ -168,10 +191,7 @@ BEGIN
     FROM public.listings l
    WHERE l.id = v_cr.listing_id;
 
-  v_deal_title := COALESCE(
-    v_contact_name || ' - ' || v_listing_title,
-    'New Deal'
-  );
+  v_deal_title := v_contact_name || ' - ' || COALESCE(v_listing_title, 'Unknown Listing');
 
   -- ── Step 8: Derive NDA / fee agreement statuses from lead fields ──────
   v_nda_status := CASE
@@ -191,6 +211,7 @@ BEGIN
     listing_id,
     stage_id,
     connection_request_id,
+    remarketing_buyer_id,
     value,
     probability,
     source,
@@ -206,6 +227,7 @@ BEGIN
     v_cr.listing_id,
     v_stage_id,
     v_cr.id,
+    v_remarketing_buyer_id,
     0,                    -- value
     5,                    -- probability
     v_source,
@@ -292,11 +314,21 @@ BEGIN
   IF p_field = 'nda_status' THEN
     UPDATE public.firm_agreements
        SET nda_status = p_new_status,
+           nda_signed = (p_new_status = 'signed'),
+           nda_signed_at = CASE
+             WHEN p_new_status = 'signed' AND nda_signed_at IS NULL THEN now()
+             ELSE nda_signed_at
+           END,
            updated_at = now()
      WHERE id = p_firm_agreement_id;
   ELSE
     UPDATE public.firm_agreements
        SET fee_agreement_status = p_new_status,
+           fee_agreement_signed = (p_new_status = 'signed'),
+           fee_agreement_signed_at = CASE
+             WHEN p_new_status = 'signed' AND fee_agreement_signed_at IS NULL THEN now()
+             ELSE fee_agreement_signed_at
+           END,
            updated_at = now()
      WHERE id = p_firm_agreement_id;
   END IF;

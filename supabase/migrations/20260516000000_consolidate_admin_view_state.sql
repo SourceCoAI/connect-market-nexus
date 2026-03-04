@@ -100,8 +100,14 @@ FROM admin_view_state WHERE view_type = 'users';
 
 -- 7. Update reset function to use new table
 CREATE OR REPLACE FUNCTION reset_all_admin_notifications()
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
+  IF NOT public.is_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'Access denied: admin role required';
+  END IF;
+
   UPDATE admin_view_state
   SET last_viewed_at = NOW(), updated_at = NOW();
 END;

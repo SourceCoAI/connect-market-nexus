@@ -14,7 +14,6 @@ export interface ListingSummary {
   id: string;
   title: string;
   description: string | null;
-  asking_price: number | null;
   revenue: number | null;
   ebitda: number | null;
   status: string;
@@ -27,10 +26,9 @@ export interface ListingSummary {
 /** Full listing detail. */
 export interface ListingDetail extends ListingSummary {
   description_html: string | null;
-  owner_id: string | null;
-  main_contact_name: string | null;
-  main_contact_email: string | null;
-  is_published: boolean;
+  deal_owner_id: string | null;
+  primary_owner_id: string | null;
+  pushed_to_marketplace: boolean | null;
 }
 
 /** Buyer summary for list views. */
@@ -41,32 +39,28 @@ export interface BuyerSummary {
   thesis_summary: string | null;
   target_revenue_min: number | null;
   target_revenue_max: number | null;
-  geographic_focus: string[] | null;
-  status: string | null;
+  target_geographies: string[] | null;
   created_at: string;
+  archived: boolean;
 }
 
-/** Buyer with profile info (joined). */
+/** Buyer with profile info (joined via contacts). */
 export interface BuyerWithProfile extends BuyerSummary {
-  profile_id: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
-  phone_number: string | null;
+  marketplace_firm_id: string | null;
 }
 
 /** Deal pipeline summary. */
 export interface DealSummary {
   id: string;
   listing_id: string | null;
-  listing_title: string | null;
-  stage: string;
+  title: string;
+  stage_id: string;
   source: string | null;
   buyer_priority_score: number | null;
   buyer_contact_id: string | null;
   seller_contact_id: string | null;
-  assigned_admin_id: string | null;
-  created_at: string;
+  assigned_to: string | null;
+  created_at: string | null;
   updated_at: string | null;
 }
 
@@ -88,10 +82,10 @@ export interface ContactRecord {
 
 /** Agreement status (resolved from firm_agreements). */
 export interface AgreementStatus {
-  firm_id: string;
-  firm_name: string | null;
-  nda_status: string;
-  fee_agreement_status: string;
+  id: string;
+  primary_company_name: string;
+  nda_status: string | null;
+  fee_agreement_status: string | null;
   nda_signed_at: string | null;
   fee_agreement_signed_at: string | null;
 }

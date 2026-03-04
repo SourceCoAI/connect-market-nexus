@@ -10,10 +10,10 @@ import { safeQuery, type DatabaseResult } from '@/lib/database';
 import type { ListingSummary, ListingDetail } from './types';
 
 const LISTING_SUMMARY_SELECT =
-  'id, title, description, asking_price, revenue, ebitda, status, category, location, created_at, updated_at';
+  'id, title, description, revenue, ebitda, status, category, location, created_at, updated_at';
 
 const LISTING_DETAIL_SELECT =
-  `${LISTING_SUMMARY_SELECT}, description_html, owner_id, main_contact_name, main_contact_email, is_published`;
+  `${LISTING_SUMMARY_SELECT}, description_html, deal_owner_id, primary_owner_id, pushed_to_marketplace`;
 
 /**
  * Fetch active listings for the marketplace.
@@ -73,7 +73,7 @@ export async function getListingsByOwner(
     return supabase
       .from('listings')
       .select(LISTING_SUMMARY_SELECT)
-      .eq('owner_id', ownerId)
+      .eq('deal_owner_id', ownerId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
   });

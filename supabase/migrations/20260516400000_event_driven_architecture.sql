@@ -136,6 +136,31 @@ END $$;
 
 
 -- ============================================================================
+-- 1b. Relax CHECK constraints for event bus usage
+-- ============================================================================
+-- The original operation_type CHECK only allowed 5 AI operation types.
+-- Now that we use this table as a general event bus, operation_type needs
+-- to accept event-style values like 'deal.created', 'buyer.approved', etc.
+
+DO $$
+DECLARE
+  v_constraint_name text;
+BEGIN
+  -- Find and drop the CHECK constraint on operation_type
+  SELECT con.conname INTO v_constraint_name
+  FROM pg_constraint con
+  JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+  WHERE con.conrelid = 'public.global_activity_queue'::regclass
+    AND con.contype = 'c'
+    AND att.attname = 'operation_type';
+
+  IF v_constraint_name IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE public.global_activity_queue DROP CONSTRAINT %I', v_constraint_name);
+  END IF;
+END $$;
+
+
+-- ============================================================================
 -- 2. Indexes for efficient polling and lookups
 -- ============================================================================
 
