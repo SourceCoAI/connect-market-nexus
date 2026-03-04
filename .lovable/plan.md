@@ -1,29 +1,24 @@
 
 
-# Fix: "Failed to open deal page" and Missing Test Lead
+## Plan: Add Clay Phone Number Lookup Tool — ✅ COMPLETED
 
-## Problem
-Two issues identified:
+### Summary
+Mirrored the existing `clay_find_email` pattern to add a `clay_find_phone` tool that sends LinkedIn URLs to a new Clay phone lookup table and receives results via an inbound webhook. No auth/secret requirements on the webhook endpoint.
 
-1. **"Failed to open deal page" error**: The `listings` table has **no INSERT RLS policy**. When you click a lead, the code tries to create a listing row via `buildListingFromLead()`, but Supabase blocks the insert silently due to RLS. The error is caught and shown as a toast.
+### Completed Changes
 
-2. **Test lead not visible**: The "Collision Calculator #1" test lead (`unique-xyz-test-789@example.com`) exists in the DB but may be filtered out by the domain deduplication logic (its website is `test.com`). However, it should still appear since it has a unique domain. This is a secondary concern — once the INSERT policy is added, all leads will be clickable.
+1. ✅ Database Migration — Added `result_phone TEXT` column to `clay_enrichment_requests`
+2. ✅ `clay-client.ts` — Added phone webhook URL + `sendToClayPhone` sender
+3. ✅ New edge function: `clay-webhook-phone/index.ts` — No auth, updates `result_phone`, `enriched_contacts.phone`, `contacts.phone`
+4. ✅ `config.toml` — Added `[functions.clay-webhook-phone]` with `verify_jwt = false`
+5. ✅ `clay-tools.ts` — Added `clayLookupPhone`, `ClayPhoneLookupResult`, `clay_find_phone` tool definition, `clayFindPhone` executor
+6. ✅ `integration/index.ts` — Re-exported `clayFindPhone`, `clayLookupPhone`, `ClayPhoneLookupResult`
+7. ✅ `integration-action-tools.ts` — Wired `case 'clay_find_phone'`
+8. ✅ `tools/index.ts` — Registered in GENERAL, CONTACTS, CONTACT_ENRICHMENT, REMARKETING, GOOGLE_SEARCH categories
+9. ✅ `system-prompt.ts` — Added phone lookup guidance
+10. ✅ Tested — Inbound webhook deployed and verified working
 
-## Fix
+### Inbound Webhook URL
+`https://vhzipqarkmmfuqadefep.supabase.co/functions/v1/clay-webhook-phone`
 
-### 1. Add INSERT RLS Policy on `listings`
-Create a migration that adds an INSERT policy for authenticated admin users. Since this is an admin-only action (pushing valuation leads to deals), it should be gated by the `has_role` function:
-
-```sql
-CREATE POLICY "Admins can insert listings"
-  ON public.listings
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (public.has_role(auth.uid(), 'admin'));
-```
-
-This single change fixes the "Failed to open deal page" error — the listing insert will succeed and the app will navigate to the deal page.
-
-### 2. No Other Changes Needed
-The lead data, filtering, sorting, and display logic are all working correctly. The only blocker was the missing RLS policy preventing listing creation.
-
+Configure Clay to POST results to this URL with `request_id` and `phone` fields.
