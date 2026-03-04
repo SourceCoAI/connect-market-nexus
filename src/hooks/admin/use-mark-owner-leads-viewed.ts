@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { markAdminViewAsViewed } from '@/lib/data-access';
 
 export function useMarkOwnerLeadsViewed() {
   const { user } = useAuth();
@@ -10,21 +10,10 @@ export function useMarkOwnerLeadsViewed() {
     if (!user?.id) return;
 
     try {
-      const { error } = await supabase
-        .from('admin_owner_leads_views')
-        .upsert(
-          {
-            admin_id: user.id,
-            last_viewed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: 'admin_id',
-          }
-        );
+      const result = await markAdminViewAsViewed(user.id, 'owner_leads');
 
-      if (error) {
-        console.error('Error marking owner leads as viewed:', error);
+      if (result.error) {
+        console.error('Error marking owner leads as viewed:', result.error);
         return;
       }
 

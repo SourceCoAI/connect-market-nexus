@@ -8,6 +8,11 @@ import { createQueryKey } from '@/lib/query-keys';
 import { useAuth } from '@/context/AuthContext';
 import { useTabAwareQuery } from '@/hooks/use-tab-aware-query';
 
+// TODO: Phase 6 — migrate to data access layer once connection_requests queries are centralized.
+// This hook queries .from('connection_requests') with inbound_leads joins, then batch-fetches
+// profiles and listings by ID. A getAdminConnectionRequests() data access function with
+// pre-joined profile/listing data (or an RPC) would consolidate this N+1-avoidance pattern.
+
 /**
  * Hook for fetching connection requests in admin dashboard
  */

@@ -11,6 +11,12 @@ export interface MarketplaceUser {
   buyer_type: string | null;
 }
 
+// TODO: Phase 6 — migrate to data access layer once a getApprovedProfiles() or
+// get_buyer_profile RPC is added to '@/lib/data-access'. This query reads profiles
+// for buyer_type and company which maps to the buyers domain, but the current
+// getActiveBuyers() reads from remarketing_buyers, not profiles.
+// A new data access function (e.g. getMarketplaceProfiles()) that reads from
+// the profiles table with buyer_type/company fields would enable full migration.
 export function useMarketplaceUsers() {
   const { user, isAdmin } = useAuth();
 

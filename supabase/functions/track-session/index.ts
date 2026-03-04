@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 interface GeoData {
   country: string;
@@ -29,13 +29,13 @@ const BOT_USER_AGENT_PATTERNS = [
   /bot\b/i,
   /crawler/i,
   /spider/i,
-  /Chrome\/11[789]\./i,  // Chrome 117-119 (2+ years outdated)
-  /Chrome\/11[0-6]\./i,  // Chrome 110-116 (even older)
+  /Chrome\/11[789]\./i, // Chrome 117-119 (2+ years outdated)
+  /Chrome\/11[0-6]\./i, // Chrome 110-116 (even older)
 ];
 
 function detectBot(userAgent: string): boolean {
   if (!userAgent) return false;
-  return BOT_USER_AGENT_PATTERNS.some(pattern => pattern.test(userAgent));
+  return BOT_USER_AGENT_PATTERNS.some((pattern) => pattern.test(userAgent));
 }
 
 interface SessionData {
@@ -74,22 +74,30 @@ interface SessionData {
 }
 
 async function getGeoData(ip: string): Promise<GeoData | null> {
-  if (ip === '127.0.0.1' || ip === 'localhost' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip === '::1') {
+  if (
+    ip === '127.0.0.1' ||
+    ip === 'localhost' ||
+    ip.startsWith('192.168.') ||
+    ip.startsWith('10.') ||
+    ip === '::1'
+  ) {
     console.log('Skipping geolocation for local/private IP:', ip);
     return null;
   }
 
   try {
     // Include lat and lon fields for accurate globe positioning
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,regionName,city,timezone,isp,lat,lon`);
-    
+    const response = await fetch(
+      `http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,regionName,city,timezone,isp,lat,lon`,
+    );
+
     if (!response.ok) {
       console.error('Geo API response not OK:', response.status);
       return null;
     }
 
     const data = await response.json();
-    
+
     if (data.status === 'fail') {
       console.error('Geo API failed:', data.message);
       return null;
@@ -131,27 +139,21 @@ function isProductionRequest(req: Request, body: SessionData): boolean {
   const origin = req.headers.get('origin') || '';
   const referer = req.headers.get('referer') || '';
   const referrer = body.referrer || '';
-  
-  const devPatterns = [
-    'lovable.dev',
-    'lovableproject.com',
-    'preview--',
-    'localhost',
-    '127.0.0.1',
-  ];
-  
+
+  const devPatterns = ['lovable.dev', 'lovableproject.com', 'preview--', 'localhost', '127.0.0.1'];
+
   // Check origin, referer header, and session referrer
   const urlsToCheck = [origin, referer, referrer];
-  
+
   for (const url of urlsToCheck) {
     if (url) {
       const lowerUrl = url.toLowerCase();
-      if (devPatterns.some(pattern => lowerUrl.includes(pattern))) {
+      if (devPatterns.some((pattern) => lowerUrl.includes(pattern))) {
         return false;
       }
     }
   }
-  
+
   return true;
 }
 
@@ -171,7 +173,7 @@ Deno.serve(async (req) => {
     const clientIP = getClientIP(req);
     const isProduction = isProductionRequest(req, body);
     const isBot = detectBot(body.user_agent);
-    
+
     console.log('Track session request:', {
       session_id: body.session_id,
       client_ip: clientIP,
@@ -187,54 +189,57 @@ Deno.serve(async (req) => {
     // Use UPSERT to prevent race condition duplicates
     // The session_id column has a UNIQUE constraint
     const initialDuration = body.time_on_page || 0;
-    
-    const { data: upsertResult, error: upsertError } = await supabase
+
+    const { error: upsertError } = await supabase
       .from('user_sessions')
-      .upsert({
-        session_id: body.session_id,
-        visitor_id: body.visitor_id || null,
-        user_id: body.user_id || null,
-        started_at: new Date().toISOString(),
-        user_agent: body.user_agent,
-        referrer: body.referrer || null,
-        device_type: body.device_type,
-        browser: body.browser,
-        os: body.os,
-        ip_address: clientIP,
-        country: geoData?.country || null,
-        country_code: geoData?.country_code || null,
-        city: geoData?.city || null,
-        region: geoData?.region || null,
-        timezone: geoData?.timezone || null,
-        utm_source: body.utm_source || null,
-        utm_medium: body.utm_medium || null,
-        utm_campaign: body.utm_campaign || null,
-        utm_term: body.utm_term || null,
-        utm_content: body.utm_content || null,
-        ga4_client_id: body.ga4_client_id || null,
-        first_touch_source: body.first_touch_source || null,
-        first_touch_medium: body.first_touch_medium || null,
-        first_touch_campaign: body.first_touch_campaign || null,
-        first_touch_landing_page: body.first_touch_landing_page || null,
-        first_touch_referrer: body.first_touch_referrer || null,
-        is_active: true,
-        last_active_at: new Date().toISOString(),
-        session_duration_seconds: initialDuration,
-        // Cross-domain tracking: capture original referrer from blog
-        // Support both full URL (original_referrer) and hostname-only (original_referrer_host) for privacy-safe tracking
-        original_external_referrer: body.original_referrer || body.original_referrer_host || null,
-        blog_landing_page: body.blog_landing || null,
-        // Production vs dev/preview flagging
-        is_production: isProduction,
-        // Bot detection
-        is_bot: isBot,
-        // Precise coordinates from IP geolocation
-        lat: geoData?.lat || null,
-        lon: geoData?.lon || null,
-      }, {
-        onConflict: 'session_id',
-        ignoreDuplicates: false,
-      })
+      .upsert(
+        {
+          session_id: body.session_id,
+          visitor_id: body.visitor_id || null,
+          user_id: body.user_id || null,
+          started_at: new Date().toISOString(),
+          user_agent: body.user_agent,
+          referrer: body.referrer || null,
+          device_type: body.device_type,
+          browser: body.browser,
+          os: body.os,
+          ip_address: clientIP,
+          country: geoData?.country || null,
+          country_code: geoData?.country_code || null,
+          city: geoData?.city || null,
+          region: geoData?.region || null,
+          timezone: geoData?.timezone || null,
+          utm_source: body.utm_source || null,
+          utm_medium: body.utm_medium || null,
+          utm_campaign: body.utm_campaign || null,
+          utm_term: body.utm_term || null,
+          utm_content: body.utm_content || null,
+          ga4_client_id: body.ga4_client_id || null,
+          first_touch_source: body.first_touch_source || null,
+          first_touch_medium: body.first_touch_medium || null,
+          first_touch_campaign: body.first_touch_campaign || null,
+          first_touch_landing_page: body.first_touch_landing_page || null,
+          first_touch_referrer: body.first_touch_referrer || null,
+          is_active: true,
+          last_active_at: new Date().toISOString(),
+          session_duration_seconds: initialDuration,
+          // Cross-domain tracking: capture original referrer from blog
+          // Support both full URL (original_referrer) and hostname-only (original_referrer_host) for privacy-safe tracking
+          original_external_referrer: body.original_referrer || body.original_referrer_host || null,
+          blog_landing_page: body.blog_landing || null,
+          // Production vs dev/preview flagging
+          is_production: isProduction,
+          // Bot detection
+          is_bot: isBot,
+          // Precise coordinates from IP geolocation
+          lat: geoData?.lat || null,
+          lon: geoData?.lon || null,
+        },
+        {
+          onConflict: 'session_id',
+          ignoreDuplicates: false,
+        },
+      )
       .select('id')
       .maybeSingle();
 
@@ -246,14 +251,13 @@ Deno.serve(async (req) => {
     // Upsert user_journeys record for cross-session tracking
     if (body.visitor_id) {
       console.log('Upserting user journey for visitor:', body.visitor_id);
-      
+
       // Calculate first_external_referrer from cross-domain tracking params
       const firstExternalReferrer = body.original_referrer || body.original_referrer_host || null;
       const firstBlogLanding = body.blog_landing || null;
-      
-      const { error: journeyError } = await supabase
-        .from('user_journeys')
-        .upsert({
+
+      const { error: journeyError } = await supabase.from('user_journeys').upsert(
+        {
           visitor_id: body.visitor_id,
           ga4_client_id: body.ga4_client_id || null,
           user_id: body.user_id || null,
@@ -277,44 +281,45 @@ Deno.serve(async (req) => {
           // Cross-domain attribution: store original referrer and blog landing from sco_ params
           first_external_referrer: firstExternalReferrer,
           first_blog_landing: firstBlogLanding,
-        }, {
+        },
+        {
           onConflict: 'visitor_id',
           ignoreDuplicates: false,
-        });
+        },
+      );
 
       if (journeyError) {
         console.error('Failed to upsert journey:', journeyError);
       } else {
         // Increment session count
         try {
-          await supabase.rpc('increment_journey_sessions', { 
+          await supabase.rpc('increment_journey_sessions', {
             p_visitor_id: body.visitor_id,
             p_session_id: body.session_id,
-            p_page_path: body.landing_path || '/'
+            p_page_path: body.landing_path || '/',
           });
         } catch (rpcErr) {
           console.error('RPC increment error:', rpcErr);
         }
-        
+
         console.log('User journey upserted successfully');
       }
     }
 
     console.log('Session tracked successfully');
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
-        geo: geoData ? { country: geoData.country, city: geoData.city } : null 
+        geo: geoData ? { country: geoData.country, city: geoData.city } : null,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
-
   } catch (error: unknown) {
     console.error('Track session error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+// TODO: Phase 6 — migrate to data access layer: getPipelineDeals() from '@/lib/data-access'
+// useMyDeals() queries .from('deal_pipeline') with stage/listing joins filtered by assigned_to.
+// getPipelineDeals({ assignedTo }) is a close match but queries the 'deals' table (not 'deal_pipeline')
+// and doesn't include stage/listing joins. Once the table rename is complete and joins are added
+// to getPipelineDeals(), this hook can migrate.
+
 /**
  * Hook to fetch deals assigned to the current admin
  * Useful for "My Deals" dashboard widget
