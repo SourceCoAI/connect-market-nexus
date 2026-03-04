@@ -58,9 +58,10 @@ describe('PE Firm Name Cleaning', () => {
     expect(result.isGeneric).toBe(false);
   });
 
-  it('should clean "Backed by Summit Partners Fund III" to "Summit"', () => {
+  it('should clean "Backed by Summit Partners Fund III" to "Summit Partners"', () => {
+    // "Partners" is part of the firm name — suffix strip removes "Fund III" only
     const result = cleanPEFirmName('Backed by Summit Partners Fund III');
-    expect(result.cleaned).toBe('Summit');
+    expect(result.cleaned).toBe('Summit Partners');
     expect(result.isGeneric).toBe(false);
   });
 
