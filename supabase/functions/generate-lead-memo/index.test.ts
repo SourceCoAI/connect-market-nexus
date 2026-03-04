@@ -80,10 +80,9 @@ const FULL_MEMO_EXPECTED_SECTIONS = [
   'OWNERSHIP AND TRANSACTION',
   'MANAGEMENT AND STAFFING',
   'KEY STRUCTURAL NOTES',
-  'INFORMATION NOT YET PROVIDED',
 ];
 
-const FULL_MEMO_REQUIRED_SECTIONS = ['COMPANY OVERVIEW', 'INFORMATION NOT YET PROVIDED'];
+const FULL_MEMO_REQUIRED_SECTIONS = ['COMPANY OVERVIEW'];
 
 const TEASER_EXPECTED_SECTIONS = [
   'BUSINESS OVERVIEW',
@@ -304,12 +303,6 @@ function fullMemoSections(overrides: Partial<Record<string, string>> = {}): Memo
       'key_structural_notes',
       'KEY STRUCTURAL NOTES',
       overrides['KEY STRUCTURAL NOTES'] || '- Real estate is leased\n- No pending litigation',
-    ),
-    makeSection(
-      'information_not_yet_provided',
-      'INFORMATION NOT YET PROVIDED',
-      overrides['INFORMATION NOT YET PROVIDED'] ||
-        '- Customer concentration data\n- Detailed balance sheet',
     ),
   ];
 }
@@ -555,13 +548,6 @@ describe('validateFullMemoSections', () => {
     expect(result.reason).toContain('COMPANY OVERVIEW');
   });
 
-  it('fails when INFORMATION NOT YET PROVIDED is missing', () => {
-    const sections = fullMemoSections().filter((s) => s.title !== 'INFORMATION NOT YET PROVIDED');
-    const result = validateFullMemoSections(sections);
-    expect(result.passed).toBe(false);
-    expect(result.reason).toContain('INFORMATION NOT YET PROVIDED');
-  });
-
   it('fails with an unexpected section header', () => {
     const sections = [
       ...fullMemoSections(),
@@ -597,11 +583,8 @@ describe('validateFullMemoSections', () => {
     expect(result.passed).toBe(true);
   });
 
-  it('passes with only the two required sections', () => {
-    const sections = [
-      makeSection('company_overview', 'COMPANY OVERVIEW', 'Acme Corp.'),
-      makeSection('information_not_yet_provided', 'INFORMATION NOT YET PROVIDED', 'Everything.'),
-    ];
+  it('passes with only the required section', () => {
+    const sections = [makeSection('company_overview', 'COMPANY OVERVIEW', 'Acme Corp.')];
     const result = validateFullMemoSections(sections);
     expect(result.passed).toBe(true);
   });
@@ -609,7 +592,7 @@ describe('validateFullMemoSections', () => {
   it('is case-insensitive for section title matching', () => {
     const sections = [
       makeSection('company_overview', 'Company Overview', 'Acme Corp.'),
-      makeSection('information_not_yet_provided', 'Information Not Yet Provided', 'Everything.'),
+      makeSection('financial_snapshot', 'Financial Snapshot', '- 2024 Revenue: $5,200,000'),
     ];
     const result = validateFullMemoSections(sections);
     expect(result.passed).toBe(true);
@@ -755,9 +738,9 @@ describe('runMemoWarnings', () => {
   it('handles sections with no financial figures or adjectives', () => {
     const sections = [
       makeSection(
-        'info',
-        'INFORMATION NOT YET PROVIDED',
-        '- Customer concentration data\n- Balance sheet',
+        'company_overview',
+        'COMPANY OVERVIEW',
+        'Acme Corp is a commercial HVAC company.',
       ),
     ];
     const result = runMemoWarnings(sections);
@@ -795,15 +778,10 @@ Acme Corp (DBA "Acme Services") is a commercial HVAC company founded in 2010, he
 ## KEY STRUCTURAL NOTES
 - **Real estate:** All locations leased, 3-5 year terms remaining
 - No pending litigation
-- All licenses transferable
-
-## INFORMATION NOT YET PROVIDED
-- Customer concentration data
-- Detailed balance sheet
-- Contract backlog details`;
+- All licenses transferable`;
 
     const sections = parseMarkdownToSections(markdown);
-    expect(sections).toHaveLength(7);
+    expect(sections).toHaveLength(6);
 
     const validation = validateFullMemoSections(sections);
     expect(validation.passed).toBe(true);

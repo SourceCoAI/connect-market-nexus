@@ -821,10 +821,9 @@ const FULL_MEMO_EXPECTED_SECTIONS = [
   'OWNERSHIP AND TRANSACTION',
   'MANAGEMENT AND STAFFING',
   'KEY STRUCTURAL NOTES',
-  'INFORMATION NOT YET PROVIDED',
 ];
 
-const FULL_MEMO_REQUIRED_SECTIONS = ['COMPANY OVERVIEW', 'INFORMATION NOT YET PROVIDED'];
+const FULL_MEMO_REQUIRED_SECTIONS = ['COMPANY OVERVIEW'];
 
 // Evaluative adjectives for audit warning (Check 6)
 const EVALUATIVE_ADJECTIVES = [
@@ -975,14 +974,13 @@ FORMAT RULES:
 - Use bullet points for all content outside the Company Overview section. Do not use prose paragraphs in any other section.
 - Company Overview should be 1 short paragraph (3-5 sentences max).
 - Use bold labels for the following fields: Transaction type, Reason for sale, Valuation context, Real estate, EBITDA, Revenue, Headcount, and any structured data field. Do not bold every bullet.
-- Include facts in this priority order: (1) financial figures, (2) transaction preferences and valuation context, (3) ownership and management structure, (4) services and operations, (5) enrichment details. If a fact must be omitted for length, add it to the INFORMATION NOT YET PROVIDED section as: "[Topic] — available in source data but omitted for brevity."
+- Include facts in this priority order: (1) financial figures, (2) transaction preferences and valuation context, (3) ownership and management structure, (4) services and operations, (5) enrichment details.
 
 CORE DISCIPLINE:
 - Every statement must be traceable to the provided source data (transcripts, financials, enrichment data, manual entries).
 - If information was not directly stated, it must not be included. There is no room for inference.
 - If margins appear high, do not comment on it. If a growth opportunity seems obvious but was not stated by the owner, it does not go in the memo.
-- When clarity is lacking, state that clarity is lacking: "Customer concentration not yet provided." or "Contract terms not discussed."
-- Transparency about unknowns is more valuable than speculative completion.
+- When data is missing, simply omit it. Do not state that it is missing or not provided.
 - Do not characterize any data point. Do not describe revenue as "consistent," margins as "healthy," growth as "notable," or any metric with any evaluative adjective. State the number. The reader will interpret.
 - Do not make comparisons to industry benchmarks, competitors, or market averages unless the source data contains a specific stated comparison.
 - Do not use language that implies quality, risk, or opportunity. The memo presents facts. It does not evaluate them.
@@ -1002,34 +1000,31 @@ SOURCE HIERARCHY:
 - For verifiable objective facts (founding year, legal name, number of locations), cross-reference transcript statements with enrichment data. If they conflict, include both: "Owner stated founded in 2005; website states 2009."
 - If no call transcript is provided, note at the top of the memo: "This memo is based on enrichment data and manual entries only. No owner call transcript is available."
 
-SECTIONS — use only the following section headers, in this order, when data exists for the section. COMPANY OVERVIEW and INFORMATION NOT YET PROVIDED are always included regardless of data availability. Omit any other section that has no data.
+SECTIONS — use only the following section headers, in this order, when data exists for the section. COMPANY OVERVIEW is always included. Omit any other section that has no data. Do not include an "INFORMATION NOT YET PROVIDED" section. If data is missing, simply omit it — do not call out what is missing.
 
 ## COMPANY OVERVIEW
 One paragraph, 3-5 sentences. Legal name, DBA if relevant, founded year, headquarters, number of locations and geography, employee count if known, ownership structure, core industry and service category. What the company does in plain terms. Business model defined clearly. This section should allow someone unfamiliar with the company to understand the nature of the business without interpretation.
 
 ## FINANCIAL SNAPSHOT
-Present financial data in the most structured format the data supports:
-- If multi-year data is available, use a year-over-year table.
-- If data is available by location or market, use a location-based table (columns: Market, Locations, Revenue/Mo, Revenue/Yr or similar).
-- If only top-line figures are available, use labeled bullet points.
-- Always include a line for EBITDA. If not provided, state: "EBITDA not yet provided."
-- For owner-operated businesses where neither EBITDA nor SDE has been provided, note: "This is an owner-operated business. SDE may be the appropriate earnings metric. SDE not yet provided."
-- If adjusted EBITDA is mentioned, list each add-back individually with its dollar amount.
-- If owner compensation is stated, include the exact figure.
-- If debt, working capital, or balance sheet data exists, include it. If not, state: "Balance sheet information not yet provided."
-- Do not characterize any trend. State the numbers.
+Present only the financial data points that are explicitly stated in the source data. Use simple labeled lines, one per data point. Format each line as: [Year] [Metric]: $[Amount]
 
-For markdown tables, use standard format:
-| Column 1 | Column 2 | Column 3 |
-| --- | --- | --- |
-| Data | Data | Data |
+Example format:
+- 2025 Revenue: $5,200,000
+- 2025 EBITDA: $1,100,000
+- Owner Compensation: $350,000
+
+Rules:
+- Only include data points that are explicitly stated or confirmed in the source data.
+- If adjusted EBITDA is mentioned, list each add-back individually with its dollar amount.
+- Do not include any data point that was not stated. Do not write "not provided", "not stated", or "not yet provided" for any missing data — simply omit it.
+- Do not characterize any trend. State the numbers.
 
 ## SERVICES AND OPERATIONS
 What services are performed, how revenue is generated, and relevant operational details. All bullet points:
 - Primary and secondary services
 - Revenue mix by category if available (% breakdown)
 - Recurring vs. project-based revenue if discussed
-- Customer base type (retail, commercial, fleet, government) and concentration data if available. If not available, state: "Customer concentration data not yet provided."
+- Customer base type (retail, commercial, fleet, government) and concentration data if available.
 - Vertical-specific KPIs when available:
   - Automotive repair: service mix %, avg ticket, car count, bay count, ASE certs, warranty programs, fleet vs retail, franchise/affiliate memberships
   - Collision repair: DRP %, OEM certs, ADAS capability, enterprise relationships, revenue per location
@@ -1056,8 +1051,8 @@ All bullet points:
 - Owner involvement level (be specific — what does the owner do daily)
 - Key personnel and their roles
 - Store/location-level management details
-- Total headcount if available. If not: "Total headcount not yet provided."
-- Compensation, benefits, and retention data if available. If not, state as gap.
+- Total headcount if available.
+- Compensation, benefits, and retention data if available.
 
 ## KEY STRUCTURAL NOTES
 Include only if relevant structural complexity exists. All bullet points:
@@ -1067,21 +1062,6 @@ Include only if relevant structural complexity exists. All bullet points:
 - Government designations (HUBZone, 8(a), SDVOSB, etc.)
 - Non-compete structures, earn-out preferences, seller financing willingness
 - Any other structural detail that affects deal evaluation
-
-## INFORMATION NOT YET PROVIDED
-This section is ALWAYS included. List every data point that was not available from the source data and would be needed for a complete evaluation.
-
-At minimum, check for and list any of the following that are missing:
-- Recast/adjusted EBITDA with itemized add-backs
-- Multi-year revenue by year (at least 3 years)
-- Owner compensation
-- Employee headcount by location
-- Customer concentration (top customer %)
-- Lease terms and expiration dates
-- Entity/legal structure
-- Balance sheet / debt schedule
-
-Add any deal-specific gaps beyond this baseline. If a fact was available in the source data but omitted from the memo for brevity, list it here as: "[Topic] — available in source data, omitted for brevity."
 
 BANNED LANGUAGE — never use any of these words or phrases:
 strong, robust, impressive, attractive, compelling, well-positioned, significant opportunity, poised for growth, track record of success, best-in-class, proven, demonstrated, synergies, uniquely positioned, market leader, value creation opportunity, healthy, diversified (as adjective without data), recession-resistant (without data), scalable (without specifics), turnkey, world-class, industry-leading, deep bench, blue-chip, mission-critical, sticky revenue, white-space, low-hanging fruit, runway, tailwinds, fragmented market, platform opportunity, notable, consistent (as characterization), solid, substantial, meaningful, considerable, positioned for, well-established, high-quality, top-tier, premier, best-of-breed, differentiated, defensible, platform (when used to characterize or elevate the business)`;
@@ -1104,9 +1084,9 @@ ${context.valuationData || 'No valuation data.'}
 
 DATA SOURCE PRIORITY: Financial statements/tax returns (for financial figures) > Transcripts (most recent first) > General Notes > Enrichment/Website > Manual entries.
 When sources conflict, use the highest-priority source and note the discrepancy.
-When data is absent from all sources, state explicitly that it was not provided. Do not guess.
+When data is absent from all sources, simply omit it. Do not guess, and do not state that it was not provided.
 
-Return the memo as markdown using ## headers for each section. Section headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES, INFORMATION NOT YET PROVIDED. Omit sections with no data except COMPANY OVERVIEW and INFORMATION NOT YET PROVIDED.
+Return the memo as markdown using ## headers for each section. Section headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES. Omit sections with no data except COMPANY OVERVIEW. Do not include an "INFORMATION NOT YET PROVIDED" section.
 
 Present financial data in a table when location or year breakdowns are available. Use standard markdown table format:
 | Column | Column |
@@ -1378,7 +1358,7 @@ ${context.valuationData || 'No valuation data.'}
 
 DATA SOURCE PRIORITY: Financial statements/tax returns (for financial figures) > Transcripts (most recent first) > General Notes > Enrichment/Website > Manual entries.
 When sources conflict, use the highest-priority source and note the discrepancy.
-When data is absent from all sources, state explicitly that it was not provided. Do not guess.
+When data is absent from all sources, simply omit it. Do not guess, and do not state that it was not provided.
 
 Return the memo as markdown using ## headers for each section. Section headers must exactly match: BUSINESS OVERVIEW, DEAL SNAPSHOT, KEY FACTS, GROWTH CONTEXT, OWNER OBJECTIVES. Omit sections with no data except BUSINESS OVERVIEW and DEAL SNAPSHOT.
 
