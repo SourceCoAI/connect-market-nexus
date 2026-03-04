@@ -1,8 +1,8 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 interface DealAlertRequest {
   alert_id: string;
@@ -25,48 +25,51 @@ interface DealAlertRequest {
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
-  console.log("Deal alert function called");
+  console.log('Deal alert function called');
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
 
   // Auth: Allow service-role calls (internal) or authenticated admin users
-  const authHeader = req.headers.get("Authorization") || "";
-  const callerToken = authHeader.replace("Bearer ", "").trim();
+  const authHeader = req.headers.get('Authorization') || '';
+  const callerToken = authHeader.replace('Bearer ', '').trim();
   if (!callerToken) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 
   try {
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const isInternalCall = callerToken === supabaseServiceKey;
 
     if (!isInternalCall) {
       // Verify the caller has a valid session
       const anonClient = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-        { global: { headers: { Authorization: `Bearer ${callerToken}` } } }
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: `Bearer ${callerToken}` } } },
       );
-      const { data: { user: callerUser }, error: callerError } = await anonClient.auth.getUser();
+      const {
+        data: { user: callerUser },
+        error: callerError,
+      } = await anonClient.auth.getUser();
       if (callerError || !callerUser) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
 
       // Allow both admins AND the alert owner to trigger
-      const { data: isAdmin } = await supabaseClient.rpc("is_admin", { user_id: callerUser.id });
+      const { data: _isAdmin } = await supabaseClient.rpc('is_admin', { user_id: callerUser.id });
       // If not admin, we still allow — deal alerts are triggered by listing creation
       // which can happen from any authenticated user context
     }
@@ -76,7 +79,7 @@ const handler = async (req: Request): Promise<Response> => {
     parsedBody = await req.json();
     const { alert_id, user_email, user_id, listing_id, alert_name, listing_data } = parsedBody;
 
-    console.log("Processing deal alert:", { alert_id, user_email, listing_id });
+    console.log('Processing deal alert:', { alert_id, user_email, listing_id });
 
     // Format currency values
     const formatCurrency = (value: number) => {
@@ -145,12 +148,14 @@ const handler = async (req: Request): Promise<Response> => {
                 </div>
                 
                 <div class="description">
-                  ${listing_data.description.length > 200 
-                    ? listing_data.description.substring(0, 200) + '...' 
-                    : listing_data.description}
+                  ${
+                    listing_data.description.length > 200
+                      ? listing_data.description.substring(0, 200) + '...'
+                      : listing_data.description
+                  }
                 </div>
                 
-                <a href="${Deno.env.get("SITE_URL") ?? "https://marketplace.sourcecodeals.com"}/listing/${listing_data.id}" class="btn">
+                <a href="${Deno.env.get('SITE_URL') ?? 'https://marketplace.sourcecodeals.com'}/listing/${listing_data.id}" class="btn">
                   View Deal →
                 </a>
               </div>
@@ -164,7 +169,7 @@ const handler = async (req: Request): Promise<Response> => {
             
             <div class="footer">
               <p>You're receiving this because you have an active deal alert named "${alert_name}".</p>
-              <p><a href="${Deno.env.get("SITE_URL") ?? "https://marketplace.sourcecodeals.com"}/profile">Manage your alerts</a></p>
+              <p><a href="${Deno.env.get('SITE_URL') ?? 'https://marketplace.sourcecodeals.com'}/profile">Manage your alerts</a></p>
             </div>
           </div>
         </body>
@@ -172,21 +177,24 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     // Send via Brevo (project-standard email provider)
-    const brevoApiKey = Deno.env.get("BREVO_API_KEY");
+    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
     if (!brevoApiKey) {
-      throw new Error("BREVO_API_KEY not configured");
+      throw new Error('BREVO_API_KEY not configured');
     }
 
-    const brevoResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
+    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
       headers: {
-        "api-key": brevoApiKey,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
+        'api-key': brevoApiKey,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
       body: JSON.stringify({
-        sender: { name: "SourceCo Marketplace", email: Deno.env.get('ADMIN_EMAIL') || "adam.haile@sourcecodeals.com" },
-        to: [{ email: user_email, name: user_email.split("@")[0] }],
+        sender: {
+          name: 'SourceCo Marketplace',
+          email: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
+        },
+        to: [{ email: user_email, name: user_email.split('@')[0] }],
         subject: `New deal matches your alert: ${alert_name}`,
         htmlContent: emailHtml,
         params: { trackClicks: false, trackOpens: true },
@@ -206,7 +214,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const emailResponse = await brevoResponse.json();
-    console.log("Email sent via Brevo:", emailResponse);
+    console.log('Email sent via Brevo:', emailResponse);
 
     await logEmailDelivery(supabaseClient, {
       email: user_email,
@@ -217,66 +225,62 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Update delivery log status
     const { error: updateError } = await supabaseClient
-      .from("alert_delivery_logs")
-      .update({ 
-        delivery_status: "sent", 
-        sent_at: new Date().toISOString() 
+      .from('alert_delivery_logs')
+      .update({
+        delivery_status: 'sent',
+        sent_at: new Date().toISOString(),
       })
-      .eq("alert_id", alert_id)
-      .eq("listing_id", listing_id)
-      .eq("user_id", user_id);
+      .eq('alert_id', alert_id)
+      .eq('listing_id', listing_id)
+      .eq('user_id', user_id);
 
     if (updateError) {
-      console.error("Error updating delivery log:", updateError);
+      console.error('Error updating delivery log:', updateError);
     }
 
     // Update last_sent_at for the alert
     const { error: alertUpdateError } = await supabaseClient
-      .from("deal_alerts")
+      .from('deal_alerts')
       .update({ last_sent_at: new Date().toISOString() })
-      .eq("id", alert_id);
+      .eq('id', alert_id);
 
     if (alertUpdateError) {
-      console.error("Error updating alert last_sent_at:", alertUpdateError);
+      console.error('Error updating alert last_sent_at:', alertUpdateError);
     }
 
     return new Response(JSON.stringify({ success: true, emailResponse }), {
       status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
-
   } catch (error: unknown) {
-    console.error("Error in send-deal-alert function:", error);
+    console.error('Error in send-deal-alert function:', error);
 
     // Use already-parsed body to update delivery log — avoids double-consuming req.json()
     try {
       if (parsedBody?.alert_id && parsedBody?.listing_id && parsedBody?.user_id) {
         const supabaseClient = createClient(
-          Deno.env.get("SUPABASE_URL") ?? "",
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
         );
-        
+
         await supabaseClient
-          .from("alert_delivery_logs")
-          .update({ 
-            delivery_status: "failed", 
-            error_message: error.message 
+          .from('alert_delivery_logs')
+          .update({
+            delivery_status: 'failed',
+            error_message: error.message,
           })
-          .eq("alert_id", parsedBody.alert_id)
-          .eq("listing_id", parsedBody.listing_id)
-          .eq("user_id", parsedBody.user_id);
+          .eq('alert_id', parsedBody.alert_id)
+          .eq('listing_id', parsedBody.listing_id)
+          .eq('user_id', parsedBody.user_id);
       }
     } catch (logError) {
-      console.error("Error updating error log:", logError);
+      console.error('Error updating error log:', logError);
     }
 
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
   }
 };
 

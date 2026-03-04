@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -121,6 +121,7 @@ function BuyerCard({
   const tier = TIER_CONFIG[buyer.tier];
   const TierIcon = tier.icon;
   const sourceBadge = SOURCE_BADGE[buyer.source] || SOURCE_BADGE.scored;
+  const location = useLocation();
 
   return (
     <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
@@ -129,7 +130,7 @@ function BuyerCard({
         {/* Name + location */}
         <div className="shrink-0 min-w-[180px]">
           <div className="flex items-center gap-1.5">
-            <Link to={`/admin/buyers/${buyer.buyer_id}`}>
+            <Link to={`/admin/buyers/${buyer.buyer_id}`} state={{ from: location.pathname }}>
               <span className="font-semibold text-[15px] hover:underline truncate">
                 {buyer.company_name}
               </span>
@@ -138,7 +139,7 @@ function BuyerCard({
               <>
                 <span className="text-muted-foreground text-[13px]">/</span>
                 {buyer.pe_firm_id ? (
-                  <Link to={`/admin/buyers/pe-firms/${buyer.pe_firm_id}`}>
+                  <Link to={`/admin/buyers/pe-firms/${buyer.pe_firm_id}`} state={{ from: location.pathname }}>
                     <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
                       {buyer.pe_firm_name}
                     </span>

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -41,6 +41,7 @@ export const DealActivityTab = ({
   dealScores,
   platforms,
 }: DealActivityTabProps) => {
+  const location = useLocation();
   return (
     <div className="space-y-4">
       {/* Summary Stats */}
@@ -114,6 +115,7 @@ export const DealActivityTab = ({
                         {score.listing?.id ? (
                           <Link
                             to={`/admin/remarketing/matching/${score.listing.id}`}
+                            state={{ from: location.pathname }}
                             className="font-medium hover:underline"
                           >
                             {score.listing?.title || "Unknown"}
@@ -126,6 +128,7 @@ export const DealActivityTab = ({
                         {platform ? (
                           <Link
                             to={`/admin/buyers/${platform.id}`}
+                            state={{ from: location.pathname }}
                             className="text-sm hover:underline"
                           >
                             {platform.company_name}

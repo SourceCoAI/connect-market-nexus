@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ export const PlatformsTab = ({
   onAddPlatform,
 }: PlatformsTabProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <div className="space-y-4">
@@ -79,7 +80,7 @@ export const PlatformsTab = ({
             <Card
               key={platform.id}
               className="cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => navigate(`/admin/buyers/${platform.id}`)}
+              onClick={() => navigate(`/admin/buyers/${platform.id}`, { state: { from: location.pathname } })}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">

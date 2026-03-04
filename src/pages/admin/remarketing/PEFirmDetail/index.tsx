@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -55,6 +55,8 @@ const PEFirmDetail = () => {
     deleteContactMutation,
     addPlatformMutation,
   } = usePEFirmData();
+  const location = useLocation();
+  const backTo = (location.state as { from?: string } | null)?.from || '/admin/buyers?tab=private_equity';
 
   if (firmLoading) {
     return (
@@ -95,7 +97,7 @@ const PEFirmDetail = () => {
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             <Button variant="ghost" size="icon" asChild className="mt-1">
-              <Link to="/admin/buyers?tab=private_equity">
+              <Link to={backTo}>
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
@@ -169,7 +171,7 @@ const PEFirmDetail = () => {
           {/* Actions */}
           <div className="flex items-center gap-2">
             <CreateTaskButton entityType="buyer" entityId={firm.id} entityName={firm.company_name} />
-            <Button variant="outline" size="sm" onClick={() => navigate(`/admin/buyers/${firm.id}`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/admin/buyers/${firm.id}`, { state: { from: location.pathname } })}>
               View as Buyer
             </Button>
           </div>

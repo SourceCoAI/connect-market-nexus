@@ -45,7 +45,7 @@ export function validateNumericRange(
   value: number | undefined | null,
   min: number,
   max: number,
-  fieldName: string
+  fieldName: string,
 ): { valid: boolean; reason?: string } {
   if (value === undefined || value === null) {
     return { valid: true }; // Null/undefined is acceptable (missing data)
@@ -56,7 +56,10 @@ export function validateNumericRange(
   }
 
   if (value < min || value > max) {
-    return { valid: false, reason: `${fieldName} ${value} is outside realistic range ${min}-${max}` };
+    return {
+      valid: false,
+      reason: `${fieldName} ${value} is outside realistic range ${min}-${max}`,
+    };
   }
 
   return { valid: true };
@@ -74,17 +77,30 @@ interface SizeCriteriaInput {
   location_count_max?: number;
 }
 
-export function validateSizeCriteria(criteria: SizeCriteriaInput): { valid: boolean; errors: string[] } {
+export function validateSizeCriteria(criteria: SizeCriteriaInput): {
+  valid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
 
   // Revenue validations
   if (criteria.revenue_min) {
-    const validation = validateNumericRange(criteria.revenue_min, 100000, 1000000000, 'revenue_min');
+    const validation = validateNumericRange(
+      criteria.revenue_min,
+      100000,
+      1000000000,
+      'revenue_min',
+    );
     if (!validation.valid) errors.push(validation.reason!);
   }
 
   if (criteria.revenue_max) {
-    const validation = validateNumericRange(criteria.revenue_max, 100000, 10000000000, 'revenue_max');
+    const validation = validateNumericRange(
+      criteria.revenue_max,
+      100000,
+      10000000000,
+      'revenue_max',
+    );
     if (!validation.valid) errors.push(validation.reason!);
   }
 
@@ -94,12 +110,22 @@ export function validateSizeCriteria(criteria: SizeCriteriaInput): { valid: bool
 
   // EBITDA validations
   if (criteria.ebitda_min) {
-    const validation = validateNumericRange(criteria.ebitda_min, -10000000, 500000000, 'ebitda_min');
+    const validation = validateNumericRange(
+      criteria.ebitda_min,
+      -10000000,
+      500000000,
+      'ebitda_min',
+    );
     if (!validation.valid) errors.push(validation.reason!);
   }
 
   if (criteria.ebitda_max) {
-    const validation = validateNumericRange(criteria.ebitda_max, -10000000, 2000000000, 'ebitda_max');
+    const validation = validateNumericRange(
+      criteria.ebitda_max,
+      -10000000,
+      2000000000,
+      'ebitda_max',
+    );
     if (!validation.valid) errors.push(validation.reason!);
   }
 
@@ -109,18 +135,28 @@ export function validateSizeCriteria(criteria: SizeCriteriaInput): { valid: bool
 
   // Location count validations
   if (criteria.location_count_min) {
-    const validation = validateNumericRange(criteria.location_count_min, 1, 10000, 'location_count_min');
+    const validation = validateNumericRange(
+      criteria.location_count_min,
+      1,
+      10000,
+      'location_count_min',
+    );
     if (!validation.valid) errors.push(validation.reason!);
   }
 
   if (criteria.location_count_max) {
-    const validation = validateNumericRange(criteria.location_count_max, 1, 50000, 'location_count_max');
+    const validation = validateNumericRange(
+      criteria.location_count_max,
+      1,
+      50000,
+      'location_count_max',
+    );
     if (!validation.valid) errors.push(validation.reason!);
   }
 
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
@@ -152,9 +188,7 @@ export function normalizeConfidenceScore(score: number | undefined | null): numb
 // This avoids duplicating the full state mapping table.
 export { normalizeState } from './geography.ts';
 
-const US_REGIONS = new Set([
-  'Northeast', 'Southeast', 'Midwest', 'Southwest', 'West', 'National'
-]);
+const _US_REGIONS = new Set(['Northeast', 'Southeast', 'Midwest', 'Southwest', 'West', 'National']);
 
 /**
  * Normalize region names
@@ -164,18 +198,18 @@ export function normalizeRegion(region: string): string | null {
 
   const normalized = region.trim().toLowerCase();
   const regionMap: Record<string, string> = {
-    'northeast': 'Northeast',
+    northeast: 'Northeast',
     'north east': 'Northeast',
-    'southeast': 'Southeast',
+    southeast: 'Southeast',
     'south east': 'Southeast',
-    'midwest': 'Midwest',
+    midwest: 'Midwest',
     'mid west': 'Midwest',
-    'southwest': 'Southwest',
+    southwest: 'Southwest',
     'south west': 'Southwest',
-    'west': 'West',
-    'western': 'West',
-    'national': 'National',
-    'nationwide': 'National'
+    west: 'West',
+    western: 'West',
+    national: 'National',
+    nationwide: 'National',
   };
 
   return regionMap[normalized] || null;
@@ -200,7 +234,7 @@ export interface ConflictDetection {
 export function detectSizeCriteriaConflicts(
   existing: SizeCriteriaInput,
   incoming: SizeCriteriaInput,
-  threshold: number = 0.2
+  threshold: number = 0.2,
 ): ConflictDetection[] {
   const conflicts: ConflictDetection[] = [];
 
@@ -214,7 +248,7 @@ export function detectSizeCriteriaConflicts(
         new_value: incoming.revenue_min,
         conflict_type: 'numeric_discrepancy',
         severity: diff > 0.5 ? 'high' : 'medium',
-        resolution_suggestion: `Consider using the lower value: $${Math.min(existing.revenue_min, incoming.revenue_min).toLocaleString()}`
+        resolution_suggestion: `Consider using the lower value: $${Math.min(existing.revenue_min, incoming.revenue_min).toLocaleString()}`,
       });
     }
   }
@@ -229,14 +263,15 @@ export function detectSizeCriteriaConflicts(
         new_value: incoming.revenue_max,
         conflict_type: 'numeric_discrepancy',
         severity: diff > 0.5 ? 'high' : 'medium',
-        resolution_suggestion: `Consider using the higher value: $${Math.max(existing.revenue_max, incoming.revenue_max).toLocaleString()}`
+        resolution_suggestion: `Consider using the higher value: $${Math.max(existing.revenue_max, incoming.revenue_max).toLocaleString()}`,
       });
     }
   }
 
   // Check EBITDA conflicts
   if (existing.ebitda_min && incoming.ebitda_min) {
-    const diff = Math.abs(existing.ebitda_min - incoming.ebitda_min) / Math.abs(existing.ebitda_min);
+    const diff =
+      Math.abs(existing.ebitda_min - incoming.ebitda_min) / Math.abs(existing.ebitda_min);
     if (diff > threshold) {
       conflicts.push({
         field: 'ebitda_min',
@@ -244,7 +279,7 @@ export function detectSizeCriteriaConflicts(
         new_value: incoming.ebitda_min,
         conflict_type: 'numeric_discrepancy',
         severity: diff > 0.5 ? 'high' : 'medium',
-        resolution_suggestion: `Review both sources - ${diff * 100}% difference`
+        resolution_suggestion: `Review both sources - ${diff * 100}% difference`,
       });
     }
   }
@@ -258,21 +293,23 @@ export function detectSizeCriteriaConflicts(
 export function detectArrayConflicts(
   existing: string[],
   incoming: string[],
-  fieldName: string
+  fieldName: string,
 ): ConflictDetection | null {
   if (!existing || !incoming) return null;
 
-  const existingSet = new Set(existing.map(s => s.toLowerCase()));
-  const incomingSet = new Set(incoming.map(s => s.toLowerCase()));
+  const existingSet = new Set(existing.map((s) => s.toLowerCase()));
+  const incomingSet = new Set(incoming.map((s) => s.toLowerCase()));
 
-  const onlyInExisting = existing.filter(s => !incomingSet.has(s.toLowerCase()));
-  const onlyInIncoming = incoming.filter(s => !existingSet.has(s.toLowerCase()));
+  const onlyInExisting = existing.filter((s) => !incomingSet.has(s.toLowerCase()));
+  const onlyInIncoming = incoming.filter((s) => !existingSet.has(s.toLowerCase()));
 
   if (onlyInExisting.length === 0 && onlyInIncoming.length === 0) {
     return null; // No conflict
   }
 
-  const overlapRatio = [...existingSet].filter(s => incomingSet.has(s)).length / Math.max(existingSet.size, incomingSet.size);
+  const overlapRatio =
+    [...existingSet].filter((s) => incomingSet.has(s)).length /
+    Math.max(existingSet.size, incomingSet.size);
 
   if (overlapRatio < 0.5) {
     return {
@@ -281,7 +318,7 @@ export function detectArrayConflicts(
       new_value: incoming,
       conflict_type: 'array_difference',
       severity: 'high',
-      resolution_suggestion: `Arrays have low overlap (${Math.round(overlapRatio * 100)}%). Consider merging or reviewing sources.`
+      resolution_suggestion: `Arrays have low overlap (${Math.round(overlapRatio * 100)}%). Consider merging or reviewing sources.`,
     };
   }
 
@@ -291,7 +328,7 @@ export function detectArrayConflicts(
     new_value: incoming,
     conflict_type: 'array_difference',
     severity: 'low',
-    resolution_suggestion: `Merge unique values from both sources`
+    resolution_suggestion: `Merge unique values from both sources`,
   };
 }
 
@@ -313,77 +350,71 @@ export function synthesizeSizeCriteria(sources: SizeCriteriaSource[]): SizeCrite
   if (!sources || sources.length === 0) return {};
 
   const merged: SizeCriteriaSource = {
-    confidence_score: Math.round(sources.reduce((sum, s) => sum + (s.confidence_score || 0), 0) / sources.length)
+    confidence_score: Math.round(
+      sources.reduce((sum, s) => sum + (s.confidence_score || 0), 0) / sources.length,
+    ),
   };
 
   // Revenue min: Take the MINIMUM across all sources (most permissive)
-  const revenueMin = sources
-    .map(s => s.revenue_min)
-    .filter(v => v !== undefined && v !== null);
+  const revenueMin = sources.map((s) => s.revenue_min).filter((v) => v !== undefined && v !== null);
   if (revenueMin.length > 0) {
     merged.revenue_min = Math.min(...revenueMin);
   }
 
   // Revenue max: Take the MAXIMUM across all sources (most permissive)
-  const revenueMax = sources
-    .map(s => s.revenue_max)
-    .filter(v => v !== undefined && v !== null);
+  const revenueMax = sources.map((s) => s.revenue_max).filter((v) => v !== undefined && v !== null);
   if (revenueMax.length > 0) {
     merged.revenue_max = Math.max(...revenueMax);
   }
 
   // Revenue sweet spot: Weighted average
   const revenueSweetSpot = sources
-    .map(s => s.revenue_sweet_spot)
-    .filter(v => v !== undefined && v !== null);
+    .map((s) => s.revenue_sweet_spot)
+    .filter((v) => v !== undefined && v !== null);
   if (revenueSweetSpot.length > 0) {
     merged.revenue_sweet_spot = Math.round(
-      revenueSweetSpot.reduce((sum, v) => sum + v, 0) / revenueSweetSpot.length
+      revenueSweetSpot.reduce((sum, v) => sum + v, 0) / revenueSweetSpot.length,
     );
   }
 
   // EBITDA min: Take the MINIMUM
-  const ebitdaMin = sources
-    .map(s => s.ebitda_min)
-    .filter(v => v !== undefined && v !== null);
+  const ebitdaMin = sources.map((s) => s.ebitda_min).filter((v) => v !== undefined && v !== null);
   if (ebitdaMin.length > 0) {
     merged.ebitda_min = Math.min(...ebitdaMin);
   }
 
   // EBITDA max: Take the MAXIMUM
-  const ebitdaMax = sources
-    .map(s => s.ebitda_max)
-    .filter(v => v !== undefined && v !== null);
+  const ebitdaMax = sources.map((s) => s.ebitda_max).filter((v) => v !== undefined && v !== null);
   if (ebitdaMax.length > 0) {
     merged.ebitda_max = Math.max(...ebitdaMax);
   }
 
   // EBITDA sweet spot: Weighted average
   const ebitdaSweetSpot = sources
-    .map(s => s.ebitda_sweet_spot)
-    .filter(v => v !== undefined && v !== null);
+    .map((s) => s.ebitda_sweet_spot)
+    .filter((v) => v !== undefined && v !== null);
   if (ebitdaSweetSpot.length > 0) {
     merged.ebitda_sweet_spot = Math.round(
-      ebitdaSweetSpot.reduce((sum, v) => sum + v, 0) / ebitdaSweetSpot.length
+      ebitdaSweetSpot.reduce((sum, v) => sum + v, 0) / ebitdaSweetSpot.length,
     );
   }
 
   // Location counts: Take average
   const locationMin = sources
-    .map(s => s.location_count_min)
-    .filter(v => v !== undefined && v !== null);
+    .map((s) => s.location_count_min)
+    .filter((v) => v !== undefined && v !== null);
   if (locationMin.length > 0) {
     merged.location_count_min = Math.round(
-      locationMin.reduce((sum, v) => sum + v, 0) / locationMin.length
+      locationMin.reduce((sum, v) => sum + v, 0) / locationMin.length,
     );
   }
 
   const locationMax = sources
-    .map(s => s.location_count_max)
-    .filter(v => v !== undefined && v !== null);
+    .map((s) => s.location_count_max)
+    .filter((v) => v !== undefined && v !== null);
   if (locationMax.length > 0) {
     merged.location_count_max = Math.round(
-      locationMax.reduce((sum, v) => sum + v, 0) / locationMax.length
+      locationMax.reduce((sum, v) => sum + v, 0) / locationMax.length,
     );
   }
 
@@ -394,18 +425,19 @@ export function synthesizeSizeCriteria(sources: SizeCriteriaSource[]): SizeCrite
  * Merge array-based criteria (services, geographies)
  * Strategy: Union of all values, normalized
  */
-export function synthesizeArrayCriteria(sources: Record<string, unknown>[], fieldName: string): string[] {
+export function synthesizeArrayCriteria(
+  sources: Record<string, unknown>[],
+  fieldName: string,
+): string[] {
   if (!sources || sources.length === 0) return [];
 
   const allValues = sources
-    .flatMap(s => (s[fieldName] as string[] | undefined) || [])
-    .filter(v => v && typeof v === 'string')
-    .map(v => v.trim());
+    .flatMap((s) => (s[fieldName] as string[] | undefined) || [])
+    .filter((v) => v && typeof v === 'string')
+    .map((v) => v.trim());
 
   // Deduplicate (case-insensitive)
-  const uniqueValues = Array.from(
-    new Map(allValues.map(v => [v.toLowerCase(), v])).values()
-  );
+  const uniqueValues = Array.from(new Map(allValues.map((v) => [v.toLowerCase(), v])).values());
 
   return uniqueValues.sort();
 }
@@ -417,8 +449,8 @@ export function calculateOverallConfidence(sections: { confidence_score: number 
   if (!sections || sections.length === 0) return 0;
 
   const validScores = sections
-    .map(s => s.confidence_score)
-    .filter(s => s !== undefined && s !== null && s >= 0 && s <= 100);
+    .map((s) => s.confidence_score)
+    .filter((s) => s !== undefined && s !== null && s >= 0 && s <= 100);
 
   if (validScores.length === 0) return 0;
 

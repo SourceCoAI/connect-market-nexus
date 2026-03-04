@@ -7,7 +7,7 @@
  */
 import { useState, useRef, useCallback } from 'react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -57,6 +57,7 @@ export const AddDealDialog = ({
   referralPartnerId,
 }: AddDealDialogProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<'marketplace' | 'new'>('marketplace');
   const [searchQuery, setSearchQuery] = useState('');
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
@@ -359,7 +360,7 @@ export const AddDealDialog = ({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onOpenChange(false);
-                                  navigate(`/admin/deals/${listing.id}`);
+                                  navigate(`/admin/deals/${listing.id}`, { state: { from: location.pathname } });
                                 }}
                               >
                                 <ExternalLink className="h-3.5 w-3.5 mr-1" />

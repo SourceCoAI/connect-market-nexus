@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ArrowLeft, Building2, ExternalLink, MapPin, Pencil, Sparkles, Calendar, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,7 @@ export const BuyerDetailHeader = ({
   backTo = "/admin/buyers",
   marketplaceFirmId,
 }: BuyerDetailHeaderProps) => {
+  const location = useLocation();
   const hqLocation = [hqCity, hqState, hqCountry].filter(Boolean).join(", ");
   
   const formatInvestmentDate = (dateStr: string | null | undefined) => {
@@ -86,6 +87,7 @@ export const BuyerDetailHeader = ({
                 peFirmId ? (
                   <Link
                     to={`/admin/buyers/pe-firms/${peFirmId}`}
+                    state={{ from: location.pathname }}
                     className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
                   >
                     <Building2 className="h-4 w-4" />

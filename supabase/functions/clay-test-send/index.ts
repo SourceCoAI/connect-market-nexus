@@ -1,10 +1,12 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 
-const CLAY_WEBHOOK_NAME_DOMAIN_URL = 'https://api.clay.com/v3/sources/webhook/pull-in-data-from-a-webhook-5710a9f8-be6f-4004-b378-a259c9bb7a1c';
-const CLAY_WEBHOOK_LINKEDIN_URL = 'https://api.clay.com/v3/sources/webhook/pull-in-data-from-a-webhook-82d6e696-5c1c-4db3-8b66-9e13a984088d';
+const CLAY_WEBHOOK_NAME_DOMAIN_URL =
+  'https://api.clay.com/v3/sources/webhook/pull-in-data-from-a-webhook-5710a9f8-be6f-4004-b378-a259c9bb7a1c';
+const CLAY_WEBHOOK_LINKEDIN_URL =
+  'https://api.clay.com/v3/sources/webhook/pull-in-data-from-a-webhook-82d6e696-5c1c-4db3-8b66-9e13a984088d';
 
-serve(async (req: Request) => {
+serve(async (_req: Request) => {
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,

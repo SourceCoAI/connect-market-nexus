@@ -1,8 +1,8 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 interface OwnerIntroRequest {
   dealId: string;
@@ -19,7 +19,7 @@ interface OwnerIntroRequest {
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
 
@@ -33,7 +33,7 @@ const handler = async (req: Request): Promise<Response> => {
       dealValue,
       dealTitle: _dealTitle,
       dealOwnerName,
-      dealOwnerEmail
+      dealOwnerEmail,
     }: OwnerIntroRequest = await req.json();
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -52,19 +52,20 @@ const handler = async (req: Request): Promise<Response> => {
     if (recentNotif) {
       console.log('Notification already sent recently, skipping duplicate');
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           message: 'Notification already sent recently',
-          duplicate: true 
+          duplicate: true,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     // Fetch deal with listing and both owners in ONE efficient query
     const { data: deal, error: dealError } = await supabase
       .from('deal_pipeline')
-      .select(`
+      .select(
+        `
         id,
         title,
         listing:listings!deals_listing_id_fkey (
@@ -85,18 +86,19 @@ const handler = async (req: Request): Promise<Response> => {
           first_name,
           last_name
         )
-      `)
+      `,
+      )
       .eq('id', dealId)
       .single();
 
     if (dealError || !deal) {
       console.error('Error fetching deal:', dealError);
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Deal not found or error fetching deal data' 
+        JSON.stringify({
+          success: false,
+          error: 'Deal not found or error fetching deal data',
         }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -105,11 +107,11 @@ const handler = async (req: Request): Promise<Response> => {
     if (!listing) {
       console.error('Deal is not linked to a listing');
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'This deal is not linked to a listing' 
+        JSON.stringify({
+          success: false,
+          error: 'This deal is not linked to a listing',
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -117,27 +119,33 @@ const handler = async (req: Request): Promise<Response> => {
     if (!listing.primary_owner_id || !listing.primary_owner) {
       console.log('No primary owner assigned to listing, cannot send notification');
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           error: 'No primary owner configured for this listing',
-          message: 'The listing needs a primary owner to receive introduction emails' 
+          message: 'The listing needs a primary owner to receive introduction emails',
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     // Handle primary_owner which could be an array or single object from the join
-    const primaryOwnerData = Array.isArray(listing.primary_owner) ? listing.primary_owner[0] : listing.primary_owner;
+    const primaryOwnerData = Array.isArray(listing.primary_owner)
+      ? listing.primary_owner[0]
+      : listing.primary_owner;
     const ownerName = `${primaryOwnerData.first_name} ${primaryOwnerData.last_name}`.trim();
     const companyName = listing.internal_company_name || listing.title;
 
     // Format deal value
-    const dealValueText = dealValue 
-      ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(dealValue)
+    const dealValueText = dealValue
+      ? new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 0,
+        }).format(dealValue)
       : 'Not specified';
 
     const subject = `🤝 Owner Intro Requested: ${buyerName} → ${companyName}`;
-    
+
     const htmlContent = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <!-- Header -->
@@ -175,14 +183,18 @@ const handler = async (req: Request): Promise<Response> => {
             </tr>
           </table>
 
-          ${buyerCompany ? `
+          ${
+            buyerCompany
+              ? `
           <table style="width: 100%; margin-bottom: 12px;">
             <tr>
               <td style="color: #64748b; font-size: 13px; font-weight: 500; padding-right: 16px; vertical-align: top; width: 120px;">Company</td>
               <td style="color: #0f172a; font-size: 14px; font-weight: 600;">${buyerCompany}</td>
             </tr>
           </table>
-          ` : ''}
+          `
+              : ''
+          }
 
           <table style="width: 100%; margin-bottom: 12px;">
             <tr>
@@ -203,16 +215,22 @@ const handler = async (req: Request): Promise<Response> => {
             </tr>
           </table>
 
-          ${companyName !== listing.title ? `
+          ${
+            companyName !== listing.title
+              ? `
           <table style="width: 100%; margin-bottom: 12px;">
             <tr>
               <td style="color: #64748b; font-size: 13px; font-weight: 500; padding-right: 16px; vertical-align: top; width: 120px;">Real Company Name</td>
               <td style="color: #0f172a; font-size: 14px; font-weight: 600;">${companyName}</td>
             </tr>
           </table>
-          ` : ''}
+          `
+              : ''
+          }
 
-          ${dealOwnerName ? `
+          ${
+            dealOwnerName
+              ? `
           <table style="width: 100%; margin-bottom: 12px;">
             <tr>
               <td style="color: #64748b; font-size: 13px; font-weight: 500; padding-right: 16px; vertical-align: top; width: 120px;">Deal Owner</td>
@@ -222,7 +240,9 @@ const handler = async (req: Request): Promise<Response> => {
               </td>
             </tr>
           </table>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
 
         <!-- CTA Button -->
@@ -274,26 +294,26 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     // Send email via Brevo
-    const brevoApiKey = Deno.env.get("BREVO_API_KEY");
+    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
     if (!brevoApiKey) {
-      throw new Error("BREVO_API_KEY is not set");
+      throw new Error('BREVO_API_KEY is not set');
     }
-    
-    console.log("Sending owner intro notification to:", primaryOwnerData.email);
-    
+
+    console.log('Sending owner intro notification to:', primaryOwnerData.email);
+
     const emailPayload = {
-      sender: { name: "SourceCo Notifications", email: "notifications@sourcecodeals.com" },
+      sender: { name: 'SourceCo Notifications', email: 'notifications@sourcecodeals.com' },
       to: [{ email: primaryOwnerData.email, name: ownerName }],
       subject: subject,
       htmlContent: htmlContent,
     };
 
-    const emailResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
+    const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
       headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "api-key": brevoApiKey,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'api-key': brevoApiKey,
       },
       body: JSON.stringify(emailPayload),
     });
@@ -313,7 +333,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const emailResult = await emailResponse.json();
-    console.log("Email sent successfully:", emailResult);
+    console.log('Email sent successfully:', emailResult);
 
     await logEmailDelivery(supabase, {
       email: primaryOwnerData.email,
@@ -323,46 +343,43 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     // Log to database
-    await supabase
-      .from('owner_intro_notifications')
-      .insert({
-        deal_id: dealId,
-        listing_id: listingId,
-        primary_owner_id: listing.primary_owner_id,
-        email_status: 'sent',
-        metadata: {
-          message_id: emailResult.messageId,
-          buyer_name: buyerName,
-          buyer_email: buyerEmail,
-          email_subject: subject,
-        }
-      });
-    
+    await supabase.from('owner_intro_notifications').insert({
+      deal_id: dealId,
+      listing_id: listingId,
+      primary_owner_id: listing.primary_owner_id,
+      email_status: 'sent',
+      metadata: {
+        message_id: emailResult.messageId,
+        buyer_name: buyerName,
+        buyer_email: buyerEmail,
+        email_subject: subject,
+      },
+    });
+
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
         message: 'Owner intro notification sent successfully',
         primary_owner_name: ownerName,
         message_id: emailResult.messageId,
-        recipient: primaryOwnerData.email
+        recipient: primaryOwnerData.email,
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
     );
-
   } catch (error: unknown) {
-    console.error("Error in send-owner-intro-notification:", error);
-    
+    console.error('Error in send-owner-intro-notification:', error);
+
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message 
+      JSON.stringify({
+        success: false,
+        error: error.message,
       }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      },
     );
   }
 };

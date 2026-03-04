@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
@@ -90,6 +90,7 @@ export const BuyerTableRow = memo(function BuyerTableRow({
   hasTranscript,
 }: BuyerTableRowProps) {
   const navigate = useNavigate();
+  const routerLocation = useLocation();
   const location = getLocation(buyer);
   const isCurrentlyEnriching = isEnriching === buyer.id;
 
@@ -97,12 +98,7 @@ export const BuyerTableRow = memo(function BuyerTableRow({
     <TableRow
       key={buyer.id}
       className={`cursor-pointer hover:bg-muted/50 group ${isSelected ? 'bg-muted/30' : ''}`}
-      onClick={() =>
-        navigate(
-          `/admin/buyers/${buyer.id}`,
-          universeId ? { state: { from: `/admin/buyers/universes/${universeId}` } } : undefined,
-        )
-      }
+      onClick={() => navigate(`/admin/buyers/${buyer.id}`, { state: { from: universeId ? `/admin/buyers/universes/${universeId}` : routerLocation.pathname } })}
     >
       {selectable && (
         <TableCell

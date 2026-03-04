@@ -1,8 +1,8 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import 'https://deno.land/x/xhr@0.1.0/mod.ts';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
@@ -23,17 +23,20 @@ serve(async (req) => {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      { global: { headers: { Authorization: authHeader } } },
     );
 
     // Verify user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       throw new Error('Unauthorized');
     }
 
     const {
-      buyerId,
+      buyerId: _buyerId,
       buyerName,
       peFirmName,
       fitReasoning,
@@ -47,12 +50,15 @@ serve(async (req) => {
     if (!OPENAI_API_KEY) {
       // Fallback template if no API key
       console.log('No OpenAI API key configured, using template');
-      return new Response(JSON.stringify({
-        subject: `Introduction: ${deal?.title || 'Acquisition Opportunity'}`,
-        body: generateFallbackEmail(buyerName, peFirmName, deal, contactName, fitReasoning),
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          subject: `Introduction: ${deal?.title || 'Acquisition Opportunity'}`,
+          body: generateFallbackEmail(buyerName, peFirmName, deal, contactName, fitReasoning),
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     // Generate personalized email with OpenAI
@@ -90,7 +96,7 @@ Respond with JSON in this exact format:
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -103,7 +109,7 @@ Respond with JSON in this exact format:
           {
             role: 'user',
             content: prompt,
-          }
+          },
         ],
         temperature: 0.7,
         max_tokens: 500,
@@ -118,7 +124,7 @@ Respond with JSON in this exact format:
 
     const completion = await response.json();
     const content = completion.choices?.[0]?.message?.content;
-    
+
     if (!content) {
       throw new Error('No content in OpenAI response');
     }
@@ -147,18 +153,20 @@ Respond with JSON in this exact format:
     return new Response(JSON.stringify(emailData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (error) {
     console.error('Error generating buyer intro email:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ 
-      error: message,
-      subject: 'Introduction: Acquisition Opportunity',
-      body: 'An error occurred generating the email. Please try again.',
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        error: message,
+        subject: 'Introduction: Acquisition Opportunity',
+        body: 'An error occurred generating the email. Please try again.',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   }
 });
 
@@ -167,7 +175,7 @@ function generateFallbackEmail(
   peFirmName: string | undefined,
   deal: Record<string, unknown> | undefined,
   contactName: string | undefined,
-  fitReasoning: string | undefined
+  fitReasoning: string | undefined,
 ): string {
   const greeting = contactName ? `Dear ${contactName},` : `Dear ${buyerName} Team,`;
   const dealTitle = (deal?.title as string) || 'a compelling acquisition opportunity';

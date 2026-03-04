@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -28,6 +28,7 @@ export function PipelineDetailPanel({ pipeline }: PipelineDetailPanelProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (!selectedDeal) {
     return (
@@ -100,7 +101,7 @@ export function PipelineDetailPanel({ pipeline }: PipelineDetailPanelProps) {
                     {selectedDeal.remarketing_buyer_id && (
                       <DropdownMenuItem
                         onClick={() =>
-                          navigate(`/admin/buyers/${selectedDeal.remarketing_buyer_id}`)
+                          navigate(`/admin/buyers/${selectedDeal.remarketing_buyer_id}`, { state: { from: location.pathname } })
                         }
                       >
                         <Target className="h-4 w-4 mr-2" />

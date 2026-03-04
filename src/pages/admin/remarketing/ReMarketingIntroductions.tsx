@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -52,6 +52,7 @@ const ReMarketingIntroductions = () => {
   const { listingId } = useParams<{ listingId: string }>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const location = useLocation();
   // URL-persisted filter state (survives browser Back navigation)
   const [searchParams, setSearchParams] = useSearchParams();
   const filterOutcome = searchParams.get('outcome') ?? 'all';
@@ -370,6 +371,7 @@ const ReMarketingIntroductions = () => {
                               <div>
                                 <Link
                                   to={`/admin/buyers/${intro.buyer?.id}`}
+                                  state={{ from: location.pathname }}
                                   className="font-medium hover:underline"
                                   onClick={(e) => e.stopPropagation()}
                                 >

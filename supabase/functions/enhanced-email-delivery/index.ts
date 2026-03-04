@@ -1,9 +1,9 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { sendViaBervo } from "../_shared/brevo-sender.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { requireAdmin } from "../_shared/auth.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/auth.ts';
 
 interface EmailRequest {
   to: string;
@@ -24,7 +24,7 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
     // AUTH: Admin-only — sends arbitrary emails via Brevo
@@ -36,13 +36,20 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const { to, subject, content, email_type, correlation_id, metadata }: EmailRequest = await req.json();
+    const {
+      to,
+      subject,
+      content,
+      email_type,
+      correlation_id,
+      metadata: _metadata,
+    }: EmailRequest = await req.json();
 
     console.log('Enhanced Email Delivery Request:', {
       to,
       subject,
       email_type,
-      correlation_id
+      correlation_id,
     });
 
     // Log email delivery attempt
@@ -53,7 +60,7 @@ const handler = async (req: Request): Promise<Response> => {
         email_type,
         status: 'pending',
         correlation_id,
-        error_message: null
+        error_message: null,
       })
       .select()
       .single();
@@ -70,10 +77,10 @@ const handler = async (req: Request): Promise<Response> => {
       to,
       subject,
       htmlContent: content,
-      senderName: "SourceCo Marketplace",
-      senderEmail: Deno.env.get("SENDER_EMAIL") || "adam.haile@sourcecodeals.com",
-      replyToEmail: Deno.env.get("SENDER_EMAIL") || "adam.haile@sourcecodeals.com",
-      replyToName: Deno.env.get("SENDER_NAME") || "Adam Haile",
+      senderName: 'SourceCo Marketplace',
+      senderEmail: Deno.env.get('SENDER_EMAIL') || 'adam.haile@sourcecodeals.com',
+      replyToEmail: Deno.env.get('SENDER_EMAIL') || 'adam.haile@sourcecodeals.com',
+      replyToName: Deno.env.get('SENDER_NAME') || 'Adam Haile',
     });
 
     if (result.success) {
@@ -82,7 +89,7 @@ const handler = async (req: Request): Promise<Response> => {
         .from('email_delivery_logs')
         .update({
           status: 'delivered',
-          sent_at: new Date().toISOString()
+          sent_at: new Date().toISOString(),
         })
         .eq('id', logData.id);
 
@@ -93,7 +100,7 @@ const handler = async (req: Request): Promise<Response> => {
         .from('email_delivery_logs')
         .update({
           status: 'failed',
-          error_message: result.error
+          error_message: result.error,
         })
         .eq('id', logData.id);
 
@@ -107,7 +114,7 @@ const handler = async (req: Request): Promise<Response> => {
         message: 'Email delivered successfully',
         delivery_id: logData.id,
         correlation_id,
-        message_id: result.messageId
+        message_id: result.messageId,
       }),
       {
         status: 200,
@@ -115,9 +122,8 @@ const handler = async (req: Request): Promise<Response> => {
           'Content-Type': 'application/json',
           ...corsHeaders,
         },
-      }
+      },
     );
-
   } catch (error: unknown) {
     console.error('Enhanced email delivery error:', error);
 
@@ -125,7 +131,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : String(error),
-        details: 'Failed to deliver email'
+        details: 'Failed to deliver email',
       }),
       {
         status: 500,
@@ -133,7 +139,7 @@ const handler = async (req: Request): Promise<Response> => {
           'Content-Type': 'application/json',
           ...corsHeaders,
         },
-      }
+      },
     );
   }
 };

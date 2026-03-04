@@ -5,8 +5,8 @@
  */
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import type { ClaudeTool } from "../../_shared/claude-client.ts";
-import type { ToolResult } from "./index.ts";
+import type { ClaudeTool } from '../../_shared/claude-client.ts';
+import type { ToolResult } from './index.ts';
 
 // ---------- Tool definitions ----------
 
@@ -25,15 +25,17 @@ Falls back to keyword search if embeddings aren't available yet.`,
       properties: {
         query: {
           type: 'string',
-          description: 'Natural language search query describing what you want to find in transcripts',
+          description:
+            'Natural language search query describing what you want to find in transcripts',
         },
         buyer_id: {
           type: 'string',
-          description: 'Optional: limit search to a specific buyer\'s transcripts',
+          description: "Optional: limit search to a specific buyer's transcripts",
         },
         threshold: {
           type: 'number',
-          description: 'Similarity threshold 0-1 (default 0.65). Lower = more results but less relevant.',
+          description:
+            'Similarity threshold 0-1 (default 0.65). Lower = more results but less relevant.',
         },
         limit: {
           type: 'number',
@@ -53,8 +55,10 @@ export async function executeSemanticSearchTool(
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
   switch (toolName) {
-    case 'semantic_transcript_search': return semanticTranscriptSearch(supabase, args);
-    default: return { error: `Unknown semantic search tool: ${toolName}` };
+    case 'semantic_transcript_search':
+      return semanticTranscriptSearch(supabase, args);
+    default:
+      return { error: `Unknown semantic search tool: ${toolName}` };
   }
 }
 
@@ -66,12 +70,12 @@ async function semanticTranscriptSearch(
 ): Promise<ToolResult> {
   const query = args.query as string;
   const buyerId = args.buyer_id as string | undefined;
-  const threshold = Number(args.threshold) || 0.65;
+  const _threshold = Number(args.threshold) || 0.65;
   const limit = Math.min(Number(args.limit) || 10, 25);
 
   // Try to generate embedding for the query using Lovable AI
   const apiKey = Deno.env.get('LOVABLE_API_KEY');
-  let embedding: number[] | null = null;
+  const _embedding: number[] | null = null;
 
   if (apiKey) {
     try {
@@ -88,7 +92,8 @@ async function semanticTranscriptSearch(
           messages: [
             {
               role: 'system',
-              content: 'Extract 10 key search terms from this query for matching M&A call transcripts. Return only comma-separated terms, nothing else.',
+              content:
+                'Extract 10 key search terms from this query for matching M&A call transcripts. Return only comma-separated terms, nothing else.',
             },
             { role: 'user', content: query },
           ],
@@ -98,8 +103,12 @@ async function semanticTranscriptSearch(
 
       if (embeddingResponse.ok) {
         const data = await embeddingResponse.json();
-        const terms = data.choices?.[0]?.message?.content?.split(',').map((t: string) => t.trim().toLowerCase()).filter(Boolean) || [];
-        
+        const terms =
+          data.choices?.[0]?.message?.content
+            ?.split(',')
+            .map((t: string) => t.trim().toLowerCase())
+            .filter(Boolean) || [];
+
         if (terms.length > 0) {
           // Use expanded terms for better keyword matching
           return await keywordSearchWithExpansion(supabase, query, terms, buyerId, limit);
@@ -131,7 +140,7 @@ async function keywordSearchWithExpansion(
 
   // Score and merge results
   const results = [...buyerResults, ...dealResults];
-  
+
   // Score each result by term matches
   for (const r of results) {
     const text = (r.transcript_text || '').toLowerCase();
@@ -145,7 +154,7 @@ async function keywordSearchWithExpansion(
     }
     r.relevance_score = allTerms.length > 0 ? Math.round((matchCount / allTerms.length) * 100) : 0;
     r.matched_terms = matchedTerms;
-    
+
     // Extract relevant snippet around first match
     if (matchedTerms.length > 0) {
       const firstTerm = matchedTerms[0];
@@ -163,7 +172,7 @@ async function keywordSearchWithExpansion(
 
   // Sort by relevance and limit
   results.sort((a, b) => b.relevance_score - a.relevance_score);
-  const topResults = results.filter(r => r.relevance_score > 0).slice(0, limit);
+  const topResults = results.filter((r) => r.relevance_score > 0).slice(0, limit);
 
   return {
     data: {
@@ -172,9 +181,10 @@ async function keywordSearchWithExpansion(
       results: topResults,
       total_matches: topResults.length,
       search_method: 'keyword_expansion',
-      note: topResults.length === 0
-        ? 'No transcript matches found. Try broader terms or check if transcripts have been uploaded.'
-        : undefined,
+      note:
+        topResults.length === 0
+          ? 'No transcript matches found. Try broader terms or check if transcripts have been uploaded.'
+          : undefined,
       source_tables: ['buyer_transcripts', 'deal_transcripts'],
     },
   };
@@ -188,8 +198,8 @@ async function searchBuyerTranscripts(
 ): Promise<Record<string, unknown>[]> {
   // buyer_transcripts has title, summary, key_points — but NOT transcript_text
   // Search across title and summary columns
-  const titleFilters = terms.slice(0, 5).map(t => `title.ilike.%${t}%`);
-  const summaryFilters = terms.slice(0, 5).map(t => `summary.ilike.%${t}%`);
+  const titleFilters = terms.slice(0, 5).map((t) => `title.ilike.%${t}%`);
+  const summaryFilters = terms.slice(0, 5).map((t) => `summary.ilike.%${t}%`);
   const orFilters = [...titleFilters, ...summaryFilters].join(',');
   if (!orFilters) return [];
 
@@ -221,8 +231,8 @@ async function searchDealTranscripts(
   limit: number,
 ): Promise<Record<string, unknown>[]> {
   // Search transcript_text and title for deal transcripts
-  const textFilters = terms.slice(0, 5).map(t => `transcript_text.ilike.%${t}%`);
-  const titleFilters = terms.slice(0, 5).map(t => `title.ilike.%${t}%`);
+  const textFilters = terms.slice(0, 5).map((t) => `transcript_text.ilike.%${t}%`);
+  const titleFilters = terms.slice(0, 5).map((t) => `title.ilike.%${t}%`);
   const orFilters = [...textFilters, ...titleFilters].join(',');
   if (!orFilters) return [];
 
@@ -248,19 +258,81 @@ async function searchDealTranscripts(
 
 function extractKeywords(query: string): string[] {
   const stopwords = new Set([
-    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-    'should', 'may', 'might', 'can', 'shall', 'about', 'what', 'when',
-    'where', 'who', 'which', 'that', 'this', 'these', 'those', 'with',
-    'from', 'for', 'and', 'but', 'or', 'not', 'in', 'on', 'at', 'to',
-    'by', 'of', 'any', 'all', 'some', 'find', 'search', 'look', 'get',
-    'tell', 'me', 'show', 'said', 'say', 'mentioned', 'discussed', 'talk',
-    'talked', 'did', 'they', 'their', 'them', 'how', 'much', 'many',
+    'the',
+    'a',
+    'an',
+    'is',
+    'are',
+    'was',
+    'were',
+    'be',
+    'been',
+    'being',
+    'have',
+    'has',
+    'had',
+    'do',
+    'does',
+    'did',
+    'will',
+    'would',
+    'could',
+    'should',
+    'may',
+    'might',
+    'can',
+    'shall',
+    'about',
+    'what',
+    'when',
+    'where',
+    'who',
+    'which',
+    'that',
+    'this',
+    'these',
+    'those',
+    'with',
+    'from',
+    'for',
+    'and',
+    'but',
+    'or',
+    'not',
+    'in',
+    'on',
+    'at',
+    'to',
+    'by',
+    'of',
+    'any',
+    'all',
+    'some',
+    'find',
+    'search',
+    'look',
+    'get',
+    'tell',
+    'me',
+    'show',
+    'said',
+    'say',
+    'mentioned',
+    'discussed',
+    'talk',
+    'talked',
+    'did',
+    'they',
+    'their',
+    'them',
+    'how',
+    'much',
+    'many',
   ]);
 
   return query
     .toLowerCase()
     .replace(/[^\w\s-]/g, '')
     .split(/\s+/)
-    .filter(w => w.length > 2 && !stopwords.has(w));
+    .filter((w) => w.length > 2 && !stopwords.has(w));
 }

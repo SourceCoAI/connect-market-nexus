@@ -7,7 +7,10 @@
  * 3. Input validation utilities
  */
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  createClient as _createClient,
+  SupabaseClient,
+} from 'https://esm.sh/@supabase/supabase-js@2';
 
 // ============= RATE LIMITING =============
 
@@ -53,11 +56,12 @@ export async function checkRateLimit(
   supabase: SupabaseClient,
   identifier: string,
   action: string,
-  isAdmin: boolean = false
+  isAdmin: boolean = false,
 ): Promise<RateLimitResult> {
   // Get config for this action
   const actionKey = isAdmin ? `admin_${action}` : action;
-  const config = AI_RATE_LIMITS[actionKey] || AI_RATE_LIMITS[action] || { limit: 10, windowMinutes: 60 };
+  const config = AI_RATE_LIMITS[actionKey] ||
+    AI_RATE_LIMITS[action] || { limit: 10, windowMinutes: 60 };
 
   const windowStart = new Date(Date.now() - config.windowMinutes * 60 * 1000).toISOString();
   const resetTime = new Date(Date.now() + config.windowMinutes * 60 * 1000).toISOString();
@@ -75,7 +79,13 @@ export async function checkRateLimit(
       console.error('Rate limit check error:', error);
       // N12 FIX: Fail CLOSED on database errors to prevent unlimited AI cost exposure.
       // Under DB pressure, fail-open would remove all rate limiting protection.
-      return { allowed: false, remaining: 0, resetTime, currentCount: config.limit, limit: config.limit };
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime,
+        currentCount: config.limit,
+        limit: config.limit,
+      };
     }
 
     const currentCount = attempts?.length || 0;
@@ -83,34 +93,32 @@ export async function checkRateLimit(
 
     if (allowed) {
       // Record this attempt
-      await supabase
-        .from('user_activity')
-        .insert({
-          user_id: identifier,
-          activity_type: `rate_limit_${action}`,
-          metadata: {
-            action,
-            window_minutes: config.windowMinutes,
-            limit: config.limit,
-            attempt_count: currentCount + 1,
-            timestamp: new Date().toISOString()
-          }
-        });
+      await supabase.from('user_activity').insert({
+        user_id: identifier,
+        activity_type: `rate_limit_${action}`,
+        metadata: {
+          action,
+          window_minutes: config.windowMinutes,
+          limit: config.limit,
+          attempt_count: currentCount + 1,
+          timestamp: new Date().toISOString(),
+        },
+      });
     } else {
       // Log the violation
-      console.warn(`Rate limit exceeded: ${identifier} - ${action} (${currentCount}/${config.limit})`);
-      await supabase
-        .from('user_activity')
-        .insert({
-          user_id: identifier,
-          activity_type: 'rate_limit_violation',
-          metadata: {
-            action,
-            current_count: currentCount,
-            limit: config.limit,
-            timestamp: new Date().toISOString()
-          }
-        });
+      console.warn(
+        `Rate limit exceeded: ${identifier} - ${action} (${currentCount}/${config.limit})`,
+      );
+      await supabase.from('user_activity').insert({
+        user_id: identifier,
+        activity_type: 'rate_limit_violation',
+        metadata: {
+          action,
+          current_count: currentCount,
+          limit: config.limit,
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
 
     return {
@@ -118,12 +126,18 @@ export async function checkRateLimit(
       remaining: Math.max(0, config.limit - currentCount - (allowed ? 1 : 0)),
       resetTime,
       currentCount: currentCount + (allowed ? 1 : 0),
-      limit: config.limit
+      limit: config.limit,
     };
   } catch (error) {
     console.error('Rate limit error:', error);
     // N12 FIX: Fail CLOSED on all errors to prevent unlimited AI cost exposure
-    return { allowed: false, remaining: 0, resetTime, currentCount: config.limit, limit: config.limit };
+    return {
+      allowed: false,
+      remaining: 0,
+      resetTime,
+      currentCount: config.limit,
+      limit: config.limit,
+    };
   }
 }
 
@@ -132,7 +146,7 @@ export async function checkRateLimit(
  */
 export async function checkGlobalRateLimit(
   supabase: SupabaseClient,
-  action: string = 'global_ai_calls'
+  action: string = 'global_ai_calls',
 ): Promise<RateLimitResult> {
   const config = AI_RATE_LIMITS[action] || { limit: 1000, windowMinutes: 60 };
   const windowStart = new Date(Date.now() - config.windowMinutes * 60 * 1000).toISOString();
@@ -148,14 +162,22 @@ export async function checkGlobalRateLimit(
     if (error) {
       console.error('Global rate limit check error:', error);
       // N12 FIX: Fail CLOSED on DB errors to prevent unlimited AI cost exposure
-      return { allowed: false, remaining: 0, resetTime, currentCount: config.limit, limit: config.limit };
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime,
+        currentCount: config.limit,
+        limit: config.limit,
+      };
     }
 
     const currentCount = count || 0;
     const allowed = currentCount < config.limit;
 
     if (!allowed) {
-      console.error(`GLOBAL RATE LIMIT EXCEEDED: ${currentCount}/${config.limit} AI calls in the last hour`);
+      console.error(
+        `GLOBAL RATE LIMIT EXCEEDED: ${currentCount}/${config.limit} AI calls in the last hour`,
+      );
     }
 
     return {
@@ -163,12 +185,18 @@ export async function checkGlobalRateLimit(
       remaining: Math.max(0, config.limit - currentCount),
       resetTime,
       currentCount,
-      limit: config.limit
+      limit: config.limit,
     };
   } catch (error) {
     console.error('Global rate limit error:', error);
     // N12 FIX: Fail CLOSED on all errors
-    return { allowed: false, remaining: 0, resetTime, currentCount: config.limit, limit: config.limit };
+    return {
+      allowed: false,
+      remaining: 0,
+      resetTime,
+      currentCount: config.limit,
+      limit: config.limit,
+    };
   }
 }
 
@@ -176,23 +204,23 @@ export async function checkGlobalRateLimit(
 
 // Private IP ranges (RFC 1918) and special addresses to block
 const BLOCKED_IP_PATTERNS = [
-  /^10\./,                              // 10.0.0.0/8
-  /^192\.168\./,                        // 192.168.0.0/16
-  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,    // 172.16.0.0/12
-  /^127\./,                             // Loopback
-  /^0\./,                               // "This" network
-  /^169\.254\./,                        // Link-local / AWS metadata
-  /^224\./,                             // Multicast
-  /^255\./,                             // Broadcast
-  /^fc00:/i,                            // IPv6 private
-  /^fd00:/i,                            // IPv6 private
-  /^fe80:/i,                            // IPv6 link-local
-  /^::1$/i,                             // IPv6 loopback
-  /^localhost$/i,                       // Localhost hostname
-  /^.*\.local$/i,                       // Local domains
-  /^.*\.internal$/i,                    // Internal domains
-  /^.*\.corp$/i,                        // Corporate domains
-  /^.*\.lan$/i,                         // LAN domains
+  /^10\./, // 10.0.0.0/8
+  /^192\.168\./, // 192.168.0.0/16
+  /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // 172.16.0.0/12
+  /^127\./, // Loopback
+  /^0\./, // "This" network
+  /^169\.254\./, // Link-local / AWS metadata
+  /^224\./, // Multicast
+  /^255\./, // Broadcast
+  /^fc00:/i, // IPv6 private
+  /^fd00:/i, // IPv6 private
+  /^fe80:/i, // IPv6 link-local
+  /^::1$/i, // IPv6 loopback
+  /^localhost$/i, // Localhost hostname
+  /^.*\.local$/i, // Local domains
+  /^.*\.internal$/i, // Internal domains
+  /^.*\.corp$/i, // Corporate domains
+  /^.*\.lan$/i, // LAN domains
 ];
 
 // Blocked hostnames (cloud metadata endpoints, etc.)
@@ -200,9 +228,9 @@ const BLOCKED_HOSTNAMES = [
   'metadata.google.internal',
   'metadata.google.com',
   'metadata',
-  '169.254.169.254',                    // AWS/GCP metadata
-  '169.254.170.2',                      // AWS ECS metadata
-  'fd00:ec2::254',                      // AWS EC2 IPv6 metadata
+  '169.254.169.254', // AWS/GCP metadata
+  '169.254.170.2', // AWS ECS metadata
+  'fd00:ec2::254', // AWS EC2 IPv6 metadata
   'instance-data',
   'kubernetes.default',
   'kubernetes.default.svc',
@@ -212,7 +240,11 @@ const BLOCKED_HOSTNAMES = [
  * Validate a URL is safe to fetch (SSRF protection)
  * Returns { valid: true } if safe, { valid: false, reason: string } if unsafe
  */
-export function validateUrl(url: string): { valid: boolean; reason?: string; normalizedUrl?: string } {
+export function validateUrl(url: string): {
+  valid: boolean;
+  reason?: string;
+  normalizedUrl?: string;
+} {
   try {
     // Clean and normalize the URL
     let normalizedUrl = url.trim();
@@ -226,7 +258,10 @@ export function validateUrl(url: string): { valid: boolean; reason?: string; nor
 
     // Only allow http and https protocols
     if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return { valid: false, reason: `Invalid protocol: ${parsed.protocol}. Only HTTP(S) allowed.` };
+      return {
+        valid: false,
+        reason: `Invalid protocol: ${parsed.protocol}. Only HTTP(S) allowed.`,
+      };
     }
 
     const hostname = parsed.hostname.toLowerCase();
@@ -249,7 +284,7 @@ export function validateUrl(url: string): { valid: boolean; reason?: string; nor
     }
 
     // Block URLs with non-standard ports that might be internal services
-    const port = parsed.port ? parseInt(parsed.port) : (parsed.protocol === 'https:' ? 443 : 80);
+    const port = parsed.port ? parseInt(parsed.port) : parsed.protocol === 'https:' ? 443 : 80;
     const allowedPorts = [80, 443, 8080, 8443];
     if (!allowedPorts.includes(port)) {
       return { valid: false, reason: `Non-standard port not allowed: ${port}` };
@@ -263,14 +298,20 @@ export function validateUrl(url: string): { valid: boolean; reason?: string; nor
 
     return { valid: true, normalizedUrl };
   } catch (error) {
-    return { valid: false, reason: `Invalid URL format: ${error instanceof Error ? error.message : 'unknown error'}` };
+    return {
+      valid: false,
+      reason: `Invalid URL format: ${error instanceof Error ? error.message : 'unknown error'}`,
+    };
   }
 }
 
 /**
  * Validate multiple URLs, return only valid ones
  */
-export function validateUrls(urls: string[]): { valid: string[]; invalid: Array<{ url: string; reason: string }> } {
+export function validateUrls(urls: string[]): {
+  valid: string[];
+  invalid: Array<{ url: string; reason: string }>;
+} {
   const valid: string[] = [];
   const invalid: Array<{ url: string; reason: string }> = [];
 
@@ -310,12 +351,16 @@ export function sanitizeString(value: string, maxLength: number = 10000): string
 /**
  * Validate and sanitize an array of strings
  */
-export function sanitizeStringArray(arr: unknown, maxItems: number = 100, maxItemLength: number = 1000): string[] {
+export function sanitizeStringArray(
+  arr: unknown,
+  maxItems: number = 100,
+  maxItemLength: number = 1000,
+): string[] {
   if (!Array.isArray(arr)) return [];
   return arr
     .filter((item): item is string => typeof item === 'string')
     .slice(0, maxItems)
-    .map(item => sanitizeString(item, maxItemLength));
+    .map((item) => sanitizeString(item, maxItemLength));
 }
 
 // ============= RESPONSE HELPERS =============
@@ -323,7 +368,10 @@ export function sanitizeStringArray(arr: unknown, maxItems: number = 100, maxIte
 /**
  * Create a rate limit exceeded response
  */
-export function rateLimitResponse(result: RateLimitResult, corsHeaders: Record<string, string>): Response {
+export function rateLimitResponse(
+  result: RateLimitResult,
+  corsHeaders: Record<string, string>,
+): Response {
   return new Response(
     JSON.stringify({
       error: 'Rate limit exceeded',
@@ -342,7 +390,7 @@ export function rateLimitResponse(result: RateLimitResult, corsHeaders: Record<s
         'X-RateLimit-Reset': result.resetTime,
         'Retry-After': '60',
       },
-    }
+    },
   );
 }
 
@@ -362,6 +410,6 @@ export function ssrfErrorResponse(reason: string, corsHeaders: Record<string, st
         ...corsHeaders,
         'Content-Type': 'application/json',
       },
-    }
+    },
   );
 }

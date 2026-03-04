@@ -24,15 +24,15 @@
  * LAST UPDATED: 2026-02-26
  * AUDIT REF: CTO Audit February 2026
  */
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { normalizeStates, mergeStates } from "../_shared/geography.ts";
-import { buildPriorityUpdates, updateExtractionSources } from "../_shared/source-priority.ts";
-import { GEMINI_API_URL, getGeminiHeaders, DEFAULT_GEMINI_MODEL } from "../_shared/ai-providers.ts";
-import { checkProviderAvailability, reportRateLimit } from "../_shared/rate-limiter.ts";
-import { logAICallCost } from "../_shared/cost-tracker.ts";
-import { logEnrichmentEvent } from "../_shared/enrichment-events.ts";
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { normalizeStates, mergeStates } from '../_shared/geography.ts';
+import { buildPriorityUpdates, updateExtractionSources } from '../_shared/source-priority.ts';
+import { GEMINI_API_URL, getGeminiHeaders, DEFAULT_GEMINI_MODEL } from '../_shared/ai-providers.ts';
+import { checkProviderAvailability, reportRateLimit } from '../_shared/rate-limiter.ts';
+import { logAICallCost } from '../_shared/cost-tracker.ts';
+import { logEnrichmentEvent } from '../_shared/enrichment-events.ts';
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import {
   // Configuration
   DEAL_AI_TIMEOUT_MS,
@@ -49,9 +49,9 @@ import {
 // Shared enrichment pipeline utilities
 import { getErrorMessage } from "../_shared/enrichment/pipeline.ts";
 // Sub-modules extracted from this file
-import { applyExistingTranscriptData, processNewTranscripts } from "./transcript-processor.ts";
-import { resolveWebsiteUrl, validateWebsiteUrl, scrapeWebsite } from "./website-scraper.ts";
-import { enrichLinkedIn, enrichGoogleReviews } from "./external-enrichment.ts";
+import { applyExistingTranscriptData, processNewTranscripts } from './transcript-processor.ts';
+import { resolveWebsiteUrl, validateWebsiteUrl, scrapeWebsite } from './website-scraper.ts';
+import { enrichLinkedIn, enrichGoogleReviews } from './external-enrichment.ts';
 
 // Financial confidence levels per spec
 interface DealTranscriptRow {
@@ -68,7 +68,7 @@ interface DealTranscriptRow {
 
 type FinancialConfidence = 'high' | 'medium' | 'low';
 
-interface ExtractedFinancial {
+interface _ExtractedFinancial {
   value?: number;
   confidence: FinancialConfidence;
   is_inferred?: boolean;
@@ -95,7 +95,9 @@ async function inferIndustryFromContext(
     deal.services && `Services: ${String(deal.services).substring(0, 200)}`,
     deal.category && `Category: ${deal.category}`,
     deal.description && `Description: ${String(deal.description).substring(0, 200)}`,
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   if (!context || context.length < 10) return null;
 
@@ -106,7 +108,11 @@ async function inferIndustryFromContext(
       body: JSON.stringify({
         model: DEFAULT_GEMINI_MODEL,
         messages: [
-          { role: 'system', content: 'You classify businesses into concise industry labels. Return ONLY the industry label, nothing else. Be specific but concise (2-4 words). Examples: "HVAC Services", "Commercial Plumbing", "IT Managed Services", "Environmental Remediation", "Healthcare Staffing".' },
+          {
+            role: 'system',
+            content:
+              'You classify businesses into concise industry labels. Return ONLY the industry label, nothing else. Be specific but concise (2-4 words). Examples: "HVAC Services", "Commercial Plumbing", "IT Managed Services", "Environmental Remediation", "Healthcare Staffing".',
+          },
           { role: 'user', content: `Classify this business:\n${context}` },
         ],
         max_tokens: 20,
@@ -120,7 +126,10 @@ async function inferIndustryFromContext(
     const data = await response.json();
     const industry = data.choices?.[0]?.message?.content?.trim();
     if (industry && industry.length > 1 && industry.length < 60) {
-      const { error: industryError } = await supabase.from('listings').update({ industry }).eq('id', dealId);
+      const { error: industryError } = await supabase
+        .from('listings')
+        .update({ industry })
+        .eq('id', dealId);
       if (industryError) {
         console.error(`[inferIndustry] Failed to set industry for deal ${dealId}:`, industryError);
       } else {
@@ -150,7 +159,7 @@ serve(async (req) => {
       console.error('SUPABASE_ANON_KEY is not set — internal function calls will fail');
       return new Response(
         JSON.stringify({ error: 'Server configuration error: SUPABASE_ANON_KEY not set' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
     const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
@@ -161,10 +170,10 @@ serve(async (req) => {
     const { dealId, forceReExtract = false, skipExternalEnrichment = false } = await req.json();
 
     if (!dealId) {
-      return new Response(
-        JSON.stringify({ error: 'Missing dealId' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Missing dealId' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (!geminiApiKey) {
@@ -172,9 +181,10 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'GEMINI_API_KEY is not configured. Please add it to Supabase Edge Function secrets.',
+          error:
+            'GEMINI_API_KEY is not configured. Please add it to Supabase Edge Function secrets.',
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -188,10 +198,10 @@ serve(async (req) => {
       .single();
 
     if (dealError || !deal) {
-      return new Response(
-        JSON.stringify({ error: 'Deal not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Deal not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // ========================================================================
@@ -199,12 +209,14 @@ serve(async (req) => {
     // ========================================================================
     const { data: allTranscripts, error: transcriptsError } = await supabase
       .from('deal_transcripts')
-      .select('id, title, transcript_text, processed_at, extracted_data, applied_to_deal, source, fireflies_transcript_id, transcript_url')
+      .select(
+        'id, title, transcript_text, processed_at, extracted_data, applied_to_deal, source, fireflies_transcript_id, transcript_url',
+      )
       .eq('listing_id', dealId)
       .order('created_at', { ascending: false });
 
     let transcriptsProcessed = 0;
-    let transcriptsAppliedFromExisting = 0;
+    let _transcriptsAppliedFromExisting = 0;
     const transcriptErrors: string[] = [];
     const transcriptFieldNames: string[] = [];
 
@@ -240,16 +252,22 @@ serve(async (req) => {
 
     // 0A) Apply existing extracted_data from previously-processed transcripts
     if (!transcriptsError && allTranscripts && allTranscripts.length > 0) {
-      const transcriptsWithExtracted = allTranscripts.filter((t: DealTranscriptRow) => t.extracted_data && typeof t.extracted_data === 'object');
+      const transcriptsWithExtracted = allTranscripts.filter(
+        (t: DealTranscriptRow) => t.extracted_data && typeof t.extracted_data === 'object',
+      );
 
       if (transcriptsWithExtracted.length > 0) {
         const existingResult = await applyExistingTranscriptData(
-          supabase, deal, dealId, transcriptsWithExtracted, forceReExtract,
+          supabase,
+          deal,
+          dealId,
+          transcriptsWithExtracted,
+          forceReExtract,
         );
         transcriptReport.appliedFromExisting = existingResult.appliedFieldCount;
         transcriptReport.appliedFromExistingTranscripts = existingResult.appliedTranscriptCount;
         transcriptFieldNames.push(...existingResult.fieldNames);
-        transcriptsAppliedFromExisting = existingResult.appliedTranscriptCount;
+        _transcriptsAppliedFromExisting = existingResult.appliedTranscriptCount;
       }
     }
 
@@ -258,12 +276,16 @@ serve(async (req) => {
 
     if (!transcriptsError && allTranscripts && allTranscripts.length > 0) {
       if (forceReExtract) {
-        console.log(`[Transcripts] forceReExtract=true: Re-processing ALL ${allTranscripts.length} transcripts with new prompts`);
+        console.log(
+          `[Transcripts] forceReExtract=true: Re-processing ALL ${allTranscripts.length} transcripts with new prompts`,
+        );
         needsExtraction = allTranscripts;
 
         const allTranscriptIds = allTranscripts.map((t: DealTranscriptRow) => t.id);
         if (allTranscriptIds.length > 0) {
-          console.log(`[Transcripts] Clearing extracted_data for ${allTranscriptIds.length} transcripts`);
+          console.log(
+            `[Transcripts] Clearing extracted_data for ${allTranscriptIds.length} transcripts`,
+          );
           const { error: clearError } = await supabase
             .from('deal_transcripts')
             .update({ processed_at: null, extracted_data: null, applied_to_deal: false })
@@ -274,18 +296,28 @@ serve(async (req) => {
         }
       } else {
         needsExtraction = allTranscripts.filter((t: DealTranscriptRow) => {
-          const hasExtracted = t.extracted_data && typeof t.extracted_data === 'object' && Object.keys(t.extracted_data).length > 0;
+          const hasExtracted =
+            t.extracted_data &&
+            typeof t.extracted_data === 'object' &&
+            Object.keys(t.extracted_data).length > 0;
           if (hasExtracted) return false;
           return true;
         });
       }
     }
 
-    console.log(`[Transcripts] Total: ${allTranscripts?.length || 0}, Need extraction: ${needsExtraction.length}, Already extracted: ${(allTranscripts?.length || 0) - needsExtraction.length}, forceReExtract: ${forceReExtract}`);
+    console.log(
+      `[Transcripts] Total: ${allTranscripts?.length || 0}, Need extraction: ${needsExtraction.length}, Already extracted: ${(allTranscripts?.length || 0) - needsExtraction.length}, forceReExtract: ${forceReExtract}`,
+    );
 
     if (needsExtraction.length > 0) {
       const newResult = await processNewTranscripts(
-        supabase, deal, needsExtraction, supabaseUrl, supabaseServiceKey, supabaseAnonKey!,
+        supabase,
+        deal,
+        needsExtraction,
+        supabaseUrl,
+        supabaseServiceKey,
+        supabaseAnonKey!,
       );
       transcriptsProcessed = newResult.processed;
       transcriptErrors.push(...newResult.errors);
@@ -299,7 +331,8 @@ serve(async (req) => {
         transcriptFieldNames.push(...newResult.fieldNames);
       }
 
-      transcriptReport.processed = transcriptsProcessed + (transcriptReport.appliedFromExistingTranscripts || 0);
+      transcriptReport.processed =
+        transcriptsProcessed + (transcriptReport.appliedFromExistingTranscripts || 0);
       transcriptReport.processedThisRun = transcriptsProcessed;
       transcriptReport.errors = transcriptErrors;
     } else {
@@ -327,29 +360,35 @@ serve(async (req) => {
       transcriptReport.appliedFromExisting === 0
     ) {
       const allHaveExtracted = allTranscripts?.every(
-        (t: DealTranscriptRow) => t.extracted_data && typeof t.extracted_data === 'object' && Object.keys(t.extracted_data as Record<string, unknown>).length > 0
+        (t: DealTranscriptRow) =>
+          t.extracted_data &&
+          typeof t.extracted_data === 'object' &&
+          Object.keys(t.extracted_data as Record<string, unknown>).length > 0,
       );
 
       if (allHaveExtracted) {
-        console.log('[Transcripts] All transcripts already have extracted_data from prior runs. Continuing to website scraping.');
+        console.log(
+          '[Transcripts] All transcripts already have extracted_data from prior runs. Continuing to website scraping.',
+        );
       } else {
-        const reason = needsExtraction.length === 0
-          ? 'All transcripts marked as processed but none have extracted_data.'
-          : transcriptErrors.length > 0
-            ? `All ${transcriptReport.processable} transcript extractions failed: ${transcriptErrors.slice(0, 3).join('; ')}`
-            : 'No transcripts had sufficient text content (>= 100 chars)';
-        console.warn(`[Transcripts] GUARDRAIL (non-fatal): ${reason}. Falling back to website-only enrichment.`);
+        const reason =
+          needsExtraction.length === 0
+            ? 'All transcripts marked as processed but none have extracted_data.'
+            : transcriptErrors.length > 0
+              ? `All ${transcriptReport.processable} transcript extractions failed: ${transcriptErrors.slice(0, 3).join('; ')}`
+              : 'No transcripts had sufficient text content (>= 100 chars)';
+        console.warn(
+          `[Transcripts] GUARDRAIL (non-fatal): ${reason}. Falling back to website-only enrichment.`,
+        );
       }
     }
 
     // ========================================================================
     // STEP 0.5: NOTES ANALYSIS (medium priority — between transcripts and website)
     // ========================================================================
-    const notesContent = [
-      deal.general_notes,
-      deal.owner_notes,
-      deal.internal_notes,
-    ].filter(Boolean).join('\n\n');
+    const notesContent = [deal.general_notes, deal.owner_notes, deal.internal_notes]
+      .filter(Boolean)
+      .join('\n\n');
 
     let notesFieldsUpdated: string[] = [];
     if (notesContent.length >= 20) {
@@ -359,7 +398,7 @@ serve(async (req) => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
+            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({ dealId, notesText: notesContent }),
           signal: AbortSignal.timeout(120000), // 2 min timeout for notes analysis
@@ -368,10 +407,15 @@ serve(async (req) => {
         if (notesResponse.ok) {
           const notesResult = await notesResponse.json();
           notesFieldsUpdated = notesResult.fieldsUpdated || [];
-          console.log(`[Notes] Analysis complete: ${notesFieldsUpdated.length} fields updated:`, notesFieldsUpdated);
+          console.log(
+            `[Notes] Analysis complete: ${notesFieldsUpdated.length} fields updated:`,
+            notesFieldsUpdated,
+          );
         } else {
           const errText = await notesResponse.text().catch(() => `HTTP ${notesResponse.status}`);
-          console.warn(`[Notes] Analysis failed (non-fatal): ${notesResponse.status} - ${errText.substring(0, 200)}`);
+          console.warn(
+            `[Notes] Analysis failed (non-fatal): ${notesResponse.status} - ${errText.substring(0, 200)}`,
+          );
         }
       } catch (notesErr) {
         console.warn('[Notes] Analysis error (non-fatal):', getErrorMessage(notesErr));
@@ -405,10 +449,18 @@ serve(async (req) => {
       const transcriptFieldsApplied = transcriptReport.appliedFromExisting + transcriptsProcessed;
       const allNonWebFields = [...new Set([...transcriptFieldNames, ...notesFieldsUpdated])];
       if (transcriptFieldsApplied > 0 || notesFieldsUpdated.length > 0) {
-        const { error: markEnrichedErr } = await supabase.from('listings').update({ enriched_at: new Date().toISOString() }).eq('id', dealId);
-        if (markEnrichedErr) console.error(`[enrich-deal] Failed to mark deal ${dealId} as enriched:`, markEnrichedErr);
+        const { error: markEnrichedErr } = await supabase
+          .from('listings')
+          .update({ enriched_at: new Date().toISOString() })
+          .eq('id', dealId);
+        if (markEnrichedErr)
+          console.error(
+            `[enrich-deal] Failed to mark deal ${dealId} as enriched:`,
+            markEnrichedErr,
+          );
         const parts = [];
-        if (transcriptFieldsApplied > 0) parts.push(`${transcriptReport.appliedFromExisting} from transcripts`);
+        if (transcriptFieldsApplied > 0)
+          parts.push(`${transcriptReport.appliedFromExisting} from transcripts`);
         if (notesFieldsUpdated.length > 0) parts.push(`${notesFieldsUpdated.length} from notes`);
         return new Response(
           JSON.stringify({
@@ -418,14 +470,22 @@ serve(async (req) => {
             transcriptReport,
             notesFieldsUpdated,
           }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
-      const { error: markEnrichedErr2 } = await supabase.from('listings').update({ enriched_at: new Date().toISOString() }).eq('id', dealId);
-      if (markEnrichedErr2) console.error(`[enrich-deal] Failed to mark deal ${dealId} as enriched:`, markEnrichedErr2);
+      const { error: markEnrichedErr2 } = await supabase
+        .from('listings')
+        .update({ enriched_at: new Date().toISOString() })
+        .eq('id', dealId);
+      if (markEnrichedErr2)
+        console.error(`[enrich-deal] Failed to mark deal ${dealId} as enriched:`, markEnrichedErr2);
       return new Response(
-        JSON.stringify({ success: true, message: 'No website URL found. Deal marked as enriched with limited data.', fieldsUpdated: [] }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: true,
+          message: 'No website URL found. Deal marked as enriched with limited data.',
+          fieldsUpdated: [],
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -441,12 +501,15 @@ serve(async (req) => {
             fieldsUpdated: transcriptFieldNames,
             transcriptReport,
           }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
       return new Response(
-        JSON.stringify({ success: false, error: `Invalid URL: ${websiteUrl} (${urlValidation.reason || 'blocked by security policy'})` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: false,
+          error: `Invalid URL: ${websiteUrl} (${urlValidation.reason || 'blocked by security policy'})`,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
     websiteUrl = urlValidation.normalizedUrl || websiteUrl;
@@ -463,12 +526,15 @@ serve(async (req) => {
             fieldsUpdated: transcriptFieldNames,
             transcriptReport,
           }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
       return new Response(
-        JSON.stringify({ success: false, error: 'Firecrawl API key not configured. Please enable the Firecrawl connector.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: false,
+          error: 'Firecrawl API key not configured. Please enable the Firecrawl connector.',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -486,17 +552,22 @@ serve(async (req) => {
             fieldsUpdated: transcriptFieldNames,
             transcriptReport,
           }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
       return new Response(
-        JSON.stringify({ error: `Invalid website URL: "${websiteUrl}". Please fix the URL on this deal.` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error: `Invalid website URL: "${websiteUrl}". Please fix the URL on this deal.`,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     // Scrape website using shared helper
-    const { scrapedPages, successfulScrapes, websiteContent } = await scrapeWebsite(websiteUrl, firecrawlApiKey!);
+    const { scrapedPages, successfulScrapes, websiteContent } = await scrapeWebsite(
+      websiteUrl,
+      firecrawlApiKey!,
+    );
 
     if (!scrapedPages[0]?.success) {
       console.warn('Failed to scrape homepage — marking as enriched with limited data');
@@ -505,32 +576,36 @@ serve(async (req) => {
         .from('listings')
         .update({ enriched_at: new Date().toISOString() })
         .eq('id', dealId);
-      if (markEnrichedErr3) console.error(`[enrich-deal] Failed to mark deal ${dealId} as enriched:`, markEnrichedErr3);
+      if (markEnrichedErr3)
+        console.error(`[enrich-deal] Failed to mark deal ${dealId} as enriched:`, markEnrichedErr3);
       const transcriptFieldsApplied = transcriptReport.appliedFromExisting + transcriptsProcessed;
       const nonWebFields = [...new Set([...transcriptFieldNames, ...notesFieldsUpdated])];
       return new Response(
         JSON.stringify({
           success: true,
-          message: (transcriptFieldsApplied > 0 || notesFieldsUpdated.length > 0)
-            ? `Enrichment completed (${transcriptFieldsApplied} from transcripts, ${notesFieldsUpdated.length} from notes). Website scraping failed: could not reach homepage.`
-            : 'Website could not be scraped (site may be down or blocking). Deal marked as enriched with limited data.',
+          message:
+            transcriptFieldsApplied > 0 || notesFieldsUpdated.length > 0
+              ? `Enrichment completed (${transcriptFieldsApplied} from transcripts, ${notesFieldsUpdated.length} from notes). Website scraping failed: could not reach homepage.`
+              : 'Website could not be scraped (site may be down or blocking). Deal marked as enriched with limited data.',
           fieldsUpdated: nonWebFields,
           transcriptReport,
           notesFieldsUpdated,
           warning: 'website_scrape_failed',
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    const scrapedPagesSummary = scrapedPages.map(p => ({
+    const scrapedPagesSummary = scrapedPages.map((p) => ({
       url: p.url,
       success: p.success,
-      chars: p.content.length
+      chars: p.content.length,
     }));
 
     if (!websiteContent || websiteContent.length < DEAL_MIN_CONTENT_LENGTH) {
-      console.log(`Insufficient website content scraped: ${websiteContent.length} chars (need ${DEAL_MIN_CONTENT_LENGTH}+)`);
+      console.log(
+        `Insufficient website content scraped: ${websiteContent.length} chars (need ${DEAL_MIN_CONTENT_LENGTH}+)`,
+      );
       const transcriptFieldsApplied = transcriptReport.appliedFromExisting + transcriptsProcessed;
       if (transcriptFieldsApplied > 0) {
         return new Response(
@@ -540,12 +615,15 @@ serve(async (req) => {
             fieldsUpdated: transcriptFieldNames,
             transcriptReport,
           }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
       return new Response(
-        JSON.stringify({ success: false, error: `Could not extract sufficient content from website (${websiteContent.length} chars, need ${DEAL_MIN_CONTENT_LENGTH}+)` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: false,
+          error: `Could not extract sufficient content from website (${websiteContent.length} chars, need ${DEAL_MIN_CONTENT_LENGTH}+)`,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -571,9 +649,9 @@ serve(async (req) => {
         JSON.stringify({
           success: true,
           message: 'Basic enrichment completed (AI not configured)',
-          fieldsUpdated: Object.keys(updates).filter(k => k !== 'enriched_at'),
+          fieldsUpdated: Object.keys(updates).filter((k) => k !== 'enriched_at'),
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -595,8 +673,10 @@ serve(async (req) => {
         const availability = await checkProviderAvailability(supabase, 'gemini');
         if (!availability.ok && availability.retryAfterMs) {
           const waitMs = Math.min(availability.retryAfterMs, 30000);
-          console.log(`[enrich-deal] Gemini in cooldown, waiting ${waitMs}ms before attempt ${attempt + 1}`);
-          await new Promise(r => setTimeout(r, waitMs));
+          console.log(
+            `[enrich-deal] Gemini in cooldown, waiting ${waitMs}ms before attempt ${attempt + 1}`,
+          );
+          await new Promise((r) => setTimeout(r, waitMs));
         }
 
         aiResponse = await fetch(GEMINI_API_URL, {
@@ -606,10 +686,10 @@ serve(async (req) => {
             model: DEFAULT_GEMINI_MODEL,
             messages: [
               { role: 'system', content: DEAL_SYSTEM_PROMPT },
-              { role: 'user', content: userPrompt }
+              { role: 'user', content: userPrompt },
             ],
             tools: [DEAL_TOOL_SCHEMA],
-            tool_choice: { type: 'function', function: { name: 'extract_deal_intelligence' } }
+            tool_choice: { type: 'function', function: { name: 'extract_deal_intelligence' } },
           }),
           signal: AbortSignal.timeout(DEAL_AI_TIMEOUT_MS),
         });
@@ -621,12 +701,16 @@ serve(async (req) => {
             const parsed = parseInt(retryAfterHeader, 10);
             if (!isNaN(parsed)) retryAfterSeconds = parsed;
           }
-          await reportRateLimit(supabase, 'gemini', retryAfterSeconds).catch((err: unknown) => { console.warn('[enrich-deal] Rate limit report failed:', err); });
+          await reportRateLimit(supabase, 'gemini', retryAfterSeconds).catch((err: unknown) => {
+            console.warn('[enrich-deal] Rate limit report failed:', err);
+          });
 
           const waitMs = retryAfterSeconds ? retryAfterSeconds * 1000 : AI_RETRY_DELAYS[attempt];
           const jitter = Math.random() * 1000;
-          console.log(`AI rate limited (429), waiting ${Math.round(waitMs + jitter)}ms (attempt ${attempt + 1}/${MAX_AI_RETRIES})`);
-          await new Promise(r => setTimeout(r, waitMs + jitter));
+          console.log(
+            `AI rate limited (429), waiting ${Math.round(waitMs + jitter)}ms (attempt ${attempt + 1}/${MAX_AI_RETRIES})`,
+          );
+          await new Promise((r) => setTimeout(r, waitMs + jitter));
           continue;
         }
 
@@ -636,23 +720,27 @@ serve(async (req) => {
           lastAiError = await aiResponse.text().catch(() => `HTTP ${aiResponse!.status}`);
           if (attempt < MAX_AI_RETRIES - 1) {
             const waitMs = AI_RETRY_DELAYS[attempt];
-            console.warn(`AI server error (${aiResponse.status}), retrying in ${waitMs}ms (attempt ${attempt + 1}/${MAX_AI_RETRIES})`);
-            await new Promise(r => setTimeout(r, waitMs));
+            console.warn(
+              `AI server error (${aiResponse.status}), retrying in ${waitMs}ms (attempt ${attempt + 1}/${MAX_AI_RETRIES})`,
+            );
+            await new Promise((r) => setTimeout(r, waitMs));
             continue;
           }
-          console.error(`AI server error (${aiResponse.status}) after ${MAX_AI_RETRIES} attempts:`, lastAiError);
+          console.error(
+            `AI server error (${aiResponse.status}) after ${MAX_AI_RETRIES} attempts:`,
+            lastAiError,
+          );
           break;
         }
 
         lastAiError = await aiResponse.text();
         console.error(`AI non-retryable error (${aiResponse.status}):`, lastAiError);
         break;
-
       } catch (err) {
         lastAiError = getErrorMessage(err);
         console.error(`AI call exception (attempt ${attempt + 1}):`, lastAiError);
         if (attempt < MAX_AI_RETRIES - 1) {
-          await new Promise(r => setTimeout(r, AI_RETRY_DELAYS[attempt]));
+          await new Promise((r) => setTimeout(r, AI_RETRY_DELAYS[attempt]));
         }
       }
     }
@@ -666,7 +754,7 @@ serve(async (req) => {
           error: `AI extraction failed: ${errorDetail.substring(0, 300)}`,
           retries: MAX_AI_RETRIES,
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -676,10 +764,20 @@ serve(async (req) => {
     // Cost tracking (non-blocking)
     const geminiUsage = aiData.usage;
     if (geminiUsage) {
-      logAICallCost(supabase, 'enrich-deal', 'gemini', DEFAULT_GEMINI_MODEL,
-        { inputTokens: geminiUsage.prompt_tokens || 0, outputTokens: geminiUsage.completion_tokens || 0 },
-        undefined, { dealId }
-      ).catch((err: unknown) => { console.warn('[enrich-deal] Cost tracking failed:', err); });
+      logAICallCost(
+        supabase,
+        'enrich-deal',
+        'gemini',
+        DEFAULT_GEMINI_MODEL,
+        {
+          inputTokens: geminiUsage.prompt_tokens || 0,
+          outputTokens: geminiUsage.completion_tokens || 0,
+        },
+        undefined,
+        { dealId },
+      ).catch((err: unknown) => {
+        console.warn('[enrich-deal] Cost tracking failed:', err);
+      });
     }
 
     // Parse tool call results
@@ -705,7 +803,9 @@ serve(async (req) => {
 
     // Protect manually-set internal_company_name from AI overwrite
     if (deal.internal_company_name && extracted.internal_company_name) {
-      console.log(`[Enrichment] Preserving existing internal_company_name "${deal.internal_company_name}" (AI suggested: "${extracted.internal_company_name}")`);
+      console.log(
+        `[Enrichment] Preserving existing internal_company_name "${deal.internal_company_name}" (AI suggested: "${extracted.internal_company_name}")`,
+      );
       delete extracted.internal_company_name;
     }
 
@@ -718,8 +818,23 @@ serve(async (req) => {
     // STEP 4: EXTERNAL ENRICHMENT (LinkedIn + Google Reviews)
     // ========================================================================
     if (!skipExternalEnrichment) {
-      await enrichLinkedIn(supabaseUrl, supabaseAnonKey!, supabaseServiceKey, dealId, extracted, deal, websiteUrl);
-      await enrichGoogleReviews(supabaseUrl, supabaseAnonKey!, supabaseServiceKey, dealId, extracted, deal);
+      await enrichLinkedIn(
+        supabaseUrl,
+        supabaseAnonKey!,
+        supabaseServiceKey,
+        dealId,
+        extracted,
+        deal,
+        websiteUrl,
+      );
+      await enrichGoogleReviews(
+        supabaseUrl,
+        supabaseAnonKey!,
+        supabaseServiceKey,
+        dealId,
+        extracted,
+        deal,
+      );
     } else {
       console.log('[enrich-deal] Skipping LinkedIn/Google (handled by pipeline)');
     }
@@ -732,8 +847,8 @@ serve(async (req) => {
       deal.extraction_sources,
       extracted,
       'website',
-      undefined,       // no transcriptId for website source
-      isPlaceholder    // treat "Not discussed on this call." etc. as empty
+      undefined, // no transcriptId for website source
+      isPlaceholder, // treat "Not discussed on this call." etc. as empty
     );
 
     const finalUpdates: Record<string, unknown> = {
@@ -745,14 +860,11 @@ serve(async (req) => {
     if (updates.geographic_states && deal.geographic_states?.length > 0) {
       finalUpdates.geographic_states = mergeStates(
         deal.geographic_states,
-        updates.geographic_states as string[]
+        updates.geographic_states as string[],
       );
     }
 
-    let updateQuery = supabase
-      .from('listings')
-      .update(finalUpdates)
-      .eq('id', dealId);
+    let updateQuery = supabase.from('listings').update(finalUpdates).eq('id', dealId);
 
     if (lockVersion) {
       updateQuery = updateQuery.eq('enriched_at', lockVersion);
@@ -770,12 +882,14 @@ serve(async (req) => {
           error: getErrorMessage(updateError),
           error_code: (updateError as { code?: string })?.code,
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     if (!updateResult || updateResult.length === 0) {
-      console.warn(`Optimistic lock conflict for deal ${dealId} - record was modified by another process`);
+      console.warn(
+        `Optimistic lock conflict for deal ${dealId} - record was modified by another process`,
+      );
       return new Response(
         JSON.stringify({
           success: false,
@@ -783,7 +897,7 @@ serve(async (req) => {
           fieldsUpdated: [],
           error_code: 'concurrent_modification',
         }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -796,7 +910,7 @@ serve(async (req) => {
           { ...deal, ...updates },
           geminiApiKey!,
           supabase,
-          dealId
+          dealId,
         );
         if (inferred) {
           websiteFieldsUpdated.push('industry');
@@ -807,17 +921,26 @@ serve(async (req) => {
       }
     }
 
-    const allFieldsUpdated = [...new Set([...transcriptFieldNames, ...notesFieldsUpdated, ...websiteFieldsUpdated])];
+    const allFieldsUpdated = [
+      ...new Set([...transcriptFieldNames, ...notesFieldsUpdated, ...websiteFieldsUpdated]),
+    ];
     const sourceParts = [];
-    if (transcriptFieldNames.length > 0) sourceParts.push(`${transcriptFieldNames.length} from transcripts`);
+    if (transcriptFieldNames.length > 0)
+      sourceParts.push(`${transcriptFieldNames.length} from transcripts`);
     if (notesFieldsUpdated.length > 0) sourceParts.push(`${notesFieldsUpdated.length} from notes`);
     sourceParts.push(`${websiteFieldsUpdated.length} from website`);
-    console.log(`Updated ${allFieldsUpdated.length} fields (${sourceParts.join(', ')}):`, allFieldsUpdated);
+    console.log(
+      `Updated ${allFieldsUpdated.length} fields (${sourceParts.join(', ')}):`,
+      allFieldsUpdated,
+    );
 
     // Observability: log enrichment outcome (non-blocking)
     logEnrichmentEvent(supabase, {
-      entityType: 'deal', entityId: dealId, provider: 'gemini',
-      functionName: 'enrich-deal', status: 'success',
+      entityType: 'deal',
+      entityId: dealId,
+      provider: 'gemini',
+      functionName: 'enrich-deal',
+      status: 'success',
       fieldsUpdated: allFieldsUpdated.length,
     });
 
@@ -836,9 +959,8 @@ serve(async (req) => {
         transcriptReport,
         notesFieldsUpdated,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
-
   } catch (error) {
     console.error('Error in enrich-deal:', error);
     const message = getErrorMessage(error);
@@ -849,19 +971,28 @@ serve(async (req) => {
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
       if (supabaseUrl && supabaseServiceKey) {
         const errorSupabase = createClient(supabaseUrl, supabaseServiceKey);
-        const status = message.includes('429') || message.includes('rate') ? 'rate_limited'
-          : message.includes('timeout') || message.includes('abort') ? 'timeout'
-          : 'failure';
+        const status =
+          message.includes('429') || message.includes('rate')
+            ? 'rate_limited'
+            : message.includes('timeout') || message.includes('abort')
+              ? 'timeout'
+              : 'failure';
         logEnrichmentEvent(errorSupabase, {
-          entityType: 'deal', entityId: 'unknown', provider: 'gemini',
-          functionName: 'enrich-deal', status, errorMessage: message,
+          entityType: 'deal',
+          entityId: 'unknown',
+          provider: 'gemini',
+          functionName: 'enrich-deal',
+          status,
+          errorMessage: message,
         });
       }
-    } catch { /* swallow — don't let logging break the error response */ }
+    } catch {
+      /* swallow — don't let logging break the error response */
+    }
 
-    return new Response(
-      JSON.stringify({ success: false, error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ success: false, error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

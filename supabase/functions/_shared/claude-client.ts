@@ -18,18 +18,22 @@ export type ModelTier = 'QUICK' | 'STANDARD' | 'DEEP';
 
 export function getModelForTier(tier: ModelTier): string {
   switch (tier) {
-    case 'QUICK': return CLAUDE_MODELS.haiku;
-    case 'STANDARD': return CLAUDE_MODELS.sonnet;
-    case 'DEEP': return CLAUDE_MODELS.opus;
-    default: return CLAUDE_MODELS.sonnet;
+    case 'QUICK':
+      return CLAUDE_MODELS.haiku;
+    case 'STANDARD':
+      return CLAUDE_MODELS.sonnet;
+    case 'DEEP':
+      return CLAUDE_MODELS.opus;
+    default:
+      return CLAUDE_MODELS.sonnet;
   }
 }
 
 // Cost per million tokens (Feb 2026 pricing)
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-  [CLAUDE_MODELS.haiku]:  { input: 1.00, output: 5.00 },
-  [CLAUDE_MODELS.sonnet]: { input: 3.00, output: 15.00 },
-  [CLAUDE_MODELS.opus]:   { input: 15.00, output: 75.00 },
+  [CLAUDE_MODELS.haiku]: { input: 1.0, output: 5.0 },
+  [CLAUDE_MODELS.sonnet]: { input: 3.0, output: 15.0 },
+  [CLAUDE_MODELS.opus]: { input: 15.0, output: 75.0 },
 };
 
 export function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
@@ -96,14 +100,16 @@ export async function callClaude(options: ClaudeCallOptions): Promise<ClaudeResp
       body: JSON.stringify({
         model: options.model,
         max_tokens: options.maxTokens,
-        system: [{ type: 'text', text: options.systemPrompt, cache_control: { type: 'ephemeral' } }],
+        system: [
+          { type: 'text', text: options.systemPrompt, cache_control: { type: 'ephemeral' } },
+        ],
         messages: options.messages,
         tools: options.tools,
         stream: false,
       }),
       signal: AbortSignal.timeout(options.timeoutMs || 30000),
     },
-    { maxRetries: 2, baseDelayMs: 1000, callerName: `Claude/${options.model}` }
+    { maxRetries: 2, baseDelayMs: 1000, callerName: `Claude/${options.model}` },
   );
 
   if (!response.ok) {
@@ -119,13 +125,16 @@ export async function callClaude(options: ClaudeCallOptions): Promise<ClaudeResp
 export interface StreamCallbacks {
   onText: (text: string) => Promise<void>;
   onToolUse: (id: string, name: string, input: Record<string, unknown>) => Promise<void>;
-  onComplete: (usage: { input_tokens: number; output_tokens: number }, stopReason: string) => Promise<void>;
+  onComplete: (
+    usage: { input_tokens: number; output_tokens: number },
+    stopReason: string,
+  ) => Promise<void>;
   onError: (error: Error) => Promise<void>;
 }
 
 export async function streamClaude(
   options: ClaudeCallOptions,
-  callbacks: StreamCallbacks
+  callbacks: StreamCallbacks,
 ): Promise<ClaudeResponse> {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
@@ -143,14 +152,16 @@ export async function streamClaude(
       body: JSON.stringify({
         model: options.model,
         max_tokens: options.maxTokens,
-        system: [{ type: 'text', text: options.systemPrompt, cache_control: { type: 'ephemeral' } }],
+        system: [
+          { type: 'text', text: options.systemPrompt, cache_control: { type: 'ephemeral' } },
+        ],
         messages: options.messages,
         tools: options.tools,
         stream: true,
       }),
       signal: AbortSignal.timeout(options.timeoutMs || 60000),
     },
-    { maxRetries: 1, baseDelayMs: 1000, callerName: `Claude/${options.model}` }
+    { maxRetries: 1, baseDelayMs: 1000, callerName: `Claude/${options.model}` },
   );
 
   if (!response.ok) {
@@ -165,7 +176,7 @@ export async function streamClaude(
   const contentBlocks: ContentBlock[] = [];
   let currentToolUse: { id: string; name: string; inputJson: string } | null = null;
   let fullText = '';
-  let usage = { input_tokens: 0, output_tokens: 0 };
+  const usage = { input_tokens: 0, output_tokens: 0 };
   let stopReason = 'end_turn';
   let buffer = '';
 
@@ -251,7 +262,7 @@ export async function streamClaude(
   await callbacks.onComplete(usage, stopReason);
 
   // Ensure text block is captured if stream ended without content_block_stop for text
-  if (fullText && !contentBlocks.some(b => b.type === 'text')) {
+  if (fullText && !contentBlocks.some((b) => b.type === 'text')) {
     contentBlocks.push({ type: 'text', text: fullText });
   }
 

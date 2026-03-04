@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -64,6 +64,7 @@ export const IntroductionStatusCard = ({
   onOutcomeChange,
   isUpdating,
 }: IntroductionStatusCardProps) => {
+  const location = useLocation();
   const checkboxFields = [
     { key: 'contacted_at', label: 'Contacted', icon: Phone },
     { key: 'nda_sent_at', label: 'NDA Sent', icon: FileText },
@@ -88,8 +89,9 @@ export const IntroductionStatusCard = ({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <Link 
+                <Link
                   to={`/admin/buyers/${buyerId}`}
+                  state={{ from: location.pathname }}
                   className="font-medium hover:underline truncate"
                 >
                   {buyerName}

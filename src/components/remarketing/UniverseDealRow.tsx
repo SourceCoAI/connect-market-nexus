@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -61,6 +61,7 @@ export const UniverseDealRow = ({
   w,
 }: UniverseDealRowProps) => {
   const navigate = useNavigate();
+  const routerLocation = useLocation();
 
   return (
     <TableRow
@@ -69,7 +70,7 @@ export const UniverseDealRow = ({
       onClick={() =>
         navigate(
           `/admin/deals/${deal.listing.id}`,
-          universeId ? { state: { from: `/admin/buyers/universes/${universeId}` } } : undefined,
+          { state: { from: universeId ? `/admin/buyers/universes/${universeId}` : routerLocation.pathname } },
         )
       }
     >

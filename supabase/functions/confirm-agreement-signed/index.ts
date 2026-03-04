@@ -12,7 +12,10 @@ import { sendViaBervo } from '../_shared/brevo-sender.ts';
  * Sends confirmation emails to buyer and admins.
  */
 
-async function resolveFirmId(supabaseAdmin: SupabaseClient, userId: string): Promise<string | null> {
+async function resolveFirmId(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<string | null> {
   const { data: reqFirm } = await supabaseAdmin
     .from('connection_requests')
     .select('firm_id')
@@ -37,7 +40,7 @@ async function resolveFirmId(supabaseAdmin: SupabaseClient, userId: string): Pro
 }
 
 function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 serve(async (req: Request) => {
@@ -85,10 +88,10 @@ serve(async (req: Request) => {
     const firmId = await resolveFirmId(supabaseAdmin, userId);
 
     if (!firmId) {
-      return new Response(
-        JSON.stringify({ error: 'No firm found', confirmed: false }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
+      return new Response(JSON.stringify({ error: 'No firm found', confirmed: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
     console.log(`🔍 Resolved firm ${firmId} for user ${userId} (${docLabel})`);
@@ -103,7 +106,11 @@ serve(async (req: Request) => {
 
     if (!firm) {
       return new Response(
-        JSON.stringify({ error: 'Firm agreement not found', confirmed: false, resolvedFirmId: firmId }),
+        JSON.stringify({
+          error: 'Firm agreement not found',
+          confirmed: false,
+          resolvedFirmId: firmId,
+        }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
@@ -117,7 +124,12 @@ serve(async (req: Request) => {
         .eq('id', firmId)
         .single();
       return new Response(
-        JSON.stringify({ confirmed: true, alreadySigned: true, signedDocumentUrl: docData?.[docUrlCol] || null, resolvedFirmId: firmId }),
+        JSON.stringify({
+          confirmed: true,
+          alreadySigned: true,
+          signedDocumentUrl: docData?.[docUrlCol] || null,
+          resolvedFirmId: firmId,
+        }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
@@ -132,10 +144,10 @@ serve(async (req: Request) => {
 
     const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
     if (!docusealApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'DocuSeal not configured' }),
-        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
+      return new Response(JSON.stringify({ error: 'DocuSeal not configured' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
     // Get buyer's profile for matching and name
@@ -145,11 +157,13 @@ serve(async (req: Request) => {
       .eq('id', userId)
       .single();
 
-    const signerName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Unknown';
+    const signerName =
+      `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Unknown';
 
     // Retry polling: check DocuSeal status with retries (0s, 1.5s, 3s)
     const retryDelays = [0, 1500, 3000];
-    let submitter: { status?: string; documents?: { url?: string }[]; email?: string } | null = null;
+    let submitter: { status?: string; documents?: { url?: string }[]; email?: string } | null =
+      null;
 
     for (const delay of retryDelays) {
       if (delay > 0) await sleep(delay);
@@ -167,11 +181,17 @@ serve(async (req: Request) => {
 
         if (submitterRes.ok) {
           const submitters = await submitterRes.json();
-          const data = Array.isArray(submitters?.data) ? submitters.data : Array.isArray(submitters) ? submitters : [];
+          const data = Array.isArray(submitters?.data)
+            ? submitters.data
+            : Array.isArray(submitters)
+              ? submitters
+              : [];
           submitter = data.find((s: { email?: string }) => s.email === profile?.email) || data[0];
 
           if (submitter?.status === 'completed') {
-            console.log(`✅ DocuSeal confirmed completed on attempt ${retryDelays.indexOf(delay) + 1}`);
+            console.log(
+              `✅ DocuSeal confirmed completed on attempt ${retryDelays.indexOf(delay) + 1}`,
+            );
             break;
           }
         }
@@ -184,7 +204,12 @@ serve(async (req: Request) => {
 
     if (!submitter || submitter.status !== 'completed') {
       return new Response(
-        JSON.stringify({ confirmed: false, status: submitter?.status || 'unknown', resolvedFirmId: firmId, reason: 'DocuSeal not yet confirmed' }),
+        JSON.stringify({
+          confirmed: false,
+          status: submitter?.status || 'unknown',
+          resolvedFirmId: firmId,
+          reason: 'DocuSeal not yet confirmed',
+        }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
@@ -193,7 +218,8 @@ serve(async (req: Request) => {
 
     const now = new Date().toISOString();
     const rawSignedDocUrl = submitter.documents?.[0]?.url || null;
-    const signedDocUrl = rawSignedDocUrl && rawSignedDocUrl.startsWith('https://') ? rawSignedDocUrl : null;
+    const signedDocUrl =
+      rawSignedDocUrl && rawSignedDocUrl.startsWith('https://') ? rawSignedDocUrl : null;
     const firmName = firm.primary_company_name || 'Unknown Firm';
 
     const updates: Record<string, unknown> = { updated_at: now };
@@ -219,23 +245,23 @@ serve(async (req: Request) => {
       }
     }
 
-    await supabaseAdmin
-      .from('firm_agreements')
-      .update(updates)
-      .eq('id', firmId);
+    await supabaseAdmin.from('firm_agreements').update(updates).eq('id', firmId);
 
     // Dedup log
-    await supabaseAdmin.from('docuseal_webhook_log').insert({
-      event_type: 'form.completed',
-      submission_id: String(submissionId),
-      external_id: firmId,
-      raw_payload: { confirmed_by_frontend: userId, document_type: documentType },
-      processed_at: now,
-    }).then(({ error: logErr }: { error: { code?: string; message?: string } | null }) => {
-      if (logErr && logErr.code !== '23505') {
-        console.warn('Failed to write dedup log entry:', logErr);
-      }
-    });
+    await supabaseAdmin
+      .from('docuseal_webhook_log')
+      .insert({
+        event_type: 'form.completed',
+        submission_id: String(submissionId),
+        external_id: firmId,
+        raw_payload: { confirmed_by_frontend: userId, document_type: documentType },
+        processed_at: now,
+      })
+      .then(({ error: logErr }: { error: { code?: string; message?: string } | null }) => {
+        if (logErr && logErr.code !== '23505') {
+          console.warn('Failed to write dedup log entry:', logErr);
+        }
+      });
 
     // Sync to profiles
     const { data: members } = await supabaseAdmin
@@ -249,10 +275,7 @@ serve(async (req: Request) => {
         : { fee_agreement_signed: true, fee_agreement_signed_at: now, updated_at: now };
 
       for (const member of members) {
-        await supabaseAdmin
-          .from('profiles')
-          .update(profileUpdates)
-          .eq('id', member.user_id);
+        await supabaseAdmin.from('profiles').update(profileUpdates).eq('id', member.user_id);
       }
 
       await sendBuyerSignedDocNotification(supabaseAdmin, members, firmId, docLabel, signedDocUrl);
@@ -277,11 +300,14 @@ serve(async (req: Request) => {
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   } catch (error: unknown) {
-    console.error('Error in confirm-agreement-signed:', error instanceof Error ? error.message : String(error));
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+    console.error(
+      'Error in confirm-agreement-signed:',
+      error instanceof Error ? error.message : String(error),
     );
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
   }
 });
 
@@ -298,7 +324,7 @@ async function sendSigningConfirmationEmails(
     signedDocUrl: string | null;
   },
 ) {
-  const { firmId, firmName, docLabel, signerName, signerEmail, signedDocUrl } = opts;
+  const { firmId: _firmId, firmName, docLabel, signerName, signerEmail, signedDocUrl } = opts;
   const senderEmail = Deno.env.get('SENDER_EMAIL') || 'notifications@sourcecodeals.com';
   const senderName = Deno.env.get('SENDER_NAME') || 'SourceCo';
 
@@ -356,7 +382,7 @@ async function sendSigningConfirmationEmails(
         .select('id, first_name, last_name, email')
         .in('id', adminIds);
 
-      for (const admin of (adminProfiles || [])) {
+      for (const admin of adminProfiles || []) {
         if (!admin.email) continue;
         const adminName = `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
 
@@ -499,7 +525,11 @@ async function createAdminNotification(
       title: `${docLabel} Signed`,
       message: `${firmName} has signed the ${docLabel}.`,
       notification_type: 'document_completed',
-      metadata: { firm_id: firmId, document_type: docLabel.toLowerCase().replace(/ /g, '_'), docuseal_status: 'completed' },
+      metadata: {
+        firm_id: firmId,
+        document_type: docLabel.toLowerCase().replace(/ /g, '_'),
+        docuseal_status: 'completed',
+      },
       is_read: false,
     }));
 

@@ -1,10 +1,9 @@
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { requireAuth, escapeHtml, escapeHtmlWithBreaks } from "../_shared/auth.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { requireAuth, escapeHtml, escapeHtmlWithBreaks } from '../_shared/auth.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 interface FeedbackNotificationRequest {
   feedbackId: string;
@@ -19,14 +18,14 @@ interface FeedbackNotificationRequest {
 }
 
 const supabase = createClient(
-  Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
 );
 
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
 
@@ -41,27 +40,36 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const body: FeedbackNotificationRequest = await req.json();
-    const { feedbackId, message, pageUrl, userAgent, category, priority, userId, userEmail, userName } = body;
+    const {
+      feedbackId,
+      message,
+      pageUrl,
+      userAgent: _userAgent,
+      category,
+      priority,
+      userId: _userId,
+      userEmail,
+      userName,
+    } = body;
 
-    console.log("Processing feedback notification:", { feedbackId, category, priority });
+    console.log('Processing feedback notification:', { feedbackId, category, priority });
 
     // Get admin users
     const { data: adminUsers, error: adminError } = await supabase
-      .from("profiles")
-      .select("email, first_name, last_name")
-      .eq("is_admin", true);
+      .from('profiles')
+      .select('email, first_name, last_name')
+      .eq('is_admin', true);
 
     if (adminError) {
-      console.error("Error fetching admin users:", adminError);
+      console.error('Error fetching admin users:', adminError);
       throw adminError;
     }
 
     if (!adminUsers || adminUsers.length === 0) {
-      console.log("No admin users found to notify");
-      return new Response(
-        JSON.stringify({ success: true, message: "No admin users to notify" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.log('No admin users found to notify');
+      return new Response(JSON.stringify({ success: true, message: 'No admin users to notify' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Prepare email content — escape all user-supplied values
@@ -69,13 +77,13 @@ const handler = async (req: Request): Promise<Response> => {
     const safeUserEmail = escapeHtml(userEmail || '');
     const safePageUrl = escapeHtml(pageUrl || '');
     const safeCategoryLabel = escapeHtml(
-      (category?.charAt(0).toUpperCase() + category?.slice(1)) || "General"
+      category?.charAt(0).toUpperCase() + category?.slice(1) || 'General',
     );
-    const safePriority = escapeHtml((priority || "normal").toUpperCase());
+    const safePriority = escapeHtml((priority || 'normal').toUpperCase());
 
-    const priorityEmoji = priority === "urgent" ? "🚨" : priority === "high" ? "⚠️" : "💬";
+    const priorityEmoji = priority === 'urgent' ? '🚨' : priority === 'high' ? '⚠️' : '💬';
 
-    const emailSubject = `${priorityEmoji} New Feedback: ${safeCategoryLabel} ${priority === "urgent" ? "(URGENT)" : ""}`;
+    const emailSubject = `${priorityEmoji} New Feedback: ${safeCategoryLabel} ${priority === 'urgent' ? '(URGENT)' : ''}`;
 
     const emailHtml = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -94,14 +102,14 @@ const handler = async (req: Request): Promise<Response> => {
 
           <div style="margin-bottom: 15px;">
             <strong style="color: #475569;">Priority:</strong>
-            <span style="background: ${priority === "urgent" ? "#fef2f2" : priority === "high" ? "#fef3c7" : "#f0f9ff"};
-                         color: ${priority === "urgent" ? "#dc2626" : priority === "high" ? "#d97706" : "#0369a1"};
+            <span style="background: ${priority === 'urgent' ? '#fef2f2' : priority === 'high' ? '#fef3c7' : '#f0f9ff'};
+                         color: ${priority === 'urgent' ? '#dc2626' : priority === 'high' ? '#d97706' : '#0369a1'};
                          padding: 4px 8px; border-radius: 4px; font-size: 14px;">${safePriority}</span>
           </div>
 
-          ${safeUserName ? `<div style="margin-bottom: 15px;"><strong style="color: #475569;">From:</strong> ${safeUserName}</div>` : ""}
-          ${safeUserEmail ? `<div style="margin-bottom: 15px;"><strong style="color: #475569;">Email:</strong> ${safeUserEmail}</div>` : ""}
-          ${safePageUrl ? `<div style="margin-bottom: 15px;"><strong style="color: #475569;">Page:</strong> ${safePageUrl}</div>` : ""}
+          ${safeUserName ? `<div style="margin-bottom: 15px;"><strong style="color: #475569;">From:</strong> ${safeUserName}</div>` : ''}
+          ${safeUserEmail ? `<div style="margin-bottom: 15px;"><strong style="color: #475569;">Email:</strong> ${safeUserEmail}</div>` : ''}
+          ${safePageUrl ? `<div style="margin-bottom: 15px;"><strong style="color: #475569;">Page:</strong> ${safePageUrl}</div>` : ''}
 
           <div style="margin-top: 20px;">
             <strong style="color: #475569;">Message:</strong>
@@ -126,78 +134,78 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email using Brevo API
     try {
-      const brevoApiKey = Deno.env.get("BREVO_API_KEY");
+      const brevoApiKey = Deno.env.get('BREVO_API_KEY');
       if (!brevoApiKey) {
-        console.warn("BREVO_API_KEY not configured, using fallback email delivery");
+        console.warn('BREVO_API_KEY not configured, using fallback email delivery');
         // Log feedback for admin review instead of failing
-        console.log("Feedback submission logged for admin review:", {
+        console.log('Feedback submission logged for admin review:', {
           feedbackId,
           category,
           priority,
-          message: message.substring(0, 100) + "...",
+          message: message.substring(0, 100) + '...',
           pageUrl,
           userEmail,
           userName,
-          adminCount: adminUsers.length
+          adminCount: adminUsers.length,
         });
 
         return new Response(
           JSON.stringify({
             success: true,
-            message: `Feedback logged for admin review (${adminUsers.length} admin(s))`
+            message: `Feedback logged for admin review (${adminUsers.length} admin(s))`,
           }),
           {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 200
-          }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          },
         );
       }
 
-      const emailResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
+      const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
         headers: {
-          "api-key": brevoApiKey,
-          "Content-Type": "application/json",
-          "Accept": "application/json"
+          'api-key': brevoApiKey,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
         body: JSON.stringify({
           sender: {
-            name: "SourceCo Marketplace Feedback",
-            email: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com'
+            name: 'SourceCo Marketplace Feedback',
+            email: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
           },
-          to: adminUsers.map(admin => ({
+          to: adminUsers.map((admin) => ({
             email: admin.email,
-            name: `${admin.first_name} ${admin.last_name}`.trim()
+            name: `${admin.first_name} ${admin.last_name}`.trim(),
           })),
           subject: emailSubject,
           htmlContent: emailHtml,
           replyTo: {
             email: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
-            name: "SourceCo Support"
+            name: 'SourceCo Support',
           },
           // Disable click tracking to prevent broken links
           params: {
             trackClicks: false,
-            trackOpens: true
-          }
-        })
+            trackOpens: true,
+          },
+        }),
       });
 
       const correlationId = crypto.randomUUID();
 
       if (!emailResponse.ok) {
         const errorText = await emailResponse.text();
-        console.error("Error sending email via Brevo:", errorText);
+        console.error('Error sending email via Brevo:', errorText);
         // Log feedback for admin review instead of failing
-        console.log("Feedback submission logged for admin review:", {
+        console.log('Feedback submission logged for admin review:', {
           feedbackId,
           category,
           priority,
-          message: message.substring(0, 100) + "...",
+          message: message.substring(0, 100) + '...',
           pageUrl,
           userEmail,
           userName,
-          adminCount: adminUsers.length
+          adminCount: adminUsers.length,
         });
         for (const admin of adminUsers) {
           await logEmailDelivery(supabase, {
@@ -209,7 +217,7 @@ const handler = async (req: Request): Promise<Response> => {
           });
         }
       } else {
-        console.log("Email sent successfully to admin");
+        console.log('Email sent successfully to admin');
         for (const admin of adminUsers) {
           await logEmailDelivery(supabase, {
             email: admin.email,
@@ -220,31 +228,30 @@ const handler = async (req: Request): Promise<Response> => {
         }
       }
     } catch (error) {
-      console.error("Email delivery error:", error);
+      console.error('Email delivery error:', error);
       // Continue processing even if email fails
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Feedback notification processed for ${adminUsers.length} admin(s)`
+        message: `Feedback notification processed for ${adminUsers.length} admin(s)`,
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200
-      }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
     );
-
   } catch (error: unknown) {
-    console.error("Error in send-feedback-notification function:", error);
+    console.error('Error in send-feedback-notification function:', error);
     return new Response(
       JSON.stringify({
-        error: error.message || "Failed to send feedback notification"
+        error: error.message || 'Failed to send feedback notification',
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500
-      }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      },
     );
   }
 };

@@ -1,6 +1,6 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.47.10";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 /**
  * send-nda-reminder
@@ -12,52 +12,56 @@ import { logEmailDelivery } from "../_shared/email-logger.ts";
 
 serve(async (req: Request) => {
   // This is a cron job — verify shared secret to prevent unauthorized invocation
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200 });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { status: 200 });
   }
 
-  const cronSecret = Deno.env.get("CRON_SECRET");
+  const cronSecret = Deno.env.get('CRON_SECRET');
   if (cronSecret) {
-    const authHeader = req.headers.get("Authorization");
+    const authHeader = req.headers.get('Authorization');
     if (authHeader !== `Bearer ${cronSecret}`) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const brevoApiKey = Deno.env.get("BREVO_API_KEY");
+    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
     if (!brevoApiKey) {
-      console.error("❌ BREVO_API_KEY not configured");
-      return new Response(JSON.stringify({ error: "Email service not configured" }), { status: 500 });
+      console.error('❌ BREVO_API_KEY not configured');
+      return new Response(JSON.stringify({ error: 'Email service not configured' }), {
+        status: 500,
+      });
     }
 
     const now = new Date();
 
-    console.log("🔔 Running NDA reminder check...");
+    console.log('🔔 Running NDA reminder check...');
 
     // Find firms with pending NDA that was sent 3 or 7 days ago
     const { data: pendingFirms, error: queryError } = await supabase
-      .from("firm_agreements")
-      .select(`
+      .from('firm_agreements')
+      .select(
+        `
         id, primary_company_name, email_domain,
         nda_docuseal_status, nda_email_sent_at
-      `)
-      .eq("nda_docuseal_status", "pending")
-      .eq("nda_email_sent", true)
-      .not("nda_email_sent_at", "is", null)
-      .eq("nda_signed", false);
+      `,
+      )
+      .eq('nda_docuseal_status', 'pending')
+      .eq('nda_email_sent', true)
+      .not('nda_email_sent_at', 'is', null)
+      .eq('nda_signed', false);
 
     if (queryError) {
-      console.error("❌ Query error:", queryError);
-      return new Response(JSON.stringify({ error: "Database query failed" }), { status: 500 });
+      console.error('❌ Query error:', queryError);
+      return new Response(JSON.stringify({ error: 'Database query failed' }), { status: 500 });
     }
 
     if (!pendingFirms?.length) {
-      console.log("✅ No pending NDAs to remind");
+      console.log('✅ No pending NDAs to remind');
       return new Response(JSON.stringify({ success: true, reminders: 0 }), { status: 200 });
     }
 
@@ -67,22 +71,22 @@ serve(async (req: Request) => {
       const sentAt = new Date(firm.nda_email_sent_at);
       const daysSinceSent = (now.getTime() - sentAt.getTime()) / (1000 * 60 * 60 * 24);
 
-      let reminderType: "3-day" | "7-day" | null = null;
+      let reminderType: '3-day' | '7-day' | null = null;
 
       if (daysSinceSent >= 6.5 && daysSinceSent <= 7.5) {
-        reminderType = "7-day";
+        reminderType = '7-day';
       } else if (daysSinceSent >= 2.5 && daysSinceSent <= 3.5) {
-        reminderType = "3-day";
+        reminderType = '3-day';
       }
 
       if (!reminderType) continue;
 
       // M3: Check if we already sent this reminder (dedup)
       const { data: existingLog } = await supabase
-        .from("docuseal_webhook_log")
-        .select("id")
-        .eq("external_id", firm.id)
-        .eq("event_type", `nda_reminder_${reminderType}`)
+        .from('docuseal_webhook_log')
+        .select('id')
+        .eq('external_id', firm.id)
+        .eq('event_type', `nda_reminder_${reminderType}`)
         .maybeSingle();
 
       if (existingLog) {
@@ -91,17 +95,20 @@ serve(async (req: Request) => {
 
       // Find the contact email — get firm members
       const { data: members } = await supabase
-        .from("firm_members")
-        .select("user_id, user:profiles(email, first_name, last_name)")
-        .eq("firm_id", firm.id)
+        .from('firm_members')
+        .select('user_id, user:profiles(email, first_name, last_name)')
+        .eq('firm_id', firm.id)
         .limit(1);
 
       const member = members?.[0];
-      const userProfile = member?.user as { email?: string; first_name?: string; last_name?: string } | null;
+      const userProfile = member?.user as {
+        email?: string;
+        first_name?: string;
+        last_name?: string;
+      } | null;
       const recipientEmail = userProfile?.email;
-      const recipientName = [userProfile?.first_name, userProfile?.last_name]
-        .filter(Boolean)
-        .join(" ") || "there";
+      const recipientName =
+        [userProfile?.first_name, userProfile?.last_name].filter(Boolean).join(' ') || 'there';
 
       if (!recipientEmail) {
         continue;
@@ -112,15 +119,15 @@ serve(async (req: Request) => {
       const safeRecipientName = recipientName.replace(/<[^>]*>/g, "");
 
       // Build reminder email
-      const siteUrl = Deno.env.get("SITE_URL") || "https://marketplace.sourcecodeals.com";
+      const siteUrl = Deno.env.get('SITE_URL') || 'https://marketplace.sourcecodeals.com';
 
       const subject =
-        reminderType === "3-day"
+        reminderType === '3-day'
           ? `Your NDA is still unsigned — here's the link`
           : `Still waiting on your NDA — can we help?`;
 
       const htmlContent =
-        reminderType === "3-day"
+        reminderType === '3-day'
           ? `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
               <p>Hi ${safeRecipientName},</p>
               <p>You were approved for SourceCo a few days ago but your NDA hasn't been signed yet. Until it is, you can't view deal details or request introductions.</p>
@@ -145,18 +152,21 @@ serve(async (req: Request) => {
 
         let brevoResponse: Response;
         try {
-          brevoResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
-            method: "POST",
+          brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
             headers: {
-              "Content-Type": "application/json",
-              "api-key": brevoApiKey,
+              'Content-Type': 'application/json',
+              'api-key': brevoApiKey,
             },
             body: JSON.stringify({
-              sender: { name: "SourceCo", email: Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com' },
+              sender: {
+                name: 'SourceCo',
+                email: Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com',
+              },
               to: [{ email: recipientEmail, name: safeRecipientName }],
               subject,
               htmlContent,
-              textContent: htmlContent.replace(/<[^>]*>/g, ""),
+              textContent: htmlContent.replace(/<[^>]*>/g, ''),
             }),
             signal: controller.signal,
           });
@@ -170,11 +180,11 @@ serve(async (req: Request) => {
           remindersSent++;
 
           // Log the reminder (dedup key for future checks)
-          await supabase.from("docuseal_webhook_log").insert({
+          await supabase.from('docuseal_webhook_log').insert({
             event_type: `nda_reminder_${reminderType}`,
             external_id: firm.id,
-            document_type: "nda",
-            submission_id: "reminder",
+            document_type: 'nda',
+            submission_id: 'reminder',
             raw_payload: { reminder_type: reminderType },
             processed_at: new Date().toISOString(),
           });
@@ -197,7 +207,7 @@ serve(async (req: Request) => {
           });
         }
       } catch (emailError: unknown) {
-        const isAbort = emailError instanceof Error && emailError.name === "AbortError";
+        const isAbort = emailError instanceof Error && emailError.name === 'AbortError';
         if (isAbort) {
           console.error(`❌ Brevo timeout for firm ${firm.id}`);
         } else {
@@ -208,12 +218,18 @@ serve(async (req: Request) => {
           emailType: 'nda_reminder',
           status: 'failed',
           correlationId: crypto.randomUUID(),
-          errorMessage: isAbort ? "Brevo API timeout" : (emailError instanceof Error ? emailError.message : String(emailError)),
+          errorMessage: isAbort
+            ? 'Brevo API timeout'
+            : emailError instanceof Error
+              ? emailError.message
+              : String(emailError),
         });
       }
     }
 
-    console.log(`📊 Reminder batch complete: ${remindersSent} sent out of ${pendingFirms.length} pending`);
+    console.log(
+      `📊 Reminder batch complete: ${remindersSent} sent out of ${pendingFirms.length} pending`,
+    );
 
     return new Response(
       JSON.stringify({
@@ -221,10 +237,10 @@ serve(async (req: Request) => {
         totalPending: pendingFirms.length,
         remindersSent,
       }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
   } catch (error: unknown) {
-    console.error("❌ Error in send-nda-reminder:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500 });
+    console.error('❌ Error in send-nda-reminder:', error);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500 });
   }
 });

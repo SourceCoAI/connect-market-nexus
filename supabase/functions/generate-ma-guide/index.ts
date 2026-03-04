@@ -1,7 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { GEMINI_API_URL, getGeminiHeaders, DEFAULT_GEMINI_MODEL, callGeminiWithTool } from "../_shared/ai-providers.ts";
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  GEMINI_API_URL,
+  getGeminiHeaders,
+  DEFAULT_GEMINI_MODEL,
+  callGeminiWithTool,
+} from '../_shared/ai-providers.ts';
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 class GenerationError extends Error {
   code: string;
@@ -15,20 +20,60 @@ class GenerationError extends Error {
 
 // Phase definitions for the 13-phase SSE streaming generator
 const GENERATION_PHASES = [
-  { id: '1a', name: 'Industry Definition', focus: 'NAICS codes, market size, industry segmentation' },
-  { id: '1b', name: 'Terminology & Business Models', focus: 'Glossary, revenue models, operational structures' },
+  {
+    id: '1a',
+    name: 'Industry Definition',
+    focus: 'NAICS codes, market size, industry segmentation',
+  },
+  {
+    id: '1b',
+    name: 'Terminology & Business Models',
+    focus: 'Glossary, revenue models, operational structures',
+  },
   { id: '1c', name: 'Industry Economics', focus: 'P&L benchmarks, unit economics, margin drivers' },
-  { id: '1d', name: 'Ecosystem & Competitive Landscape', focus: 'Customers, suppliers, active acquirers, consolidation trends' },
-  { id: '1e', name: 'Target Buyer Profiles', focus: 'Industry-specific buyer types with buy boxes - CRITICAL' },
-  { id: '2a', name: 'Financial Attractiveness', focus: 'EBITDA categories, margin quality, revenue mix' },
-  { id: '2b', name: 'Operational Attractiveness', focus: 'KPIs, management quality, technology systems' },
-  { id: '2c', name: 'Strategic & Geographic', focus: 'Market tiers, geographic preferences, deal killers' },
+  {
+    id: '1d',
+    name: 'Ecosystem & Competitive Landscape',
+    focus: 'Customers, suppliers, active acquirers, consolidation trends',
+  },
+  {
+    id: '1e',
+    name: 'Target Buyer Profiles',
+    focus: 'Industry-specific buyer types with buy boxes - CRITICAL',
+  },
+  {
+    id: '2a',
+    name: 'Financial Attractiveness',
+    focus: 'EBITDA categories, margin quality, revenue mix',
+  },
+  {
+    id: '2b',
+    name: 'Operational Attractiveness',
+    focus: 'KPIs, management quality, technology systems',
+  },
+  {
+    id: '2c',
+    name: 'Strategic & Geographic',
+    focus: 'Market tiers, geographic preferences, deal killers',
+  },
   { id: '3a', name: 'Seller Evaluation Scorecards', focus: 'Scoring matrix, evaluation rubrics' },
-  { id: '3b', name: 'Buyer Fit Criteria Summary', focus: 'Size/Service/Geography/Buyer Types - CRITICAL' },
+  {
+    id: '3b',
+    name: 'Buyer Fit Criteria Summary',
+    focus: 'Size/Service/Geography/Buyer Types - CRITICAL',
+  },
   { id: '3c', name: 'Example Evaluation', focus: 'Worked example with scoring rationale' },
-  { id: '4a', name: 'Structured Criteria Output', focus: 'Machine-parseable format for extraction' },
+  {
+    id: '4a',
+    name: 'Structured Criteria Output',
+    focus: 'Machine-parseable format for extraction',
+  },
   { id: '4b', name: 'Quality Validation', focus: 'Completeness check and gap identification' },
-  { id: '5a', name: 'References & Sources', focus: 'Industry sources, data citations, research references' },
+  {
+    id: '5a',
+    name: 'References & Sources',
+    focus: 'Industry sources, data citations, research references',
+  },
 ];
 
 interface ClarificationContext {
@@ -106,17 +151,20 @@ function validateQuality(content: string): QualityResult {
   const tableCount = (content.match(/<table|^\|.*\|$/gm) || []).length;
   const placeholderPatterns = /\[X\]|\$\[X\]|X\.X|TBD|PLACEHOLDER|\[VALUE\]|\[INSERT\]/gi;
   const placeholderCount = (content.match(placeholderPatterns) || []).length;
-  
-  const hasCriteria = content.toLowerCase().includes('size criteria') || 
-                      content.toLowerCase().includes('revenue') ||
-                      content.toLowerCase().includes('ebitda');
-  const hasBuyerTypes = content.toLowerCase().includes('buyer type') ||
-                        content.toLowerCase().includes('pe firm') ||
-                        content.toLowerCase().includes('platform');
-  const hasPrimaryFocus = content.toLowerCase().includes('primary focus') ||
-                          content.toLowerCase().includes('core service') ||
-                          content.toLowerCase().includes('primary service');
-  
+
+  const hasCriteria =
+    content.toLowerCase().includes('size criteria') ||
+    content.toLowerCase().includes('revenue') ||
+    content.toLowerCase().includes('ebitda');
+  const hasBuyerTypes =
+    content.toLowerCase().includes('buyer type') ||
+    content.toLowerCase().includes('pe firm') ||
+    content.toLowerCase().includes('platform');
+  const hasPrimaryFocus =
+    content.toLowerCase().includes('primary focus') ||
+    content.toLowerCase().includes('core service') ||
+    content.toLowerCase().includes('primary service');
+
   const missingElements: string[] = [];
   if (wordCount < 7500) missingElements.push('Word count below 7,500 minimum');
   if (tableCount < 10) missingElements.push('Need more data tables');
@@ -124,18 +172,18 @@ function validateQuality(content: string): QualityResult {
   if (!hasCriteria) missingElements.push('Missing size/financial criteria section');
   if (!hasBuyerTypes) missingElements.push('Missing buyer types section');
   if (!hasPrimaryFocus) missingElements.push('Missing primary focus definition');
-  
+
   // Calculate weighted score
   let score = 0;
   score += Math.min(40, (wordCount / 15000) * 40); // Up to 40 points for word count (target 15k)
   score += Math.min(20, (tableCount / 14) * 20); // Up to 20 points for tables
-  score += Math.max(0, 15 - (placeholderCount * 2)); // 15 points minus penalties for placeholders
+  score += Math.max(0, 15 - placeholderCount * 2); // 15 points minus penalties for placeholders
   score += hasCriteria ? 10 : 0;
   score += hasBuyerTypes ? 8 : 0;
   score += hasPrimaryFocus ? 7 : 0;
-  
+
   const passed = score >= 70 && hasPrimaryFocus && hasCriteria;
-  
+
   return {
     passed,
     score: Math.round(score),
@@ -145,7 +193,7 @@ function validateQuality(content: string): QualityResult {
     hasCriteria,
     hasBuyerTypes,
     hasPrimaryFocus,
-    missingElements
+    missingElements,
   };
 }
 
@@ -156,7 +204,7 @@ function buildClarificationContext(context: ClarificationContext | undefined): s
   }
 
   const parts: string[] = [];
-  
+
   // Include industry overview/description if provided
   if (context.industry_overview) {
     parts.push(`INDUSTRY OVERVIEW: ${context.industry_overview}`);
@@ -176,7 +224,16 @@ function buildClarificationContext(context: ClarificationContext | undefined): s
 
   // Include any other custom answers
   Object.entries(context).forEach(([key, value]) => {
-    if (!['segments', 'example_companies', 'geography_focus', 'revenue_range', 'industry_overview'].includes(key) && value) {
+    if (
+      ![
+        'segments',
+        'example_companies',
+        'geography_focus',
+        'revenue_range',
+        'industry_overview',
+      ].includes(key) &&
+      value
+    ) {
       const label = key.replace(/_/g, ' ').toUpperCase();
       parts.push(`${label}: ${Array.isArray(value) ? value.join(', ') : value}`);
     }
@@ -189,103 +246,118 @@ function buildClarificationContext(context: ClarificationContext | undefined): s
 
 // Legacy generatePhaseContent - delegates to timeout-protected version
 async function generatePhaseContent(
-  phase: typeof GENERATION_PHASES[0],
+  phase: (typeof GENERATION_PHASES)[0],
   industryName: string,
   existingContent: string,
   apiKey: string,
   clarificationContext?: ClarificationContext,
   _retryCount = 0,
-  firefliesIntelligence?: string
+  firefliesIntelligence?: string,
 ): Promise<string> {
   // Delegate to the new timeout-protected version
-  return generatePhaseWithTimeout(phase, industryName, existingContent, apiKey, clarificationContext, 0, firefliesIntelligence);
+  return generatePhaseWithTimeout(
+    phase,
+    industryName,
+    existingContent,
+    apiKey,
+    clarificationContext,
+    0,
+    firefliesIntelligence,
+  );
 }
 
 // Extract criteria from generated content using AI
 async function extractCriteria(content: string, apiKey: string): Promise<ExtractedCriteria> {
   // First try regex extraction for criteria
   const criteriaMatch = content.match(/---BEGIN CRITERIA---([\s\S]*?)---END CRITERIA---/);
-  const buyerProfilesMatch = content.match(/---BEGIN BUYER_PROFILES---([\s\S]*?)---END BUYER_PROFILES---/);
-  
+  const buyerProfilesMatch = content.match(
+    /---BEGIN BUYER_PROFILES---([\s\S]*?)---END BUYER_PROFILES---/,
+  );
+
   let criteria: ExtractedCriteria;
-  
+
   if (criteriaMatch) {
     criteria = parseCriteriaBlock(criteriaMatch[1]);
-    
+
     // Parse buyer profiles if found
     if (buyerProfilesMatch) {
       criteria.target_buyer_types = parseBuyerProfilesBlock(buyerProfilesMatch[1]);
     }
-    
+
     // If we have criteria, try AI extraction for buyer profiles if not found
     if (!criteria.target_buyer_types || criteria.target_buyer_types.length === 0) {
       criteria.target_buyer_types = await extractBuyerProfilesWithAI(content, apiKey);
     }
-    
+
     return criteria;
   }
 
   // Fallback to AI extraction with tool calling (Gemini)
   const tool = {
-    type: "function",
+    type: 'function',
     function: {
-      name: "extract_criteria",
-      description: "Extract structured buyer fit criteria",
+      name: 'extract_criteria',
+      description: 'Extract structured buyer fit criteria',
       parameters: {
-        type: "object",
+        type: 'object',
         properties: {
           size_criteria: {
-            type: "object",
+            type: 'object',
             properties: {
-              revenue_min: { type: "number" },
-              revenue_max: { type: "number" },
-              ebitda_min: { type: "number" },
-              ebitda_max: { type: "number" },
-              locations_min: { type: "number" },
-              locations_max: { type: "number" }
-            }
+              revenue_min: { type: 'number' },
+              revenue_max: { type: 'number' },
+              ebitda_min: { type: 'number' },
+              ebitda_max: { type: 'number' },
+              locations_min: { type: 'number' },
+              locations_max: { type: 'number' },
+            },
           },
           geography_criteria: {
-            type: "object",
+            type: 'object',
             properties: {
-              target_states: { type: "array", items: { type: "string" } },
-              target_regions: { type: "array", items: { type: "string" } },
-              coverage: { type: "string" }
-            }
+              target_states: { type: 'array', items: { type: 'string' } },
+              target_regions: { type: 'array', items: { type: 'string' } },
+              coverage: { type: 'string' },
+            },
           },
           service_criteria: {
-            type: "object",
+            type: 'object',
             properties: {
-              primary_focus: { 
-                type: "array", 
-                items: { type: "string" },
-                description: "REQUIRED: The core service lines this buyer universe targets"
+              primary_focus: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'REQUIRED: The core service lines this buyer universe targets',
               },
-              required_services: { type: "array", items: { type: "string" } },
-              preferred_services: { type: "array", items: { type: "string" } },
-              excluded_services: { type: "array", items: { type: "string" } },
-              business_model: { type: "string" }
+              required_services: { type: 'array', items: { type: 'string' } },
+              preferred_services: { type: 'array', items: { type: 'string' } },
+              excluded_services: { type: 'array', items: { type: 'string' } },
+              business_model: { type: 'string' },
             },
-            required: ["primary_focus"]
+            required: ['primary_focus'],
           },
           buyer_types_criteria: {
-            type: "object",
+            type: 'object',
             properties: {
-              include_pe_firms: { type: "boolean" },
-              include_platforms: { type: "boolean" },
-              include_strategic: { type: "boolean" },
-              include_family_office: { type: "boolean" }
-            }
-          }
+              include_pe_firms: { type: 'boolean' },
+              include_platforms: { type: 'boolean' },
+              include_strategic: { type: 'boolean' },
+              include_family_office: { type: 'boolean' },
+            },
+          },
         },
-        required: ["size_criteria", "geography_criteria", "service_criteria", "buyer_types_criteria"]
-      }
-    }
+        required: [
+          'size_criteria',
+          'geography_criteria',
+          'service_criteria',
+          'buyer_types_criteria',
+        ],
+      },
+    },
   };
 
   try {
     const { data: extracted, error: aiError } = await callGeminiWithTool(
-      "Extract structured buyer universe criteria from the provided M&A guide content.",
+      'Extract structured buyer universe criteria from the provided M&A guide content.',
       `Extract criteria from this M&A guide:\n\n${content.slice(-15000)}`,
       tool,
       apiKey,
@@ -298,7 +370,10 @@ async function extractCriteria(content: string, apiKey: string): Promise<Extract
     }
     return getDefaultCriteria();
   } catch (error) {
-    console.error("Error extracting criteria:", error instanceof Error ? error.message : String(error));
+    console.error(
+      'Error extracting criteria:',
+      error instanceof Error ? error.message : String(error),
+    );
     return getDefaultCriteria();
   }
 }
@@ -307,29 +382,32 @@ async function extractCriteria(content: string, apiKey: string): Promise<Extract
 function parseBuyerProfilesBlock(block: string): BuyerProfile[] {
   const profiles: BuyerProfile[] = [];
   const buyerBlocks = block.split(/BUYER_\d+:/);
-  
+
   for (const buyerBlock of buyerBlocks) {
     if (!buyerBlock.trim()) continue;
-    
+
     const profile: BuyerProfile = {
       id: '',
       rank: 99,
       name: '',
       description: '',
-      enabled: true
+      enabled: true,
     };
-    
+
     const lines = buyerBlock.split('\n');
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed.startsWith('-')) continue;
-      
+
       const colonIndex = trimmed.indexOf(':');
       if (colonIndex === -1) continue;
-      
+
       const key = trimmed.slice(1, colonIndex).trim();
-      const value = trimmed.slice(colonIndex + 1).trim().replace(/[[\]]/g, '');
-      
+      const value = trimmed
+        .slice(colonIndex + 1)
+        .trim()
+        .replace(/[[\]]/g, '');
+
       switch (key) {
         case 'id':
           profile.id = value;
@@ -360,68 +438,81 @@ function parseBuyerProfilesBlock(block: string): BuyerProfile[] {
           break;
       }
     }
-    
+
     if (profile.name && profile.id) {
       profiles.push(profile);
     }
   }
-  
+
   return profiles.sort((a, b) => a.rank - b.rank);
 }
 
 // Extract buyer profiles using AI (Gemini)
-async function extractBuyerProfilesWithAI(content: string, apiKey: string): Promise<BuyerProfile[]> {
-  const relevantContent = content.match(/PHASE 1E[\s\S]*?(?=##\s*PHASE|$)/i)?.[0] || 
-                          content.match(/BUYER TYPE[\s\S]*?(?=##\s*PHASE|$)/i)?.[0] ||
-                          content.slice(-20000);
-  
+async function extractBuyerProfilesWithAI(
+  content: string,
+  apiKey: string,
+): Promise<BuyerProfile[]> {
+  const relevantContent =
+    content.match(/PHASE 1E[\s\S]*?(?=##\s*PHASE|$)/i)?.[0] ||
+    content.match(/BUYER TYPE[\s\S]*?(?=##\s*PHASE|$)/i)?.[0] ||
+    content.slice(-20000);
+
   const tool = {
-    type: "function",
+    type: 'function',
     function: {
-      name: "extract_buyer_profiles",
-      description: "Extract industry-specific buyer type profiles",
+      name: 'extract_buyer_profiles',
+      description: 'Extract industry-specific buyer type profiles',
       parameters: {
-        type: "object",
+        type: 'object',
         properties: {
           buyer_profiles: {
-            type: "array",
+            type: 'array',
             items: {
-              type: "object",
+              type: 'object',
               properties: {
-                id: { type: "string", description: "snake_case id (e.g., large_mso, pe_platform)" },
-                rank: { type: "number", description: "Priority rank 1-6" },
-                name: { type: "string", description: "Display name" },
-                description: { type: "string", description: "2-3 sentence description" },
-                locations_min: { type: "number" },
-                locations_max: { type: "number" },
-                revenue_per_location: { type: "number", description: "Revenue per location in dollars" },
-                deal_requirements: { type: "string", description: "Key deal requirements" },
-                enabled: { type: "boolean" }
+                id: { type: 'string', description: 'snake_case id (e.g., large_mso, pe_platform)' },
+                rank: { type: 'number', description: 'Priority rank 1-6' },
+                name: { type: 'string', description: 'Display name' },
+                description: { type: 'string', description: '2-3 sentence description' },
+                locations_min: { type: 'number' },
+                locations_max: { type: 'number' },
+                revenue_per_location: {
+                  type: 'number',
+                  description: 'Revenue per location in dollars',
+                },
+                deal_requirements: { type: 'string', description: 'Key deal requirements' },
+                enabled: { type: 'boolean' },
               },
-              required: ["id", "rank", "name", "description"]
+              required: ['id', 'rank', 'name', 'description'],
             },
-            description: "4-6 buyer profiles specific to this industry"
-          }
+            description: '4-6 buyer profiles specific to this industry',
+          },
         },
-        required: ["buyer_profiles"]
-      }
-    }
+        required: ['buyer_profiles'],
+      },
+    },
   };
 
   try {
     const { data: extracted, error: aiError } = await callGeminiWithTool(
-      "Extract industry-specific buyer profiles from the M&A guide content. These are the types of BUYERS active in the industry.",
+      'Extract industry-specific buyer profiles from the M&A guide content. These are the types of BUYERS active in the industry.',
       `Extract buyer profiles from this M&A guide section:\n\n${relevantContent}`,
       tool,
       apiKey,
     );
 
     if (!aiError && extracted) {
-      return (extracted as { buyer_profiles?: BuyerProfile[] }).buyer_profiles || getDefaultBuyerProfiles();
+      return (
+        (extracted as { buyer_profiles?: BuyerProfile[] }).buyer_profiles ||
+        getDefaultBuyerProfiles()
+      );
     }
     return getDefaultBuyerProfiles();
   } catch (error) {
-    console.error("Error extracting buyer profiles:", error instanceof Error ? error.message : String(error));
+    console.error(
+      'Error extracting buyer profiles:',
+      error instanceof Error ? error.message : String(error),
+    );
     return getDefaultBuyerProfiles();
   }
 }
@@ -438,7 +529,7 @@ function getDefaultBuyerProfiles(): BuyerProfile[] {
       locations_max: 500,
       revenue_per_location: 2500000,
       deal_requirements: 'Prefer deals with $2M+ revenue, strong management team willing to stay',
-      enabled: true
+      enabled: true,
     },
     {
       id: 'regional_platform',
@@ -449,18 +540,19 @@ function getDefaultBuyerProfiles(): BuyerProfile[] {
       locations_max: 50,
       revenue_per_location: 2000000,
       deal_requirements: 'Looking for tuck-in acquisitions, prefer seller financing available',
-      enabled: true
+      enabled: true,
     },
     {
       id: 'pe_backed_platform',
       rank: 3,
       name: 'PE-Backed Platforms',
-      description: 'Private equity portfolio companies actively deploying capital for roll-up strategies.',
+      description:
+        'Private equity portfolio companies actively deploying capital for roll-up strategies.',
       locations_min: 5,
       locations_max: 100,
       revenue_per_location: 1500000,
       deal_requirements: 'Need clean financials, will pay premium for EBITDA margin above 15%',
-      enabled: true
+      enabled: true,
     },
     {
       id: 'independent_sponsor',
@@ -471,7 +563,7 @@ function getDefaultBuyerProfiles(): BuyerProfile[] {
       locations_max: 10,
       revenue_per_location: 1000000,
       deal_requirements: 'Flexible on structure, open to earnouts and seller notes',
-      enabled: true
+      enabled: true,
     },
     {
       id: 'owner_operator',
@@ -482,7 +574,7 @@ function getDefaultBuyerProfiles(): BuyerProfile[] {
       locations_max: 5,
       revenue_per_location: 800000,
       deal_requirements: 'Often need SBA financing, prefer deals under $1M',
-      enabled: true
+      enabled: true,
     },
     {
       id: 'strategic_buyer',
@@ -493,8 +585,8 @@ function getDefaultBuyerProfiles(): BuyerProfile[] {
       locations_max: 15,
       revenue_per_location: 1200000,
       deal_requirements: 'Looking for synergies, willing to pay for customer relationships',
-      enabled: true
-    }
+      enabled: true,
+    },
   ];
 }
 
@@ -503,7 +595,7 @@ function parseCriteriaBlock(block: string): ExtractedCriteria {
     size_criteria: {},
     geography_criteria: {},
     service_criteria: {},
-    buyer_types_criteria: {}
+    buyer_types_criteria: {},
   };
 
   // Parse each line
@@ -517,10 +609,13 @@ function parseCriteriaBlock(block: string): ExtractedCriteria {
     else if (trimmed.startsWith('GEOGRAPHY_CRITERIA:')) currentSection = 'geography';
     else if (trimmed.startsWith('BUYER_TYPES:')) currentSection = 'buyer_types';
     else if (trimmed.startsWith('-')) {
-      const [key, value] = trimmed.slice(1).split(':').map(s => s.trim());
+      const [key, value] = trimmed
+        .slice(1)
+        .split(':')
+        .map((s) => s.trim());
       if (key && value) {
         const cleanValue = value.replace(/[[\]]/g, '');
-        
+
         if (currentSection === 'size') {
           const num = parseFloat(cleanValue.replace(/[,$]/g, ''));
           if (!isNaN(num)) {
@@ -530,16 +625,23 @@ function parseCriteriaBlock(block: string): ExtractedCriteria {
           if (key === 'coverage') {
             criteria.geography_criteria.coverage = cleanValue;
           } else {
-            (criteria.geography_criteria as Record<string, string | string[]>)[key] = cleanValue.split(',').map(s => s.trim()).filter(Boolean);
+            (criteria.geography_criteria as Record<string, string | string[]>)[key] = cleanValue
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
           }
         } else if (currentSection === 'service') {
           if (key === 'business_model') {
             criteria.service_criteria.business_model = cleanValue;
           } else {
-            (criteria.service_criteria as Record<string, string | string[]>)[key] = cleanValue.split(',').map(s => s.trim()).filter(Boolean);
+            (criteria.service_criteria as Record<string, string | string[]>)[key] = cleanValue
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
           }
         } else if (currentSection === 'buyer_types') {
-          (criteria.buyer_types_criteria as Record<string, boolean>)[key] = cleanValue.toLowerCase() === 'true';
+          (criteria.buyer_types_criteria as Record<string, boolean>)[key] =
+            cleanValue.toLowerCase() === 'true';
         }
       }
     }
@@ -557,9 +659,9 @@ function getDefaultCriteria(): ExtractedCriteria {
       include_pe_firms: true,
       include_platforms: true,
       include_strategic: true,
-      include_family_office: true
+      include_family_office: true,
     },
-    target_buyer_types: getDefaultBuyerProfiles()
+    target_buyer_types: getDefaultBuyerProfiles(),
   };
 }
 
@@ -567,7 +669,7 @@ function getDefaultCriteria(): ExtractedCriteria {
 async function generateGapFill(
   missingElements: string[],
   industryName: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<string> {
   const prompt = `Generate additional M&A guide content to address these gaps for "${industryName}":
 ${missingElements.map((e, i) => `${i + 1}. ${e}`).join('\n')}
@@ -581,26 +683,33 @@ Be comprehensive and specific.`;
 
   try {
     const response = await fetch(GEMINI_API_URL, {
-      method: "POST",
+      method: 'POST',
       headers: getGeminiHeaders(apiKey),
       body: JSON.stringify({
         model: DEFAULT_GEMINI_MODEL,
         max_tokens: 4000,
         messages: [
-          { role: "system", content: "You are an M&A advisor filling gaps in an industry guide. Be specific and detailed." },
-          { role: "user", content: prompt }
-        ]
+          {
+            role: 'system',
+            content:
+              'You are an M&A advisor filling gaps in an industry guide. Be specific and detailed.',
+          },
+          { role: 'user', content: prompt },
+        ],
       }),
     });
 
     if (!response.ok) {
-      throw new Error("Gap fill generation failed");
+      throw new Error('Gap fill generation failed');
     }
 
     const result = await response.json();
     return result.choices?.[0]?.message?.content || '';
   } catch (error) {
-    console.error("Error in gap fill generation:", error instanceof Error ? error.message : String(error));
+    console.error(
+      'Error in gap fill generation:',
+      error instanceof Error ? error.message : String(error),
+    );
     return '';
   }
 }
@@ -630,26 +739,26 @@ const getModelForPhase = (_phaseId: string) => DEFAULT_GEMINI_MODEL;
 
 // Define which phases can run in parallel (don't depend on each other's output)
 const PARALLEL_PHASE_GROUPS = [
-  ['1a', '1b'],      // Industry definition & terminology can run together
-  ['1c', '1d'],      // Economics & ecosystem can run together
-  ['2a', '2b'],      // Financial & operational attractiveness can run together
+  ['1a', '1b'], // Industry definition & terminology can run together
+  ['1c', '1d'], // Economics & ecosystem can run together
+  ['2a', '2b'], // Financial & operational attractiveness can run together
 ];
 
 function canRunInParallel(phaseId1: string, phaseId2: string): boolean {
-  return PARALLEL_PHASE_GROUPS.some(group => 
-    group.includes(phaseId1) && group.includes(phaseId2)
+  return PARALLEL_PHASE_GROUPS.some(
+    (group) => group.includes(phaseId1) && group.includes(phaseId2),
   );
 }
 
 // Timeout wrapper for phase generation
 async function generatePhaseWithTimeout(
-  phase: typeof GENERATION_PHASES[0],
+  phase: (typeof GENERATION_PHASES)[0],
   industryName: string,
   existingContent: string,
   apiKey: string,
   clarificationContext?: ClarificationContext,
   retryCount = 0,
-  firefliesIntelligence?: string
+  firefliesIntelligence?: string,
 ): Promise<string> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), PHASE_TIMEOUT_MS);
@@ -662,7 +771,7 @@ async function generatePhaseWithTimeout(
       apiKey,
       clarificationContext,
       getModelForPhase(phase.id),
-      firefliesIntelligence
+      firefliesIntelligence,
     );
     clearTimeout(timeoutId);
     return result;
@@ -671,17 +780,28 @@ async function generatePhaseWithTimeout(
 
     const err = error as Error;
     // Retry on transient errors: timeout, 429 rate limit, 5xx errors
-    const isTransient = err.name === 'AbortError'
-      || err.message?.includes('timeout')
-      || err.message?.includes('429')
-      || err.message?.includes('5');
+    const isTransient =
+      err.name === 'AbortError' ||
+      err.message?.includes('timeout') ||
+      err.message?.includes('429') ||
+      err.message?.includes('5');
 
     if (isTransient && retryCount < MAX_RETRIES) {
       const backoffMs = Math.min(3000 * Math.pow(2, retryCount), 30000); // 3s, 6s, 12s, 24s...
-      console.error(`Phase ${phase.id} failed with transient error (attempt ${retryCount + 1}/${MAX_RETRIES + 1}): ${err.message}. Waiting ${backoffMs}ms`);
-      await new Promise(resolve => setTimeout(resolve, backoffMs));
+      console.error(
+        `Phase ${phase.id} failed with transient error (attempt ${retryCount + 1}/${MAX_RETRIES + 1}): ${err.message}. Waiting ${backoffMs}ms`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
       console.log(`Retrying phase ${phase.id} after backoff...`);
-      return generatePhaseWithTimeout(phase, industryName, existingContent, apiKey, clarificationContext, retryCount + 1, firefliesIntelligence);
+      return generatePhaseWithTimeout(
+        phase,
+        industryName,
+        existingContent,
+        apiKey,
+        clarificationContext,
+        retryCount + 1,
+        firefliesIntelligence,
+      );
     }
 
     if (err.name === 'AbortError' || err.message?.includes('timeout')) {
@@ -693,13 +813,13 @@ async function generatePhaseWithTimeout(
 
 // Phase generation with model parameter (Gemini)
 async function generatePhaseContentWithModel(
-  phase: typeof GENERATION_PHASES[0],
+  phase: (typeof GENERATION_PHASES)[0],
   industryName: string,
   existingContent: string,
   apiKey: string,
   clarificationContext: ClarificationContext | undefined,
   model: string,
-  firefliesIntelligence?: string
+  firefliesIntelligence?: string,
 ): Promise<string> {
   const contextStr = buildClarificationContext(clarificationContext);
 
@@ -751,7 +871,7 @@ NOW GENERATE THE FOLLOWING SECTION:
 
   // Determine if this phase should use web search
   const webSearchPhases = ['1a', '1c', '1d', '5a'];
-  const useWebSearch = webSearchPhases.includes(phase.id);
+  const _useWebSearch = webSearchPhases.includes(phase.id);
 
   try {
     // Build the request body for Gemini (OpenAI-compatible format)
@@ -759,13 +879,13 @@ NOW GENERATE THE FOLLOWING SECTION:
       model,
       max_tokens: CRITICAL_PHASES.includes(phase.id) ? 8000 : 6000,
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ]
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
     };
 
     const response = await fetch(GEMINI_API_URL, {
-      method: "POST",
+      method: 'POST',
       headers: getGeminiHeaders(apiKey),
       body: JSON.stringify(requestBody),
     });
@@ -775,13 +895,25 @@ NOW GENERATE THE FOLLOWING SECTION:
       console.error(`Phase ${phase.id} generation failed:`, response.status, text);
 
       if (response.status === 429) {
-        throw new GenerationError(`Rate limit exceeded for phase ${phase.id}`, 'rate_limited', true);
+        throw new GenerationError(
+          `Rate limit exceeded for phase ${phase.id}`,
+          'rate_limited',
+          true,
+        );
       }
       if (response.status === 402) {
-        throw new GenerationError(`AI credits depleted. Please add credits to continue.`, 'payment_required', false);
+        throw new GenerationError(
+          `AI credits depleted. Please add credits to continue.`,
+          'payment_required',
+          false,
+        );
       }
       if (response.status >= 500) {
-        throw new GenerationError(`AI service temporarily unavailable for phase ${phase.id}`, 'service_unavailable', true);
+        throw new GenerationError(
+          `AI service temporarily unavailable for phase ${phase.id}`,
+          'service_unavailable',
+          true,
+        );
       }
       throw new Error(`Failed to generate phase ${phase.id}`);
     }
@@ -791,7 +923,11 @@ NOW GENERATE THE FOLLOWING SECTION:
     return responseText;
   } catch (error) {
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new GenerationError(`Network error while generating phase ${phase.id}: ${error.message}`, 'network_error', true);
+      throw new GenerationError(
+        `Network error while generating phase ${phase.id}: ${error.message}`,
+        'network_error',
+        true,
+      );
     }
     if (error instanceof GenerationError) {
       throw error;
@@ -1071,7 +1207,7 @@ Categories:
 4. Regulatory and compliance sources
 5. Professional resources
 
-IMPORTANT: Only include sources that actually exist and can be verified. Do NOT fabricate citations. If you cannot find a real source for a data point, note that the estimate is based on industry analysis rather than a specific publication.`
+IMPORTANT: Only include sources that actually exist and can be verified. Do NOT fabricate citations. If you cannot find a real source for a data point, note that the estimate is based on industry analysis rather than a specific publication.`,
   };
 }
 
@@ -1090,10 +1226,10 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization') || '';
     const callerToken = authHeader.replace('Bearer ', '').trim();
     if (!callerToken) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -1107,20 +1243,23 @@ serve(async (req) => {
       const callerClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
         global: { headers: { Authorization: `Bearer ${callerToken}` } },
       });
-      const { data: { user: callerUser }, error: callerError } = await callerClient.auth.getUser();
+      const {
+        data: { user: callerUser },
+        error: callerError,
+      } = await callerClient.auth.getUser();
       if (callerError || !callerUser) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       const { data: isAdmin } = await supabaseAdmin.rpc('is_admin', { user_id: callerUser.id });
       if (!isAdmin) {
-        return new Response(
-          JSON.stringify({ error: 'Forbidden: admin access required' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Forbidden: admin access required' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
     }
     // ── End auth guard ──
@@ -1128,32 +1267,34 @@ serve(async (req) => {
     const {
       industry_name,
       industry_description,
-      universe_id,
-      existing_content,
+      universe_id: _universe_id,
+      existing_content: _existing_content,
       clarification_context,
       fireflies_intelligence,
       stream = true,
       batch_index = 0, // Which batch to generate (0, 1, 2)
-      previous_content = '' // Content from previous batches
+      previous_content = '', // Content from previous batches
     } = await req.json();
 
     // Merge industry_description into clarification_context if provided
     const enrichedContext = {
       ...clarification_context,
-      ...(industry_description ? { industry_overview: industry_description } : {})
+      ...(industry_description ? { industry_overview: industry_description } : {}),
     };
 
     if (!industry_name) {
-      return new Response(
-        JSON.stringify({ error: 'industry_name is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'industry_name is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    console.log(`GEMINI_API_KEY configured: ${!!GEMINI_API_KEY}, length: ${GEMINI_API_KEY?.length || 0}`);
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    console.log(
+      `GEMINI_API_KEY configured: ${!!GEMINI_API_KEY}, length: ${GEMINI_API_KEY?.length || 0}`,
+    );
     if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+      throw new Error('GEMINI_API_KEY is not configured');
     }
 
     // Calculate which phases to generate for this batch
@@ -1163,61 +1304,78 @@ serve(async (req) => {
     const isLastBatch = endPhase >= GENERATION_PHASES.length;
     const totalBatches = Math.ceil(GENERATION_PHASES.length / BATCH_SIZE);
 
-    console.log(`Generating M&A Guide batch ${batch_index + 1}/${totalBatches} for: ${industry_name}`, 
+    console.log(
+      `Generating M&A Guide batch ${batch_index + 1}/${totalBatches} for: ${industry_name}`,
       enrichedContext ? 'with context' : 'without context',
-      `phases ${startPhase + 1}-${endPhase}`);
+      `phases ${startPhase + 1}-${endPhase}`,
+    );
 
     // If not streaming, generate batch at once
     if (!stream) {
       let fullContent = previous_content;
       for (const phase of batchPhases) {
         try {
-          const phaseContent = await generatePhaseContent(phase, industry_name, fullContent, GEMINI_API_KEY, enrichedContext, 0, fireflies_intelligence);
+          const phaseContent = await generatePhaseContent(
+            phase,
+            industry_name,
+            fullContent,
+            GEMINI_API_KEY,
+            enrichedContext,
+            0,
+            fireflies_intelligence,
+          );
           fullContent += phaseContent + '\n\n';
         } catch (phaseError: unknown) {
           if (phaseError instanceof GenerationError) {
-            if (phaseError.code === 'rate_limited' || phaseError.message?.includes('Rate limit') || phaseError.message?.includes('429')) {
+            if (
+              phaseError.code === 'rate_limited' ||
+              phaseError.message?.includes('Rate limit') ||
+              phaseError.message?.includes('429')
+            ) {
               return new Response(
                 JSON.stringify({ error: phaseError.message || 'Rate limited', recoverable: true }),
-                { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
               );
             }
             if (phaseError.code === 'service_unavailable' || phaseError.recoverable) {
               return new Response(
-                JSON.stringify({ error: phaseError.message || 'Service unavailable', recoverable: true }),
-                { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                JSON.stringify({
+                  error: phaseError.message || 'Service unavailable',
+                  recoverable: true,
+                }),
+                { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
               );
             }
           }
           throw phaseError;
         }
       }
-      
+
       // Only validate and extract on last batch
       if (isLastBatch) {
         const quality = validateQuality(fullContent);
         const criteria = await extractCriteria(fullContent, GEMINI_API_KEY);
-        
+
         return new Response(
-          JSON.stringify({ 
-            content: fullContent, 
+          JSON.stringify({
+            content: fullContent,
             quality,
             criteria,
             batch_complete: true,
-            is_final: true
+            is_final: true,
           }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
-      
+
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           content: fullContent,
           batch_complete: true,
           is_final: false,
-          next_batch_index: batch_index + 1
+          next_batch_index: batch_index + 1,
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -1247,16 +1405,18 @@ serve(async (req) => {
             total_batches: totalBatches,
             start_phase: startPhase + 1,
             end_phase: endPhase,
-            remaining_time_ms: getRemainingTime()
+            remaining_time_ms: getRemainingTime(),
           });
 
           // Check if we have enough time to even start this batch
           if (!hasTimeForPhase()) {
-            console.warn(`[TIMEOUT_WARNING] Not enough time to start batch ${batch_index + 1}. Remaining: ${getRemainingTime()}ms`);
+            console.warn(
+              `[TIMEOUT_WARNING] Not enough time to start batch ${batch_index + 1}. Remaining: ${getRemainingTime()}ms`,
+            );
             send({
               type: 'timeout_warning',
               message: 'Approaching time limit, saving progress...',
-              remaining_ms: getRemainingTime()
+              remaining_ms: getRemainingTime(),
             });
             send({
               type: 'batch_complete',
@@ -1265,7 +1425,7 @@ serve(async (req) => {
               wordCount: fullContent.split(/\s+/).length,
               is_final: false,
               next_batch_index: batch_index, // Re-start from this batch
-              timeout_approaching: true
+              timeout_approaching: true,
             });
             clearInterval(heartbeatInterval);
             controller.close();
@@ -1279,31 +1439,47 @@ serve(async (req) => {
             const globalPhaseIndex1 = startPhase + 1;
 
             // Notify both phases are starting
-            send({ 
-              type: 'phase_start', 
-              phase: globalPhaseIndex0 + 1, 
+            send({
+              type: 'phase_start',
+              phase: globalPhaseIndex0 + 1,
               total: GENERATION_PHASES.length,
               id: batchPhases[0].id,
               name: batchPhases[0].name,
               batch: batch_index + 1,
               total_batches: totalBatches,
-              parallel: true
+              parallel: true,
             });
-            send({ 
-              type: 'phase_start', 
-              phase: globalPhaseIndex1 + 1, 
+            send({
+              type: 'phase_start',
+              phase: globalPhaseIndex1 + 1,
               total: GENERATION_PHASES.length,
               id: batchPhases[1].id,
               name: batchPhases[1].name,
               batch: batch_index + 1,
               total_batches: totalBatches,
-              parallel: true
+              parallel: true,
             });
 
             // Generate both phases in parallel
             const [content0, content1] = await Promise.all([
-              generatePhaseContent(batchPhases[0], industry_name, fullContent, GEMINI_API_KEY, enrichedContext, 0, fireflies_intelligence),
-              generatePhaseContent(batchPhases[1], industry_name, fullContent, GEMINI_API_KEY, enrichedContext, 0, fireflies_intelligence)
+              generatePhaseContent(
+                batchPhases[0],
+                industry_name,
+                fullContent,
+                GEMINI_API_KEY,
+                enrichedContext,
+                0,
+                fireflies_intelligence,
+              ),
+              generatePhaseContent(
+                batchPhases[1],
+                industry_name,
+                fullContent,
+                GEMINI_API_KEY,
+                enrichedContext,
+                0,
+                fireflies_intelligence,
+              ),
             ]);
 
             // Stream content from both phases
@@ -1313,34 +1489,35 @@ serve(async (req) => {
             const chunks = allContent.match(/.{1,500}/g) || [];
             for (const chunk of chunks) {
               send({ type: 'content', content: chunk });
-              await new Promise(r => setTimeout(r, 20)); // Slightly faster streaming
+              await new Promise((r) => setTimeout(r, 20)); // Slightly faster streaming
             }
 
             // Send phase complete for both
-            send({ 
-              type: 'phase_complete', 
+            send({
+              type: 'phase_complete',
               phase: globalPhaseIndex1 + 1, // Use higher phase for progress
               wordCount: fullContent.split(/\s+/).length,
               content: fullContent,
               phaseId: batchPhases[1].id,
               parallel: true,
-              phasesCompleted: [batchPhases[0].id, batchPhases[1].id]
+              phasesCompleted: [batchPhases[0].id, batchPhases[1].id],
             });
-
           } else {
             // Sequential generation for dependent phases
             for (let i = 0; i < batchPhases.length; i++) {
               const phase = batchPhases[i];
               const globalPhaseIndex = startPhase + i;
-              
+
               // Check if we have enough time for another phase
               if (!hasTimeForPhase()) {
-                console.warn(`[TIMEOUT_WARNING] Not enough time for phase ${phase.id}. Remaining: ${getRemainingTime()}ms`);
+                console.warn(
+                  `[TIMEOUT_WARNING] Not enough time for phase ${phase.id}. Remaining: ${getRemainingTime()}ms`,
+                );
                 send({
                   type: 'timeout_warning',
                   message: `Approaching time limit after ${i} phases, saving progress...`,
                   remaining_ms: getRemainingTime(),
-                  phases_completed_in_batch: i
+                  phases_completed_in_batch: i,
                 });
                 // End batch early but save progress
                 send({
@@ -1351,33 +1528,41 @@ serve(async (req) => {
                   is_final: false,
                   next_batch_index: batch_index, // Client should resume from this batch
                   timeout_approaching: true,
-                  phases_completed: i
+                  phases_completed: i,
                 });
                 clearInterval(heartbeatInterval);
                 controller.close();
                 return;
               }
-              
+
               // Add delay between phases to prevent rate limiting (skip first phase)
               if (i > 0) {
                 send({ type: 'heartbeat', message: 'Cooling down before next phase...' });
-                await new Promise(r => setTimeout(r, INTER_PHASE_DELAY_MS));
+                await new Promise((r) => setTimeout(r, INTER_PHASE_DELAY_MS));
               }
-              
+
               // Send phase start with remaining time info
-              send({ 
-                type: 'phase_start', 
-                phase: globalPhaseIndex + 1, 
+              send({
+                type: 'phase_start',
+                phase: globalPhaseIndex + 1,
                 total: GENERATION_PHASES.length,
                 id: phase.id,
                 name: phase.name,
                 batch: batch_index + 1,
                 total_batches: totalBatches,
-                remaining_time_ms: getRemainingTime()
+                remaining_time_ms: getRemainingTime(),
               });
 
               // Generate phase content with clarification context + Fireflies intelligence
-              const phaseContent = await generatePhaseContent(phase, industry_name, fullContent, GEMINI_API_KEY, enrichedContext, 0, fireflies_intelligence);
+              const phaseContent = await generatePhaseContent(
+                phase,
+                industry_name,
+                fullContent,
+                GEMINI_API_KEY,
+                enrichedContext,
+                0,
+                fireflies_intelligence,
+              );
               fullContent += phaseContent + '\n\n';
 
               // Send content chunks
@@ -1385,18 +1570,18 @@ serve(async (req) => {
               for (const chunk of chunks) {
                 send({ type: 'content', content: chunk });
                 // Small delay for smoother streaming
-                await new Promise(r => setTimeout(r, 30));
+                await new Promise((r) => setTimeout(r, 30));
               }
 
               // Send phase complete with content for frontend progress saving
-              send({ 
-                type: 'phase_complete', 
+              send({
+                type: 'phase_complete',
                 phase: globalPhaseIndex + 1,
                 wordCount: fullContent.split(/\s+/).length,
                 // Include full content so frontend can save progress after each phase
                 content: fullContent,
                 phaseId: phase.id,
-                remaining_time_ms: getRemainingTime()
+                remaining_time_ms: getRemainingTime(),
               });
             }
           }
@@ -1408,7 +1593,7 @@ serve(async (req) => {
             content: fullContent,
             wordCount: fullContent.split(/\s+/).length,
             is_final: isLastBatch,
-            next_batch_index: isLastBatch ? null : batch_index + 1
+            next_batch_index: isLastBatch ? null : batch_index + 1,
           });
 
           // Only do quality check and criteria extraction on last batch
@@ -1421,15 +1606,19 @@ serve(async (req) => {
             // Gap fill if needed
             if (!quality.passed && quality.missingElements.length > 0) {
               send({ type: 'gap_fill_start', missingElements: quality.missingElements });
-              
-              const gapContent = await generateGapFill(quality.missingElements, industry_name, GEMINI_API_KEY);
+
+              const gapContent = await generateGapFill(
+                quality.missingElements,
+                industry_name,
+                GEMINI_API_KEY,
+              );
               fullContent += '\n\n## GAP FILL CONTENT\n\n' + gapContent;
-              
+
               // Stream gap fill content
               const chunks = gapContent.match(/.{1,500}/g) || [];
               for (const chunk of chunks) {
                 send({ type: 'content', content: chunk });
-                await new Promise(r => setTimeout(r, 30));
+                await new Promise((r) => setTimeout(r, 30));
               }
 
               send({ type: 'gap_fill_complete' });
@@ -1445,13 +1634,12 @@ serve(async (req) => {
             send({ type: 'criteria', criteria });
 
             // Complete
-            send({ 
-              type: 'complete', 
+            send({
+              type: 'complete',
               totalWords: fullContent.split(/\s+/).length,
-              content: fullContent
+              content: fullContent,
             });
           }
-
         } catch (error: unknown) {
           const err = error as Error & { code?: string; recoverable?: boolean };
           const errorCode = err.code || 'unknown';
@@ -1465,8 +1653,8 @@ serve(async (req) => {
             batch: batch_index,
             industry: industry_name,
             elapsed_ms: Date.now() - FUNCTION_START,
-            totalPhasesCompleted: batchPhases.findIndex(p => true), // How many phases completed before error
-            stack: err.stack?.split('\n').slice(0, 3).join(' | ') // First 3 lines of stack trace
+            totalPhasesCompleted: batchPhases.findIndex((_p) => true), // How many phases completed before error
+            stack: err.stack?.split('\n').slice(0, 3).join(' | '), // First 3 lines of stack trace
           });
 
           // Send enhanced error event with more context
@@ -1480,13 +1668,18 @@ serve(async (req) => {
             total_batches: totalBatches,
             elapsed_ms: Date.now() - FUNCTION_START,
             // Include retry timing hints for the client
-            retry_after_ms: errorCode === 'rate_limited' ? 30000 : (errorCode === 'service_overloaded' ? 15000 : undefined)
+            retry_after_ms:
+              errorCode === 'rate_limited'
+                ? 30000
+                : errorCode === 'service_overloaded'
+                  ? 15000
+                  : undefined,
           });
         } finally {
           clearInterval(heartbeatInterval);
           controller.close();
         }
-      }
+      },
     });
 
     return new Response(readable, {
@@ -1494,16 +1687,15 @@ serve(async (req) => {
         ...corsHeaders,
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive'
-      }
+        Connection: 'keep-alive',
+      },
     });
-
   } catch (error) {
     console.error('Error generating MA Guide:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

@@ -1,7 +1,7 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { sendViaBervo } from "../_shared/brevo-sender.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 interface DealReassignmentRequest {
   dealId: string;
@@ -19,7 +19,7 @@ interface DealReassignmentRequest {
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
 
@@ -29,12 +29,12 @@ const handler = async (req: Request): Promise<Response> => {
       dealTitle,
       listingTitle,
       companyName,
-      previousOwnerId,
+      _previousOwnerId,
       previousOwnerName,
       previousOwnerEmail,
       newOwnerId,
       newOwnerName,
-      newOwnerEmail
+      newOwnerEmail,
     }: DealReassignmentRequest = await req.json();
 
     const subject = newOwnerId
@@ -58,32 +58,44 @@ const handler = async (req: Request): Promise<Response> => {
           <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px;">Deal Information</h2>
 
           <table style="width: 100%; border-collapse: collapse;">
-            ${companyName ? `
+            ${
+              companyName
+                ? `
             <tr>
               <td style="padding: 8px 0; color: #475569; font-weight: 500;">Company:</td>
               <td style="padding: 8px 0; color: #1e293b; font-weight: 600;">${companyName}</td>
             </tr>
-            ` : ''}
+            `
+                : ''
+            }
             <tr>
               <td style="padding: 8px 0; color: #475569; font-weight: 500;">Deal Title:</td>
               <td style="padding: 8px 0; color: #1e293b;">${dealTitle}</td>
             </tr>
-            ${listingTitle ? `
+            ${
+              listingTitle
+                ? `
             <tr>
               <td style="padding: 8px 0; color: #475569; font-weight: 500;">Listing:</td>
               <td style="padding: 8px 0; color: #1e293b;">${listingTitle}</td>
             </tr>
-            ` : ''}
+            `
+                : ''
+            }
             <tr>
               <td style="padding: 8px 0; color: #475569; font-weight: 500;">Previous Owner:</td>
               <td style="padding: 8px 0; color: #1e293b;">${previousOwnerName}</td>
             </tr>
-            ${newOwnerId ? `
+            ${
+              newOwnerId
+                ? `
             <tr>
               <td style="padding: 8px 0; color: #475569; font-weight: 500;">New Owner:</td>
               <td style="padding: 8px 0; color: #1e293b;">${newOwnerName} (${newOwnerEmail})</td>
             </tr>
-            ` : ''}
+            `
+                : ''
+            }
           </table>
         </div>
 
@@ -109,7 +121,7 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    console.log("Sending deal reassignment notification to:", previousOwnerEmail);
+    console.log('Sending deal reassignment notification to:', previousOwnerEmail);
 
     const result = await sendViaBervo({
       to: previousOwnerEmail,
@@ -119,34 +131,33 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (!result.success) {
-      throw new Error(result.error || "Failed to send email");
+      throw new Error(result.error || 'Failed to send email');
     }
 
-    console.log("Deal reassignment notification sent successfully:", result.messageId);
+    console.log('Deal reassignment notification sent successfully:', result.messageId);
 
     return new Response(
       JSON.stringify({
         success: true,
         message_id: result.messageId,
-        recipient: previousOwnerEmail
+        recipient: previousOwnerEmail,
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
     );
-
   } catch (error: unknown) {
-    console.error("Error in notify-deal-reassignment:", error);
+    console.error('Error in notify-deal-reassignment:', error);
 
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: error.message,
       }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      },
     );
   }
 };

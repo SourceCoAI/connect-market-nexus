@@ -1,9 +1,9 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { requireAdmin } from "../_shared/auth.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/auth.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 interface SendApprovalEmailRequest {
   userId: string;
@@ -49,16 +49,16 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const requestData: SendApprovalEmailRequest = await req.json();
-    const { 
-      userId, 
-      userEmail, 
-      subject, 
+    const {
+      userId: _userId,
+      userEmail,
+      subject,
       message,
       adminId,
       adminEmail,
       adminName,
-      customSignatureHtml,
-      customSignatureText
+      customSignatureHtml: _customSignatureHtml,
+      customSignatureText,
     } = requestData;
 
     console.log('Sending approval email to:', userEmail);
@@ -66,7 +66,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Get admin profile for signature - use dynamic admin info
     let senderInfo = {
       email: Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com',
-      name: 'SourceCo Admin'
+      name: 'SourceCo Admin',
     };
 
     // If admin ID provided, get profile from database (preferred)
@@ -80,40 +80,43 @@ const handler = async (req: Request): Promise<Response> => {
       if (adminProfile && adminProfile.email && adminProfile.first_name && adminProfile.last_name) {
         senderInfo = {
           email: adminProfile.email,
-          name: `${adminProfile.first_name} ${adminProfile.last_name}`
+          name: `${adminProfile.first_name} ${adminProfile.last_name}`,
         };
       }
-    } 
+    }
     // Fallback to provided admin info if available
     else if (adminEmail && adminName) {
       senderInfo = {
         email: adminEmail,
-        name: adminName
+        name: adminName,
       };
     }
 
     // Create simple plain text email with proper spacing and signature - FIXED LINE BREAKS
-    const textSignature = customSignatureText || `\n\nQuestions? Reply to this email.\n\n${senderInfo.name}\nSourceCo`;
+    const textSignature =
+      customSignatureText || `\n\nQuestions? Reply to this email.\n\n${senderInfo.name}\nSourceCo`;
 
     // Send email using Brevo - plain text only
     const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
+        accept: 'application/json',
         'api-key': BREVO_API_KEY,
         'content-type': 'application/json',
       },
       body: JSON.stringify({
         sender: {
           name: senderInfo.name,
-          email: senderInfo.email
+          email: senderInfo.email,
         },
-        to: [{
-          email: userEmail,
-          name: userEmail.split('@')[0]
-        }],
+        to: [
+          {
+            email: userEmail,
+            name: userEmail.split('@')[0],
+          },
+        ],
         subject: subject,
-        textContent: `${message}\n\n${textSignature}`
+        textContent: `${message}\n\n${textSignature}`,
       }),
     });
 
@@ -141,24 +144,29 @@ const handler = async (req: Request): Promise<Response> => {
       correlationId,
     });
 
-    return new Response(JSON.stringify({
-      success: true,
-      messageId: emailResult.messageId || 'unknown',
-      message: 'Approval email sent successfully'
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    });
-
+    return new Response(
+      JSON.stringify({
+        success: true,
+        messageId: emailResult.messageId || 'unknown',
+        message: 'Approval email sent successfully',
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      },
+    );
   } catch (error: unknown) {
     console.error('Error in send-approval-email function:', error);
-    return new Response(JSON.stringify({
-      error: error.message || 'Failed to send approval email',
-      details: error.toString()
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    });
+    return new Response(
+      JSON.stringify({
+        error: error.message || 'Failed to send approval email',
+        details: error.toString(),
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      },
+    );
   }
 };
 

@@ -26,7 +26,7 @@ interface DealReassignmentEmailProps {
 }
 
 export const DealReassignmentEmail = ({
-  previousOwnerName,
+  _previousOwnerName,
   dealTitle,
   companyName,
   listingTitle,
@@ -38,7 +38,8 @@ export const DealReassignmentEmail = ({
   <Html>
     <Head />
     <Preview>
-      {companyName || dealTitle} • Deal {isUnassignment ? 'unassigned' : `reassigned to ${newOwnerName}`}
+      {companyName || dealTitle} • Deal{' '}
+      {isUnassignment ? 'unassigned' : `reassigned to ${newOwnerName}`}
     </Preview>
     <Body style={main}>
       <Container style={container}>
@@ -48,14 +49,11 @@ export const DealReassignmentEmail = ({
         </Section>
 
         {/* Main Message */}
-        <Heading style={h1}>
-          Deal {isUnassignment ? 'Unassigned' : 'Reassigned'}
-        </Heading>
+        <Heading style={h1}>Deal {isUnassignment ? 'Unassigned' : 'Reassigned'}</Heading>
         <Text style={introText}>
-          {isUnassignment 
+          {isUnassignment
             ? 'This deal has been unassigned from you.'
-            : `This deal has been reassigned to ${newOwnerName}.`
-          }
+            : `This deal has been reassigned to ${newOwnerName}.`}
         </Text>
 
         {/* Deal Information */}
@@ -70,7 +68,7 @@ export const DealReassignmentEmail = ({
               </Column>
             </Row>
           )}
-          
+
           <Row style={infoRow}>
             <Column style={infoLabelColumn}>
               <Text style={infoLabel}>Contact</Text>
@@ -100,7 +98,8 @@ export const DealReassignmentEmail = ({
                 </Column>
                 <Column style={infoValueColumn}>
                   <Text style={infoValue}>
-                    {newOwnerName}{newOwnerEmail ? ` • ${newOwnerEmail}` : ''}
+                    {newOwnerName}
+                    {newOwnerEmail ? ` • ${newOwnerEmail}` : ''}
                   </Text>
                 </Column>
               </Row>
@@ -119,9 +118,7 @@ export const DealReassignmentEmail = ({
         </Section>
 
         {/* Footer */}
-        <Text style={footer}>
-          SourceCo • Deal ID: {dealId}
-        </Text>
+        <Text style={footer}>SourceCo • Deal ID: {dealId}</Text>
       </Container>
     </Body>
   </Html>
@@ -132,7 +129,8 @@ export default DealReassignmentEmail;
 // Stripe-inspired minimal styles
 const main = {
   backgroundColor: '#ffffff',
-  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  fontFamily:
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
 };
 
 const container = {

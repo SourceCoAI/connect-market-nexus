@@ -13,7 +13,7 @@
  *   ReMarketing deal matching page (/admin/remarketing/deals/:id/matching)
  */
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -149,6 +149,7 @@ export const BuyerMatchCard = ({
 }: BuyerMatchCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [outreachDialogOpen, setOutreachDialogOpen] = useState(false);
+  const location = useLocation();
 
   // Track when card is expanded for the first time
   const handleExpand = (expanded: boolean) => {
@@ -237,6 +238,7 @@ export const BuyerMatchCard = ({
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <Link
                 to={`/admin/buyers/${buyer?.id}`}
+                state={{ from: location.pathname }}
                 className="font-semibold text-lg hover:underline leading-tight"
               >
                 {buyer?.company_name || 'Unknown Buyer'}
@@ -248,6 +250,7 @@ export const BuyerMatchCard = ({
                   <TooltipTrigger asChild>
                     <Link
                       to={`/admin/buyers/${buyer?.id}`}
+                      state={{ from: location.pathname }}
                       className="text-muted-foreground hover:text-foreground"
                     >
                       <Eye className="h-3.5 w-3.5" />
