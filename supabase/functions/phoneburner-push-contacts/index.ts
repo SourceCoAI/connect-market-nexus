@@ -29,6 +29,12 @@ interface PushRequest {
   target_user_id?: string;
 }
 
+interface PbCustomField {
+  name: string;
+  type: number; // 1=text, 2=checkbox, 3=date, 6=dropdown, 7=numeric
+  value: string;
+}
+
 interface ResolvedContact {
   id: string;
   name: string;
@@ -38,7 +44,7 @@ interface ResolvedContact {
   company: string | null;
   source_entity: string;
   last_contacted_date: string | null;
-  extra_context?: Record<string, string>;
+  extra_context?: PbCustomField[];
 }
 
 interface BuyerRow {
@@ -51,6 +57,56 @@ interface BuyerRow {
   contact_phone?: string;
   target_services?: string[];
   target_geographies?: string[];
+}
+
+interface ListingDealData {
+  revenue?: number | null;
+  ebitda?: number | null;
+  executive_summary?: string | null;
+  services?: string[] | null;
+  geographic_states?: string[] | null;
+  owner_goals?: string | null;
+  special_requirements?: string | null;
+  ownership_structure?: string | null;
+}
+
+const LISTING_DEAL_COLUMNS =
+  'revenue, ebitda, executive_summary, services, geographic_states, owner_goals, special_requirements, ownership_structure';
+
+function formatCurrency(value: number | null | undefined): string {
+  if (value == null) return '';
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+  return `$${value.toLocaleString()}`;
+}
+
+function buildDealCustomFields(deal: ListingDealData): PbCustomField[] {
+  const fields: PbCustomField[] = [];
+  if (deal.revenue != null) {
+    fields.push({ name: 'Revenue', type: 1, value: formatCurrency(deal.revenue) });
+  }
+  if (deal.ebitda != null) {
+    fields.push({ name: 'EBITDA', type: 1, value: formatCurrency(deal.ebitda) });
+  }
+  if (deal.executive_summary) {
+    fields.push({ name: 'Executive Summary', type: 1, value: deal.executive_summary });
+  }
+  if (deal.services?.length) {
+    fields.push({ name: 'Services', type: 1, value: deal.services.join(', ') });
+  }
+  if (deal.geographic_states?.length) {
+    fields.push({ name: 'Geographic Coverage', type: 1, value: deal.geographic_states.join(', ') });
+  }
+  if (deal.owner_goals) {
+    fields.push({ name: 'Owner Goals', type: 1, value: deal.owner_goals });
+  }
+  if (deal.special_requirements) {
+    fields.push({ name: 'Special Requirements', type: 1, value: deal.special_requirements });
+  }
+  if (deal.ownership_structure) {
+    fields.push({ name: 'Ownership Structure', type: 1, value: deal.ownership_structure });
+  }
+  return fields;
 }
 
 async function getValidToken(
@@ -75,7 +131,9 @@ async function resolveFromBuyerContacts(
   // Read from unified contacts table instead of legacy buyer_contacts
   const { data: contacts } = await supabase
     .from('contacts')
-    .select('id, first_name, last_name, email, phone, title, remarketing_buyer_id, updated_at')
+    .select(
+      'id, first_name, last_name, email, phone, title, remarketing_buyer_id, listing_id, updated_at',
+    )
     .in('id', ids)
     .eq('archived', false);
 
@@ -94,6 +152,19 @@ async function resolveFromBuyerContacts(
     .in('id', buyerIds);
   const buyerMap = new Map<string, BuyerRow>((buyers || []).map((b: BuyerRow) => [b.id, b]));
 
+  // Fetch listing deal data for contacts that have a listing_id
+  const listingIds = [
+    ...new Set(contacts.map((c: { listing_id: string | null }) => c.listing_id).filter(Boolean)),
+  ] as string[];
+  let listingMap = new Map<string, ListingDealData>();
+  if (listingIds.length) {
+    const { data: listings } = await supabase
+      .from('listings')
+      .select(`id, ${LISTING_DEAL_COLUMNS}`)
+      .in('id', listingIds);
+    listingMap = new Map((listings || []).map((l: ListingDealData & { id: string }) => [l.id, l]));
+  }
+
   return contacts.map(
     (c: {
       id: string;
@@ -103,9 +174,36 @@ async function resolveFromBuyerContacts(
       email: string | null;
       title: string | null;
       remarketing_buyer_id: string | null;
+      listing_id: string | null;
       updated_at: string | null;
     }) => {
       const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
+      const listing = c.listing_id ? listingMap.get(c.listing_id) : null;
+
+      const customFields: PbCustomField[] = [
+        { name: 'SourceCo ID', type: 1, value: c.id },
+        { name: 'Buyer ID', type: 1, value: c.remarketing_buyer_id || '' },
+        { name: 'Buyer Type', type: 1, value: buyer?.buyer_type || '' },
+        { name: 'PE Firm', type: 1, value: buyer?.pe_firm_name || '' },
+        {
+          name: 'Target Services',
+          type: 1,
+          value: Array.isArray(buyer?.target_services) ? buyer.target_services.join(', ') : '',
+        },
+        {
+          name: 'Target Geographies',
+          type: 1,
+          value: Array.isArray(buyer?.target_geographies)
+            ? buyer.target_geographies.join(', ')
+            : '',
+        },
+      ].filter((f) => f.value);
+
+      // Add deal data fields if contact is linked to a listing
+      if (listing) {
+        customFields.push(...buildDealCustomFields(listing));
+      }
+
       return {
         id: c.id,
         name: [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Unknown',
@@ -115,18 +213,7 @@ async function resolveFromBuyerContacts(
         company: buyer?.company_name || null,
         source_entity: 'buyer_contact',
         last_contacted_date: c.updated_at,
-        extra_context: {
-          sourceco_id: c.id,
-          sourceco_buyer_id: c.remarketing_buyer_id || '',
-          buyer_type: buyer?.buyer_type || '',
-          pe_firm: buyer?.pe_firm_name || '',
-          target_services: Array.isArray(buyer?.target_services)
-            ? buyer.target_services.join(', ')
-            : '',
-          target_geographies: Array.isArray(buyer?.target_geographies)
-            ? buyer.target_geographies.join(', ')
-            : '',
-        },
+        extra_context: customFields,
       };
     },
   );
@@ -140,7 +227,7 @@ async function resolveFromBuyers(
   const { data: allContacts } = await supabase
     .from('contacts')
     .select(
-      'id, first_name, last_name, email, phone, title, remarketing_buyer_id, is_primary_at_firm, updated_at',
+      'id, first_name, last_name, email, phone, title, remarketing_buyer_id, listing_id, is_primary_at_firm, updated_at',
     )
     .in('remarketing_buyer_id', buyerIds)
     .eq('archived', false);
@@ -148,24 +235,75 @@ async function resolveFromBuyers(
   const { data: buyers } = await supabase
     .from('buyers')
     .select(
-      'id, company_name, pe_firm_name, buyer_type, contact_name, contact_email, contact_phone',
+      'id, company_name, pe_firm_name, buyer_type, contact_name, contact_email, contact_phone, target_services, target_geographies',
     )
     .in('id', buyerIds);
   const buyerMap = new Map<string, BuyerRow>((buyers || []).map((b: BuyerRow) => [b.id, b]));
+
+  // Fetch listing deal data for contacts that have a listing_id
+  const listingIds = [
+    ...new Set(
+      (allContacts || []).map((c: { listing_id: string | null }) => c.listing_id).filter(Boolean),
+    ),
+  ] as string[];
+  let listingMap = new Map<string, ListingDealData>();
+  if (listingIds.length) {
+    const { data: listings } = await supabase
+      .from('listings')
+      .select(`id, ${LISTING_DEAL_COLUMNS}`)
+      .in('id', listingIds);
+    listingMap = new Map((listings || []).map((l: ListingDealData & { id: string }) => [l.id, l]));
+  }
 
   const seen = new Set<string>();
   const result: ResolvedContact[] = [];
   const buyersWithContacts = new Set<string>();
 
-  for (const c of (allContacts || []).sort(
-    (a: { is_primary_at_firm?: boolean }, b: { is_primary_at_firm?: boolean }) =>
-      (b.is_primary_at_firm ? 1 : 0) - (a.is_primary_at_firm ? 1 : 0),
+  interface BuyerContactRow {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    phone: string | null;
+    title: string | null;
+    remarketing_buyer_id: string | null;
+    listing_id: string | null;
+    is_primary_at_firm: boolean | null;
+    updated_at: string | null;
+  }
+
+  const typedContacts = (allContacts || []) as BuyerContactRow[];
+
+  for (const c of typedContacts.sort(
+    (a, b) => (b.is_primary_at_firm ? 1 : 0) - (a.is_primary_at_firm ? 1 : 0),
   )) {
     const key = `${c.email?.toLowerCase() || ''}-${c.phone || ''}`;
     if (seen.has(key) && key !== '-') continue;
     seen.add(key);
     if (c.remarketing_buyer_id) buyersWithContacts.add(c.remarketing_buyer_id);
     const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
+    const listing = c.listing_id ? listingMap.get(c.listing_id) : null;
+
+    const customFields: PbCustomField[] = [
+      { name: 'SourceCo ID', type: 1, value: c.id },
+      { name: 'Buyer Type', type: 1, value: buyer?.buyer_type || '' },
+      { name: 'PE Firm', type: 1, value: buyer?.pe_firm_name || '' },
+      {
+        name: 'Target Services',
+        type: 1,
+        value: Array.isArray(buyer?.target_services) ? buyer.target_services.join(', ') : '',
+      },
+      {
+        name: 'Target Geographies',
+        type: 1,
+        value: Array.isArray(buyer?.target_geographies) ? buyer.target_geographies.join(', ') : '',
+      },
+    ].filter((f) => f.value);
+
+    if (listing) {
+      customFields.push(...buildDealCustomFields(listing));
+    }
+
     result.push({
       id: c.id,
       name: [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Unknown',
@@ -175,6 +313,7 @@ async function resolveFromBuyers(
       company: buyer?.company_name || null,
       source_entity: 'buyer_contact',
       last_contacted_date: c.updated_at,
+      extra_context: customFields,
     });
   }
 
@@ -188,8 +327,8 @@ async function resolveFromBuyers(
     result.push({
       id: `buyer-${buyerId}`,
       name: buyer.contact_name,
-      phone: buyer.contact_phone,
-      email: buyer.contact_email,
+      phone: buyer.contact_phone || null,
+      email: buyer.contact_email || null,
       title: null,
       company: buyer.company_name || buyer.pe_firm_name || null,
       source_entity: 'remarketing_buyer_direct',
@@ -207,7 +346,7 @@ async function resolveFromListings(
   const { data: listings } = await supabase
     .from('listings')
     .select(
-      'id, title, internal_company_name, main_contact_name, main_contact_email, main_contact_phone, main_contact_title, deal_source',
+      `id, title, internal_company_name, main_contact_name, main_contact_email, main_contact_phone, main_contact_title, deal_source, ${LISTING_DEAL_COLUMNS}`,
     )
     .in('id', listingIds);
 
@@ -216,31 +355,39 @@ async function resolveFromListings(
   return listings
     .filter((l: { main_contact_name?: string }) => l.main_contact_name)
     .map(
-      (l: {
-        id: string;
-        title?: string;
-        internal_company_name?: string;
-        main_contact_name?: string;
-        main_contact_email?: string;
-        main_contact_phone?: string;
-        main_contact_title?: string;
-        deal_source?: string;
-      }) => ({
-        id: `listing-${l.id}`,
-        name: l.main_contact_name!,
-        phone: l.main_contact_phone,
-        email: l.main_contact_email,
-        title: l.main_contact_title,
-        company: l.internal_company_name || l.title || null,
-        source_entity: `listing:${l.deal_source || 'unknown'}`,
-        last_contacted_date: null,
-        extra_context: {
-          sourceco_id: `listing-${l.id}`,
-          sourceco_listing_id: l.id,
-          deal_source: l.deal_source || 'unknown',
-          company_name: l.internal_company_name || l.title || '',
-        },
-      }),
+      (
+        l: {
+          id: string;
+          title?: string;
+          internal_company_name?: string;
+          main_contact_name?: string;
+          main_contact_email?: string;
+          main_contact_phone?: string;
+          main_contact_title?: string;
+          deal_source?: string;
+        } & ListingDealData,
+      ) => {
+        const customFields: PbCustomField[] = [
+          { name: 'SourceCo ID', type: 1, value: `listing-${l.id}` },
+          { name: 'Listing ID', type: 1, value: l.id },
+          { name: 'Deal Source', type: 1, value: l.deal_source || '' },
+          { name: 'Company Name', type: 1, value: l.internal_company_name || l.title || '' },
+        ].filter((f) => f.value);
+
+        customFields.push(...buildDealCustomFields(l));
+
+        return {
+          id: `listing-${l.id}`,
+          name: l.main_contact_name!,
+          phone: l.main_contact_phone || null,
+          email: l.main_contact_email || null,
+          title: l.main_contact_title || null,
+          company: l.internal_company_name || l.title || null,
+          source_entity: `listing:${l.deal_source || 'unknown'}`,
+          last_contacted_date: null,
+          extra_context: customFields,
+        };
+      },
     );
 }
 
@@ -266,10 +413,10 @@ async function resolveFromLeads(
     }) => ({
       id: `lead-${l.id}`,
       name: l.name || l.email || 'Unknown',
-      phone: l.phone_number,
-      email: l.email,
-      title: l.role,
-      company: l.company_name,
+      phone: l.phone_number || null,
+      email: l.email || null,
+      title: l.role || null,
+      company: l.company_name || null,
       source_entity: 'inbound_lead',
       last_contacted_date: null,
     }),
