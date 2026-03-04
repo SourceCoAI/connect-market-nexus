@@ -16,7 +16,7 @@ const PROCESSING_TIMEOUT_MS = 45000; // 45s per buyer — must complete within t
 const RATE_LIMIT_BACKOFF_MS = 60000; // 60s backoff on rate limit
 const STALE_PROCESSING_MINUTES = 2; // Recovery timeout for stuck items (reduced from 5 to prevent long freezes)
 const MAX_FUNCTION_RUNTIME_MS = 50000; // 50s — must stay well under the 58s edge function hard-kill limit
-const INTER_BUYER_DELAY_MS = 200; // 200ms breathing room between buyers
+const INTER_BUYER_DELAY_MS = 500; // 500ms breathing room between buyers — prevents Firecrawl rate limits during bulk runs
 const MAX_CONTINUATIONS = 50; // Prevent infinite self-continuation loops
 
 Deno.serve(async (req) => {
@@ -246,22 +246,25 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Check rate limiter before dispatching — wait if Gemini is in cooldown
-      const availability = await checkProviderAvailability(supabase, 'gemini');
-      if (!availability.ok) {
-        const waitMs = availability.retryAfterMs || RATE_LIMIT_BACKOFF_MS;
-        if (waitMs > 30000) {
+      // Check rate limiters before dispatching — wait if Gemini or Firecrawl is in cooldown
+      for (const provider of ['gemini', 'firecrawl'] as const) {
+        const availability = await checkProviderAvailability(supabase, provider);
+        if (!availability.ok) {
+          const waitMs = availability.retryAfterMs || RATE_LIMIT_BACKOFF_MS;
+          if (waitMs > 30000) {
+            console.log(
+              `${provider} rate limited for ${Math.round(waitMs / 1000)}s — stopping queue processing`,
+            );
+            totalRateLimited++;
+            break;
+          }
           console.log(
-            `Gemini rate limited for ${Math.round(waitMs / 1000)}s — stopping queue processing`,
+            `${provider} rate limited — waiting ${Math.round(waitMs / 1000)}s before processing buyer`,
           );
-          totalRateLimited++;
-          break;
+          await new Promise((r) => setTimeout(r, waitMs));
         }
-        console.log(
-          `Gemini rate limited — waiting ${Math.round(waitMs / 1000)}s before processing buyer`,
-        );
-        await new Promise((r) => setTimeout(r, waitMs));
       }
+      if (totalRateLimited > 0) break; // Exit outer loop if rate limited
 
       // Atomically claim this item; if another worker already claimed it, skip safely.
       const { data: claimedItem, error: claimError } = await supabase
@@ -352,7 +355,11 @@ Deno.serve(async (req) => {
         }
 
         if (!response.ok || !data.success) {
-          throw new Error(data.error || `HTTP ${response.status}`);
+          // Include details (actual DB error message) if available — previously lost
+          const errorMsg = data.details
+            ? `${data.error}: ${data.details}`
+            : data.error || `HTTP ${response.status}`;
+          throw new Error(errorMsg);
         }
 
         const wasPartial = data.extractionDetails?.rateLimited === true;

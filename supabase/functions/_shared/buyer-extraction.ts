@@ -904,6 +904,36 @@ export function buildBuyerUpdateObject(
       continue;
     }
 
+    // Normalize buyer_type to match the database CHECK constraint.
+    // AI extraction uses canonical values (private_equity, corporate, individual_buyer)
+    // but the DB constraint may use legacy values (pe_firm, strategic, other) if the
+    // buyer_classification_taxonomy migration hasn't been applied yet.
+    // This map ensures compatibility with BOTH old and new constraints.
+    if (field === 'buyer_type' && typeof value === 'string') {
+      const BUYER_TYPE_NORMALIZE: Record<string, string> = {
+        'private_equity': 'private_equity',
+        'corporate': 'corporate',
+        'family_office': 'family_office',
+        'independent_sponsor': 'independent_sponsor',
+        'search_fund': 'search_fund',
+        'individual_buyer': 'individual_buyer',
+        // Legacy values — accept if already in old format
+        'pe_firm': 'private_equity',
+        'platform': 'corporate',
+        'strategic': 'corporate',
+        'other': 'individual_buyer',
+      };
+      const normalized = BUYER_TYPE_NORMALIZE[value.toLowerCase().trim()];
+      if (normalized) {
+        updateData[field] = normalized;
+        fieldsUpdated++;
+        recordFieldSource();
+      } else {
+        console.warn(`Skipping unknown buyer_type: "${value}"`);
+      }
+      continue;
+    }
+
     // Handle arrays
     if (Array.isArray(value)) {
       let normalized = value
@@ -983,17 +1013,47 @@ export function buildBuyerUpdateObject(
       continue;
     }
 
+    // Coerce integer columns — AI may return strings ("5") or floats (5.0)
+    const INTEGER_COLUMNS = new Set([
+      'number_of_locations', 'total_acquisitions', 'num_platforms',
+      'target_revenue_min', 'target_revenue_max', 'target_ebitda_min', 'target_ebitda_max',
+    ]);
+    if (INTEGER_COLUMNS.has(field)) {
+      const num = typeof value === 'string' ? parseInt(value, 10) : Number(value);
+      if (Number.isFinite(num)) {
+        updateData[field] = Math.round(num);
+        fieldsUpdated++;
+        recordFieldSource();
+      } else {
+        console.warn(`Skipping ${field}: non-numeric value "${value}"`);
+      }
+      continue;
+    }
+
     // Handle strings and other values
     updateData[field] = value;
     fieldsUpdated++;
     recordFieldSource();
   }
 
-  // Finalize extraction_sources: merge evidence records + per-field source tracking
-  // Filter out any old field_sources entry, then append the updated one
-  const baseEntries = [...existingSources, ...evidenceRecords].filter(
-    (s) => (s as Record<string, unknown>).type !== 'field_sources',
+  // Finalize extraction_sources: merge evidence records + per-field source tracking.
+  // On re-enrichment, REPLACE old website evidence records (same source_type) with
+  // fresh ones instead of accumulating duplicates. This prevents the JSONB from
+  // growing unbounded across multiple re-enrichment runs.
+  const newSourceTypes = new Set(
+    evidenceRecords
+      .map((r) => (r as Record<string, unknown>).source_type as string)
+      .filter(Boolean),
   );
+  const baseEntries = existingSources.filter((s) => {
+    const entry = s as Record<string, unknown>;
+    // Always remove old field_sources (will be replaced below)
+    if (entry.type === 'field_sources') return false;
+    // Remove old website evidence records that are being replaced by new ones
+    if (entry.type === 'website' && newSourceTypes.has(entry.source_type as string)) return false;
+    return true;
+  });
+  baseEntries.push(...evidenceRecords);
   baseEntries.push({ type: 'field_sources', fields: fieldSources });
   updateData.extraction_sources = baseEntries;
 
