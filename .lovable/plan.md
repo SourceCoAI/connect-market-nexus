@@ -1,24 +1,35 @@
 
 
-## Plan: Add Clay Phone Number Lookup Tool — ✅ COMPLETED
+# Accept ALL Submissions — Bulletproof Ingestion
 
-### Summary
-Mirrored the existing `clay_find_email` pattern to add a `clay_find_phone` tool that sends LinkedIn URLs to a new Clay phone lookup table and receives results via an inbound webhook. No auth/secret requirements on the webhook endpoint.
+## Problem
+The `chk_calculator_type` constraint on `valuation_leads` rejects any submission with an unknown `calculator_type`. Every time a new calculator is added, the constraint must be manually updated — and if it isn't, the lead is silently lost.
 
-### Completed Changes
+## Solution: Drop the constraint entirely + catch-all fallback
 
-1. ✅ Database Migration — Added `result_phone TEXT` column to `clay_enrichment_requests`
-2. ✅ `clay-client.ts` — Added phone webhook URL + `sendToClayPhone` sender
-3. ✅ New edge function: `clay-webhook-phone/index.ts` — No auth, updates `result_phone`, `enriched_contacts.phone`, `contacts.phone`
-4. ✅ `config.toml` — Added `[functions.clay-webhook-phone]` with `verify_jwt = false`
-5. ✅ `clay-tools.ts` — Added `clayLookupPhone`, `ClayPhoneLookupResult`, `clay_find_phone` tool definition, `clayFindPhone` executor
-6. ✅ `integration/index.ts` — Re-exported `clayFindPhone`, `clayLookupPhone`, `ClayPhoneLookupResult`
-7. ✅ `integration-action-tools.ts` — Wired `case 'clay_find_phone'`
-8. ✅ `tools/index.ts` — Registered in GENERAL, CONTACTS, CONTACT_ENRICHMENT, REMARKETING, GOOGLE_SEARCH categories
-9. ✅ `system-prompt.ts` — Added phone lookup guidance
-10. ✅ Tested — Inbound webhook deployed and verified working
+### 1. Drop `chk_calculator_type` constraint (migration)
+Remove it permanently. The `calculator_type` column becomes a free-text `text` field. Any value is accepted. No submission can ever be rejected by this constraint again.
 
-### Inbound Webhook URL
-`https://vhzipqarkmmfuqadefep.supabase.co/functions/v1/clay-webhook-phone`
+```sql
+ALTER TABLE valuation_leads DROP CONSTRAINT IF EXISTS chk_calculator_type;
+```
 
-Configure Clay to POST results to this URL with `request_id` and `phone` fields.
+### 2. Update edge function for resilience
+Wrap the entire `valuation_leads` insert in a try/catch fallback. If the structured insert fails for **any reason** (schema mismatch, new columns, unexpected data), fall back to inserting a minimal row with just `email`, `full_name`, `calculator_type`, and the raw JSONB payloads. This guarantees the lead is never lost.
+
+In `receive-valuation-lead/index.ts`:
+- Wrap the insert/update in try/catch
+- On failure, attempt a minimal "safe insert" with only: `email`, `full_name`, `calculator_type` (defaulting to `'unknown'`), `raw_calculator_inputs`, `raw_valuation_results`, `lead_source`
+- Log the original error but return 200 to the caller so the calculator doesn't show an error to the user
+- The `incoming_leads` insert already serves as a raw backup, but this ensures the lead also appears in the main table
+
+### 3. Clean up old migration
+Remove the re-creation of `chk_calculator_type` from the latest migration file so it's never re-added.
+
+### Files to change
+
+| File | Change |
+|------|--------|
+| New migration SQL | `DROP CONSTRAINT IF EXISTS chk_calculator_type` |
+| `receive-valuation-lead/index.ts` | Add try/catch fallback for valuation_leads insert; default `calculatorType` to `'unknown'` if unmappable; always return 200 if `incoming_leads` succeeded |
+
