@@ -157,14 +157,33 @@ serve(async (req: Request) => {
       updated_at: new Date().toISOString(),
     };
 
-    // Upsert on the unique index (email, calculator_type) for active leads
-    const { error: vlError } = await supabaseAdmin
+    // Check if lead already exists by email + calculator_type
+    const { data: existing } = await supabaseAdmin
       .from("valuation_leads")
-      .upsert(valuationRow, { onConflict: "email,calculator_type" });
+      .select("id")
+      .eq("email", email)
+      .eq("calculator_type", valuationRow.calculator_type)
+      .eq("excluded", false)
+      .maybeSingle();
+
+    let vlError: { message: string } | null = null;
+    if (existing) {
+      // Update existing lead
+      const { error } = await supabaseAdmin
+        .from("valuation_leads")
+        .update(valuationRow)
+        .eq("id", existing.id);
+      vlError = error;
+    } else {
+      // Insert new lead
+      const { error } = await supabaseAdmin
+        .from("valuation_leads")
+        .insert(valuationRow);
+      vlError = error;
+    }
 
     if (vlError) {
-      // Log but don't fail — incoming_leads was already saved
-      console.error("valuation_leads upsert error:", vlError);
+      console.error("valuation_leads sync error:", vlError);
       return new Response(
         JSON.stringify({ error: "Lead saved to staging but failed to sync to valuation_leads", detail: vlError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
