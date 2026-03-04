@@ -73,6 +73,7 @@ export function formatWeekLabel(dateStr: string): string {
 export const SOURCE_COLORS: Record<string, string> = {
   captarget: '#2563eb',
   gp_partners: '#ea580c',
+  sourceco: '#0891b2',
   referral: '#7c3aed',
   marketplace: '#16a34a',
   valuation_calculator: '#10b981',
@@ -82,6 +83,7 @@ export const SOURCE_COLORS: Record<string, string> = {
 export const SOURCE_LABELS: Record<string, string> = {
   captarget: 'CapTarget',
   gp_partners: 'GP Partners',
+  sourceco: 'SourceCo',
   referral: 'Referral',
   marketplace: 'Marketplace',
   valuation_calculator: 'Calculator',

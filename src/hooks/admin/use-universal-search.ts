@@ -16,6 +16,7 @@ export type SearchCategory =
   | 'all_deals'
   | 'captarget'
   | 'gp_partners'
+  | 'sourceco'
   | 'valuation_leads'
   | 'inbound_leads'
   | 'owner_leads'
@@ -27,6 +28,7 @@ const CATEGORY_CONFIG: Record<SearchCategory, { label: string; color: string }> 
   all_deals: { label: 'Active Deals', color: 'text-indigo-600' },
   captarget: { label: 'CapTarget', color: 'text-orange-600' },
   gp_partners: { label: 'GP Partners', color: 'text-emerald-600' },
+  sourceco: { label: 'SourceCo', color: 'text-cyan-600' },
   valuation_leads: { label: 'Valuation Leads', color: 'text-purple-600' },
   inbound_leads: { label: 'Inbound Leads', color: 'text-cyan-600' },
   owner_leads: { label: 'Owner/Seller Leads', color: 'text-amber-600' },
@@ -138,6 +140,29 @@ export function useUniversalSearch() {
         subtitle: [l.main_contact_name, l.main_contact_email].filter(Boolean).join(' · '),
         category: 'gp_partners' as SearchCategory,
         href: `/admin/remarketing/leads/gp-partners`,
+        meta: [l.website, l.industry].filter(Boolean).join(' | '),
+      }));
+    },
+    staleTime: 60_000,
+  });
+
+  // --- SourceCo Deals ---
+  const sourcecoQuery = useQuery({
+    queryKey: ['universal-search', 'sourceco'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('listings')
+        .select('id, title, internal_company_name, main_contact_name, main_contact_email, website, industry')
+        .eq('deal_source', 'sourceco')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      return (data ?? []).map((l) => ({
+        id: l.id,
+        title: l.internal_company_name || l.title || 'Untitled',
+        subtitle: [l.main_contact_name, l.main_contact_email].filter(Boolean).join(' · '),
+        category: 'sourceco' as SearchCategory,
+        href: `/admin/remarketing/leads/sourceco`,
         meta: [l.website, l.industry].filter(Boolean).join(' | '),
       }));
     },
@@ -270,6 +295,7 @@ export function useUniversalSearch() {
     allDealsQuery.isLoading ||
     captargetQuery.isLoading ||
     gpPartnersQuery.isLoading ||
+    sourcecoQuery.isLoading ||
     valuationQuery.isLoading ||
     inboundQuery.isLoading ||
     ownerQuery.isLoading ||

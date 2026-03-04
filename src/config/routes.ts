@@ -81,6 +81,8 @@ export const ROUTES = {
       captargetDetail: '/admin/remarketing/leads/captarget/:dealId',
       gpPartners: '/admin/remarketing/leads/gp-partners',
       gpPartnersDetail: '/admin/remarketing/leads/gp-partners/:dealId',
+      sourceco: '/admin/remarketing/leads/sourceco',
+      sourcecoDetail: '/admin/remarketing/leads/sourceco/:dealId',
       valuation: '/admin/remarketing/leads/valuation',
       referrals: '/admin/remarketing/leads/referrals',
       referralDetail: '/admin/remarketing/leads/referrals/:partnerId',
@@ -159,6 +161,8 @@ export const routeBuilders = {
     buildRoute(ROUTES.admin.remarketing.captargetDetail, { dealId }),
   gpPartnerDetail: (dealId: string) =>
     buildRoute(ROUTES.admin.remarketing.gpPartnersDetail, { dealId }),
+  sourcecoDetail: (dealId: string) =>
+    buildRoute(ROUTES.admin.remarketing.sourcecoDetail, { dealId }),
   referralPartnerDetail: (partnerId: string) =>
     buildRoute(ROUTES.admin.remarketing.referralDetail, { partnerId }),
   dealMatching: (listingId: string) => buildRoute(ROUTES.admin.remarketing.matching, { listingId }),
