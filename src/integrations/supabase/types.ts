@@ -11045,6 +11045,11 @@ export type Database = {
           linkedin_url: string | null
           location: string | null
           locations_count: number | null
+          need_to_contact_owner: boolean | null
+          needs_buyer_search: boolean | null
+          needs_buyer_universe: boolean | null
+          needs_owner_contact: boolean | null
+          not_a_fit: boolean | null
           open_to_intros: boolean | null
           owner_dependency: string | null
           phone: string | null
@@ -11096,6 +11101,11 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           locations_count?: number | null
+          need_to_contact_owner?: boolean | null
+          needs_buyer_search?: boolean | null
+          needs_buyer_universe?: boolean | null
+          needs_owner_contact?: boolean | null
+          not_a_fit?: boolean | null
           open_to_intros?: boolean | null
           owner_dependency?: string | null
           phone?: string | null
@@ -11147,6 +11157,11 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           locations_count?: number | null
+          need_to_contact_owner?: boolean | null
+          needs_buyer_search?: boolean | null
+          needs_buyer_universe?: boolean | null
+          needs_owner_contact?: boolean | null
+          not_a_fit?: boolean | null
           open_to_intros?: boolean | null
           owner_dependency?: string | null
           phone?: string | null

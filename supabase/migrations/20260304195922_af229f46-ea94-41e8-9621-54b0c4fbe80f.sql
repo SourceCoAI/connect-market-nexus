@@ -1,0 +1,1 @@
+ALTER TABLE valuation_leads ADD COLUMN IF NOT EXISTS not_a_fit boolean DEFAULT false;
