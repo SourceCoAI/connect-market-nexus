@@ -53,6 +53,7 @@ serve(async (req: Request) => {
 
   try {
     const body = await req.json();
+    console.log("[receive-valuation-lead] Full body:", JSON.stringify(body));
 
     const { full_name, email, website, calculator_inputs, valuation_result } = body;
 
@@ -165,7 +166,7 @@ serve(async (req: Request) => {
       valuation_high: toNum(businessValue?.high),
       quality_tier: (vr?.tier as string) ?? null,
       quality_label: qualityLabel?.label ?? null,
-      buyer_lane: buyerLane?.lane ?? null,
+      buyer_lane: buyerLane?.title ?? null,
       growth_trend: growthTrend,
       owner_dependency: ownerDependency,
       locations_count: locationsCount,
