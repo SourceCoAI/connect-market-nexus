@@ -256,3 +256,5 @@ verify_jwt = false
 verify_jwt = false
 [functions.clay-webhook-phone]
 verify_jwt = false
+[functions.receive-valuation-lead]
+verify_jwt = false

@@ -6424,6 +6424,60 @@ export type Database = {
           },
         ]
       }
+      incoming_leads: {
+        Row: {
+          calculator_inputs: Json
+          city: string | null
+          country: string | null
+          country_code: string | null
+          created_at: string | null
+          email: string
+          external_lead_id: string | null
+          full_name: string
+          id: string
+          ip_address: string | null
+          lead_source: string | null
+          received_at: string | null
+          region: string | null
+          valuation_result: Json
+          website: string
+        }
+        Insert: {
+          calculator_inputs: Json
+          city?: string | null
+          country?: string | null
+          country_code?: string | null
+          created_at?: string | null
+          email: string
+          external_lead_id?: string | null
+          full_name: string
+          id?: string
+          ip_address?: string | null
+          lead_source?: string | null
+          received_at?: string | null
+          region?: string | null
+          valuation_result: Json
+          website: string
+        }
+        Update: {
+          calculator_inputs?: Json
+          city?: string | null
+          country?: string | null
+          country_code?: string | null
+          created_at?: string | null
+          email?: string
+          external_lead_id?: string | null
+          full_name?: string
+          id?: string
+          ip_address?: string | null
+          lead_source?: string | null
+          received_at?: string | null
+          region?: string | null
+          valuation_result?: Json
+          website?: string
+        }
+        Relationships: []
+      }
       industry_trackers: {
         Row: {
           archived: boolean | null
