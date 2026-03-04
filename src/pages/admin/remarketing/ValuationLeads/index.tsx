@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -50,6 +50,7 @@ import type { ValuationLead } from './types';
 export { formatAge } from './helpers';
 
 export default function ValuationLeads() {
+  const navigate = useNavigate();
   const { setPageContext } = useAICommandCenterContext();
   const [dialerOpen, setDialerOpen] = useState(false);
   const [smartleadOpen, setSmartleadOpen] = useState(false);
@@ -459,7 +460,7 @@ export default function ValuationLeads() {
         allSelected={allSelected}
         toggleSelectAll={toggleSelectAll}
         toggleSelect={toggleSelect}
-        handleRowClick={handleRowClick}
+        handleRowClick={(lead: ValuationLead) => setDetailLead(lead)}
         handlePushToAllDeals={handlePushToAllDeals}
         handleReEnrich={handleReEnrich}
         handlePushAndEnrich={handlePushAndEnrich}
