@@ -39,7 +39,7 @@ export function useSnoozeTask() {
       if (error) throw error;
 
       // Log activity
-      await supabase.from('rm_task_activity_log').insert({
+      await (supabase.from('rm_task_activity_log' as any) as any).insert({
         task_id: taskId,
         user_id: user?.id ?? '',
         action: 'snoozed',
@@ -71,7 +71,7 @@ export function useUnsnoozeTask() {
 
       if (error) throw error;
 
-      await supabase.from('rm_task_activity_log').insert({
+      await (supabase.from('rm_task_activity_log' as any) as any).insert({
         task_id: taskId,
         user_id: user?.id ?? '',
         action: 'status_changed',
@@ -107,7 +107,7 @@ export function useConfirmAITask() {
 
       if (error) throw error;
 
-      await supabase.from('rm_task_activity_log').insert({
+      await (supabase.from('rm_task_activity_log' as any) as any).insert({
         task_id: taskId,
         user_id: user?.id ?? '',
         action: 'confirmed',
@@ -139,7 +139,7 @@ export function useDismissAITask() {
 
       if (error) throw error;
 
-      await supabase.from('rm_task_activity_log').insert({
+      await (supabase.from('rm_task_activity_log' as any) as any).insert({
         task_id: taskId,
         user_id: user?.id ?? '',
         action: 'dismissed',
@@ -167,7 +167,7 @@ export function useCancelTask() {
 
       if (error) throw error;
 
-      await supabase.from('rm_task_activity_log').insert({
+      await (supabase.from('rm_task_activity_log' as any) as any).insert({
         task_id: taskId,
         user_id: user?.id ?? '',
         action: 'cancelled',
@@ -207,7 +207,7 @@ export function useApplyTaskTemplate() {
           task_type: task.task_type,
           due_date: dueDate,
           assignee_id: assigneeId,
-          entity_type: 'listing' as TaskEntityType,
+          entity_type: 'deal' as TaskEntityType,
           entity_id: listingId,
           source: 'template',
           priority: 'medium',
@@ -234,7 +234,7 @@ export function useApplyTaskTemplate() {
         createdTaskIds.push((data as Record<string, unknown>).id as string);
 
         // Log activity
-        await supabase.from('rm_task_activity_log').insert({
+        await (supabase.from('rm_task_activity_log' as any) as any).insert({
           task_id: (data as Record<string, unknown>).id as string,
           user_id: user?.id ?? '',
           action: 'created',
@@ -301,7 +301,7 @@ export function useAddEntityTask() {
       if (error) throw error;
 
       // Log activity
-      await supabase.from('rm_task_activity_log').insert({
+      await (supabase.from('rm_task_activity_log' as any) as any).insert({
         task_id: (data as Record<string, unknown>).id as string,
         user_id: user?.id ?? '',
         action: 'created',

@@ -184,7 +184,7 @@ export function useApproveTask() {
 
       // Log approval to activity log
       try {
-        await supabase.from('rm_task_activity_log').insert({
+        await (supabase.from('rm_task_activity_log' as any) as any).insert({
           task_id: taskId,
           user_id: user?.id ?? '',
           action: 'status_changed',
@@ -261,7 +261,7 @@ export function useApproveAllTasks() {
       // Log approval activity for each task
       if (pendingTasks.length > 0) {
         try {
-          await supabase.from('rm_task_activity_log').insert(
+          await (supabase.from('rm_task_activity_log' as any) as any).insert(
             pendingTasks.map((t) => ({
               task_id: t.id,
               user_id: user?.id ?? '',
@@ -541,7 +541,7 @@ export function usePinTask() {
       if (error) throw error;
 
       // Log the action
-      await supabase.from('task_pin_log').insert({
+      await (supabase.from('task_pin_log' as any) as any).insert({
         task_id: taskId,
         action: isPinning ? 'pinned' : 'unpinned',
         pinned_rank: rank,

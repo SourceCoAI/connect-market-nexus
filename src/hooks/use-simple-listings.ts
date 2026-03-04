@@ -1,3 +1,9 @@
+// TODO: Phase 6 — migrate to data access layer: getActiveListings() from '@/lib/data-access'
+// The fetchListings() function below uses ~30 buyer-visible columns, full-text search (fts),
+// location hierarchy expansion, is_internal_deal filtering, and Tier 3 time-gating.
+// getActiveListings() currently only selects LISTING_SUMMARY_SELECT (11 fields) and supports
+// basic category/search/pagination. The data access function needs marketplace-specific
+// column support, FTS, and location expansion before this hook can migrate.
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PaginationState } from './use-simple-pagination';

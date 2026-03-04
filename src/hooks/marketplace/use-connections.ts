@@ -19,6 +19,10 @@ export const useRequestConnection = () => {
       if (!authUser) throw new Error('You must be logged in to request a connection');
 
       // Block business owners (sellers) from creating deal connections
+      // TODO: Phase 6 — migrate to data access layer: getContactByProfileId() from '@/lib/data-access'
+      // This reads profiles.buyer_type to enforce buyer/seller gating. Once the data access layer
+      // exposes a profile-level buyer_type lookup (e.g. via getBuyerWithProfile() or a dedicated
+      // getProfileBuyerType() function), this raw .from('profiles') call can be replaced.
       const { data: profile } = await supabase
         .from('profiles')
         .select('buyer_type')
@@ -183,6 +187,10 @@ export const useRequestConnection = () => {
     },
   });
 };
+
+// TODO: Phase 6 — migrate to data access layer once connection_requests queries are centralized.
+// This hook queries .from('connection_requests') for batch status lookup. A new data access
+// function (e.g. getConnectionStatusesForUser()) would consolidate this pattern.
 
 // Batch fetch all connection statuses for the current user (single query)
 export const useAllConnectionStatuses = () => {

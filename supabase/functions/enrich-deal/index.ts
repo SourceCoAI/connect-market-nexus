@@ -46,6 +46,8 @@ import {
   validateDealExtraction,
   isPlaceholder,
 } from "../_shared/deal-extraction.ts";
+// Shared enrichment pipeline utilities
+import { getErrorMessage } from "../_shared/enrichment/pipeline.ts";
 // Sub-modules extracted from this file
 import { applyExistingTranscriptData, processNewTranscripts } from "./transcript-processor.ts";
 import { resolveWebsiteUrl, validateWebsiteUrl, scrapeWebsite } from "./website-scraper.ts";
@@ -73,19 +75,6 @@ interface ExtractedFinancial {
   source_quote?: string;
   inference_method?: string;
 }
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
-    return String((error as { message: string }).message);
-  }
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return 'Unknown error';
-  }
-};
 
 /**
  * Lightweight AI call to infer industry from deal metadata when website scraping is unavailable.

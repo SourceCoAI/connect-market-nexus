@@ -116,7 +116,7 @@ export async function sendViaBervo(
       console.warn(`[brevo-sender] Server error (attempt ${attempt + 1}/${maxRetries + 1}):`, lastError);
     } catch (err: unknown) {
       // Network/timeout error — retry with backoff
-      lastError = err.message;
+      lastError = err instanceof Error ? err.message : String(err);
       console.warn(`[brevo-sender] Fetch error (attempt ${attempt + 1}/${maxRetries + 1}):`, lastError);
     }
 

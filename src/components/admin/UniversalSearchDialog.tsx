@@ -31,6 +31,7 @@ const CATEGORY_ICONS: Record<SearchCategory, React.ReactNode> = {
   all_deals: <Building2 className="h-4 w-4 shrink-0" />,
   captarget: <Crosshair className="h-4 w-4 shrink-0" />,
   gp_partners: <Target className="h-4 w-4 shrink-0" />,
+  sourceco: <Building2 className="h-4 w-4 shrink-0" />,
   valuation_leads: <Calculator className="h-4 w-4 shrink-0" />,
   inbound_leads: <Mail className="h-4 w-4 shrink-0" />,
   owner_leads: <ClipboardList className="h-4 w-4 shrink-0" />,

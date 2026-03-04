@@ -18,6 +18,7 @@ import {
   sanitizeListingUpdates,
   isPlaceholder,
 } from "../_shared/deal-extraction.ts";
+import { getErrorMessage } from "../_shared/enrichment/pipeline.ts";
 
 interface DealTranscript {
   id: string;
@@ -59,19 +60,6 @@ export interface TranscriptProcessingResult {
   transcriptsProcessed: number;
   transcriptFieldNames: string[];
 }
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
-    return String((error as { message: string }).message);
-  }
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return 'Unknown error';
-  }
-};
 
 /**
  * Step 0A: Apply existing extracted_data from previously-processed transcripts.

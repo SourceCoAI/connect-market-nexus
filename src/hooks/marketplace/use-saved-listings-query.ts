@@ -1,3 +1,8 @@
+// TODO: Phase 6 — migrate to data access layer: getActiveListings() from '@/lib/data-access'
+// This hook queries .from('saved_listings') for IDs then .from('listings') with
+// MARKETPLACE_SAFE_COLUMNS. The listings query portion could migrate to getActiveListings()
+// once it supports filtering by an ID list (e.g. an `ids` option) and the full marketplace
+// column set. The saved_listings lookup itself would need a dedicated data access function.
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Listing, FilterOptions } from '@/types';

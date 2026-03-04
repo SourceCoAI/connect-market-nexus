@@ -167,7 +167,7 @@ export function BulkApproveForDealsDialog({
         if (!selectedListingIds.has(group.listingId)) continue;
         for (const scoreId of group.pendingScoreIds) {
           try {
-            await supabase.from('remarketing_outreach').upsert(
+            await (supabase.from('remarketing_outreach') as any).upsert(
               {
                 score_id: scoreId,
                 listing_id: group.listingId,

@@ -27,9 +27,21 @@ import {
 import { Plus, Trash2, TestTube, Check, X, Loader2, Webhook } from 'lucide-react';
 import { toast } from 'sonner';
 
-import type { Tables } from '@/integrations/supabase/types';
+// Tables not yet in generated types — use `as any` for supabase.from() calls
 
-type WebhookConfig = Tables<'webhook_configs'>;
+type WebhookConfig = {
+  id: string;
+  name: string;
+  webhook_url: string;
+  secret?: string | null;
+  event_types: string[];
+  enabled: boolean;
+  total_deliveries?: number;
+  total_failures?: number;
+  created_at?: string;
+  updated_at?: string;
+  universe_id?: string | null;
+};
 
 interface WebhookSettingsProps {
   universeId?: string;
@@ -52,8 +64,8 @@ export function WebhookSettings({ universeId }: WebhookSettingsProps) {
   const { data: webhooks = [], isLoading } = useQuery({
     queryKey: ['webhooks', universeId],
     queryFn: async () => {
-      let query = supabase
-        .from('webhook_configs')
+      let query = (supabase
+        .from('webhook_configs' as any) as any)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -70,7 +82,7 @@ export function WebhookSettings({ universeId }: WebhookSettingsProps) {
   // Add webhook mutation
   const addMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('webhook_configs').insert({
+      const { error } = await (supabase.from('webhook_configs' as any) as any).insert({
         universe_id: universeId || null,
         name: formData.name,
         webhook_url: formData.webhook_url,
@@ -95,7 +107,7 @@ export function WebhookSettings({ universeId }: WebhookSettingsProps) {
   // Delete webhook mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('webhook_configs').delete().eq('id', id);
+      const { error } = await (supabase.from('webhook_configs' as any) as any).delete().eq('id', id);
 
       if (error) throw error;
     },
@@ -111,7 +123,7 @@ export function WebhookSettings({ universeId }: WebhookSettingsProps) {
   // Toggle webhook enabled/disabled
   const toggleMutation = useMutation({
     mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const { error } = await supabase.from('webhook_configs').update({ enabled }).eq('id', id);
+      const { error } = await (supabase.from('webhook_configs' as any) as any).update({ enabled }).eq('id', id);
 
       if (error) throw error;
     },
@@ -323,9 +335,9 @@ export function WebhookSettings({ universeId }: WebhookSettingsProps) {
                     <div className="text-sm">
                       <div className="flex items-center gap-1">
                         <Check className="h-3 w-3 text-green-600" />
-                        {webhook.total_deliveries - webhook.total_failures}
+                        {(webhook.total_deliveries || 0) - (webhook.total_failures || 0)}
                       </div>
-                      {webhook.total_failures > 0 && (
+                      {(webhook.total_failures || 0) > 0 && (
                         <div className="flex items-center gap-1 text-red-600">
                           <X className="h-3 w-3" />
                           {webhook.total_failures}

@@ -4,6 +4,13 @@ import { useAuth } from '@/context/AuthContext';
 import { AdminStats, AdminActivity } from '@/types/admin';
 import { toast } from '@/hooks/use-toast';
 
+// TODO: Phase 6 — migrate count queries to data access layer.
+// useStats() runs 6 separate .from() count queries against profiles, listings, and
+// connection_requests. These could be consolidated into a single getAdminDashboardStats()
+// data access function (or an RPC) for better performance and centralization.
+// useRecentActivities() similarly batch-fetches from profiles, connection_requests, and
+// listings — consider a getRecentAdminActivity() data access function.
+
 /**
  * Hook for fetching admin dashboard statistics and activities
  */

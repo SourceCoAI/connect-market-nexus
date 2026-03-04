@@ -5,6 +5,13 @@ import { withPerformanceMonitoring } from '@/lib/performance-monitor';
 import { useAuth } from '@/context/AuthContext';
 import { toStandardCategory, toStandardLocation } from '@/lib/standardization';
 
+// TODO: Phase 6 — migrate to data access layer: getActiveListings() from '@/lib/data-access'
+// Currently blocked because getActiveListings() selects only LISTING_SUMMARY_SELECT (11 fields),
+// while the marketplace UI needs ~50 buyer-safe columns (MARKETPLACE_SAFE_COLUMNS below),
+// plus is_internal_deal filtering, text search (fts), category/location standardization,
+// and performance monitoring. The data access function needs to be extended to support
+// the full marketplace column set and filter options before this hook can migrate.
+
 // N02 FIX: Explicit safe columns for marketplace queries.
 // SELECT * was returning all 170 columns including confidential data
 // (internal_company_name, website, main_contact_*, internal_notes, etc.)
@@ -238,6 +245,11 @@ export const useListings = (filters: FilterOptions = {}) => {
     retryDelay: 1000,
   });
 };
+
+// TODO: Phase 6 — migrate to data access layer: getListingById() from '@/lib/data-access'
+// Currently blocked because getListingById() uses LISTING_DETAIL_SELECT (16 fields)
+// while this hook uses MARKETPLACE_SAFE_COLUMNS (~50 buyer-safe fields) and includes
+// is_internal_deal filtering. The data access function needs a marketplace-specific variant.
 
 // Get a single listing by ID
 export const useListing = (id: string | undefined) => {

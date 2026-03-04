@@ -31,6 +31,7 @@ import { type RateLimitConfig } from '../_shared/ai-providers.ts';
 import { withConcurrencyTracking, reportRateLimit } from '../_shared/rate-limiter.ts';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { type SourceType, validateFieldProvenance } from '../_shared/provenance.ts';
+import { getErrorMessage } from '../_shared/enrichment/pipeline.ts';
 import {
   // Configuration
   BUYER_AI_CONFIG,
@@ -112,7 +113,7 @@ async function scrapeWebsite(
     if (error instanceof Error && error.name === 'TimeoutError') {
       return { success: false, error: `Timed out after ${BUYER_SCRAPE_TIMEOUT_MS / 1000}s` };
     }
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 
@@ -173,7 +174,7 @@ async function scrapeLocationPage(
     if (error instanceof Error && error.name === 'TimeoutError') {
       return { success: false, error: `Timed out after ${BUYER_SCRAPE_TIMEOUT_MS / 1000}s` };
     }
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 
@@ -905,7 +906,7 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error('Enrichment error:', error);
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    const errorMsg = getErrorMessage(error);
 
     // Observability: log enrichment failure (non-blocking)
     try {

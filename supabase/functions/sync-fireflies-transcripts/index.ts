@@ -21,10 +21,10 @@
  * LAST UPDATED: 2026-02-26
  * AUDIT REF: CTO Audit February 2026
  */
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 /** Internal email domains to filter out when extracting external participants.
  * Configure via INTERNAL_EMAIL_DOMAINS env var (comma-separated) for flexibility.
@@ -41,9 +41,9 @@ const FIREFLIES_RATE_LIMIT_BACKOFF_MS = 3_000;
 
 interface SyncRequest {
   listingId: string;
-  contactEmails: string[];     // array of contact emails (new)
-  contactEmail?: string;       // legacy single email — still supported
-  companyName?: string;        // for fallback keyword search
+  contactEmails: string[]; // array of contact emails (new)
+  contactEmail?: string; // legacy single email — still supported
+  companyName?: string; // for fallback keyword search
   limit?: number;
 }
 
@@ -53,11 +53,11 @@ interface SyncRequest {
  * Includes timeout enforcement and 429 rate-limit retry.
  */
 async function firefliesGraphQL(query: string, variables?: Record<string, unknown>) {
-  const apiKey = Deno.env.get("FIREFLIES_API_KEY");
+  const apiKey = Deno.env.get('FIREFLIES_API_KEY');
   if (!apiKey) {
     throw new Error(
-      "FIREFLIES_API_KEY is not configured. Add it as a Supabase secret: " +
-      "supabase secrets set FIREFLIES_API_KEY=your_key"
+      'FIREFLIES_API_KEY is not configured. Add it as a Supabase secret: ' +
+        'supabase secrets set FIREFLIES_API_KEY=your_key',
     );
   }
 
@@ -66,11 +66,11 @@ async function firefliesGraphQL(query: string, variables?: Record<string, unknow
     const timeoutId = setTimeout(() => controller.abort(), FIREFLIES_API_TIMEOUT_MS);
 
     try {
-      const response = await fetch("https://api.fireflies.ai/graphql", {
-        method: "POST",
+      const response = await fetch('https://api.fireflies.ai/graphql', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({ query, variables }),
         signal: controller.signal,
@@ -91,8 +91,10 @@ async function firefliesGraphQL(query: string, variables?: Record<string, unknow
 
   // Handle rate limiting: back off and retry once
   if (response.status === 429) {
-    console.warn(`Fireflies rate limit hit (429), backing off ${FIREFLIES_RATE_LIMIT_BACKOFF_MS}ms...`);
-    await new Promise(r => setTimeout(r, FIREFLIES_RATE_LIMIT_BACKOFF_MS));
+    console.warn(
+      `Fireflies rate limit hit (429), backing off ${FIREFLIES_RATE_LIMIT_BACKOFF_MS}ms...`,
+    );
+    await new Promise((r) => setTimeout(r, FIREFLIES_RATE_LIMIT_BACKOFF_MS));
     response = await doFetch();
   }
 
@@ -104,7 +106,7 @@ async function firefliesGraphQL(query: string, variables?: Record<string, unknow
   const result = await response.json();
   if (result.errors) {
     throw new Error(
-      `Fireflies GraphQL error: ${result.errors[0]?.message || JSON.stringify(result.errors)}`
+      `Fireflies GraphQL error: ${result.errors[0]?.message || JSON.stringify(result.errors)}`,
     );
   }
 
@@ -189,7 +191,7 @@ function transcriptHasContent(t: FirefliesTranscript): boolean {
   const info = t.meeting_info || {};
   const isSilent = info.silent_meeting === true;
   const isSkipped = info.summary_status === 'skipped';
-  const hasSummary = !!(t.summary?.short_summary);
+  const hasSummary = !!t.summary?.short_summary;
 
   if ((isSilent || isSkipped) && !hasSummary) {
     return false;
@@ -200,14 +202,16 @@ function transcriptHasContent(t: FirefliesTranscript): boolean {
 /**
  * Extract external participants — filters out internal domains.
  */
-function extractExternalParticipants(attendees: { displayName?: string; email?: string; name?: string }[]): { name: string; email: string }[] {
+function extractExternalParticipants(
+  attendees: { displayName?: string; email?: string; name?: string }[],
+): { name: string; email: string }[] {
   if (!Array.isArray(attendees)) return [];
 
   return attendees
     .filter((a) => {
       const email = (a.email || '').toLowerCase();
       if (!email) return false;
-      return !INTERNAL_DOMAINS.some(domain => email.endsWith(`@${domain}`));
+      return !INTERNAL_DOMAINS.some((domain) => email.endsWith(`@${domain}`));
     })
     .map((a) => ({
       name: a.displayName || a.name || a.email?.split('@')[0] || 'Unknown',
@@ -218,7 +222,11 @@ function extractExternalParticipants(attendees: { displayName?: string; email?: 
 /**
  * Paginated participant email search helper.
  */
-async function paginatedSearchEmails(emails: string[], batchSize: number, maxPages: number): Promise<FirefliesTranscript[]> {
+async function paginatedSearchEmails(
+  emails: string[],
+  batchSize: number,
+  maxPages: number,
+): Promise<FirefliesTranscript[]> {
   const results: FirefliesTranscript[] = [];
   let skip = 0;
   for (let page = 0; page < maxPages; page++) {
@@ -235,7 +243,6 @@ async function paginatedSearchEmails(emails: string[], batchSize: number, maxPag
   return results;
 }
 
-
 /**
  * Sync Fireflies transcripts for a deal.
  *
@@ -250,16 +257,16 @@ async function paginatedSearchEmails(emails: string[], batchSize: number, maxPag
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const body = await req.json() as SyncRequest;
+    const body = (await req.json()) as SyncRequest;
     const { listingId, companyName, limit: _limit = 50 } = body;
 
     // Support both new `contactEmails` array and legacy `contactEmail` single string
@@ -271,28 +278,32 @@ serve(async (req) => {
       allEmails.push(body.contactEmail);
     }
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const validEmails = [...new Set(
-      allEmails
-        .filter(Boolean)
-        .map(e => e.toLowerCase().trim())
-        .filter(e => EMAIL_RE.test(e))
-    )];
+    const validEmails = [
+      ...new Set(
+        allEmails
+          .filter(Boolean)
+          .map((e) => e.toLowerCase().trim())
+          .filter((e) => EMAIL_RE.test(e)),
+      ),
+    ];
 
     if (!listingId) {
-      return new Response(
-        JSON.stringify({ error: "listingId is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: 'listingId is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (validEmails.length === 0 && !companyName) {
       return new Response(
-        JSON.stringify({ error: "At least one contact email or company name is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: 'At least one contact email or company name is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    console.log(`Syncing Fireflies transcripts for [${validEmails.join(', ')}] on deal ${listingId}`);
+    console.log(
+      `Syncing Fireflies transcripts for [${validEmails.join(', ')}] on deal ${listingId}`,
+    );
 
     // === Phase 1: Email-based participant search ===
     const matchingTranscripts: FirefliesTranscript[] = [];
@@ -335,7 +346,11 @@ serve(async (req) => {
         try {
           let skip = 0;
           for (let page = 0; page < 4; page++) {
-            const data = await firefliesGraphQL(KEYWORD_SEARCH_QUERY, { keyword: email, limit: batchSize, skip });
+            const data = await firefliesGraphQL(KEYWORD_SEARCH_QUERY, {
+              keyword: email,
+              limit: batchSize,
+              skip,
+            });
             const batch = data.transcripts || [];
             for (const t of batch) {
               if (t.id && !seenIds.has(t.id)) {
@@ -352,19 +367,21 @@ serve(async (req) => {
         }
       }
 
-      console.log(`Total participant search returned ${matchingTranscripts.length} unique transcripts`);
+      console.log(
+        `Total participant search returned ${matchingTranscripts.length} unique transcripts`,
+      );
     }
 
     // Deduplicate
     const seen = new Set<string>();
-    const uniqueTranscripts = matchingTranscripts.filter(t => {
+    const uniqueTranscripts = matchingTranscripts.filter((t) => {
       if (!t.id || seen.has(t.id)) return false;
       seen.add(t.id);
       return true;
     });
 
     // === Phase 2: Fallback keyword search by company name ===
-    const emailResultsWithContent = uniqueTranscripts.filter(t => transcriptHasContent(t));
+    const emailResultsWithContent = uniqueTranscripts.filter((t) => transcriptHasContent(t));
 
     if (emailResultsWithContent.length === 0 && companyName && companyName.trim().length >= 3) {
       console.log(`No email results with content, running fallback for "${companyName}"`);
@@ -393,7 +410,9 @@ serve(async (req) => {
         skip += batchSize;
       }
 
-      console.log(`Fallback search added ${uniqueTranscripts.length - emailResultsWithContent.length} transcripts`);
+      console.log(
+        `Fallback search added ${uniqueTranscripts.length - emailResultsWithContent.length} transcripts`,
+      );
     }
 
     console.log(`Found ${uniqueTranscripts.length} unique Fireflies transcripts total`);
@@ -407,7 +426,7 @@ serve(async (req) => {
           skipped: 0,
           total: 0,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -444,9 +463,8 @@ serve(async (req) => {
         // Convert Fireflies date (Unix ms) to ISO string
         let callDate: string | null = null;
         if (transcript.date) {
-          const dateNum = typeof transcript.date === 'number'
-            ? transcript.date
-            : parseInt(transcript.date, 10);
+          const dateNum =
+            typeof transcript.date === 'number' ? transcript.date : parseInt(transcript.date, 10);
           if (!isNaN(dateNum)) {
             callDate = new Date(dateNum).toISOString();
           }
@@ -455,7 +473,9 @@ serve(async (req) => {
         // Determine content status and match type
         const hasContent = transcriptHasContent(transcript);
         const matchType = transcriptMatchType.get(transcript.id) || 'email';
-        const externalParticipants = extractExternalParticipants(transcript.meeting_attendees || []);
+        const externalParticipants = extractExternalParticipants(
+          transcript.meeting_attendees || [],
+        );
 
         // Store Fireflies summary data in extracted_data for display in Contact History
         const extractedData: Record<string, unknown> = {};
@@ -466,34 +486,34 @@ serve(async (req) => {
           extractedData.fireflies_keywords = transcript.summary.keywords;
         }
 
-        const { error: insertError } = await supabase
-          .from('deal_transcripts')
-          .insert({
-            listing_id: listingId,
-            fireflies_transcript_id: transcript.id,
-            fireflies_meeting_id: transcript.id,
-            transcript_url: transcript.transcript_url || null,
-            title: transcript.title || `Call`,
-            call_date: callDate,
-            participants: transcript.meeting_attendees || [],
-            meeting_attendees: attendeeEmails,
-            duration_minutes: transcript.duration ? Math.round(transcript.duration) : null,
-            source: 'fireflies',
-            auto_linked: true,
-            transcript_text: '', // Fetched on-demand via fetch-fireflies-content
-            created_by: null,
-            has_content: hasContent,
-            match_type: matchType,
-            external_participants: externalParticipants,
-            extracted_data: extractedData,
-          });
+        const { error: insertError } = await supabase.from('deal_transcripts').insert({
+          listing_id: listingId,
+          fireflies_transcript_id: transcript.id,
+          fireflies_meeting_id: transcript.id,
+          transcript_url: transcript.transcript_url || null,
+          title: transcript.title || `Call`,
+          call_date: callDate,
+          participants: transcript.meeting_attendees || [],
+          meeting_attendees: attendeeEmails,
+          duration_minutes: transcript.duration ? Math.round(transcript.duration) : null,
+          source: 'fireflies',
+          auto_linked: true,
+          transcript_text: '', // Fetched on-demand via fetch-fireflies-content
+          created_by: null,
+          has_content: hasContent,
+          match_type: matchType,
+          external_participants: externalParticipants,
+          extracted_data: extractedData,
+        });
 
         if (insertError) {
           console.error(`Failed to link transcript ${transcript.id}:`, insertError);
           errors.push(`${transcript.id}: ${insertError.message}`);
           skipped++;
         } else {
-          console.log(`Linked transcript ${transcript.id}: ${transcript.title} (has_content=${hasContent}, match_type=${matchType})`);
+          console.log(
+            `Linked transcript ${transcript.id}: ${transcript.title} (has_content=${hasContent}, match_type=${matchType})`,
+          );
           linked++;
         }
       } catch (err) {
@@ -510,25 +530,23 @@ serve(async (req) => {
       skipped,
       total: uniqueTranscripts.length,
       emailsSearched: validEmails.length,
-      fallbackUsed: uniqueTranscripts.some(t => transcriptMatchType.get(t.id) === 'keyword'),
+      fallbackUsed: uniqueTranscripts.some((t) => transcriptMatchType.get(t.id) === 'keyword'),
       errors: errors.length > 0 ? errors : undefined,
     };
 
-    console.log("Sync complete:", response);
+    console.log('Sync complete:', response);
 
-    return new Response(
-      JSON.stringify(response),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-
+    return new Response(JSON.stringify(response), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    console.error("Sync error:", error);
+    console.error('Sync error:', error);
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : 'Unknown error',
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
 });
