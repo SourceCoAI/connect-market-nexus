@@ -452,9 +452,16 @@ export function buildBuyerFromRow(
   return buyer;
 }
 
-/** Check whether company_name mapping exists */
+/** Check whether company_name AND at least one website mapping exist */
 export function hasRequiredMapping(mappings: ColumnMapping[]): boolean {
-  return mappings.some((m) => m.targetField === 'company_name');
+  const hasName = mappings.some((m) => m.targetField === 'company_name');
+  const hasWebsite = mappings.some(
+    (m) =>
+      m.targetField === 'platform_website' ||
+      m.targetField === 'pe_firm_website' ||
+      m.targetField === 'company_website',
+  );
+  return hasName && hasWebsite;
 }
 
 /** Check whether at least one website mapping exists */
@@ -505,10 +512,8 @@ export function computeRowValidation(csvData: CSVRow[], mappings: ColumnMapping[
 
     if (hasCompanyName && hasAnyWebsite) {
       valid.push({ index, row });
-    } else if (hasCompanyName) {
-      // Has name but no website - still import but note it
-      valid.push({ index, row });
     } else {
+      // Missing company name or website — both are required
       skipped.push({ index, row });
       skippedDetails.push({
         index,

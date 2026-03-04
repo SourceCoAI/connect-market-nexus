@@ -218,26 +218,26 @@ export const useBuyersData = () => {
         normalizeDomain(newBuyer.company_website) || newBuyer.company_website?.trim() || null;
       const universeId = newBuyer.universe_id || null;
 
-      // Check for duplicate buyer by domain
-      if (normalizedWebsite) {
-        const query = supabase
-          .from('buyers')
-          .select('id, company_name, company_website')
-          .eq('archived', false)
-          .not('company_website', 'is', null);
+      // Website is required — it's the canonical unique identifier for buyers.
+      if (!normalizedWebsite) {
+        throw new Error('A website is required. Buyers are deduplicated by domain.');
+      }
 
-        if (universeId) {
-          query.eq('universe_id', universeId);
-        } else {
-          query.is('universe_id', null);
-        }
+      // Check for duplicate by domain across ALL active buyers (not scoped to universe).
+      const { data: existingBuyers } = await supabase
+        .from('buyers')
+        .select('id, company_name, company_website')
+        .eq('archived', false)
+        .not('company_website', 'is', null);
 
-        const { data: existingBuyers } = await query;
-        const duplicate = existingBuyers?.find(
+      if (existingBuyers) {
+        const domainDuplicate = existingBuyers.find(
           (b) => normalizeDomain(b.company_website) === normalizedWebsite,
         );
-        if (duplicate) {
-          throw new Error(`A buyer with this website already exists: "${duplicate.company_name}"`);
+        if (domainDuplicate) {
+          throw new Error(
+            `A buyer with this website already exists: "${domainDuplicate.company_name}"`,
+          );
         }
       }
 
@@ -251,8 +251,11 @@ export const useBuyersData = () => {
       });
 
       if (error) {
-        if (error.message?.includes('unique') || error.message?.includes('duplicate')) {
-          throw new Error('A buyer with this website already exists.');
+        // Map DB-level unique constraint violations to friendly messages
+        if (error.code === '23505' || error.message?.includes('unique') || error.message?.includes('duplicate')) {
+          throw new Error(
+            'A buyer with this website domain already exists. Please check your existing buyers.',
+          );
         }
         throw error;
       }

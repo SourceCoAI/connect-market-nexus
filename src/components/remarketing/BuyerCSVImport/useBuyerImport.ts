@@ -164,7 +164,7 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
 
   const proceedToPreview = () => {
     if (!hasRequiredMapping(mappings)) {
-      toast.error('Company Name mapping is required');
+      toast.error('Both a Company Name and a Website column must be mapped before importing.');
       return;
     }
     setStep('preview');
@@ -190,7 +190,7 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
   // -----------------------------------------------------------------------
   const handleImport = useCallback(async () => {
     if (!hasRequiredMapping(mappings)) {
-      toast.error('Company Name mapping is required');
+      toast.error('Both a Company Name and a Website column must be mapped before importing.');
       return;
     }
 
@@ -269,8 +269,13 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
               const { error: singleError } = await supabase.from('buyers').insert(buyer as never);
 
               if (singleError) {
-                console.warn('Failed to import buyer:', buyer.company_name, singleError.message);
-                errors += 1;
+                // 23505 = unique_violation — already exists, count as skipped not error
+                if (singleError.code === '23505') {
+                  console.info('Skipping duplicate buyer during import:', buyer.company_name);
+                } else {
+                  console.warn('Failed to import buyer:', buyer.company_name, singleError.message);
+                  errors += 1;
+                }
               } else {
                 success += 1;
               }
@@ -304,7 +309,7 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
   // -----------------------------------------------------------------------
   const checkForDuplicates = useCallback(async () => {
     if (!hasRequiredMapping(mappings)) {
-      toast.error('Company Name mapping is required');
+      toast.error('Both a Company Name and a Website column must be mapped before importing.');
       return;
     }
 
@@ -328,8 +333,11 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       });
 
       if (error) {
-        // Dedupe check failed -- proceeding with import
-        await handleImport();
+        // Dedupe check failed — surface the error rather than silently importing.
+        // Importing without a dedup check risks creating duplicate buyers.
+        toast.error(
+          'Could not check for duplicate buyers. Please try again before importing.',
+        );
         return;
       }
 
@@ -344,8 +352,10 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         await handleImport();
       }
     } catch (err) {
-      // Dedupe error -- proceeding with import
-      await handleImport();
+      // Dedupe error — surface it rather than silently importing.
+      toast.error(
+        'An error occurred while checking for duplicates. Please try again before importing.',
+      );
     } finally {
       setIsCheckingDuplicates(false);
     }

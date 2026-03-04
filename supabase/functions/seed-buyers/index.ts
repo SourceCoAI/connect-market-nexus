@@ -91,15 +91,18 @@ function extractDomain(url: string | null): string | null {
 }
 
 function normalizeCompanyName(name: string): string {
+  // NOTE: Must stay in sync with:
+  //  - dedupe-buyers/index.ts normalizeCompanyName()
+  //  - DB function normalize_buyer_name() in migration 20260517100000
   let normalized = name
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/[^a-z0-9 ]/g, '') // strip non-alphanumeric but keep spaces
     .trim();
-  // Strip known corporate suffixes iteratively (handles "ABC Holdings LLC" → "abc")
-  const suffixPattern = /\s+(inc|llc|corp|ltd|lp|group|partners|capital|holdings|company|co)\s*$/;
-  while (suffixPattern.test(normalized)) {
-    normalized = normalized.replace(suffixPattern, '').trim();
-  }
+  // Strip trailing corporate suffixes (one pass covers >99% of real names)
+  normalized = normalized.replace(
+    /\s+(inc|llc|corp|ltd|lp|group|partners|capital|holdings|company|co|management|investments|advisors|advisory|ventures|equity|fund|funds|associates)\s*$/,
+    '',
+  ).trim();
   return normalized;
 }
 
@@ -446,24 +449,28 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Fetch existing buyers for deduplication ──
-    // Explicit limit required: Supabase config max_rows=1000 silently truncates without it
+    // Website domain is the canonical unique identifier — only fetch buyers with websites.
+    // Explicit limit required: Supabase config max_rows=1000 silently truncates without it.
     const { data: existingBuyers } = await supabase
       .from('buyers')
       .select('id, company_name, company_website')
       .eq('archived', false)
+      .not('company_website', 'is', null)
       .limit(10000);
 
-    const existingNameSet = new Set(
-      (existingBuyers || []).map((b) => normalizeCompanyName(b.company_name)),
-    );
     const existingDomainSet = new Set(
       (existingBuyers || [])
         .map((b) => extractDomain(b.company_website))
         .filter(Boolean) as string[],
     );
-    // Map normalized name → existing buyer id for enrichment
-    const nameToId = new Map(
-      (existingBuyers || []).map((b) => [normalizeCompanyName(b.company_name), b.id]),
+    // Map domain → existing buyer id for enrichment on domain match
+    const domainToId = new Map(
+      (existingBuyers || [])
+        .map((b) => {
+          const domain = extractDomain(b.company_website);
+          return domain ? ([domain, b.id] as [string, string]) : null;
+        })
+        .filter(Boolean) as [string, string][],
     );
 
     // ── Call Claude to discover buyers ──
@@ -501,24 +508,26 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
 
     for (const suggested of suggestedBuyers) {
-      const normName = normalizeCompanyName(suggested.company_name);
       const domain = extractDomain(suggested.company_website);
+
+      // Website is required — skip buyers Claude returned without one.
+      if (!domain || !suggested.company_website) {
+        console.info(`Skipping ${suggested.company_name} — no website provided by AI`);
+        continue;
+      }
 
       let action: SeedResult['action'];
       let buyerId: string;
       let wasNew = false;
 
-      // Check for duplicate by name
-      const existingId = nameToId.get(normName);
-      // Check for duplicate by domain
-      const domainMatch = domain && existingDomainSet.has(domain);
+      // Dedup by domain (the canonical unique identifier for buyers)
+      const existingId = domainToId.get(domain);
 
       if (existingId) {
-        // Existing buyer — enrich with AI context
+        // Existing buyer with same domain — enrich with AI context
         action = 'enriched_existing';
         buyerId = existingId;
 
-        // Update the existing record with AI seeding metadata
         await supabase
           .from('buyers')
           .update({
@@ -527,33 +536,29 @@ Deno.serve(async (req: Request) => {
             ai_seeded_from_deal_id: listingId,
           })
           .eq('id', buyerId);
-      } else if (domainMatch) {
-        // Probable duplicate via domain
-        action = 'probable_duplicate';
-        const domainBuyer = (existingBuyers || []).find(
-          (b) => extractDomain(b.company_website) === domain,
-        );
-        if (!domainBuyer) {
-          // Cannot resolve the duplicate — skip to avoid corrupting UUID[] cache
-          console.warn(`Domain match for ${domain} but could not resolve buyer ID, skipping`);
-          continue;
-        }
-        buyerId = domainBuyer.id;
       } else {
         // New buyer — insert
         action = 'inserted';
         wasNew = true;
 
         // ── Resolve PE firm parent (lookup or auto-create) ──
+        // PE firms are internal reference records auto-created without websites,
+        // so we look them up by name rather than domain.
         let resolvedPeFirmId: string | null = null;
         if (suggested.pe_firm_name && suggested.buyer_type !== 'private_equity') {
-          const normPeFirmName = normalizeCompanyName(suggested.pe_firm_name);
-          const existingPeFirmId = nameToId.get(normPeFirmName);
+          // Look up existing PE firm buyer by name (case-insensitive)
+          const { data: existingPeFirm } = await supabase
+            .from('buyers')
+            .select('id')
+            .eq('archived', false)
+            .ilike('company_name', suggested.pe_firm_name)
+            .eq('buyer_type', 'private_equity')
+            .maybeSingle();
 
-          if (existingPeFirmId) {
-            resolvedPeFirmId = existingPeFirmId;
+          if (existingPeFirm) {
+            resolvedPeFirmId = existingPeFirm.id;
           } else {
-            // Auto-create the PE firm as a buyers record
+            // Auto-create the PE firm. On concurrent conflict, re-query for the winner.
             const { data: newFirm, error: firmError } = await supabase
               .from('buyers')
               .insert({
@@ -567,13 +572,21 @@ Deno.serve(async (req: Request) => {
               .select('id')
               .single();
 
-            if (firmError || !newFirm) {
-              console.error(`Failed to auto-create PE firm ${suggested.pe_firm_name}:`, firmError);
-            } else {
+            if (firmError) {
+              if (firmError.code === '23505') {
+                // Race: another concurrent call inserted it first — re-query
+                const { data: raced } = await supabase
+                  .from('buyers')
+                  .select('id')
+                  .eq('archived', false)
+                  .ilike('company_name', suggested.pe_firm_name)
+                  .maybeSingle();
+                if (raced) resolvedPeFirmId = raced.id;
+              } else {
+                console.error(`Failed to auto-create PE firm ${suggested.pe_firm_name}:`, firmError);
+              }
+            } else if (newFirm) {
               resolvedPeFirmId = newFirm.id;
-              // Track the new PE firm in dedup sets for subsequent iterations
-              existingNameSet.add(normPeFirmName);
-              nameToId.set(normPeFirmName, newFirm.id);
             }
           }
         }
@@ -602,17 +615,44 @@ Deno.serve(async (req: Request) => {
           .select('id')
           .single();
 
-        if (insertError || !inserted) {
-          console.error(`Failed to insert buyer ${suggested.company_name}:`, insertError);
+        if (insertError) {
+          // Unique constraint violation (code 23505): a concurrent seed-buyers call
+          // inserted the same buyer between our domain-snapshot fetch and this INSERT.
+          // Re-query by domain to get the winner's ID.
+          if (insertError.code === '23505') {
+            const { data: raced } = await supabase
+              .from('buyers')
+              .select('id')
+              .eq('archived', false)
+              .ilike('company_website', `%${domain}%`)
+              .maybeSingle();
+
+            if (raced) {
+              action = 'enriched_existing';
+              wasNew = false;
+              buyerId = raced.id;
+              existingDomainSet.add(domain);
+              domainToId.set(domain, raced.id);
+            } else {
+              console.warn(
+                `Unique conflict inserting ${suggested.company_name} but couldn't re-find by domain — skipping`,
+              );
+              continue;
+            }
+          } else {
+            console.error(`Failed to insert buyer ${suggested.company_name}:`, insertError);
+            continue;
+          }
+        } else if (!inserted) {
+          console.error(`No data returned inserting buyer ${suggested.company_name}`);
           continue;
+        } else {
+          buyerId = inserted.id;
         }
 
-        buyerId = inserted.id;
-
-        // Track in dedup sets for subsequent iterations
-        existingNameSet.add(normName);
-        if (domain) existingDomainSet.add(domain);
-        nameToId.set(normName, buyerId);
+        // Track in dedup sets for subsequent iterations within this seeding call
+        existingDomainSet.add(domain);
+        domainToId.set(domain, buyerId);
       }
 
       newBuyerIds.push(buyerId);

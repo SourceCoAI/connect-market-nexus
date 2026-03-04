@@ -29,43 +29,9 @@ function normalizeDomain(input: string | null): string | null {
   }
 }
 
-// Normalize company name for comparison
-function normalizeCompanyName(name: string | null | undefined): string {
-  if (!name) return '';
-
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '') // Remove non-alphanumeric
-    .replace(
-      /llc|inc|corp|ltd|company|co|group|partners|capital|investments|holdings|management/g,
-      '',
-    )
-    .trim();
-}
-
-// Calculate similarity between two strings (Levenshtein-based)
-function similarity(s1: string, s2: string): number {
-  if (s1 === s2) return 1;
-  if (!s1 || !s2) return 0;
-
-  const longer = s1.length > s2.length ? s1 : s2;
-  const shorter = s1.length > s2.length ? s2 : s1;
-
-  if (longer.length === 0) return 1;
-
-  // Simple containment check
-  if (longer.includes(shorter) || shorter.includes(longer)) {
-    return shorter.length / longer.length;
-  }
-
-  // Character-based similarity
-  const chars1 = new Set(s1.split(''));
-  const chars2 = new Set(s2.split(''));
-  const intersection = [...chars1].filter((c) => chars2.has(c)).length;
-  const union = new Set([...chars1, ...chars2]).size;
-
-  return intersection / union;
-}
+// Website domain is the canonical unique identifier for buyers.
+// Name-based matching is intentionally removed — it produced too many false positives
+// (e.g. "Apex Capital" matching "Apex Partners") and is unreliable across naming conventions.
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -120,83 +86,54 @@ serve(async (req) => {
 
     console.log(`Checking ${buyers.length} buyers for duplicates`);
 
-    // Fetch all existing buyers
+    // Fetch all active buyers that have a website (domain is the canonical dedup key)
     const { data: existingBuyers, error: buyersError } = await supabase
       .from('buyers')
       .select('id, company_name, company_website')
-      .eq('archived', false);
+      .eq('archived', false)
+      .not('company_website', 'is', null);
 
     if (buyersError) throw buyersError;
 
-    // Build lookup maps for existing buyers
+    // Build domain → buyer lookup map
     const existingByDomain = new Map<string, (typeof existingBuyers)[0]>();
-    const existingByName = new Map<string, (typeof existingBuyers)[0]>();
-
     for (const existing of existingBuyers || []) {
       const domain = normalizeDomain(existing.company_website);
       if (domain) {
         existingByDomain.set(domain, existing);
       }
-      const normalizedName = normalizeCompanyName(existing.company_name);
-      if (normalizedName) {
-        existingByName.set(normalizedName, existing);
-      }
     }
 
-    // Check each incoming buyer for duplicates
+    // Check each incoming buyer for a domain match.
+    // Buyers with no website are flagged as duplicates (they are not allowed).
     const results = buyers.map(
       (buyer: { company_name: string; company_website?: string }, index: number) => {
         const potentialDuplicates: Array<{
           existingId: string;
           existingName: string;
-          matchType: 'domain' | 'name';
+          matchType: 'domain' | 'no_website';
           confidence: number;
         }> = [];
 
-        // Check domain match
         const incomingDomain = normalizeDomain(buyer.company_website || null);
-        if (incomingDomain) {
+
+        if (!incomingDomain) {
+          // No website provided — treat as a duplicate/invalid so the UI surfaces it
+          potentialDuplicates.push({
+            existingId: '',
+            existingName: '',
+            matchType: 'no_website',
+            confidence: 1,
+          });
+        } else {
           const domainMatch = existingByDomain.get(incomingDomain);
           if (domainMatch) {
             potentialDuplicates.push({
               existingId: domainMatch.id,
               existingName: domainMatch.company_name,
               matchType: 'domain',
-              confidence: 0.95,
+              confidence: 1,
             });
-          }
-        }
-
-        // Check name similarity
-        const incomingNormalized = normalizeCompanyName(buyer.company_name);
-        if (incomingNormalized) {
-          // Exact normalized match
-          const exactMatch = existingByName.get(incomingNormalized);
-          if (exactMatch) {
-            // Avoid adding duplicate if already matched by domain
-            if (!potentialDuplicates.some((d) => d.existingId === exactMatch.id)) {
-              potentialDuplicates.push({
-                existingId: exactMatch.id,
-                existingName: exactMatch.company_name,
-                matchType: 'name',
-                confidence: 0.9,
-              });
-            }
-          } else {
-            // Check fuzzy matches
-            for (const [normalizedName, existing] of existingByName) {
-              const sim = similarity(incomingNormalized, normalizedName);
-              if (sim > 0.7) {
-                if (!potentialDuplicates.some((d) => d.existingId === existing.id)) {
-                  potentialDuplicates.push({
-                    existingId: existing.id,
-                    existingName: existing.company_name,
-                    matchType: 'name',
-                    confidence: sim,
-                  });
-                }
-              }
-            }
           }
         }
 
