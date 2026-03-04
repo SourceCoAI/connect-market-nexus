@@ -24,7 +24,6 @@ export interface DealListing {
   google_review_count: number | null;
   google_rating: number | null;
   is_priority_target: boolean | null;
-  need_buyer_universe: boolean | null;
   need_to_contact_owner: boolean | null;
   deal_total_score: number | null;
   seller_interest_score: number | null;
@@ -44,7 +43,12 @@ export interface DealListing {
   deal_source: string | null;
   // Deal owner
   deal_owner_id: string | null;
-  deal_owner: { id: string; first_name: string | null; last_name: string | null; email: string } | null;
+  deal_owner: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+  } | null;
   // Contact owner flag
   needs_owner_contact: boolean | null;
   needs_owner_contact_at: string | null;
@@ -142,7 +146,7 @@ export interface CapTargetDeal {
   google_review_count: number | null;
   captarget_status: string | null;
   is_priority_target: boolean | null;
-  need_buyer_universe: boolean | null;
+  needs_buyer_search: boolean | null;
   need_to_contact_owner: boolean | null;
   category: string | null;
   executive_summary: string | null;
@@ -150,20 +154,20 @@ export interface CapTargetDeal {
 }
 
 export type CapTargetSortColumn =
-  | "company_name"
-  | "client_name"
-  | "contact_name"
-  | "interest_type"
-  | "outreach_channel"
-  | "contact_date"
-  | "pushed"
-  | "score"
-  | "linkedin_employee_count"
-  | "linkedin_employee_range"
-  | "google_review_count"
-  | "google_rating";
+  | 'company_name'
+  | 'client_name'
+  | 'contact_name'
+  | 'interest_type'
+  | 'outreach_channel'
+  | 'contact_date'
+  | 'pushed'
+  | 'score'
+  | 'linkedin_employee_count'
+  | 'linkedin_employee_range'
+  | 'google_review_count'
+  | 'google_rating';
 
-export type SortDirection = "asc" | "desc";
+export type SortDirection = 'asc' | 'desc';
 
 export interface DealTranscript {
   id: string;

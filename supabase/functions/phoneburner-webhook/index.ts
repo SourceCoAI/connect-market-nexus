@@ -76,8 +76,7 @@ Deno.serve(async (req) => {
   const rawBody = await req.text();
 
   // ── simple secret header check ──
-  const headerSecret =
-    req.headers.get('x-webhook-secret') || req.headers.get('X-Webhook-Secret');
+  const headerSecret = req.headers.get('x-webhook-secret') || req.headers.get('X-Webhook-Secret');
   let signatureValid = false;
   if (webhookSecret) {
     if (headerSecret === webhookSecret) {
@@ -430,12 +429,12 @@ async function processEvent(
         .select('id')
         .single();
 
-      // Update last_contacted_date on the source contact record
+      // Update last interaction on the unified contacts record
       if (contactId) {
         const rawId = contactId.replace(/^(rm-|buyer-)/, '');
         await supabase
-          .from('buyer_contacts')
-          .update({ last_contacted_date: new Date().toISOString() })
+          .from('contacts')
+          .update({ updated_at: new Date().toISOString() })
           .eq('id', rawId);
       }
 
@@ -455,7 +454,7 @@ async function processEvent(
             const updates: Record<string, unknown> = {};
             if (mapping.mark_do_not_call) updates.do_not_contact = true;
             if (mapping.mark_phone_invalid) updates.phone_invalid = true;
-            await supabase.from('buyer_contacts').update(updates).eq('id', rawId);
+            await supabase.from('contacts').update(updates).eq('id', rawId);
           }
         }
       }

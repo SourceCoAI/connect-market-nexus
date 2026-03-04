@@ -84,6 +84,10 @@ export function UpdateIntroductionStatusDialog({
       updates.introduction_notes = introductionNotes || undefined;
     }
 
+    if (newStatus === 'need_to_show_deal') {
+      updates.introduction_notes = introductionNotes || undefined;
+    }
+
     if (newStatus === 'outreach_initiated') {
       updates.introduction_notes = introductionNotes || undefined;
     }
@@ -168,6 +172,12 @@ export function UpdateIntroductionStatusDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="need_to_show_deal">
+                  <span className="flex items-center gap-2">
+                    <Target className="h-3.5 w-3.5 text-violet-600" />
+                    Need to Show Deal
+                  </span>
+                </SelectItem>
                 <SelectItem value="outreach_initiated">
                   <span className="flex items-center gap-2">
                     <Send className="h-3.5 w-3.5 text-amber-600" />
@@ -195,6 +205,19 @@ export function UpdateIntroductionStatusDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Notes (for need_to_show_deal) */}
+          {newStatus === 'need_to_show_deal' && (
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                value={introductionNotes}
+                onChange={(e) => setIntroductionNotes(e.target.value)}
+                placeholder="Notes about showing this deal to the buyer..."
+                rows={2}
+              />
+            </div>
+          )}
 
           {/* Notes (for outreach_initiated) */}
           {newStatus === 'outreach_initiated' && (

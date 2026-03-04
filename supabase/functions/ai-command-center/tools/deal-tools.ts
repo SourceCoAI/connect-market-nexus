@@ -83,7 +83,7 @@ function fuzzyContains(target: string, query: string): boolean {
 // ---------- Quick vs Full field sets ----------
 
 const DEAL_FIELDS_QUICK = `
-  id, title, status, status_label, deal_source, industry, category, categories, revenue, ebitda,
+  id, title, status, deal_source, industry, category, categories, revenue, ebitda,
   location, address_state, geographic_states, services, service_mix, tags,
   deal_total_score, is_priority_target, remarketing_status,
   deal_owner_id, primary_owner_id, updated_at
@@ -92,7 +92,7 @@ const DEAL_FIELDS_QUICK = `
   .trim();
 
 const DEAL_FIELDS_FULL = `
-  id, title, status, status_label, status_tag, deal_source, industry, industry_tier_name, category, categories,
+  id, title, status, status_tag, deal_source, industry, industry_tier_name, category, categories,
   revenue, ebitda, ebitda_margin,
   location, address_city, address_state, address_zip, geographic_states,
   services, service_mix, business_model,
@@ -104,7 +104,7 @@ const DEAL_FIELDS_FULL = `
   competitive_position, management_depth, customer_concentration,
   internal_company_name, project_name, deal_identifier,
   deal_owner_id, primary_owner_id, presented_by_admin_id,
-  need_buyer_universe, universe_build_flagged,
+  needs_buyer_search, universe_build_flagged,
   description, hero_description, tags, website,
   acquisition_type, revenue_model, customer_types, customer_geography,
   end_market_description, growth_trajectory, ownership_structure,
@@ -721,14 +721,30 @@ async function getDealTasks(
   if (error) return { error: error.message };
 
   // Map field names for backward compatibility with consumers
-  interface TaskRow { id: string; title: string; description: string; status: string; priority: string; due_date: string | null; assignee_id: string; created_by: string; completed_at: string | null; completed_by: string | null; created_at: string; assigned_to?: string; assigned_by?: string; }
+  interface TaskRow {
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+    priority: string;
+    due_date: string | null;
+    assignee_id: string;
+    created_by: string;
+    completed_at: string | null;
+    completed_by: string | null;
+    created_at: string;
+    assigned_to?: string;
+    assigned_by?: string;
+  }
   const tasks = (data || []).map((t: TaskRow) => ({
     ...t,
     assigned_to: t.assignee_id,
     assigned_by: t.created_by,
   }));
   const grouped = {
-    pending: tasks.filter((t: TaskRow) => t.status === 'pending' || t.status === 'pending_approval'),
+    pending: tasks.filter(
+      (t: TaskRow) => t.status === 'pending' || t.status === 'pending_approval',
+    ),
     in_progress: tasks.filter((t: TaskRow) => t.status === 'in_progress'),
     completed: tasks.filter((t: TaskRow) => t.status === 'completed'),
   };

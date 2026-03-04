@@ -523,7 +523,7 @@ export function buildApiTests(): TestDef[] {
     { name: 'data_room_access readable (Access tab)', table: 'data_room_access' },
     { name: 'document_release_log readable (Distribution tab)', table: 'document_release_log' },
     { name: 'buyers readable (Buyers page)', table: 'buyers' },
-    { name: 'buyer_contacts readable (Contacts tab)', table: 'buyer_contacts' },
+    { name: 'contacts readable (Contacts tab)', table: 'contacts' },
     { name: 'firm_agreements readable', table: 'firm_agreements' },
     { name: 'profiles readable (Users page)', table: 'profiles' },
     { name: 'contacts readable (Buyer Contacts page)', table: 'contacts' },

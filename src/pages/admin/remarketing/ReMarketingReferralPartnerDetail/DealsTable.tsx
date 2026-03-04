@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { getDisplayLocation } from '@/lib/location-display';
 import { toast } from 'sonner';
 import { DealSourceBadge } from '@/components/remarketing/DealSourceBadge';
 import { useShiftSelect } from '@/hooks/useShiftSelect';
@@ -60,7 +61,7 @@ interface Deal {
   google_rating: number | null;
   google_review_count: number | null;
   created_at: string;
-  need_buyer_universe: boolean | null;
+  needs_buyer_search: boolean | null;
   needs_owner_contact: boolean | null;
   category: string | null;
   address_city: string | null;
@@ -193,10 +194,7 @@ export function DealsTable({
                   aria-label={`Select ${deal.title}`}
                 />
               </TableCell>
-              <TableCell
-                className="font-medium"
-                onClick={() => navToDeal(deal.id)}
-              >
+              <TableCell className="font-medium" onClick={() => navToDeal(deal.id)}>
                 <div className="flex items-center gap-1.5">
                   {isEnriched && <Sparkles className="h-3 w-3 text-amber-500 flex-shrink-0" />}
                   <span>
@@ -236,20 +234,12 @@ export function DealsTable({
                 className="text-sm text-muted-foreground"
                 onClick={() => navToDeal(deal.id)}
               >
-                {deal.address_city && deal.address_state
-                  ? `${deal.address_city}, ${deal.address_state}`
-                  : deal.location || '-'}
+                {getDisplayLocation(deal) || '-'}
               </TableCell>
-              <TableCell
-                className="text-right text-sm"
-                onClick={() => navToDeal(deal.id)}
-              >
+              <TableCell className="text-right text-sm" onClick={() => navToDeal(deal.id)}>
                 {formatCurrency(deal.revenue)}
               </TableCell>
-              <TableCell
-                className="text-right text-sm"
-                onClick={() => navToDeal(deal.id)}
-              >
+              <TableCell className="text-right text-sm" onClick={() => navToDeal(deal.id)}>
                 {formatCurrency(deal.ebitda)}
               </TableCell>
               <TableCell onClick={() => navToDeal(deal.id)}>
@@ -384,26 +374,28 @@ export function DealsTable({
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={async () => {
-                        const newVal = !deal.need_buyer_universe;
+                        const newVal = !deal.needs_buyer_search;
+                        const now = new Date().toISOString();
                         const { error } = await supabase
                           .from('listings')
-                          .update({ need_buyer_universe: newVal } as never)
+                          .update({
+                            needs_buyer_search: newVal,
+                            needs_buyer_search_at: newVal ? now : null,
+                          } as never)
                           .eq('id', deal.id);
                         if (!error) {
-                          toast.success(newVal ? 'Flagged: Needs Buyer Universe' : 'Flag removed');
+                          toast.success(newVal ? 'Flagged: Find Buyer' : 'Flag removed');
                           queryClient.invalidateQueries({
                             queryKey: ['referral-partners', partnerId, 'deals'],
                           });
                         }
                       }}
-                      className={deal.need_buyer_universe ? 'text-blue-600' : ''}
+                      className={deal.needs_buyer_search ? 'text-blue-600' : ''}
                     >
                       <Users
-                        className={cn('h-3 w-3 mr-2', deal.need_buyer_universe && 'text-blue-600')}
+                        className={cn('h-3 w-3 mr-2', deal.needs_buyer_search && 'text-blue-600')}
                       />
-                      {deal.need_buyer_universe
-                        ? 'Remove Buyer Universe Flag'
-                        : 'Flag: Needs Buyer Universe'}
+                      {deal.needs_buyer_search ? 'Remove Find Buyer Flag' : 'Flag: Find Buyer'}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={async () => {

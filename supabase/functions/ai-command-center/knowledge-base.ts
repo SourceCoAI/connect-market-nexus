@@ -22,7 +22,7 @@ export const KNOWLEDGE_BASE: Record<string, KnowledgeArticle> = {
 - customer_concentration: percentage of revenue from top clients. >20% from one client is a red flag. >50% is serious concern for institutional buyers.
 - deal_source: where the deal originated — "marketplace", "captarget", "gp_partners", "inbound", "valuation_calculator", "referral", "internal".
 - remarketing_status: whether the deal is being actively marketed to buyers.
-- need_buyer_universe / universe_build_flagged: flags indicating the deal needs a buyer universe built.
+- needs_buyer_search / universe_build_flagged: flags indicating the deal needs a buyer universe built.
 
 Buyer Fields:
 - acquisition_appetite: how aggressively pursuing deals — "aggressive" (quick decisions, deploying now), "active" (standard process), "selective" (very picky), "opportunistic" (only if perfect fit).
@@ -194,7 +194,7 @@ How to recommend buyers for a deal:
 7. Prioritize "aggressive"/"ongoing" appetite. Exclude "paused" buyers.
 8. Check fee_agreement_status — signed = can move faster.
 9. Search transcripts for prior conversations about this buyer or similar deals.
-10. If no universe exists (need_buyer_universe=true), fall back to search_buyers with filters.
+10. If no universe exists (needs_buyer_search=true), fall back to search_buyers with filters.
 
 What to highlight: why they fit, score breakdown (geography? service? size?), thesis alignment, flags (pass history, paused timeline, data gaps).`,
   },

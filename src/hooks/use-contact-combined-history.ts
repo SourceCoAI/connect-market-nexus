@@ -84,11 +84,12 @@ export function useContactCombinedHistory(buyerId: string | null) {
       const entries: UnifiedActivityEntry[] = [];
 
       // ── 1. PhoneBurner Call Activities ──
-      // Get contacts belonging to this buyer first
+      // Get contacts belonging to this buyer from unified contacts table
       const { data: contacts } = await supabase
-        .from('buyer_contacts')
+        .from('contacts')
         .select('id')
-        .eq('buyer_id', buyerId);
+        .eq('remarketing_buyer_id', buyerId)
+        .eq('archived', false);
 
       const contactIds = (contacts || []).map((c) => c.id);
 
@@ -106,7 +107,9 @@ export function useContactCombinedHistory(buyerId: string | null) {
             timestamp: a.call_started_at || a.created_at,
             channel: 'call',
             event_type: a.activity_type,
-            label: a.activity_type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+            label: a.activity_type
+              .replace(/_/g, ' ')
+              .replace(/\b\w/g, (c: string) => c.toUpperCase()),
             context: a.user_name ? `Called by ${a.user_name}` : null,
             details: {
               call_outcome: a.call_outcome,
@@ -146,7 +149,9 @@ export function useContactCombinedHistory(buyerId: string | null) {
           timestamp: a.call_started_at || a.created_at,
           channel: 'call',
           event_type: a.activity_type,
-          label: a.activity_type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          label: a.activity_type
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (c: string) => c.toUpperCase()),
           context: a.user_name ? `Called by ${a.user_name}` : null,
           details: {
             call_outcome: a.call_outcome,
@@ -174,7 +179,6 @@ export function useContactCombinedHistory(buyerId: string | null) {
         .select('id, campaign_id, email, lead_status, lead_category, last_activity_at, created_at')
         .eq('remarketing_buyer_id', buyerId)
         .order('created_at', { ascending: false });
-
 
       // Get emails for webhook event lookup
       const emails = [...new Set((campaignLeads || []).map((c) => c.email).filter(Boolean))];
@@ -226,12 +230,18 @@ export function useContactCombinedHistory(buyerId: string | null) {
       // ── 3. HeyReach LinkedIn Events ──
       const { data: hrCampaignLeads } = await supabase
         .from('heyreach_campaign_leads')
-        .select('id, campaign_id, linkedin_url, email, lead_status, lead_category, last_activity_at, created_at')
+        .select(
+          'id, campaign_id, linkedin_url, email, lead_status, lead_category, last_activity_at, created_at',
+        )
         .eq('remarketing_buyer_id', buyerId)
         .order('created_at', { ascending: false });
 
-      const hrLinkedInUrls = [...new Set((hrCampaignLeads || []).map((c) => c.linkedin_url).filter(Boolean))];
-      const hrEmails = [...new Set((hrCampaignLeads || []).map((c) => c.email).filter(Boolean))] as string[];
+      const hrLinkedInUrls = [
+        ...new Set((hrCampaignLeads || []).map((c) => c.linkedin_url).filter(Boolean)),
+      ];
+      const hrEmails = [
+        ...new Set((hrCampaignLeads || []).map((c) => c.email).filter(Boolean)),
+      ] as string[];
 
       if (hrLinkedInUrls.length > 0 || hrEmails.length > 0) {
         let hrWebhookEvents: Array<Record<string, unknown>> = [];
@@ -239,7 +249,9 @@ export function useContactCombinedHistory(buyerId: string | null) {
         if (hrLinkedInUrls.length > 0) {
           const { data: urlEvents } = await supabase
             .from('heyreach_webhook_events')
-            .select('id, event_type, lead_linkedin_url, lead_email, heyreach_campaign_id, payload, created_at')
+            .select(
+              'id, event_type, lead_linkedin_url, lead_email, heyreach_campaign_id, payload, created_at',
+            )
             .in('lead_linkedin_url', hrLinkedInUrls)
             .order('created_at', { ascending: false })
             .limit(100);
@@ -250,7 +262,9 @@ export function useContactCombinedHistory(buyerId: string | null) {
           const existingHrIds = new Set(hrWebhookEvents.map((e) => e.id));
           const { data: emailEvents } = await supabase
             .from('heyreach_webhook_events')
-            .select('id, event_type, lead_linkedin_url, lead_email, heyreach_campaign_id, payload, created_at')
+            .select(
+              'id, event_type, lead_linkedin_url, lead_email, heyreach_campaign_id, payload, created_at',
+            )
             .in('lead_email', hrEmails)
             .order('created_at', { ascending: false })
             .limit(100);
@@ -286,7 +300,9 @@ export function useContactCombinedHistory(buyerId: string | null) {
             timestamp: (e.created_at as string) || new Date().toISOString(),
             channel: 'linkedin',
             event_type: e.event_type as string,
-            label: LINKEDIN_EVENT_LABELS[e.event_type as string] || (e.event_type as string).replace(/_/g, ' '),
+            label:
+              LINKEDIN_EVENT_LABELS[e.event_type as string] ||
+              (e.event_type as string).replace(/_/g, ' '),
             context: campaignName ? `Campaign: ${campaignName}` : null,
             details: {
               campaign_name: campaignName,
@@ -333,7 +349,9 @@ export function useContactCombinedHistoryByEmail(email: string | null) {
           timestamp: a.call_started_at || a.created_at,
           channel: 'call',
           event_type: a.activity_type,
-          label: a.activity_type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          label: a.activity_type
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (c: string) => c.toUpperCase()),
           context: a.user_name ? `Called by ${a.user_name}` : null,
           details: {
             call_outcome: a.call_outcome,
@@ -400,7 +418,9 @@ export function useContactCombinedHistoryByEmail(email: string | null) {
       // ── 3. HeyReach LinkedIn Events by email ──
       const { data: hrWebhookEvents } = await supabase
         .from('heyreach_webhook_events')
-        .select('id, event_type, lead_linkedin_url, lead_email, heyreach_campaign_id, payload, created_at')
+        .select(
+          'id, event_type, lead_linkedin_url, lead_email, heyreach_campaign_id, payload, created_at',
+        )
         .eq('lead_email', email)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -411,13 +431,17 @@ export function useContactCombinedHistoryByEmail(email: string | null) {
         .select('linkedin_url')
         .eq('email', email);
 
-      const hrLinkedInUrls = [...new Set((hrCampaignLeadsByEmail || []).map((l) => l.linkedin_url).filter(Boolean))];
+      const hrLinkedInUrls = [
+        ...new Set((hrCampaignLeadsByEmail || []).map((l) => l.linkedin_url).filter(Boolean)),
+      ];
       const hrExistingIds = new Set((hrWebhookEvents || []).map((e) => e.id));
 
       if (hrLinkedInUrls.length > 0) {
         const { data: urlEvents } = await supabase
           .from('heyreach_webhook_events')
-          .select('id, event_type, lead_linkedin_url, lead_email, heyreach_campaign_id, payload, created_at')
+          .select(
+            'id, event_type, lead_linkedin_url, lead_email, heyreach_campaign_id, payload, created_at',
+          )
           .in('lead_linkedin_url', hrLinkedInUrls)
           .order('created_at', { ascending: false })
           .limit(100);

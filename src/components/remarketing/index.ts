@@ -36,6 +36,7 @@ export { ScoringStyleCard } from './ScoringStyleCard';
 // Match Card Components
 export { BuyerMatchCard } from './BuyerMatchCard';
 export { ApproveBuyerMultiDealDialog } from './ApproveBuyerMultiDealDialog';
+export { BulkApproveForDealsDialog } from './BulkApproveForDealsDialog';
 
 // Table Components
 export { BuyerTableEnhanced } from './BuyerTableEnhanced';
@@ -68,7 +69,6 @@ export type { DealIdMapping } from './DealMergePanel';
 
 // Transcript Components
 export { TranscriptSection } from './TranscriptSection';
-
 
 // Outreach/Introduction Components
 export { OutreachTimeline } from './OutreachTimeline';

@@ -21,6 +21,7 @@ import {
   Eye,
   CheckCircle2,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -29,6 +30,7 @@ interface MarketplaceQueueDeal {
   title: string | null;
   internal_company_name: string | null;
   description: string | null;
+  executive_summary: string | null;
   industry: string | null;
   category: string | null;
   revenue: number | null;
@@ -36,6 +38,8 @@ interface MarketplaceQueueDeal {
   location: string | null;
   address_state: string | null;
   website: string | null;
+  main_contact_name: string | null;
+  main_contact_email: string | null;
   deal_total_score: number | null;
   pushed_to_marketplace_at: string | null;
   pushed_to_marketplace_by: string | null;
@@ -64,8 +68,9 @@ const MarketplaceQueue = () => {
       const { data, error } = await supabase
         .from('listings')
         .select(
-          `id, title, internal_company_name, description, industry, category,
-           revenue, ebitda, location, address_state, website, deal_total_score,
+          `id, title, internal_company_name, description, executive_summary,
+           industry, category, revenue, ebitda, location, address_state, website,
+           main_contact_name, main_contact_email, deal_total_score,
            pushed_to_marketplace_at, pushed_to_marketplace_by, status, created_at,
            deal_source`,
         )
@@ -97,6 +102,51 @@ const MarketplaceQueue = () => {
       return map;
     },
   });
+
+  // Fetch memo documents for all queued deals to check PDF prerequisites
+  const dealIds = deals?.map((d) => d.id) ?? [];
+  const { data: memoDocsRaw } = useQuery({
+    queryKey: ['marketplace-queue-memo-docs', dealIds],
+    enabled: dealIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('data_room_documents')
+        .select('deal_id, document_category, storage_path')
+        .in('deal_id', dealIds)
+        .in('document_category', ['full_memo', 'anonymous_teaser']);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Build a set of deal IDs that have each memo type
+  const memoStatusByDeal = useMemo(() => {
+    const map: Record<string, { hasLeadMemo: boolean; hasTeaser: boolean }> = {};
+    memoDocsRaw?.forEach((doc) => {
+      if (!doc.deal_id || !doc.storage_path) return;
+      if (!map[doc.deal_id]) map[doc.deal_id] = { hasLeadMemo: false, hasTeaser: false };
+      if (doc.document_category === 'full_memo') map[doc.deal_id].hasLeadMemo = true;
+      if (doc.document_category === 'anonymous_teaser') map[doc.deal_id].hasTeaser = true;
+    });
+    return map;
+  }, [memoDocsRaw]);
+
+  /** Compute listing prerequisites that are still missing for a deal. */
+  const getListingGaps = (deal: MarketplaceQueueDeal): string[] => {
+    const gaps: string[] = [];
+    if (!deal.website) gaps.push('Website');
+    if (deal.revenue == null) gaps.push('Revenue');
+    if (deal.ebitda == null) gaps.push('EBITDA');
+    if (!deal.address_state && !deal.location) gaps.push('Location');
+    if (!deal.category && !deal.industry) gaps.push('Category / Industry');
+    if (!deal.executive_summary && !deal.description) gaps.push('Description');
+    if (!deal.main_contact_name) gaps.push('Main contact name');
+    if (!deal.main_contact_email) gaps.push('Main contact email');
+    const memos = memoStatusByDeal[deal.id];
+    if (!memos?.hasLeadMemo) gaps.push('Lead Memo PDF');
+    if (!memos?.hasTeaser) gaps.push('Teaser PDF');
+    return gaps;
+  };
 
   const handleRemoveFromQueue = async (dealId: string, dealName: string) => {
     const { error } = await supabase
@@ -240,7 +290,11 @@ const MarketplaceQueue = () => {
               <Card
                 key={deal.id}
                 className="hover:border-blue-200 transition-colors cursor-pointer"
-                onClick={() => navigate(`/admin/deals/${deal.id}`, { state: { from: '/admin/marketplace/queue' } })}
+                onClick={() =>
+                  navigate(`/admin/deals/${deal.id}`, {
+                    state: { from: '/admin/marketplace/queue' },
+                  })
+                }
               >
                 <CardContent className="py-4">
                   <div className="flex items-start justify-between gap-4">
@@ -309,25 +363,49 @@ const MarketplaceQueue = () => {
                           className="h-8 text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/admin/deals/${existingListing.id}?tab=marketplace`, { state: { from: '/admin/marketplace/queue' } });
+                            navigate(`/admin/deals/${existingListing.id}?tab=marketplace`, {
+                              state: { from: '/admin/marketplace/queue' },
+                            });
                           }}
                         >
                           <Eye className="h-3.5 w-3.5 mr-1" />
                           View Listing
                         </Button>
                       ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/admin/marketplace/create-listing?fromDeal=${deal.id}`);
-                          }}
-                        >
-                          <Plus className="h-3.5 w-3.5 mr-1" />
-                          Create Listing
-                        </Button>
+                        (() => {
+                          const gaps = getListingGaps(deal);
+                          const canCreate = gaps.length === 0;
+                          return (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className={`h-8 text-xs ${!canCreate ? 'border-gray-200 text-gray-400 cursor-not-allowed' : ''}`}
+                                      disabled={!canCreate}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(
+                                          `/admin/marketplace/create-listing?fromDeal=${deal.id}`,
+                                        );
+                                      }}
+                                    >
+                                      <Plus className="h-3.5 w-3.5 mr-1" />
+                                      Create Listing
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  {canCreate
+                                    ? 'Create an anonymous marketplace listing from this deal.'
+                                    : `Complete these before creating a listing:\n${gaps.map((g) => `• ${g}`).join('\n')}`}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })()
                       )}
                       {deal.website && (
                         <Button

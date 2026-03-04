@@ -44,8 +44,6 @@
  * - admin_notifications   — Admin + service_role INSERT/SELECT (Phase 2: B2)
  * - user_notifications    — Admin + service_role INSERT; user own SELECT (Phase 2: B3)
  * - buyers                — Admin-only (Phase 2: B1 removed USING(true))
- * - buyer_contacts        — Admin-only (Phase 2: B1)
- * - buyer_deal_scores     — Admin-only (Phase 2: B1)
  * - connection_messages   — User own + admin full access
  * - user_journeys         — Service role only (Phase 2: B4)
  * - contacts              — Admin-only

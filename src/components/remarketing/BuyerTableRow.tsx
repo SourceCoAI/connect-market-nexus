@@ -1,21 +1,16 @@
-import { memo } from "react";
-import { useNavigate } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { TableCell, TableRow } from "@/components/ui/table";
+import { memo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { TableCell, TableRow } from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Checkbox } from "@/components/ui/checkbox";
+} from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   MoreHorizontal,
   Sparkles,
@@ -24,11 +19,11 @@ import {
   Building,
   ExternalLink,
   DollarSign,
-  // Loader2 removed - unused
   FileCheck,
-} from "lucide-react";
-import { IntelligenceBadge } from "./IntelligenceBadge";
-import { AlignmentScoreBadge } from "./AlignmentScoreBadge";
+  Check,
+} from 'lucide-react';
+import { IntelligenceBadge } from './IntelligenceBadge';
+import { AlignmentScoreBadge } from './AlignmentScoreBadge';
 interface BuyerRow {
   id: string;
   company_name: string;
@@ -60,6 +55,7 @@ interface BuyerTableRowProps {
   onEnrich?: (buyerId: string) => void;
   onDelete?: (buyerId: string) => void;
   onToggleFeeAgreement?: (buyerId: string, currentStatus: boolean) => void;
+  onApprove?: (buyerId: string, buyerName: string) => void;
   universeId?: string;
   hasTranscript: boolean;
 }
@@ -89,6 +85,7 @@ export const BuyerTableRow = memo(function BuyerTableRow({
   onEnrich,
   onDelete,
   onToggleFeeAgreement,
+  onApprove,
   universeId,
   hasTranscript,
 }: BuyerTableRowProps) {
@@ -100,7 +97,12 @@ export const BuyerTableRow = memo(function BuyerTableRow({
     <TableRow
       key={buyer.id}
       className={`cursor-pointer hover:bg-muted/50 group ${isSelected ? 'bg-muted/30' : ''}`}
-      onClick={() => navigate(`/admin/buyers/${buyer.id}`, universeId ? { state: { from: `/admin/buyers/universes/${universeId}` } } : undefined)}
+      onClick={() =>
+        navigate(
+          `/admin/buyers/${buyer.id}`,
+          universeId ? { state: { from: `/admin/buyers/universes/${universeId}` } } : undefined,
+        )
+      }
     >
       {selectable && (
         <TableCell
@@ -128,9 +130,7 @@ export const BuyerTableRow = memo(function BuyerTableRow({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium text-foreground truncate">
-                {buyer.company_name}
-              </span>
+              <span className="font-medium text-foreground truncate">{buyer.company_name}</span>
               {buyer.has_fee_agreement && (
                 <Badge
                   variant="default"
@@ -138,16 +138,16 @@ export const BuyerTableRow = memo(function BuyerTableRow({
                     buyer.fee_agreement_source === 'pe_firm_inherited'
                       ? 'bg-blue-600 hover:bg-blue-700'
                       : buyer.fee_agreement_source === 'manual_override'
-                      ? 'bg-amber-600 hover:bg-amber-700'
-                      : 'bg-green-600 hover:bg-green-700'
+                        ? 'bg-amber-600 hover:bg-amber-700'
+                        : 'bg-green-600 hover:bg-green-700'
                   }`}
                 >
                   <DollarSign className="h-3 w-3" />
                   {buyer.fee_agreement_source === 'pe_firm_inherited'
                     ? `via ${buyer.pe_firm_name || 'PE Firm'}`
                     : buyer.fee_agreement_source === 'manual_override'
-                    ? 'Manual'
-                    : 'Fee Agreed'}
+                      ? 'Manual'
+                      : 'Fee Agreed'}
                 </Badge>
               )}
             </div>
@@ -223,7 +223,7 @@ export const BuyerTableRow = memo(function BuyerTableRow({
 
       {/* Description Column — prefer alignment_reasoning when available */}
       <TableCell>
-        {(buyer.alignment_reasoning || buyer.business_summary || buyer.thesis_summary) ? (
+        {buyer.alignment_reasoning || buyer.business_summary || buyer.thesis_summary ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -243,63 +243,78 @@ export const BuyerTableRow = memo(function BuyerTableRow({
 
       {/* Intel Column */}
       <TableCell>
-        <IntelligenceBadge
-          hasTranscript={hasTranscript}
-          size="sm"
-        />
+        <IntelligenceBadge hasTranscript={hasTranscript} size="sm" />
       </TableCell>
 
       {/* Actions Column */}
       <TableCell>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1">
+          {onApprove && (
             <Button
               variant="ghost"
-              size="icon"
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
+              size="sm"
+              className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2 text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onApprove(buyer.id, buyer.company_name);
+              }}
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <Check className="h-3 w-3 mr-1" />
+              Approve
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {onEnrich && (
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEnrich(buyer.id);
-                }}
-                disabled={isCurrentlyEnriching}
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                <Sparkles className="mr-2 h-4 w-4" />
-                {isCurrentlyEnriching ? 'Enriching...' : 'Enrich Data'}
-              </DropdownMenuItem>
-            )}
-            {onToggleFeeAgreement && (
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleFeeAgreement(buyer.id, buyer.has_fee_agreement || false);
-                }}
-                className={buyer.has_fee_agreement ? "text-green-600" : ""}
-              >
-                <FileCheck className={`mr-2 h-4 w-4 ${buyer.has_fee_agreement ? "text-green-600" : ""}`} />
-                {buyer.has_fee_agreement ? "Remove Fee Agreement" : "Mark Fee Agreement"}
-              </DropdownMenuItem>
-            )}
-            {onDelete && (
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(buyer.id);
-                }}
-                className="text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                 Remove
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onEnrich && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEnrich(buyer.id);
+                  }}
+                  disabled={isCurrentlyEnriching}
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {isCurrentlyEnriching ? 'Enriching...' : 'Enrich Data'}
+                </DropdownMenuItem>
+              )}
+              {onToggleFeeAgreement && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleFeeAgreement(buyer.id, buyer.has_fee_agreement || false);
+                  }}
+                  className={buyer.has_fee_agreement ? 'text-green-600' : ''}
+                >
+                  <FileCheck
+                    className={`mr-2 h-4 w-4 ${buyer.has_fee_agreement ? 'text-green-600' : ''}`}
+                  />
+                  {buyer.has_fee_agreement ? 'Remove Fee Agreement' : 'Mark Fee Agreement'}
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(buyer.id);
+                  }}
+                  className="text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Remove
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </TableCell>
     </TableRow>
   );

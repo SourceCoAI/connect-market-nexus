@@ -1,4 +1,5 @@
 export type IntroductionStatus =
+  | 'need_to_show_deal'
   | 'outreach_initiated'
   | 'meeting_scheduled'
   | 'not_a_fit'
@@ -60,6 +61,7 @@ export interface ScoreSnapshot {
   pe_firm_id: string | null;
   acquisition_appetite: string | null;
   company_website: string | null;
+  is_publicly_traded: boolean | null;
 }
 
 export interface IntroductionStatusLog {

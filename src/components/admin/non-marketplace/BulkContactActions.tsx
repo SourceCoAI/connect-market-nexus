@@ -155,14 +155,14 @@ export const BulkContactActions = ({
         onOpenChange={setIsDialerOpen}
         contactIds={contactIds}
         contactCount={withPhone}
-        entityType="buyer_contacts"
+        entityType="contacts"
       />
       <PushToSmartleadModal
         open={isSmartleadOpen}
         onOpenChange={setIsSmartleadOpen}
         contactIds={contactIds}
         contactCount={withPhone}
-        entityType="buyer_contacts"
+        entityType="contacts"
       />
     </>
   );

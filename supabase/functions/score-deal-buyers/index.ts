@@ -448,13 +448,19 @@ Deno.serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const auth = await requireAdmin(req, supabase);
-    if (!auth.isAdmin) {
-      const status = auth.authenticated ? 403 : 401;
-      return new Response(JSON.stringify({ error: auth.error }), {
-        status,
-        headers: { ...headers, 'Content-Type': 'application/json' },
-      });
+    // Service-role bypass for internal queue workers (e.g. process-scoring-queue)
+    const authToken = req.headers.get('Authorization')?.replace('Bearer ', '');
+    const isServiceCall = authToken === supabaseServiceKey;
+
+    if (!isServiceCall) {
+      const auth = await requireAdmin(req, supabase);
+      if (!auth.isAdmin) {
+        const status = auth.authenticated ? 403 : 401;
+        return new Response(JSON.stringify({ error: auth.error }), {
+          status,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+        });
+      }
     }
     // ── End auth guard ──
 

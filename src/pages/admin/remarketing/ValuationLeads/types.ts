@@ -48,8 +48,7 @@ export interface ValuationLead {
   // For deal owner display (assigned after push)
   deal_owner_id?: string | null;
   is_priority_target?: boolean | null;
-  needs_buyer_universe?: boolean | null;
-  need_buyer_universe?: boolean | null;
+  needs_buyer_search?: boolean | null;
   need_to_contact_owner?: boolean | null;
   needs_owner_contact?: boolean | null;
   is_archived?: boolean | null;

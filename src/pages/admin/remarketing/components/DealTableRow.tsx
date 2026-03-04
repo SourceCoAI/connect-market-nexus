@@ -1,25 +1,21 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { TableCell, TableRow } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
+} from '@/components/ui/dropdown-menu';
+import { TableCell, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
 import {
   Building2,
   ThumbsUp,
@@ -38,13 +34,14 @@ import {
   Network,
   GitBranch,
   GripVertical,
-} from "lucide-react";
-import { format } from "date-fns";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { cn } from "@/lib/utils";
-import type { DealListing, ColumnWidths } from "../types";
-import { EditableRankCell } from "./EditableRankCell";
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { cn } from '@/lib/utils';
+import { getDisplayLocation } from '@/lib/location-display';
+import type { DealListing, ColumnWidths } from '../types';
+import { EditableRankCell } from './EditableRankCell';
 
 export const DealTableRow = ({
   listing,
@@ -79,26 +76,28 @@ export const DealTableRow = ({
   getScoreTrendIcon: (score: number) => JSX.Element;
   columnWidths: ColumnWidths;
   isSelected: boolean;
-  onToggleSelect: (dealId: string, checked: boolean, event?: React.MouseEvent | React.KeyboardEvent) => void;
+  onToggleSelect: (
+    dealId: string,
+    checked: boolean,
+    event?: React.MouseEvent | React.KeyboardEvent,
+  ) => void;
   onArchive: (dealId: string, dealName: string) => void;
   onDelete: (dealId: string, dealName: string) => void;
   onTogglePriority: (dealId: string, currentStatus: boolean) => void;
   onToggleUniverseBuild: (dealId: string, currentStatus: boolean) => void;
   onToggleBuyerSearch: (dealId: string, currentStatus: boolean) => void;
   onUpdateRank: (dealId: string, newRank: number) => Promise<void> | void;
-  adminProfiles?: Record<string, { id: string; email: string; first_name: string; last_name: string; displayName: string }>;
+  adminProfiles?: Record<
+    string,
+    { id: string; email: string; first_name: string; last_name: string; displayName: string }
+  >;
   onAssignOwner: (dealId: string, ownerId: string | null) => void;
   universesByListing?: Record<string, { id: string; name: string }[]>;
   pipelineCount?: number;
 }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: listing.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: listing.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -117,48 +116,7 @@ export const DealTableRow = ({
   const listingUniverses = universesByListing?.[listing.id] || [];
   const hasUniverses = listingUniverses.length > 0;
 
-  // City, State display only - normalize state to abbreviation
-  const normalizeState = (state: string | null): string | null => {
-    if (!state) return null;
-    const cleaned = state.trim().toUpperCase();
-    const stateMatch = cleaned.match(/^([A-Z]{2})\b/);
-    if (stateMatch) return stateMatch[1];
-    const stateMap: Record<string, string> = {
-      'MARYLAND': 'MD', 'CALIFORNIA': 'CA', 'TEXAS': 'TX', 'NEW YORK': 'NY',
-      'FLORIDA': 'FL', 'ILLINOIS': 'IL', 'PENNSYLVANIA': 'PA', 'OHIO': 'OH',
-      'GEORGIA': 'GA', 'MICHIGAN': 'MI', 'NORTH CAROLINA': 'NC', 'NEW JERSEY': 'NJ',
-      'VIRGINIA': 'VA', 'WASHINGTON': 'WA', 'ARIZONA': 'AZ', 'MASSACHUSETTS': 'MA',
-      'TENNESSEE': 'TN', 'INDIANA': 'IN', 'MISSOURI': 'MO', 'WISCONSIN': 'WI',
-      'COLORADO': 'CO', 'MINNESOTA': 'MN', 'SOUTH CAROLINA': 'SC', 'ALABAMA': 'AL',
-      'LOUISIANA': 'LA', 'KENTUCKY': 'KY', 'OREGON': 'OR', 'OKLAHOMA': 'OK',
-      'CONNECTICUT': 'CT', 'UTAH': 'UT', 'IOWA': 'IA', 'NEVADA': 'NV',
-      'ARKANSAS': 'AR', 'KANSAS': 'KS', 'MISSISSIPPI': 'MS', 'NEW MEXICO': 'NM',
-      'NEBRASKA': 'NE', 'IDAHO': 'ID', 'WEST VIRGINIA': 'WV', 'HAWAII': 'HI',
-      'NEW HAMPSHIRE': 'NH', 'MAINE': 'ME', 'MONTANA': 'MT', 'RHODE ISLAND': 'RI',
-      'DELAWARE': 'DE', 'SOUTH DAKOTA': 'SD', 'NORTH DAKOTA': 'ND', 'ALASKA': 'AK',
-      'VERMONT': 'VT', 'WYOMING': 'WY'
-    };
-    return stateMap[cleaned] || null;
-  };
-
-  const getLocationDisplay = (): string | null => {
-    if (listing.address_city && listing.address_state) {
-      const city = listing.address_city.trim();
-      const state = normalizeState(listing.address_state);
-      if (city && state) {
-        return `${city}, ${state}`;
-      }
-    }
-    if (listing.geographic_states && listing.geographic_states.length === 1) {
-      const state = listing.geographic_states[0];
-      if (state && state.length === 2) {
-        return state;
-      }
-    }
-    return null;
-  };
-
-  const geographyDisplay = getLocationDisplay();
+  const geographyDisplay = getDisplayLocation(listing);
   const qualityScore = listing.deal_total_score ?? null;
 
   return (
@@ -166,25 +124,34 @@ export const DealTableRow = ({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "cursor-pointer hover:bg-muted/50",
-        isDragging && "bg-muted/80 opacity-80 shadow-lg z-50",
-        listing.is_priority_target && "bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
+        'cursor-pointer hover:bg-muted/50',
+        isDragging && 'bg-muted/80 opacity-80 shadow-lg z-50',
+        listing.is_priority_target &&
+          'bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/30 dark:hover:bg-amber-950/50',
       )}
       onClick={() => navigate(`/admin/deals/${listing.id}`, { state: { from: '/admin/deals' } })}
     >
       {/* Checkbox */}
       <TableCell
-        onClick={(e) => { e.stopPropagation(); onToggleSelect(listing.id, !isSelected, e); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleSelect(listing.id, !isSelected, e);
+        }}
         style={{ width: columnWidths.select, minWidth: 40 }}
       >
         <Checkbox
           checked={isSelected}
-          onCheckedChange={() => {/* handled by TableCell onClick for shift support */}}
+          onCheckedChange={() => {
+            /* handled by TableCell onClick for shift support */
+          }}
         />
       </TableCell>
 
       {/* Rank (draggable) */}
-      <TableCell style={{ width: columnWidths.rank, minWidth: 50 }} onClick={(e) => e.stopPropagation()}>
+      <TableCell
+        style={{ width: columnWidths.rank, minWidth: 50 }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -195,7 +162,7 @@ export const DealTableRow = ({
             <GripVertical className="h-3.5 w-3.5" />
           </button>
           <EditableRankCell
-            value={listing.manual_rank_override ?? (index + 1)}
+            value={listing.manual_rank_override ?? index + 1}
             onSave={(newRank) => onUpdateRank(listing.id, newRank)}
           />
         </div>
@@ -205,16 +172,16 @@ export const DealTableRow = ({
       <TableCell
         style={{ width: columnWidths.dealName, minWidth: 100 }}
         className={cn(
-          needsOwnerContact && "bg-red-100 border-l-2 border-red-500 dark:bg-red-950/40",
-          !needsOwnerContact && needsBuyerSearch && "bg-blue-100 border-l-2 border-blue-500 dark:bg-blue-950/40"
+          needsOwnerContact && 'bg-red-100 border-l-2 border-red-500 dark:bg-red-950/40',
+          !needsOwnerContact &&
+            needsBuyerSearch &&
+            'bg-blue-100 border-l-2 border-blue-500 dark:bg-blue-950/40',
         )}
       >
         <div>
           {/* Name + inline status icons */}
           <div className="flex items-center gap-1.5">
-            <p className="font-medium text-foreground leading-tight">
-              {displayName}
-            </p>
+            <p className="font-medium text-foreground leading-tight">{displayName}</p>
             {isEnriched && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -255,7 +222,11 @@ export const DealTableRow = ({
           {/* Website under name */}
           {effectiveWebsite && domain && (
             <a
-              href={effectiveWebsite.startsWith('http') ? effectiveWebsite : `https://${effectiveWebsite}`}
+              href={
+                effectiveWebsite.startsWith('http')
+                  ? effectiveWebsite
+                  : `https://${effectiveWebsite}`
+              }
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-xs text-blue-600 hover:underline mt-0.5"
@@ -297,7 +268,7 @@ export const DealTableRow = ({
       <TableCell
         style={{ width: columnWidths.buyerUniverse, minWidth: 100 }}
         onClick={(e) => e.stopPropagation()}
-        className={cn(!hasUniverses && needsUniverseBuild && "bg-green-50 dark:bg-green-950/30")}
+        className={cn(!hasUniverses && needsUniverseBuild && 'bg-green-50 dark:bg-green-950/30')}
       >
         {hasUniverses ? (
           <div className="flex items-center gap-1 flex-wrap">
@@ -313,8 +284,10 @@ export const DealTableRow = ({
                 </TooltipTrigger>
                 <TooltipContent>
                   <div className="space-y-0.5">
-                    {listingUniverses.slice(1).map(u => (
-                      <p key={u.id} className="text-xs">{u.name}</p>
+                    {listingUniverses.slice(1).map((u) => (
+                      <p key={u.id} className="text-xs">
+                        {u.name}
+                      </p>
                     ))}
                   </div>
                 </TooltipContent>
@@ -338,7 +311,10 @@ export const DealTableRow = ({
           return descText ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="text-sm text-muted-foreground leading-tight line-clamp-3 cursor-default" style={{ maxWidth: columnWidths.description - 16 }}>
+                <span
+                  className="text-sm text-muted-foreground leading-tight line-clamp-3 cursor-default"
+                  style={{ maxWidth: columnWidths.description - 16 }}
+                >
                   {descText}
                 </span>
               </TooltipTrigger>
@@ -362,12 +338,18 @@ export const DealTableRow = ({
       </TableCell>
 
       {/* Revenue */}
-      <TableCell className="text-right font-medium" style={{ width: columnWidths.revenue, minWidth: 60 }}>
+      <TableCell
+        className="text-right font-medium"
+        style={{ width: columnWidths.revenue, minWidth: 60 }}
+      >
         {formatCurrency(listing.revenue)}
       </TableCell>
 
       {/* EBITDA */}
-      <TableCell className="text-right font-medium" style={{ width: columnWidths.ebitda, minWidth: 60 }}>
+      <TableCell
+        className="text-right font-medium"
+        style={{ width: columnWidths.ebitda, minWidth: 60 }}
+      >
         {formatCurrency(listing.ebitda)}
       </TableCell>
 
@@ -395,7 +377,9 @@ export const DealTableRow = ({
       {/* Google Reviews */}
       <TableCell className="text-right" style={{ width: columnWidths.googleReviews, minWidth: 50 }}>
         {listing.google_review_count != null ? (
-          <span className="text-sm tabular-nums">{listing.google_review_count.toLocaleString()}</span>
+          <span className="text-sm tabular-nums">
+            {listing.google_review_count.toLocaleString()}
+          </span>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
@@ -414,13 +398,18 @@ export const DealTableRow = ({
       <TableCell className="text-center" style={{ width: columnWidths.quality, minWidth: 50 }}>
         {qualityScore !== null ? (
           <div className="flex items-center justify-center gap-1.5">
-            <span className={cn(
-              "text-sm font-medium px-2 py-0.5 rounded",
-              qualityScore >= 80 ? "bg-green-100 text-green-700" :
-              qualityScore >= 60 ? "bg-blue-100 text-blue-700" :
-              qualityScore >= 40 ? "bg-yellow-100 text-yellow-700" :
-              "bg-red-100 text-red-700"
-            )}>
+            <span
+              className={cn(
+                'text-sm font-medium px-2 py-0.5 rounded',
+                qualityScore >= 80
+                  ? 'bg-green-100 text-green-700'
+                  : qualityScore >= 60
+                    ? 'bg-blue-100 text-blue-700'
+                    : qualityScore >= 40
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-red-100 text-red-700',
+              )}
+            >
               {Math.round(qualityScore)}
             </span>
           </div>
@@ -460,36 +449,44 @@ export const DealTableRow = ({
       </TableCell>
 
       {/* Deal Owner */}
-      <TableCell style={{ width: columnWidths.dealOwner, minWidth: 80 }} onClick={(e) => e.stopPropagation()}>
+      <TableCell
+        style={{ width: columnWidths.dealOwner, minWidth: 80 }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <Select
-          value={listing.deal_owner_id || "__none"}
-          onValueChange={(val) => onAssignOwner(listing.id, val === "__none" ? null : val)}
+          value={listing.deal_owner_id || '__none'}
+          onValueChange={(val) => onAssignOwner(listing.id, val === '__none' ? null : val)}
         >
           <SelectTrigger className="h-7 text-xs border-dashed w-full">
             <SelectValue placeholder="Assign...">
-              {listing.deal_owner?.first_name
-                ? `${listing.deal_owner.first_name} ${listing.deal_owner.last_name || ''}`.trim()
-                : listing.deal_owner_id && adminProfiles?.[listing.deal_owner_id]
-                  ? adminProfiles[listing.deal_owner_id].displayName
-                  : <span className="text-muted-foreground">Assign...</span>
-              }
+              {listing.deal_owner?.first_name ? (
+                `${listing.deal_owner.first_name} ${listing.deal_owner.last_name || ''}`.trim()
+              ) : listing.deal_owner_id && adminProfiles?.[listing.deal_owner_id] ? (
+                adminProfiles[listing.deal_owner_id].displayName
+              ) : (
+                <span className="text-muted-foreground">Assign...</span>
+              )}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none">
               <span className="text-muted-foreground">Unassigned</span>
             </SelectItem>
-            {adminProfiles && Object.values(adminProfiles).map((admin) => (
-              <SelectItem key={admin.id} value={admin.id}>
-                {admin.displayName}
-              </SelectItem>
-            ))}
+            {adminProfiles &&
+              Object.values(adminProfiles).map((admin) => (
+                <SelectItem key={admin.id} value={admin.id}>
+                  {admin.displayName}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </TableCell>
 
       {/* Added date */}
-      <TableCell className="text-muted-foreground text-sm" style={{ width: columnWidths.added, minWidth: 60 }}>
+      <TableCell
+        className="text-muted-foreground text-sm"
+        style={{ width: columnWidths.added, minWidth: 60 }}
+      >
         {format(new Date(listing.created_at), 'MM/dd/yyyy')}
       </TableCell>
 
@@ -544,30 +541,38 @@ export const DealTableRow = ({
                 e.stopPropagation();
                 onTogglePriority(listing.id, listing.is_priority_target || false);
               }}
-              className={listing.is_priority_target ? "text-amber-600" : ""}
+              className={listing.is_priority_target ? 'text-amber-600' : ''}
             >
-              <Star className={cn("h-4 w-4 mr-2", listing.is_priority_target && "fill-amber-500")} />
-              {listing.is_priority_target ? "Remove Priority" : "Mark as Priority"}
+              <Star
+                className={cn('h-4 w-4 mr-2', listing.is_priority_target && 'fill-amber-500')}
+              />
+              {listing.is_priority_target ? 'Remove Priority' : 'Mark as Priority'}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleUniverseBuild(listing.id, listing.universe_build_flagged || false);
               }}
-              className={listing.universe_build_flagged ? "text-blue-600" : ""}
+              className={listing.universe_build_flagged ? 'text-blue-600' : ''}
             >
-              <Network className={cn("h-4 w-4 mr-2", listing.universe_build_flagged && "text-blue-600")} />
-              {listing.universe_build_flagged ? "Remove Universe Build Flag" : "Flag: Build Buyer Universe"}
+              <Network
+                className={cn('h-4 w-4 mr-2', listing.universe_build_flagged && 'text-blue-600')}
+              />
+              {listing.universe_build_flagged
+                ? 'Remove Universe Build Flag'
+                : 'Flag: Build Buyer Universe'}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleBuyerSearch(listing.id, listing.needs_buyer_search || false);
               }}
-              className={listing.needs_buyer_search ? "text-blue-600" : ""}
+              className={listing.needs_buyer_search ? 'text-blue-600' : ''}
             >
-              <Search className={cn("h-4 w-4 mr-2", listing.needs_buyer_search && "text-blue-600")} />
-              {listing.needs_buyer_search ? "Remove Find Buyer Flag" : "Flag: Find Buyer"}
+              <Search
+                className={cn('h-4 w-4 mr-2', listing.needs_buyer_search && 'text-blue-600')}
+              />
+              {listing.needs_buyer_search ? 'Remove Find Buyer Flag' : 'Flag: Find Buyer'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

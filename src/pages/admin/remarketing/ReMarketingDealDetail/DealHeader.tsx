@@ -1,22 +1,12 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  ArrowLeft,
-  Check,
-  MapPin,
-  Pencil,
-  X,
-} from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Link } from "react-router-dom";
-import { ScoreBadge } from "@/components/shared/ScoreBadge";
-import { DealSourceBadge } from "@/components/remarketing";
-import type { ScoreTier } from "@/types/remarketing";
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Check, MapPin, Pencil, X } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Link } from 'react-router-dom';
+import { ScoreBadge } from '@/components/shared/ScoreBadge';
+import { DealSourceBadge } from '@/components/remarketing';
+import { getDisplayLocation } from '@/lib/location-display';
+import type { ScoreTier } from '@/types/remarketing';
 
 interface DealHeaderDeal {
   category?: string | null;
@@ -84,10 +74,22 @@ export function DealHeader({
                 autoFocus
                 disabled={updateNameMutation.isPending}
               />
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSaveName} disabled={updateNameMutation.isPending}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleSaveName}
+                disabled={updateNameMutation.isPending}
+              >
                 <Check className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit} disabled={updateNameMutation.isPending}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleCancelEdit}
+                disabled={updateNameMutation.isPending}
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -98,15 +100,16 @@ export function DealHeader({
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => { setEditedName(displayName); setIsEditingName(true); }}
+                onClick={() => {
+                  setEditedName(displayName);
+                  setIsEditingName(true);
+                }}
               >
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
             </div>
           )}
-          {deal.category && (
-            <Badge variant="secondary">{deal.category}</Badge>
-          )}
+          {deal.category && <Badge variant="secondary">{deal.category}</Badge>}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -130,17 +133,19 @@ export function DealHeader({
                     variant="outline"
                     className={
                       deal.seller_interest_score >= 70
-                        ? "bg-green-50 text-green-700 border-green-200"
+                        ? 'bg-green-50 text-green-700 border-green-200'
                         : deal.seller_interest_score >= 40
-                        ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                        : "bg-gray-50 text-gray-600 border-gray-200"
+                          ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                          : 'bg-gray-50 text-gray-600 border-gray-200'
                     }
                   >
                     {deal.seller_interest_score} Seller Interest
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-medium">Seller Interest Score: {deal.seller_interest_score}/100</p>
+                  <p className="font-medium">
+                    Seller Interest Score: {deal.seller_interest_score}/100
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     AI-analyzed from call transcripts and notes to indicate seller motivation level.
                   </p>
@@ -148,7 +153,10 @@ export function DealHeader({
               </Tooltip>
             </TooltipProvider>
           )}
-          <Badge variant={deal.status === 'active' ? 'default' : 'secondary'} className="capitalize">
+          <Badge
+            variant={deal.status === 'active' ? 'default' : 'secondary'}
+            className="capitalize"
+          >
             {deal.status}
           </Badge>
           <DealSourceBadge source={deal.deal_source} />
@@ -156,17 +164,17 @@ export function DealHeader({
         {listedName && (
           <p className="text-sm text-muted-foreground mt-0.5">Listed as: {listedName}</p>
         )}
-        {(deal.address_city && deal.address_state) ? (
-          <p className="text-muted-foreground flex items-center gap-1 mt-1">
-            <MapPin className="h-4 w-4" />
-            {deal.address_city}, {deal.address_state}
-          </p>
-        ) : deal.location ? (
-          <p className="text-muted-foreground flex items-center gap-1 mt-1">
-            <MapPin className="h-4 w-4" />
-            {deal.location}
-          </p>
-        ) : null}
+        {(() => {
+          const loc = getDisplayLocation(deal);
+          return (
+            loc && (
+              <p className="text-muted-foreground flex items-center gap-1 mt-1">
+                <MapPin className="h-4 w-4" />
+                {loc}
+              </p>
+            )
+          );
+        })()}
       </div>
       <div className="flex items-center gap-2">
         {tier && <ScoreBadge variant="tier" tier={tier as ScoreTier} size="lg" />}

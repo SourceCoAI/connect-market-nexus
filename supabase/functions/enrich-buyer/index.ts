@@ -116,6 +116,67 @@ async function scrapeWebsite(
   }
 }
 
+/**
+ * Scrape a location/branch page with settings optimized for location data:
+ * - onlyMainContent: false — locations are often in sidebars, footers, or secondary nav
+ * - waitFor: 3000ms — JS-rendered store finders need extra time for API calls and map rendering
+ */
+async function scrapeLocationPage(
+  url: string,
+  apiKey: string,
+): Promise<{ success: boolean; content?: string; error?: string }> {
+  const doScrape = async () => {
+    let formattedUrl = url.trim();
+    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+      formattedUrl = `https://${formattedUrl}`;
+    }
+
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: formattedUrl,
+        formats: ['markdown'],
+        onlyMainContent: false,
+        waitFor: 3000,
+      }),
+      signal: AbortSignal.timeout(BUYER_SCRAPE_TIMEOUT_MS),
+    });
+
+    if (response.status === 429 && _rateLimitConfig?.supabase) {
+      await reportRateLimit(_rateLimitConfig.supabase, 'firecrawl');
+    }
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    const content = data.data?.markdown || data.markdown || '';
+
+    if (!content || content.length < BUYER_MIN_CONTENT_LENGTH) {
+      return { success: false, error: `Insufficient content (${content.length} chars)` };
+    }
+
+    return { success: true, content };
+  };
+
+  try {
+    if (_rateLimitConfig?.supabase) {
+      return await withConcurrencyTracking(_rateLimitConfig.supabase, 'firecrawl', doScrape);
+    }
+    return await doScrape();
+  } catch (error) {
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      return { success: false, error: `Timed out after ${BUYER_SCRAPE_TIMEOUT_MS / 1000}s` };
+    }
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 async function firecrawlMap(url: string, apiKey: string, limit = 100): Promise<string[]> {
   const doMap = async () => {
     let formattedUrl = url.trim();
@@ -404,7 +465,7 @@ Deno.serve(async (req) => {
 
           // PERF: Start location page discovery immediately (runs in parallel with non-geography Gemini prompts)
           // Scrape up to 3 location pages to capture full geographic footprint
-          locationPagesPromise = firecrawlMap(platformWebsite!, firecrawlApiKey)
+          locationPagesPromise = firecrawlMap(platformWebsite!, firecrawlApiKey, 500)
             .then(async (links) => {
               // Find all matching location pages, prioritize more specific patterns
               const locationPages = links.filter((link) =>
@@ -415,26 +476,39 @@ Deno.serve(async (req) => {
                 return null;
               }
 
-              // Deduplicate: skip pages that are subpaths of already-matched pages
-              // e.g., if we have /locations and /locations/texas, prefer /locations (the index)
-              const unique = locationPages.filter((page, i) => {
+              // Separate into index pages (parent directories) and detail pages (individual locations)
+              // Index pages like /locations may have a full directory listing
+              // Detail pages like /locations/lakewood-co have individual addresses
+              // We need BOTH — index pages may be JS-rendered store finders with no data in HTML,
+              // while detail pages have actual addresses that the AI can extract
+              const indexPages: string[] = [];
+              const detailPages: string[] = [];
+
+              for (const page of locationPages) {
                 const pageLower = page.toLowerCase();
-                // Keep this page unless another shorter page is a prefix of it
-                return !locationPages.some(
-                  (other, j) =>
-                    j !== i &&
+                const isChildOfAnother = locationPages.some(
+                  (other) =>
+                    other !== page &&
                     pageLower.startsWith(other.toLowerCase()) &&
                     other.length < page.length,
                 );
-              });
+                if (isChildOfAnother) {
+                  detailPages.push(page);
+                } else {
+                  indexPages.push(page);
+                }
+              }
 
-              const toScrape = unique.slice(0, 3); // Cap at 3 pages to control API costs
+              // Scrape index pages (up to 2) + detail pages (up to 8), capped at 10 total
+              // This ensures we capture both comprehensive listings AND individual addresses
+              const toScrape = [...indexPages.slice(0, 2), ...detailPages.slice(0, 8)].slice(0, 10);
+
               console.log(
-                `Found ${locationPages.length} location pages, scraping ${toScrape.length}: ${toScrape.join(', ')}`,
+                `Found ${locationPages.length} location pages (${indexPages.length} index, ${detailPages.length} detail), scraping ${toScrape.length}: ${toScrape.join(', ')}`,
               );
 
               const locationScrapeResults = await Promise.allSettled(
-                toScrape.map((url) => scrapeWebsite(url, firecrawlApiKey)),
+                toScrape.map((url) => scrapeLocationPage(url, firecrawlApiKey)),
               );
 
               const contents: string[] = [];
@@ -607,10 +681,16 @@ Deno.serve(async (req) => {
             if (locationPagesPromise) {
               const locationContent = await locationPagesPromise;
               if (locationContent) {
+                // IMPORTANT: Location pages go FIRST so they survive the 100k char truncation
+                // in extractGeography. Homepage content is often 50-70k chars and would push
+                // the most valuable location data past the cutoff.
                 geoContent =
-                  platformContent + '\n\n--- LOCATION/BRANCH PAGES ---\n\n' + locationContent;
+                  '--- LOCATION/BRANCH PAGES ---\n\n' +
+                  locationContent +
+                  '\n\n--- HOMEPAGE ---\n\n' +
+                  platformContent;
                 console.log(
-                  `Geography extraction using combined content: ${geoContent.length} chars (homepage ${platformContent.length} + location pages ${locationContent.length})`,
+                  `Geography extraction using combined content: ${geoContent.length} chars (location pages ${locationContent.length} + homepage ${platformContent.length})`,
                 );
               } else {
                 console.log('No location page content found — using homepage only for geography');

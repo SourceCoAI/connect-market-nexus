@@ -24,7 +24,7 @@ import {
   getLeadDetails,
 } from '../_shared/heyreach-client.ts';
 
-type EntityType = 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
+type EntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
 
 interface ResolvedLead {
   linkedInUrl: string;
@@ -44,14 +44,16 @@ async function resolveFromBuyerContacts(
   supabase: SupabaseClient<any, any, any>,
   ids: string[],
 ): Promise<ResolvedLead[]> {
+  // Read from unified contacts table instead of legacy buyer_contacts
   const { data: contacts } = await supabase
-    .from('buyer_contacts')
-    .select('id, name, email, phone, title, company_type, buyer_id, linkedin_url')
-    .in('id', ids);
+    .from('contacts')
+    .select('id, first_name, last_name, email, phone, title, remarketing_buyer_id, linkedin_url')
+    .in('id', ids)
+    .eq('archived', false);
 
   if (!contacts?.length) return [];
 
-  const buyerIds = [...new Set(contacts.map((c) => c.buyer_id))];
+  const buyerIds = [...new Set(contacts.map((c) => c.remarketing_buyer_id).filter(Boolean))];
   const { data: buyers } = await supabase
     .from('buyers')
     .select('id, company_name')
@@ -61,14 +63,13 @@ async function resolveFromBuyerContacts(
   return contacts
     .filter((c) => c.linkedin_url || c.email)
     .map((c) => {
-      const parts = (c.name || '').split(' ');
-      const buyer = buyerMap.get(c.buyer_id);
+      const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
       return {
         linkedInUrl: c.linkedin_url || '',
         email: c.email || undefined,
-        firstName: parts[0] || '',
-        lastName: parts.slice(1).join(' ') || '',
-        companyName: buyer?.company_name || c.company_type || '',
+        firstName: c.first_name || '',
+        lastName: c.last_name || '',
+        companyName: buyer?.company_name || '',
         phone: c.phone || '',
         _source_id: c.id,
         _source_type: 'buyer_contact',
@@ -80,10 +81,12 @@ async function resolveFromBuyers(
   supabase: SupabaseClient<any, any, any>,
   buyerIds: string[],
 ): Promise<ResolvedLead[]> {
+  // Read from unified contacts table instead of legacy buyer_contacts
   const { data: contacts } = await supabase
-    .from('buyer_contacts')
-    .select('id, name, email, phone, title, buyer_id, company_type, linkedin_url')
-    .in('buyer_id', buyerIds);
+    .from('contacts')
+    .select('id, first_name, last_name, email, phone, title, remarketing_buyer_id, linkedin_url')
+    .in('remarketing_buyer_id', buyerIds)
+    .eq('archived', false);
 
   const { data: buyers } = await supabase
     .from('buyers')
@@ -100,14 +103,13 @@ async function resolveFromBuyers(
     const key = (c.linkedin_url || c.email || '').toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    const buyer = buyerMap.get(c.buyer_id);
-    const parts = (c.name || '').split(' ');
+    const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
     result.push({
       linkedInUrl: c.linkedin_url || '',
       email: c.email || undefined,
-      firstName: parts[0] || '',
-      lastName: parts.slice(1).join(' ') || '',
-      companyName: buyer?.company_name || c.company_type || '',
+      firstName: c.first_name || '',
+      lastName: c.last_name || '',
+      companyName: buyer?.company_name || '',
       phone: c.phone || '',
       _source_id: c.id,
       _source_type: 'buyer_contact',
@@ -115,7 +117,7 @@ async function resolveFromBuyers(
   }
 
   // Fallback: buyer-level contact info for buyers with no sub-contacts
-  const buyersWithContacts = new Set((contacts || []).map((c) => c.buyer_id));
+  const buyersWithContacts = new Set((contacts || []).map((c) => c.remarketing_buyer_id));
   for (const buyerId of buyerIds) {
     if (buyersWithContacts.has(buyerId)) continue;
     const buyer = buyerMap.get(buyerId);
@@ -269,6 +271,7 @@ Deno.serve(async (req) => {
         // Resolve contacts
         let leads: ResolvedLead[];
         switch (entity_type) {
+          case 'contacts':
           case 'buyer_contacts':
             leads = await resolveFromBuyerContacts(supabase, entity_ids);
             break;
@@ -429,6 +432,7 @@ Deno.serve(async (req) => {
 
         let leads: ResolvedLead[];
         switch (entity_type) {
+          case 'contacts':
           case 'buyer_contacts':
             leads = await resolveFromBuyerContacts(supabase, entity_ids);
             break;

@@ -61,9 +61,17 @@ const ContactListDetailPage = () => {
       if (mode === 'replace') {
         setSelectedIds(new Set(rowIds));
       } else if (mode === 'add') {
-        setSelectedIds((prev) => { const next = new Set(prev); rowIds.forEach((rid) => next.add(rid)); return next; });
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          rowIds.forEach((rid) => next.add(rid));
+          return next;
+        });
       } else {
-        setSelectedIds((prev) => { const next = new Set(prev); rowIds.forEach((rid) => (next.has(rid) ? next.delete(rid) : next.add(rid))); return next; });
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          rowIds.forEach((rid) => (next.has(rid) ? next.delete(rid) : next.add(rid)));
+          return next;
+        });
       }
     },
     onClearSelection: () => setSelectedIds(new Set()),
@@ -351,7 +359,9 @@ const ContactListDetailPage = () => {
                     key={member.id}
                     member={member}
                     isSelected={selectedIds.has(member.id)}
-                    onToggle={(e?: React.MouseEvent) => toggleSelect(member.id, !selectedIds.has(member.id), e)}
+                    onToggle={(e?: React.MouseEvent) =>
+                      toggleSelect(member.id, !selectedIds.has(member.id), e)
+                    }
                     onRemove={() => removeMember.mutate({ memberId: member.id, listId: list.id })}
                   />
                 ))
@@ -366,21 +376,21 @@ const ContactListDetailPage = () => {
         onOpenChange={setIsDialerOpen}
         contactIds={dialerContactIds}
         contactCount={dialerContactIds.length}
-        entityType="buyer_contacts"
+        entityType="contacts"
       />
       <PushToSmartleadModal
         open={isSmartleadOpen}
         onOpenChange={setIsSmartleadOpen}
         contactIds={dialerContactIds}
         contactCount={dialerContactIds.length}
-        entityType="buyer_contacts"
+        entityType="contacts"
       />
       <PushToHeyreachModal
         open={isHeyreachOpen}
         onOpenChange={setIsHeyreachOpen}
         contactIds={selectedMembers.map((m) => m.entity_id)}
         contactCount={selectedMembers.length}
-        entityType="buyer_contacts"
+        entityType="contacts"
       />
     </div>
   );
@@ -399,8 +409,18 @@ function MemberRow({
 }) {
   return (
     <TableRow className={isSelected ? 'bg-primary/5' : ''}>
-      <TableCell onClick={(e) => { e.stopPropagation(); onToggle(e); }}>
-        <Checkbox checked={isSelected} onCheckedChange={() => {/* handled by TableCell onClick */}} />
+      <TableCell
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle(e);
+        }}
+      >
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => {
+            /* handled by TableCell onClick */
+          }}
+        />
       </TableCell>
       <TableCell>
         <div className="flex flex-col">
@@ -421,7 +441,7 @@ function MemberRow({
       </TableCell>
       <TableCell>
         <Badge variant="outline" className="text-[11px] font-normal capitalize">
-          {member.entity_type.split("_").join(" ")}
+          {member.entity_type.split('_').join(' ')}
         </Badge>
       </TableCell>
       <TableCell>

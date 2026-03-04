@@ -234,7 +234,7 @@ export function useCapTargetActions(
       }
 
       try {
-        const { queueDealQualityScoring } = await import("@/lib/remarketing/queueScoring");
+        const { queueDealQualityScoring } = await import('@/lib/remarketing/queueScoring');
         await queueDealQualityScoring({
           batchSource: 'captarget',
           unscoredOnly: mode === 'unscored',
@@ -348,7 +348,15 @@ export function useCapTargetActions(
       setIsEnriching(false);
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'captarget-deals'] });
     },
-    [user, startOrQueueMajorOp, completeOperation, updateProgress, queryClient, filteredDeals, setSelectedIds],
+    [
+      user,
+      startOrQueueMajorOp,
+      completeOperation,
+      updateProgress,
+      queryClient,
+      filteredDeals,
+      setSelectedIds,
+    ],
   );
 
   // ─── LinkedIn + Google only enrichment ──────────────────────────────
@@ -372,7 +380,7 @@ export function useCapTargetActions(
     }
 
     try {
-      const { queueExternalOnlyEnrichment } = await import("@/lib/remarketing/queueScoring");
+      const { queueExternalOnlyEnrichment } = await import('@/lib/remarketing/queueScoring');
       await queueExternalOnlyEnrichment({ dealSource: 'captarget', mode: 'missing' });
     } catch {
       if (activityItem) completeOperation.mutate({ id: activityItem.id, finalStatus: 'failed' });
@@ -417,7 +425,6 @@ export function useCapTargetActions(
       for (const dealId of dealIds) {
         await supabase.from('enrichment_queue').delete().eq('listing_id', dealId);
         await supabase.from('remarketing_scores').delete().eq('listing_id', dealId);
-        await supabase.from('buyer_deal_scores').delete().eq('deal_id', dealId);
       }
       const { error } = await supabase.from('listings').delete().in('id', dealIds);
       if (error) throw error;
@@ -565,7 +572,6 @@ export function useCapTargetActions(
       if (!confirm('Permanently delete this deal?')) return;
       await supabase.from('enrichment_queue').delete().eq('listing_id', id);
       await supabase.from('remarketing_scores').delete().eq('listing_id', id);
-      await supabase.from('buyer_deal_scores').delete().eq('deal_id', id);
       const { error } = await supabase.from('listings').delete().eq('id', id);
       if (error) {
         toast({

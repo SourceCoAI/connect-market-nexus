@@ -34,6 +34,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
 
   const notIntroduced = introductions.filter(
     (i) =>
+      i.introduction_status === 'need_to_show_deal' ||
       i.introduction_status === 'outreach_initiated' ||
       i.introduction_status === 'meeting_scheduled',
   );
@@ -52,7 +53,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
         .from('buyer_introductions' as never)
         .insert({
           ...input,
-          introduction_status: 'outreach_initiated',
+          introduction_status: 'need_to_show_deal',
           created_by: user.id,
         } as never)
         .select()

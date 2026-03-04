@@ -521,21 +521,23 @@ export function ValuationLeadsTable({
                                 sonnerToast.error('Push deal to Active Deals first');
                                 return;
                               }
-                              const newVal = !lead.need_buyer_universe;
+                              const newVal = !lead.needs_buyer_search;
+                              const now = new Date().toISOString();
                               await supabase
                                 .from('listings')
-                                .update({ need_buyer_universe: newVal })
+                                .update({
+                                  needs_buyer_search: newVal,
+                                  needs_buyer_search_at: newVal ? now : null,
+                                })
                                 .eq('id', lead.pushed_listing_id);
-                              sonnerToast.success(
-                                newVal ? 'Flagged: Needs Buyer Universe' : 'Flag removed',
-                              );
+                              sonnerToast.success(newVal ? 'Flagged: Find Buyer' : 'Flag removed');
                               queryClient.invalidateQueries({
                                 queryKey: ['remarketing', 'valuation-leads'],
                               });
                             }}
                           >
                             <Network className="h-4 w-4 mr-2" />
-                            Flag: Needs Buyer Universe
+                            Flag: Find Buyer
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={async (e) => {

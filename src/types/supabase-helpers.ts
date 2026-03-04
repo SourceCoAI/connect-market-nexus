@@ -75,10 +75,10 @@ export type BuyerRow = TableRow<'buyers'>;
 export type BuyerInsert = TableInsert<'buyers'>;
 export type BuyerUpdate = TableUpdate<'buyers'>;
 
-// Buyer Contacts
-export type BuyerContactRow = TableRow<'buyer_contacts'>;
-export type BuyerContactInsert = TableInsert<'buyer_contacts'>;
-export type BuyerContactUpdate = TableUpdate<'buyer_contacts'>;
+// Contacts (unified contacts table — replaces legacy buyer_contacts)
+export type BuyerContactRow = TableRow<'contacts'>;
+export type BuyerContactInsert = TableInsert<'contacts'>;
+export type BuyerContactUpdate = TableUpdate<'contacts'>;
 
 // Buyer Universes
 export type BuyerUniverseRow = TableRow<'buyer_universes'>;

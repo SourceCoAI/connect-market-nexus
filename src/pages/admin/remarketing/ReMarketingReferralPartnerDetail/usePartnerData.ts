@@ -5,6 +5,7 @@ import { useFilterEngine } from '@/hooks/use-filter-engine';
 import { REFERRAL_PARTNER_DEAL_FIELDS } from '@/components/filters/filter-definitions';
 import type { SortField, SortDir } from './types';
 import { normalizeCompanyName } from './helpers';
+import { getDisplayLocation } from '@/lib/location-display';
 
 export function usePartnerData(partnerId: string | undefined) {
   const [hidePushed, setHidePushed] = useState(false);
@@ -58,7 +59,7 @@ export function usePartnerData(partnerId: string | undefined) {
            enriched_at, deal_total_score, pushed_to_all_deals,
            linkedin_employee_count, linkedin_employee_range,
            google_review_count, google_rating, is_priority_target,
-           need_buyer_universe, needs_owner_contact,
+           needs_buyer_search, needs_owner_contact,
            main_contact_name, main_contact_title, main_contact_email, main_contact_phone, deal_source,
            remarketing_status`,
         )
@@ -144,11 +145,7 @@ export function usePartnerData(partnerId: string | undefined) {
           case 'industry':
             return (deal.category || '').toLowerCase();
           case 'location':
-            return (
-              deal.address_city && deal.address_state
-                ? `${deal.address_city}, ${deal.address_state}`
-                : deal.location || ''
-            ).toLowerCase();
+            return (getDisplayLocation(deal) || '').toLowerCase();
           case 'revenue':
             return deal.revenue ?? -Infinity;
           case 'ebitda':

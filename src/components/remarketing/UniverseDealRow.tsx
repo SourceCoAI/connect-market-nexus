@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { type UniverseDeal, type DealEngagement } from './useUniverseDealsFilters';
+import { getDisplayLocation } from '@/lib/location-display';
 
 export const formatCurrency = (value: number | null | undefined) => {
   if (!value) return '\u2014';
@@ -68,9 +69,7 @@ export const UniverseDealRow = ({
       onClick={() =>
         navigate(
           `/admin/deals/${deal.listing.id}`,
-          universeId
-            ? { state: { from: `/admin/buyers/universes/${universeId}` } }
-            : undefined,
+          universeId ? { state: { from: `/admin/buyers/universes/${universeId}` } } : undefined,
         )
       }
     >
@@ -91,9 +90,7 @@ export const UniverseDealRow = ({
           <div className="min-w-0 overflow-hidden">
             <div className="flex items-center gap-2">
               <span className="font-medium text-foreground truncate">
-                {deal.listing.internal_company_name ||
-                  deal.listing.title ||
-                  'Untitled Deal'}
+                {deal.listing.internal_company_name || deal.listing.title || 'Untitled Deal'}
               </span>
               {deal.listing.enriched_at && (
                 <Badge variant="secondary" className="text-xs px-1.5 shrink-0">
@@ -101,12 +98,17 @@ export const UniverseDealRow = ({
                 </Badge>
               )}
             </div>
-            {deal.listing.location && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                <span className="truncate">{deal.listing.location}</span>
-              </div>
-            )}
+            {(() => {
+              const loc = getDisplayLocation(deal.listing);
+              return (
+                loc && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <MapPin className="h-3 w-3" />
+                    <span className="truncate">{loc}</span>
+                  </div>
+                )
+              );
+            })()}
           </div>
         </div>
       </TableCell>
@@ -212,9 +214,7 @@ export const UniverseDealRow = ({
       </TableCell>
 
       <TableCell style={{ width: w('revenue') }} className="text-right">
-        <span className="text-sm font-medium">
-          {formatCurrency(deal.listing.revenue)}
-        </span>
+        <span className="text-sm font-medium">{formatCurrency(deal.listing.revenue)}</span>
       </TableCell>
 
       <TableCell style={{ width: w('ebitda') }} className="text-right">

@@ -125,6 +125,7 @@ export const VALID_BUYER_COLUMNS = new Set([
   'geographic_footprint',
   'service_regions',
   'operating_locations',
+  'number_of_locations',
   'primary_customer_size',
   'customer_geographic_reach',
   'customer_industries',
@@ -165,7 +166,12 @@ export const FIELD_TO_COLUMN_MAP: Record<string, string> = {
 
 // Location page patterns for discovery
 // Ordered by specificity — more specific patterns first for better matching
+// Location page patterns for discovery
+// Ordered by specificity — more specific patterns first for better matching
+// NOTE: /about and /contact removed — they match virtually every website and
+// waste scraping slots on pages that rarely contain location data.
 export const LOCATION_PATTERNS = [
+  // Core location patterns
   '/locations',
   '/our-locations',
   '/all-locations',
@@ -177,21 +183,44 @@ export const LOCATION_PATTERNS = [
   '/find-us',
   '/stores',
   '/our-stores',
-  '/service-areas',
-  '/service-area',
   '/branches',
   '/offices',
   '/our-offices',
+  // Service area patterns
+  '/service-areas',
+  '/service-area',
   '/coverage',
   '/coverage-area',
+  '/coverage-areas',
   '/where-we-work',
   '/territories',
+  '/service-territory',
   '/markets',
+  // Auto / tire / repair verticals
+  '/tire-shops',
+  '/service-centers',
+  '/auto-repair',
+  '/shop-locations',
+  // Healthcare verticals
+  '/clinics',
+  '/centers',
+  '/practices',
+  '/patient-care',
+  // Retail / showroom
+  '/showrooms',
+  '/outlets',
+  // Logistics / distribution
+  '/warehouses',
+  '/distribution-centers',
+  '/facilities',
+  // Franchise / network
+  '/directory',
+  '/network',
+  '/franchises',
   '/dealer-locator',
   '/dealers',
+  // About-us kept only as low-priority fallback (filtered to last when scoring)
   '/about-us',
-  '/about',
-  '/contact',
 ];
 
 // ============================================================================
@@ -331,6 +360,11 @@ export const PROMPT_3A_GEOGRAPHY = {
         description:
           'REQUIRED: Every physical office, branch, store, or location mentioned on the website as "City, ST" (e.g., "Dallas, TX", "Atlanta, GA"). Extract from addresses, location lists, footer, contact pages, and branch directories. This is a critical field — extract aggressively.',
       },
+      number_of_locations: {
+        type: 'integer',
+        description:
+          'Total number of physical locations/stores/branches/offices. Extract from explicit mentions like "100+ locations", "serving 50 markets", or count from location directory pages. If not explicitly stated, count the operating_locations extracted.',
+      },
     },
   },
 };
@@ -349,22 +383,28 @@ EXTRACTION RULES:
 3. geographic_footprint = states with physical presence (offices, branches, stores)
 4. service_regions = ALL states where company provides services, has customers, or claims coverage.
    IMPORTANT: Expand regional language into state codes:
-   - "Southeast" → FL, GA, AL, SC, NC, TN, MS, LA, AR, KY, VA, WV
+   - "Tri-State" or "Tristate" → NY, NJ, CT
+   - "New England" → MA, CT, RI, VT, NH, ME
    - "Northeast" → CT, ME, MA, NH, RI, VT, NJ, NY, PA
    - "Mid-Atlantic" → NJ, NY, PA, DE, MD, VA, DC
+   - "East Coast" → ME, NH, MA, RI, CT, NY, NJ, DE, MD, VA, NC, SC, GA, FL
+   - "Southeast" → FL, GA, AL, SC, NC, TN, MS, LA, AR, KY, VA, WV
    - "Midwest" → IL, IN, MI, OH, WI, IA, KS, MN, MO, NE, ND, SD
    - "Southwest" → AZ, NM, TX, OK
-   - "West" or "West Coast" → CA, OR, WA, NV, AZ, CO, UT
-   - "Pacific Northwest" → WA, OR, ID
+   - "West" or "West Coast" → CA, OR, WA
+   - "Pacific Northwest" or "PNW" → WA, OR, ID
    - "Mountain West" → CO, MT, ID, WY, UT, NV
-   - "Sun Belt" → FL, GA, TX, AZ, NV, SC, NC, TN, AL
-   - "National" or "Nationwide" → set service_regions to ALL 50 state codes
    - "Gulf Coast" → TX, LA, MS, AL, FL
    - "Great Lakes" → MI, OH, WI, IL, IN, MN
+   - "Sun Belt" → FL, GA, TX, AZ, NV, SC, NC, TN, AL
+   - "National" or "Nationwide" → set service_regions to ALL 50 state codes
 5. operating_locations = CRITICAL FIELD: every "City, ST" pair found anywhere on the site.
    Example: ["Dallas, TX", "Atlanta, GA", "Chicago, IL", "Tampa, FL"]
-6. hq_state MUST be a 2-letter code (e.g., TX not Texas)
-7. hq_city MUST be a real city name (not a region like "West Coast")
+6. number_of_locations = Total location count. Extract from explicit mentions like "100+ locations",
+   "50 stores nationwide", "serving 35 markets". If not explicitly stated, set to the count of
+   operating_locations extracted. This ensures the location count is always populated.
+7. hq_state MUST be a 2-letter code (e.g., TX not Texas)
+8. hq_city MUST be a real city name (not a region like "West Coast")
 
 IMPORTANT FOR M&A BUYERS:
 - PE firms and platform companies often describe coverage using regional language.
@@ -613,19 +653,49 @@ export function validateGeography(extracted: AIExtractionResult): AIExtractionRe
       .filter((s: string) => VALID_STATE_CODES.has(s));
   }
 
-  // Normalize operating_locations — extract state codes from "City, ST" entries
+  // Normalize and deduplicate operating_locations — extract state codes from "City, ST" entries
   if (data.operating_locations && Array.isArray(data.operating_locations)) {
-    // Keep the "City, ST" format but also extract states into geographic_footprint
     const locStates: string[] = [];
-    data.operating_locations = data.operating_locations.filter((loc: string) => {
-      if (typeof loc !== 'string') return false;
-      const stateMatch = loc.match(/,\s*([A-Z]{2})\s*$/i);
+    const seenNormalized = new Set<string>();
+    const deduplicated: string[] = [];
+
+    for (const loc of data.operating_locations) {
+      if (typeof loc !== 'string') continue;
+
+      // Normalize to "City, ST" format: trim, normalize whitespace, fix missing space after comma
+      let normalized = loc.trim().replace(/\s+/g, ' ');
+      // Fix "Dallas,TX" → "Dallas, TX"
+      normalized = normalized.replace(/,([A-Za-z])/g, ', $1');
+
+      // Extract and normalize state code
+      const stateMatch = normalized.match(/,\s*([A-Za-z]{2})\s*$/);
       if (stateMatch) {
         const code = stateMatch[1].toUpperCase();
-        if (VALID_STATE_CODES.has(code)) locStates.push(code);
+        if (VALID_STATE_CODES.has(code)) {
+          locStates.push(code);
+          // Rebuild as canonical "City, ST" (proper case state code)
+          const city = normalized.substring(0, normalized.lastIndexOf(',')).trim();
+          normalized = `${city}, ${code}`;
+        }
       }
-      return true;
-    });
+
+      // Strip trailing ", USA" or ", US" suffixes for dedup
+      const forDedup = normalized.replace(/,\s*(USA|US)\s*$/i, '');
+
+      // Case-insensitive deduplication
+      const key = forDedup.toLowerCase();
+      if (!seenNormalized.has(key)) {
+        seenNormalized.add(key);
+        deduplicated.push(forDedup);
+      }
+    }
+
+    const beforeCount = data.operating_locations.length;
+    data.operating_locations = deduplicated;
+    if (beforeCount !== deduplicated.length) {
+      console.log(`Deduplicated operating_locations: ${beforeCount} → ${deduplicated.length}`);
+    }
+
     // Merge operating_locations states into geographic_footprint
     if (locStates.length > 0) {
       if (!data.geographic_footprint) data.geographic_footprint = [];
@@ -667,6 +737,18 @@ export function validateGeography(extracted: AIExtractionResult): AIExtractionRe
         }
       }
     }
+  }
+
+  // Auto-compute number_of_locations from operating_locations if not explicitly extracted
+  // Use the AI-extracted count if it's higher (it may know the total from "100+ locations" text)
+  const extractedCount =
+    typeof data.number_of_locations === 'number' ? data.number_of_locations : 0;
+  const actualCount = Array.isArray(data.operating_locations) ? data.operating_locations.length : 0;
+  if (actualCount > 0 || extractedCount > 0) {
+    data.number_of_locations = Math.max(extractedCount, actualCount);
+    console.log(
+      `Location count: extracted=${extractedCount}, actual=${actualCount}, using=${data.number_of_locations}`,
+    );
   }
 
   return { ...extracted, data };
@@ -841,8 +923,40 @@ export function buildBuyerUpdateObject(
       }
 
       if (normalized.length > 0) {
-        const unique = [...new Set(normalized)];
-        updateData[field] = unique;
+        // MERGE geographic arrays with existing values instead of overwriting.
+        // This prevents data loss when a re-enrichment scrapes fewer location pages
+        // (e.g. due to rate limits or different pages being discovered).
+        const MERGE_FIELDS = new Set([
+          'operating_locations',
+          'geographic_footprint',
+          'service_regions',
+        ]);
+        if (
+          MERGE_FIELDS.has(field) &&
+          Array.isArray(buyer[field]) &&
+          (buyer[field] as string[]).length > 0
+        ) {
+          const existing = buyer[field] as string[];
+          const isStateCodes = field === 'geographic_footprint' || field === 'service_regions';
+          const seen = new Set(
+            existing.map((v) => (isStateCodes ? v.toUpperCase() : v.toLowerCase())),
+          );
+          for (const item of normalized) {
+            const key = isStateCodes ? item.toUpperCase() : item.toLowerCase();
+            if (!seen.has(key)) {
+              seen.add(key);
+              existing.push(item);
+            }
+          }
+          const unique = [...new Set(existing)];
+          updateData[field] = unique;
+          console.log(
+            `Merged ${field}: ${(buyer[field] as string[]).length} existing + ${normalized.length} new → ${unique.length} total`,
+          );
+        } else {
+          const unique = [...new Set(normalized)];
+          updateData[field] = unique;
+        }
         fieldsUpdated++;
         recordFieldSource();
       }

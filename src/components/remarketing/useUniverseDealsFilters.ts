@@ -11,6 +11,8 @@ export interface UniverseDeal {
     description?: string;
     executive_summary?: string;
     location?: string;
+    address_city?: string;
+    address_state?: string;
     revenue?: number;
     ebitda?: number;
     enriched_at?: string;
@@ -107,7 +109,9 @@ export const useUniverseDealsFilters = (
         const matchName = (l.internal_company_name || l.title || '').toLowerCase().includes(q);
         const matchDesc = (l.description || '').toLowerCase().includes(q);
         const matchLoc = (l.location || '').toLowerCase().includes(q);
-        if (!matchName && !matchDesc && !matchLoc) return false;
+        const matchCity = (l.address_city || '').toLowerCase().includes(q);
+        const matchState = (l.address_state || '').toLowerCase().includes(q);
+        if (!matchName && !matchDesc && !matchLoc && !matchCity && !matchState) return false;
       }
       // State
       if (stateFilter !== 'all') {

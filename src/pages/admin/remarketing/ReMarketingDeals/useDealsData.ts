@@ -74,7 +74,7 @@ export function useDealsData() {
             internal_company_name, internal_deal_memo_link, geographic_states,
             enriched_at, full_time_employees, linkedin_employee_count,
             linkedin_employee_range, google_review_count, google_rating,
-            is_priority_target, need_buyer_universe, deal_total_score,
+            is_priority_target, deal_total_score,
             seller_interest_score, manual_rank_override,
             main_contact_name, main_contact_title, main_contact_email, main_contact_phone,
             address_city,
@@ -237,7 +237,7 @@ export function useDealsData() {
     if (!engineFiltered) return [];
     return engineFiltered.filter((listing) => {
       if (universeFilter === 'needs_build') {
-        if (!listing.need_buyer_universe) return false;
+        if (!listing.needs_buyer_search) return false;
       } else if (universeFilter !== 'all') {
         const stats = scoreStats?.[listing.id];
         if (!stats || !stats.universeIds.has(universeFilter)) return false;

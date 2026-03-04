@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -73,7 +73,15 @@ export function WebsiteActionsCard({
   const needsBuyerSearch = deal?.needs_buyer_search;
 
   return (
-    <Card className={needsContact ? 'border-red-400 border-2 bg-red-50 dark:bg-red-950/20' : needsBuyerSearch ? 'border-blue-400 border-2 bg-blue-50 dark:bg-blue-950/20' : ''}>
+    <Card
+      className={
+        needsContact
+          ? 'border-red-400 border-2 bg-red-50 dark:bg-red-950/20'
+          : needsBuyerSearch
+            ? 'border-blue-400 border-2 bg-blue-50 dark:bg-blue-950/20'
+            : ''
+      }
+    >
       {needsContact && (
         <div className="bg-red-500 text-white text-sm font-semibold px-4 py-2 flex items-center gap-2 rounded-t-lg">
           <PhoneCall className="h-4 w-4 animate-pulse" />
@@ -250,24 +258,14 @@ export function WebsiteActionsCard({
   );
 }
 
-function PushToMarketplaceButton({ deal, dealId }: { deal: DealForWebsiteActions; dealId: string }) {
+function PushToMarketplaceButton({
+  deal,
+  dealId,
+}: {
+  deal: DealForWebsiteActions;
+  dealId: string;
+}) {
   const queryClient = useQueryClient();
-
-  // Check whether this deal has both memo PDF types uploaded.
-  // Final PDFs live in data_room_documents (not lead_memos which only holds AI drafts).
-  const { data: memoDocs, isLoading: memosLoading } = useQuery({
-    queryKey: ['deal-memo-docs-check', dealId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('data_room_documents')
-        .select('id, document_category, storage_path')
-        .eq('deal_id', dealId)
-        .in('document_category', ['full_memo', 'anonymous_teaser']);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!dealId,
-  });
 
   if (deal?.pushed_to_marketplace) {
     return (
@@ -296,49 +294,26 @@ function PushToMarketplaceButton({ deal, dealId }: { deal: DealForWebsiteActions
   }
 
   /**
-   * Gate: all of these must be present before a deal can be pushed to the
-   * Marketplace Queue. Each check returns a human-readable label when failing.
+   * Informational: items still needed before a listing can be created.
+   * These no longer block pushing to the queue.
    */
   const gaps: string[] = [];
 
-  if (!deal?.website)
-    gaps.push('Website');
+  if (!deal?.website) gaps.push('Website');
 
-  if (deal?.revenue == null)
-    gaps.push('Revenue');
+  if (deal?.revenue == null) gaps.push('Revenue');
 
-  if (deal?.ebitda == null)
-    gaps.push('EBITDA');
+  if (deal?.ebitda == null) gaps.push('EBITDA');
 
-  if (!deal?.address_state && !deal?.location)
-    gaps.push('Location');
+  if (!deal?.address_state && !deal?.location) gaps.push('Location');
 
-  if (!deal?.category && !deal?.industry)
-    gaps.push('Category / Industry');
+  if (!deal?.category && !deal?.industry) gaps.push('Category / Industry');
 
-  if (!deal?.executive_summary && !deal?.description)
-    gaps.push('Description');
+  if (!deal?.executive_summary && !deal?.description) gaps.push('Description');
 
-  if (!deal?.main_contact_name)
-    gaps.push('Main contact name');
+  if (!deal?.main_contact_name) gaps.push('Main contact name');
 
-  if (!deal?.main_contact_email)
-    gaps.push('Main contact email');
-
-  const hasLeadMemo = memoDocs?.some(
-    (d) => d.document_category === 'full_memo' && d.storage_path,
-  );
-  const hasTeaser = memoDocs?.some(
-    (d) => d.document_category === 'anonymous_teaser' && d.storage_path,
-  );
-
-  if (!hasLeadMemo)
-    gaps.push('Lead Memo PDF');
-
-  if (!hasTeaser)
-    gaps.push('Teaser PDF');
-
-  const isReady = gaps.length === 0;
+  if (!deal?.main_contact_email) gaps.push('Main contact email');
 
   return (
     <TooltipProvider>
@@ -346,14 +321,8 @@ function PushToMarketplaceButton({ deal, dealId }: { deal: DealForWebsiteActions
         <TooltipTrigger asChild>
           <Button
             variant="outline"
-            className={`gap-2 ${
-              isReady
-                ? 'border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-500'
-                : 'border-gray-200 text-gray-400 cursor-not-allowed'
-            }`}
-            disabled={!isReady || memosLoading}
+            className="gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-500"
             onClick={async () => {
-              if (!isReady) return;
               const {
                 data: { user: authUser },
               } = await supabase.auth.getUser();
@@ -375,18 +344,14 @@ function PushToMarketplaceButton({ deal, dealId }: { deal: DealForWebsiteActions
               }
             }}
           >
-            {memosLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Store className="h-4 w-4" />
-            )}
+            <Store className="h-4 w-4" />
             Push to Marketplace
           </Button>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs">
-          {isReady
+          {gaps.length === 0
             ? 'Push this deal to the Marketplace Queue for review and publishing.'
-            : `Complete these before pushing to marketplace:\n${gaps.map((g) => `• ${g}`).join('\n')}`}
+            : `Push to queue — note: these are still needed before a listing can be created:\n${gaps.map((g) => `• ${g}`).join('\n')}`}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

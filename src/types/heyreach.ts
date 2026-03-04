@@ -131,7 +131,7 @@ export type HeyReachEventType =
 
 // ─── API request/response types ─────────────────────────────────────────────
 
-export type HeyReachEntityType = 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
+export type HeyReachEntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
 
 export interface PushLeadsRequest {
   campaign_id: number;
