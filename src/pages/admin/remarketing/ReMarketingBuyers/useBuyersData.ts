@@ -175,16 +175,19 @@ export const useBuyersData = () => {
         needs_review: 0,
         needs_agreements: 0,
         unsigned_agreements: 0,
+        needs_pe_link: 0,
       };
     let private_equity = 0,
       corporate = 0,
       needs_review = 0,
-      needs_agreements = 0;
+      needs_agreements = 0,
+      needs_pe_link = 0;
     buyers.forEach((b) => {
       if (isSponsorType(b.buyer_type)) private_equity++;
       if (b.buyer_type === 'corporate' || !b.buyer_type) corporate++;
       if ((b as Record<string, unknown>).buyer_type_needs_review) needs_review++;
       if (!b.has_fee_agreement) needs_agreements++;
+      if (b.is_pe_backed === true && !b.parent_pe_firm_id) needs_pe_link++;
     });
     return {
       all: buyers.length,
@@ -193,6 +196,7 @@ export const useBuyersData = () => {
       needs_review,
       needs_agreements,
       unsigned_agreements: unsignedAgreements?.length ?? 0,
+      needs_pe_link,
     };
   }, [buyers, unsignedAgreements]);
 
@@ -309,6 +313,9 @@ export const useBuyersData = () => {
         break;
       case 'needs_agreements':
         result = result.filter((b) => !b.has_fee_agreement);
+        break;
+      case 'needs_pe_link':
+        result = result.filter((b) => b.is_pe_backed === true && !b.parent_pe_firm_id);
         break;
     }
 

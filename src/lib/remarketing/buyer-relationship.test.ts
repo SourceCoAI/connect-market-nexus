@@ -335,6 +335,62 @@ describe('Platform Company Rule (Classification)', () => {
   });
 });
 
+// ── Marketplace merge simulation ──
+
+describe('Marketplace Buyer Merge Logic', () => {
+  // Simulates the merge logic: when a marketplace buyer signs up with a domain
+  // that matches an existing firm_agreements record, they should be linked
+  // rather than duplicated.
+
+  function shouldMerge(
+    emailDomain: string | null,
+    existingFirmDomains: string[],
+  ): boolean {
+    if (!emailDomain) return false;
+    return existingFirmDomains.includes(emailDomain);
+  }
+
+  it('should detect matching email domain and trigger merge', () => {
+    expect(shouldMerge('pacheron.com', ['pacheron.com', 'alpineinvestors.com'])).toBe(true);
+  });
+
+  it('should NOT merge when domain is not found', () => {
+    expect(shouldMerge('newbuyer.com', ['pacheron.com', 'alpineinvestors.com'])).toBe(false);
+  });
+
+  it('should NOT merge when domain is null (generic email)', () => {
+    expect(shouldMerge(null, ['pacheron.com'])).toBe(false);
+  });
+});
+
+// ── Priority field-write logic (never overwrite enriched data) ──
+
+describe('Profile → Buyer Field Priority (Priority 40 — Never Overwrite)', () => {
+  function shouldWriteField(
+    existingValue: string | null | undefined,
+    profileValue: string | null | undefined,
+  ): boolean {
+    // Only write if existing field is NULL/empty and profile has data
+    if (existingValue && existingValue.trim() !== '') return false;
+    if (!profileValue || profileValue.trim() === '') return false;
+    return true;
+  }
+
+  it('should write to empty field when profile has data', () => {
+    expect(shouldWriteField(null, 'SourceCo Inc')).toBe(true);
+    expect(shouldWriteField('', 'SourceCo Inc')).toBe(true);
+  });
+
+  it('should NOT overwrite existing enriched data', () => {
+    expect(shouldWriteField('Already Enriched Value', 'Profile Value')).toBe(false);
+  });
+
+  it('should NOT write if profile value is empty', () => {
+    expect(shouldWriteField(null, null)).toBe(false);
+    expect(shouldWriteField(null, '')).toBe(false);
+  });
+});
+
 // ── BuyerTypeBadge effective type logic ──
 
 function getEffectiveBadgeType(buyerType: string, isPeBacked: boolean): string {
