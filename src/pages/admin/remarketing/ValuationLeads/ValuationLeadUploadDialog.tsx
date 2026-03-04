@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { parseSpreadsheet, SPREADSHEET_ACCEPT } from '@/lib/parseSpreadsheet';
+import { GENERIC_EMAIL_DOMAINS } from './helpers';
 
 // ─── Target fields — only direct valuation_leads columns ───
 
@@ -337,6 +338,14 @@ export function ValuationLeadUploadDialog({ open, onOpenChange }: Props) {
 
         // If calculator_type was explicitly mapped from a column, it takes precedence
         // Otherwise the auto-detected value from service_type is used
+
+        // Auto-populate website from email domain if website is missing
+        if (!record.website && record.email && typeof record.email === 'string') {
+          const emailDomain = record.email.split('@')[1]?.toLowerCase();
+          if (emailDomain && !GENERIC_EMAIL_DOMAINS.has(emailDomain)) {
+            record.website = emailDomain;
+          }
+        }
 
         // Must have at least a name, email, or website
         if (!record.business_name && !record.email && !record.website && !record.full_name) {
