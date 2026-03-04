@@ -31,10 +31,12 @@ import {
   CheckCircle2,
   EyeOff,
   ThumbsDown,
+  Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useValuationLeadsData } from './useValuationLeadsData';
 import { ValuationLeadsTable } from './ValuationLeadsTable';
+import { ValuationLeadUploadDialog } from './ValuationLeadUploadDialog';
 import { exportLeadsToCSV } from './helpers';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
@@ -48,6 +50,7 @@ export default function ValuationLeads() {
   const { setPageContext } = useAICommandCenterContext();
   const [dialerOpen, setDialerOpen] = useState(false);
   const [smartleadOpen, setSmartleadOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const {
     leads,
     isLoading,
@@ -184,6 +187,10 @@ export default function ValuationLeads() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setUploadOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />
+            Upload
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" disabled={isEnriching}>
@@ -421,6 +428,9 @@ export default function ValuationLeads() {
         contactCount={selectedIds.size}
         entityType="listings"
       />
+
+      {/* Upload Dialog */}
+      <ValuationLeadUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} />
 
       {/* Leads Table */}
       <ValuationLeadsTable
