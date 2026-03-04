@@ -266,13 +266,9 @@ export default function ValuationLeads() {
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
-            {type === 'general'
-              ? 'General'
-              : type === 'auto_shop'
-                ? 'Auto Shop'
-                : type.replace(/_/g, ' ')}
+            {type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
             <span className="ml-1.5 text-xs text-muted-foreground">
-              ({(leads || []).filter((l) => l.calculator_type === type).length})
+              ({(leads || []).filter((l) => l.calculator_type === type && !l.is_archived).length})
             </span>
           </button>
         ))}
