@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { normalizeDomain } from '@/lib/remarketing/normalizeDomain';
+import { useFilterEngine } from '@/hooks/use-filter-engine';
+import { BUYER_UNIVERSE_FIELDS } from '@/components/filters';
 import type { BuyerType } from '@/types/remarketing';
 import { isSponsorType, PAGE_SIZE } from './constants';
 import type { BuyerTab } from './constants';
@@ -295,10 +297,19 @@ export const useBuyersData = () => {
     },
   });
 
-  // Filter buyers by tab + search
+  // Filter engine (shared FilterBar component)
+  const {
+    filteredItems: engineFiltered,
+    filterState,
+    setFilterState,
+    dynamicOptions,
+    filteredCount,
+    totalCount: engineTotal,
+  } = useFilterEngine(buyers ?? [], BUYER_UNIVERSE_FIELDS);
+
+  // Filter buyers by tab + apply engine filters + sort
   const filteredBuyers = useMemo(() => {
-    if (!buyers) return [];
-    let result = [...buyers];
+    let result = [...engineFiltered];
 
     // Tab filter
     switch (activeTab) {
@@ -317,17 +328,6 @@ export const useBuyersData = () => {
       case 'needs_pe_link':
         result = result.filter((b) => b.is_pe_backed === true && !b.parent_pe_firm_id);
         break;
-    }
-
-    if (search) {
-      const searchLower = search.toLowerCase();
-      result = result.filter(
-        (b) =>
-          b.company_name?.toLowerCase().includes(searchLower) ||
-          b.company_website?.toLowerCase().includes(searchLower) ||
-          b.thesis_summary?.toLowerCase().includes(searchLower) ||
-          b.pe_firm_name?.toLowerCase().includes(searchLower),
-      );
     }
 
     // Sort
@@ -356,7 +356,7 @@ export const useBuyersData = () => {
     });
 
     return result;
-  }, [buyers, search, sortColumn, sortDirection, activeTab]);
+  }, [engineFiltered, sortColumn, sortDirection, activeTab]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredBuyers.length / PAGE_SIZE));
@@ -486,6 +486,13 @@ export const useBuyersData = () => {
     sortDirection,
     newBuyer,
     setNewBuyer,
+
+    // Filter engine
+    filterState,
+    setFilterState,
+    dynamicOptions,
+    filteredCount,
+    engineTotal,
 
     // Data
     buyers,

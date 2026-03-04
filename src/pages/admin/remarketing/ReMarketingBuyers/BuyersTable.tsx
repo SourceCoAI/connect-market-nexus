@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -29,8 +28,6 @@ interface BuyersTableProps {
   filteredBuyers: unknown[];
   pagedBuyers: unknown[];
   currentPage: number;
-  setCurrentPage: (page: number | ((p: number) => number)) => void;
-  totalPages: number;
   selectedIds: Set<string>;
   buyers: unknown[] | undefined;
   platformCountsByFirm: Map<string, number>;
@@ -71,8 +68,6 @@ const BuyersTable = ({
   filteredBuyers,
   pagedBuyers,
   currentPage,
-  setCurrentPage,
-  totalPages,
   selectedIds,
   buyers,
   platformCountsByFirm,
@@ -238,57 +233,6 @@ const BuyersTable = ({
             )}
           </TableBody>
         </Table>
-
-        {/* Pagination Footer */}
-        {!buyersLoading && filteredBuyers.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between px-4 py-3 border-t text-sm text-muted-foreground">
-            <span>
-              Showing {(currentPage - 1) * PAGE_SIZE + 1}–
-              {Math.min(currentPage * PAGE_SIZE, filteredBuyers.length)} of {filteredBuyers.length}
-            </span>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-3"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(1)}
-              >
-                «
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-3"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p: number) => p - 1)}
-              >
-                ‹ Prev
-              </Button>
-              <span className="px-3 font-medium text-foreground">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-3"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p: number) => p + 1)}
-              >
-                Next ›
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-3"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(totalPages)}
-              >
-                »
-              </Button>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

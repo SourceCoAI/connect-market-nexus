@@ -1,16 +1,22 @@
 import { useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Search, Sparkles, Download, FileSignature } from 'lucide-react';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { FilterBar, BUYER_UNIVERSE_FIELDS } from '@/components/filters';
+import {
+  Sparkles,
+  Loader2,
+  Download,
+  FileSignature,
+  ChevronDown,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useBuyerEnrichmentProgress } from '@/hooks/useBuyerEnrichmentProgress';
 import { EnrichmentProgressIndicator } from '@/components/remarketing/EnrichmentProgressIndicator';
@@ -21,16 +27,15 @@ import { Badge } from '@/components/ui/badge';
 import { useBuyersData } from './useBuyersData';
 import AddBuyerDialog from './AddBuyerDialog';
 import BuyersTable from './BuyersTable';
+import { BuyersKPICards } from './BuyersKPICards';
+import { BuyersPagination } from './BuyersPagination';
 
 const ReMarketingBuyers = () => {
   const { progress: buyerEnrichmentProgress, cancel: cancelBuyerEnrichment } =
     useBuyerEnrichmentProgress();
 
   const {
-    search,
-    setSearch,
     activeTab,
-    universeFilter,
     isAddDialogOpen,
     setIsAddDialogOpen,
     selectedIds,
@@ -43,6 +48,13 @@ const ReMarketingBuyers = () => {
     sortDirection,
     newBuyer,
     setNewBuyer,
+
+    // Filter engine
+    filterState,
+    setFilterState,
+    dynamicOptions,
+    filteredCount,
+    engineTotal,
 
     buyers,
     buyersLoading,
@@ -61,7 +73,6 @@ const ReMarketingBuyers = () => {
     handleTabChange,
     handleEnrichBuyer,
     handleSort,
-    setUniverseFilter,
     toggleSelect,
     toggleSelectAll,
     handleExportCSV,
@@ -123,49 +134,73 @@ const ReMarketingBuyers = () => {
     },
   });
 
+  if (buyersLoading) {
+    return (
+      <div className="p-6 space-y-4">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">All Buyers</h1>
-          <p className="text-muted-foreground">
-            {tabCounts.all} buyers · {tabCounts.needs_agreements} need agreements
+          <p className="text-sm text-muted-foreground mt-1">
+            {tabCounts.all} buyers &middot; {tabCounts.needs_agreements} need agreements
           </p>
         </div>
         <div className="flex items-center gap-2">
           <BuyerCSVImport />
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            disabled={enrichingIds.size > 0 || filteredBuyers.length === 0}
-            onClick={async () => {
-              const ids =
-                selectedIds.size > 0
-                  ? Array.from(selectedIds)
-                  : filteredBuyers.map((b: { id: string }) => b.id);
-              if (ids.length === 0) return;
-              setEnrichingIds(new Set(ids));
-              try {
-                const { queueBuyerEnrichment } = await import('@/lib/remarketing/queueEnrichment');
-                await queueBuyerEnrichment(ids);
-                queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'] });
-              } catch (err) {
-                // Bulk enrich failed — toast shown to user
-                toast.error('Failed to queue enrichment');
-              } finally {
-                setEnrichingIds(new Set());
-              }
-            }}
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            {enrichingIds.size > 0
-              ? `Enriching…`
-              : selectedIds.size > 0
-                ? `Enrich Selected (${selectedIds.size})`
-                : 'Enrich All'}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                disabled={enrichingIds.size > 0 || filteredBuyers.length === 0}
+              >
+                {enrichingIds.size > 0 ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                Enrich
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem
+                onClick={async () => {
+                  const ids =
+                    selectedIds.size > 0
+                      ? Array.from(selectedIds)
+                      : filteredBuyers.map((b: { id: string }) => b.id);
+                  if (ids.length === 0) return;
+                  setEnrichingIds(new Set(ids));
+                  try {
+                    const { queueBuyerEnrichment } = await import(
+                      '@/lib/remarketing/queueEnrichment'
+                    );
+                    await queueBuyerEnrichment(ids);
+                    queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'] });
+                  } catch {
+                    toast.error('Failed to queue enrichment');
+                  } finally {
+                    setEnrichingIds(new Set());
+                  }
+                }}
+              >
+                {selectedIds.size > 0
+                  ? `Enrich Selected (${selectedIds.size})`
+                  : 'Enrich All'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <AddBuyerDialog
             isOpen={isAddDialogOpen}
             onOpenChange={setIsAddDialogOpen}
@@ -176,6 +211,44 @@ const ReMarketingBuyers = () => {
           />
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-border">
+        {[
+          { key: 'all', label: 'All Buyers', count: tabCounts.all },
+          { key: 'private_equity', label: 'Sponsors & Firms', count: tabCounts.private_equity },
+          { key: 'corporate', label: 'Corporates', count: tabCounts.corporate },
+          { key: 'needs_review', label: 'Needs Review', count: tabCounts.needs_review },
+          { key: 'needs_agreements', label: 'Needs Agreements', count: tabCounts.needs_agreements },
+          ...(tabCounts.needs_pe_link > 0
+            ? [{ key: 'needs_pe_link', label: 'Needs PE Firm Link', count: tabCounts.needs_pe_link }]
+            : []),
+          { key: 'unsigned_agreements', label: 'Unsigned Agreements', count: tabCounts.unsigned_agreements, icon: true },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => handleTabChange(tab.key)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5',
+              activeTab === tab.key
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {tab.icon && <FileSignature className="h-3.5 w-3.5" />}
+            {tab.label}
+            <span className="text-xs text-muted-foreground">({tab.count})</span>
+          </button>
+        ))}
+      </div>
+
+      {/* KPI Stats Cards */}
+      <BuyersKPICards
+        totalBuyers={tabCounts.all}
+        sponsorCount={tabCounts.private_equity}
+        needsAgreements={tabCounts.needs_agreements}
+        needsReview={tabCounts.needs_review}
+      />
 
       {/* Buyer Enrichment Progress Bar */}
       {buyerEnrichmentProgress.isEnriching && (
@@ -194,29 +267,15 @@ const ReMarketingBuyers = () => {
         />
       )}
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="all">All Buyers ({tabCounts.all})</TabsTrigger>
-          <TabsTrigger value="private_equity">
-            Sponsors & Firms ({tabCounts.private_equity})
-          </TabsTrigger>
-          <TabsTrigger value="corporate">Corporates ({tabCounts.corporate})</TabsTrigger>
-          <TabsTrigger value="needs_review">Needs Review ({tabCounts.needs_review})</TabsTrigger>
-          <TabsTrigger value="needs_agreements">
-            Needs Agreements ({tabCounts.needs_agreements})
-          </TabsTrigger>
-          {tabCounts.needs_pe_link > 0 && (
-            <TabsTrigger value="needs_pe_link">
-              Needs PE Firm Link ({tabCounts.needs_pe_link})
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="unsigned_agreements" className="gap-1.5">
-            <FileSignature className="h-3.5 w-3.5" />
-            Unsigned Agreements ({tabCounts.unsigned_agreements})
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Filter Bar */}
+      <FilterBar
+        filterState={filterState}
+        onFilterStateChange={setFilterState}
+        fieldDefinitions={BUYER_UNIVERSE_FIELDS}
+        dynamicOptions={dynamicOptions}
+        totalCount={engineTotal}
+        filteredCount={filteredCount}
+      />
 
       {/* Bulk Actions Bar */}
       {selectedIds.size > 0 && (
@@ -236,8 +295,7 @@ const ReMarketingBuyers = () => {
                     await import('@/lib/remarketing/queueEnrichment');
                   await queueBuyerEnrichment(ids);
                   queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'] });
-                } catch (err) {
-                  // Bulk enrich failed — toast shown to user
+                } catch {
                   toast.error('Failed to queue enrichment');
                 } finally {
                   setEnrichingIds(new Set());
@@ -245,7 +303,7 @@ const ReMarketingBuyers = () => {
               }}
             >
               <Sparkles className="h-3.5 w-3.5 mr-1.5" />{' '}
-              {enrichingIds.size > 0 ? 'Enriching…' : 'Enrich Selected'}
+              {enrichingIds.size > 0 ? 'Enriching\u2026' : 'Enrich Selected'}
             </Button>
             <Button size="sm" variant="outline" onClick={handleExportCSV}>
               <Download className="h-3.5 w-3.5 mr-1.5" /> Export CSV
@@ -256,37 +314,6 @@ const ReMarketingBuyers = () => {
           </CardContent>
         </Card>
       )}
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search buyers by name, website, or thesis..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <Select value={universeFilter} onValueChange={setUniverseFilter}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="All Universes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Universes</SelectItem>
-                {universes?.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Unsigned Agreements Tab Content */}
       {activeTab === 'unsigned_agreements' ? (
@@ -338,8 +365,6 @@ const ReMarketingBuyers = () => {
           filteredBuyers={filteredBuyers}
           pagedBuyers={pagedBuyers}
           currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          totalPages={totalPages}
           selectedIds={selectedIds}
           buyers={buyers}
           platformCountsByFirm={platformCountsByFirm}
@@ -351,6 +376,17 @@ const ReMarketingBuyers = () => {
           handleSort={handleSort}
           handleEnrichBuyer={handleEnrichBuyer}
           deleteMutation={deleteMutation}
+        />
+      )}
+
+      {/* Pagination */}
+      {activeTab !== 'unsigned_agreements' && filteredBuyers.length > 0 && (
+        <BuyersPagination
+          filteredCount={filteredBuyers.length}
+          totalBuyers={tabCounts.all}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          setCurrentPage={setCurrentPage}
         />
       )}
     </div>
