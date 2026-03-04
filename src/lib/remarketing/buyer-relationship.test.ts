@@ -391,6 +391,53 @@ describe('Profile → Buyer Field Priority (Priority 40 — Never Overwrite)', (
   });
 });
 
+// ── PE firm sells platform company (clearing parent relationship) ──
+
+describe('PE Firm Sells Platform Company (Edge Case B5.1)', () => {
+  // Simulates the trigger logic: when parent_pe_firm_id is cleared,
+  // is_pe_backed should revert to false and parent_pe_firm_name cleared.
+
+  function simulateClearParent(record: {
+    parent_pe_firm_id: string | null;
+    parent_pe_firm_name: string | null;
+    is_pe_backed: boolean;
+  }) {
+    // Mirrors the auto_set_parent_pe_firm_fields trigger logic
+    if (record.parent_pe_firm_id === null) {
+      return {
+        ...record,
+        parent_pe_firm_name: null,
+        is_pe_backed: false,
+      };
+    }
+    return record;
+  }
+
+  it('should clear is_pe_backed and parent_pe_firm_name when parent is removed', () => {
+    const platform = {
+      parent_pe_firm_id: null as string | null, // cleared
+      parent_pe_firm_name: 'Pacheron Capital',
+      is_pe_backed: true,
+    };
+
+    const result = simulateClearParent(platform);
+    expect(result.is_pe_backed).toBe(false);
+    expect(result.parent_pe_firm_name).toBeNull();
+  });
+
+  it('should preserve fields when parent is still set', () => {
+    const platform = {
+      parent_pe_firm_id: 'pe-firm-uuid',
+      parent_pe_firm_name: 'Pacheron Capital',
+      is_pe_backed: true,
+    };
+
+    const result = simulateClearParent(platform);
+    expect(result.is_pe_backed).toBe(true);
+    expect(result.parent_pe_firm_name).toBe('Pacheron Capital');
+  });
+});
+
 // ── BuyerTypeBadge effective type logic ──
 
 function getEffectiveBadgeType(buyerType: string, isPeBacked: boolean): string {

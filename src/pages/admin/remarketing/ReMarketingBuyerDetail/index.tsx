@@ -136,6 +136,8 @@ const ReMarketingBuyerDetail = () => {
         <div className="flex-1">
           <BuyerDetailHeader
             companyName={buyer?.company_name || ''}
+            buyerType={buyer?.buyer_type}
+            isPeBacked={buyer?.is_pe_backed || false}
             peFirmName={buyer?.pe_firm_name}
             peFirmId={peFirmRecord?.id || null}
             platformWebsite={buyer?.platform_website || buyer?.company_website}
