@@ -50,6 +50,11 @@ export function calculatorBadge(type: string) {
     collision: { label: "Collision", className: "bg-purple-50 text-purple-700 border-purple-200" },
     specialty: { label: "Specialty", className: "bg-teal-50 text-teal-700 border-teal-200" },
     mechanical: { label: "Mechanical", className: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+    dental: { label: "Dental", className: "bg-pink-50 text-pink-700 border-pink-200" },
+    plumbing: { label: "Plumbing", className: "bg-cyan-50 text-cyan-700 border-cyan-200" },
+    electrical: { label: "Electrical", className: "bg-yellow-50 text-yellow-700 border-yellow-200" },
+    landscaping: { label: "Landscaping", className: "bg-lime-50 text-lime-700 border-lime-200" },
+    pest_control: { label: "Pest Control", className: "bg-rose-50 text-rose-700 border-rose-200" },
   };
   const c = config[type] || { label: type.replace(/_/g, " "), className: "bg-muted text-muted-foreground border-border" };
   return (

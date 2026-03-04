@@ -34,6 +34,7 @@ const EXIT_TIMING_SCORES: Record<string, number> = {
 // QUALITY_LABEL scoring (industry calculators)
 const QUALITY_LABEL_SCORES: Record<string, number> = {
   "Very Strong": 20,
+  Strong: 18,
   Solid: 15,
   Average: 10,
   "Needs Work": 5,

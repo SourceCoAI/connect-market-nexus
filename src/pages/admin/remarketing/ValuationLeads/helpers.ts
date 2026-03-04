@@ -269,7 +269,8 @@ export function inferWebsite(lead: ValuationLead): string | null {
 }
 
 export const QUALITY_ORDER: Record<string, number> = {
-  "Very Strong": 4,
+  "Very Strong": 5,
+  "Strong": 4,
   "Solid": 3,
   "Average": 2,
   "Needs Work": 1,

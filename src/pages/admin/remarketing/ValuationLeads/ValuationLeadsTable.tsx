@@ -66,6 +66,7 @@ const DEFAULT_COL_WIDTHS: Record<string, number> = {
   score: 65,
   added: 90,
   status: 90,
+  priority: 70,
 };
 
 interface ValuationLeadsTableProps {

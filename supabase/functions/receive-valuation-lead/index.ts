@@ -94,7 +94,8 @@ serve(async (req: Request) => {
       received_at: new Date().toISOString(),
     };
 
-    // Use ignoreDuplicates so both initial_unlock and full_report raw payloads are preserved
+    // Upsert on email — overwrites prior submission with latest data.
+    // The valuation_leads table is the canonical store; incoming_leads is a raw backup of the latest payload.
     const { error: incomingError } = await supabaseAdmin
       .from("incoming_leads")
       .upsert(incomingRow, { onConflict: "email", ignoreDuplicates: false });
@@ -138,9 +139,13 @@ serve(async (req: Request) => {
     const region = body.region as string | null;
     const locationStr = [city, region].filter(Boolean).join(", ") || null;
 
-    // All auto calculator submissions → single "auto_shop" type.
-    // Raw service_type is preserved in raw_calculator_inputs for later classification.
-    const calculatorType = "auto_shop";
+    // Map service_type to calculator_type. Known types get their own category;
+    // unknown values fall back to "auto_shop" for external auto-calculator leads.
+    const calculatorType = serviceType === "collision" ? "collision"
+      : serviceType === "mechanical" ? "mechanical"
+      : serviceType === "specialty" ? "specialty"
+      : serviceType === "general" ? "general"
+      : "auto_shop";
 
     const now = new Date().toISOString();
 
