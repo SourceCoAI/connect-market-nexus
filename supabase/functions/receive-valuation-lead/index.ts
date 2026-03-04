@@ -141,11 +141,19 @@ serve(async (req: Request) => {
 
     // Map service_type to calculator_type. Known types get their own category;
     // unknown values fall back to "auto_shop" for external auto-calculator leads.
-    const calculatorType = serviceType === "collision" ? "collision"
-      : serviceType === "mechanical" ? "mechanical"
-      : serviceType === "specialty" ? "specialty"
-      : serviceType === "general" ? "general"
-      : "auto_shop";
+    const SERVICE_TYPE_MAP: Record<string, string> = {
+      collision: "collision",
+      mechanical: "mechanical",
+      specialty: "specialty",
+      hvac: "hvac",
+      dental: "dental",
+      plumbing: "plumbing",
+      electrical: "electrical",
+      landscaping: "landscaping",
+      pest_control: "pest_control",
+      general: "general",
+    };
+    const calculatorType = (serviceType && SERVICE_TYPE_MAP[serviceType.toLowerCase()]) || "auto_shop";
 
     const now = new Date().toISOString();
 
@@ -258,6 +266,7 @@ serve(async (req: Request) => {
             lead_source: leadSource,
             raw_calculator_inputs: calculator_inputs,
             raw_valuation_results: valuation_result,
+            excluded: false,
             updated_at: now,
           }, { onConflict: "email,calculator_type" });
 
