@@ -179,15 +179,81 @@ function validateFullMemoSections(sections: MemoSection[]): ValidationResult {
       };
     }
   }
-  const allContent = sections.map((s) => s.content).join(' ');
-  const wordCount = allContent.split(/\s+/).filter((w) => w.length > 0).length;
-  if (wordCount > 1000) {
+  // Word count excludes INFORMATION NOT YET PROVIDED section
+  const bodySections = sections.filter(
+    (s) => s.title.toUpperCase().trim() !== 'INFORMATION NOT YET PROVIDED',
+  );
+  const bodyContent = bodySections.map((s) => s.content).join(' ');
+  const wordCount = bodyContent.split(/\s+/).filter((w) => w.length > 0).length;
+  if (wordCount > 750) {
     return {
       passed: false,
-      reason: `Word count is ${wordCount}. The maximum is 1,000 words. Shorten by removing lowest-priority content (enrichment details first, then operational details).`,
+      reason: `Body word count is ${wordCount}. The maximum is 750 words (excluding INFORMATION NOT YET PROVIDED). Shorten by removing lowest-priority content (enrichment details first, then operational details).`,
     };
   }
+  // Bullet-point compliance — non-overview sections must use bullet format
+  const bulletExemptSections = [
+    'COMPANY OVERVIEW',
+    'INFORMATION NOT YET PROVIDED',
+    'FINANCIAL SNAPSHOT',
+  ];
+  for (const section of sections) {
+    const titleUpper = section.title.toUpperCase().trim();
+    if (bulletExemptSections.includes(titleUpper)) continue;
+    const lines = section.content.split('\n').filter((l) => l.trim().length > 0);
+    if (lines.length === 0) continue;
+    const bulletLines = lines.filter((l) => /^\s*[-*]\s/.test(l) || /^\s*\|/.test(l));
+    const bulletRatio = bulletLines.length / lines.length;
+    if (bulletRatio < 0.8) {
+      return {
+        passed: false,
+        reason: `Section "${section.title}" must use bullet points, not prose paragraphs. ${bulletLines.length}/${lines.length} lines are bullets. Rewrite this section using "- " bullet points for each fact.`,
+      };
+    }
+  }
   return { passed: true, reason: '' };
+}
+
+// Programmatic truncation (mirrored from edge function)
+const TRUNCATION_PRIORITY = [
+  'KEY STRUCTURAL NOTES',
+  'MANAGEMENT AND STAFFING',
+  'SERVICES AND OPERATIONS',
+  'OWNERSHIP AND TRANSACTION',
+];
+
+function truncateToWordLimit(sections: MemoSection[], maxWords: number): MemoSection[] {
+  const result = sections.map((s) => ({ ...s }));
+
+  const getBodyWordCount = () => {
+    return result
+      .filter((s) => s.title.toUpperCase().trim() !== 'INFORMATION NOT YET PROVIDED')
+      .map((s) => s.content)
+      .join(' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 0).length;
+  };
+
+  let wordCount = getBodyWordCount();
+  if (wordCount <= maxWords) return result;
+
+  for (const sectionTitle of TRUNCATION_PRIORITY) {
+    if (wordCount <= maxWords) break;
+    const section = result.find((s) => s.title.toUpperCase().trim() === sectionTitle);
+    if (!section) continue;
+
+    const lines = section.content.split('\n');
+    while (lines.length > 2 && wordCount > maxWords) {
+      const lastNonEmpty =
+        lines.length - 1 - [...lines].reverse().findIndex((l) => l.trim().length > 0);
+      if (lastNonEmpty < 2) break;
+      lines.splice(lastNonEmpty, 1);
+      section.content = lines.join('\n');
+      wordCount = getBodyWordCount();
+    }
+  }
+
+  return result;
 }
 
 function validateTeaserSections(sections: MemoSection[]): ValidationResult {
@@ -573,26 +639,64 @@ describe('validateFullMemoSections', () => {
     expect(result.reason).toContain('COMPETITIVE ANALYSIS');
   });
 
-  it('fails when word count exceeds 1000', () => {
-    const longContent = Array(1001).fill('word').join(' ');
+  it('fails when body word count exceeds 750', () => {
+    const longContent = Array(751).fill('word').join(' ');
     const sections = fullMemoSections({ 'COMPANY OVERVIEW': longContent });
     const result = validateFullMemoSections(sections);
     expect(result.passed).toBe(false);
-    expect(result.reason).toContain('Word count');
-    expect(result.reason).toContain('1,000');
+    expect(result.reason).toContain('Body word count');
+    expect(result.reason).toContain('750');
   });
 
-  it('passes with exactly 1000 words', () => {
-    // Build sections that total exactly 1000 words
-    const targetWords = 1000;
-    // Minimal content for all sections except overview
+  it('excludes INFORMATION NOT YET PROVIDED from word count', () => {
+    // Add a huge INFORMATION NOT YET PROVIDED — should not affect word count validation
+    const largeGaps = Array(500).fill('gap').join(' ');
+    const sections = fullMemoSections({ 'INFORMATION NOT YET PROVIDED': largeGaps });
+    const result = validateFullMemoSections(sections);
+    expect(result.passed).toBe(true);
+  });
+
+  it('passes with exactly 750 body words', () => {
+    const targetWords = 750;
     const minimalSections = fullMemoSections();
     const otherWordCount = minimalSections
-      .filter((s) => s.title !== 'COMPANY OVERVIEW')
+      .filter((s) => s.title !== 'COMPANY OVERVIEW' && s.title !== 'INFORMATION NOT YET PROVIDED')
       .reduce((sum, s) => sum + s.content.split(/\s+/).filter((w) => w.length > 0).length, 0);
     const overviewWords = targetWords - otherWordCount;
     const overviewContent = Array(overviewWords).fill('word').join(' ');
     const sections = fullMemoSections({ 'COMPANY OVERVIEW': overviewContent });
+    const result = validateFullMemoSections(sections);
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails when a non-overview section uses prose instead of bullets', () => {
+    const proseContent =
+      'The company operates across three locations in the Dallas metro area. They provide HVAC services to commercial clients. The team includes 30 field technicians.';
+    const sections = fullMemoSections({ 'SERVICES AND OPERATIONS': proseContent });
+    const result = validateFullMemoSections(sections);
+    expect(result.passed).toBe(false);
+    expect(result.reason).toContain('bullet points');
+    expect(result.reason).toContain('SERVICES AND OPERATIONS');
+  });
+
+  it('passes when non-overview sections use bullet points', () => {
+    const result = validateFullMemoSections(fullMemoSections());
+    expect(result.passed).toBe(true);
+  });
+
+  it('exempts COMPANY OVERVIEW from bullet-point check', () => {
+    // COMPANY OVERVIEW uses prose — that is correct per the prompt
+    const proseOverview =
+      'Acme Corp is a commercial HVAC company. They operate 3 locations. Founded in 2010.';
+    const sections = fullMemoSections({ 'COMPANY OVERVIEW': proseOverview });
+    const result = validateFullMemoSections(sections);
+    expect(result.passed).toBe(true);
+  });
+
+  it('exempts FINANCIAL SNAPSHOT from bullet-point check (allows tables)', () => {
+    const tableContent =
+      '| Year | Revenue | EBITDA |\n| --- | --- | --- |\n| 2024 | $5.2M | $1.1M |\n| 2023 | $4.8M | $950K |';
+    const sections = fullMemoSections({ 'FINANCIAL SNAPSHOT': tableContent });
     const result = validateFullMemoSections(sections);
     expect(result.passed).toBe(true);
   });
@@ -841,5 +945,74 @@ A commercial HVAC services provider operating in the Southwest region. The compa
 
     const validation = validateTeaserSections(sections);
     expect(validation.passed).toBe(true);
+  });
+});
+
+describe('truncateToWordLimit', () => {
+  it('returns sections unchanged when under word limit', () => {
+    const sections = fullMemoSections();
+    const result = truncateToWordLimit(sections, 750);
+    expect(result).toEqual(sections);
+  });
+
+  it('trims lowest-priority sections first (KEY STRUCTURAL NOTES)', () => {
+    // Make KEY STRUCTURAL NOTES very long to push well over limit
+    const longStructural = Array(100)
+      .fill('- Some structural detail here about the entity and its complex structure')
+      .join('\n');
+    const sections = fullMemoSections({ 'KEY STRUCTURAL NOTES': longStructural });
+    const result = truncateToWordLimit(sections, 750);
+
+    // KEY STRUCTURAL NOTES should have been trimmed
+    const structural = result.find((s) => s.title === 'KEY STRUCTURAL NOTES');
+    expect(structural!.content.split('\n').length).toBeLessThan(longStructural.split('\n').length);
+
+    // Other sections should be unchanged
+    const overview = result.find((s) => s.title === 'COMPANY OVERVIEW');
+    const originalOverview = sections.find((s) => s.title === 'COMPANY OVERVIEW');
+    expect(overview!.content).toBe(originalOverview!.content);
+  });
+
+  it('does not modify INFORMATION NOT YET PROVIDED content', () => {
+    const longStructural = Array(20)
+      .fill('- Some structural detail here about the entity')
+      .join('\n');
+    const sections = fullMemoSections({ 'KEY STRUCTURAL NOTES': longStructural });
+    const originalGaps = sections.find((s) => s.title === 'INFORMATION NOT YET PROVIDED')!.content;
+    const result = truncateToWordLimit(sections, 750);
+    const gaps = result.find((s) => s.title === 'INFORMATION NOT YET PROVIDED');
+    expect(gaps!.content).toBe(originalGaps);
+  });
+
+  it('excludes INFORMATION NOT YET PROVIDED from word count calculation', () => {
+    // Body sections have few words, but INFORMATION NOT YET PROVIDED is huge
+    const hugeGaps = Array(500).fill('gap topic name').join(', ');
+    const sections = fullMemoSections({ 'INFORMATION NOT YET PROVIDED': hugeGaps });
+    const result = truncateToWordLimit(sections, 750);
+    // Should not have trimmed anything since body is well under 750
+    const structural = result.find((s) => s.title === 'KEY STRUCTURAL NOTES');
+    const originalStructural = sections.find((s) => s.title === 'KEY STRUCTURAL NOTES');
+    expect(structural!.content).toBe(originalStructural!.content);
+  });
+
+  it('preserves at least 2 lines per section during truncation', () => {
+    const longContent = Array(100).fill('- A bullet point with several words in it').join('\n');
+    const sections = fullMemoSections({
+      'KEY STRUCTURAL NOTES': longContent,
+      'MANAGEMENT AND STAFFING': longContent,
+      'SERVICES AND OPERATIONS': longContent,
+    });
+    const result = truncateToWordLimit(sections, 50);
+    for (const section of result) {
+      const titleUpper = section.title.toUpperCase().trim();
+      if (
+        titleUpper === 'COMPANY OVERVIEW' ||
+        titleUpper === 'INFORMATION NOT YET PROVIDED' ||
+        titleUpper === 'FINANCIAL SNAPSHOT'
+      )
+        continue;
+      const nonEmptyLines = section.content.split('\n').filter((l) => l.trim().length > 0);
+      expect(nonEmptyLines.length).toBeGreaterThanOrEqual(2);
+    }
   });
 });

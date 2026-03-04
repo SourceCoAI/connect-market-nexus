@@ -871,7 +871,7 @@ interface ValidationResult {
   reason: string;
 }
 
-// Blocking validation checks for full lead memo (Checks 2, 3, 4)
+// Blocking validation checks for full lead memo (Checks 2, 3, 4, 7)
 function validateFullMemoSections(sections: MemoSection[]): ValidationResult {
   // Check 2: Required sections exist
   const sectionTitles = sections.map((s) => s.title.toUpperCase().trim());
@@ -891,17 +891,112 @@ function validateFullMemoSections(sections: MemoSection[]): ValidationResult {
     }
   }
 
-  // Check 3: Word count <= 1000
-  const allContent = sections.map((s) => s.content).join(' ');
-  const wordCount = allContent.split(/\s+/).filter((w) => w.length > 0).length;
-  if (wordCount > 1000) {
+  // Check 3: Word count <= 750 (excluding INFORMATION NOT YET PROVIDED section)
+  const bodySections = sections.filter(
+    (s) => s.title.toUpperCase().trim() !== 'INFORMATION NOT YET PROVIDED',
+  );
+  const bodyContent = bodySections.map((s) => s.content).join(' ');
+  const wordCount = bodyContent.split(/\s+/).filter((w) => w.length > 0).length;
+  if (wordCount > 750) {
     return {
       passed: false,
-      reason: `Word count is ${wordCount}. The maximum is 1,000 words. Shorten by removing lowest-priority content (enrichment details first, then operational details).`,
+      reason: `Body word count is ${wordCount}. The maximum is 750 words (excluding INFORMATION NOT YET PROVIDED). Shorten by removing lowest-priority content (enrichment details first, then operational details).`,
     };
   }
 
+  // Check 7: Bullet-point compliance — non-overview sections must use bullet format
+  const bulletExemptSections = [
+    'COMPANY OVERVIEW',
+    'INFORMATION NOT YET PROVIDED',
+    'FINANCIAL SNAPSHOT',
+  ];
+  for (const section of sections) {
+    const titleUpper = section.title.toUpperCase().trim();
+    if (bulletExemptSections.includes(titleUpper)) continue;
+    const lines = section.content.split('\n').filter((l) => l.trim().length > 0);
+    if (lines.length === 0) continue;
+    const bulletLines = lines.filter((l) => /^\s*[-*]\s/.test(l) || /^\s*\|/.test(l));
+    const bulletRatio = bulletLines.length / lines.length;
+    if (bulletRatio < 0.8) {
+      return {
+        passed: false,
+        reason: `Section "${section.title}" must use bullet points, not prose paragraphs. ${bulletLines.length}/${lines.length} lines are bullets. Rewrite this section using "- " bullet points for each fact.`,
+      };
+    }
+  }
+
   return { passed: true, reason: '' };
+}
+
+// Programmatic truncation: remove bullets from lowest-priority sections until under word limit.
+// Priority order (lowest first, trimmed first): enrichment details in SERVICES AND OPERATIONS,
+// then KEY STRUCTURAL NOTES, MANAGEMENT AND STAFFING, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION.
+// COMPANY OVERVIEW and FINANCIAL SNAPSHOT are never truncated. INFORMATION NOT YET PROVIDED is excluded from count.
+const TRUNCATION_PRIORITY = [
+  'KEY STRUCTURAL NOTES',
+  'MANAGEMENT AND STAFFING',
+  'SERVICES AND OPERATIONS',
+  'OWNERSHIP AND TRANSACTION',
+];
+
+function truncateToWordLimit(sections: MemoSection[], maxWords: number): MemoSection[] {
+  const result = sections.map((s) => ({ ...s }));
+
+  const getBodyWordCount = () => {
+    return result
+      .filter((s) => s.title.toUpperCase().trim() !== 'INFORMATION NOT YET PROVIDED')
+      .map((s) => s.content)
+      .join(' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 0).length;
+  };
+
+  let wordCount = getBodyWordCount();
+  if (wordCount <= maxWords) return result;
+
+  // Trim bullets from lowest-priority sections first
+  for (const sectionTitle of TRUNCATION_PRIORITY) {
+    if (wordCount <= maxWords) break;
+    const section = result.find((s) => s.title.toUpperCase().trim() === sectionTitle);
+    if (!section) continue;
+
+    const lines = section.content.split('\n');
+    // Remove non-empty lines from the bottom (preserve first 2 lines minimum)
+    while (lines.length > 2 && wordCount > maxWords) {
+      const lastNonEmpty =
+        lines.length - 1 - [...lines].reverse().findIndex((l) => l.trim().length > 0);
+      if (lastNonEmpty < 2) break;
+      lines.splice(lastNonEmpty, 1);
+      section.content = lines.join('\n');
+      wordCount = getBodyWordCount();
+    }
+  }
+
+  // If still over limit after trimming all priority sections, trim remaining sections
+  if (wordCount > maxWords) {
+    console.warn(
+      `Truncation: still at ${wordCount} words after priority trimming. Hard-capping content.`,
+    );
+    // Last resort: trim all body content proportionally
+    for (const section of result) {
+      if (wordCount <= maxWords) break;
+      const titleUpper = section.title.toUpperCase().trim();
+      if (
+        titleUpper === 'COMPANY OVERVIEW' ||
+        titleUpper === 'FINANCIAL SNAPSHOT' ||
+        titleUpper === 'INFORMATION NOT YET PROVIDED'
+      )
+        continue;
+      const lines = section.content.split('\n');
+      while (lines.length > 1 && wordCount > maxWords) {
+        lines.pop();
+        section.content = lines.join('\n');
+        wordCount = getBodyWordCount();
+      }
+    }
+  }
+
+  return result;
 }
 
 // Non-blocking warning checks for full lead memo (Checks 5, 6)
@@ -971,11 +1066,12 @@ PURPOSE: Create a structured factual summary that preserves facts exactly as sta
 This is not a marketing document. It is not a teaser. It is an institutional record. It is meant to inform, not persuade.
 
 FORMAT RULES:
-- The complete memo must be 600-900 words. Do not exceed 1,000 words under any circumstance.
+- The memo body (all sections EXCEPT "INFORMATION NOT YET PROVIDED") must be 500-700 words. Do not exceed 750 words in the body under any circumstance.
+- The "INFORMATION NOT YET PROVIDED" section is excluded from the word count. Keep it compact: list topic names only as a comma-separated list or short bullet labels (e.g., "Customer concentration, Lease terms, Multi-year revenue"). Do not use full sentences in this section.
 - Use bullet points for all content outside the Company Overview section. Do not use prose paragraphs in any other section.
 - Company Overview should be 1 short paragraph (3-5 sentences max).
 - Use bold labels for the following fields: Transaction type, Reason for sale, Valuation context, Real estate, EBITDA, Revenue, Headcount, and any structured data field. Do not bold every bullet.
-- Include facts in this priority order: (1) financial figures, (2) transaction preferences and valuation context, (3) ownership and management structure, (4) services and operations, (5) enrichment details. If a fact must be omitted for length, add it to the INFORMATION NOT YET PROVIDED section as: "[Topic] — available in source data but omitted for brevity."
+- Include facts in this priority order: (1) financial figures, (2) transaction preferences and valuation context, (3) ownership and management structure, (4) services and operations, (5) enrichment details. If a fact must be omitted for length, list the topic name in the INFORMATION NOT YET PROVIDED section.
 
 CORE DISCIPLINE:
 - Every statement must be traceable to the provided source data (transcripts, financials, enrichment data, manual entries).
@@ -1069,19 +1165,9 @@ Include only if relevant structural complexity exists. All bullet points:
 - Any other structural detail that affects deal evaluation
 
 ## INFORMATION NOT YET PROVIDED
-This section is ALWAYS included. List every data point that was not available from the source data and would be needed for a complete evaluation.
-
-At minimum, check for and list any of the following that are missing:
-- Recast/adjusted EBITDA with itemized add-backs
-- Multi-year revenue by year (at least 3 years)
-- Owner compensation
-- Employee headcount by location
-- Customer concentration (top customer %)
-- Lease terms and expiration dates
-- Entity/legal structure
-- Balance sheet / debt schedule
-
-Add any deal-specific gaps beyond this baseline. If a fact was available in the source data but omitted from the memo for brevity, list it here as: "[Topic] — available in source data, omitted for brevity."
+This section is ALWAYS included. It is excluded from the word count — keep it compact.
+Use a short bullet list of topic names only. Do not write full sentences. Check for and list any of the following that are missing: Recast/adjusted EBITDA with add-backs, Multi-year revenue (3+ years), Owner compensation, Headcount by location, Customer concentration (top customer %), Lease terms and expiration dates, Entity/legal structure, Balance sheet / debt schedule.
+Add any deal-specific gaps beyond this baseline. If a fact was available in the source data but omitted from the memo for brevity, add its topic name here.
 
 BANNED LANGUAGE — never use any of these words or phrases:
 strong, robust, impressive, attractive, compelling, well-positioned, significant opportunity, poised for growth, track record of success, best-in-class, proven, demonstrated, synergies, uniquely positioned, market leader, value creation opportunity, healthy, diversified (as adjective without data), recession-resistant (without data), scalable (without specifics), turnkey, world-class, industry-leading, deep bench, blue-chip, mission-critical, sticky revenue, white-space, low-hanging fruit, runway, tailwinds, fragmented market, platform opportunity, notable, consistent (as characterization), solid, substantial, meaningful, considerable, positioned for, well-established, high-quality, top-tier, premier, best-of-breed, differentiated, defensible, platform (when used to characterize or elevate the business)`;
@@ -1173,8 +1259,10 @@ Include all identifying information. Flag any data points where sources conflict
       console.warn(`Full memo validation failed (attempt ${attempt + 1}): ${validation.reason}`);
     } else {
       console.warn(
-        `Full memo validation failed after 4 attempts. Using best attempt. Reason: ${validation.reason}`,
+        `Full memo validation failed after 4 attempts. Applying programmatic truncation. Reason: ${validation.reason}`,
       );
+      // Apply programmatic truncation to enforce word limit
+      bestSections = truncateToWordLimit(bestSections, 750);
     }
   }
 
