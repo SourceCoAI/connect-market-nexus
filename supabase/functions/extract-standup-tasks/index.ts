@@ -45,6 +45,11 @@ const TASK_TYPES = [
   'seller_relationship',
   'buyer_ic_followup',
   'other',
+  // Deal-specific types (added in migration 20260508000000)
+  'call',
+  'email',
+  'find_buyers',
+  'contact_buyers',
 ];
 
 const DEAL_STAGE_SCORES: Record<string, number> = {
@@ -68,11 +73,15 @@ const TASK_TYPE_SCORES: Record<string, number> = {
   due_diligence: 85,
   nda_execution: 82,
   schedule_call: 80,
+  call: 80,
   buyer_ic_followup: 78,
   follow_up_with_buyer: 75,
   seller_relationship: 72,
   send_materials: 70,
+  email: 68,
+  contact_buyers: 65,
   buyer_qualification: 60,
+  find_buyers: 55,
   build_buyer_universe: 50,
   other: 40,
   update_pipeline: 30,
@@ -404,6 +413,10 @@ ${memberList}
 - buyer_qualification: Qualify or vet a potential buyer
 - seller_relationship: Maintain or strengthen the relationship with a seller/owner
 - buyer_ic_followup: Follow up with a buyer's investment committee or decision-makers
+- call: Make a phone call (general, not owner-specific)
+- email: Send an email (general, not materials-specific)
+- find_buyers: Research and find potential buyers
+- contact_buyers: Reach out to specific buyers
 - other: Tasks that don't fit above categories
 
 ## Extraction Rules
@@ -475,8 +488,8 @@ async function extractTasksWithAI(
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content || '';
 
-  // Parse the JSON array from the response
-  const jsonMatch = content.match(/\[[\s\S]*\]/);
+  // Parse the JSON array from the response (non-greedy to avoid capturing extra text)
+  const jsonMatch = content.match(/\[[\s\S]*?\](?=[^[\]]*$)/);
   if (!jsonMatch) return [];
 
   try {
@@ -987,13 +1000,13 @@ serve(async (req) => {
 
     const allEbitdaValues = await loadAllEbitdaValues(supabase);
 
-    // Check auto-approve setting
+    // Check auto-approve setting from app_settings table
     let autoApproveEnabled = true;
     const { data: autoApproveSetting } = await supabase
       .from('app_settings')
       .select('value')
       .eq('key', 'task_auto_approve_high_confidence')
-      .single();
+      .maybeSingle();
 
     if (autoApproveSetting?.value !== undefined) {
       autoApproveEnabled = autoApproveSetting.value === 'true' || autoApproveSetting.value === true;

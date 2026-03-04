@@ -5,6 +5,12 @@ import { withPerformanceMonitoring } from '@/lib/performance-monitor';
 import { useAuth } from '@/context/AuthContext';
 import { useTabAwareQuery } from '@/hooks/use-tab-aware-query';
 
+// TODO: Phase 6 — migrate to data access layer: getAdminListings() from '@/lib/data-access'
+// The .from('listings') query here selects ~16 admin-visible columns and filters by status.
+// getAdminListings({ status }) is a close match but currently selects LISTING_SUMMARY_SELECT (11 fields)
+// and doesn't include hero_description, description, tags, or image_url. Extend getAdminListings()
+// with an optional column set or create a getAdminListingsDetail() variant before migrating.
+
 /**
  * Hook for fetching admin listings with status filtering and soft delete support
  */

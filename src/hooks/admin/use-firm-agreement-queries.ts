@@ -8,6 +8,11 @@ import type { FirmAgreement, FirmMember, AgreementAuditEntry } from './use-firm-
 
 // ─── Firm Agreements List ───
 
+// TODO: Phase 6 — migrate to data access layer: getAllAgreements() from '@/lib/data-access'
+// useFirmAgreements() queries .from('firm_agreements') with nested firm_members/profiles
+// joins and batch-fetches lead/request/deal counts. getAllAgreements() currently only
+// selects basic agreement fields without joins or aggregate counts. A richer variant
+// (e.g. getAllAgreementsWithStats()) is needed before this hook can migrate.
 export function useFirmAgreements() {
   return useQuery({
     queryKey: ['firm-agreements'],

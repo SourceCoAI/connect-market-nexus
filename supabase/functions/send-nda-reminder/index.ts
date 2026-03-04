@@ -115,8 +115,8 @@ serve(async (req: Request) => {
       }
 
       // Sanitize firm name for email content
-      const _safeFirmName = (firm.primary_company_name || 'your company').replace(/<[^>]*>/g, '');
-      const safeRecipientName = recipientName.replace(/<[^>]*>/g, '');
+      const _safeFirmName = (firm.primary_company_name || "your company").replace(/<[^>]*>/g, "");
+      const safeRecipientName = recipientName.replace(/<[^>]*>/g, "");
 
       // Build reminder email
       const siteUrl = Deno.env.get('SITE_URL') || 'https://marketplace.sourcecodeals.com';

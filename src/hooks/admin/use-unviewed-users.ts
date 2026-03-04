@@ -3,6 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useEffect } from 'react';
 
+// TODO: Phase 6 — migrate admin_view_state read to data access layer: getAdminLastViewed() from '@/lib/data-access'
+// The first query (.from('admin_view_state')) maps directly to getAdminLastViewed(adminId, 'users').
+// The second query (.from('profiles') count) has no data access equivalent yet — needs a
+// getProfileCount() or similar function before full migration.
 export function useUnviewedUsers() {
   const { user } = useAuth();
 
@@ -13,10 +17,11 @@ export function useUnviewedUsers() {
 
       // Get the admin's last viewed timestamp
       const { data: viewData, error: viewDataError } = await supabase
-        .from('admin_users_views')
+        .from('admin_view_state')
         .select('last_viewed_at')
         .eq('admin_id', user.id)
-        .single();
+        .eq('view_type', 'users')
+        .maybeSingle();
       if (viewDataError) throw viewDataError;
 
       const lastViewedAt = viewData?.last_viewed_at;

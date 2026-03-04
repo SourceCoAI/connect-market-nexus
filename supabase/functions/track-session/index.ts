@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
     // The session_id column has a UNIQUE constraint
     const initialDuration = body.time_on_page || 0;
 
-    const { data: _upsertResult, error: upsertError } = await supabase
+    const { error: upsertError } = await supabase
       .from('user_sessions')
       .upsert(
         {

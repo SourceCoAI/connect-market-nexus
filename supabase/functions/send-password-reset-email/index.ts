@@ -39,11 +39,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const {
-      email,
-      resetToken: _resetToken,
-      resetUrl,
-    }: PasswordResetEmailRequest = await req.json();
+    const { email, resetToken: _resetToken, resetUrl }: PasswordResetEmailRequest = await req.json();
 
     // SECURITY: Rate limit password reset requests per email
     if (isRateLimited(email)) {

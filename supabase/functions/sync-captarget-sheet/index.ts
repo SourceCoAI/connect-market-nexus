@@ -632,7 +632,7 @@ serve(async (req) => {
           // Insert in small batches instead of one-by-one for performance
           for (let ic = 0; ic < toInsert.length; ic += INSERT_CHUNK) {
             const insertChunk = toInsert.slice(ic, ic + INSERT_CHUNK);
-            const { data: _inserted, error: insertErr } = await supabase
+            const { error: insertErr } = await supabase
               .from('listings')
               .insert(insertChunk)
               .select('id');

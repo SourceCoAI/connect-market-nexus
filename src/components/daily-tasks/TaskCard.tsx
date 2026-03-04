@@ -127,13 +127,14 @@ export function TaskCard({
   const isAISource = task.source === 'ai' || task.source === 'chatbot';
 
   const dueDateLabel = (() => {
+    if (!task.due_date) return 'No date';
     const d = parseISO(task.due_date);
     if (isToday(d)) return 'Today';
     if (isTomorrow(d)) return 'Tomorrow';
     return format(d, 'MMM d');
   })();
 
-  const isDuePast = isPast(parseISO(task.due_date + 'T23:59:59'));
+  const isDuePast = task.due_date ? isPast(parseISO(task.due_date + 'T23:59:59')) : false;
 
   useEffect(() => {
     return () => {
@@ -461,7 +462,11 @@ export function TaskCard({
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Due</p>
                 <span className={cn('text-sm', isOverdue && 'text-red-600 font-medium')}>
-                  {formatDistanceToNow(new Date(task.due_date + 'T23:59:59'), { addSuffix: true })}
+                  {task.due_date
+                    ? formatDistanceToNow(new Date(task.due_date + 'T23:59:59'), {
+                        addSuffix: true,
+                      })
+                    : 'No due date'}
                 </span>
               </div>
 

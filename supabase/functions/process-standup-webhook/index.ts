@@ -4,15 +4,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 /**
- * Fireflies webhook handler for daily standup meetings.
+ * Fireflies webhook handler for meeting task extraction.
  *
  * When Fireflies finishes processing a meeting, it sends a webhook.
- * This function checks if the meeting matches our standup criteria
- * and triggers the extract-standup-tasks function.
+ * This function triggers the extract-standup-tasks function to pull
+ * actionable tasks from the meeting transcript.
  *
- * Standup identification:
- * Meetings are tagged with `<ds>` in the meeting title/header.
- * This is the team's convention for marking daily standup meetings.
+ * All meetings are processed. Meetings tagged with `<ds>` in the title
+ * are logged as known standup meetings but the tag is NOT required.
  */
 
 const STANDUP_TITLE_TAG = '<ds>';
@@ -58,9 +57,7 @@ async function fetchTitleFromFireflies(transcriptId: string): Promise<string> {
 function hasStandupTag(title: string): boolean {
   const lower = title.toLowerCase();
   return (
-    lower.includes(STANDUP_TITLE_TAG) ||
-    lower.includes('&lt;ds&gt;') ||
-    lower.includes('%3cds%3e')
+    lower.includes(STANDUP_TITLE_TAG) || lower.includes('&lt;ds&gt;') || lower.includes('%3cds%3e')
   );
 }
 
@@ -98,19 +95,10 @@ serve(async (req) => {
       console.log(`Fetched title from API: "${meetingTitle}"`);
     }
 
-    // Check if this is a standup meeting by looking for <ds> tag in title
-    const isStandup = hasStandupTag(meetingTitle);
-
-    if (!isStandup) {
-      console.log(`Skipping non-standup meeting: "${meetingTitle}" (no <ds> tag)`);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          skipped: true,
-          reason: 'Not identified as a standup meeting',
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+    // Log standup tag status (informational — no longer required)
+    const isTaggedStandup = hasStandupTag(meetingTitle);
+    if (isTaggedStandup) {
+      console.log(`Meeting "${meetingTitle}" has <ds> standup tag`);
     }
 
     // Check if we've already processed this transcript
@@ -137,7 +125,9 @@ serve(async (req) => {
     // Auto-detect: use Fireflies-native mode when Gemini key is not configured
     const hasGeminiKey = !!(Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY'));
     const useFirefliesActions = !hasGeminiKey;
-    console.log(`Processing standup meeting: "${meetingTitle}" (${transcriptId}) [mode: ${useFirefliesActions ? 'fireflies-native' : 'ai'}]`);
+    console.log(
+      `Processing meeting: "${meetingTitle}" (${transcriptId}) [mode: ${useFirefliesActions ? 'fireflies-native' : 'ai'}${isTaggedStandup ? ', tagged standup' : ''}]`,
+    );
 
     const extractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-standup-tasks`, {
       method: 'POST',
