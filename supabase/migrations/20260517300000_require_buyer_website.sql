@@ -35,17 +35,22 @@ BEGIN
   END IF;
 END $$;
 
--- ── Step 3: Add NOT NULL constraint ──────────────────────────────────────────
--- Safe now that all active rows have a value; archived rows may still be NULL
--- but the constraint only needs to block future inserts/updates on active rows.
--- We enforce this with a CHECK rather than NOT NULL so archived legacy rows
--- (which may have NULL websites) don't cause constraint violations.
-ALTER TABLE public.buyers
-  ADD CONSTRAINT buyers_website_required
-  CHECK (
-    archived = true
-    OR (company_website IS NOT NULL AND trim(company_website) != '')
-  );
+-- ── Step 3: Add CHECK constraint (idempotent) ────────────────────────────────
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'buyers_website_required'
+      AND conrelid = 'public.buyers'::regclass
+  ) THEN
+    ALTER TABLE public.buyers
+      ADD CONSTRAINT buyers_website_required
+      CHECK (
+        archived = true
+        OR (company_website IS NOT NULL AND trim(company_website) != '')
+      );
+  END IF;
+END $$;
 
 COMMENT ON CONSTRAINT buyers_website_required ON public.buyers IS
   'Active buyers must have a non-empty company_website. '
