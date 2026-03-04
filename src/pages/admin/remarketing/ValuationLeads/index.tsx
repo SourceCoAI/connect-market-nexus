@@ -91,7 +91,7 @@ export default function ValuationLeads() {
     setHidePushed,
     hideNotFit,
     setHideNotFit,
-    handleRowClick,
+    handleRowClick: _handleRowClick,
     handlePushToAllDeals,
     handlePushAndEnrich,
     handleReEnrich,
