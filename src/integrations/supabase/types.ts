@@ -12791,6 +12791,35 @@ export type Database = {
         }
         Returns: string
       }
+      merge_valuation_lead: {
+        Args: {
+          p_business_name?: string
+          p_buyer_lane?: string
+          p_calculator_specific_data?: Json
+          p_calculator_type: string
+          p_ebitda?: number
+          p_email: string
+          p_full_name: string
+          p_growth_trend?: string
+          p_industry?: string
+          p_lead_source?: string
+          p_location?: string
+          p_locations_count?: number
+          p_owner_dependency?: string
+          p_quality_label?: string
+          p_quality_tier?: string
+          p_raw_calculator_inputs?: Json
+          p_raw_valuation_results?: Json
+          p_region?: string
+          p_revenue?: number
+          p_source_submission_id?: string
+          p_valuation_high?: number
+          p_valuation_low?: number
+          p_valuation_mid?: number
+          p_website?: string
+        }
+        Returns: string
+      }
       move_deal_stage: {
         Args: { deal_id: string; new_stage_id: string }
         Returns: boolean
