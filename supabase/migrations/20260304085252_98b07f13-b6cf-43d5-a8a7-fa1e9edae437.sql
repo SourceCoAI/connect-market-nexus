@@ -1,0 +1,2 @@
+ALTER TABLE clay_enrichment_requests DROP CONSTRAINT clay_enrichment_requests_request_type_check;
+ALTER TABLE clay_enrichment_requests ADD CONSTRAINT clay_enrichment_requests_request_type_check CHECK (request_type = ANY (ARRAY['name_domain'::text, 'linkedin'::text, 'phone'::text]))

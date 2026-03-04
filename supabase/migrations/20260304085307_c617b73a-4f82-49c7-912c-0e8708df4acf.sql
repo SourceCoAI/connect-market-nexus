@@ -1,0 +1,2 @@
+INSERT INTO clay_enrichment_requests (request_id, request_type, status, linkedin_url, first_name, last_name, source_function, workspace_id)
+VALUES ('test-phone-lovable-001', 'phone', 'pending', 'https://www.linkedin.com/in/tomos-mughan', 'Tomos', 'Mughan', 'clay_find_phone', '00000000-0000-0000-0000-000000000000')
