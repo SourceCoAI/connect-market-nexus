@@ -148,6 +148,7 @@ serve(async (req: Request) => {
     // Determine calculator type from service_type input
     const calculatorType = serviceType === "collision" ? "collision"
       : serviceType === "mechanical" ? "mechanical"
+      : serviceType === "specialty" ? "specialty"
       : serviceType ?? "auto_shop";
 
     const valuationRow = {

@@ -12,7 +12,7 @@ interface Props {
 
 export function SignupStepAccount({ formData, onChange }: Props) {
   const [domainMatch, setDomainMatch] = useState<{ found: boolean; firm_name: string | null } | null>(null);
-  const [checking, setChecking] = useState(false);
+  
 
   const checkDomain = useCallback(async (email: string) => {
     if (!email || !email.includes("@")) {

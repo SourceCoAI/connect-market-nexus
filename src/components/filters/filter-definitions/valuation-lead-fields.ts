@@ -66,6 +66,7 @@ export const VALUATION_LEAD_FIELDS: FilterFieldDef[] = [
       { label: 'Auto Shop', value: 'auto_shop' },
       { label: 'Collision', value: 'collision' },
       { label: 'Mechanical', value: 'mechanical' },
+      { label: 'Specialty', value: 'specialty' },
       { label: 'HVAC', value: 'hvac' },
     ],
   },

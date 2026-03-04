@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
-  AlertTriangle,
+  
   Building2,
   ExternalLink,
   Link2,
@@ -183,7 +183,7 @@ export function BuyerRelationshipSection({
                         >
                           {co.company_name}
                         </Link>
-                        <BuyerTypeBadge buyerType={co.buyer_type} isPeBacked={co.is_pe_backed} />
+                        <BuyerTypeBadge buyerType={co.buyer_type} isPeBacked={co.is_pe_backed ?? undefined} />
                         {co.has_fee_agreement && (
                           <FileCheck className="h-3 w-3 text-green-600" />
                         )}
