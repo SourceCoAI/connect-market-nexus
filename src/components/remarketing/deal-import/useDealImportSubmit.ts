@@ -147,8 +147,6 @@ export interface HandleImportOptions {
   dealSource?: string;
   hideFromAllDeals?: boolean;
   onProgress: (progress: number) => void;
-  onImportComplete: () => void;
-  onImportCompleteWithIds?: (importedIds: string[]) => void;
 }
 
 export async function handleImport({
@@ -158,8 +156,6 @@ export async function handleImport({
   dealSource,
   hideFromAllDeals,
   onProgress,
-  onImportComplete,
-  onImportCompleteWithIds,
 }: HandleImportOptions): Promise<ImportResults> {
   const results: ImportResults = { imported: 0, merged: 0, errors: [], importedIds: [] };
 
@@ -254,10 +250,6 @@ export async function handleImport({
     if (results.merged > 0) parts.push(`${results.merged} updated`);
     const pendingMsg = referralPartnerId ? ' (pending review)' : '';
     toast.success(`Successfully processed ${parts.join(', ')} deals${pendingMsg}`);
-    onImportComplete();
-    if (onImportCompleteWithIds && results.importedIds.length > 0) {
-      onImportCompleteWithIds(results.importedIds);
-    }
   }
 
   return results;

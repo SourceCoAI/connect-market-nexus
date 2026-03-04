@@ -155,8 +155,6 @@ export function DealImportDialog({
         dealSource,
         hideFromAllDeals,
         onProgress: setImportProgress,
-        onImportComplete,
-        onImportCompleteWithIds,
       });
 
       setImportResults(results);
@@ -180,6 +178,14 @@ export function DealImportDialog({
   };
 
   const handleClose = () => {
+    // If closing after a successful import, notify the parent so it can
+    // invalidate queries and refresh the deals list.
+    if (step === "complete" && importResults && (importResults.imported > 0 || importResults.merged > 0)) {
+      onImportComplete();
+      if (onImportCompleteWithIds && importResults.importedIds.length > 0) {
+        onImportCompleteWithIds(importResults.importedIds);
+      }
+    }
     reset();
     onOpenChange(false);
   };
