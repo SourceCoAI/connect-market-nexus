@@ -192,6 +192,32 @@ export function useRealtimeAdmin() {
       .on(
         'postgres_changes',
         {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'valuation_leads',
+        },
+        () => {
+          toast({
+            title: '📊 New Valuation Lead',
+            description: 'A new lead has been submitted',
+          });
+          queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'valuation_leads',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
           event: '*',
           schema: 'public',
           table: 'firm_members',

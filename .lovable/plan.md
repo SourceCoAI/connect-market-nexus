@@ -1,36 +1,24 @@
 
 
-# Real-Time Valuation Leads — Instant Display on New Submission
+## Plan: Add Clay Phone Number Lookup Tool — ✅ COMPLETED
 
-## Approach
-The app already has a consolidated realtime admin channel (`use-realtime-admin.ts`) that subscribes to Postgres changes and invalidates query caches. The valuation leads query uses key `['remarketing', 'valuation-leads']`. The fix is simply adding a realtime listener for the `valuation_leads` table to that existing channel.
+### Summary
+Mirrored the existing `clay_find_email` pattern to add a `clay_find_phone` tool that sends LinkedIn URLs to a new Clay phone lookup table and receives results via an inbound webhook. No auth/secret requirements on the webhook endpoint.
 
-## Change
+### Completed Changes
 
-**`src/hooks/use-realtime-admin.ts`** — Add one `.on()` block to the existing channel:
+1. ✅ Database Migration — Added `result_phone TEXT` column to `clay_enrichment_requests`
+2. ✅ `clay-client.ts` — Added phone webhook URL + `sendToClayPhone` sender
+3. ✅ New edge function: `clay-webhook-phone/index.ts` — No auth, updates `result_phone`, `enriched_contacts.phone`, `contacts.phone`
+4. ✅ `config.toml` — Added `[functions.clay-webhook-phone]` with `verify_jwt = false`
+5. ✅ `clay-tools.ts` — Added `clayLookupPhone`, `ClayPhoneLookupResult`, `clay_find_phone` tool definition, `clayFindPhone` executor
+6. ✅ `integration/index.ts` — Re-exported `clayFindPhone`, `clayLookupPhone`, `ClayPhoneLookupResult`
+7. ✅ `integration-action-tools.ts` — Wired `case 'clay_find_phone'`
+8. ✅ `tools/index.ts` — Registered in GENERAL, CONTACTS, CONTACT_ENRICHMENT, REMARKETING, GOOGLE_SEARCH categories
+9. ✅ `system-prompt.ts` — Added phone lookup guidance
+10. ✅ Tested — Inbound webhook deployed and verified working
 
-```ts
-.on(
-  'postgres_changes',
-  { event: 'INSERT', schema: 'public', table: 'valuation_leads' },
-  (payload) => {
-    toast({
-      title: '📊 New Valuation Lead',
-      description: `A new lead has been submitted`,
-    });
-    queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
-  },
-)
-.on(
-  'postgres_changes',
-  { event: 'UPDATE', schema: 'public', table: 'valuation_leads' },
-  () => {
-    queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
-  },
-)
-```
+### Inbound Webhook URL
+`https://vhzipqarkmmfuqadefep.supabase.co/functions/v1/clay-webhook-phone`
 
-This triggers an automatic refetch of the leads query the instant a row is inserted or updated — no manual refresh needed. The existing `staleTime: 30_000` on the query won't block invalidation-triggered refetches.
-
-**No other files need to change.** The realtime subscription requires that `valuation_leads` has Supabase Realtime enabled. I'll verify and enable it via a migration if needed.
-
+Configure Clay to POST results to this URL with `request_id` and `phone` fields.

@@ -1,0 +1,1 @@
+alter publication supabase_realtime add table valuation_leads;
