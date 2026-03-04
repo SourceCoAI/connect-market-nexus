@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -748,47 +748,51 @@ function IntroductionBuyerRow({
           </Button>
 
           {universeAssignment ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2.5 text-xs gap-1 hover:bg-purple-50 hover:border-purple-500 hover:text-purple-700"
-                  disabled={isSendingToUniverse}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSendToUniverse({ buyer, universeId: universeAssignment.universe_id });
-                  }}
-                >
-                  {isSendingToUniverse ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Globe className="h-3.5 w-3.5" />
-                  )}
-                  Push to Buyer Universe
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Push to {universeAssignment.buyer_universes.name}</p>
-              </TooltipContent>
-            </Tooltip>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs gap-1 hover:bg-purple-50 hover:border-purple-500 hover:text-purple-700"
+                    disabled={isSendingToUniverse}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSendToUniverse({ buyer, universeId: universeAssignment.universe_id });
+                    }}
+                  >
+                    {isSendingToUniverse ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Globe className="h-3.5 w-3.5" />
+                    )}
+                    Push to Buyer Universe
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Push to {universeAssignment.buyer_universes.name}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2.5 text-xs gap-1 text-muted-foreground"
-                  disabled
-                >
-                  <Globe className="h-3.5 w-3.5" />
-                  Push to Buyer Universe
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Assign a buyer universe to this deal first</p>
-              </TooltipContent>
-            </Tooltip>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs gap-1 text-muted-foreground"
+                    disabled
+                  >
+                    <Globe className="h-3.5 w-3.5" />
+                    Push to Buyer Universe
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Assign a buyer universe to this deal first</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       </div>
@@ -1026,47 +1030,51 @@ function IntroducedBuyerRow({
           </Button>
 
           {universeAssignment ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2.5 text-xs gap-1 hover:bg-purple-50 hover:border-purple-500 hover:text-purple-700"
-                  disabled={isSendingToUniverse}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSendToUniverse({ buyer, universeId: universeAssignment.universe_id });
-                  }}
-                >
-                  {isSendingToUniverse ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Globe className="h-3.5 w-3.5" />
-                  )}
-                  Push to Buyer Universe
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Push to {universeAssignment.buyer_universes.name}</p>
-              </TooltipContent>
-            </Tooltip>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs gap-1 hover:bg-purple-50 hover:border-purple-500 hover:text-purple-700"
+                    disabled={isSendingToUniverse}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSendToUniverse({ buyer, universeId: universeAssignment.universe_id });
+                    }}
+                  >
+                    {isSendingToUniverse ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Globe className="h-3.5 w-3.5" />
+                    )}
+                    Push to Buyer Universe
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Push to {universeAssignment.buyer_universes.name}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2.5 text-xs gap-1 text-muted-foreground"
-                  disabled
-                >
-                  <Globe className="h-3.5 w-3.5" />
-                  Push to Buyer Universe
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Assign a buyer universe to this deal first</p>
-              </TooltipContent>
-            </Tooltip>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs gap-1 text-muted-foreground"
+                    disabled
+                  >
+                    <Globe className="h-3.5 w-3.5" />
+                    Push to Buyer Universe
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Assign a buyer universe to this deal first</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       </div>
