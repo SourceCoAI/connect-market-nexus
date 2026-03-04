@@ -695,6 +695,36 @@ export function buildBuyerUpdateObject(
       continue;
     }
 
+    // Normalize buyer_type to match the database CHECK constraint.
+    // AI extraction uses canonical values (private_equity, corporate, individual_buyer)
+    // but the DB constraint may use legacy values (pe_firm, strategic, other) if the
+    // buyer_classification_taxonomy migration hasn't been applied yet.
+    // This map ensures compatibility with BOTH old and new constraints.
+    if (field === 'buyer_type' && typeof value === 'string') {
+      const BUYER_TYPE_NORMALIZE: Record<string, string> = {
+        'private_equity': 'private_equity',
+        'corporate': 'corporate',
+        'family_office': 'family_office',
+        'independent_sponsor': 'independent_sponsor',
+        'search_fund': 'search_fund',
+        'individual_buyer': 'individual_buyer',
+        // Legacy values — accept if already in old format
+        'pe_firm': 'private_equity',
+        'platform': 'corporate',
+        'strategic': 'corporate',
+        'other': 'individual_buyer',
+      };
+      const normalized = BUYER_TYPE_NORMALIZE[value.toLowerCase().trim()];
+      if (normalized) {
+        updateData[field] = normalized;
+        fieldsUpdated++;
+        recordFieldSource();
+      } else {
+        console.warn(`Skipping unknown buyer_type: "${value}"`);
+      }
+      continue;
+    }
+
     // Handle arrays
     if (Array.isArray(value)) {
       let normalized = value
