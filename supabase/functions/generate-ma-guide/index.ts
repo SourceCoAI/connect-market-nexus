@@ -342,6 +342,9 @@ async function extractCriteria(content: string, apiKey: string): Promise<Extract
               include_platforms: { type: 'boolean' },
               include_strategic: { type: 'boolean' },
               include_family_office: { type: 'boolean' },
+              include_independent_sponsors: { type: 'boolean' },
+              include_search_funds: { type: 'boolean' },
+              include_individual_buyers: { type: 'boolean' },
             },
           },
         },
@@ -660,6 +663,9 @@ function getDefaultCriteria(): ExtractedCriteria {
       include_platforms: true,
       include_strategic: true,
       include_family_office: true,
+      include_independent_sponsors: true,
+      include_search_funds: true,
+      include_individual_buyers: true,
     },
     target_buyer_types: getDefaultBuyerProfiles(),
   };
@@ -1159,6 +1165,9 @@ BUYER_TYPES:
 - include_platforms: [true|false]
 - include_strategic: [true|false]
 - include_family_office: [true|false]
+- include_independent_sponsors: [true|false]
+- include_search_funds: [true|false]
+- include_individual_buyers: [true|false]
 ---END CRITERIA---
 
 ---BEGIN BUYER_PROFILES---

@@ -427,6 +427,7 @@ export function RecommendedBuyersTab({
                 acquisition_appetite: buyer.acquisition_appetite,
                 company_website: buyer.company_website,
                 is_publicly_traded: buyer.is_publicly_traded ?? null,
+                is_pe_backed: buyer.is_pe_backed ?? false,
               },
             },
             {

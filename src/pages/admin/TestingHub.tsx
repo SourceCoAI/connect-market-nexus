@@ -31,6 +31,7 @@ const SmartleadTestPage = lazy(() => import('@/pages/admin/SmartleadTestPage'));
 const ThirtyQuestionTest = lazy(() => import('@/pages/admin/ThirtyQuestionTest'));
 const ListingPipelineTest = lazy(() => import('@/pages/admin/ListingPipelineTest'));
 const BuyerRecommendationTest = lazy(() => import('@/pages/admin/BuyerRecommendationTest'));
+const BuyerClassificationTest = lazy(() => import('@/pages/admin/BuyerClassificationTest'));
 const TestRunTracker = lazy(() => import('@/pages/admin/TestRunTracker'));
 
 // Storage keys — must match individual tab components exactly
@@ -877,6 +878,10 @@ export default function TestingHub() {
               <Sparkles className="h-4 w-4" />
               AI Buyer Engine
             </TabsTrigger>
+            <TabsTrigger value="buyer-classify" className="gap-2">
+              <ListChecks className="h-4 w-4" />
+              Buyer Classifier
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="system">
@@ -918,6 +923,12 @@ export default function TestingHub() {
           <TabsContent value="buyer-rec">
             <Suspense fallback={<Loading />}>
               <BuyerRecommendationTest />
+            </Suspense>
+          </TabsContent>
+
+          <TabsContent value="buyer-classify">
+            <Suspense fallback={<Loading />}>
+              <BuyerClassificationTest />
             </Suspense>
           </TabsContent>
         </Tabs>

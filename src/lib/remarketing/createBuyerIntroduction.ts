@@ -49,7 +49,7 @@ export async function createBuyerIntroductionFromApproval({
     const { data: buyer, error: buyerError } = await supabase
       .from('buyers')
       .select(
-        'id, company_name, pe_firm_name, company_website, hq_city, hq_state, buyer_type, has_fee_agreement, alignment_score, alignment_reasoning',
+        'id, company_name, pe_firm_name, company_website, hq_city, hq_state, buyer_type, is_pe_backed, has_fee_agreement, alignment_score, alignment_reasoning',
       )
       .eq('id', buyerId)
       .single();
@@ -78,6 +78,7 @@ export async function createBuyerIntroductionFromApproval({
           has_fee_agreement: buyer.has_fee_agreement || false,
           pe_firm_name: buyer.pe_firm_name,
           company_website: buyer.company_website,
+          is_pe_backed: buyer.is_pe_backed || false,
         },
         created_by: userId,
       } as never)

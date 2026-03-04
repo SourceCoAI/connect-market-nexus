@@ -207,61 +207,6 @@ export const REMARKETING_BUYER_TYPE_OPTIONS: { value: BuyerType; label: string }
   { value: 'individual_buyer', label: 'Individual Buyer' },
 ];
 
-/**
- * Normalize any buyer_type string (legacy or variant) to a canonical BuyerType.
- * Returns null if the value cannot be mapped.
- */
-export function normalizeBuyerType(raw: string | null | undefined): BuyerType | null {
-  if (!raw) return null;
-  const v = raw.trim().toLowerCase();
-  const map: Record<string, BuyerType> = {
-    // Canonical values
-    private_equity: 'private_equity',
-    corporate: 'corporate',
-    family_office: 'family_office',
-    independent_sponsor: 'independent_sponsor',
-    search_fund: 'search_fund',
-    individual_buyer: 'individual_buyer',
-    // Legacy remarketing values
-    pe_firm: 'private_equity',
-    'pe firm': 'private_equity',
-    pe: 'private_equity',
-    'private equity': 'private_equity',
-    'private equity firm': 'private_equity',
-    strategic: 'corporate',
-    'operating company': 'corporate',
-    company: 'corporate',
-    corp: 'corporate',
-    platform: 'corporate', // platform → corporate + is_pe_backed handled separately
-    'platform company': 'corporate',
-    'portfolio company': 'corporate',
-    fo: 'family_office',
-    'family office': 'family_office',
-    'search fund': 'search_fund',
-    searcher: 'search_fund',
-    eta: 'search_fund',
-    'independent sponsor': 'independent_sponsor',
-    'fundless sponsor': 'independent_sponsor',
-    'ind sponsor': 'independent_sponsor',
-    individual: 'individual_buyer',
-    'individual buyer': 'individual_buyer',
-    'private buyer': 'individual_buyer',
-    'wealth buyer': 'individual_buyer',
-    'personal acquisition': 'individual_buyer',
-    // Marketplace camelCase values
-    privateequity: 'private_equity',
-    familyoffice: 'family_office',
-    searchfund: 'search_fund',
-    independentsponsor: 'independent_sponsor',
-    businessowner: 'corporate',
-    advisor: 'corporate',
-    // Fallback
-    other: 'corporate',
-    buyer: 'corporate',
-  };
-  return map[v] ?? null;
-}
-
 export interface ReMarketingBuyer {
   id: string;
   universe_id: string | null;

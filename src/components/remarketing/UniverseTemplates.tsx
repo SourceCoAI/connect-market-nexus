@@ -81,7 +81,10 @@ const UNIVERSE_TEMPLATES: UniverseTemplate[] = [
         include_pe_firms: true,
         include_platforms: true,
         include_strategic: false,
-        include_family_office: false
+        include_family_office: false,
+        include_independent_sponsors: true,
+        include_search_funds: false,
+        include_individual_buyers: false
       },
       scoring_behavior: {
         boost_adjacency: true,
@@ -119,7 +122,10 @@ const UNIVERSE_TEMPLATES: UniverseTemplate[] = [
         include_pe_firms: true,
         include_platforms: true,
         include_strategic: true,
-        include_family_office: true
+        include_family_office: true,
+        include_independent_sponsors: true,
+        include_search_funds: true,
+        include_individual_buyers: true
       },
       scoring_behavior: {
         boost_adjacency: false,
@@ -195,7 +201,10 @@ const UNIVERSE_TEMPLATES: UniverseTemplate[] = [
         include_pe_firms: true,
         include_platforms: true,
         include_strategic: true,
-        include_family_office: true
+        include_family_office: true,
+        include_independent_sponsors: true,
+        include_search_funds: true,
+        include_individual_buyers: true
       },
       scoring_behavior: {
         boost_adjacency: false,
@@ -309,7 +318,10 @@ const UNIVERSE_TEMPLATES: UniverseTemplate[] = [
         include_pe_firms: true,
         include_platforms: true,
         include_strategic: true,
-        include_family_office: true
+        include_family_office: true,
+        include_independent_sponsors: true,
+        include_search_funds: true,
+        include_individual_buyers: true
       },
       scoring_behavior: {
         boost_adjacency: false,
@@ -348,7 +360,10 @@ const UNIVERSE_TEMPLATES: UniverseTemplate[] = [
         include_pe_firms: true,
         include_platforms: true,
         include_strategic: true,
-        include_family_office: true
+        include_family_office: true,
+        include_independent_sponsors: true,
+        include_search_funds: true,
+        include_individual_buyers: true
       },
       scoring_behavior: {
         boost_adjacency: true,

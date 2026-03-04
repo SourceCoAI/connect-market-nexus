@@ -62,6 +62,7 @@ export interface ScoreSnapshot {
   acquisition_appetite: string | null;
   company_website: string | null;
   is_publicly_traded: boolean | null;
+  is_pe_backed: boolean;
 }
 
 export interface IntroductionStatusLog {

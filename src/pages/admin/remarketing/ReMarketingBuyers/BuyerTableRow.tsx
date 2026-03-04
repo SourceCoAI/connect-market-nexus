@@ -22,7 +22,8 @@ import {
 } from 'lucide-react';
 import { IntelligenceBadge } from '@/components/remarketing';
 import { FlagForBuyerButton } from '@/components/daily-tasks/FlagForBuyerButton';
-import { isSponsorType, findPeFirmByName, getBuyerTypeLabel } from './constants';
+import { BuyerTypeBadge } from '@/components/admin/deals/buyer-introductions/shared/BuyerTypeBadge';
+import { isSponsorType, findPeFirmByName } from './constants';
 import type { BuyerTab } from './constants';
 
 interface BuyerRecord {
@@ -30,6 +31,9 @@ interface BuyerRecord {
   company_name: string;
   company_website?: string | null;
   buyer_type?: string | null;
+  is_pe_backed?: boolean | null;
+  parent_pe_firm_id?: string | null;
+  parent_pe_firm_name?: string | null;
   pe_firm_name?: string | null;
   hq_city?: string | null;
   hq_state?: string | null;
@@ -145,9 +149,7 @@ const BuyerTableRow = ({
         <>
           {/* Type Column (PE Firms tab) */}
           <TableCell>
-            <Badge variant="outline" className="text-xs">
-              {getBuyerTypeLabel(buyer.buyer_type ?? null)}
-            </Badge>
+            <BuyerTypeBadge buyerType={buyer.buyer_type} isPeBacked={buyer.is_pe_backed ?? false} />
           </TableCell>
 
           {/* Platform Count Column */}
@@ -221,9 +223,7 @@ const BuyerTableRow = ({
                 );
               })()
             ) : isSponsor ? (
-              <Badge variant="outline" className="text-xs">
-                {getBuyerTypeLabel(buyer.buyer_type ?? null)}
-              </Badge>
+              <BuyerTypeBadge buyerType={buyer.buyer_type} isPeBacked={buyer.is_pe_backed ?? false} />
             ) : (
               <span className="text-sm text-muted-foreground">—</span>
             )}

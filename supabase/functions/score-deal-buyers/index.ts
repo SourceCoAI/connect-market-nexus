@@ -232,13 +232,19 @@ Deno.serve(async (req: Request) => {
       const _rawBuyerServices = ((buyer.target_services as string[]) || []).filter(Boolean);
       const _rawBuyerIndustriesList = ((buyer.target_industries as string[]) || []).filter(Boolean);
       const _buyerTypeLabel =
-        buyer.buyer_type === 'pe_firm'
+        buyer.buyer_type === 'private_equity'
           ? 'PE firm'
-          : buyer.buyer_type === 'platform'
+          : buyer.buyer_type === 'corporate' && buyer.is_pe_backed
             ? 'PE-backed platform'
             : buyer.buyer_type === 'family_office'
               ? 'Family office'
-              : 'Strategic acquirer';
+              : buyer.buyer_type === 'search_fund'
+                ? 'Search fund'
+                : buyer.buyer_type === 'independent_sponsor'
+                  ? 'Independent sponsor'
+                  : buyer.buyer_type === 'individual_buyer'
+                    ? 'Individual buyer'
+                    : 'Strategic acquirer';
       const _locationStr =
         buyer.hq_city && buyer.hq_state
           ? `${buyer.hq_city}, ${buyer.hq_state}`

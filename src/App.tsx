@@ -134,6 +134,7 @@ const DocumentTrackingPage = lazyWithRetry(() => import('@/pages/admin/DocumentT
 const TestingHub = lazyWithRetry(() => import('@/pages/admin/TestingHub'));
 const MessageCenter = lazyWithRetry(() => import('@/pages/admin/MessageCenter'));
 const AdminFeatureIdeas = lazyWithRetry(() => import('@/pages/admin/AdminFeatureIdeas'));
+const PEFirmLinkReview = lazyWithRetry(() => import('@/pages/admin/PEFirmLinkReview'));
 
 // Smartlead pages
 const SmartleadCampaignsPage = lazyWithRetry(() => import('@/pages/admin/SmartleadCampaignsPage'));
@@ -332,7 +333,7 @@ function App() {
               <Route path="buyers" element={<ReMarketingBuyers />} />
               <Route
                 path="buyers/pe-firms"
-                element={<Navigate to="/admin/buyers?tab=pe_firm" replace />}
+                element={<Navigate to="/admin/buyers?tab=private_equity" replace />}
               />
               <Route path="buyers/pe-firms/:id" element={<PEFirmDetail />} />
               <Route path="buyers/:id" element={<ReMarketingBuyerDetail />} />
@@ -527,6 +528,14 @@ function App() {
                 }
               />
               <Route path="settings/owner-leads" element={<OwnerLeadsPage />} />
+              <Route
+                path="settings/data-quality/pe-links"
+                element={
+                  <RoleGate min="admin">
+                    <PEFirmLinkReview />
+                  </RoleGate>
+                }
+              />
               <Route path="settings/notifications" element={<AdminNotifications />} />
               <Route
                 path="settings/webhooks"

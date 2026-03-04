@@ -307,7 +307,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
           company_name: buyer.buyer_name,
           company_website: (buyer.score_snapshot as ScoreSnapshot | null)?.company_website || null,
           pe_firm_name: buyer.buyer_firm_name !== buyer.buyer_name ? buyer.buyer_firm_name : null,
-          buyer_type: (buyer.score_snapshot as ScoreSnapshot | null)?.buyer_type || 'platform',
+          buyer_type: (buyer.score_snapshot as ScoreSnapshot | null)?.buyer_type || 'corporate',
           hq_city: (buyer.score_snapshot as ScoreSnapshot | null)?.hq_city || null,
           hq_state: (buyer.score_snapshot as ScoreSnapshot | null)?.hq_state || null,
           has_fee_agreement:

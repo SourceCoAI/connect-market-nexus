@@ -45,6 +45,9 @@ export function useUniverseData() {
     include_platforms: true,
     include_strategic: true,
     include_family_office: true,
+    include_independent_sponsors: true,
+    include_search_funds: true,
+    include_individual_buyers: true,
   });
   const [scoringBehavior, setScoringBehavior] = useState<ScoringBehavior>({});
   const [documents, setDocuments] = useState<DocumentReference[]>([]);
@@ -326,6 +329,9 @@ export function useUniverseData() {
           include_platforms: true,
           include_strategic: true,
           include_family_office: true,
+          include_independent_sponsors: true,
+          include_search_funds: true,
+          include_individual_buyers: true,
         },
       );
       setScoringBehavior((universe.scoring_behavior as unknown as ScoringBehavior) || {});

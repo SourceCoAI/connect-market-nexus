@@ -3,9 +3,12 @@ import { ArrowLeft, Building2, ExternalLink, MapPin, Pencil, Sparkles, Calendar,
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
+import { BuyerTypeBadge } from "@/components/admin/deals/buyer-introductions/shared/BuyerTypeBadge";
 
 interface BuyerDetailHeaderProps {
   companyName: string;
+  buyerType?: string | null;
+  isPeBacked?: boolean;
   peFirmName?: string | null;
   peFirmId?: string | null;
   platformWebsite?: string | null;
@@ -23,6 +26,8 @@ interface BuyerDetailHeaderProps {
 
 export const BuyerDetailHeader = ({
   companyName,
+  buyerType,
+  isPeBacked = false,
   peFirmName,
   peFirmId,
   platformWebsite,
@@ -70,11 +75,12 @@ export const BuyerDetailHeader = ({
           </Button>
           
           <div className="space-y-1">
-            {/* Company Name + Completeness Badge */}
+            {/* Company Name + Buyer Type Badge + Completeness Badge */}
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight">{companyName}</h1>
-              <Badge 
-                variant="outline" 
+              <BuyerTypeBadge buyerType={buyerType} isPeBacked={isPeBacked} />
+              <Badge
+                variant="outline"
                 className={`text-sm font-medium ${getCompletenessColor(dataCompleteness)}`}
               >
                 {dataCompleteness}%

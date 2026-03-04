@@ -66,6 +66,7 @@ export function BuyerKanbanCard({
   const snap = buyer.score_snapshot as ScoreSnapshot | null;
   const compositeScore = snap?.composite_score ?? null;
   const buyerType = snap?.buyer_type ?? null;
+  const isPeBacked = snap?.is_pe_backed ?? false;
   const source = snap?.source ?? null;
 
   const {
@@ -173,7 +174,7 @@ export function BuyerKanbanCard({
 
       {/* Badges row */}
       <div className="flex flex-wrap items-center gap-1 mb-2">
-        <BuyerTypeBadge buyerType={buyerType} />
+        <BuyerTypeBadge buyerType={buyerType} isPeBacked={isPeBacked} />
         <ScoreBadge score={compositeScore} />
         <SourceBadge source={source} />
       </div>

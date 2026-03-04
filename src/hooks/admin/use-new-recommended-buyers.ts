@@ -14,6 +14,7 @@ export interface BuyerScore {
   acquisition_appetite: string | null;
   company_website: string | null;
   is_publicly_traded: boolean | null;
+  is_pe_backed: boolean;
   composite_score: number;
   service_score: number;
   geography_score: number;

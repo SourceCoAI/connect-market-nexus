@@ -193,7 +193,10 @@ CRITICAL REQUIREMENTS:
                     include_pe_firms: { type: "boolean", default: true },
                     include_platforms: { type: "boolean", default: true },
                     include_strategic: { type: "boolean", default: true },
-                    include_family_office: { type: "boolean", default: true }
+                    include_family_office: { type: "boolean", default: true },
+                    include_independent_sponsors: { type: "boolean", default: true },
+                    include_search_funds: { type: "boolean", default: true },
+                    include_individual_buyers: { type: "boolean", default: true }
                   }
                 },
                 scoring_behavior: {
@@ -334,7 +337,10 @@ function parseLocally(text: string) {
       include_pe_firms: true,
       include_platforms: true,
       include_strategic: true,
-      include_family_office: true
+      include_family_office: true,
+      include_independent_sponsors: true,
+      include_search_funds: true,
+      include_individual_buyers: true
     },
     scoring_behavior: {} as Record<string, unknown>,
     extracted_keywords: [] as string[],
@@ -396,8 +402,20 @@ function parseLocally(text: string) {
   if (lowerText.includes('no pe') || lowerText.includes('exclude private equity')) {
     result.buyer_types_criteria.include_pe_firms = false;
   }
-  if (lowerText.includes('no strategic') || lowerText.includes('exclude strategic')) {
+  if (lowerText.includes('no strategic') || lowerText.includes('exclude strategic') || lowerText.includes('no corporate')) {
     result.buyer_types_criteria.include_strategic = false;
+  }
+  if (lowerText.includes('no family office') || lowerText.includes('exclude family')) {
+    result.buyer_types_criteria.include_family_office = false;
+  }
+  if (lowerText.includes('no independent sponsor') || lowerText.includes('exclude independent')) {
+    result.buyer_types_criteria.include_independent_sponsors = false;
+  }
+  if (lowerText.includes('no search fund') || lowerText.includes('exclude search')) {
+    result.buyer_types_criteria.include_search_funds = false;
+  }
+  if (lowerText.includes('no individual') || lowerText.includes('exclude individual')) {
+    result.buyer_types_criteria.include_individual_buyers = false;
   }
 
   // Extract keywords for reference

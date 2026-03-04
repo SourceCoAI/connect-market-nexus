@@ -16,6 +16,9 @@ export interface BuyerData {
   data_last_updated: string | null;
   pe_firm_name: string | null;
   pe_firm_website: string | null;
+  is_pe_backed: boolean;
+  parent_pe_firm_id: string | null;
+  parent_pe_firm_name: string | null;
   platform_website: string | null;
   hq_city: string | null;
   hq_state: string | null;

@@ -106,11 +106,6 @@ export const BUYER_TYPE_LABELS: Record<string, string> = {
   independent_sponsor: 'Independent Sponsor',
   search_fund: 'Search Fund',
   individual_buyer: 'Individual Buyer',
-  // Legacy remarketing values
-  pe_firm: 'Private Equity',
-  platform: 'Corporate (PE-Backed)',
-  strategic: 'Corporate / Strategic',
-  other: 'Other',
 } as const;
 
 // ── Error handling ───────────────────────────────────────────────────

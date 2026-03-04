@@ -483,6 +483,16 @@ export const StructuredCriteriaPanel = ({
               })}
             />
           </div>
+          <div className="flex items-center justify-between">
+            <Label className="text-sm">Individual Buyers</Label>
+            <Switch
+              checked={buyerTypesCriteria.include_individual_buyers ?? true}
+              onCheckedChange={(checked) => onBuyerTypesCriteriaChange({
+                ...buyerTypesCriteria,
+                include_individual_buyers: checked
+              })}
+            />
+          </div>
         </CardContent>
       </Card>
 

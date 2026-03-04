@@ -388,7 +388,7 @@ function validateBuyerTypesCriteria(criteria: BuyerTypesCriteriaSchema | undefin
   }
   
   // Check legacy boolean flags
-  const boolFlags = ['include_pe_firms', 'include_platforms', 'include_strategic', 'include_family_office'];
+  const boolFlags = ['include_pe_firms', 'include_platforms', 'include_strategic', 'include_family_office', 'include_independent_sponsors', 'include_search_funds', 'include_individual_buyers'];
   boolFlags.forEach(flag => {
     if ((criteria as Record<string, unknown>)[flag] !== undefined) {
       fieldsPopulated.push(flag);
@@ -563,6 +563,9 @@ export function getCriteriaSummary(criteria: Partial<CompleteCriteriaSet>): {
   if (buyerTypes?.include_platforms) enabledTypes.push('Platforms');
   if (buyerTypes?.include_strategic) enabledTypes.push('Strategic');
   if (buyerTypes?.include_family_office) enabledTypes.push('Family Office');
+  if (buyerTypes?.include_independent_sponsors) enabledTypes.push('Ind. Sponsors');
+  if (buyerTypes?.include_search_funds) enabledTypes.push('Search Funds');
+  if (buyerTypes?.include_individual_buyers) enabledTypes.push('Individuals');
   const buyerTypesSummary = enabledTypes.length ? enabledTypes.join(', ') : 'All types';
   
   return {

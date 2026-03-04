@@ -8,6 +8,7 @@
  * - Confidence-based auto-apply (>= 85) vs staging for admin review (< 85)
  * - Admin manual overrides are never auto-overwritten
  * - Detects PE-backed corporates and sets is_pe_backed + pe_firm_name
+ * - Platform Company Rule enforced in code (pe_firm_name → corporate + is_pe_backed)
  *
  * Body: { batchSize?: number, offset?: number, dryRun?: boolean, onlyNeedsReview?: boolean }
  */
@@ -16,34 +17,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { callClaude, CLAUDE_MODELS } from '../_shared/claude-client.ts';
 import { requireAdmin } from '../_shared/auth.ts';
+import {
+  VALID_BUYER_TYPES,
+  buildClassificationSystemPrompt,
+  isValidBuyerType,
+} from '../_shared/buyer-type-definitions.ts';
 
-const VALID_TYPES = new Set([
-  'private_equity',
-  'corporate',
-  'family_office',
-  'search_fund',
-  'independent_sponsor',
-  'individual_buyer',
-]);
-
-const SYSTEM_PROMPT = `You are a senior M&A analyst at a lower-middle market investment bank. Classify buyers into exactly one of six categories.
-
-THE SIX VALID TYPES:
-1. private_equity - Formal fund (Fund I/II/III), LP investors, portfolio companies, investment thesis page, partners managing fund capital, defined hold period.
-2. corporate - Operating company with its own revenue, employees, products/services. Acquires using balance sheet capital. No fund structure. Regardless of how many acquisitions they make.
-3. family_office - Manages wealth for a single family. Direct investor. No LP fund structure. Often has a family surname in the name.
-4. search_fund - Individual/small team using ETA model. Searching for first acquisition to operate. Often MBA graduate. SBA financing common.
-5. independent_sponsor - Deal-by-deal. No committed fund capital. Raises equity per transaction from LPs or family offices.
-6. individual_buyer - A high-net-worth individual using personal wealth to buy a company. No fund, no entity, no LP backing, no search fund structure.
-
-CRITICAL RULE: If the company has real operations, revenue, and customers - it is "corporate", not "private_equity". A dental rollup, MSP, manufacturer, services company doing acquisitions - all "corporate". Only classify as "private_equity" if you see clear evidence of LP capital being deployed through a fund structure.
-
-SECONDARY CHECK: If you classify as "corporate", determine if this corporate is owned by a PE firm. Look for: "backed by [firm]", "portfolio company of", "a [firm] company", PE firm listed as parent/owner.
-
-For each company, respond with a JSON object:
-{ "id": "the_id", "type": "one_of_six", "confidence": 0-100, "reasoning": "1-2 sentences", "is_pe_backed": true/false, "pe_firm_name": "Name or null" }
-
-Return a JSON array of these objects. Return ONLY the JSON array. No markdown, no explanation.`;
+const SYSTEM_PROMPT = buildClassificationSystemPrompt();
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return corsPreflightResponse(req);
@@ -161,7 +141,7 @@ Deno.serve(async (req: Request) => {
     }[] = [];
 
     for (const classification of classifications) {
-      if (!VALID_TYPES.has(classification.type)) {
+      if (!isValidBuyerType(classification.type)) {
         skipped++;
         continue;
       }
@@ -170,6 +150,18 @@ Deno.serve(async (req: Request) => {
       if (!buyer) {
         skipped++;
         continue;
+      }
+
+      // Platform Company Rule: if pe_firm_name is set, force corporate + is_pe_backed
+      if (buyer.pe_firm_name && buyer.pe_firm_name.trim() !== '') {
+        classification.type = 'corporate';
+        classification.is_pe_backed = true;
+        classification.pe_firm_name = buyer.pe_firm_name;
+      }
+
+      // PE firms are never PE-backed themselves
+      if (classification.type === 'private_equity') {
+        classification.is_pe_backed = false;
       }
 
       // Never auto-overwrite admin manual classifications

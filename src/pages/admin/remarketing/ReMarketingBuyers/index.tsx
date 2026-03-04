@@ -206,6 +206,11 @@ const ReMarketingBuyers = () => {
           <TabsTrigger value="needs_agreements">
             Needs Agreements ({tabCounts.needs_agreements})
           </TabsTrigger>
+          {tabCounts.needs_pe_link > 0 && (
+            <TabsTrigger value="needs_pe_link">
+              Needs PE Firm Link ({tabCounts.needs_pe_link})
+            </TabsTrigger>
+          )}
           <TabsTrigger value="unsigned_agreements" className="gap-1.5">
             <FileSignature className="h-3.5 w-3.5" />
             Unsigned Agreements ({tabCounts.unsigned_agreements})

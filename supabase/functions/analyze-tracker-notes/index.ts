@@ -77,6 +77,9 @@ const EXTRACTION_TOOL = {
             include_platforms: { type: 'boolean' },
             include_strategic: { type: 'boolean' },
             include_family_office: { type: 'boolean' },
+            include_independent_sponsors: { type: 'boolean' },
+            include_search_funds: { type: 'boolean' },
+            include_individual_buyers: { type: 'boolean' },
             buyer_types: {
               type: 'array',
               items: {

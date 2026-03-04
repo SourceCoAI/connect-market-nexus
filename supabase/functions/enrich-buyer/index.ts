@@ -888,6 +888,31 @@ Deno.serve(async (req) => {
     const fieldsUpdated = Object.keys(updateData).length - 2; // Exclude metadata fields
     console.log(`Successfully enriched buyer ${buyerId}: ${fieldsUpdated} fields updated`);
 
+    // After enrichment, if pe_firm_name is set and parent_pe_firm_id is NULL,
+    // enqueue for backfill PE firm linking (trigger also handles this, but explicit is safer)
+    const enrichedPeFirmName = (updateData as Record<string, unknown>).pe_firm_name || buyer.pe_firm_name;
+    if (
+      enrichedPeFirmName &&
+      buyer.buyer_type === 'corporate' &&
+      !buyer.parent_pe_firm_id
+    ) {
+      supabase
+        .from('pe_link_queue')
+        .upsert(
+          {
+            buyer_id: buyerId,
+            pe_firm_name_raw: String(enrichedPeFirmName),
+            queued_at: new Date().toISOString(),
+            status: 'pending',
+          },
+          { onConflict: 'buyer_id' },
+        )
+        .then(({ error: queueError }) => {
+          if (queueError) console.warn('[enrich-buyer] pe_link_queue upsert failed:', queueError);
+          else console.log(`[enrich-buyer] Enqueued ${buyerId} for PE firm linking`);
+        });
+    }
+
     // Observability: log enrichment outcome (non-blocking)
     logEnrichmentEvent(supabase, {
       entityType: 'buyer',
