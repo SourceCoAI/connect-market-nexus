@@ -53,6 +53,7 @@ export function useDealsData() {
   const {
     data: listings,
     isLoading: listingsLoading,
+    error: listingsQueryError,
     isError: listingsError,
     refetch: refetchListings,
   } = useQuery({
@@ -60,7 +61,7 @@ export function useDealsData() {
     refetchOnMount: 'always',
     staleTime: 30_000,
     queryFn: async () => {
-      const BATCH = 1000;
+      const BATCH = 500;
       const allRows: DealListing[] = [];
       let offset = 0;
       let hasMore = true;
@@ -88,6 +89,7 @@ export function useDealsData() {
             pushed_to_marketplace, pushed_to_marketplace_at, pushed_to_marketplace_by
           `,
           )
+          .is('deleted_at', null)
           .eq('remarketing_status', 'active')
           .or(
             'deal_source.in.(marketplace,manual,referral,remarketing,salesforce_remarketing),' +
@@ -97,7 +99,10 @@ export function useDealsData() {
           .order('deal_total_score', { ascending: false, nullsFirst: true })
           .order('created_at', { ascending: false })
           .range(offset, offset + BATCH - 1);
-        if (error) throw error;
+        if (error) {
+          console.error('[Active Deals] Query failed:', error.message, error.code, error.details);
+          throw error;
+        }
         if (data && data.length > 0) {
           allRows.push(...(data as unknown as DealListing[]));
           offset += BATCH;
@@ -439,6 +444,7 @@ export function useDealsData() {
     listings,
     listingsLoading,
     listingsError,
+    listingsQueryError,
     refetchListings,
     sortedListings,
     localOrder,
