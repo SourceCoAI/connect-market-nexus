@@ -31,7 +31,7 @@ const handler = async (req: Request): Promise<Response> => {
       buyerEmail,
       buyerCompany,
       dealValue,
-      dealTitle,
+      dealTitle: _dealTitle,
       dealOwnerName,
       dealOwnerEmail
     }: OwnerIntroRequest = await req.json();

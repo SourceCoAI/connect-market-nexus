@@ -260,7 +260,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json() as SyncRequest;
-    const { listingId, companyName, limit = 50 } = body;
+    const { listingId, companyName, limit: _limit = 50 } = body;
 
     // Support both new `contactEmails` array and legacy `contactEmail` single string
     const allEmails: string[] = [];

@@ -333,8 +333,8 @@ serve(async (req) => {
   let rowsInserted = 0;
   let rowsUpdated = 0;
   let rowsSkipped = 0;
-  const filteredByMeta = 0;
-  const filteredByData = 0;
+  const _filteredByMeta = 0;
+  const _filteredByData = 0;
   let rowsExcluded = 0;
   const exclusionReasons: Array<{ company: string; reason: string; category: string }> = [];
   let exclusionsToLog: unknown[] = [];
@@ -506,7 +506,7 @@ serve(async (req) => {
           const existingId = existingMap.get(record.captarget_row_hash);
           if (existingId) {
             // For updates, strip fields that shouldn't be overwritten
-            const { status, pushed_to_all_deals, deal_source, is_internal_deal, captarget_row_hash, ...updateFields } = record;
+            const { status: _status, pushed_to_all_deals: _pushed_to_all_deals, deal_source: _deal_source, is_internal_deal: _is_internal_deal, captarget_row_hash: _captarget_row_hash, ...updateFields } = record;
             toUpdate.push({ id: existingId, ...updateFields });
           } else {
             // Check if this company is a non-acquisition-target (PE/VC/advisory/etc.)
@@ -584,7 +584,7 @@ serve(async (req) => {
           // Insert in small batches instead of one-by-one for performance
           for (let ic = 0; ic < toInsert.length; ic += INSERT_CHUNK) {
             const insertChunk = toInsert.slice(ic, ic + INSERT_CHUNK);
-            const { data: inserted, error: insertErr } = await supabase
+            const { data: _inserted, error: insertErr } = await supabase
               .from("listings")
               .insert(insertChunk)
               .select("id");
