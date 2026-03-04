@@ -37,6 +37,7 @@ export function UniverseAssignmentButton({
         .select('id, universe_id, buyer_universes(id, name)')
         .eq('listing_id', dealId)
         .eq('status', 'active')
+        .limit(1)
         .maybeSingle();
 
       if (error) throw error;
