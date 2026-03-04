@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -36,6 +36,8 @@ import {
   ShieldCheck,
   XCircle,
   Tag,
+  RefreshCcw,
+  Loader2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn, getLocalDateString } from '@/lib/utils';
@@ -180,11 +182,41 @@ const DailyTaskDashboard = () => {
   const [pinTask, setPinTask] = useState<DailyStandupTaskWithRelations | null>(null);
   const [deleteTask, setDeleteTask] = useState<DailyStandupTaskWithRelations | null>(null);
 
+  const queryClient = useQueryClient();
   const deleteTaskMutation = useDeleteTask();
   const approveTask = useApproveTask();
   const approveAll = useApproveAllTasks();
   const dismissTask = useCancelTask();
   const { data: allDistinctTags } = useExistingTags();
+
+  // Sync meetings from Fireflies
+  const syncMeetings = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('sync-standup-meetings', {
+        body: { lookback_hours: 168 },
+      });
+      if (error) throw error;
+      return data as {
+        newly_processed: number;
+        transcripts_checked: number;
+        results?: { title: string; success: boolean; error?: string }[];
+      };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['daily-standup-tasks'] });
+      toast({
+        title: 'Meetings synced',
+        description: `Checked ${data.transcripts_checked} meetings, processed ${data.newly_processed} new.`,
+      });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Sync failed',
+        description: err instanceof Error ? err.message : 'Could not sync meetings from Fireflies',
+        variant: 'destructive',
+      });
+    },
+  });
 
   const today = getLocalDateString();
 
@@ -362,6 +394,19 @@ const DailyTaskDashboard = () => {
           <p className="text-sm text-muted-foreground mt-0.5">Deal follow-up tasks & assignments</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => syncMeetings.mutate()}
+            disabled={syncMeetings.isPending}
+          >
+            {syncMeetings.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCcw className="h-4 w-4 mr-2" />
+            )}
+            {syncMeetings.isPending ? 'Syncing...' : 'Sync Meetings'}
+          </Button>
           <Link to="/admin/daily-tasks/analytics">
             <Button variant="outline" size="sm">
               <BarChart3 className="h-4 w-4 mr-2" />

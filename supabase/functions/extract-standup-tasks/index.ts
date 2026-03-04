@@ -45,6 +45,11 @@ const TASK_TYPES = [
   'seller_relationship',
   'buyer_ic_followup',
   'other',
+  // Deal-specific types (added in migration 20260508000000)
+  'call',
+  'email',
+  'find_buyers',
+  'contact_buyers',
 ];
 
 const DEAL_STAGE_SCORES: Record<string, number> = {
@@ -68,11 +73,15 @@ const TASK_TYPE_SCORES: Record<string, number> = {
   due_diligence: 85,
   nda_execution: 82,
   schedule_call: 80,
+  call: 80,
   buyer_ic_followup: 78,
   follow_up_with_buyer: 75,
   seller_relationship: 72,
   send_materials: 70,
+  email: 68,
+  contact_buyers: 65,
   buyer_qualification: 60,
+  find_buyers: 55,
   build_buyer_universe: 50,
   other: 40,
   update_pipeline: 30,
@@ -189,13 +198,19 @@ async function fetchSummary(transcriptId: string) {
  *   **Another Speaker**
  *   Their action item (MM:SS)
  */
-function parseFirefliesActionItems(actionItemsText: string, defaultDueDate: string): ExtractedTask[] {
+function parseFirefliesActionItems(
+  actionItemsText: string,
+  defaultDueDate: string,
+): ExtractedTask[] {
   if (!actionItemsText?.trim()) return [];
 
   const tasks: ExtractedTask[] = [];
   let currentSpeaker = 'Unassigned';
 
-  const lines = actionItemsText.split('\n').map((l) => l.trim()).filter(Boolean);
+  const lines = actionItemsText
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
 
   for (const line of lines) {
     // Check for speaker header: **Speaker Name**
@@ -211,7 +226,9 @@ function parseFirefliesActionItems(actionItemsText: string, defaultDueDate: stri
     // Parse action item — optionally with timestamp (MM:SS) at end
     const timestampMatch = line.match(/\((\d{1,2}:\d{2})\)\s*$/);
     const timestamp = timestampMatch ? timestampMatch[1] : '';
-    const taskText = timestampMatch ? line.replace(/\(\d{1,2}:\d{2}\)\s*$/, '').trim() : line.trim();
+    const taskText = timestampMatch
+      ? line.replace(/\(\d{1,2}:\d{2}\)\s*$/, '').trim()
+      : line.trim();
 
     if (!taskText || taskText.length < 5) continue;
 
@@ -238,7 +255,11 @@ function inferTaskType(text: string): string {
   const lower = text.toLowerCase();
 
   // Contact/call patterns
-  if (/\b(call|phone|reach out to.*owner|contact.*owner|leave message|follow.?up.*owner)\b/.test(lower)) {
+  if (
+    /\b(call|phone|reach out to.*owner|contact.*owner|leave message|follow.?up.*owner)\b/.test(
+      lower,
+    )
+  ) {
     return 'contact_owner';
   }
   if (/\b(schedule.*call|set up.*call|arrange.*meeting|book.*call)\b/.test(lower)) {
@@ -249,7 +270,11 @@ function inferTaskType(text: string): string {
   }
 
   // Buyer-related
-  if (/\b(buyer universe|buyer list|find.*buyer|identify.*buyer|source.*buyer|build.*buyer)\b/.test(lower)) {
+  if (
+    /\b(buyer universe|buyer list|find.*buyer|identify.*buyer|source.*buyer|build.*buyer)\b/.test(
+      lower,
+    )
+  ) {
     return 'build_buyer_universe';
   }
   if (/\b(contact.*buyer|reach out.*buyer|intro.*buyer|buyer.*outreach)\b/.test(lower)) {
@@ -263,7 +288,11 @@ function inferTaskType(text: string): string {
   }
 
   // Documents/materials
-  if (/\b(send|share|forward|distribute|email.*teaser|email.*cim|email.*memo|email.*nda)\b/.test(lower)) {
+  if (
+    /\b(send|share|forward|distribute|email.*teaser|email.*cim|email.*memo|email.*nda)\b/.test(
+      lower,
+    )
+  ) {
     if (/\bnda\b/.test(lower)) return 'nda_execution';
     return 'send_materials';
   }
@@ -278,10 +307,17 @@ function inferTaskType(text: string): string {
   if (/\b(due diligence|data room|diligence)\b/.test(lower)) {
     return 'due_diligence';
   }
-  if (/\b(update.*pipeline|update.*crm|update.*status|update.*system|update.*deal|update.*data|build.*data)\b/.test(lower)) {
+  if (
+    /\b(update.*pipeline|update.*crm|update.*status|update.*system|update.*deal|update.*data|build.*data)\b/.test(
+      lower,
+    )
+  ) {
     return 'update_pipeline';
   }
-  if (/\b(seller|owner.*relationship|maintain.*relationship)\b/.test(lower) && !/contact|call|reach/.test(lower)) {
+  if (
+    /\b(seller|owner.*relationship|maintain.*relationship)\b/.test(lower) &&
+    !/contact|call|reach/.test(lower)
+  ) {
     return 'seller_relationship';
   }
 
@@ -308,9 +344,27 @@ function extractDealReference(text: string): string {
   ];
 
   const commonWords = new Set([
-    'The', 'This', 'That', 'These', 'Those', 'Team', 'Monday', 'Tuesday',
-    'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'January',
-    'February', 'March', 'April', 'May', 'June', 'July', 'August',
+    'The',
+    'This',
+    'That',
+    'These',
+    'Those',
+    'Team',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
   ]);
 
   for (const pattern of patterns) {
@@ -359,6 +413,10 @@ ${memberList}
 - buyer_qualification: Qualify or vet a potential buyer
 - seller_relationship: Maintain or strengthen the relationship with a seller/owner
 - buyer_ic_followup: Follow up with a buyer's investment committee or decision-makers
+- call: Make a phone call (general, not owner-specific)
+- email: Send an email (general, not materials-specific)
+- find_buyers: Research and find potential buyers
+- contact_buyers: Reach out to specific buyers
 - other: Tasks that don't fit above categories
 
 ## Extraction Rules
@@ -430,8 +488,8 @@ async function extractTasksWithAI(
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content || '';
 
-  // Parse the JSON array from the response
-  const jsonMatch = content.match(/\[[\s\S]*\]/);
+  // Parse the JSON array from the response (non-greedy to avoid capturing extra text)
+  const jsonMatch = content.match(/\[[\s\S]*?\](?=[^[\]]*$)/);
   if (!jsonMatch) return [];
 
   try {
@@ -510,9 +568,7 @@ async function loadTeamMembers(supabase: ReturnType<typeof createClient>): Promi
     .select('user_id, profiles!inner(id, first_name, last_name)')
     .in('role', ['owner', 'admin', 'moderator']);
 
-  const { data: aliases } = await supabase
-    .from('team_member_aliases')
-    .select('profile_id, alias');
+  const { data: aliases } = await supabase.from('team_member_aliases').select('profile_id, alias');
 
   const aliasMap = new Map<string, string[]>();
   for (const a of aliases || []) {
@@ -521,13 +577,15 @@ async function loadTeamMembers(supabase: ReturnType<typeof createClient>): Promi
     aliasMap.set(a.profile_id, existing);
   }
 
-  return (teamRoles || []).map((r: { user_id: string; profiles: { id: string; first_name: string; last_name: string } }) => ({
-    id: r.user_id,
-    name: `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim(),
-    first_name: r.profiles.first_name || '',
-    last_name: r.profiles.last_name || '',
-    aliases: aliasMap.get(r.user_id) || [],
-  }));
+  return (teamRoles || []).map(
+    (r: { user_id: string; profiles: { id: string; first_name: string; last_name: string } }) => ({
+      id: r.user_id,
+      name: `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim(),
+      first_name: r.profiles.first_name || '',
+      last_name: r.profiles.last_name || '',
+      aliases: aliasMap.get(r.user_id) || [],
+    }),
+  );
 }
 
 function matchAssignee(name: string, teamMembers: TeamMember[]): string | null {
@@ -559,7 +617,12 @@ function matchAssignee(name: string, teamMembers: TeamMember[]): string | null {
 async function matchDeal(
   dealRef: string,
   supabase: ReturnType<typeof createClient>,
-): Promise<{ id: string; listing_id: string; ebitda: number | null; stage_name: string | null } | null> {
+): Promise<{
+  id: string;
+  listing_id: string;
+  ebitda: number | null;
+  stage_name: string | null;
+} | null> {
   if (!dealRef) return null;
   // Sanitize dealRef to prevent PostgREST filter injection
   const sanitized = dealRef.replace(/[(),."'\\]/g, '').trim();
@@ -576,7 +639,13 @@ async function matchDeal(
     .limit(1);
 
   if (deals && deals.length > 0) {
-    const deal = deals[0] as { id: string; listing_id: string; stage_id: string; deal_stages: { name: string } | null; listings: { ebitda: number | null; title: string; internal_company_name: string } };
+    const deal = deals[0] as {
+      id: string;
+      listing_id: string;
+      stage_id: string;
+      deal_stages: { name: string } | null;
+      listings: { ebitda: number | null; title: string; internal_company_name: string };
+    };
     return {
       id: deal.id,
       listing_id: deal.listing_id,
@@ -740,8 +809,7 @@ async function processSingleMeeting(
     meetingDuration = summary.duration ? Math.round(summary.duration) : 0;
 
     if (summary.date) {
-      const dateNum =
-        typeof summary.date === 'number' ? summary.date : parseInt(summary.date, 10);
+      const dateNum = typeof summary.date === 'number' ? summary.date : parseInt(summary.date, 10);
       if (!isNaN(dateNum)) {
         meetingDate = new Date(dateNum).toISOString().split('T')[0];
       }
@@ -809,7 +877,8 @@ async function processSingleMeeting(
       meeting_duration_minutes: meetingDuration || null,
       transcript_url: transcriptUrl || null,
       tasks_extracted: extractedTasks.length,
-      tasks_unassigned: extractedTasks.filter((t) => !matchAssignee(t.assignee_name, teamMembers)).length,
+      tasks_unassigned: extractedTasks.filter((t) => !matchAssignee(t.assignee_name, teamMembers))
+        .length,
       extraction_confidence_avg:
         extractedTasks.length > 0
           ? extractedTasks.reduce((sum, t) => {
@@ -931,13 +1000,13 @@ serve(async (req) => {
 
     const allEbitdaValues = await loadAllEbitdaValues(supabase);
 
-    // Check auto-approve setting
+    // Check auto-approve setting (table is platform_settings, not app_settings)
     let autoApproveEnabled = true;
     const { data: autoApproveSetting } = await supabase
-      .from('app_settings')
+      .from('platform_settings')
       .select('value')
       .eq('key', 'task_auto_approve_high_confidence')
-      .single();
+      .maybeSingle();
 
     if (autoApproveSetting?.value !== undefined) {
       autoApproveEnabled = autoApproveSetting.value === 'true' || autoApproveSetting.value === true;

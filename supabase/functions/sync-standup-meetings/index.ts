@@ -4,11 +4,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 /**
- * Polling fallback for daily standup meeting detection.
+ * Polling fallback for meeting detection.
  *
- * Queries Fireflies for recent meetings and checks for the `<ds>` tag
- * in the title. Any unprocessed standup meetings are sent to the
- * extract-standup-tasks function.
+ * Queries Fireflies for recent meetings and processes any unprocessed ones
+ * through the extract-standup-tasks function.
+ *
+ * Meetings tagged with `<ds>` in the title are prioritized as known
+ * standup meetings, but ALL meetings are processed by default so tasks
+ * are never silently dropped.
  *
  * This runs on a cron schedule as a safety net in case the Fireflies
  * webhook is misconfigured, delayed, or fails silently.
@@ -22,9 +25,7 @@ const LOOKBACK_HOURS = 48;
 function hasStandupTag(title: string): boolean {
   const lower = title.toLowerCase();
   return (
-    lower.includes(STANDUP_TITLE_TAG) ||
-    lower.includes('&lt;ds&gt;') ||
-    lower.includes('%3cds%3e')
+    lower.includes(STANDUP_TITLE_TAG) || lower.includes('&lt;ds&gt;') || lower.includes('%3cds%3e')
   );
 }
 
@@ -82,9 +83,7 @@ serve(async (req) => {
     const fromDate = new Date(Date.now() - lookbackHours * 60 * 60 * 1000);
     const fromDateIso = fromDate.toISOString().split('T')[0];
 
-    console.log(
-      `Syncing standup meetings from ${fromDateIso} (${lookbackHours}h lookback)`,
-    );
+    console.log(`Syncing standup meetings from ${fromDateIso} (${lookbackHours}h lookback)`);
 
     // Fetch recent transcripts from Fireflies
     const data = await firefliesGraphQL(
@@ -98,29 +97,26 @@ serve(async (req) => {
       { fromDate: fromDate.toISOString() },
     );
 
-    const transcripts = data?.transcripts || [];
+    const transcripts = (data?.transcripts || []).filter((t: { title?: string }) => !!t.title);
     console.log(`Found ${transcripts.length} recent transcripts`);
 
-    // Filter for standup meetings
-    const standupTranscripts = transcripts.filter(
-      (t: { title?: string }) => t.title && hasStandupTag(t.title),
-    );
-    console.log(`Found ${standupTranscripts.length} with <ds> tag`);
+    // Log which meetings have the <ds> standup tag (informational only)
+    const taggedCount = transcripts.filter((t: { title: string }) => hasStandupTag(t.title)).length;
+    console.log(`${taggedCount} of ${transcripts.length} have <ds> tag (processing ALL meetings)`);
 
-    if (standupTranscripts.length === 0) {
+    if (transcripts.length === 0) {
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'No unprocessed standup meetings found',
-          transcripts_checked: transcripts.length,
-          standups_found: 0,
+          message: 'No recent meetings found in Fireflies',
+          transcripts_checked: 0,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     // Check which ones have already been processed
-    const transcriptIds = standupTranscripts.map((t: { id: string }) => t.id);
+    const transcriptIds = transcripts.map((t: { id: string }) => t.id);
     const { data: existing } = await supabase
       .from('standup_meetings')
       .select('fireflies_transcript_id')
@@ -130,13 +126,9 @@ serve(async (req) => {
       (existing || []).map((e: { fireflies_transcript_id: string }) => e.fireflies_transcript_id),
     );
 
-    const unprocessed = standupTranscripts.filter(
-      (t: { id: string }) => !processedIds.has(t.id),
-    );
+    const unprocessed = transcripts.filter((t: { id: string }) => !processedIds.has(t.id));
 
-    console.log(
-      `${unprocessed.length} unprocessed standup meetings (${processedIds.size} already done)`,
-    );
+    console.log(`${unprocessed.length} unprocessed meetings (${processedIds.size} already done)`);
 
     // Process each unprocessed standup
     const results: {
@@ -151,20 +143,17 @@ serve(async (req) => {
       try {
         console.log(`Processing: "${transcript.title}" (${transcript.id})`);
 
-        const extractResponse = await fetch(
-          `${supabaseUrl}/functions/v1/extract-standup-tasks`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${supabaseKey}`,
-            },
-            body: JSON.stringify({
-              fireflies_transcript_id: transcript.id,
-              meeting_title: transcript.title,
-            }),
+        const extractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-standup-tasks`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${supabaseKey}`,
           },
-        );
+          body: JSON.stringify({
+            fireflies_transcript_id: transcript.id,
+            meeting_title: transcript.title,
+          }),
+        });
 
         const extractResult = await extractResponse.json();
 
@@ -205,7 +194,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         transcripts_checked: transcripts.length,
-        standups_found: standupTranscripts.length,
+        tagged_standups: taggedCount,
         already_processed: processedIds.size,
         newly_processed: processed,
         failed,
