@@ -159,7 +159,7 @@ KEY BEHAVIOR: Automatically includes buyers from universes whose name matches th
         buyer_type: {
           type: 'string',
           description:
-            'Filter by buyer type (e.g. "pe_platform", "strategic", "independent_sponsor")',
+            'Filter by buyer type (e.g. "private_equity", "corporate", "independent_sponsor", "family_office", "search_fund", "individual_buyer")',
         },
         state: {
           type: 'string',

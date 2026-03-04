@@ -637,9 +637,9 @@ async function applyToUniverse(
   const buyerTypes = new Set(buyers.map((b) => b.buyer_identity?.type).filter(Boolean));
   if (buyerTypes.size > 0) {
     universeUpdate.buyer_types_criteria = {
-      include_pe_firms: buyerTypes.has('pe_firm') || buyerTypes.has('private_equity'),
-      include_platforms: buyerTypes.has('platform') || buyerTypes.has('corporate'),
-      include_strategic: buyerTypes.has('strategic') || buyerTypes.has('corporate'),
+      include_pe_firms: buyerTypes.has('private_equity'),
+      include_platforms: buyerTypes.has('corporate'),
+      include_strategic: buyerTypes.has('corporate'),
       include_family_office: buyerTypes.has('family_office'),
       include_independent_sponsors: buyerTypes.has('independent_sponsor'),
       include_search_funds: buyerTypes.has('search_fund'),
