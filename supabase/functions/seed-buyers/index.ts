@@ -72,12 +72,12 @@ function buildCacheKey(
   },
   buyerCategory?: string,
 ): string {
-  const industry = (deal.industry || 'unknown').toLowerCase().trim();
-  const cats = (deal.categories || []).sort().join(',').toLowerCase();
-  const state = (deal.address_state || 'unknown').toLowerCase().trim();
-  const ebitdaBucket = deal.ebitda ? Math.floor(deal.ebitda / 500_000) * 500_000 : 0;
+  // Use listing ID as the primary cache key so each deal has its own seed results.
+  // Previously this was keyed on deal characteristics (industry+state+ebitda bucket),
+  // which caused cache collisions where buyers seeded for deal A would appear for
+  // unrelated deal B that happened to share the same profile.
   const catSuffix = buyerCategory ? `:${buyerCategory}` : '';
-  return `seed:${industry}:${cats}:${state}:${ebitdaBucket}${catSuffix}`;
+  return `seed:v2:${deal.id}${catSuffix}`;
 }
 
 function extractDomain(url: string | null): string | null {

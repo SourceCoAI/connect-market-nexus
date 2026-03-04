@@ -61,54 +61,92 @@ import {
 // Module-level rate limit config — set once per invocation from the main handler's supabase client
 let _rateLimitConfig: RateLimitConfig | undefined;
 
+// Content below this threshold triggers a full-page fallback scrape.
+// Small business sites (restaurants, pubs, local services) often put key info
+// (address, about section, business description) outside the "main content" area,
+// in footers or sidebars that onlyMainContent:true strips out.
+const SPARSE_CONTENT_THRESHOLD = 800;
+
+async function scrapeWebsiteOnce(
+  url: string,
+  apiKey: string,
+  onlyMainContent: boolean,
+): Promise<{ ok: boolean; content: string; httpError?: string }> {
+  let formattedUrl = url.trim();
+  if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+    formattedUrl = `https://${formattedUrl}`;
+  }
+
+  const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      url: formattedUrl,
+      formats: ['markdown'],
+      onlyMainContent,
+      waitFor: 1500,
+    }),
+    signal: AbortSignal.timeout(BUYER_SCRAPE_TIMEOUT_MS),
+  });
+
+  if (response.status === 429 && _rateLimitConfig?.supabase) {
+    await reportRateLimit(_rateLimitConfig.supabase, 'firecrawl');
+  }
+
+  if (!response.ok) {
+    return { ok: false, content: '', httpError: `HTTP ${response.status}` };
+  }
+
+  const data = await response.json();
+  const content = data.data?.markdown || data.markdown || '';
+  return { ok: true, content };
+}
+
 async function scrapeWebsite(
   url: string,
   apiKey: string,
 ): Promise<{ success: boolean; content?: string; error?: string }> {
-  const doScrape = async () => {
-    let formattedUrl = url.trim();
-    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
-      formattedUrl = `https://${formattedUrl}`;
-    }
-
-    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: formattedUrl,
-        formats: ['markdown'],
-        onlyMainContent: true,
-        waitFor: 1500,
-      }),
-      signal: AbortSignal.timeout(BUYER_SCRAPE_TIMEOUT_MS),
-    });
-
-    if (response.status === 429 && _rateLimitConfig?.supabase) {
-      await reportRateLimit(_rateLimitConfig.supabase, 'firecrawl');
-    }
-
-    if (!response.ok) {
-      return { success: false, error: `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    const content = data.data?.markdown || data.markdown || '';
-
-    if (!content || content.length < BUYER_MIN_CONTENT_LENGTH) {
-      return { success: false, error: `Insufficient content (${content.length} chars)` };
-    }
-
-    return { success: true, content };
-  };
-
   try {
-    if (_rateLimitConfig?.supabase) {
-      return await withConcurrencyTracking(_rateLimitConfig.supabase, 'firecrawl', doScrape);
+    const runScrape = (onlyMainContent: boolean) => {
+      const fn = () => scrapeWebsiteOnce(url, apiKey, onlyMainContent);
+      return _rateLimitConfig?.supabase
+        ? withConcurrencyTracking(_rateLimitConfig.supabase, 'firecrawl', fn)
+        : fn();
+    };
+
+    // First attempt: onlyMainContent:true filters out nav/footer noise (preferred for PE/platform sites)
+    const first = await runScrape(true);
+
+    if (!first.ok) {
+      return { success: false, error: first.httpError };
     }
-    return await doScrape();
+
+    // If the main content is rich enough, we're done
+    if (first.content.length >= SPARSE_CONTENT_THRESHOLD) {
+      return { success: true, content: first.content };
+    }
+
+    // Sparse result — retry with full page scrape.
+    // Small business sites (restaurants, pubs, local service companies) commonly put
+    // their description, address, and about content in sidebars/footers that are
+    // stripped by onlyMainContent:true.
+    console.log(
+      `[scrapeWebsite] Sparse main content (${first.content.length} chars) — retrying with full page`,
+    );
+    const fallback = await runScrape(false);
+
+    const best = fallback.ok && fallback.content.length > first.content.length
+      ? fallback.content
+      : first.content;
+
+    if (best.length < BUYER_MIN_CONTENT_LENGTH) {
+      return { success: false, error: `Insufficient content (${best.length} chars)` };
+    }
+
+    return { success: true, content: best };
   } catch (error) {
     if (error instanceof Error && error.name === 'TimeoutError') {
       return { success: false, error: `Timed out after ${BUYER_SCRAPE_TIMEOUT_MS / 1000}s` };

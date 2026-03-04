@@ -330,8 +330,10 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
   const handleSeedBuyers = async () => {
     setSeedResults(null);
     try {
-      // AI search always runs without buyerCategory filter — Opus finds the best buyers across all types
-      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: false });
+      // AI search always runs without buyerCategory filter — Opus finds the best buyers across all types.
+      // forceRefresh: true ensures clicking this button always runs a fresh Claude search instead
+      // of returning stale cached results from a previous run.
+      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: true });
       setSeedResults(result.seeded_buyers);
       if (result.cached) {
         toast.info(`Found ${result.total} cached AI-seeded buyers`);
