@@ -12,10 +12,17 @@
  *   - email.unsubscribed
  *   - sms.opt_out
  *
- * Authentication: None — accepts all incoming POST requests without
- * signature or authentication to ensure the dialer can always post
- * call activity updates. Signature is still checked and logged for
- * auditing purposes when PHONEBURNER_WEBHOOK_SECRET is configured.
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │ AUTHENTICATION: NONE                                           │
+ * │                                                                │
+ * │ This endpoint accepts ALL incoming POST requests without any   │
+ * │ secret, signature, or authentication header. This is BY DESIGN │
+ * │ to ensure PhoneBurner (and intermediaries like n8n) can always  │
+ * │ post call activity updates without configuration friction.     │
+ * │                                                                │
+ * │ DO NOT add secret/signature checks here. If you need to gate   │
+ * │ access, use IP allowlisting at the network layer instead.      │
+ * └─────────────────────────────────────────────────────────────────┘
  *
  * IMPORTANT: The push function stores `sourceco_id` in custom_fields.
  * We read both `sourceco_id` and `sourceco_contact_id` for backwards-compat.
@@ -70,26 +77,14 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const webhookSecret = Deno.env.get('PHONEBURNER_WEBHOOK_SECRET');
+  // NO secret/signature check — see file header for rationale.
+  // DO NOT re-add authentication here.
   const supabase: ReturnType<typeof createClient> = createClient(supabaseUrl, serviceRoleKey);
 
   const rawBody = await req.text();
+  const signatureValid = true; // no auth required — always accepted
 
-  // ── simple secret header check ──
-  const headerSecret = req.headers.get('x-webhook-secret') || req.headers.get('X-Webhook-Secret');
-  let signatureValid = false;
-  // SECURITY: Fail closed — reject all requests when secret is not configured
-  if (!webhookSecret) {
-    console.error('PHONEBURNER_WEBHOOK_SECRET not configured — rejecting request (fail-closed)');
-    return jsonResponse({ error: 'Webhook secret not configured' }, 500, corsHeaders);
-  }
-  if (headerSecret === webhookSecret) {
-    signatureValid = true;
-    console.log('PhoneBurner webhook received, secret verified');
-  } else {
-    console.warn('PhoneBurner webhook secret mismatch — rejecting');
-    return jsonResponse({ error: 'Invalid webhook secret' }, 401, corsHeaders);
-  }
+  console.log('PhoneBurner webhook received (no auth required)');
 
   let payload: Record<string, unknown>;
   try {
