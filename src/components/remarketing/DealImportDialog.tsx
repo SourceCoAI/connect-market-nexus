@@ -77,6 +77,8 @@ export function DealImportDialog({
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [columnFilter, setColumnFilter] = useState("");
+  // Track if any import was ever started so we can always refresh on close
+  const [importWasStarted, setImportWasStarted] = useState(false);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
@@ -146,6 +148,7 @@ export function DealImportDialog({
     setStep("importing");
     setIsImporting(true);
     setImportProgress(0);
+    setImportWasStarted(true);
 
     try {
       const results = await handleImport({
@@ -175,17 +178,27 @@ export function DealImportDialog({
     setMappingStats(null);
     setImportProgress(0);
     setImportResults(null);
+    setImportWasStarted(false);
   };
 
   const handleClose = () => {
-    // If closing after a successful import, notify the parent so it can
-    // invalidate queries and refresh the deals list.
-    if (step === "complete" && importResults && (importResults.imported > 0 || importResults.merged > 0)) {
-      onImportComplete();
+    // Block accidental close while import is in-flight
+    if (isImporting) return;
+
+    // If import reached the complete screen with results, fire the
+    // detailed completion callback too.
+    if (step === "complete" && importResults) {
       if (onImportCompleteWithIds && importResults.importedIds.length > 0) {
         onImportCompleteWithIds(importResults.importedIds);
       }
     }
+
+    // Always invalidate/refresh if an import was ever started — deals may
+    // have been inserted even if the user closed before seeing the results screen.
+    if (importWasStarted) {
+      onImportComplete();
+    }
+
     reset();
     onOpenChange(false);
   };
