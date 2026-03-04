@@ -48,6 +48,8 @@ export function calculatorBadge(type: string) {
     auto_shop: { label: "Auto Shop", className: "bg-blue-50 text-blue-700 border-blue-200" },
     hvac: { label: "HVAC", className: "bg-orange-50 text-orange-700 border-orange-200" },
     collision: { label: "Collision", className: "bg-purple-50 text-purple-700 border-purple-200" },
+    specialty: { label: "Specialty", className: "bg-teal-50 text-teal-700 border-teal-200" },
+    mechanical: { label: "Mechanical", className: "bg-indigo-50 text-indigo-700 border-indigo-200" },
   };
   const c = config[type] || { label: type.replace(/_/g, " "), className: "bg-muted text-muted-foreground border-border" };
   return (

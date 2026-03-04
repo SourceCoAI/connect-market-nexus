@@ -68,6 +68,11 @@ export const VALUATION_LEAD_FIELDS: FilterFieldDef[] = [
       { label: 'Mechanical', value: 'mechanical' },
       { label: 'Specialty', value: 'specialty' },
       { label: 'HVAC', value: 'hvac' },
+      { label: 'Dental', value: 'dental' },
+      { label: 'Plumbing', value: 'plumbing' },
+      { label: 'Electrical', value: 'electrical' },
+      { label: 'Landscaping', value: 'landscaping' },
+      { label: 'Pest Control', value: 'pest_control' },
     ],
   },
   // ── Contact ───────────────────────────────────────────────────────
