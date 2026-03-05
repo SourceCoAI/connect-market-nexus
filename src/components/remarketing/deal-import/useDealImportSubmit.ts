@@ -16,6 +16,13 @@ import {
   sanitizeListingInsert,
 } from '@/lib/deal-csv-import';
 
+export interface DealLocation {
+  /** Human-readable section name */
+  label: string;
+  /** URL path to the deal in the admin UI */
+  href: string;
+}
+
 export interface DuplicateDetail {
   /** CSV row number (1-based display) */
   row: number;
@@ -29,6 +36,8 @@ export interface DuplicateDetail {
   matchedBy: 'website' | 'name';
   /** Whether empty fields were merged */
   wasMerged: boolean;
+  /** Where the deal currently exists in the system */
+  locations: DealLocation[];
 }
 
 export interface ImportResults {
@@ -55,6 +64,64 @@ interface MergeResult {
   existingTitle: string;
   matchedBy: 'website' | 'name';
   fieldsUpdated: boolean;
+  locations: DealLocation[];
+}
+
+/**
+ * Determine where an existing listing lives in the system based on its
+ * deal_source, pushed_to_all_deals flag, and universe memberships.
+ */
+async function resolveLocations(listing: Record<string, unknown>): Promise<DealLocation[]> {
+  const locations: DealLocation[] = [];
+  const id = listing.id as string;
+  const dealSource = listing.deal_source as string | null;
+  const pushed = listing.pushed_to_all_deals as boolean | null;
+
+  // Primary source page
+  if (dealSource === 'sourceco') {
+    locations.push({ label: 'SourceCo Deals', href: `/admin/remarketing/leads/sourceco/${id}` });
+  } else if (dealSource === 'captarget') {
+    locations.push({ label: 'CapTarget Deals', href: `/admin/remarketing/leads/captarget/${id}` });
+  } else if (dealSource === 'gp_partner') {
+    locations.push({ label: 'GP Partner Deals', href: `/admin/remarketing/leads/gp-partners/${id}` });
+  } else if (dealSource === 'valuation') {
+    locations.push({ label: 'Valuation Leads', href: `/admin/remarketing/leads/valuation` });
+  }
+
+  // All Deals (pushed)
+  if (pushed) {
+    locations.push({ label: 'All Deals', href: `/admin/remarketing/deals` });
+  }
+
+  // Check universe memberships
+  try {
+    const { data: universes } = await supabase
+      .from('remarketing_universe_deals')
+      .select('universe_id, remarketing_universes!inner(name)')
+      .eq('listing_id', id)
+      .limit(5);
+
+    if (universes && universes.length > 0) {
+      for (const u of universes) {
+        const uni = u as Record<string, unknown>;
+        const uniInfo = uni.remarketing_universes as Record<string, unknown> | null;
+        const uniName = (uniInfo?.name as string) || 'Unknown Universe';
+        locations.push({
+          label: `Universe: ${uniName}`,
+          href: `/admin/remarketing/universes/${uni.universe_id}`,
+        });
+      }
+    }
+  } catch {
+    // Non-critical — skip universe lookup on failure
+  }
+
+  // Fallback if no specific location found
+  if (locations.length === 0) {
+    locations.push({ label: 'Deal Detail', href: `/admin/remarketing/deals/${id}` });
+  }
+
+  return locations;
 }
 
 /**
@@ -149,9 +216,10 @@ async function tryMergeExistingListing(
 
     const existingId = existingListing.id as string;
     const existingTitle = (existingListing.title as string) || 'Unknown';
+    const locations = await resolveLocations(existingListing);
 
     if (Object.keys(updates).length === 0) {
-      return { listingId: existingId, existingTitle, matchedBy, fieldsUpdated: false };
+      return { listingId: existingId, existingTitle, matchedBy, fieldsUpdated: false, locations };
     }
 
     const { error: updateError } = await supabase
@@ -161,10 +229,10 @@ async function tryMergeExistingListing(
 
     if (updateError) {
       console.warn('Merge update failed:', updateError.message);
-      return { listingId: existingId, existingTitle, matchedBy, fieldsUpdated: false };
+      return { listingId: existingId, existingTitle, matchedBy, fieldsUpdated: false, locations };
     }
 
-    return { listingId: existingId, existingTitle, matchedBy, fieldsUpdated: true };
+    return { listingId: existingId, existingTitle, matchedBy, fieldsUpdated: true, locations };
   } catch (err) {
     console.warn('Merge lookup failed:', (err as Error).message);
     return null;
@@ -290,6 +358,7 @@ export async function handleImport({
               existingId: mergeResult.listingId,
               matchedBy: mergeResult.matchedBy,
               wasMerged: mergeResult.fieldsUpdated,
+              locations: mergeResult.locations,
             });
             if (mergeResult.fieldsUpdated) {
               results.merged++;

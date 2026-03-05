@@ -329,19 +329,36 @@ export function DealImportDialog({
                       <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
                         {importResults.duplicates.length} deal{importResults.duplicates.length !== 1 ? 's' : ''} already existed in the system
                       </p>
-                      <ScrollArea className="max-h-40">
-                        <div className="space-y-1">
+                      <ScrollArea className="max-h-60">
+                        <div className="space-y-2">
                           {importResults.duplicates.map((dup) => (
-                            <div key={dup.existingId} className="text-xs text-blue-700 dark:text-blue-300 flex items-start gap-1">
-                              <span className="shrink-0">&bull;</span>
-                              <span>
-                                <strong>{dup.csvCompanyName}</strong>
-                                {dup.csvCompanyName !== dup.existingTitle && (
-                                  <> matched <strong>{dup.existingTitle}</strong></>
-                                )}
-                                {' '}(by {dup.matchedBy})
-                                {dup.wasMerged && <span className="text-green-700 dark:text-green-400"> — fields updated</span>}
-                              </span>
+                            <div key={dup.existingId} className="text-xs text-blue-700 dark:text-blue-300">
+                              <div className="flex items-start gap-1">
+                                <span className="shrink-0">&bull;</span>
+                                <span>
+                                  <strong>{dup.csvCompanyName}</strong>
+                                  {dup.csvCompanyName !== dup.existingTitle && (
+                                    <> matched <strong>{dup.existingTitle}</strong></>
+                                  )}
+                                  {' '}(by {dup.matchedBy})
+                                  {dup.wasMerged && <span className="text-green-700 dark:text-green-400"> — fields updated</span>}
+                                </span>
+                              </div>
+                              {dup.locations.length > 0 && (
+                                <div className="ml-4 mt-0.5 flex flex-wrap gap-1">
+                                  {dup.locations.map((loc) => (
+                                    <a
+                                      key={loc.href}
+                                      href={loc.href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center rounded bg-blue-100 dark:bg-blue-900/50 px-1.5 py-0.5 text-[10px] font-medium text-blue-800 dark:text-blue-200 hover:underline"
+                                    >
+                                      {loc.label}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
