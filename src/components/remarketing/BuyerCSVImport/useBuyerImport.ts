@@ -37,10 +37,11 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  const [importResults, setImportResults] = useState<{ success: number; errors: number; skipped: number }>({
+  const [importResults, setImportResults] = useState<{ success: number; errors: number; skipped: number; linked: number }>({
     success: 0,
     errors: 0,
     skipped: 0,
+    linked: 0,
   });
   const [duplicates, setDuplicates] = useState<DuplicateWarning[]>([]);
   const [skipDuplicates, setSkipDuplicates] = useState<Set<number>>(new Set());
@@ -198,27 +199,57 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
 
     setStep('importing');
     setImportProgress(0);
-    setImportResults({ success: 0, errors: 0, skipped: 0 });
+    setImportResults({ success: 0, errors: 0, skipped: 0, linked: 0 });
 
     let success = 0;
     let errors = 0;
     let skipped = 0;
+    let linked = 0;
     let contactsCreated = 0;
+
+    // Build a map from row index → existing buyer ID for duplicates that should be linked
+    const existingBuyerMap = new Map<number, string>();
+    for (const dup of duplicates) {
+      if (!skipDuplicates.has(dup.index) && dup.potentialDuplicates.length > 0) {
+        existingBuyerMap.set(dup.index, dup.potentialDuplicates[0].id);
+      }
+    }
 
     // Filter out skipped duplicates
     const dataToImport = validRows.filter(({ index }) => !skipDuplicates.has(index));
     const wantContacts = hasContactMapping(mappings);
 
-    if (wantContacts) {
-      // Single-insert mode: need buyer IDs to create linked contacts
-      for (let i = 0; i < dataToImport.length; i++) {
-        const { row } = dataToImport[i];
-        const buyer = buildBuyerFromRow(row, mappings, universeId);
-        if (!buyer.company_name) {
+    for (let i = 0; i < dataToImport.length; i++) {
+      const { index: rowIndex, row } = dataToImport[i];
+      const existingBuyerId = existingBuyerMap.get(rowIndex);
+
+      if (existingBuyerId && universeId) {
+        // Buyer already exists — link to this universe instead of creating a duplicate
+        const { error: linkError } = await supabase
+          .from('buyers')
+          .update({ universe_id: universeId } as never)
+          .eq('id', existingBuyerId);
+
+        if (linkError) {
+          console.warn('Failed to link existing buyer:', existingBuyerId, linkError.message);
           errors += 1;
-          continue;
+        } else {
+          linked += 1;
         }
 
+        setImportProgress(((i + 1) / dataToImport.length) * 100);
+        continue;
+      }
+
+      const buyer = buildBuyerFromRow(row, mappings, universeId);
+      if (!buyer.company_name) {
+        errors += 1;
+        setImportProgress(((i + 1) / dataToImport.length) * 100);
+        continue;
+      }
+
+      if (wantContacts) {
+        // Single-insert mode: need buyer ID to create linked contacts
         const { data: inserted, error: buyerError } = await supabase
           .from('buyers')
           .insert(buyer as never)
@@ -260,52 +291,38 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
             }
           }
         }
+      } else {
+        // Direct insert (no contacts needed)
+        const { error: insertError } = await supabase.from('buyers').insert(buyer as never);
 
-        setImportProgress(((i + 1) / dataToImport.length) * 100);
-      }
-    } else {
-      // Batch mode: faster when no contact fields are mapped
-      const batchSize = 10;
-      for (let i = 0; i < dataToImport.length; i += batchSize) {
-        const batch = dataToImport.slice(i, i + batchSize);
-        const buyersToInsert = batch
-          .map(({ row }) => buildBuyerFromRow(row, mappings, universeId))
-          .filter((b): b is typeof b & { company_name: string } => !!b.company_name);
-
-        if (buyersToInsert.length > 0) {
-          const { error } = await supabase.from('buyers').insert(buyersToInsert as never);
-
-          if (error) {
-            for (const buyer of buyersToInsert) {
-              const { error: singleError } = await supabase.from('buyers').insert(buyer as never);
-
-              if (singleError) {
-                // 23505 = unique_violation — already exists, count as skipped
-                if (singleError.code === '23505') {
-                  skipped += 1;
-                } else {
-                  console.warn('Failed to import buyer:', buyer.company_name, singleError.message);
-                  errors += 1;
-                }
-              } else {
-                success += 1;
-              }
-            }
+        if (insertError) {
+          if (insertError.code === '23505') {
+            skipped += 1;
           } else {
-            success += buyersToInsert.length;
+            console.warn('Failed to import buyer:', buyer.company_name, insertError.message);
+            errors += 1;
           }
+        } else {
+          success += 1;
         }
-
-        setImportProgress(Math.min(((i + batchSize) / dataToImport.length) * 100, 100));
       }
+
+      setImportProgress(((i + 1) / dataToImport.length) * 100);
     }
 
-    setImportResults((prev) => ({ ...prev, success, errors, skipped }));
+    setImportResults((prev) => ({ ...prev, success, errors, skipped, linked }));
 
-    if (success > 0) {
+    if (success > 0 || linked > 0) {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'] });
-      const contactMsg = contactsCreated > 0 ? ` with ${contactsCreated} contacts` : '';
-      toast.success(`Imported ${success} buyers${contactMsg}`);
+      const parts: string[] = [];
+      if (success > 0) {
+        const contactMsg = contactsCreated > 0 ? ` with ${contactsCreated} contacts` : '';
+        parts.push(`Imported ${success} new buyer${success !== 1 ? 's' : ''}${contactMsg}`);
+      }
+      if (linked > 0) {
+        parts.push(`Linked ${linked} existing buyer${linked !== 1 ? 's' : ''} to universe`);
+      }
+      toast.success(parts.join('. '));
     }
 
     if (skipped > 0) {
@@ -317,7 +334,7 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
     }
 
     onComplete?.();
-  }, [mappings, validRows, skipDuplicates, universeId, queryClient, onComplete]);
+  }, [mappings, validRows, skipDuplicates, duplicates, universeId, queryClient, onComplete]);
 
   // -----------------------------------------------------------------------
   // Dedupe check (calls handleImport internally if no dupes found)
@@ -396,7 +413,7 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
     setCsvData([]);
     setMappings([]);
     setImportProgress(0);
-    setImportResults({ success: 0, errors: 0, skipped: 0 });
+    setImportResults({ success: 0, errors: 0, skipped: 0, linked: 0 });
     setDuplicates([]);
     setSkipDuplicates(new Set());
     setSkippedRowsOpen(false);

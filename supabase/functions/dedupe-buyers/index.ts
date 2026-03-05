@@ -106,7 +106,7 @@ serve(async (req) => {
     // Check each incoming buyer for a domain match.
     // Buyers with no website are flagged as duplicates (they are not allowed).
     const results = buyers.map(
-      (buyer: { company_name: string; company_website?: string }, index: number) => {
+      (buyer: { index?: number; company_name: string; company_website?: string }, arrayIdx: number) => {
         const potentialDuplicates: Array<{
           existingId: string;
           existingName: string;
@@ -137,7 +137,7 @@ serve(async (req) => {
         }
 
         return {
-          index,
+          index: buyer.index ?? arrayIdx,
           companyName: buyer.company_name,
           isDuplicate: potentialDuplicates.length > 0,
           potentialDuplicates: potentialDuplicates.sort((a, b) => b.confidence - a.confidence),

@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 interface ImportProgressStepProps {
   importProgress: number;
   isComplete: boolean;
-  importResults: { success: number; errors: number; skipped: number };
+  importResults: { success: number; errors: number; skipped: number; linked: number };
 }
 
 export function ImportProgressStep({
@@ -26,10 +26,19 @@ export function ImportProgressStep({
           <>
             Import complete!
             <br />
-            <span className="text-emerald-600">{importResults.success} imported</span>
+            {importResults.success > 0 && (
+              <span className="text-emerald-600">{importResults.success} imported</span>
+            )}
+            {importResults.linked > 0 && (
+              <>
+                {importResults.success > 0 && ', '}
+                <span className="text-blue-600">{importResults.linked} linked to universe</span>
+              </>
+            )}
             {importResults.skipped > 0 && (
               <>
-                , <span className="text-amber-600">{importResults.skipped} duplicates skipped</span>
+                {(importResults.success > 0 || importResults.linked > 0) && ', '}
+                <span className="text-amber-600">{importResults.skipped} duplicates skipped</span>
               </>
             )}
             {importResults.errors > 0 && (
