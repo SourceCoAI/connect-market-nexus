@@ -114,6 +114,7 @@ export {
   useBulkUpdateAccess,
   useDocumentUrl,
   useGenerateMemo,
+  useGenerateTeaser,
   useUpdateMemo,
   usePublishMemo,
   useLogManualSend,

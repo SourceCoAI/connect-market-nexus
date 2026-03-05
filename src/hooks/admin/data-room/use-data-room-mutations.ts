@@ -309,6 +309,48 @@ export function useGenerateMemo() {
   });
 }
 
+// ─── Generate Teaser (separate edge function — reads completed lead memo only) ───
+
+export function useGenerateTeaser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { deal_id: string; project_name?: string }) => {
+      const response = await supabase.functions.invoke('generate-teaser', {
+        body: params,
+      });
+
+      if (response.error) throw new Error(response.error.message);
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['lead-memos', variables.deal_id] });
+      const validation = data?.validation;
+      if (validation && !validation.pass) {
+        toast({
+          title: 'Teaser generated with validation errors',
+          description: validation.errors?.join('; ') || 'Anonymity checks failed',
+          variant: 'destructive',
+        });
+      } else if (validation?.warnings?.length > 0) {
+        toast({
+          title: 'Teaser generated with warnings',
+          description: validation.warnings.join('; '),
+        });
+      } else {
+        toast({ title: 'Teaser generated', description: 'Anonymous teaser is ready for review' });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Teaser generation failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
 // ─── Update Memo ───
 
 export function useUpdateMemo() {

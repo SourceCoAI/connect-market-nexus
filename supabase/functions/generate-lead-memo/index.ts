@@ -814,17 +814,16 @@ function enforceAnonymization(
 // ─── Full Lead Memo Generation (institutional factual memo) ───
 
 // Expected section headers for full lead memo
-const FULL_MEMO_EXPECTED_SECTIONS = [
+const ALLOWED_SECTIONS = [
   'COMPANY OVERVIEW',
   'FINANCIAL SNAPSHOT',
   'SERVICES AND OPERATIONS',
   'OWNERSHIP AND TRANSACTION',
   'MANAGEMENT AND STAFFING',
   'KEY STRUCTURAL NOTES',
-  'INFORMATION NOT YET PROVIDED',
 ];
 
-const FULL_MEMO_REQUIRED_SECTIONS = ['COMPANY OVERVIEW', 'INFORMATION NOT YET PROVIDED'];
+const REQUIRED_SECTIONS = ['COMPANY OVERVIEW'];
 
 // Evaluative adjectives for audit warning (Check 6)
 const EVALUATIVE_ADJECTIVES = [
@@ -871,37 +870,115 @@ interface ValidationResult {
   reason: string;
 }
 
-// Blocking validation checks for full lead memo (Checks 2, 3, 4)
+function validateMemo(memoText: string): { pass: boolean; errors: string[]; warnings: string[] } {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // --- HARD FAILURES ---
+
+  if (/information not yet provided/i.test(memoText)) {
+    errors.push('Contains INFORMATION NOT YET PROVIDED section or language');
+  }
+
+  const notProvidedPatterns = [
+    /not provided/i,
+    /not stated/i,
+    /not confirmed/i,
+    /not discussed/i,
+    /not yet provided/i,
+    /not available/i,
+    /data not .{0,20}(provided|stated|available)/i,
+    /information .{0,10}(unavailable|pending)/i,
+  ];
+  for (const pattern of notProvidedPatterns) {
+    if (pattern.test(memoText)) {
+      errors.push(`Contains banned phrase: ${pattern.source}`);
+    }
+  }
+
+  const wordCount = memoText.split(/\s+/).filter(Boolean).length;
+  if (wordCount > 1200) {
+    errors.push(`Exceeds 1,200 word limit (${wordCount} words)`);
+  }
+
+  for (const required of REQUIRED_SECTIONS) {
+    if (!new RegExp(`## ${required}`, 'i').test(memoText)) {
+      errors.push(`Missing required ${required} section`);
+    }
+  }
+
+  const sectionHeaders = memoText.match(/^## .+$/gm) || [];
+  for (const header of sectionHeaders) {
+    const title = header.replace('## ', '').trim().toUpperCase();
+    if (!ALLOWED_SECTIONS.includes(title)) {
+      errors.push(`Unexpected section: "${header}"`);
+    }
+  }
+
+  const financialSection = memoText.match(/## FINANCIAL SNAPSHOT[\s\S]*?(?=## [A-Z]|$)/i);
+  if (financialSection && /\|.*\|.*\|/.test(financialSection[0])) {
+    errors.push('Financial snapshot contains a table — use simple labeled lines');
+  }
+
+  // --- WARNINGS ---
+
+  const bannedWords = [
+    'robust',
+    'impressive',
+    'attractive',
+    'compelling',
+    'well-positioned',
+    'best-in-class',
+    'world-class',
+    'industry-leading',
+    'turnkey',
+    'synergies',
+    'uniquely positioned',
+    'market leader',
+    'poised for growth',
+    'track record of success',
+    'low-hanging fruit',
+    'white-space',
+    'blue-chip',
+    'mission-critical',
+    'sticky revenue',
+    'tailwinds',
+    'fragmented market',
+    'recession-resistant',
+    'top-tier',
+    'premier',
+    'best-of-breed',
+    'defensible',
+  ];
+  const foundBanned = bannedWords.filter((w) =>
+    new RegExp(`\\b${w.replace('-', '\\-')}\\b`, 'i').test(memoText),
+  );
+  if (foundBanned.length > 0) {
+    warnings.push(`Banned words found: ${foundBanned.join(', ')}`);
+  }
+
+  if (wordCount < 200) {
+    warnings.push(`Memo is only ${wordCount} words — may need richer source data`);
+  }
+  if (wordCount > 900) {
+    warnings.push(`Memo is ${wordCount} words — verify data density justifies length`);
+  }
+
+  if (financialSection && !/\$[\d,]+/.test(financialSection[0])) {
+    warnings.push('Financial snapshot has no dollar amounts');
+  }
+
+  return { pass: errors.length === 0, errors, warnings };
+}
+
+// Legacy wrapper for backward compatibility with the regeneration loop
 function validateFullMemoSections(sections: MemoSection[]): ValidationResult {
-  // Check 2: Required sections exist
-  const sectionTitles = sections.map((s) => s.title.toUpperCase().trim());
-  for (const required of FULL_MEMO_REQUIRED_SECTIONS) {
-    if (!sectionTitles.includes(required)) {
-      return { passed: false, reason: `Missing required section: "${required}"` };
-    }
-  }
-
-  // Check 4: No unexpected section headers
-  for (const title of sectionTitles) {
-    if (!FULL_MEMO_EXPECTED_SECTIONS.includes(title)) {
-      return {
-        passed: false,
-        reason: `Unexpected section header: "${title}". Expected one of: ${FULL_MEMO_EXPECTED_SECTIONS.join(', ')}`,
-      };
-    }
-  }
-
-  // Check 3: Word count <= 1000
-  const allContent = sections.map((s) => s.content).join(' ');
-  const wordCount = allContent.split(/\s+/).filter((w) => w.length > 0).length;
-  if (wordCount > 1000) {
-    return {
-      passed: false,
-      reason: `Word count is ${wordCount}. The maximum is 1,000 words. Shorten by removing lowest-priority content (enrichment details first, then operational details).`,
-    };
-  }
-
-  return { passed: true, reason: '' };
+  const memoText = sections.map((s) => `## ${s.title}\n${s.content}`).join('\n\n');
+  const result = validateMemo(memoText);
+  return {
+    passed: result.pass,
+    reason: result.errors.join('; '),
+  };
 }
 
 // Non-blocking warning checks for full lead memo (Checks 5, 6)
@@ -964,156 +1041,79 @@ async function generateFullMemo(
     company_phone: string;
   },
 ): Promise<MemoContent> {
-  const systemPrompt = `You are a senior analyst at a tech-enabled investment bank writing an internal lead memo. This is a confidential document. Your audience is partners and deal team members who need to evaluate this opportunity quickly and consistently.
+  const systemPrompt = `You are a senior analyst at a tech-enabled investment bank writing an internal lead memo. Your audience: partners and deal team members who evaluate opportunities. A partner should read this in under 5 minutes and know whether to pursue the deal.
 
-PURPOSE: Create a structured factual summary that preserves facts exactly as stated, provides enough clarity to determine buyer fit and risk profile, and removes ambiguity around financial quality, operational structure, and ownership dynamics. A partner should be able to read this memo in under 5 minutes and know whether to pursue the deal.
+This is NOT a marketing document. It is an institutional record. It informs, it does not persuade.
 
-This is not a marketing document. It is not a teaser. It is an institutional record. It is meant to inform, not persuade.
+CORE RULES
+1. ONLY STATED FACTS: Every sentence must trace to the provided source data. If you cannot point to the exact source sentence, do not include it. No inference, no extrapolation.
+2. OMIT, DON'T APOLOGIZE: When data is missing, leave it out. Never write "not provided", "not stated", "not confirmed", "not discussed", or any variation. The reader knows what is absent by what is not in the memo.
+3. NO CHARACTERIZATION: Do not describe any metric with evaluative adjectives. Do not call revenue "consistent," margins "healthy," or growth "notable." State the number.
+4. NO COMPARISONS: Do not compare to industry benchmarks, competitors, or averages unless the source data contains a specific stated comparison.
+5. MATCH DATA DENSITY: Thin data = short memo (300–500 words). Normal data = 600–900 words. Complex multi-location deals with extensive financials may reach 1,200 words. Never pad.
 
-FORMAT RULES:
-- The complete memo must be 600-900 words. Do not exceed 1,000 words under any circumstance.
-- Use bullet points for all content outside the Company Overview section. Do not use prose paragraphs in any other section.
-- Company Overview should be 1 short paragraph (3-5 sentences max).
-- Use bold labels for the following fields: Transaction type, Reason for sale, Valuation context, Real estate, EBITDA, Revenue, Headcount, and any structured data field. Do not bold every bullet.
-- Include facts in this priority order: (1) financial figures, (2) transaction preferences and valuation context, (3) ownership and management structure, (4) services and operations, (5) enrichment details. If a fact must be omitted for length, add it to the INFORMATION NOT YET PROVIDED section as: "[Topic] — available in source data but omitted for brevity."
+SOURCE PRIORITY (highest to lowest)
+1. Financial statements / tax returns (for financial figures only)
+2. Call transcripts (most recent first)
+3. General notes and manual entries
+4. Enrichment data (website, LinkedIn)
 
-CORE DISCIPLINE:
-- Every statement must be traceable to the provided source data (transcripts, financials, enrichment data, manual entries).
-- If information was not directly stated, it must not be included. There is no room for inference.
-- If margins appear high, do not comment on it. If a growth opportunity seems obvious but was not stated by the owner, it does not go in the memo.
-- When clarity is lacking, state that clarity is lacking: "Customer concentration not yet provided." or "Contract terms not discussed."
-- Transparency about unknowns is more valuable than speculative completion.
-- Do not characterize any data point. Do not describe revenue as "consistent," margins as "healthy," growth as "notable," or any metric with any evaluative adjective. State the number. The reader will interpret.
-- Do not make comparisons to industry benchmarks, competitors, or market averages unless the source data contains a specific stated comparison.
-- Do not use language that implies quality, risk, or opportunity. The memo presents facts. It does not evaluate them.
-- When the same source provides contradictory figures (e.g., monthly revenue that does not annualize to stated annual revenue), include both figures exactly as stated and flag the discrepancy: "Owner stated $X monthly and $Y annually — these figures do not reconcile and should be clarified."
-- If the owner provides a revenue or EBITDA range, present the range exactly as stated. Do not use the midpoint or either bound as a single figure.
+Conflict rules:
+* When two sources give specific, different values for the same data point, use the highest-priority source and note: "Owner stated $X; [other source] shows $Y."
+* Vague or approximate enrichment data does not constitute a conflict.
+* If multiple transcripts exist, the most recent takes priority.
+* If no call transcript exists, note at the top: "This memo is based on enrichment data and manual entries only. No owner call transcript is available."
 
-WRITING STANDARD:
-- Neutral, factual, controlled.
-- No adjectives that imply quality. No promotional phrasing. No narrative storytelling. No emotional framing.
-- Replace qualitative language with measurable facts. Wrong: "Diversified customer base." Right: "No customer represents more than 12% of revenue."
-- When the owner's exact words are important to understanding their position (especially on transaction preferences, business description, or management involvement), use a direct quote attributed to the owner. Keep quotes to one sentence maximum.
+FORMAT
+Use only these section headers, in this order. COMPANY OVERVIEW is always included. Omit any section that has no data. Never create an "INFORMATION NOT YET PROVIDED" section.
 
-SOURCE HIERARCHY:
-- If financial statements or tax returns are provided, they take priority over verbal owner statements for financial figures specifically. Note the discrepancy: "Owner stated $X; financial statements show $Y."
-- For all other facts: Transcripts > General Notes > Enrichment/Website > Manual entries.
-- If multiple transcripts are provided, treat the most recent transcript as the highest priority. If figures differ between transcripts, use the most recent figure and note: "Updated from earlier call."
-- For verifiable objective facts (founding year, legal name, number of locations), cross-reference transcript statements with enrichment data. If they conflict, include both: "Owner stated founded in 2005; website states 2009."
-- If no call transcript is provided, note at the top of the memo: "This memo is based on enrichment data and manual entries only. No owner call transcript is available."
+COMPANY OVERVIEW
+One paragraph, 3–5 sentences. What the company does, where it operates, how it is structured. Legal name, DBA, founded year, HQ, locations, headcount, ownership, core industry. Plain terms.
 
-SECTIONS — use only the following section headers, in this order, when data exists for the section. COMPANY OVERVIEW and INFORMATION NOT YET PROVIDED are always included regardless of data availability. Omit any other section that has no data.
+FINANCIAL SNAPSHOT
+Simple labeled lines, one per data point. Only include what is explicitly stated or confirmed. Format: [Year] [Metric]: $[Amount]
 
-## COMPANY OVERVIEW
-One paragraph, 3-5 sentences. Legal name, DBA if relevant, founded year, headquarters, number of locations and geography, employee count if known, ownership structure, core industry and service category. What the company does in plain terms. Business model defined clearly. This section should allow someone unfamiliar with the company to understand the nature of the business without interpretation.
+Example:
+* 2025 Revenue: $5,200,000
+* 2025 EBITDA: $1,100,000
+* Owner Compensation: $350,000
 
-## FINANCIAL SNAPSHOT
-Present financial data in the most structured format the data supports:
-- If multi-year data is available, use a year-over-year table.
-- If data is available by location or market, use a location-based table (columns: Market, Locations, Revenue/Mo, Revenue/Yr or similar).
-- If only top-line figures are available, use labeled bullet points.
-- Always include a line for EBITDA. If not provided, state: "EBITDA not yet provided."
-- For owner-operated businesses where neither EBITDA nor SDE has been provided, note: "This is an owner-operated business. SDE may be the appropriate earnings metric. SDE not yet provided."
-- If adjusted EBITDA is mentioned, list each add-back individually with its dollar amount.
-- If owner compensation is stated, include the exact figure.
-- If debt, working capital, or balance sheet data exists, include it. If not, state: "Balance sheet information not yet provided."
-- Do not characterize any trend. State the numbers.
+If adjusted EBITDA is mentioned, list each add-back individually. If the owner gives a range, state the range exactly. Do not pick midpoint or either bound. If figures don't reconcile (e.g., monthly × 12 ≠ stated annual), include both and flag it.
 
-For markdown tables, use standard format:
-| Column 1 | Column 2 | Column 3 |
-| --- | --- | --- |
-| Data | Data | Data |
+SERVICES AND OPERATIONS
+Bullet points. What services are performed, how revenue is generated, and relevant operational details. Include industry-specific KPIs only when explicitly stated in the source data — do not use any template checklist to fill in metrics that were not mentioned.
 
-## SERVICES AND OPERATIONS
-What services are performed, how revenue is generated, and relevant operational details. All bullet points:
-- Primary and secondary services
-- Revenue mix by category if available (% breakdown)
-- Recurring vs. project-based revenue if discussed
-- Customer base type (retail, commercial, fleet, government) and concentration data if available. If not available, state: "Customer concentration data not yet provided."
-- Vertical-specific KPIs when available:
-  - Automotive repair: service mix %, avg ticket, car count, bay count, ASE certs, warranty programs, fleet vs retail, franchise/affiliate memberships
-  - Collision repair: DRP %, OEM certs, ADAS capability, enterprise relationships, revenue per location
-  - Infrastructure/construction: backlog, avg contract size, bonding capacity, public vs private mix, licensing
-  - Staffing: gross margin, bill rate, contract vs perm mix, recruiter headcount
-  - HVAC/mechanical: service vs install mix, commercial vs residential, maintenance agreement count, union status
-  - Marine: yard capacity, dock size, certs, government work
-  - IT/MSP: MRR, seat count, contract length, stack details
-- Include only KPIs that appear in the provided data.
+OWNERSHIP AND TRANSACTION
+Bullet points. Owner name(s), roles, and involvement. Transaction type, reason for sale, valuation expectation (exact figures as stated — do not comment on reasonableness), management continuity, real estate, prior transaction history.
 
-## OWNERSHIP AND TRANSACTION
-Combine ownership details and transaction preferences into one section. All bullet points:
-- Owner name(s), roles, and involvement level
-- Transaction type (full sale, majority recap, partnership, etc.)
-- Reason for sale
-- Valuation expectation if stated (exact figures or multiples as given — do not comment on reasonableness)
-- Management continuity post-transaction
-- Real estate ownership (owned vs leased, included or excluded from deal)
-- Any prior transaction history stated by the owner
+MANAGEMENT AND STAFFING
+Bullet points. Who runs daily operations, owner's specific daily role, key personnel, location-level management, headcount, compensation/benefits if available.
 
-## MANAGEMENT AND STAFFING
-All bullet points:
-- Management structure (who runs day-to-day operations)
-- Owner involvement level (be specific — what does the owner do daily)
-- Key personnel and their roles
-- Store/location-level management details
-- Total headcount if available. If not: "Total headcount not yet provided."
-- Compensation, benefits, and retention data if available. If not, state as gap.
+KEY STRUCTURAL NOTES
+Include only if structural complexity exists. Separate entities, personally owned real estate, related businesses, government designations, non-compete/earn-out/seller financing details.
 
-## KEY STRUCTURAL NOTES
-Include only if relevant structural complexity exists. All bullet points:
-- Separate LLCs or entity structure
-- Personally owned real estate with lease terms to the business
-- Related businesses under same ownership (and whether shared overhead exists)
-- Government designations (HUBZone, 8(a), SDVOSB, etc.)
-- Non-compete structures, earn-out preferences, seller financing willingness
-- Any other structural detail that affects deal evaluation
+WRITING RULES
+* Bullet points for all sections except Company Overview (which is prose).
+* Bold labels for: Transaction type, Reason for sale, Valuation context, Real estate, EBITDA, Revenue, Headcount. Do not bold every bullet.
+* When the owner's exact words matter (transaction preferences, business description), use a direct quote attributed to the owner. One sentence max per quote.
+* Neutral, factual, controlled. No promotional phrasing or narrative storytelling.
 
-## INFORMATION NOT YET PROVIDED
-This section is ALWAYS included. List every data point that was not available from the source data and would be needed for a complete evaluation.
+BANNED LANGUAGE
+Never use: strong, robust, impressive, attractive, compelling, well-positioned, significant, poised for growth, track record, best-in-class, proven, synergies, uniquely positioned, market leader, healthy, diversified (without data), recession-resistant (without data), scalable (without specifics), turnkey, world-class, industry-leading, notable, consistent (as characterization), solid, substantial, meaningful, considerable, well-established, high-quality, top-tier, premier, differentiated, defensible, platform (as characterization), low-hanging fruit, runway, tailwinds, fragmented market, blue-chip, mission-critical, sticky revenue, white-space.`;
 
-At minimum, check for and list any of the following that are missing:
-- Recast/adjusted EBITDA with itemized add-backs
-- Multi-year revenue by year (at least 3 years)
-- Owner compensation
-- Employee headcount by location
-- Customer concentration (top customer %)
-- Lease terms and expiration dates
-- Entity/legal structure
-- Balance sheet / debt schedule
+  const userPrompt = `Generate a lead memo from the following data.
 
-Add any deal-specific gaps beyond this baseline. If a fact was available in the source data but omitted from the memo for brevity, list it here as: "[Topic] — available in source data, omitted for brevity."
+IMPORTANT: Transcripts may include SourceCo associates and the business owner. Extract only facts about the target company stated or confirmed by the owner. Ignore buyer discussion, SourceCo pitch content, and negotiation framing. The memo is about the seller's business only.
 
-BANNED LANGUAGE — never use any of these words or phrases:
-strong, robust, impressive, attractive, compelling, well-positioned, significant opportunity, poised for growth, track record of success, best-in-class, proven, demonstrated, synergies, uniquely positioned, market leader, value creation opportunity, healthy, diversified (as adjective without data), recession-resistant (without data), scalable (without specifics), turnkey, world-class, industry-leading, deep bench, blue-chip, mission-critical, sticky revenue, white-space, low-hanging fruit, runway, tailwinds, fragmented market, platform opportunity, notable, consistent (as characterization), solid, substantial, meaningful, considerable, positioned for, well-established, high-quality, top-tier, premier, best-of-breed, differentiated, defensible, platform (when used to characterize or elevate the business)`;
+=== CALL TRANSCRIPTS (primary source) === ${context.transcriptExcerpts || 'No transcripts available.'}
 
-  const userPrompt = `Generate a Full Lead Memo from the following company data.
+=== ENRICHMENT DATA (secondary source) === ${context.enrichmentData || 'No enrichment data available.'}
 
-IMPORTANT: Call transcripts may include conversations between SourceCo associates and the business owner. Extract only facts about the target company stated by the owner or confirmed by the owner. Do not include information about prospective buyers, the SourceCo associate's pitch, buyer expansion plans, or negotiation framing. The memo is about the seller's business only.
+=== MANUAL DATA ENTRIES & NOTES === ${context.manualEntries || 'No manual entries or notes.'}
 
-=== CALL TRANSCRIPTS (highest priority — treat as primary source) ===
-${context.transcriptExcerpts || 'No transcripts available.'}
+=== VALUATION CALCULATOR DATA === ${context.valuationData || 'No valuation data.'}
 
-=== ENRICHMENT DATA (website + LinkedIn — secondary source) ===
-${context.enrichmentData || 'No enrichment data available.'}
-
-=== MANUAL DATA ENTRIES & GENERAL NOTES ===
-${context.manualEntries || 'No manual entries or notes.'}
-
-=== VALUATION CALCULATOR DATA ===
-${context.valuationData || 'No valuation data.'}
-
-DATA SOURCE PRIORITY: Financial statements/tax returns (for financial figures) > Transcripts (most recent first) > General Notes > Enrichment/Website > Manual entries.
-When sources conflict, use the highest-priority source and note the discrepancy.
-When data is absent from all sources, state explicitly that it was not provided. Do not guess.
-
-Return the memo as markdown using ## headers for each section. Section headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES, INFORMATION NOT YET PROVIDED. Omit sections with no data except COMPANY OVERVIEW and INFORMATION NOT YET PROVIDED.
-
-Present financial data in a table when location or year breakdowns are available. Use standard markdown table format:
-| Column | Column |
-| --- | --- |
-| Data | Data |
-
-Include all identifying information. Flag any data points where sources conflict.`;
+Return the memo as markdown with ## headers. Headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES. Omit sections with no data (except COMPANY OVERVIEW). Present financial data as simple labeled lines. Do not use tables. Include all identifying information. Flag conflicts between sources.`;
 
   // Regeneration loop: up to 3 retries for blocking validation failures
   let bestSections: MemoSection[] = [];
@@ -1128,7 +1128,7 @@ Include all identifying information. Flag any data points where sources conflict
         method: 'POST',
         headers: getAnthropicHeaders(apiKey),
         body: JSON.stringify({
-          model: DEFAULT_CLAUDE_MODEL,
+          model: 'claude-sonnet-4-20250514',
           system: systemPrompt,
           messages: [{ role: 'user', content: promptToSend }],
           temperature: 0.2,
@@ -1348,7 +1348,7 @@ Right: "General manager has been with the company for 12 years and oversees dail
 Only include if the owner explicitly stated growth plans. Bullet points with facts as stated. If no growth was discussed, omit this section entirely.
 
 ## OWNER OBJECTIVES
-Transaction preference, timeline, transition willingness, reason for sale. Bullet points, stated exactly as provided. If not discussed, omit.
+Transaction preference, timeline, transition willingness, reason for sale. Bullet points, stated exactly as given. If none were discussed, omit.
 
 COMPLETENESS RULES:
 - Omit any section where no data exists (except BUSINESS OVERVIEW and DEAL SNAPSHOT).
@@ -1378,7 +1378,7 @@ ${context.valuationData || 'No valuation data.'}
 
 DATA SOURCE PRIORITY: Financial statements/tax returns (for financial figures) > Transcripts (most recent first) > General Notes > Enrichment/Website > Manual entries.
 When sources conflict, use the highest-priority source and note the discrepancy.
-When data is absent from all sources, state explicitly that it was not provided. Do not guess.
+When data is absent from all sources, omit the topic entirely. Do not guess.
 
 Return the memo as markdown using ## headers for each section. Section headers must exactly match: BUSINESS OVERVIEW, DEAL SNAPSHOT, KEY FACTS, GROWTH CONTEXT, OWNER OBJECTIVES. Omit sections with no data except BUSINESS OVERVIEW and DEAL SNAPSHOT.
 

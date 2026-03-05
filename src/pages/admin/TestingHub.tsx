@@ -15,6 +15,7 @@ import {
   Download,
   Square,
   History,
+  FileText,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -32,6 +33,7 @@ const ThirtyQuestionTest = lazy(() => import('@/pages/admin/ThirtyQuestionTest')
 const ListingPipelineTest = lazy(() => import('@/pages/admin/ListingPipelineTest'));
 const BuyerRecommendationTest = lazy(() => import('@/pages/admin/BuyerRecommendationTest'));
 const BuyerClassificationTest = lazy(() => import('@/pages/admin/BuyerClassificationTest'));
+const PromptTestRunner = lazy(() => import('@/pages/admin/PromptTestRunner'));
 const TestRunTracker = lazy(() => import('@/pages/admin/TestRunTracker'));
 
 // Storage keys — must match individual tab components exactly
@@ -882,6 +884,10 @@ export default function TestingHub() {
               <ListChecks className="h-4 w-4" />
               Buyer Classifier
             </TabsTrigger>
+            <TabsTrigger value="prompt-tests" className="gap-2">
+              <FileText className="h-4 w-4" />
+              Prompt Tests
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="system">
@@ -929,6 +935,12 @@ export default function TestingHub() {
           <TabsContent value="buyer-classify">
             <Suspense fallback={<Loading />}>
               <BuyerClassificationTest />
+            </Suspense>
+          </TabsContent>
+
+          <TabsContent value="prompt-tests">
+            <Suspense fallback={<Loading />}>
+              <PromptTestRunner />
             </Suspense>
           </TabsContent>
         </Tabs>

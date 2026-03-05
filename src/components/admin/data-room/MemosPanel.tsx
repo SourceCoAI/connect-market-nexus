@@ -34,9 +34,12 @@ import {
   Archive,
   type LucideIcon,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   useLeadMemos,
   useGenerateMemo,
+  useGenerateTeaser,
   usePublishMemo,
   LeadMemo,
 } from '@/hooks/admin/data-room/use-data-room';
@@ -65,17 +68,26 @@ const STATUS_BADGES: Record<string, { label: string; icon: LucideIcon; className
 export function MemosPanel({ dealId, dealTitle }: MemosPanelProps) {
   const { data: memos = [], isLoading } = useLeadMemos(dealId);
   const generateMemo = useGenerateMemo();
+  const generateTeaser = useGenerateTeaser();
   const publishMemo = usePublishMemo();
 
   const [generateType, setGenerateType] = useState<'anonymous_teaser' | 'full_memo' | 'both'>(
     'both',
   );
   const [branding, setBranding] = useState('sourceco');
+  const [projectName, setProjectName] = useState('Project ');
+  const [teaserValidation, setTeaserValidation] = useState<{
+    pass: boolean;
+    errors: string[];
+    warnings: string[];
+  } | null>(null);
   const [sendingMemo, setSendingMemo] = useState<LeadMemo | null>(null);
   const [loggingMemo, setLoggingMemo] = useState<LeadMemo | null>(null);
 
   const teaserMemos = memos.filter((m) => m.memo_type === 'anonymous_teaser');
   const fullMemos = memos.filter((m) => m.memo_type === 'full_memo');
+
+  const hasCompletedMemo = fullMemos.some((m) => m.status === 'published');
 
   const handleGenerate = () => {
     generateMemo.mutate({
@@ -83,6 +95,20 @@ export function MemosPanel({ dealId, dealTitle }: MemosPanelProps) {
       memo_type: generateType,
       branding,
     });
+  };
+
+  const handleGenerateTeaser = () => {
+    setTeaserValidation(null);
+    generateTeaser.mutate(
+      { deal_id: dealId, project_name: projectName.trim() || undefined },
+      {
+        onSuccess: (data) => {
+          if (data?.validation) {
+            setTeaserValidation(data.validation);
+          }
+        },
+      },
+    );
   };
 
   const handlePublish = (memoId: string) => {
@@ -257,6 +283,73 @@ export function MemosPanel({ dealId, dealTitle }: MemosPanelProps) {
             AI will draft from transcripts, enrichment data, and manual entries. Download the .docx
             to edit in Word.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Generate Anonymous Teaser Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="h-4 w-4" />
+            Generate Anonymous Teaser
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Project Name
+              </label>
+              <Input
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder="Project HVAC"
+              />
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      onClick={handleGenerateTeaser}
+                      disabled={!hasCompletedMemo || generateTeaser.isPending}
+                    >
+                      {generateTeaser.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="mr-2 h-4 w-4" />
+                      )}
+                      Generate Teaser
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!hasCompletedMemo && (
+                  <TooltipContent>Generate and approve the lead memo first.</TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Generates an anonymized teaser from the published lead memo. All identifying info is
+            stripped.
+          </p>
+          {teaserValidation && (
+            <div className="mt-3 space-y-1">
+              {teaserValidation.pass && teaserValidation.warnings.length === 0 && (
+                <p className="text-xs text-green-600 font-medium">All validation checks passed.</p>
+              )}
+              {teaserValidation.warnings.map((w, i) => (
+                <p key={`w-${i}`} className="text-xs text-amber-600">
+                  Warning: {w}
+                </p>
+              ))}
+              {teaserValidation.errors.map((e, i) => (
+                <p key={`e-${i}`} className="text-xs text-red-600">
+                  Error: {e}
+                </p>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
