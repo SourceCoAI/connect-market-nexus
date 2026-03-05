@@ -9,18 +9,35 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { normalizeDomain } from '@/lib/remarketing/normalizeDomain';
+import { normalizeDomain, isGenericEmailDomain } from '@/lib/remarketing/normalizeDomain';
 import {
   type ColumnMapping,
   processRow,
   sanitizeListingInsert,
 } from '@/lib/deal-csv-import';
 
+export interface DuplicateDetail {
+  /** CSV row number (1-based display) */
+  row: number;
+  /** Company name from CSV */
+  csvCompanyName: string;
+  /** Matched existing listing title */
+  existingTitle: string;
+  /** Matched existing listing ID */
+  existingId: string;
+  /** What field triggered the match (website or name) */
+  matchedBy: 'website' | 'name';
+  /** Whether empty fields were merged */
+  wasMerged: boolean;
+}
+
 export interface ImportResults {
   imported: number;
   merged: number;
   errors: string[];
   importedIds: string[];
+  duplicates: DuplicateDetail[];
+  skippedGenericDomains: string[];
 }
 
 // Fields eligible for merge-fill
@@ -33,6 +50,13 @@ const MERGEABLE_FIELDS = [
   'google_review_count', 'google_rating',
 ];
 
+interface MergeResult {
+  listingId: string;
+  existingTitle: string;
+  matchedBy: 'website' | 'name';
+  fieldsUpdated: boolean;
+}
+
 /**
  * When a deal already exists (duplicate website), find the existing listing
  * and fill in any null/empty fields with new CSV data.
@@ -40,12 +64,13 @@ const MERGEABLE_FIELDS = [
 async function tryMergeExistingListing(
   newData: Record<string, unknown>,
   mergeableFields: string[],
-): Promise<string | null> {
+): Promise<MergeResult | null> {
   try {
     const website = newData.website as string | undefined;
     const title = newData.title as string | undefined;
 
     let existingListing: Record<string, unknown> | null = null;
+    let matchedBy: 'website' | 'name' = 'website';
 
     if (website) {
       const { data: rpcData } = await supabase
@@ -73,6 +98,7 @@ async function tryMergeExistingListing(
         .limit(1)
         .maybeSingle();
       existingListing = data as Record<string, unknown> | null;
+      if (existingListing) matchedBy = 'name';
     }
 
     if (!existingListing) return null;
@@ -121,19 +147,24 @@ async function tryMergeExistingListing(
       updates.ebitda = newData.ebitda;
     }
 
-    if (Object.keys(updates).length === 0) return null;
+    const existingId = existingListing.id as string;
+    const existingTitle = (existingListing.title as string) || 'Unknown';
+
+    if (Object.keys(updates).length === 0) {
+      return { listingId: existingId, existingTitle, matchedBy, fieldsUpdated: false };
+    }
 
     const { error: updateError } = await supabase
       .from('listings')
       .update(updates as never)
-      .eq('id', existingListing.id as string);
+      .eq('id', existingId);
 
     if (updateError) {
       console.warn('Merge update failed:', updateError.message);
-      return null;
+      return { listingId: existingId, existingTitle, matchedBy, fieldsUpdated: false };
     }
 
-    return existingListing.id as string;
+    return { listingId: existingId, existingTitle, matchedBy, fieldsUpdated: true };
   } catch (err) {
     console.warn('Merge lookup failed:', (err as Error).message);
     return null;
@@ -157,7 +188,14 @@ export async function handleImport({
   hideFromAllDeals,
   onProgress,
 }: HandleImportOptions): Promise<ImportResults> {
-  const results: ImportResults = { imported: 0, merged: 0, errors: [], importedIds: [] };
+  const results: ImportResults = {
+    imported: 0,
+    merged: 0,
+    errors: [],
+    importedIds: [],
+    duplicates: [],
+    skippedGenericDomains: [],
+  };
 
   for (let i = 0; i < csvData.length; i++) {
     const row = csvData[i];
@@ -178,6 +216,18 @@ export async function handleImport({
       const rawWebsite = (parsedData as Record<string, unknown>).website;
       if (!rawWebsite || (typeof rawWebsite === 'string' && !rawWebsite.trim())) {
         results.errors.push(`Row ${i + 2}: Skipped — no website provided`);
+        continue;
+      }
+
+      // Skip rows where "website" is actually a generic email domain (gmail.com, etc.)
+      if (isGenericEmailDomain(rawWebsite as string)) {
+        const companyName = (parsedData.title as string) || 'Unknown';
+        results.skippedGenericDomains.push(
+          `${companyName} (${rawWebsite} is a personal email domain, not a company website)`
+        );
+        results.errors.push(
+          `Row ${i + 2}: Skipped — "${rawWebsite}" is a personal email domain, not a company website`
+        );
         continue;
       }
 
@@ -227,13 +277,24 @@ export async function handleImport({
           || insertError.code === '23505';
 
         if (isDuplicate) {
-          const merged = await tryMergeExistingListing(
+          const mergeResult = await tryMergeExistingListing(
             listingData as Record<string, unknown>,
             MERGEABLE_FIELDS,
           );
-          if (merged) {
-            results.merged++;
-            results.importedIds.push(merged);
+          if (mergeResult) {
+            const csvTitle = (parsedData.title as string) || 'Unknown';
+            results.duplicates.push({
+              row: i + 2,
+              csvCompanyName: csvTitle,
+              existingTitle: mergeResult.existingTitle,
+              existingId: mergeResult.listingId,
+              matchedBy: mergeResult.matchedBy,
+              wasMerged: mergeResult.fieldsUpdated,
+            });
+            if (mergeResult.fieldsUpdated) {
+              results.merged++;
+            }
+            results.importedIds.push(mergeResult.listingId);
           } else {
             results.errors.push(`Row ${i + 2}: duplicate key value violates unique constraint`);
           }

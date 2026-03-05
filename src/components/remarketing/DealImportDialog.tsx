@@ -322,45 +322,92 @@ export function DealImportDialog({
                     Empty fields on existing deals were filled with new data from the CSV
                   </p>
                 )}
+                {/* Duplicate deals found in the system */}
+                {importResults.duplicates.length > 0 && (
+                  <div className="mt-4 text-left max-w-lg">
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3">
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                        {importResults.duplicates.length} deal{importResults.duplicates.length !== 1 ? 's' : ''} already existed in the system
+                      </p>
+                      <ScrollArea className="max-h-40">
+                        <div className="space-y-1">
+                          {importResults.duplicates.map((dup) => (
+                            <div key={dup.existingId} className="text-xs text-blue-700 dark:text-blue-300 flex items-start gap-1">
+                              <span className="shrink-0">&bull;</span>
+                              <span>
+                                <strong>{dup.csvCompanyName}</strong>
+                                {dup.csvCompanyName !== dup.existingTitle && (
+                                  <> matched <strong>{dup.existingTitle}</strong></>
+                                )}
+                                {' '}(by {dup.matchedBy})
+                                {dup.wasMerged && <span className="text-green-700 dark:text-green-400"> — fields updated</span>}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                )}
+
+                {/* Generic domain warnings */}
+                {importResults.skippedGenericDomains.length > 0 && (
+                  <div className="mt-3 text-left max-w-lg">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">
+                        {importResults.skippedGenericDomains.length} skipped — personal email domains
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
+                        These rows had a personal email domain (e.g. gmail.com) instead of a company website.
+                        Re-import with company websites mapped to the Website field.
+                      </p>
+                      <ScrollArea className="max-h-32">
+                        <div className="space-y-0.5">
+                          {importResults.skippedGenericDomains.slice(0, 20).map((msg) => (
+                            <p key={msg} className="text-xs text-amber-700 dark:text-amber-300">
+                              &bull; {msg}
+                            </p>
+                          ))}
+                          {importResults.skippedGenericDomains.length > 20 && (
+                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                              ...and {importResults.skippedGenericDomains.length - 20} more
+                            </p>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                )}
+
+                {/* Other errors */}
                 {importResults.errors.length > 0 && (() => {
-                  const duplicateErrors = importResults.errors.filter(e =>
-                    e.includes('duplicate key') || e.includes('unique constraint') || e.includes('idx_listings_unique')
-                  );
+                  // Filter out generic-domain errors (already shown above) and duplicate errors (shown in duplicates panel)
                   const otherErrors = importResults.errors.filter(e =>
-                    !e.includes('duplicate key') && !e.includes('unique constraint') && !e.includes('idx_listings_unique')
+                    !e.includes('personal email domain') &&
+                    !e.includes('duplicate key') &&
+                    !e.includes('unique constraint') &&
+                    !e.includes('idx_listings_unique')
                   );
 
+                  if (otherErrors.length === 0) return null;
+
                   return (
-                    <div className="mt-4 text-left max-w-md space-y-3">
-                      {duplicateErrors.length > 0 && (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3">
-                          <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">
-                            {duplicateErrors.length} already existed
+                    <div className="mt-3 text-left max-w-lg">
+                      <p className="text-sm font-medium text-destructive mb-2">
+                        {otherErrors.length} failed to import:
+                      </p>
+                      <ScrollArea className="h-32 border rounded p-2">
+                        {otherErrors.slice(0, 10).map((err) => (
+                          <p key={err} className="text-xs text-muted-foreground">
+                            {err}
                           </p>
-                          <p className="text-xs text-amber-700 dark:text-amber-300">
-                            These deals were skipped because they already exist in the system (matched by website URL or name).
+                        ))}
+                        {otherErrors.length > 10 && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            ...and {otherErrors.length - 10} more
                           </p>
-                        </div>
-                      )}
-                      {otherErrors.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium text-destructive mb-2">
-                            {otherErrors.length} failed to import:
-                          </p>
-                          <ScrollArea className="h-32 border rounded p-2">
-                            {otherErrors.slice(0, 10).map((err) => (
-                              <p key={err} className="text-xs text-muted-foreground">
-                                {err}
-                              </p>
-                            ))}
-                            {otherErrors.length > 10 && (
-                              <p className="text-xs text-muted-foreground mt-2">
-                                ...and {otherErrors.length - 10} more
-                              </p>
-                            )}
-                          </ScrollArea>
-                        </div>
-                      )}
+                        )}
+                      </ScrollArea>
                     </div>
                   );
                 })()}

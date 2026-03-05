@@ -18,7 +18,7 @@ import {
 import { Upload, FileSpreadsheet, Loader2, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 // Papa removed – using parseSpreadsheet instead
-import { normalizeDomain } from '@/lib/remarketing/normalizeDomain';
+import { normalizeDomain, isGenericEmailDomain } from '@/lib/remarketing/normalizeDomain';
 import { parseSpreadsheet, SPREADSHEET_ACCEPT } from '@/lib/parseSpreadsheet';
 
 // Import from unified import engine
@@ -407,6 +407,14 @@ export const DealCSVImport = ({
             const computedLocation =
               city && state ? `${city}, ${state}` : state || city || 'Unknown';
             listingData.location = computedLocation;
+          }
+
+          // Skip rows where "website" is a generic email domain
+          if (listingData.website && isGenericEmailDomain(listingData.website as string)) {
+            results.errors.push(
+              `Row ${i + 1}: Skipped — "${listingData.website}" is a personal email domain, not a company website`
+            );
+            continue;
           }
 
           // Normalize website for dedup

@@ -1,4 +1,52 @@
 /**
+ * Generic/personal email domains that should NOT be used as company website
+ * identifiers. These are shared by millions of users and cannot uniquely
+ * identify a business.
+ */
+export const GENERIC_EMAIL_DOMAINS = new Set([
+  'gmail.com',
+  'yahoo.com',
+  'hotmail.com',
+  'outlook.com',
+  'aol.com',
+  'icloud.com',
+  'me.com',
+  'mac.com',
+  'live.com',
+  'msn.com',
+  'comcast.net',
+  'att.net',
+  'sbcglobal.net',
+  'verizon.net',
+  'cox.net',
+  'charter.net',
+  'earthlink.net',
+  'optonline.net',
+  'frontier.com',
+  'windstream.net',
+  'mediacombb.net',
+  'rocketmail.com',
+  'ymail.com',
+  'protonmail.com',
+  'zoho.com',
+  'mail.com',
+  'gmx.com',
+  'inbox.com',
+  'fastmail.com',
+]);
+
+/**
+ * Returns true if the domain is a generic/personal email provider
+ * that should not be used for company identification.
+ */
+export function isGenericEmailDomain(domain: string | null | undefined): boolean {
+  if (!domain) return false;
+  const normalized = normalizeDomain(domain);
+  if (!normalized) return false;
+  return GENERIC_EMAIL_DOMAINS.has(normalized);
+}
+
+/**
  * Normalize a domain/URL to a consistent format for unique identification.
  * Removes protocol, www prefix, trailing slashes, and converts to lowercase.
  *
