@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useBlocker } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -50,6 +51,12 @@ export default function SourceCoDeals() {
   const [isArchiving, setIsArchiving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMarkingNotFit, setIsMarkingNotFit] = useState(false);
+
+  // Block navigation while import dialog is open to prevent losing progress
+  useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hook.csvUploadOpen && currentLocation.pathname !== nextLocation.pathname,
+  );
 
   const handleBulkArchive = useCallback(async () => {
     setIsArchiving(true);
@@ -165,6 +172,16 @@ export default function SourceCoDeals() {
   useEffect(() => {
     setPageContext({ page: 'sourceco', entity_type: 'leads' });
   }, [setPageContext]);
+
+  // Warn on browser close/refresh while import dialog is open
+  useEffect(() => {
+    if (!hook.csvUploadOpen) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hook.csvUploadOpen]);
 
   useAIUIActionHandler({
     table: 'leads',

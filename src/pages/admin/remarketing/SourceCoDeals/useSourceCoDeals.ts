@@ -109,8 +109,8 @@ export function useSourceCoDeals() {
     refetch,
   } = useQuery({
     queryKey: ['remarketing', 'sourceco-deals'],
-    refetchOnMount: 'always',
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
     queryFn: async () => {
       const allData: SourceCoDeal[] = [];
       const batchSize = 1000;
