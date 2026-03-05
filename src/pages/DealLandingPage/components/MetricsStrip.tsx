@@ -21,9 +21,10 @@ function formatCurrency(value: number | null | undefined): string {
 function buildMetrics(deal: LandingPageDeal): MetricBox[] {
   const metrics: MetricBox[] = [];
 
-  // Metric 1: Revenue — matches listing page "2024 Revenue"
+  // Metric 1: Revenue — matches listing page revenue metric
+  const revenueYear = new Date().getFullYear() - 1;
   metrics.push({
-    label: '2024 Revenue',
+    label: `${revenueYear} Revenue`,
     value: formatCurrency(deal.revenue),
     subtitle: deal.revenue_metric_subtitle || deal.category || deal.categories?.[0] || '',
   });

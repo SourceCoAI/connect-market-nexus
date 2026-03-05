@@ -218,7 +218,7 @@ const ListingDetail = () => {
               <EnhancedFinancialGrid
                 metrics={[
                   {
-                    label: '2024 Revenue',
+                    label: `${new Date().getFullYear() - 1} Revenue`,
                     value: formatCurrency(listing.revenue),
                     subtitle: listing.revenue_metric_subtitle || listing.category,
                     tooltip:
@@ -265,9 +265,7 @@ const ListingDetail = () => {
             </div>
 
             {/* Structured Business Details */}
-            <BusinessDetailsGrid
-              geographic_states={listing.geographic_states}
-            />
+            <BusinessDetailsGrid geographic_states={listing.geographic_states} />
 
             {/* Internal Company Information - Admin Only */}
             {isAdmin && listing && (
