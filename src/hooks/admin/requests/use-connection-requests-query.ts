@@ -100,30 +100,43 @@ export function useConnectionRequestsQuery() {
         ).filter((id): id is string => id !== null);
 
         // Batch fetch related data in parallel
-        const emptyResult = { data: [] as Record<string, unknown>[], error: null };
+        // Chunk large ID arrays to avoid exceeding PostgREST URL length limits
+        const CHUNK_SIZE = 100;
+        const fetchInChunks = async (
+          table: 'profiles' | 'listings',
+          select: string,
+          ids: string[],
+        ): Promise<{ data: Record<string, unknown>[]; error: unknown }> => {
+          if (ids.length === 0) return { data: [], error: null };
+          const chunks: string[][] = [];
+          for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+            chunks.push(ids.slice(i, i + CHUNK_SIZE));
+          }
+          const results = await Promise.all(
+            chunks.map((chunk) =>
+              supabase.from(table).select(select).in('id', chunk),
+            ),
+          );
+          const allData: Record<string, unknown>[] = [];
+          let firstError: unknown = null;
+          for (const res of results) {
+            if (res.error && !firstError) firstError = res.error;
+            if (res.data) allData.push(...res.data);
+          }
+          return { data: allData, error: firstError };
+        };
+
         const [profilesRes, listingsRes] = await Promise.all([
-          profileIds.length
-            ? supabase
-                .from('profiles')
-                .select('*')
-                .in('id', profileIds)
-            : emptyResult,
-          listingIds.length
-            ? supabase
-                .from('listings')
-                .select(
-                  'id, title, category, status, revenue, ebitda, image_url, location, internal_company_name',
-                )
-                .in('id', listingIds)
-            : emptyResult,
+          fetchInChunks('profiles', '*', profileIds),
+          fetchInChunks(
+            'listings',
+            'id, title, category, status, revenue, ebitda, image_url, location, internal_company_name',
+            listingIds,
+          ),
         ]);
 
         if (profilesRes.error) console.error('Error fetching profiles batch:', profilesRes.error);
         if (listingsRes.error) console.error('Error fetching listings batch:', listingsRes.error);
-
-        console.log('[CR-Debug] listingIds count:', listingIds.length, 'sample:', listingIds.slice(0, 3));
-        console.log('[CR-Debug] listings returned:', listingsRes.data?.length ?? 0, 'error:', listingsRes.error);
-        if (listingsRes.data?.[0]) console.log('[CR-Debug] first listing:', JSON.stringify(listingsRes.data[0]));
 
         const profilesById = new Map<string, NonNullable<typeof profilesRes.data>[number]>();
         (profilesRes.data ?? []).forEach((p) => profilesById.set(p.id as string, p));
