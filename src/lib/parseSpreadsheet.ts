@@ -50,8 +50,11 @@ async function parseExcelFile(file: File): Promise<{
     return stringRow;
   });
 
-  // Derive column names from the first row keys (preserves header order from XLSX)
-  const columns = data.length > 0 ? Object.keys(data[0]) : [];
+  // Derive column names from the first row keys (preserves header order from XLSX).
+  // Filter out empty/blank headers — Excel files can have blank trailing columns.
+  const columns = data.length > 0
+    ? Object.keys(data[0]).filter((c) => c && c.trim())
+    : [];
 
   return { data, columns };
 }

@@ -34,13 +34,13 @@ export interface UseBuyerImportOptions {
 export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions) {
   const [step, setStep] = useState<WizardStep>('upload');
   const [csvData, setCsvData] = useState<CSVRow[]>([]);
-  const [_csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  const [importResults, setImportResults] = useState<{ success: number; errors: number }>({
+  const [importResults, setImportResults] = useState<{ success: number; errors: number; skipped: number }>({
     success: 0,
     errors: 0,
+    skipped: 0,
   });
   const [duplicates, setDuplicates] = useState<DuplicateWarning[]>([]);
   const [skipDuplicates, setSkipDuplicates] = useState<Set<number>>(new Set());
@@ -141,7 +141,6 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         }
 
         setCsvData(data as CSVRow[]);
-        setCsvHeaders(headers);
         setStep('mapping');
 
         // Analyze columns with AI
@@ -196,10 +195,11 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
 
     setStep('importing');
     setImportProgress(0);
-    setImportResults({ success: 0, errors: 0 });
+    setImportResults({ success: 0, errors: 0, skipped: 0 });
 
     let success = 0;
     let errors = 0;
+    let skipped = 0;
     let contactsCreated = 0;
 
     // Filter out skipped duplicates
@@ -223,8 +223,12 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
           .single();
 
         if (buyerError || !inserted) {
-          console.warn('Failed to import buyer:', buyer.company_name, buyerError?.message);
-          errors += 1;
+          if (buyerError?.code === '23505') {
+            skipped += 1;
+          } else {
+            console.warn('Failed to import buyer:', buyer.company_name, buyerError?.message);
+            errors += 1;
+          }
         } else {
           success += 1;
 
@@ -246,7 +250,11 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
                 is_primary: true,
               } as never);
 
-            if (!contactError) contactsCreated++;
+            if (contactError) {
+              console.warn('Failed to create contact for buyer:', inserted.id, contactError.message);
+            } else {
+              contactsCreated++;
+            }
           }
         }
 
@@ -269,9 +277,9 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
               const { error: singleError } = await supabase.from('buyers').insert(buyer as never);
 
               if (singleError) {
-                // 23505 = unique_violation — already exists, count as skipped not error
+                // 23505 = unique_violation — already exists, count as skipped
                 if (singleError.code === '23505') {
-                  console.info('Skipping duplicate buyer during import:', buyer.company_name);
+                  skipped += 1;
                 } else {
                   console.warn('Failed to import buyer:', buyer.company_name, singleError.message);
                   errors += 1;
@@ -289,12 +297,16 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       }
     }
 
-    setImportResults((prev) => ({ ...prev, success, errors }));
+    setImportResults((prev) => ({ ...prev, success, errors, skipped }));
 
     if (success > 0) {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'] });
       const contactMsg = contactsCreated > 0 ? ` with ${contactsCreated} contacts` : '';
       toast.success(`Imported ${success} buyers${contactMsg}`);
+    }
+
+    if (skipped > 0) {
+      toast.info(`${skipped} duplicate buyer(s) skipped`);
     }
 
     if (errors > 0) {
@@ -378,10 +390,9 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
   const resetImport = () => {
     setStep('upload');
     setCsvData([]);
-    setCsvHeaders([]);
     setMappings([]);
     setImportProgress(0);
-    setImportResults({ success: 0, errors: 0 });
+    setImportResults({ success: 0, errors: 0, skipped: 0 });
     setDuplicates([]);
     setSkipDuplicates(new Set());
     setSkippedRowsOpen(false);

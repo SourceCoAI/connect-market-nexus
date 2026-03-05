@@ -24,6 +24,21 @@ import { Loader2, AlertCircle, Sparkles } from 'lucide-react';
 
 import { CSVRow, ColumnMapping, TARGET_FIELDS, hasRequiredMapping } from './helpers';
 
+/** Returns the set of target fields that are mapped by more than one CSV column */
+function getDuplicateMappings(mappings: ColumnMapping[]): Set<string> {
+  const seen = new Map<string, number>();
+  for (const m of mappings) {
+    if (m.targetField) {
+      seen.set(m.targetField, (seen.get(m.targetField) || 0) + 1);
+    }
+  }
+  const dupes = new Set<string>();
+  for (const [field, count] of seen) {
+    if (count > 1) dupes.add(field);
+  }
+  return dupes;
+}
+
 interface ColumnMappingStepProps {
   mappings: ColumnMapping[];
   csvData: CSVRow[];
@@ -37,6 +52,7 @@ export function ColumnMappingStep({
   isAnalyzing,
   onUpdateMapping,
 }: ColumnMappingStepProps) {
+  const duplicateMappings = getDuplicateMappings(mappings);
   if (isAnalyzing) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -90,7 +106,11 @@ export function ColumnMappingStep({
                 {csvData[0]?.[mapping.csvColumn] || '\u2014'}
               </TableCell>
               <TableCell>
-                {mapping.targetField ? (
+                {mapping.targetField && duplicateMappings.has(mapping.targetField) ? (
+                  <Badge variant="destructive" className="text-xs">
+                    Duplicate
+                  </Badge>
+                ) : mapping.targetField ? (
                   <Badge
                     variant={mapping.aiSuggested ? 'secondary' : 'default'}
                     className="text-xs"
@@ -107,6 +127,13 @@ export function ColumnMappingStep({
           ))}
         </TableBody>
       </Table>
+
+      {duplicateMappings.size > 0 && (
+        <div className="flex items-center gap-2 p-3 bg-amber-500/10 rounded-lg text-amber-700 dark:text-amber-400 text-sm">
+          <AlertCircle className="h-4 w-4" />
+          Multiple columns are mapped to the same field. Only the last column's data will be used.
+        </div>
+      )}
 
       {!hasRequiredMapping(mappings) && (
         <div className="flex items-center gap-2 p-3 bg-destructive/10 rounded-lg text-destructive text-sm">

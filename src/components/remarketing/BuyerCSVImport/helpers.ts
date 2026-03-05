@@ -183,29 +183,35 @@ export const TARGET_FIELDS = [
 // Pure functions
 // ---------------------------------------------------------------------------
 
-/** Normalize domain for comparison -- validates URL structure */
+/**
+ * Normalize a URL to its root domain.
+ *
+ * Mirrors the DB's `extract_domain()` function so that the frontend and the
+ * unique index `idx_buyers_unique_domain` always agree on what constitutes the
+ * same domain.  The edge function `dedupe-buyers` uses equivalent logic.
+ *
+ * Steps: strip protocol → strip www. → strip path/query/fragment → strip
+ * trailing dot → lowercase + trim.
+ */
 export function normalizeDomain(url: string): string {
   if (!url) return '';
-  let normalized = url.trim().toLowerCase();
-  // Validate URL structure if it looks like a full URL
-  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
-    try {
-      const parsed = new URL(normalized);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
-      normalized = parsed.hostname;
-    } catch {
-      return '';
-    }
-  } else {
-    // Strip protocol-like prefixes and path components
-    normalized = normalized.replace(/^www\./, '');
-    normalized = normalized.split('/')[0];
-    normalized = normalized.split(':')[0];
-    // Basic domain validation: must contain a dot and only valid characters
-    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(normalized)) return '';
-  }
-  normalized = normalized.replace(/^www\./, '');
-  return normalized;
+  let domain = url.trim().toLowerCase();
+
+  // Strip protocol
+  domain = domain.replace(/^https?:\/\//, '');
+  // Strip www.
+  domain = domain.replace(/^www\./, '');
+  // Strip path, query string, fragment
+  domain = domain.replace(/[/?#].*$/, '');
+  // Strip port
+  domain = domain.replace(/:\d+$/, '');
+  // Strip trailing dot (DNS fully-qualified)
+  domain = domain.replace(/\.$/, '');
+  domain = domain.trim();
+
+  // Must look like a domain (contains a dot, no whitespace)
+  if (!domain || !domain.includes('.') || /\s/.test(domain)) return '';
+  return domain;
 }
 
 /** Heuristic column-to-field mapper used as fallback when AI mapping fails */
