@@ -27,7 +27,7 @@ function estimateEmployeesFromRange(range: string | null): number {
   return 0;
 }
 
-function calculateScoresFromData(deal: Record<string, unknown>): DealQualityScores {
+function calculateScoresFromData(deal: Record<string, any>): DealQualityScores {
   const notes: string[] = [];
 
   const normalizeFinancial = (val: number): number => {
@@ -434,7 +434,7 @@ serve(async (req) => {
       scoredSoFar = 0,
     } = body;
 
-    let listingsToScore: unknown[] = [];
+    let listingsToScore: any[] = [];
     let enrichmentQueued = 0;
     const BATCH_SIZE = 200;
 
