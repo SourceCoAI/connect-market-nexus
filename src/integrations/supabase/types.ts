@@ -2480,6 +2480,7 @@ export type Database = {
           recording_url: string | null
           recording_url_public: string | null
           remarketing_buyer_id: string | null
+          request_id: string | null
           source_system: string
           talk_time_seconds: number | null
           updated_at: string
@@ -2521,6 +2522,7 @@ export type Database = {
           recording_url?: string | null
           recording_url_public?: string | null
           remarketing_buyer_id?: string | null
+          request_id?: string | null
           source_system?: string
           talk_time_seconds?: number | null
           updated_at?: string
@@ -2562,6 +2564,7 @@ export type Database = {
           recording_url?: string | null
           recording_url_public?: string | null
           remarketing_buyer_id?: string | null
+          request_id?: string | null
           source_system?: string
           talk_time_seconds?: number | null
           updated_at?: string
@@ -8492,6 +8495,8 @@ export type Database = {
           list_id: string | null
           phoneburner_session_id: string | null
           qualification_rate_percentage: number | null
+          request_id: string | null
+          session_contacts: Json
           session_description: string | null
           session_name: string
           session_status: string | null
@@ -8526,6 +8531,8 @@ export type Database = {
           list_id?: string | null
           phoneburner_session_id?: string | null
           qualification_rate_percentage?: number | null
+          request_id?: string | null
+          session_contacts?: Json
           session_description?: string | null
           session_name: string
           session_status?: string | null
@@ -8560,6 +8567,8 @@ export type Database = {
           list_id?: string | null
           phoneburner_session_id?: string | null
           qualification_rate_percentage?: number | null
+          request_id?: string | null
+          session_contacts?: Json
           session_description?: string | null
           session_name?: string
           session_status?: string | null
@@ -8614,6 +8623,7 @@ export type Database = {
           processing_started_at: string | null
           processing_status: string
           received_at: string
+          request_id: string | null
           retry_count: number | null
           signature_valid: boolean | null
           sourceco_contact_id: string | null
@@ -8639,6 +8649,7 @@ export type Database = {
           processing_started_at?: string | null
           processing_status?: string
           received_at?: string
+          request_id?: string | null
           retry_count?: number | null
           signature_valid?: boolean | null
           sourceco_contact_id?: string | null
@@ -8664,6 +8675,7 @@ export type Database = {
           processing_started_at?: string | null
           processing_status?: string
           received_at?: string
+          request_id?: string | null
           retry_count?: number | null
           signature_valid?: boolean | null
           sourceco_contact_id?: string | null

@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
   } = normalizePayload(payload);
 
   const eventType = headerEventType || detectEventType(normalizedPayload);
+  const requestId = extractRequestId(normalizedPayload);
 
   const headerEventId =
     req.headers.get('x-phoneburner-event-id') || req.headers.get('X-Phoneburner-Event-Id');
@@ -113,7 +114,9 @@ Deno.serve(async (req) => {
     (normalizedPayload.id as string) ||
     crypto.randomUUID();
 
-  console.log(`PhoneBurner webhook received: ${eventType}, id: ${eventId}`);
+  console.log(
+    `PhoneBurner webhook received: ${eventType}, id: ${eventId}, request_id: ${requestId || 'none'}`,
+  );
 
   // ── idempotency ──
   const { data: existing } = await supabase
@@ -132,10 +135,13 @@ Deno.serve(async (req) => {
     string,
     unknown
   >;
-  const _customData = (normalizedPayload.custom_data || {}) as Record<string, unknown>;
-  const sourceco_contact_id = (customFields.sourceco_id ||
-    customFields.sourceco_contact_id ||
-    null) as string | null;
+  const sourcecoContactIdValue = readFlexibleField(
+    customFields,
+    normalizedPayload.typed_custom_fields || contact.typed_custom_fields,
+    ['sourceco_id', 'sourceco_contact_id', 'SourceCo ID'],
+  );
+  const sourceco_contact_id =
+    sourcecoContactIdValue && isUuid(sourcecoContactIdValue) ? sourcecoContactIdValue : null;
 
   // ── log the raw webhook ──
   const { data: logEntry, error: logError } = await supabase
@@ -143,6 +149,7 @@ Deno.serve(async (req) => {
     .insert({
       event_id: eventId,
       event_type: eventType,
+      request_id: requestId,
       payload,
       processing_status: 'processing',
       phoneburner_call_id: (normalizedPayload.call_id || null) as string | null,
@@ -172,6 +179,7 @@ Deno.serve(async (req) => {
       normalizedPayload,
       topLevelTranscript,
       topLevelStatus,
+      requestId,
     );
     await supabase
       .from('phoneburner_webhooks_log')
@@ -207,6 +215,179 @@ function detectEventType(payload: Record<string, unknown>): string {
   return 'unknown';
 }
 
+type TypedCustomField = { name?: string; value?: unknown };
+type SessionContactLink = {
+  source_id?: string | null;
+  source_entity?: string | null;
+  name?: string | null;
+  phone?: string | null;
+  contact_email?: string | null;
+  contact_id?: string | null;
+  listing_id?: string | null;
+  remarketing_buyer_id?: string | null;
+};
+
+function isUuid(value: string | null | undefined): value is string {
+  return !!value &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function normalizeKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function normalizePhone(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return null;
+  return digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+}
+
+function readFlexibleField(
+  fields: Record<string, unknown>,
+  typedFieldsRaw: unknown,
+  candidateKeys: string[],
+): string | null {
+  const normalizedCandidates = new Set(candidateKeys.map(normalizeKey));
+
+  for (const [key, value] of Object.entries(fields || {})) {
+    if (!normalizedCandidates.has(normalizeKey(key))) continue;
+    if (value == null || value === '') continue;
+    return String(value).trim();
+  }
+
+  const typedFields = Array.isArray(typedFieldsRaw) ? (typedFieldsRaw as TypedCustomField[]) : [];
+  for (const field of typedFields) {
+    const fieldName = field?.name ? normalizeKey(field.name) : '';
+    if (!fieldName || !normalizedCandidates.has(fieldName)) continue;
+    if (field.value == null || field.value === '') continue;
+    return String(field.value).trim();
+  }
+
+  return null;
+}
+
+function extractPhoneNumber(contact: Record<string, unknown>, payload: Record<string, unknown>): string | null {
+  const phones = Array.isArray(contact.phones) ? (contact.phones as Array<Record<string, unknown>>) : [];
+  const firstPhone = phones.find((entry) => entry?.number)?.number as string | undefined;
+  return normalizePhone(
+    (contact.phone as string) ||
+      firstPhone ||
+      (payload.phone as string) ||
+      (payload.phone_number as string) ||
+      null,
+  );
+}
+
+function buildContactName(contact: Record<string, unknown>): string | null {
+  const firstName = (contact.first_name || '') as string;
+  const lastName = (contact.last_name || '') as string;
+  const fullName = `${firstName} ${lastName}`.trim();
+  return fullName || (contact.name as string) || null;
+}
+
+function extractRequestId(payload: Record<string, unknown>): string | null {
+  const contact = (payload.contact || {}) as Record<string, unknown>;
+  const customData = (payload.custom_data || {}) as Record<string, unknown>;
+  const customFields = (contact.custom_fields || payload.custom_fields || {}) as Record<string, unknown>;
+  const typedCustomFields = payload.typed_custom_fields || contact.typed_custom_fields;
+
+  const requestId =
+    (payload.request_id as string) ||
+    (customData.request_id as string) ||
+    readFlexibleField(customFields, typedCustomFields, ['request_id', 'Request ID']);
+
+  return requestId?.trim() || null;
+}
+
+function scoreSessionContactMatch(
+  sessionContact: SessionContactLink,
+  context: {
+    sourceId: string | null;
+    contactId: string | null;
+    listingId: string | null;
+    buyerId: string | null;
+    phone: string | null;
+    email: string | null;
+    name: string | null;
+  },
+): number {
+  let score = 0;
+
+  if (context.sourceId && sessionContact.source_id === context.sourceId) score += 100;
+  if (context.contactId && sessionContact.contact_id === context.contactId) score += 90;
+  if (context.listingId && sessionContact.listing_id === context.listingId) score += 80;
+  if (context.buyerId && sessionContact.remarketing_buyer_id === context.buyerId) score += 70;
+  if (context.phone && normalizePhone(sessionContact.phone) === context.phone) score += 40;
+  if (
+    context.email &&
+    sessionContact.contact_email &&
+    sessionContact.contact_email.toLowerCase() === context.email.toLowerCase()
+  ) {
+    score += 30;
+  }
+  if (
+    context.name &&
+    sessionContact.name &&
+    sessionContact.name.trim().toLowerCase() === context.name.trim().toLowerCase()
+  ) {
+    score += 10;
+  }
+
+  return score;
+}
+
+async function resolveRequestMapping(
+  supabase: ReturnType<typeof createClient>,
+  requestId: string | null,
+  context: {
+    sourceId: string | null;
+    contactId: string | null;
+    listingId: string | null;
+    buyerId: string | null;
+    phone: string | null;
+    email: string | null;
+    name: string | null;
+  },
+): Promise<{ phoneburnerSessionId: string | null; matched: SessionContactLink | null }> {
+  if (!requestId) return { phoneburnerSessionId: null, matched: null };
+
+  const { data: session, error } = await supabase
+    .from('phoneburner_sessions')
+    .select('id, session_contacts')
+    .eq('request_id', requestId)
+    .maybeSingle();
+
+  if (error || !session) {
+    if (error) {
+      console.warn(`[phoneburner-webhook] Failed to resolve request_id ${requestId}: ${error.message}`);
+    }
+    return { phoneburnerSessionId: null, matched: null };
+  }
+
+  const sessionContacts = Array.isArray(session.session_contacts)
+    ? (session.session_contacts as SessionContactLink[])
+    : [];
+
+  if (sessionContacts.length === 0) {
+    return { phoneburnerSessionId: session.id, matched: null };
+  }
+
+  const ranked = sessionContacts
+    .map((entry) => ({ entry, score: scoreSessionContactMatch(entry, context) }))
+    .sort((a, b) => b.score - a.score);
+
+  if (ranked[0] && ranked[0].score > 0) {
+    return { phoneburnerSessionId: session.id, matched: ranked[0].entry };
+  }
+
+  if (sessionContacts.length === 1) {
+    return { phoneburnerSessionId: session.id, matched: sessionContacts[0] };
+  }
+
+  return { phoneburnerSessionId: session.id, matched: null };
+}
+
 /**
  * Extract contact info + custom_fields from the (normalized) webhook payload.
  */
@@ -217,10 +398,41 @@ function extractContactInfo(payload: Record<string, unknown>) {
     unknown
   >;
   const customData = (payload.custom_data || {}) as Record<string, unknown>;
+  const typedCustomFields = payload.typed_custom_fields || contact.typed_custom_fields;
 
-  const contactId = (customFields.sourceco_id || customFields.sourceco_contact_id || null) as
-    | string
-    | null;
+  const sourcecoValue = readFlexibleField(customFields, typedCustomFields, [
+    'sourceco_id',
+    'sourceco_contact_id',
+    'SourceCo ID',
+  ]);
+  const rawListingId = readFlexibleField(customFields, typedCustomFields, [
+    'listing_id',
+    'Listing ID',
+  ]);
+  const rawBuyerId = readFlexibleField(customFields, typedCustomFields, ['buyer_id', 'Buyer ID']);
+
+  let contactId: string | null = null;
+  let listingId: string | null = isUuid(rawListingId) ? rawListingId : null;
+
+  if (sourcecoValue?.startsWith('listing-')) {
+    const derivedListingId = sourcecoValue.replace('listing-', '');
+    listingId = isUuid(derivedListingId) ? derivedListingId : listingId;
+  } else if (isUuid(sourcecoValue)) {
+    contactId = sourcecoValue;
+  }
+
+  const rawLeadId = (contact.lead_id || payload.lead_id || null) as string | null;
+  if (rawLeadId?.startsWith('listing-')) {
+    const derivedListingId = rawLeadId.replace('listing-', '');
+    listingId = isUuid(derivedListingId) ? derivedListingId : listingId;
+  } else if (rawLeadId && isUuid(rawLeadId)) {
+    if ((customData.entity_type as string | undefined) === 'listings') {
+      listingId = rawLeadId;
+    } else if (!contactId) {
+      contactId = rawLeadId;
+    }
+  }
+
   const pbContactId = (contact.id || contact.user_id || payload.contact_id || '') as string;
 
   // User/rep info — can be in `agent` or `owner` or `user` depending on event type
@@ -246,30 +458,27 @@ function extractContactInfo(payload: Record<string, unknown>) {
   // Contact email from the contact record
   const contactEmails = (contact.emails || []) as string[];
   const contactEmail = (contact.primary_email || contactEmails[0] || null) as string | null;
+  const contactPhone = extractPhoneNumber(contact, payload);
+  const contactName = buildContactName(contact);
 
   // Contact notes
   const contactNotes = (contact.notes || '') as string;
 
-  // Lead ID (listing reference) — PB stores as "listing-<uuid>"
-  const rawLeadId = (contact.lead_id || payload.lead_id || null) as string | null;
-  const leadId = rawLeadId;
-  // Extract listing UUID from "listing-<uuid>" format
-  const listingId = rawLeadId?.startsWith('listing-') ? rawLeadId.replace('listing-', '') : null;
-
   return {
     contactId,
     pbContactId,
-    customFields,
-    customData,
     userName,
     userEmail,
     entityType,
     pushedBy,
     sessionSource,
     contactEmail,
+    contactPhone,
+    contactName,
     contactNotes,
-    leadId,
+    leadId: rawLeadId,
     listingId,
+    remarketingBuyerId: isUuid(rawBuyerId) ? rawBuyerId : null,
   };
 }
 
@@ -279,6 +488,7 @@ async function processEvent(
   payload: Record<string, unknown>,
   topLevelTranscript: string | null,
   topLevelStatus: string | null,
+  requestId: string | null,
 ): Promise<string | null> {
   const {
     contactId,
@@ -286,10 +496,29 @@ async function processEvent(
     userName,
     userEmail,
     contactEmail,
+    contactPhone,
+    contactName,
     contactNotes,
     leadId,
     listingId,
+    remarketingBuyerId,
   } = extractContactInfo(payload);
+
+  const requestMapping = await resolveRequestMapping(supabase, requestId, {
+    sourceId: leadId,
+    contactId,
+    listingId,
+    buyerId: remarketingBuyerId,
+    phone: contactPhone,
+    email: contactEmail,
+    name: contactName,
+  });
+
+  const resolvedContactId = contactId || requestMapping.matched?.contact_id || null;
+  const resolvedListingId = listingId || requestMapping.matched?.listing_id || null;
+  const resolvedBuyerId = remarketingBuyerId || requestMapping.matched?.remarketing_buyer_id || null;
+  const resolvedContactEmail = contactEmail || requestMapping.matched?.contact_email || null;
+  const resolvedSessionId = requestMapping.phoneburnerSessionId;
 
   switch (eventType) {
     case 'call_begin':
@@ -297,8 +526,10 @@ async function processEvent(
       const { data } = await supabase
         .from('contact_activities')
         .insert({
+          request_id: requestId,
           activity_type: 'call_attempt',
           source_system: 'phoneburner',
+          phoneburner_session_id: resolvedSessionId,
           phoneburner_call_id: String(payload.call_id || ''),
           phoneburner_contact_id: String(pbContactId),
           phoneburner_event_id: (payload.id || payload.event_id || null) as string | null,
@@ -309,12 +540,13 @@ async function processEvent(
             new Date().toISOString(),
           call_outcome: 'dialing',
           call_direction: (payload.direction || 'outbound') as string,
-          contact_id: contactId,
-          contact_email: contactEmail,
+          contact_id: resolvedContactId,
+          remarketing_buyer_id: resolvedBuyerId,
+          contact_email: resolvedContactEmail,
           user_name: userName,
           user_email: userEmail,
           phoneburner_lead_id: leadId,
-          listing_id: listingId,
+          listing_id: resolvedListingId,
         })
         .select('id')
         .single();
@@ -325,8 +557,6 @@ async function processEvent(
     case 'call.ended':
     case 'disposition.set': {
       // --- Disposition ---
-      // PB sends `status` at top level as the disposition label
-      // Also check nested disposition object for structured data
       const disposition = (payload.disposition || {}) as Record<string, unknown>;
       const dispositionCode = (disposition.code ||
         payload.disposition_id ||
@@ -339,14 +569,12 @@ async function processEvent(
         topLevelStatus ||
         '') as string;
 
-      // Notes from various possible locations
       const callNotes = (payload.call_notes || []) as string[];
       const notes = (disposition.notes ||
         payload.notes ||
         (Array.isArray(callNotes) && callNotes.length > 0 ? callNotes.join('\n') : '') ||
         '') as string;
 
-      // --- Duration ---
       const callSummary = (payload.call_summary || {}) as Record<string, unknown>;
       const duration = Number(
         callSummary.total_duration_seconds ||
@@ -360,7 +588,6 @@ async function processEvent(
         payload.talk_duration_seconds ||
         null) as number | null;
 
-      // --- Recording ---
       const recording = (payload.recording || {}) as Record<string, unknown>;
       const recordingUrl = (recording.url ||
         payload.recording_url ||
@@ -374,7 +601,6 @@ async function processEvent(
         payload.recording_duration ||
         null) as number | null;
 
-      // --- Timing ---
       const callStartedAt =
         ((payload.start_time ||
           payload.call_started_at ||
@@ -387,15 +613,16 @@ async function processEvent(
           payload.ended_at ||
           payload.timestamp) as string) || new Date().toISOString();
 
-      // --- Connected flag ---
       const connected =
         payload.connected === 1 || payload.connected === true || payload.connected === '1';
 
       const { data } = await supabase
         .from('contact_activities')
         .insert({
+          request_id: requestId,
           activity_type: 'call_completed',
           source_system: 'phoneburner',
+          phoneburner_session_id: resolvedSessionId,
           phoneburner_call_id: String(payload.call_id || ''),
           phoneburner_contact_id: String(pbContactId),
           phoneburner_event_id: (payload.id || payload.event_id || null) as string | null,
@@ -416,25 +643,23 @@ async function processEvent(
           phoneburner_status: topLevelStatus || null,
           contact_notes: contactNotes || null,
           phoneburner_lead_id: leadId,
-          listing_id: listingId,
-          contact_id: contactId,
-          contact_email: contactEmail,
+          listing_id: resolvedListingId,
+          contact_id: resolvedContactId,
+          remarketing_buyer_id: resolvedBuyerId,
+          contact_email: resolvedContactEmail,
           user_name: userName,
           user_email: userEmail,
         })
         .select('id')
         .single();
 
-      // Update last interaction on the unified contacts record
-      if (contactId) {
-        const rawId = contactId.replace(/^(rm-|buyer-)/, '');
+      if (resolvedContactId) {
         await supabase
           .from('contacts')
           .update({ updated_at: new Date().toISOString() })
-          .eq('id', rawId);
+          .eq('id', resolvedContactId);
       }
 
-      // Look up disposition mapping and apply status updates
       if (dispositionCode) {
         const { data: mapping } = await supabase
           .from('disposition_mappings')
@@ -445,12 +670,11 @@ async function processEvent(
           console.log(
             `Disposition mapped: ${dispositionCode} → ${mapping.sourceco_contact_status} / ${mapping.sourceco_contact_stage}`,
           );
-          if (contactId && (mapping.mark_do_not_call || mapping.mark_phone_invalid)) {
-            const rawId = contactId.replace(/^(rm-|buyer-)/, '');
+          if (resolvedContactId && (mapping.mark_do_not_call || mapping.mark_phone_invalid)) {
             const updates: Record<string, unknown> = {};
             if (mapping.mark_do_not_call) updates.do_not_contact = true;
             if (mapping.mark_phone_invalid) updates.phone_invalid = true;
-            await supabase.from('contacts').update(updates).eq('id', rawId);
+            await supabase.from('contacts').update(updates).eq('id', resolvedContactId);
           }
         }
       }
@@ -462,17 +686,20 @@ async function processEvent(
       const { data } = await supabase
         .from('contact_activities')
         .insert({
+          request_id: requestId,
           activity_type: 'contact_displayed',
           source_system: 'phoneburner',
+          phoneburner_session_id: resolvedSessionId,
           phoneburner_contact_id: String(pbContactId),
           call_started_at: new Date().toISOString(),
           call_outcome: 'displayed',
-          contact_id: contactId,
-          contact_email: contactEmail,
+          contact_id: resolvedContactId,
+          remarketing_buyer_id: resolvedBuyerId,
+          contact_email: resolvedContactEmail,
           user_name: userName,
           user_email: userEmail,
           phoneburner_lead_id: leadId,
-          listing_id: listingId,
+          listing_id: resolvedListingId,
         })
         .select('id')
         .single();
@@ -484,19 +711,22 @@ async function processEvent(
       const { data } = await supabase
         .from('contact_activities')
         .insert({
+          request_id: requestId,
           activity_type: 'callback_scheduled',
           source_system: 'phoneburner',
+          phoneburner_session_id: resolvedSessionId,
           phoneburner_contact_id: String(pbContactId),
           callback_scheduled_date: (callback.scheduled_for || payload.callback_date || null) as
             | string
             | null,
           disposition_notes: (callback.notes || payload.callback_notes || '') as string,
-          contact_id: contactId,
-          contact_email: contactEmail,
+          contact_id: resolvedContactId,
+          remarketing_buyer_id: resolvedBuyerId,
+          contact_email: resolvedContactEmail,
           user_name: userName,
           user_email: userEmail,
           phoneburner_lead_id: leadId,
-          listing_id: listingId,
+          listing_id: resolvedListingId,
         })
         .select('id')
         .single();

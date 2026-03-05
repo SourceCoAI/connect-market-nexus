@@ -44,6 +44,9 @@ interface ResolvedContact {
   company: string | null;
   source_entity: string;
   last_contacted_date: string | null;
+  contact_id?: string | null;
+  listing_id?: string | null;
+  remarketing_buyer_id?: string | null;
   extra_context?: PbCustomField[];
 }
 
@@ -107,6 +110,13 @@ function buildDealCustomFields(deal: ListingDealData): PbCustomField[] {
     fields.push({ name: 'Ownership Structure', type: 1, value: deal.ownership_structure });
   }
   return fields;
+}
+
+function normalizePhone(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return null;
+  return digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
 }
 
 async function getValidToken(
@@ -213,6 +223,9 @@ async function resolveFromBuyerContacts(
         company: buyer?.company_name || null,
         source_entity: 'buyer_contact',
         last_contacted_date: c.updated_at,
+        contact_id: c.id,
+        listing_id: c.listing_id,
+        remarketing_buyer_id: c.remarketing_buyer_id,
         extra_context: customFields,
       };
     },
@@ -313,6 +326,9 @@ async function resolveFromBuyers(
       company: buyer?.company_name || null,
       source_entity: 'buyer_contact',
       last_contacted_date: c.updated_at,
+      contact_id: c.id,
+      listing_id: c.listing_id,
+      remarketing_buyer_id: c.remarketing_buyer_id,
       extra_context: customFields,
     });
   }
@@ -333,6 +349,9 @@ async function resolveFromBuyers(
       company: buyer.company_name || buyer.pe_firm_name || null,
       source_entity: 'remarketing_buyer_direct',
       last_contacted_date: null,
+      contact_id: null,
+      listing_id: null,
+      remarketing_buyer_id: buyerId,
     });
   }
 
@@ -385,6 +404,9 @@ async function resolveFromListings(
           company: l.internal_company_name || l.title || null,
           source_entity: `listing:${l.deal_source || 'unknown'}`,
           last_contacted_date: null,
+          contact_id: null,
+          listing_id: l.id,
+          remarketing_buyer_id: null,
           extra_context: customFields,
         };
       },
@@ -419,6 +441,9 @@ async function resolveFromLeads(
       company: l.company_name || null,
       source_entity: 'inbound_lead',
       last_contacted_date: null,
+      contact_id: null,
+      listing_id: null,
+      remarketing_buyer_id: null,
     }),
   );
 }
@@ -471,6 +496,7 @@ Deno.serve(async (req: Request) => {
 
   const body: PushRequest = await req.json();
   const { session_name, skip_recent_days = 7 } = body;
+  const requestId = crypto.randomUUID();
 
   const pbTokenUserId = body.target_user_id || user.id;
   const pbToken = await getValidToken(supabase, pbTokenUserId);
@@ -553,6 +579,17 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  const sessionContacts = eligible.map((contact) => ({
+    source_id: contact.id,
+    source_entity: contact.source_entity,
+    name: contact.name,
+    phone: normalizePhone(contact.phone),
+    contact_email: contact.email?.toLowerCase() || null,
+    contact_id: contact.contact_id || null,
+    listing_id: contact.listing_id || null,
+    remarketing_buyer_id: contact.remarketing_buyer_id || null,
+  }));
+
   // Build contacts array for PhoneBurner dial session
   const pbContacts = eligible.map((contact) => {
     const nameParts = contact.name.split(' ');
@@ -566,9 +603,11 @@ Deno.serve(async (req: Request) => {
       lead_id: contact.id, // Maps back to our system
     };
 
-    // Add custom fields if available
-    if (contact.extra_context) {
-      pbContact.custom_fields = contact.extra_context;
+    const requestField: PbCustomField = { name: 'Request ID', type: 1, value: requestId };
+    const customFields = [...(contact.extra_context || []), requestField];
+
+    if (customFields.length > 0) {
+      pbContact.custom_fields = customFields;
     }
 
     return pbContact;
@@ -596,6 +635,7 @@ Deno.serve(async (req: Request) => {
         session_name: session_name || '',
         entity_type: entityType,
         pushed_by: user.id,
+        request_id: requestId,
       },
     }),
   });
@@ -611,6 +651,8 @@ Deno.serve(async (req: Request) => {
 
   const pbData = await pbRes.json();
   const redirectUrl = pbData?.dialsessions?.redirect_url || null;
+  const phoneburnerSessionId =
+    pbData?.dialsessions?.id || pbData?.dialsessions?.session_id || pbData?.dialsession?.id || null;
 
   // Look up display name for the target PB user
   let targetDisplayName: string | null = null;
@@ -628,6 +670,8 @@ Deno.serve(async (req: Request) => {
     : session_name || `Push - ${new Date().toLocaleDateString()}`;
 
   await supabase.from('phoneburner_sessions').insert({
+    phoneburner_session_id: phoneburnerSessionId ? String(phoneburnerSessionId) : null,
+    request_id: requestId,
     session_name: sessionLabel,
     session_type:
       entityType === 'contacts' || entityType === 'buyer_contacts' || entityType === 'buyers'
@@ -637,11 +681,13 @@ Deno.serve(async (req: Request) => {
     session_status: 'active',
     created_by_user_id: user.id,
     started_at: new Date().toISOString(),
+    session_contacts: sessionContacts,
   });
 
   return new Response(
     JSON.stringify({
       success: true,
+      request_id: requestId,
       redirect_url: redirectUrl,
       contacts_added: eligible.length,
       contacts_excluded: excluded.length,
