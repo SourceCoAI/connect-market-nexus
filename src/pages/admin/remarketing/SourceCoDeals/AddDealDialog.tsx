@@ -40,7 +40,7 @@ export function AddDealDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Website</Label>
+            <Label>Website *</Label>
             <Input
               value={newDeal.website}
               onChange={(e) => setNewDeal(d => ({ ...d, website: e.target.value }))}
@@ -132,7 +132,7 @@ export function AddDealDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleAddDeal} disabled={isAddingDeal || !newDeal.company_name.trim()}>
+          <Button onClick={handleAddDeal} disabled={isAddingDeal || !newDeal.company_name.trim() || !newDeal.website.trim()}>
             {isAddingDeal && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
             Add Deal
           </Button>

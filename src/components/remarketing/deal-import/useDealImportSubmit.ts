@@ -174,6 +174,13 @@ export async function handleImport({
 
       if (!parsedData) continue;
 
+      // Skip rows without a website — can't enrich or deduplicate without one
+      const rawWebsite = (parsedData as Record<string, unknown>).website;
+      if (!rawWebsite || (typeof rawWebsite === 'string' && !rawWebsite.trim())) {
+        results.errors.push(`Row ${i + 2}: Skipped — no website provided`);
+        continue;
+      }
+
       const city = typeof parsedData.address_city === 'string' ? parsedData.address_city : '';
       const state = typeof parsedData.address_state === 'string' ? parsedData.address_state : '';
       const computedLocation = city && state ? `${city}, ${state}` : state || city || "Unknown";

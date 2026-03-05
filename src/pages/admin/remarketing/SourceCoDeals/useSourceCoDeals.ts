@@ -552,10 +552,10 @@ export function useSourceCoDeals() {
       website = `https://${website}`;
     }
 
-    // website column is NOT NULL — generate a placeholder when no website is provided
     if (!website) {
-      const slug = newDeal.company_name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      website = `${slug}-${crypto.randomUUID().slice(0, 8)}.unknown`;
+      sonnerToast.error('Website is required to add a deal');
+      setIsAddingDeal(false);
+      return;
     }
 
     const { error } = await supabase.from('listings').insert({
