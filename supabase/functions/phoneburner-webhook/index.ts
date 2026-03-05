@@ -388,6 +388,43 @@ async function resolveRequestMapping(
   return { phoneburnerSessionId: session.id, matched: null };
 }
 
+async function resolvePhoneMapping(
+  supabase: ReturnType<typeof createClient>,
+  context: {
+    phone: string | null;
+    email: string | null;
+    name: string | null;
+  },
+): Promise<SessionContactLink | null> {
+  if (!context.phone) return null;
+
+  const { data, error } = await supabase.rpc('resolve_phone_activity_link_by_phone', {
+    p_phone: context.phone,
+    p_name: context.name,
+    p_email: context.email,
+  });
+
+  if (error) {
+    console.warn(
+      `[phoneburner-webhook] Failed phone-based resolution for ${context.phone}: ${error.message}`,
+    );
+    return null;
+  }
+
+  const match = Array.isArray(data) ? data[0] : data;
+  if (!match) return null;
+
+  return {
+    contact_id: match.contact_id ?? null,
+    listing_id: match.listing_id ?? null,
+    remarketing_buyer_id: match.remarketing_buyer_id ?? null,
+    contact_email: match.contact_email ?? null,
+    source_entity: match.match_source ?? 'phone',
+    phone: context.phone,
+    name: context.name,
+  };
+}
+
 /**
  * Extract contact info + custom_fields from the (normalized) webhook payload.
  */
@@ -514,10 +551,23 @@ async function processEvent(
     name: contactName,
   });
 
-  const resolvedContactId = contactId || requestMapping.matched?.contact_id || null;
-  const resolvedListingId = listingId || requestMapping.matched?.listing_id || null;
-  const resolvedBuyerId = remarketingBuyerId || requestMapping.matched?.remarketing_buyer_id || null;
-  const resolvedContactEmail = contactEmail || requestMapping.matched?.contact_email || null;
+  const phoneMapping = await resolvePhoneMapping(supabase, {
+    phone: contactPhone,
+    email: contactEmail,
+    name: contactName,
+  });
+
+  const resolvedContactId =
+    contactId || requestMapping.matched?.contact_id || phoneMapping?.contact_id || null;
+  const resolvedListingId =
+    listingId || requestMapping.matched?.listing_id || phoneMapping?.listing_id || null;
+  const resolvedBuyerId =
+    remarketingBuyerId ||
+    requestMapping.matched?.remarketing_buyer_id ||
+    phoneMapping?.remarketing_buyer_id ||
+    null;
+  const resolvedContactEmail =
+    contactEmail || requestMapping.matched?.contact_email || phoneMapping?.contact_email || null;
   const resolvedSessionId = requestMapping.phoneburnerSessionId;
 
   switch (eventType) {

@@ -12846,6 +12846,7 @@ export type Database = {
       }
       normalize_company_name: { Args: { name: string }; Returns: string }
       normalize_domain: { Args: { url: string }; Returns: string }
+      normalize_phone_lookup: { Args: { value: string }; Returns: string }
       normalize_state_name: { Args: { state_name: string }; Returns: string }
       promote_user_to_admin: {
         Args: { target_user_id: string }
@@ -12870,6 +12871,16 @@ export type Database = {
       resolve_contact_agreement_status: {
         Args: { p_contact_id: string }
         Returns: Json
+      }
+      resolve_phone_activity_link_by_phone: {
+        Args: { p_email?: string; p_name?: string; p_phone: string }
+        Returns: {
+          contact_email: string
+          contact_id: string
+          listing_id: string
+          match_source: string
+          remarketing_buyer_id: string
+        }[]
       }
       resolve_user_firm_id: { Args: { p_user_id: string }; Returns: string }
       restore_deal: { Args: { deal_id: string }; Returns: boolean }
