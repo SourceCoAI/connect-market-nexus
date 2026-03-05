@@ -61,6 +61,13 @@ export function sanitizeListingInsert<T extends Record<string, unknown>>(data: T
     record.location = 'Unknown';
   }
 
+  // website: NOT NULL constraint — generate a placeholder if missing
+  if (typeof record.website !== 'string' || !(record.website as string)?.trim()) {
+    const title = (record.title as string) || 'unknown';
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    record.website = `${slug}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.unknown`;
+  }
+
   // category: required string, ensure it exists
   if (typeof record.category !== 'string' || !(record.category as string)?.trim()) {
     record.category = 'Other';

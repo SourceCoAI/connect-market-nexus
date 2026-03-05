@@ -552,10 +552,16 @@ export function useSourceCoDeals() {
       website = `https://${website}`;
     }
 
+    // website column is NOT NULL — generate a placeholder when no website is provided
+    if (!website) {
+      const slug = newDeal.company_name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      website = `${slug}-${crypto.randomUUID().slice(0, 8)}.unknown`;
+    }
+
     const { error } = await supabase.from('listings').insert({
       title: newDeal.company_name.trim(),
       internal_company_name: newDeal.company_name.trim(),
-      website: website || null,
+      website,
       main_contact_name: newDeal.contact_name.trim() || null,
       main_contact_email: newDeal.contact_email.trim() || null,
       main_contact_phone: newDeal.contact_phone.trim() || null,
