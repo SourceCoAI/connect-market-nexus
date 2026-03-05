@@ -269,7 +269,7 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
               const { data: existing } = await supabase
                 .from('buyers')
                 .select('id')
-                .eq('company_website', domain)
+                .ilike('company_website', `%${domain}%`)
                 .eq('archived', false)
                 .limit(1)
                 .single();
@@ -327,7 +327,7 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
               const { data: existing } = await supabase
                 .from('buyers')
                 .select('id')
-                .eq('company_website', domain)
+                .ilike('company_website', `%${domain}%`)
                 .eq('archived', false)
                 .limit(1)
                 .single();
