@@ -37,12 +37,17 @@ async function fetchAlertCounts(): Promise<AlertCounts> {
         .eq('assignee_id', userId)
         .eq('status', 'overdue'),
 
-      // Unacknowledged critical/warning signals
+      // Unacknowledged critical/warning signals (table may not exist yet)
       (supabase
         .from('rm_deal_signals' as any) as any)
         .select('id', { count: 'exact', head: true })
         .in('signal_type', ['critical', 'warning'])
-        .is('acknowledged_at', null),
+        .is('acknowledged_at', null)
+        .then((res: { count: number | null; error: { code?: string; message?: string } | null }) =>
+          res.error && (res.error.code === '42P01' || res.error.message?.includes('does not exist'))
+            ? { count: 0, error: null }
+            : res,
+        ),
 
       // Stale active deals (14+ days = warning)
       supabase

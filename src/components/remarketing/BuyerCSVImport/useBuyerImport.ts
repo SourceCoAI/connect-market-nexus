@@ -205,13 +205,14 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
     setImportProgress(0);
     setImportResults({ success: 0, errors: 0, skipped: 0, linked: 0 });
 
-    // Build a map from row index → existing buyer ID for duplicates that should be linked
-    const existingBuyerMap = new Map<number, string>();
-    for (const dup of duplicates) {
-      if (!skipDuplicates.has(dup.index) && dup.potentialDuplicates.length > 0) {
-        existingBuyerMap.set(dup.index, dup.potentialDuplicates[0].id);
+    try {
+      // Build a map from row index → existing buyer ID for duplicates that should be linked
+      const existingBuyerMap = new Map<number, string>();
+      for (const dup of duplicates) {
+        if (!skipDuplicates.has(dup.index) && dup.potentialDuplicates.length > 0) {
+          existingBuyerMap.set(dup.index, dup.potentialDuplicates[0].id);
+        }
       }
-    }
 
 
 
@@ -233,42 +234,53 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       body: { buyers: payload, universeId },
     });
 
-    if (error) {
-      console.error('import-buyers edge function error:', error);
-      toast.error('Import failed. Please try again.');
-      setImportResults({ success: 0, errors: dataToImport.length, skipped: 0, linked: 0 });
+      console.log('import-buyers response:', JSON.stringify(data));
+
+      if (error) {
+        console.error('import-buyers edge function error:', error);
+        toast.error('Import failed. Please try again.');
+        setImportResults({ success: 0, errors: dataToImport.length, skipped: 0, linked: 0 });
+        setImportProgress(100);
+        onComplete?.();
+        return;
+      }
+
+      const { success = 0, errors: errorCount = 0, skipped = 0, linked = 0, contactsCreated = 0, errorDetails = [] } = data || {};
+
       setImportProgress(100);
+      setImportResults({ success, errors: errorCount, skipped, linked });
+
+      if (success > 0 || linked > 0) {
+        queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'] });
+        const parts: string[] = [];
+        if (success > 0) {
+          const contactMsg = contactsCreated > 0 ? ` with ${contactsCreated} contacts` : '';
+          parts.push(`Imported ${success} new buyer${success !== 1 ? 's' : ''}${contactMsg}`);
+        }
+        if (linked > 0) {
+          parts.push(`Linked ${linked} existing buyer${linked !== 1 ? 's' : ''} to universe`);
+        }
+        toast.success(parts.join('. '));
+      }
+
+      if (skipped > 0) {
+        toast.info(`${skipped} duplicate buyer(s) skipped`);
+      }
+
+      if (errorCount > 0) {
+        const detail = errorDetails.length > 0
+          ? ` (${errorDetails[0].code}: ${errorDetails[0].message})`
+          : '';
+        console.error('Import error details:', errorDetails);
+        toast.error(`Failed to import ${errorCount} buyers${detail}`);
+      }
+
       onComplete?.();
-      return;
+    } catch (err) {
+      console.error('import-buyers exception:', err);
+      toast.error('Import failed. Please try again.');
+      setStep('preview');
     }
-
-    const { success = 0, errors: errorCount = 0, skipped = 0, linked = 0, contactsCreated = 0 } = data || {};
-
-    setImportProgress(100);
-    setImportResults({ success, errors: errorCount, skipped, linked });
-
-    if (success > 0 || linked > 0) {
-      queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'] });
-      const parts: string[] = [];
-      if (success > 0) {
-        const contactMsg = contactsCreated > 0 ? ` with ${contactsCreated} contacts` : '';
-        parts.push(`Imported ${success} new buyer${success !== 1 ? 's' : ''}${contactMsg}`);
-      }
-      if (linked > 0) {
-        parts.push(`Linked ${linked} existing buyer${linked !== 1 ? 's' : ''} to universe`);
-      }
-      toast.success(parts.join('. '));
-    }
-
-    if (skipped > 0) {
-      toast.info(`${skipped} duplicate buyer(s) skipped`);
-    }
-
-    if (errorCount > 0) {
-      toast.error(`Failed to import ${errorCount} buyers`);
-    }
-
-    onComplete?.();
   }, [mappings, validRows, skipDuplicates, duplicates, universeId, queryClient, onComplete]);
 
   // -----------------------------------------------------------------------
@@ -343,10 +355,11 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         await handleImport();
       }
     } catch (err) {
-      // Dedupe error — surface it rather than silently importing.
+      console.error('dedupe-buyers exception:', err);
       toast.error(
         'An error occurred while checking for duplicates. Please try again before importing.',
       );
+      setStep('preview');
     } finally {
       setIsCheckingDuplicates(false);
     }

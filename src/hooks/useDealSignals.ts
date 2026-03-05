@@ -29,7 +29,13 @@ export function useDealSignals(options: { listingId?: string | null; dealId?: st
       if (dealId) query = query.eq('deal_id', dealId);
 
       const { data, error } = await query;
-      if (error) throw error;
+      // rm_deal_signals table may not exist yet — gracefully return empty
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          return [] as DealSignal[];
+        }
+        throw error;
+      }
       return (data || []) as unknown as DealSignal[];
     },
     staleTime: 60_000,
@@ -50,7 +56,10 @@ export function useAcknowledgeSignal() {
         })
         .eq('id', signalId);
 
-      if (error) throw error;
+      // rm_deal_signals table may not exist yet
+      if (error && error.code !== '42P01' && !error.message?.includes('does not exist')) {
+        throw error;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [SIGNALS_KEY] });
