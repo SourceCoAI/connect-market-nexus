@@ -449,6 +449,12 @@ export function buildBuyerFromRow(
     buyer.pe_firm_name = buyer.company_name;
   }
 
+  // Ensure company_website is always set (DB constraint requires it for active buyers).
+  // Fall back to platform_website or pe_firm_website if company_website wasn't mapped.
+  if (!buyer.company_website) {
+    buyer.company_website = buyer.platform_website || buyer.pe_firm_website || null;
+  }
+
   return buyer;
 }
 

@@ -321,12 +321,12 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
           const buyer = buildBuyerFromRow(row, mappings, universeId);
           return {
             index,
-            companyName: buyer.company_name || '',
-            website:
-              buyer.platform_website || buyer.pe_firm_website || buyer.company_website || null,
+            company_name: (buyer.company_name as string) || '',
+            company_website:
+              (buyer.company_website as string) || (buyer.platform_website as string) || (buyer.pe_firm_website as string) || null,
           };
         })
-        .filter((b) => b.companyName);
+        .filter((b) => b.company_name);
 
       const { data, error } = await supabase.functions.invoke('dedupe-buyers', {
         body: { buyers: buyersToCheck },
@@ -341,9 +341,20 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         return;
       }
 
-      const foundDuplicates = (data?.results || []).filter(
-        (r: { isDuplicate: boolean }) => r.isDuplicate,
-      );
+      const foundDuplicates = (data?.results || [])
+        .filter((r: { isDuplicate: boolean }) => r.isDuplicate)
+        .map((r: { index: number; companyName: string; potentialDuplicates: Array<{ existingId: string; existingName: string; matchType: string; confidence: number }> }) => ({
+          index: r.index,
+          companyName: r.companyName,
+          potentialDuplicates: r.potentialDuplicates
+            .filter((d) => d.matchType !== 'no_website')
+            .map((d) => ({
+              id: d.existingId,
+              companyName: d.existingName,
+              confidence: d.confidence,
+              matchType: d.matchType as 'domain' | 'name',
+            })),
+        }));
 
       if (foundDuplicates.length > 0) {
         setDuplicates(foundDuplicates);
