@@ -121,6 +121,10 @@ export function useConnectionRequestsQuery() {
         if (profilesRes.error) console.error('Error fetching profiles batch:', profilesRes.error);
         if (listingsRes.error) console.error('Error fetching listings batch:', listingsRes.error);
 
+        console.log('[CR-Debug] listingIds count:', listingIds.length, 'sample:', listingIds.slice(0, 3));
+        console.log('[CR-Debug] listings returned:', listingsRes.data?.length ?? 0, 'error:', listingsRes.error);
+        if (listingsRes.data?.[0]) console.log('[CR-Debug] first listing:', JSON.stringify(listingsRes.data[0]));
+
         const profilesById = new Map<string, NonNullable<typeof profilesRes.data>[number]>();
         (profilesRes.data ?? []).forEach((p) => profilesById.set(p.id as string, p));
 
