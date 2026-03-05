@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useBlocker } from 'react-router-dom';
+// useBlocker removed - requires data router
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -52,11 +52,13 @@ export default function SourceCoDeals() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMarkingNotFit, setIsMarkingNotFit] = useState(false);
 
-  // Block navigation while import dialog is open to prevent losing progress
-  useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      hook.csvUploadOpen && currentLocation.pathname !== nextLocation.pathname,
-  );
+  // Navigation blocking via beforeunload when import dialog is open
+  useEffect(() => {
+    if (!hook.csvUploadOpen) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hook.csvUploadOpen]);
 
   const handleBulkArchive = useCallback(async () => {
     setIsArchiving(true);
