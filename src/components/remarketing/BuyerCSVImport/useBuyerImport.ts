@@ -205,205 +205,75 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
     setImportProgress(0);
     setImportResults({ success: 0, errors: 0, skipped: 0, linked: 0 });
 
-    // Build a map from row index → existing buyer ID for duplicates that should be linked
-    const existingBuyerMap = new Map<number, string>();
-    for (const dup of duplicates) {
-      if (!skipDuplicates.has(dup.index) && dup.potentialDuplicates.length > 0) {
-        existingBuyerMap.set(dup.index, dup.potentialDuplicates[0].id);
+    try {
+      // Build a map from row index → existing buyer ID for duplicates that should be linked
+      const existingBuyerMap = new Map<number, string>();
+      for (const dup of duplicates) {
+        if (!skipDuplicates.has(dup.index) && dup.potentialDuplicates.length > 0) {
+          existingBuyerMap.set(dup.index, dup.potentialDuplicates[0].id);
+        }
       }
-    }
 
-    // Helper: update an existing buyer's universe_id (link to this universe)
-    const linkBuyerToUniverse = async (buyerId: string): Promise<boolean> => {
-      const { error } = await supabase
-        .from('buyers')
-        .update({ universe_id: universeId } as never)
-        .eq('id', buyerId);
+      // Filter out skipped duplicates
+      const dataToImport = validRows.filter(({ index }) => !skipDuplicates.has(index));
+      const wantContacts = hasContactMapping(mappings);
+
+      // Build the batch payload for the edge function
+      const payload = dataToImport.map(({ index: rowIndex, row }) => {
+        const existingBuyerId = existingBuyerMap.get(rowIndex) || null;
+        const buyer = buildBuyerFromRow(row, mappings, universeId);
+        const contact = wantContacts ? extractContactFromRow(row, mappings) : null;
+        return { buyer, contact, existingBuyerId };
+      });
+
+      setImportProgress(10);
+
+      // Send to edge function (uses service role to bypass RLS)
+      const { data, error } = await supabase.functions.invoke('import-buyers', {
+        body: { buyers: payload, universeId },
+      });
+
       if (error) {
-        console.error(
-          'Link failed:',
-          buyerId,
-          error.code,
-          error.message,
-          error.details,
-          error.hint,
-        );
-      }
-      return !error;
-    };
-
-    // Filter out skipped duplicates
-    const dataToImport = validRows.filter(({ index }) => !skipDuplicates.has(index));
-    const wantContacts = hasContactMapping(mappings);
-
-    // Build the batch payload for the edge function
-    const payload = dataToImport.map(({ index: rowIndex, row }) => {
-      const existingBuyerId = existingBuyerMap.get(rowIndex) || null;
-      const buyer = buildBuyerFromRow(row, mappings, universeId);
-      const contact = wantContacts ? extractContactFromRow(row, mappings) : null;
-      return { buyer, contact, existingBuyerId };
-    });
-
-      if (wantContacts) {
-        // Single-insert mode: need buyer ID to create linked contacts
-        const { data: inserted, error: buyerError } = await supabase
-          .from('buyers')
-          .insert(buyer as never)
-          .select('id')
-          .single();
-
-        if (buyerError || !inserted) {
-          if (buyerError?.code === '23505' && universeId) {
-            // Unique constraint — buyer already exists. Try to link instead.
-            const domain =
-              (buyer.company_website as string) ||
-              (buyer.platform_website as string) ||
-              (buyer.pe_firm_website as string) ||
-              '';
-            if (domain) {
-              const { data: existing } = await supabase
-                .from('buyers')
-                .select('id')
-                .ilike('company_website', `%${domain}%`)
-                .eq('archived', false)
-                .limit(1)
-                .single();
-              if (existing && (await linkBuyerToUniverse(existing.id))) {
-                linked += 1;
-              } else {
-                skipped += 1;
-              }
-            } else {
-              skipped += 1;
-            }
-          } else if (buyerError?.code === '23505') {
-            skipped += 1;
-          } else {
-            console.warn(
-              'Failed to import buyer:',
-              buyer.company_name,
-              buyerError?.code,
-              buyerError?.message,
-            );
-            errors += 1;
-          }
-        } else {
-          success += 1;
-
-          // Create contact if we have contact data
-          const contact = extractContactFromRow(row, mappings);
-          if (contact && inserted.id) {
-            const { error: contactError } = await supabase
-              .from('remarketing_buyer_contacts')
-              .insert({
-                buyer_id: inserted.id,
-                name:
-                  contact.name ||
-                  `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
-                  'Unknown',
-                email: contact.email || null,
-                phone: contact.phone || null,
-                role: contact.title || null,
-                linkedin_url: contact.linkedin_url || null,
-                is_primary: true,
-              } as never);
-
-            if (contactError) {
-              console.warn(
-                'Failed to create contact for buyer:',
-                inserted.id,
-                contactError.message,
-              );
-            } else {
-              contactsCreated++;
-            }
-          }
-        }
-      } else {
-        // Direct insert (no contacts needed)
-        const { error: insertError } = await supabase.from('buyers').insert(buyer as never);
-
-        if (insertError) {
-          if (insertError.code === '23505' && universeId) {
-            // Unique constraint — buyer already exists. Try to link instead.
-            const domain =
-              (buyer.company_website as string) ||
-              (buyer.platform_website as string) ||
-              (buyer.pe_firm_website as string) ||
-              '';
-            if (domain) {
-              const { data: existing } = await supabase
-                .from('buyers')
-                .select('id')
-                .ilike('company_website', `%${domain}%`)
-                .eq('archived', false)
-                .limit(1)
-                .single();
-              if (existing && (await linkBuyerToUniverse(existing.id))) {
-                linked += 1;
-              } else {
-                skipped += 1;
-              }
-            } else {
-              skipped += 1;
-            }
-          } else if (insertError.code === '23505') {
-            skipped += 1;
-          } else {
-            console.warn(
-              'Failed to import buyer:',
-              buyer.company_name,
-              insertError.code,
-              insertError.message,
-            );
-            errors += 1;
-          }
-        } else {
-          success += 1;
-        }
+        console.error('import-buyers edge function error:', error);
+        toast.error('Import failed. Please try again.');
+        setImportResults({ success: 0, errors: dataToImport.length, skipped: 0, linked: 0 });
+        setImportProgress(100);
+        onComplete?.();
+        return;
       }
 
-    // Send to edge function (uses service role to bypass RLS)
-    const { data, error } = await supabase.functions.invoke('import-buyers', {
-      body: { buyers: payload, universeId },
-    });
+      const { success = 0, errors: errorCount = 0, skipped = 0, linked = 0, contactsCreated = 0 } = data || {};
 
-    if (error) {
-      console.error('import-buyers edge function error:', error);
-      toast.error('Import failed. Please try again.');
-      setImportResults({ success: 0, errors: dataToImport.length, skipped: 0, linked: 0 });
       setImportProgress(100);
+      setImportResults({ success, errors: errorCount, skipped, linked });
+
+      if (success > 0 || linked > 0) {
+        queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'] });
+        const parts: string[] = [];
+        if (success > 0) {
+          const contactMsg = contactsCreated > 0 ? ` with ${contactsCreated} contacts` : '';
+          parts.push(`Imported ${success} new buyer${success !== 1 ? 's' : ''}${contactMsg}`);
+        }
+        if (linked > 0) {
+          parts.push(`Linked ${linked} existing buyer${linked !== 1 ? 's' : ''} to universe`);
+        }
+        toast.success(parts.join('. '));
+      }
+
+      if (skipped > 0) {
+        toast.info(`${skipped} duplicate buyer(s) skipped`);
+      }
+
+      if (errorCount > 0) {
+        toast.error(`Failed to import ${errorCount} buyers`);
+      }
+
       onComplete?.();
-      return;
+    } catch (err) {
+      console.error('import-buyers exception:', err);
+      toast.error('Import failed. Please try again.');
+      setStep('preview');
     }
-
-    const { success = 0, errors: errorCount = 0, skipped = 0, linked = 0, contactsCreated = 0 } = data || {};
-
-    setImportProgress(100);
-    setImportResults({ success, errors: errorCount, skipped, linked });
-
-    if (success > 0 || linked > 0) {
-      queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'] });
-      const parts: string[] = [];
-      if (success > 0) {
-        const contactMsg = contactsCreated > 0 ? ` with ${contactsCreated} contacts` : '';
-        parts.push(`Imported ${success} new buyer${success !== 1 ? 's' : ''}${contactMsg}`);
-      }
-      if (linked > 0) {
-        parts.push(`Linked ${linked} existing buyer${linked !== 1 ? 's' : ''} to universe`);
-      }
-      toast.success(parts.join('. '));
-    }
-
-    if (skipped > 0) {
-      toast.info(`${skipped} duplicate buyer(s) skipped`);
-    }
-
-    if (errorCount > 0) {
-      toast.error(`Failed to import ${errorCount} buyers`);
-    }
-
-    onComplete?.();
   }, [mappings, validRows, skipDuplicates, duplicates, universeId, queryClient, onComplete]);
 
   // -----------------------------------------------------------------------
@@ -478,10 +348,11 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         await handleImport();
       }
     } catch (err) {
-      // Dedupe error — surface it rather than silently importing.
+      console.error('dedupe-buyers exception:', err);
       toast.error(
         'An error occurred while checking for duplicates. Please try again before importing.',
       );
+      setStep('preview');
     } finally {
       setIsCheckingDuplicates(false);
     }
