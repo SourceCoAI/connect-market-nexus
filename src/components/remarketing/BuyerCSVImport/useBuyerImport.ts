@@ -37,7 +37,12 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  const [importResults, setImportResults] = useState<{ success: number; errors: number; skipped: number; linked: number }>({
+  const [importResults, setImportResults] = useState<{
+    success: number;
+    errors: number;
+    skipped: number;
+    linked: number;
+  }>({
     success: 0,
     errors: 0,
     skipped: 0,
@@ -127,9 +132,8 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       }
 
       try {
-        const { data, columns: headers } = await parseSpreadsheet(
-          file,
-          (h) => h.replace(/^\ufeff/, '').trim(),
+        const { data, columns: headers } = await parseSpreadsheet(file, (h) =>
+          h.replace(/^\ufeff/, '').trim(),
         );
 
         if (data.length === 0) {
@@ -222,7 +226,14 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         .update({ universe_id: universeId } as never)
         .eq('id', buyerId);
       if (error) {
-        console.error('Link failed:', buyerId, error.code, error.message, error.details, error.hint);
+        console.error(
+          'Link failed:',
+          buyerId,
+          error.code,
+          error.message,
+          error.details,
+          error.hint,
+        );
       }
       return !error;
     };
@@ -264,16 +275,20 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         if (buyerError || !inserted) {
           if (buyerError?.code === '23505' && universeId) {
             // Unique constraint — buyer already exists. Try to link instead.
-            const domain = (buyer.company_website as string) || (buyer.platform_website as string) || (buyer.pe_firm_website as string) || '';
+            const domain =
+              (buyer.company_website as string) ||
+              (buyer.platform_website as string) ||
+              (buyer.pe_firm_website as string) ||
+              '';
             if (domain) {
               const { data: existing } = await supabase
                 .from('buyers')
                 .select('id')
-                .eq('company_website', domain)
+                .ilike('company_website', `%${domain}%`)
                 .eq('archived', false)
                 .limit(1)
                 .single();
-              if (existing && await linkBuyerToUniverse(existing.id)) {
+              if (existing && (await linkBuyerToUniverse(existing.id))) {
                 linked += 1;
               } else {
                 skipped += 1;
@@ -284,7 +299,12 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
           } else if (buyerError?.code === '23505') {
             skipped += 1;
           } else {
-            console.warn('Failed to import buyer:', buyer.company_name, buyerError?.code, buyerError?.message);
+            console.warn(
+              'Failed to import buyer:',
+              buyer.company_name,
+              buyerError?.code,
+              buyerError?.message,
+            );
             errors += 1;
           }
         } else {
@@ -309,7 +329,11 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
               } as never);
 
             if (contactError) {
-              console.warn('Failed to create contact for buyer:', inserted.id, contactError.message);
+              console.warn(
+                'Failed to create contact for buyer:',
+                inserted.id,
+                contactError.message,
+              );
             } else {
               contactsCreated++;
             }
@@ -322,16 +346,20 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         if (insertError) {
           if (insertError.code === '23505' && universeId) {
             // Unique constraint — buyer already exists. Try to link instead.
-            const domain = (buyer.company_website as string) || (buyer.platform_website as string) || (buyer.pe_firm_website as string) || '';
+            const domain =
+              (buyer.company_website as string) ||
+              (buyer.platform_website as string) ||
+              (buyer.pe_firm_website as string) ||
+              '';
             if (domain) {
               const { data: existing } = await supabase
                 .from('buyers')
                 .select('id')
-                .eq('company_website', domain)
+                .ilike('company_website', `%${domain}%`)
                 .eq('archived', false)
                 .limit(1)
                 .single();
-              if (existing && await linkBuyerToUniverse(existing.id)) {
+              if (existing && (await linkBuyerToUniverse(existing.id))) {
                 linked += 1;
               } else {
                 skipped += 1;
@@ -342,7 +370,12 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
           } else if (insertError.code === '23505') {
             skipped += 1;
           } else {
-            console.warn('Failed to import buyer:', buyer.company_name, insertError.code, insertError.message);
+            console.warn(
+              'Failed to import buyer:',
+              buyer.company_name,
+              insertError.code,
+              insertError.message,
+            );
             errors += 1;
           }
         } else {
@@ -398,7 +431,10 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
             index,
             company_name: (buyer.company_name as string) || '',
             company_website:
-              (buyer.company_website as string) || (buyer.platform_website as string) || (buyer.pe_firm_website as string) || null,
+              (buyer.company_website as string) ||
+              (buyer.platform_website as string) ||
+              (buyer.pe_firm_website as string) ||
+              null,
           };
         })
         .filter((b) => b.company_name);
@@ -410,26 +446,35 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       if (error) {
         // Dedupe check failed — surface the error rather than silently importing.
         // Importing without a dedup check risks creating duplicate buyers.
-        toast.error(
-          'Could not check for duplicate buyers. Please try again before importing.',
-        );
+        toast.error('Could not check for duplicate buyers. Please try again before importing.');
         return;
       }
 
       const foundDuplicates = (data?.results || [])
         .filter((r: { isDuplicate: boolean }) => r.isDuplicate)
-        .map((r: { index: number; companyName: string; potentialDuplicates: Array<{ existingId: string; existingName: string; matchType: string; confidence: number }> }) => ({
-          index: r.index,
-          companyName: r.companyName,
-          potentialDuplicates: r.potentialDuplicates
-            .filter((d) => d.matchType !== 'no_website')
-            .map((d) => ({
-              id: d.existingId,
-              companyName: d.existingName,
-              confidence: d.confidence,
-              matchType: d.matchType as 'domain' | 'name',
-            })),
-        }))
+        .map(
+          (r: {
+            index: number;
+            companyName: string;
+            potentialDuplicates: Array<{
+              existingId: string;
+              existingName: string;
+              matchType: string;
+              confidence: number;
+            }>;
+          }) => ({
+            index: r.index,
+            companyName: r.companyName,
+            potentialDuplicates: r.potentialDuplicates
+              .filter((d) => d.matchType !== 'no_website')
+              .map((d) => ({
+                id: d.existingId,
+                companyName: d.existingName,
+                confidence: d.confidence,
+                matchType: d.matchType as 'domain' | 'name',
+              })),
+          }),
+        )
         .filter((dup: DuplicateWarning) => dup.potentialDuplicates.length > 0);
 
       if (foundDuplicates.length > 0) {

@@ -170,13 +170,48 @@ export const TARGET_FIELDS = [
   },
   { value: 'notes', label: 'Notes', required: false, description: 'Additional notes' },
   // Primary contact fields
-  { value: 'contact_name', label: 'Contact Name', required: false, description: 'Full name of primary contact' },
-  { value: 'contact_first_name', label: 'Contact First Name', required: false, description: 'First name of primary contact' },
-  { value: 'contact_last_name', label: 'Contact Last Name', required: false, description: 'Last name of primary contact' },
-  { value: 'contact_email', label: 'Contact Email', required: false, description: 'Email of primary contact' },
-  { value: 'contact_phone', label: 'Contact Phone', required: false, description: 'Phone of primary contact' },
-  { value: 'contact_title', label: 'Contact Title', required: false, description: 'Job title of primary contact' },
-  { value: 'contact_linkedin_url', label: 'Contact LinkedIn URL', required: false, description: 'LinkedIn profile of primary contact' },
+  {
+    value: 'contact_name',
+    label: 'Contact Name',
+    required: false,
+    description: 'Full name of primary contact',
+  },
+  {
+    value: 'contact_first_name',
+    label: 'Contact First Name',
+    required: false,
+    description: 'First name of primary contact',
+  },
+  {
+    value: 'contact_last_name',
+    label: 'Contact Last Name',
+    required: false,
+    description: 'Last name of primary contact',
+  },
+  {
+    value: 'contact_email',
+    label: 'Contact Email',
+    required: false,
+    description: 'Email of primary contact',
+  },
+  {
+    value: 'contact_phone',
+    label: 'Contact Phone',
+    required: false,
+    description: 'Phone of primary contact',
+  },
+  {
+    value: 'contact_title',
+    label: 'Contact Title',
+    required: false,
+    description: 'Job title of primary contact',
+  },
+  {
+    value: 'contact_linkedin_url',
+    label: 'Contact LinkedIn URL',
+    required: false,
+    description: 'LinkedIn profile of primary contact',
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -261,7 +296,12 @@ export function guessMapping(column: string): string | null {
 
   // Contact fields — check BEFORE generic "name"/"firm" matches to avoid shadowing
   if (lower.includes('linkedin')) return 'contact_linkedin_url';
-  if ((lower.includes('contact') || lower.includes('primary')) && lower.includes('name') && !lower.includes('first') && !lower.includes('last'))
+  if (
+    (lower.includes('contact') || lower.includes('primary')) &&
+    lower.includes('name') &&
+    !lower.includes('first') &&
+    !lower.includes('last')
+  )
     return 'contact_name';
   if ((lower.includes('contact') && lower.includes('first')) || lower === 'first name')
     return 'contact_first_name';
@@ -270,10 +310,22 @@ export function guessMapping(column: string): string | null {
   if ((lower.includes('contact') || lower.includes('primary')) && lower.includes('email'))
     return 'contact_email';
   if (lower === 'email' || lower === 'e-mail') return 'contact_email';
-  if ((lower.includes('contact') || lower.includes('primary') || lower.includes('owner')) && lower.includes('phone'))
+  if (
+    (lower.includes('contact') || lower.includes('primary') || lower.includes('owner')) &&
+    lower.includes('phone')
+  )
     return 'contact_phone';
   if (lower === 'phone' || lower === 'phone number') return 'contact_phone';
-  if ((lower.includes('contact') || lower.includes('primary')) && (lower.includes('title') || lower.includes('role')))
+  if (
+    (lower.includes('pe') || lower.includes('sponsor')) &&
+    lower.includes('owner') &&
+    lower.includes('phone')
+  )
+    return 'contact_phone';
+  if (
+    (lower.includes('contact') || lower.includes('primary')) &&
+    (lower.includes('title') || lower.includes('role'))
+  )
     return 'contact_title';
   if (lower === 'title' || lower === 'job title' || lower === 'role') return 'contact_title';
 
@@ -281,7 +333,13 @@ export function guessMapping(column: string): string | null {
   if (lower.includes('platform') && (lower.includes('website') || lower.includes('url')))
     return 'platform_website';
   if (
-    (lower.includes('pe') || lower.includes('firm')) &&
+    (lower.includes('pe') || lower.includes('firm') || lower.includes('sponsor')) &&
+    (lower.includes('website') || lower.includes('url'))
+  )
+    return 'pe_firm_website';
+  if (
+    lower.includes('owner') &&
+    lower.includes('pe') &&
     (lower.includes('website') || lower.includes('url'))
   )
     return 'pe_firm_website';
@@ -291,10 +349,22 @@ export function guessMapping(column: string): string | null {
   // PE Firm name — check BEFORE generic "company"/"name" match
   if (
     (lower.includes('pe') || lower.includes('private equity') || lower.includes('sponsor')) &&
-    (lower.includes('name') || lower.includes('owner'))
+    !lower.includes('url') &&
+    !lower.includes('website') &&
+    !lower.includes('phone') &&
+    !lower.includes('email')
   )
     return 'pe_firm_name';
-  if (lower.includes('pe firm') || lower.includes('pe owner') || lower.includes('sponsor')) return 'pe_firm_name';
+  if (
+    lower.includes('owner') &&
+    lower.includes('pe') &&
+    !lower.includes('url') &&
+    !lower.includes('website') &&
+    !lower.includes('phone') &&
+    !lower.includes('email')
+  )
+    return 'pe_firm_name';
+  if (lower.includes('pe firm') || lower.includes('sponsor')) return 'pe_firm_name';
 
   // Platform/Company name — generic fallback for "name"/"company"/"firm"
   if (lower.includes('platform') && (lower.includes('company') || lower.includes('name')))
@@ -454,7 +524,11 @@ export function buildBuyerFromRow(
         const lower = value.toLowerCase();
         if (lower.includes('pe') || lower.includes('private equity'))
           buyer.buyer_type = 'private_equity';
-        else if (lower.includes('platform') || lower.includes('strategic') || lower.includes('corporate'))
+        else if (
+          lower.includes('platform') ||
+          lower.includes('strategic') ||
+          lower.includes('corporate')
+        )
           buyer.buyer_type = 'corporate';
         else if (lower.includes('family')) buyer.buyer_type = 'family_office';
         else if (lower.includes('search fund')) buyer.buyer_type = 'search_fund';
@@ -547,9 +621,7 @@ export function hasWebsiteMapping(mappings: ColumnMapping[]): boolean {
 
 /** Check whether any contact fields are mapped */
 export function hasContactMapping(mappings: ColumnMapping[]): boolean {
-  return mappings.some(
-    (m) => m.targetField != null && m.targetField.startsWith('contact_'),
-  );
+  return mappings.some((m) => m.targetField != null && m.targetField.startsWith('contact_'));
 }
 
 /** Compute valid and skipped rows from data + mappings */
@@ -568,9 +640,12 @@ export function computeRowValidation(csvData: CSVRow[], mappings: ColumnMapping[
       if (mapping.targetField && row[mapping.csvColumn]) {
         const value = row[mapping.csvColumn].trim();
         // Normalize websites so validation matches what buildBuyerFromRow will produce
-        if (mapping.targetField === 'platform_website') platformWebsite = normalizeDomain(value) || null;
-        else if (mapping.targetField === 'pe_firm_website') peFirmWebsite = normalizeDomain(value) || null;
-        else if (mapping.targetField === 'company_website') companyWebsite = normalizeDomain(value) || null;
+        if (mapping.targetField === 'platform_website')
+          platformWebsite = normalizeDomain(value) || null;
+        else if (mapping.targetField === 'pe_firm_website')
+          peFirmWebsite = normalizeDomain(value) || null;
+        else if (mapping.targetField === 'company_website')
+          companyWebsite = normalizeDomain(value) || null;
         else if (mapping.targetField === 'company_name') companyName = value;
       }
     });
