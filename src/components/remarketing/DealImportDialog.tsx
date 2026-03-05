@@ -41,7 +41,7 @@ import {
 } from "@/lib/deal-csv-import";
 import { DealImportMapping } from "./deal-import/DealImportMapping";
 import { DealImportPreview } from "./deal-import/DealImportPreview";
-import { handleImport, type ImportResults } from "./deal-import/useDealImportSubmit";
+import { handleImport, type ImportResults, type ExistingDealRef } from "./deal-import/useDealImportSubmit";
 
 interface DealImportDialogProps {
   open: boolean;
@@ -56,6 +56,28 @@ interface DealImportDialogProps {
 }
 
 type ImportStep = "upload" | "mapping" | "preview" | "importing" | "complete";
+
+const SOURCE_LABELS: Record<string, { label: string; path: string }> = {
+  marketplace: { label: 'Active Deals', path: '/admin/remarketing' },
+  manual: { label: 'Active Deals', path: '/admin/remarketing' },
+  referral: { label: 'Active Deals', path: '/admin/remarketing' },
+  remarketing: { label: 'Active Deals', path: '/admin/remarketing' },
+  salesforce_remarketing: { label: 'Active Deals', path: '/admin/remarketing' },
+  sourceco: { label: 'SourceCo Deals', path: '/admin/remarketing/sourceco' },
+  captarget: { label: 'CapTarget Deals', path: '/admin/remarketing/captarget' },
+  gp_partners: { label: 'GP Partners', path: '/admin/remarketing/gp-partners' },
+  valuation_calculator: { label: 'Active Deals', path: '/admin/remarketing' },
+  valuation_lead: { label: 'Active Deals', path: '/admin/remarketing' },
+};
+
+function groupBySource(deals: ExistingDealRef[]) {
+  const groups: Record<string, ExistingDealRef[]> = {};
+  for (const d of deals) {
+    const src = d.deal_source || 'unknown';
+    (groups[src] ??= []).push(d);
+  }
+  return groups;
+}
 
 export function DealImportDialog({
   open,
@@ -322,45 +344,60 @@ export function DealImportDialog({
                     Empty fields on existing deals were filled with new data from the CSV
                   </p>
                 )}
-                {importResults.errors.length > 0 && (() => {
-                  const duplicateErrors = importResults.errors.filter(e =>
-                    e.includes('duplicate key') || e.includes('unique constraint') || e.includes('idx_listings_unique')
+                {/* Show where existing/duplicate deals live on the platform */}
+                {importResults.existingDeals.length > 0 && (() => {
+                  const groups = groupBySource(importResults.existingDeals);
+                  return (
+                    <div className="mt-4 text-left max-w-md space-y-3">
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3">
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
+                          {importResults.existingDeals.length} already exist on the platform
+                        </p>
+                        {Object.entries(groups).map(([source, deals]) => {
+                          const info = SOURCE_LABELS[source] || { label: source, path: '/admin/remarketing' };
+                          return (
+                            <div key={source} className="mb-2 last:mb-0">
+                              <a
+                                href={info.path}
+                                className="text-xs font-medium text-amber-800 dark:text-amber-200 underline hover:no-underline"
+                              >
+                                {deals.length} in {info.label}
+                              </a>
+                              <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                                {deals.slice(0, 5).map(d => d.company_name).join(', ')}
+                                {deals.length > 5 && ` and ${deals.length - 5} more`}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
+                })()}
+                {/* Show non-duplicate errors */}
+                {importResults.errors.length > 0 && (() => {
                   const otherErrors = importResults.errors.filter(e =>
                     !e.includes('duplicate key') && !e.includes('unique constraint') && !e.includes('idx_listings_unique')
                   );
 
+                  if (otherErrors.length === 0) return null;
                   return (
-                    <div className="mt-4 text-left max-w-md space-y-3">
-                      {duplicateErrors.length > 0 && (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3">
-                          <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">
-                            {duplicateErrors.length} already existed
+                    <div className="mt-4 text-left max-w-md">
+                      <p className="text-sm font-medium text-destructive mb-2">
+                        {otherErrors.length} failed to import:
+                      </p>
+                      <ScrollArea className="h-32 border rounded p-2">
+                        {otherErrors.slice(0, 10).map((err) => (
+                          <p key={err} className="text-xs text-muted-foreground">
+                            {err}
                           </p>
-                          <p className="text-xs text-amber-700 dark:text-amber-300">
-                            These deals were skipped because they already exist in the system (matched by website URL or name).
+                        ))}
+                        {otherErrors.length > 10 && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            ...and {otherErrors.length - 10} more
                           </p>
-                        </div>
-                      )}
-                      {otherErrors.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium text-destructive mb-2">
-                            {otherErrors.length} failed to import:
-                          </p>
-                          <ScrollArea className="h-32 border rounded p-2">
-                            {otherErrors.slice(0, 10).map((err) => (
-                              <p key={err} className="text-xs text-muted-foreground">
-                                {err}
-                              </p>
-                            ))}
-                            {otherErrors.length > 10 && (
-                              <p className="text-xs text-muted-foreground mt-2">
-                                ...and {otherErrors.length - 10} more
-                              </p>
-                            )}
-                          </ScrollArea>
-                        </div>
-                      )}
+                        )}
+                      </ScrollArea>
                     </div>
                   );
                 })()}
