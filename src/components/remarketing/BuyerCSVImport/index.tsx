@@ -227,6 +227,7 @@ export const BuyerCSVImport = ({
                 </Button>
               </>
             )}
+
             {step === 'importing' && isComplete && (
               <Button
                 onClick={() => {

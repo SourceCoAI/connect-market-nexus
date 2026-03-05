@@ -189,13 +189,16 @@ export function DedupeStep({
   validRowCount,
   onToggleSkip,
 }: DedupeStepProps) {
+  const linkCount = duplicates.filter((d) => !skipDuplicates.has(d.index)).length;
+  const newCount = validRowCount - duplicates.length;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 p-3 bg-amber-500/10 rounded-lg text-amber-700 dark:text-amber-400 text-sm">
+      <div className="flex items-center gap-2 p-3 bg-blue-500/10 rounded-lg text-blue-700 dark:text-blue-400 text-sm">
         <AlertCircle className="h-4 w-4 shrink-0" />
         <span>
-          Found {duplicates.length} potential duplicate(s). Review and select which to
-          skip.
+          Found {duplicates.length} buyer(s) already in the system. They will be added
+          to this universe. Deselect any you don&apos;t want to include.
         </span>
       </div>
 
@@ -209,7 +212,7 @@ export function DedupeStep({
               <div>
                 <p className="font-medium">{dup.companyName}</p>
                 <p className="text-xs text-muted-foreground">
-                  Matches: {dup.potentialDuplicates.map((d) => d.companyName).join(', ')}
+                  Existing match: {dup.potentialDuplicates.map((d) => d.companyName).filter(Boolean).join(', ') || 'domain match'}
                 </p>
               </div>
               <Button
@@ -217,7 +220,7 @@ export function DedupeStep({
                 size="sm"
                 onClick={() => onToggleSkip(dup.index)}
               >
-                {skipDuplicates.has(dup.index) ? 'Skipping' : 'Skip'}
+                {skipDuplicates.has(dup.index) ? 'Excluded' : 'Exclude'}
               </Button>
             </div>
           </div>
@@ -225,7 +228,9 @@ export function DedupeStep({
       </div>
 
       <p className="text-sm text-muted-foreground">
-        {validRowCount - skipDuplicates.size} buyers will be imported
+        {linkCount > 0 && <>{linkCount} existing buyer(s) will be linked. </>}
+        {newCount > 0 && <>{newCount} new buyer(s) will be imported. </>}
+        {skipDuplicates.size > 0 && <>{skipDuplicates.size} excluded.</>}
       </p>
     </div>
   );
