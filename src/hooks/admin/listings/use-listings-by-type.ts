@@ -42,7 +42,7 @@ export function useListingsByType(
           let query = supabase
             .from('listings')
             .select(
-              'id, title, description, category, categories, status, revenue, ebitda, asking_price, image_url, is_internal_deal, created_at, updated_at, location, user_id, business_type, employee_count, year_established',
+              'id, title, description, category, categories, status, revenue, ebitda, image_url, is_internal_deal, created_at, updated_at, location, user_id, internal_company_name',
             )
             .is('deleted_at', null);
 

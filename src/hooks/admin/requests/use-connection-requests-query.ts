@@ -105,16 +105,14 @@ export function useConnectionRequestsQuery() {
           profileIds.length
             ? supabase
                 .from('profiles')
-                .select(
-                  'id, first_name, last_name, email, company_name, approval_status, is_admin, avatar_url, user_type',
-                )
+                .select('*')
                 .in('id', profileIds)
             : emptyResult,
           listingIds.length
             ? supabase
                 .from('listings')
                 .select(
-                  'id, title, category, status, revenue, ebitda, asking_price, image_url, location, user_id',
+                  'id, title, category, status, revenue, ebitda, image_url, location, user_id, internal_company_name',
                 )
                 .in('id', listingIds)
             : emptyResult,
