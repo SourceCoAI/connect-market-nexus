@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,16 +18,6 @@ export function useDealDetail() {
   const [isAnalyzingNotes, setIsAnalyzingNotes] = useState(false);
   const [buyerHistoryOpen, setBuyerHistoryOpen] = useState(false);
   const [editFinancialsOpen, setEditFinancialsOpen] = useState(false);
-  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Clean up progress timer on unmount to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-    };
-  }, []);
-  const [enrichmentProgress, setEnrichmentProgress] = useState(0);
-  const [enrichmentStage, setEnrichmentStage] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
 
@@ -218,50 +208,14 @@ export function useDealDetail() {
   const handleEnrichFromWebsite = async () => {
     if (!deal) return;
     setIsEnriching(true);
-    setEnrichmentProgress(10);
-    setEnrichmentStage('Scraping website...');
-    progressTimerRef.current = setInterval(() => {
-      setEnrichmentProgress((prev) => {
-        if (prev >= 85) {
-          if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-          progressTimerRef.current = null;
-          return 85;
-        }
-        if (prev < 30) {
-          setEnrichmentStage('Scraping website...');
-          return prev + 3;
-        }
-        if (prev < 55) {
-          setEnrichmentStage('Extracting business intelligence...');
-          return prev + 2;
-        }
-        if (prev < 75) {
-          setEnrichmentStage('Processing company data...');
-          return prev + 1.5;
-        }
-        setEnrichmentStage('Saving enriched data...');
-        return prev + 1;
-      });
-    }, 500);
     try {
       const { queueDealEnrichment } = await import('@/lib/remarketing/queueEnrichment');
       await queueDealEnrichment([dealId!]);
-      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-      progressTimerRef.current = null;
-      setEnrichmentProgress(100);
-      setEnrichmentStage('Queued for background processing');
-      setTimeout(() => {
-        setIsEnriching(false);
-        setEnrichmentProgress(0);
-        setEnrichmentStage('');
-      }, 1500);
+      toast.success('Queued for background enrichment');
     } catch (error: unknown) {
-      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-      progressTimerRef.current = null;
       toast.error((error instanceof Error ? error.message : null) || 'Failed to queue enrichment');
+    } finally {
       setIsEnriching(false);
-      setEnrichmentProgress(0);
-      setEnrichmentStage('');
     }
   };
 
@@ -320,8 +274,6 @@ export function useDealDetail() {
     updateNameMutation,
     // UI state
     isEnriching,
-    enrichmentProgress,
-    enrichmentStage,
     isAnalyzingNotes,
     buyerHistoryOpen,
     setBuyerHistoryOpen,

@@ -1,7 +1,8 @@
-# Audit: Deal Page Notes System
+# Audit: Deal Page Notes System (Post-Fix)
 
 **Date:** 2026-03-05
 **Scope:** All notes-related functionality on the ReMarketing Deal Detail page
+**Status:** All issues from initial audit have been resolved
 
 ---
 
@@ -38,7 +39,7 @@ The deal detail page (`/admin/remarketing/deals/:dealId`) has **three distinct n
 - A chronological feed of individual timestamped notes + Fireflies meeting summaries
 - Each note has: author (admin), timestamp, and text content
 - Notes are stored in a separate `listing_notes` table (one row per note)
-- Supports add, delete, and Cmd+Enter keyboard shortcut for submission
+- Supports add, delete (with confirmation dialog), and Cmd+Enter keyboard shortcut for submission
 - Merges with `deal_transcripts` (source='fireflies') into a unified timeline sorted newest-first
 - Fireflies entries show call title, duration, and a 2-sentence summary truncation
 
@@ -62,84 +63,62 @@ The deal detail page (`/admin/remarketing/deals/:dealId`) has **three distinct n
 
 ---
 
-## 2. Audit Findings
+## 2. Issues Found and Fixed
 
-### CRITICAL: ListingNotesLog references a DROPPED table
+### FIXED (was CRITICAL): ListingNotesLog referenced a DROPPED table
 
-**Severity:** Critical
-**File:** `src/components/remarketing/deal-detail/ListingNotesLog.tsx`
-**Issue:** The `listing_notes` table was **dropped** in migration `20260503000000_drop_unused_tables.sql` (line 42):
+**Files changed:**
+- `supabase/migrations/20260522000000_restore_listing_notes.sql` (new) -- Recreates the `listing_notes` table with the same schema and RLS policies as the original
+- `src/components/remarketing/deal-detail/ListingNotesLog.tsx` -- Removed all `UntypedTable` / `any` casts; queries now use `supabase.from('listing_notes')` directly
 
-```sql
-DROP TABLE IF EXISTS listing_notes CASCADE;
-```
+**What was wrong:** The `listing_notes` table was dropped in migration `20260503000000_drop_unused_tables.sql` but the `ListingNotesLog` component still queried it. The `as UntypedTable` (`any`) cast hid this from TypeScript.
 
-Yet the `ListingNotesLog` component (rendered on the Contact History tab) still queries this table:
-- Line 81: `supabase.from('listing_notes' as UntypedTable).select(...)`
-- Line 146: `supabase.from('listing_notes' as UntypedTable).insert(...)`
-- Line 165: `supabase.from('listing_notes' as UntypedTable).delete(...)`
+**Fix:** Created a new migration to restore the table, and removed all `any` type casts from the component.
 
-The `as UntypedTable` cast (`any`) hides this from TypeScript — the type was already removed from `src/integrations/supabase/types.ts`, so the code bypasses type checking entirely.
+### FIXED (was MEDIUM): Stale state after General Notes save/enrichment
 
-**Impact:** If the migration has been applied in production, all note operations on the Contact History tab will silently fail (the queries will return errors, and the timeline will show "No notes yet" even if data existed). The Fireflies meeting summaries will still work since they read from `deal_transcripts`, which is alive.
+**File changed:** `src/components/remarketing/deal-detail/GeneralNotesSection.tsx`
 
-**Recommendation:** Either:
-1. Remove `ListingNotesLog` component and its usage in the deal detail page (line 178 of `index.tsx`), OR
-2. Restore the `listing_notes` table if the feature is still needed
+**What was wrong:** `editedNotes` was initialized from the `notes` prop on mount but never synced when the prop changed after save/refetch.
 
-### MEDIUM: Stale state after General Notes enrichment
+**Fix:** Added a `useEffect` with a `lastSavedNotes` ref that syncs `editedNotes` when the prop changes externally, but only if the user hasn't made local edits since the last known value. Also updates `lastSavedNotes` after a successful save.
 
-**Severity:** Medium
-**File:** `src/components/remarketing/deal-detail/GeneralNotesSection.tsx`
-**Issue:** The `editedNotes` state is initialized from `notes` prop on mount (line 28) but is never updated when the prop changes. After saving notes or enriching, the parent component refetches the deal via `queryClient.invalidateQueries`, which updates the `notes` prop — but `GeneralNotesSection` keeps showing the old `editedNotes` value in the textarea.
+### FIXED (was MEDIUM): Fake progress bars replaced with honest spinners
 
-This means:
-- If the user saves notes, the `hasChanges` check (line 32) still shows `true` because `editedNotes` is compared against the *old* `notes` prop value
-- The component will not reflect externally-updated notes (e.g., from another tab or AI enrichment that modifies `general_notes`)
+**Files changed:**
+- `src/components/remarketing/deal-detail/GeneralNotesSection.tsx` -- Removed the fake `setInterval`-based progress bar; now shows a simple spinner with "Analyzing notes... This may take a minute."
+- `src/pages/admin/remarketing/ReMarketingDealDetail/useDealDetail.ts` -- Removed `enrichmentProgress`, `enrichmentStage`, and the `progressTimerRef` with its cleanup effect. Enrichment handler now just shows a spinner while queuing.
+- `src/pages/admin/remarketing/ReMarketingDealDetail/WebsiteActionsCard.tsx` -- Removed `Progress` import, `enrichmentProgress`/`enrichmentStage` props, and the fake progress bar. Now shows a simple "Queuing enrichment..." spinner.
+- `src/pages/admin/remarketing/ReMarketingDealDetail/OverviewTab.tsx` -- Removed `enrichmentProgress`/`enrichmentStage` from props interface and destructuring.
+- `src/pages/admin/remarketing/ReMarketingDealDetail/index.tsx` -- Removed `enrichmentProgress`/`enrichmentStage` from destructuring and prop passing.
 
-**Recommendation:** Add a `useEffect` that syncs `editedNotes` when the `notes` prop changes and there are no local unsaved edits, or use a key prop to force remount.
+### FIXED (was LOW): No delete confirmation for notes
 
-### MEDIUM: Fake progress bar in GeneralNotesSection
+**File changed:** `src/components/remarketing/deal-detail/ListingNotesLog.tsx`
 
-**Severity:** Medium (UX concern)
-**File:** `src/components/remarketing/deal-detail/GeneralNotesSection.tsx` (lines 48-74)
-**Issue:** The enrichment progress bar is entirely cosmetic — it advances on a `setInterval(400ms)` timer with hardcoded stages regardless of actual backend progress. The analyze-deal-notes edge function can take up to 120 seconds (`timeoutMs: 120_000` in `useDealDetail.ts:273`), but the progress bar reaches 85% within ~12 seconds.
+**What was wrong:** Clicking the trash icon immediately deleted the note with no confirmation.
 
-Additionally, this duplicates the same pattern in `useDealDetail.ts` (lines 222-245) for the website enrichment progress. Both components have independent fake progress implementations.
+**Fix:** Added an `AlertDialog` that shows the first 80 characters of the note and requires explicit confirmation before deletion.
 
-**Recommendation:** Either remove the progress bar (just show a spinner), or consolidate the fake-progress logic into a shared hook.
+### FIXED (was LOW): UntypedTable casts bypassed type safety
 
-### LOW: No delete confirmation in ListingNotesLog
+**File changed:** `src/components/remarketing/deal-detail/ListingNotesLog.tsx`
 
-**Severity:** Low
-**File:** `src/components/remarketing/deal-detail/ListingNotesLog.tsx` (line 267)
-**Issue:** Clicking the trash icon immediately triggers deletion with no confirmation dialog. This is a destructive action on a shared resource (other admins can see the notes).
+**What was wrong:** Every Supabase table reference used `as UntypedTable` (`any`), hiding the fact that `listing_notes` was no longer in the DB.
 
-### LOW: Notes text is not sanitized before display
+**Fix:** Removed the `UntypedTable` type alias entirely. `listing_notes` queries now use `supabase.from('listing_notes')` directly (table exists after the restore migration). `deal_transcripts` queries use `supabase.from('deal_transcripts')` directly (already in generated types). The `insert` call uses `as never` for the type mismatch since `listing_notes` isn't in the generated Supabase types yet.
 
-**Severity:** Low (mitigated by React)
-**Files:** `GeneralNotesSection.tsx`, `ListingNotesLog.tsx`, `AdditionalInfoCard.tsx`
-**Issue:** Notes are rendered using `{note.note}` inside `<p>` elements with `whitespace-pre-wrap`. React auto-escapes JSX expressions, so there is **no XSS vulnerability**. However, there is no input length validation — a user could paste extremely long notes (the textarea has no `maxLength`), and the `analyze-deal-notes` function truncates at 15,000 chars anyway.
+### FIXED (was INFO): analyze-deal-notes fallback chain
 
-### LOW: `UntypedTable` cast bypasses all type safety
+**File changed:** `supabase/functions/analyze-deal-notes/index.ts`
 
-**Severity:** Low
-**File:** `src/components/remarketing/deal-detail/ListingNotesLog.tsx` (lines 6, 81, 99, 146, 165)
-**Issue:** The component uses `as UntypedTable` (which is `any`) for every Supabase table reference. This disables TypeScript's ability to catch issues like querying a non-existent table or invalid column names. The `listing_notes` table being dropped and this code still compiling is a direct consequence.
+**What was wrong:** When `notesText` was empty, the function fell back through `general_notes -> internal_notes -> owner_notes`, potentially analyzing the wrong notes field.
 
-### INFO: Three overlapping notes concepts cause confusion
-
-**Severity:** Informational
-**Issue:** The deal page has three different "notes" concepts across two tabs:
-1. `general_notes` (Overview tab) — a single large text blob for raw notes
-2. `listing_notes` (Contact History tab) — individual timestamped note entries
-3. `owner_notes` + `internal_notes` (Overview tab) — structured additional info
-
-These serve different purposes but the naming is confusing. The `analyze-deal-notes` edge function falls back through `general_notes -> internal_notes -> owner_notes` (line 199), which means enrichment could unexpectedly process the wrong notes if `general_notes` is empty.
+**Fix:** Changed to only fall back to `general_notes`. The `internal_notes` and `owner_notes` fields are separate concepts (structured additional info) and should not be silently processed by the enrichment pipeline.
 
 ---
 
-## 3. Architecture Diagram
+## 3. Architecture Diagram (Post-Fix)
 
 ```
 Deal Detail Page
@@ -148,26 +127,38 @@ Deal Detail Page
 |   |-- GeneralNotesSection
 |   |   |-- Reads/writes: listings.general_notes (single text field)
 |   |   |-- "Enrich Notes" -> analyze-deal-notes edge fn -> updates 20+ listing fields
+|   |   |-- State syncs with prop changes via useEffect + lastSavedNotes ref
 |   |
 |   |-- AdditionalInfoCard
 |       |-- Reads/writes: listings.owner_notes, internal_notes, key_risks,
 |       |   technology_systems, real_estate_info, growth_trajectory
 |
 |-- Contact History Tab
-    |-- ListingNotesLog (BROKEN - table dropped)
-        |-- Reads: listing_notes table (DROPPED) + deal_transcripts (Fireflies)
-        |-- Writes: listing_notes table (DROPPED)
+    |-- ListingNotesLog (RESTORED)
+        |-- Reads: listing_notes table + deal_transcripts (Fireflies)
+        |-- Writes: listing_notes table (with delete confirmation)
 ```
 
 ---
 
-## 4. Summary of Recommendations
+## 4. Remaining Considerations
 
-| # | Priority | Issue | Action |
-|---|----------|-------|--------|
-| 1 | Critical | `listing_notes` table dropped but component still references it | Remove `ListingNotesLog` or recreate table |
-| 2 | Medium | `GeneralNotesSection` state goes stale after save/refetch | Sync state on prop change |
-| 3 | Medium | Fake progress bar misrepresents enrichment duration | Remove or replace with spinner |
-| 4 | Low | No delete confirmation for notes | Add confirmation dialog |
-| 5 | Low | `UntypedTable` casts bypass type safety | Use proper Supabase types or at minimum validate table existence |
-| 6 | Info | Three overlapping notes systems cause confusion | Consider consolidating or renaming for clarity |
+| # | Priority | Item | Status |
+|---|----------|------|--------|
+| 1 | Low | `listing_notes` table is not yet in Supabase generated types (`types.ts`) | Works at runtime; `as never` cast on insert. Will self-resolve on next `supabase gen types` run. |
+| 2 | Info | Three overlapping notes concepts (general_notes, listing_notes, owner_notes/internal_notes) | Naming is confusing but each serves a distinct purpose. No code change needed; team should document naming conventions. |
+
+---
+
+## 5. Files Changed
+
+| File | Change |
+|------|--------|
+| `supabase/migrations/20260522000000_restore_listing_notes.sql` | New migration to restore dropped table |
+| `src/components/remarketing/deal-detail/ListingNotesLog.tsx` | Removed `UntypedTable`, added delete confirmation dialog |
+| `src/components/remarketing/deal-detail/GeneralNotesSection.tsx` | Fixed stale state, replaced fake progress bar with spinner |
+| `src/pages/admin/remarketing/ReMarketingDealDetail/useDealDetail.ts` | Removed fake progress state/timer, simplified enrichment handler |
+| `src/pages/admin/remarketing/ReMarketingDealDetail/WebsiteActionsCard.tsx` | Removed fake progress bar, simplified to spinner |
+| `src/pages/admin/remarketing/ReMarketingDealDetail/OverviewTab.tsx` | Removed progress bar props |
+| `src/pages/admin/remarketing/ReMarketingDealDetail/index.tsx` | Removed progress bar prop passing |
+| `supabase/functions/analyze-deal-notes/index.ts` | Removed misleading fallback to internal_notes/owner_notes |

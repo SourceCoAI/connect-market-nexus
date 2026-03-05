@@ -104,8 +104,6 @@ interface OverviewTabProps {
   transcriptsLoading: boolean;
   effectiveWebsite: string | null;
   isEnriching: boolean;
-  enrichmentProgress: number;
-  enrichmentStage: string;
   isAnalyzingNotes: boolean;
   buyerHistoryOpen: boolean;
   setBuyerHistoryOpen: (v: boolean) => void;
@@ -132,8 +130,6 @@ export function OverviewTab({
   transcriptsLoading,
   effectiveWebsite,
   isEnriching,
-  enrichmentProgress,
-  enrichmentStage,
   isAnalyzingNotes,
   buyerHistoryOpen,
   setBuyerHistoryOpen,
@@ -165,8 +161,6 @@ export function OverviewTab({
         effectiveWebsite={effectiveWebsite}
         scoreStats={scoreStats}
         isEnriching={isEnriching}
-        enrichmentProgress={enrichmentProgress}
-        enrichmentStage={enrichmentStage}
         handleEnrichFromWebsite={handleEnrichFromWebsite}
         setBuyerHistoryOpen={setBuyerHistoryOpen}
         toggleContactOwnerMutation={toggleContactOwnerMutation}

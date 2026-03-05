@@ -195,8 +195,10 @@ serve(async (req) => {
       );
     }
 
-    // Use provided notes or deal's internal_notes/owner_notes
-    const notes = notesText || deal.general_notes || deal.internal_notes || deal.owner_notes || '';
+    // Use the explicitly provided notes text, or fall back to the deal's general_notes only.
+    // Do NOT silently fall back to internal_notes/owner_notes — those are separate fields
+    // with different purposes and should be analyzed explicitly if needed.
+    const notes = notesText || deal.general_notes || '';
     
     if (!notes || notes.length < 20) {
       return new Response(

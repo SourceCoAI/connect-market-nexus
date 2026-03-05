@@ -40,8 +40,6 @@ const ReMarketingDealDetail = () => {
     toggleBuyerSearchMutation,
     updateNameMutation,
     isEnriching,
-    enrichmentProgress,
-    enrichmentStage,
     isAnalyzingNotes,
     buyerHistoryOpen,
     setBuyerHistoryOpen,
@@ -151,8 +149,6 @@ const ReMarketingDealDetail = () => {
             transcriptsLoading={transcriptsLoading}
             effectiveWebsite={effectiveWebsite}
             isEnriching={isEnriching}
-            enrichmentProgress={enrichmentProgress}
-            enrichmentStage={enrichmentStage}
             isAnalyzingNotes={isAnalyzingNotes}
             buyerHistoryOpen={buyerHistoryOpen}
             setBuyerHistoryOpen={setBuyerHistoryOpen}

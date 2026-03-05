@@ -1,13 +1,20 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type UntypedTable = any;
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   ClipboardList,
   Send,
@@ -56,7 +63,6 @@ type TimelineItem =
 
 /** Truncate a summary to at most 2 sentences. */
 function twoSentenceSummary(summary: string): string {
-  // Split on sentence-ending punctuation followed by a space or end of string
   const sentences = summary.match(/[^.!?]*[.!?]+/g);
   if (!sentences || sentences.length <= 2) return summary.trim();
   return sentences.slice(0, 2).join('').trim();
@@ -71,15 +77,15 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
   const [isOpen, setIsOpen] = useState(true);
   const [note, setNote] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; preview: string } | null>(null);
   const queryClient = useQueryClient();
 
-  // Fetch notes
+  // Fetch notes — listing_notes is not in generated types so we use a typed wrapper
   const { data: notes = [], isLoading: notesLoading } = useQuery<ListingNote[]>({
     queryKey: ['listing-notes', listingId],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const q = supabase.from('listing_notes' as UntypedTable) as any;
-      const { data, error } = await q
+      const { data, error } = await supabase
+        .from('listing_notes')
         .select(`*, admin:admin_id(email, first_name, last_name)`)
         .eq('listing_id', listingId)
         .order('created_at', { ascending: false });
@@ -96,7 +102,7 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
       queryKey: ['deal-meeting-summaries', listingId],
       queryFn: async () => {
         const { data, error } = await supabase
-          .from('deal_transcripts' as UntypedTable)
+          .from('deal_transcripts')
           .select(
             'id, title, call_date, duration_minutes, transcript_url, has_content, extracted_data, created_at',
           )
@@ -143,11 +149,11 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      const { error } = await supabase.from('listing_notes' as UntypedTable).insert({
+      const { error } = await supabase.from('listing_notes').insert({
         listing_id: listingId,
         admin_id: user?.id,
         note: noteText,
-      });
+      } as never);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -163,7 +169,7 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
   const deleteNoteMutation = useMutation({
     mutationFn: async (noteId: string) => {
       const { error } = await supabase
-        .from('listing_notes' as UntypedTable)
+        .from('listing_notes')
         .delete()
         .eq('id', noteId);
       if (error) throw error;
@@ -172,10 +178,12 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
       queryClient.invalidateQueries({ queryKey: ['listing-notes', listingId] });
       toast.success('Note deleted');
       setDeletingId(null);
+      setDeleteTarget(null);
     },
     onError: () => {
       toast.error('Failed to delete note');
       setDeletingId(null);
+      setDeleteTarget(null);
     },
   });
 
@@ -185,98 +193,128 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
     addNoteMutation.mutate(trimmed);
   };
 
+  const handleConfirmDelete = () => {
+    if (deleteTarget) {
+      setDeletingId(deleteTarget.id);
+      deleteNoteMutation.mutate(deleteTarget.id);
+    }
+  };
+
   return (
-    <Card>
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CardHeader className="py-3">
-          <CollapsibleTrigger asChild>
-            <div className="flex items-center justify-between cursor-pointer">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                Notes
-                {timeline.length > 0 && (
-                  <Badge variant="secondary" className="text-xs font-normal">
-                    {timeline.length}
-                  </Badge>
-                )}
-              </CardTitle>
-              {isOpen ? (
-                <ChevronUp className="h-5 w-5 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-muted-foreground" />
-              )}
-            </div>
-          </CollapsibleTrigger>
-        </CardHeader>
-
-        <CollapsibleContent>
-          <CardContent className="space-y-4 pt-0">
-            {/* Note Input */}
-            <div className="space-y-2">
-              <Textarea
-                placeholder="Add a note..."
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className="min-h-[80px] resize-y text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    handleSubmit();
-                  }
-                }}
-              />
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">Press Cmd+Enter to submit</p>
-                <Button
-                  size="sm"
-                  onClick={handleSubmit}
-                  disabled={!note.trim() || addNoteMutation.isPending}
-                >
-                  {addNoteMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4 mr-2" />
+    <>
+      <Card>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          <CardHeader className="py-3">
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center justify-between cursor-pointer">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Notes
+                  {timeline.length > 0 && (
+                    <Badge variant="secondary" className="text-xs font-normal">
+                      {timeline.length}
+                    </Badge>
                   )}
-                  Add Note
-                </Button>
-              </div>
-            </div>
-
-            {/* Timeline Feed */}
-            {isLoading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : timeline.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Clock className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No notes yet</p>
-              </div>
-            ) : (
-              <div
-                className="overflow-y-auto space-y-3 pr-1"
-                style={{ maxHeight: maxHeight - 220 }}
-              >
-                {timeline.map((item) =>
-                  item.type === 'note' ? (
-                    <NoteItem
-                      key={`note-${item.id}`}
-                      note={item.data}
-                      deletingId={deletingId}
-                      onDelete={(id) => {
-                        setDeletingId(id);
-                        deleteNoteMutation.mutate(id);
-                      }}
-                    />
-                  ) : (
-                    <MeetingItem key={`meeting-${item.id}`} transcript={item.data} />
-                  ),
+                </CardTitle>
+                {isOpen ? (
+                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 )}
               </div>
-            )}
-          </CardContent>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
+            </CollapsibleTrigger>
+          </CardHeader>
+
+          <CollapsibleContent>
+            <CardContent className="space-y-4 pt-0">
+              {/* Note Input */}
+              <div className="space-y-2">
+                <Textarea
+                  placeholder="Add a note..."
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="min-h-[80px] resize-y text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      handleSubmit();
+                    }
+                  }}
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">Press Cmd+Enter to submit</p>
+                  <Button
+                    size="sm"
+                    onClick={handleSubmit}
+                    disabled={!note.trim() || addNoteMutation.isPending}
+                  >
+                    {addNoteMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-2" />
+                    )}
+                    Add Note
+                  </Button>
+                </div>
+              </div>
+
+              {/* Timeline Feed */}
+              {isLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : timeline.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No notes yet</p>
+                </div>
+              ) : (
+                <div
+                  className="overflow-y-auto space-y-3 pr-1"
+                  style={{ maxHeight: maxHeight - 220 }}
+                >
+                  {timeline.map((item) =>
+                    item.type === 'note' ? (
+                      <NoteItem
+                        key={`note-${item.id}`}
+                        note={item.data}
+                        deletingId={deletingId}
+                        onDelete={(id, preview) => {
+                          setDeleteTarget({ id, preview });
+                        }}
+                      />
+                    ) : (
+                      <MeetingItem key={`meeting-${item.id}`} transcript={item.data} />
+                    ),
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
+      </Card>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this note. This action cannot be undone.
+              {deleteTarget?.preview && (
+                <span className="block mt-2 text-xs text-muted-foreground italic truncate max-w-full">
+                  &ldquo;{deleteTarget.preview}&rdquo;
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -287,7 +325,7 @@ function NoteItem({
 }: {
   note: ListingNote;
   deletingId: string | null;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, preview: string) => void;
 }) {
   const adminName = note.admin?.first_name
     ? `${note.admin.first_name}${note.admin.last_name ? ` ${note.admin.last_name}` : ''}`
@@ -309,7 +347,7 @@ function NoteItem({
           variant="ghost"
           size="icon"
           className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-          onClick={() => onDelete(note.id)}
+          onClick={() => onDelete(note.id, note.note.slice(0, 80))}
           disabled={isDeleting}
         >
           {isDeleting ? (

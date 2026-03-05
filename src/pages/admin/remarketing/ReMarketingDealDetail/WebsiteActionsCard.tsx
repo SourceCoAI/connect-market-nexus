@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -46,8 +45,6 @@ interface WebsiteActionsCardProps {
   effectiveWebsite: string | null;
   scoreStats: { count: number; approved: number; passed: number; avgScore: number } | undefined;
   isEnriching: boolean;
-  enrichmentProgress: number;
-  enrichmentStage: string;
   handleEnrichFromWebsite: () => void;
   setBuyerHistoryOpen: (v: boolean) => void;
   toggleContactOwnerMutation: { mutate: (v: boolean) => void; isPending: boolean };
@@ -61,8 +58,6 @@ export function WebsiteActionsCard({
   effectiveWebsite,
   scoreStats,
   isEnriching,
-  enrichmentProgress,
-  enrichmentStage,
   handleEnrichFromWebsite,
   setBuyerHistoryOpen,
   toggleContactOwnerMutation,
@@ -240,17 +235,9 @@ export function WebsiteActionsCard({
           <PushToMarketplaceButton deal={deal} dealId={dealId} />
         </div>
         {isEnriching && (
-          <div className="mt-4 space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground flex items-center gap-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {enrichmentStage}
-              </span>
-              <span className="text-muted-foreground font-medium">
-                {Math.round(enrichmentProgress)}%
-              </span>
-            </div>
-            <Progress value={enrichmentProgress} className="h-2" />
+          <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Queuing enrichment...</span>
           </div>
         )}
       </CardContent>
