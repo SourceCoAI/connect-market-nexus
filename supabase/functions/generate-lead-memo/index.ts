@@ -1088,10 +1088,7 @@ When data is absent from all sources, simply omit it. Do not guess, and do not s
 
 Return the memo as markdown using ## headers for each section. Section headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES. Omit sections with no data except COMPANY OVERVIEW. Do not include an "INFORMATION NOT YET PROVIDED" section.
 
-Present financial data in a table when location or year breakdowns are available. Use standard markdown table format:
-| Column | Column |
-| --- | --- |
-| Data | Data |
+Present financial data as simple labeled lines (e.g., "- 2024 Revenue: $5,200,000"). Do not use tables for financial data.
 
 Include all identifying information. Flag any data points where sources conflict.`;
 
