@@ -126,7 +126,10 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       }
 
       try {
-        const { data, columns: headers } = await parseSpreadsheet(file);
+        const { data, columns: headers } = await parseSpreadsheet(
+          file,
+          (h) => h.replace(/^\ufeff/, '').trim(),
+        );
 
         if (data.length === 0) {
           toast.error('File is empty');
