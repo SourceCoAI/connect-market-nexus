@@ -461,20 +461,20 @@ function DealRowActions({
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async () => {
-            const newVal = !deal.need_buyer_universe;
+            const newVal = !deal.needs_owner_contact;
+            const newLabel = newVal ? 'Flagged: Needs Buyer Universe' : 'Flag removed';
             const { error } = await supabase
               .from('listings')
-              .update({ need_buyer_universe: newVal } as never)
+              .update({ needs_buyer_search: newVal } as never)
               .eq('id', deal.id);
             if (!error) {
-              sonnerToast.success(newVal ? 'Flagged: Needs Buyer Universe' : 'Flag removed');
+              sonnerToast.success(newLabel);
               queryClient.invalidateQueries({ queryKey: ['remarketing', 'sourceco-deals'] });
             }
           }}
-          className={deal.need_buyer_universe ? 'text-blue-600' : ''}
         >
-          <Users className={cn('h-4 w-4 mr-2', deal.need_buyer_universe && 'text-blue-600')} />
-          {deal.need_buyer_universe ? '\u2713 Needs Buyer Universe' : 'Flag: Needs Buyer Universe'}
+          <Users className="h-4 w-4 mr-2" />
+          Flag: Needs Buyer Universe
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async () => {
