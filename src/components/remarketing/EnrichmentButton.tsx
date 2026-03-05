@@ -1,23 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, CheckCircle2, AlertCircle, Clock } from "lucide-react";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { useState, useEffect, useCallback } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Sparkles, Loader2, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface EnrichmentButtonProps {
   buyerId: string;
   buyerName: string;
   hasWebsite: boolean;
   lastEnriched?: string | null;
-  size?: "sm" | "default";
+  size?: 'sm' | 'default';
   className?: string;
   onSuccess?: () => void;
 }
@@ -29,7 +24,7 @@ export const EnrichmentButton = ({
   buyerName,
   hasWebsite,
   lastEnriched,
-  size = "default",
+  size = 'default',
   className,
   onSuccess,
 }: EnrichmentButtonProps) => {
@@ -41,15 +36,15 @@ export const EnrichmentButton = ({
   const pollQueueStatus = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from("buyer_enrichment_queue")
-        .select("status")
-        .eq("buyer_id", buyerId)
-        .order("queued_at", { ascending: false })
+        .from('buyer_enrichment_queue')
+        .select('status')
+        .eq('buyer_id', buyerId)
+        .order('queued_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (error) {
-        console.warn("Queue status poll failed:", error.message);
+        console.warn('Queue status poll failed:', error.message);
         return;
       }
 
@@ -57,8 +52,14 @@ export const EnrichmentButton = ({
         // Queue item gone — enrichment completed and was cleaned up
         setEnrichmentState('success');
         setPollingActive(false);
-        void queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyer', buyerId], refetchType: 'active' });
-        void queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'], refetchType: 'active' });
+        void queryClient.invalidateQueries({
+          queryKey: ['remarketing', 'buyer', buyerId],
+          refetchType: 'active',
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ['remarketing', 'buyers'],
+          refetchType: 'active',
+        });
         onSuccess?.();
         setTimeout(() => setEnrichmentState('idle'), 5000);
         return;
@@ -69,8 +70,14 @@ export const EnrichmentButton = ({
           setEnrichmentState('success');
           setPollingActive(false);
           toast.success(`${buyerName} enriched successfully`);
-          void queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyer', buyerId], refetchType: 'active' });
-          void queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'], refetchType: 'active' });
+          void queryClient.invalidateQueries({
+            queryKey: ['remarketing', 'buyer', buyerId],
+            refetchType: 'active',
+          });
+          void queryClient.invalidateQueries({
+            queryKey: ['remarketing', 'buyers'],
+            refetchType: 'active',
+          });
           onSuccess?.();
           setTimeout(() => setEnrichmentState('idle'), 5000);
           break;
@@ -89,7 +96,7 @@ export const EnrichmentButton = ({
           break;
       }
     } catch (err) {
-      console.warn("Queue poll error:", err);
+      console.warn('Queue poll error:', err);
     }
   }, [buyerId, buyerName, queryClient, onSuccess]);
 
@@ -97,7 +104,7 @@ export const EnrichmentButton = ({
   useEffect(() => {
     if (!pollingActive) return;
 
-    const interval = setInterval(pollQueueStatus, 3000);
+    const interval = setInterval(pollQueueStatus, 10000);
     // Also run immediately on start
     void pollQueueStatus();
 
@@ -117,7 +124,7 @@ export const EnrichmentButton = ({
 
   const enrichMutation = useMutation({
     mutationFn: async () => {
-      const { queueBuyerEnrichment } = await import("@/lib/remarketing/queueEnrichment");
+      const { queueBuyerEnrichment } = await import('@/lib/remarketing/queueEnrichment');
       await queueBuyerEnrichment([buyerId]);
     },
     onSuccess: () => {
@@ -126,30 +133,35 @@ export const EnrichmentButton = ({
     },
     onError: (error: Error) => {
       setEnrichmentState('error');
-      const anyErr = error as Error & { context?: { status?: number; json?: { error?: string; resetTime?: string } } };
+      const anyErr = error as Error & {
+        context?: { status?: number; json?: { error?: string; resetTime?: string } };
+      };
       const status = anyErr?.context?.status;
       const json = anyErr?.context?.json;
       const msg = json?.error || error.message;
-      const reset = json?.resetTime ? ` (reset: ${new Date(json.resetTime).toLocaleTimeString()})` : '';
+      const reset = json?.resetTime
+        ? ` (reset: ${new Date(json.resetTime).toLocaleTimeString()})`
+        : '';
       toast.error('Enrichment failed', {
         description: status === 429 ? `${msg}${reset}` : msg,
       });
 
       setTimeout(() => setEnrichmentState('idle'), 3000);
-    }
+    },
   });
 
   const handleEnrich = () => {
     if (!hasWebsite) {
       toast.error('No website URL', {
-        description: 'Add a website URL to this buyer before enriching'
+        description: 'Add a website URL to this buyer before enriching',
       });
       return;
     }
     enrichMutation.mutate();
   };
 
-  const isWorking = enrichMutation.isPending || enrichmentState === 'queued' || enrichmentState === 'processing';
+  const isWorking =
+    enrichMutation.isPending || enrichmentState === 'queued' || enrichmentState === 'processing';
 
   const buttonContent = () => {
     if (enrichMutation.isPending) {
@@ -207,12 +219,12 @@ export const EnrichmentButton = ({
       onClick={handleEnrich}
       disabled={isWorking || !hasWebsite}
       className={cn(
-        "gap-2",
-        enrichmentState === 'queued' && "border-amber-200 bg-amber-50",
-        enrichmentState === 'processing' && "border-blue-200 bg-blue-50",
-        enrichmentState === 'success' && "border-emerald-200 bg-emerald-50",
-        enrichmentState === 'error' && "border-red-200 bg-red-50",
-        className
+        'gap-2',
+        enrichmentState === 'queued' && 'border-amber-200 bg-amber-50',
+        enrichmentState === 'processing' && 'border-blue-200 bg-blue-50',
+        enrichmentState === 'success' && 'border-emerald-200 bg-emerald-50',
+        enrichmentState === 'error' && 'border-red-200 bg-red-50',
+        className,
       )}
     >
       {buttonContent()}
@@ -223,9 +235,7 @@ export const EnrichmentButton = ({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            {button}
-          </TooltipTrigger>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
           <TooltipContent>
             <p>Add a website URL to enable enrichment</p>
           </TooltipContent>
@@ -238,9 +248,7 @@ export const EnrichmentButton = ({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            {button}
-          </TooltipTrigger>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
           <TooltipContent>
             <p>Last enriched: {new Date(lastEnriched).toLocaleDateString()}</p>
           </TooltipContent>

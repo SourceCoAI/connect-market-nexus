@@ -6,17 +6,17 @@
  * or Google Docs for editing before final PDF conversion.
  */
 
-import {
-  Document,
-  Packer,
-  Paragraph,
-  TextRun,
-  ImageRun,
-  HeadingLevel,
-  AlignmentType,
-  BorderStyle,
-} from 'docx';
-import { saveAs } from 'file-saver';
+// Lazy-load docx (~300KB) and file-saver — only downloaded when user generates a memo
+async function getDocx() {
+  const docx = await import('docx');
+  return docx;
+}
+async function getFileSaver() {
+  const { saveAs } = await import('file-saver');
+  return saveAs;
+}
+
+type DocxModule = Awaited<ReturnType<typeof getDocx>>;
 
 interface MemoSection {
   key: string;
@@ -49,6 +49,18 @@ export async function generateMemoDocx({
   branding,
   companyInfo,
 }: GenerateMemoDocxParams): Promise<void> {
+  const {
+    Document,
+    Packer,
+    Paragraph,
+    TextRun,
+    ImageRun,
+    HeadingLevel,
+    AlignmentType,
+    BorderStyle,
+  } = await getDocx();
+  const saveAs = await getFileSaver();
+
   const isAnonymous = memoType === 'anonymous_teaser';
   const memoLabel = isAnonymous ? 'Anonymous Teaser' : 'Confidential Lead Memo';
   const dateStr = new Date().toLocaleDateString('en-US', {
@@ -58,7 +70,7 @@ export async function generateMemoDocx({
   });
 
   // Build document children
-  const children: Paragraph[] = [];
+  const children: InstanceType<typeof Paragraph>[] = [];
 
   // ─── Letterhead with Logo ───
   // Try to fetch the SourceCo logo for embedding
@@ -123,7 +135,11 @@ export async function generateMemoDocx({
         }),
       );
     }
-  } else if (companyInfo?.company_name || companyInfo?.company_address || companyInfo?.company_website) {
+  } else if (
+    companyInfo?.company_name ||
+    companyInfo?.company_address ||
+    companyInfo?.company_website
+  ) {
     if (companyInfo.company_name) {
       children.push(
         new Paragraph({
@@ -235,7 +251,7 @@ export async function generateMemoDocx({
     );
 
     // Section content — parse markdown-like formatting
-    const contentParagraphs = parseContentToParagraphs(section.content);
+    const contentParagraphs = parseContentToParagraphs(section.content, { Paragraph, TextRun });
     children.push(...contentParagraphs);
   }
 
@@ -268,10 +284,14 @@ export async function generateMemoDocx({
 
 // ─── Content Parsing Helpers ───
 
-function parseContentToParagraphs(content: string): Paragraph[] {
-  if (!content) return [];
+function parseContentToParagraphs(
+  content: string,
+  docx: Pick<DocxModule, 'Paragraph' | 'TextRun'>,
+) {
+  const { Paragraph, TextRun } = docx;
+  if (!content) return [] as InstanceType<typeof Paragraph>[];
 
-  const paragraphs: Paragraph[] = [];
+  const paragraphs: InstanceType<typeof Paragraph>[] = [];
   const lines = content.split('\n');
 
   for (const line of lines) {
@@ -286,7 +306,7 @@ function parseContentToParagraphs(content: string): Paragraph[] {
         new Paragraph({
           bullet: { level: 0 },
           spacing: { after: 50 },
-          children: parseInlineFormatting(trimmed.slice(2)),
+          children: parseInlineFormatting(trimmed.slice(2), TextRun),
         }),
       );
       continue;
@@ -317,7 +337,7 @@ function parseContentToParagraphs(content: string): Paragraph[] {
     paragraphs.push(
       new Paragraph({
         spacing: { after: 120 },
-        children: parseInlineFormatting(trimmed),
+        children: parseInlineFormatting(trimmed, TextRun),
       }),
     );
   }
@@ -325,8 +345,8 @@ function parseContentToParagraphs(content: string): Paragraph[] {
   return paragraphs;
 }
 
-function parseInlineFormatting(text: string): TextRun[] {
-  const runs: TextRun[] = [];
+function parseInlineFormatting(text: string, TextRun: DocxModule['TextRun']) {
+  const runs: InstanceType<typeof TextRun>[] = [];
   // Simple bold/italic parser
   const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|([^*]+))/g;
   let match;

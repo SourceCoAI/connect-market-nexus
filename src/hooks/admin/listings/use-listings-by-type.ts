@@ -39,7 +39,12 @@ export function useListingsByType(
             throw new Error('Admin authentication required');
           }
 
-          let query = supabase.from('listings').select('*').is('deleted_at', null);
+          let query = supabase
+            .from('listings')
+            .select(
+              'id, title, description, category, categories, status, revenue, ebitda, asking_price, image_url, is_internal_deal, created_at, updated_at, location, user_id, business_type, employee_count, year_established',
+            )
+            .is('deleted_at', null);
 
           // Filter by listing type with different image conditions
           if (type === 'marketplace') {

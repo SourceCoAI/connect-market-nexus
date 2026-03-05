@@ -4,10 +4,22 @@
  * Pages register their context and UI action handlers through this provider.
  */
 
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { AICommandCenterPanel } from './AICommandCenterPanel';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+  lazy,
+  Suspense,
+} from 'react';
 import type { PageContext, UIActionPayload } from '@/hooks/useAICommandCenter';
 import { useDailyBriefingAutoLaunch } from '@/hooks/useDailyBriefingAutoLaunch';
+
+// Lazy-load the 150KB panel — only downloaded when admin layout mounts
+const LazyAICommandCenterPanel = lazy(() =>
+  import('./AICommandCenterPanel').then((m) => ({ default: m.AICommandCenterPanel })),
+);
 
 // ---------- Context ----------
 
@@ -49,7 +61,9 @@ export function AICommandCenterProvider({ children }: { children: React.ReactNod
       value={{ setPageContext, registerUIActionHandler, unregisterUIActionHandler }}
     >
       {children}
-      <AICommandCenterPanel pageContext={pageContext} onUIAction={handleUIAction} />
+      <Suspense fallback={null}>
+        <LazyAICommandCenterPanel pageContext={pageContext} onUIAction={handleUIAction} />
+      </Suspense>
     </AICommandCenterContext.Provider>
   );
 }

@@ -3,8 +3,9 @@
  *
  * All import dialogs should use this utility instead of calling PapaParse directly
  * so that Excel file formats are handled transparently.
+ *
+ * XLSX (SheetJS) is loaded on-demand to avoid adding ~334KB to the initial bundle.
  */
-import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 
 /** Accepted file extensions for spreadsheet imports */
@@ -18,6 +19,12 @@ function isExcelFile(file: File): boolean {
   return ext === 'xls' || ext === 'xlsx';
 }
 
+/** Lazy-load xlsx only when an Excel file is actually encountered */
+async function getXLSX() {
+  const XLSX = await import('xlsx');
+  return XLSX;
+}
+
 /**
  * Parse an XLS or XLSX file into an array of row objects.
  * Uses the first sheet in the workbook. All values are coerced to strings
@@ -27,6 +34,7 @@ async function parseExcelFile(file: File): Promise<{
   data: Record<string, string>[];
   columns: string[];
 }> {
+  const XLSX = await getXLSX();
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
   const firstSheetName = workbook.SheetNames[0];
@@ -52,9 +60,7 @@ async function parseExcelFile(file: File): Promise<{
 
   // Derive column names from the first row keys (preserves header order from XLSX).
   // Filter out empty/blank headers — Excel files can have blank trailing columns.
-  const columns = data.length > 0
-    ? Object.keys(data[0]).filter((c) => c && c.trim())
-    : [];
+  const columns = data.length > 0 ? Object.keys(data[0]).filter((c) => c && c.trim()) : [];
 
   return { data, columns };
 }
@@ -110,14 +116,9 @@ export async function parseSpreadsheet(
         const data = results.data as Record<string, string>[];
 
         // Prefer PapaParse meta.fields; fall back to first-row keys
-        const metaColumns = (results.meta.fields || []).filter(
-          (c) => c && c.trim(),
-        );
-        const fallbackColumns = Object.keys(data?.[0] || {}).filter(
-          (c) => c && c.trim(),
-        );
-        const columns =
-          metaColumns.length > 0 ? metaColumns : fallbackColumns;
+        const metaColumns = (results.meta.fields || []).filter((c) => c && c.trim());
+        const fallbackColumns = Object.keys(data?.[0] || {}).filter((c) => c && c.trim());
+        const columns = metaColumns.length > 0 ? metaColumns : fallbackColumns;
 
         resolve({ data, columns });
       },
@@ -138,6 +139,7 @@ export async function parseSpreadsheet(
  */
 export async function readSpreadsheetAsText(file: File): Promise<string> {
   if (isExcelFile(file)) {
+    const XLSX = await getXLSX();
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'array' });
     const firstSheetName = workbook.SheetNames[0];
