@@ -215,6 +215,18 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       }
     }
 
+    // Helper: update an existing buyer's universe_id (link to this universe)
+    const linkBuyerToUniverse = async (buyerId: string): Promise<boolean> => {
+      const { error } = await supabase
+        .from('buyers')
+        .update({ universe_id: universeId } as never)
+        .eq('id', buyerId);
+      if (error) {
+        console.error('Link failed:', buyerId, error.code, error.message, error.details, error.hint);
+      }
+      return !error;
+    };
+
     // Filter out skipped duplicates
     const dataToImport = validRows.filter(({ index }) => !skipDuplicates.has(index));
     const wantContacts = hasContactMapping(mappings);
@@ -225,18 +237,11 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
 
       if (existingBuyerId && universeId) {
         // Buyer already exists — link to this universe instead of creating a duplicate
-        const { error: linkError } = await supabase
-          .from('buyers')
-          .update({ universe_id: universeId } as never)
-          .eq('id', existingBuyerId);
-
-        if (linkError) {
-          console.warn('Failed to link existing buyer:', existingBuyerId, linkError.message);
-          errors += 1;
-        } else {
+        if (await linkBuyerToUniverse(existingBuyerId)) {
           linked += 1;
+        } else {
+          errors += 1;
         }
-
         setImportProgress(((i + 1) / dataToImport.length) * 100);
         continue;
       }
@@ -257,10 +262,29 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
           .single();
 
         if (buyerError || !inserted) {
-          if (buyerError?.code === '23505') {
+          if (buyerError?.code === '23505' && universeId) {
+            // Unique constraint — buyer already exists. Try to link instead.
+            const domain = (buyer.company_website as string) || (buyer.platform_website as string) || (buyer.pe_firm_website as string) || '';
+            if (domain) {
+              const { data: existing } = await supabase
+                .from('buyers')
+                .select('id')
+                .eq('company_website', domain)
+                .eq('archived', false)
+                .limit(1)
+                .single();
+              if (existing && await linkBuyerToUniverse(existing.id)) {
+                linked += 1;
+              } else {
+                skipped += 1;
+              }
+            } else {
+              skipped += 1;
+            }
+          } else if (buyerError?.code === '23505') {
             skipped += 1;
           } else {
-            console.warn('Failed to import buyer:', buyer.company_name, buyerError?.message);
+            console.warn('Failed to import buyer:', buyer.company_name, buyerError?.code, buyerError?.message);
             errors += 1;
           }
         } else {
@@ -296,10 +320,29 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         const { error: insertError } = await supabase.from('buyers').insert(buyer as never);
 
         if (insertError) {
-          if (insertError.code === '23505') {
+          if (insertError.code === '23505' && universeId) {
+            // Unique constraint — buyer already exists. Try to link instead.
+            const domain = (buyer.company_website as string) || (buyer.platform_website as string) || (buyer.pe_firm_website as string) || '';
+            if (domain) {
+              const { data: existing } = await supabase
+                .from('buyers')
+                .select('id')
+                .eq('company_website', domain)
+                .eq('archived', false)
+                .limit(1)
+                .single();
+              if (existing && await linkBuyerToUniverse(existing.id)) {
+                linked += 1;
+              } else {
+                skipped += 1;
+              }
+            } else {
+              skipped += 1;
+            }
+          } else if (insertError.code === '23505') {
             skipped += 1;
           } else {
-            console.warn('Failed to import buyer:', buyer.company_name, insertError.message);
+            console.warn('Failed to import buyer:', buyer.company_name, insertError.code, insertError.message);
             errors += 1;
           }
         } else {
