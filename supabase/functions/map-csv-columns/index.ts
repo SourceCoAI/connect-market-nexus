@@ -188,7 +188,7 @@ Given CSV column names and sample data, map them to target database fields.
 Be intelligent about variations:
 - "Firm Name", "Company", "Platform Name", "Name" → company_name
 - "Platform Website", "Company URL", "Website" → platform_website or company_website
-- "PE Firm", "Sponsor", "Private Equity Firm" → pe_firm_name
+- "PE Firm", "PE Owner", "Sponsor", "Private Equity Firm" → pe_firm_name
 - "PE Website", "Sponsor Website" → pe_firm_website
 - "HQ", "Headquarters", "City, State" → hq_city_state
 - Columns with URL-like sample data should map to website fields
@@ -605,7 +605,7 @@ function heuristicMapping(
         targetField = 'contact_email';
         confidence = 0.7;
       } else if (
-        (lower.includes('contact') || lower.includes('primary')) &&
+        (lower.includes('contact') || lower.includes('primary') || lower.includes('owner')) &&
         lower.includes('phone')
       ) {
         targetField = 'contact_phone';
@@ -643,7 +643,7 @@ function heuristicMapping(
       // PE Firm name (check before generic company/name/firm)
       else if (
         (lower.includes('pe') || lower.includes('private equity') || lower.includes('sponsor')) &&
-        (lower.includes('name') || lower === 'pe firm' || lower === 'sponsor')
+        (lower.includes('name') || lower.includes('owner') || lower === 'pe firm' || lower === 'sponsor')
       ) {
         targetField = 'pe_firm_name';
         confidence = 0.85;

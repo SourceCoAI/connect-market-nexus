@@ -180,6 +180,47 @@ export const TARGET_FIELDS = [
 ];
 
 // ---------------------------------------------------------------------------
+// Known database columns on the `buyers` table.
+// Any field NOT in this set will be stripped before INSERT to avoid PostgREST
+// errors when the AI column mapper returns non-standard field names.
+// ---------------------------------------------------------------------------
+const KNOWN_BUYER_COLUMNS = new Set([
+  'company_name',
+  'company_website',
+  'platform_website',
+  'pe_firm_name',
+  'pe_firm_website',
+  'buyer_type',
+  'hq_city',
+  'hq_state',
+  'hq_country',
+  'hq_region',
+  'thesis_summary',
+  'target_revenue_min',
+  'target_revenue_max',
+  'target_ebitda_min',
+  'target_ebitda_max',
+  'target_geographies',
+  'target_services',
+  'target_industries',
+  'geographic_footprint',
+  'investment_date',
+  'notes',
+  'universe_id',
+  'buyer_linkedin',
+  'pe_firm_linkedin',
+  'business_summary',
+  'business_type',
+  'industry_vertical',
+  'services_offered',
+  'num_employees',
+  'number_of_locations',
+  'revenue_model',
+  'service_regions',
+  'operating_locations',
+]);
+
+// ---------------------------------------------------------------------------
 // Pure functions
 // ---------------------------------------------------------------------------
 
@@ -229,7 +270,7 @@ export function guessMapping(column: string): string | null {
   if ((lower.includes('contact') || lower.includes('primary')) && lower.includes('email'))
     return 'contact_email';
   if (lower === 'email' || lower === 'e-mail') return 'contact_email';
-  if ((lower.includes('contact') || lower.includes('primary')) && lower.includes('phone'))
+  if ((lower.includes('contact') || lower.includes('primary') || lower.includes('owner')) && lower.includes('phone'))
     return 'contact_phone';
   if (lower === 'phone' || lower === 'phone number') return 'contact_phone';
   if ((lower.includes('contact') || lower.includes('primary')) && (lower.includes('title') || lower.includes('role')))
@@ -250,10 +291,10 @@ export function guessMapping(column: string): string | null {
   // PE Firm name — check BEFORE generic "company"/"name" match
   if (
     (lower.includes('pe') || lower.includes('private equity') || lower.includes('sponsor')) &&
-    lower.includes('name')
+    (lower.includes('name') || lower.includes('owner'))
   )
     return 'pe_firm_name';
-  if (lower.includes('pe firm') || lower.includes('sponsor')) return 'pe_firm_name';
+  if (lower.includes('pe firm') || lower.includes('pe owner') || lower.includes('sponsor')) return 'pe_firm_name';
 
   // Platform/Company name — generic fallback for "name"/"company"/"firm"
   if (lower.includes('platform') && (lower.includes('company') || lower.includes('name')))
@@ -427,8 +468,12 @@ export function buildBuyerFromRow(
       if (mapping.targetField === 'investment_date') {
         let dateValue = value;
 
+        // Handle year-only format "2024" or "2018"
+        if (/^\d{4}$/.test(value)) {
+          dateValue = `${value}-01-01`;
+        }
         // Handle "2025-11" format (YYYY-MM) by adding day
-        if (/^\d{4}-\d{1,2}$/.test(value)) {
+        else if (/^\d{4}-\d{1,2}$/.test(value)) {
           dateValue = `${value}-01`;
         }
         // Handle "11/2025" or "11-2025" format (MM/YYYY)
@@ -465,6 +510,14 @@ export function buildBuyerFromRow(
   // Fall back to platform_website or pe_firm_website if company_website wasn't mapped.
   if (!buyer.company_website) {
     buyer.company_website = buyer.platform_website || buyer.pe_firm_website || null;
+  }
+
+  // Strip any keys that are not real columns on the buyers table.
+  // This prevents PostgREST errors when the AI mapper returns non-standard field names.
+  for (const key of Object.keys(buyer)) {
+    if (!KNOWN_BUYER_COLUMNS.has(key)) {
+      delete buyer[key];
+    }
   }
 
   return buyer;
