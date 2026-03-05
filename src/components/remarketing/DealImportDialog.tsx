@@ -227,7 +227,17 @@ export function DealImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl h-[85vh] max-h-[85vh] flex flex-col">
+      <DialogContent
+        className="max-w-4xl h-[85vh] max-h-[85vh] flex flex-col"
+        onInteractOutside={(e) => {
+          // Prevent closing on outside click when past the upload step
+          if (step !== "upload") e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          // Prevent closing via Escape while importing
+          if (isImporting) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
