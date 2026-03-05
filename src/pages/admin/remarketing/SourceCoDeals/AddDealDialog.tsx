@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -104,20 +105,18 @@ export function AddDealDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Revenue ($)</Label>
-              <Input
-                type="number"
+              <NumericInput
                 value={newDeal.revenue}
-                onChange={(e) => setNewDeal(d => ({ ...d, revenue: e.target.value }))}
-                placeholder="5000000"
+                onChange={(value) => setNewDeal(d => ({ ...d, revenue: value }))}
+                placeholder="5,000,000"
               />
             </div>
             <div className="space-y-2">
               <Label>EBITDA ($)</Label>
-              <Input
-                type="number"
+              <NumericInput
                 value={newDeal.ebitda}
-                onChange={(e) => setNewDeal(d => ({ ...d, ebitda: e.target.value }))}
-                placeholder="1000000"
+                onChange={(value) => setNewDeal(d => ({ ...d, ebitda: value }))}
+                placeholder="1,000,000"
               />
             </div>
           </div>

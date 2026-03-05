@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 
 interface EditDealStructureDialogProps {
@@ -90,22 +91,20 @@ export const EditDealStructureDialog = ({
             <div className="grid grid-cols-2 gap-2 mt-2">
               <div className="space-y-1">
                 <Label htmlFor="minRevenue" className="text-xs text-muted-foreground">Min</Label>
-                <Input
+                <NumericInput
                   id="minRevenue"
-                  type="number"
-                  placeholder="e.g., 3000000"
+                  placeholder="e.g., 3,000,000"
                   value={formData.minRevenue}
-                  onChange={(e) => setFormData({ ...formData, minRevenue: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, minRevenue: value })}
                 />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="maxRevenue" className="text-xs text-muted-foreground">Max</Label>
-                <Input
+                <NumericInput
                   id="maxRevenue"
-                  type="number"
-                  placeholder="e.g., 10000000"
+                  placeholder="e.g., 10,000,000"
                   value={formData.maxRevenue}
-                  onChange={(e) => setFormData({ ...formData, maxRevenue: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, maxRevenue: value })}
                 />
               </div>
             </div>
@@ -116,22 +115,20 @@ export const EditDealStructureDialog = ({
             <div className="grid grid-cols-2 gap-2 mt-2">
               <div className="space-y-1">
                 <Label htmlFor="minEbitda" className="text-xs text-muted-foreground">Min</Label>
-                <Input
+                <NumericInput
                   id="minEbitda"
-                  type="number"
-                  placeholder="e.g., 300000"
+                  placeholder="e.g., 300,000"
                   value={formData.minEbitda}
-                  onChange={(e) => setFormData({ ...formData, minEbitda: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, minEbitda: value })}
                 />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="maxEbitda" className="text-xs text-muted-foreground">Max</Label>
-                <Input
+                <NumericInput
                   id="maxEbitda"
-                  type="number"
-                  placeholder="e.g., 2500000"
+                  placeholder="e.g., 2,500,000"
                   value={formData.maxEbitda}
-                  onChange={(e) => setFormData({ ...formData, maxEbitda: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, maxEbitda: value })}
                 />
               </div>
             </div>

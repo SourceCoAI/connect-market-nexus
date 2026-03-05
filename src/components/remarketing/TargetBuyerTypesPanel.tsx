@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -232,28 +233,25 @@ const BuyerTypeEditForm = ({ buyerType, onSave, onCancel }: BuyerTypeEditFormPro
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Min Locations</Label>
-          <Input
-            type="number"
+          <NumericInput
             value={form.locations_min || ''}
-            onChange={(e) => setForm({ ...form, locations_min: parseInt(e.target.value) || 0 })}
+            onChange={(value) => setForm({ ...form, locations_min: parseInt(value) || 0 })}
           />
         </div>
         <div className="space-y-2">
           <Label>Max Locations</Label>
-          <Input
-            type="number"
+          <NumericInput
             value={form.locations_max || ''}
-            onChange={(e) => setForm({ ...form, locations_max: parseInt(e.target.value) || 0 })}
+            onChange={(value) => setForm({ ...form, locations_max: parseInt(value) || 0 })}
           />
         </div>
       </div>
 
       <div className="space-y-2">
         <Label>Revenue per Location ($)</Label>
-        <Input
-          type="number"
+        <NumericInput
           value={form.revenue_per_location || ''}
-          onChange={(e) => setForm({ ...form, revenue_per_location: parseInt(e.target.value) || 0 })}
+          onChange={(value) => setForm({ ...form, revenue_per_location: parseInt(value) || 0 })}
         />
       </div>
 

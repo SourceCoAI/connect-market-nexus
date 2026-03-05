@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 
 interface EditAcquisitionHistoryDialogProps {
@@ -63,12 +64,11 @@ export const EditAcquisitionHistoryDialog = ({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="totalAcquisitions">Total Platform Add-ons</Label>
-            <Input
+            <NumericInput
               id="totalAcquisitions"
-              type="number"
               placeholder="e.g., 5"
               value={formData.totalAcquisitions}
-              onChange={(e) => setFormData({ ...formData, totalAcquisitions: e.target.value })}
+              onChange={(value) => setFormData({ ...formData, totalAcquisitions: value })}
             />
           </div>
           

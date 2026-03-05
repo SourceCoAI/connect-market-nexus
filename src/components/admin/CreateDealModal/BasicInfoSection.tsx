@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { Textarea } from '@/components/ui/textarea';
 import { CreateDealFormData } from './schema';
 
@@ -132,14 +133,12 @@ export function BasicInfoSection({ form, listings, stages }: BasicInfoSectionPro
             <FormItem>
               <FormLabel>Deal Value ($)</FormLabel>
               <FormControl>
-                <Input
-                  type="number"
+                <NumericInput
                   placeholder="0"
-                  {...field}
-                  onChange={(e) =>
-                    field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)
-                  }
                   value={field.value || ''}
+                  onChange={(value) =>
+                    field.onChange(value ? parseFloat(value) : undefined)
+                  }
                 />
               </FormControl>
               <FormMessage />

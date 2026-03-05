@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FormField, FormItem, FormControl } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import {
   Select,
   SelectContent,
@@ -355,13 +356,11 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Input
-                        type="number"
+                      <NumericInput
                         placeholder="Full-time"
-                        {...field}
                         value={field.value ?? ''}
-                        onChange={(e) =>
-                          field.onChange(e.target.value ? Number(e.target.value) : 0)
+                        onChange={(value) =>
+                          field.onChange(value ? Number(value) : 0)
                         }
                         className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
                       />
@@ -375,13 +374,11 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Input
-                        type="number"
+                      <NumericInput
                         placeholder="Part-time"
-                        {...field}
                         value={field.value ?? ''}
-                        onChange={(e) =>
-                          field.onChange(e.target.value ? Number(e.target.value) : 0)
+                        onChange={(value) =>
+                          field.onChange(value ? Number(value) : 0)
                         }
                         className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
                       />

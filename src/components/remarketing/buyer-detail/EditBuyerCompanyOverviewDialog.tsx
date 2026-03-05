@@ -8,6 +8,7 @@
  } from "@/components/ui/dialog";
  import { Button } from "@/components/ui/button";
  import { Input } from "@/components/ui/input";
+ import { NumericInput } from "@/components/ui/numeric-input";
  import { Label } from "@/components/ui/label";
  import { Loader2 } from "lucide-react";
  
@@ -156,11 +157,10 @@
                </div>
                <div>
                  <Label htmlFor="numberOfLocations">Number of Locations</Label>
-                 <Input
+                 <NumericInput
                    id="numberOfLocations"
-                   type="number"
                    value={formData.numberOfLocations}
-                   onChange={(e) => setFormData({ ...formData, numberOfLocations: e.target.value })}
+                   onChange={(value) => setFormData({ ...formData, numberOfLocations: value })}
                    placeholder="6"
                  />
                </div>

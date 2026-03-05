@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -739,12 +740,11 @@ export const CompanyOverviewCard = ({
               </div>
               <div>
                 <Label htmlFor="numberOfLocations">Locations</Label>
-                <Input
+                <NumericInput
                   id="numberOfLocations"
-                  type="number"
                   placeholder="5"
                   value={formData.numberOfLocations}
-                  onChange={(e) => setFormData({ ...formData, numberOfLocations: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, numberOfLocations: value })}
                   className="mt-1.5"
                 />
               </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -187,25 +188,23 @@ export const StructuredCriteriaPanel = ({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-sm">Min Employees</Label>
-              <Input
-                type="number"
+              <NumericInput
                 placeholder="e.g., 10"
                 value={sizeCriteria.employee_min || ""}
-                onChange={(e) => onSizeCriteriaChange({
+                onChange={(value) => onSizeCriteriaChange({
                   ...sizeCriteria,
-                  employee_min: e.target.value ? parseInt(e.target.value) : undefined
+                  employee_min: value ? parseInt(value) : undefined
                 })}
               />
             </div>
             <div className="space-y-2">
               <Label className="text-sm">Max Employees</Label>
-              <Input
-                type="number"
+              <NumericInput
                 placeholder="e.g., 500"
                 value={sizeCriteria.employee_max || ""}
-                onChange={(e) => onSizeCriteriaChange({
+                onChange={(value) => onSizeCriteriaChange({
                   ...sizeCriteria,
-                  employee_max: e.target.value ? parseInt(e.target.value) : undefined
+                  employee_max: value ? parseInt(value) : undefined
                 })}
               />
             </div>
