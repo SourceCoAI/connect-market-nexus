@@ -467,11 +467,11 @@ export function buildBuyerFromRow(
         return;
       }
 
-      // Handle website normalization
+      // Handle website normalization (empty string → null to satisfy DB constraint)
       if (
         ['platform_website', 'pe_firm_website', 'company_website'].includes(mapping.targetField)
       ) {
-        buyer[mapping.targetField] = normalizeDomain(value);
+        buyer[mapping.targetField] = normalizeDomain(value) || null;
         return;
       }
 

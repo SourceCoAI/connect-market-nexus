@@ -205,12 +205,6 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
     setImportProgress(0);
     setImportResults({ success: 0, errors: 0, skipped: 0, linked: 0 });
 
-    let success = 0;
-    let errors = 0;
-    let skipped = 0;
-    let linked = 0;
-    let contactsCreated = 0;
-
     // Build a map from row index → existing buyer ID for duplicates that should be linked
     const existingBuyerMap = new Map<number, string>();
     for (const dup of duplicates) {
@@ -242,27 +236,13 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
     const dataToImport = validRows.filter(({ index }) => !skipDuplicates.has(index));
     const wantContacts = hasContactMapping(mappings);
 
-    for (let i = 0; i < dataToImport.length; i++) {
-      const { index: rowIndex, row } = dataToImport[i];
-      const existingBuyerId = existingBuyerMap.get(rowIndex);
-
-      if (existingBuyerId && universeId) {
-        // Buyer already exists — link to this universe instead of creating a duplicate
-        if (await linkBuyerToUniverse(existingBuyerId)) {
-          linked += 1;
-        } else {
-          errors += 1;
-        }
-        setImportProgress(((i + 1) / dataToImport.length) * 100);
-        continue;
-      }
-
+    // Build the batch payload for the edge function
+    const payload = dataToImport.map(({ index: rowIndex, row }) => {
+      const existingBuyerId = existingBuyerMap.get(rowIndex) || null;
       const buyer = buildBuyerFromRow(row, mappings, universeId);
-      if (!buyer.company_name) {
-        errors += 1;
-        setImportProgress(((i + 1) / dataToImport.length) * 100);
-        continue;
-      }
+      const contact = wantContacts ? extractContactFromRow(row, mappings) : null;
+      return { buyer, contact, existingBuyerId };
+    });
 
       if (wantContacts) {
         // Single-insert mode: need buyer ID to create linked contacts
@@ -383,10 +363,24 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         }
       }
 
-      setImportProgress(((i + 1) / dataToImport.length) * 100);
+    // Send to edge function (uses service role to bypass RLS)
+    const { data, error } = await supabase.functions.invoke('import-buyers', {
+      body: { buyers: payload, universeId },
+    });
+
+    if (error) {
+      console.error('import-buyers edge function error:', error);
+      toast.error('Import failed. Please try again.');
+      setImportResults({ success: 0, errors: dataToImport.length, skipped: 0, linked: 0 });
+      setImportProgress(100);
+      onComplete?.();
+      return;
     }
 
-    setImportResults((prev) => ({ ...prev, success, errors, skipped, linked }));
+    const { success = 0, errors: errorCount = 0, skipped = 0, linked = 0, contactsCreated = 0 } = data || {};
+
+    setImportProgress(100);
+    setImportResults({ success, errors: errorCount, skipped, linked });
 
     if (success > 0 || linked > 0) {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'] });
@@ -405,8 +399,8 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       toast.info(`${skipped} duplicate buyer(s) skipped`);
     }
 
-    if (errors > 0) {
-      toast.error(`Failed to import ${errors} buyers`);
+    if (errorCount > 0) {
+      toast.error(`Failed to import ${errorCount} buyers`);
     }
 
     onComplete?.();
