@@ -51,6 +51,10 @@ interface MergeResult {
 /**
  * When a deal already exists (duplicate website), find the existing listing
  * and fill in any null/empty fields with new CSV data.
+ *
+ * Website match: searches globally (websites are unique across all sources).
+ * Title match: only searches within the same deal_source to prevent
+ * false-positive merges across unrelated deal pipelines.
  */
 async function tryMergeExistingListing(
   newData: Record<string, unknown>,
@@ -59,10 +63,14 @@ async function tryMergeExistingListing(
   try {
     const website = newData.website as string | undefined;
     const title = newData.title as string | undefined;
+    const dealSource = newData.deal_source as string | undefined;
+
+    // Skip placeholder websites — they're unique per row, not real duplicates
+    const isPlaceholder = website && (website.endsWith('.unknown') || website.startsWith('unknown-'));
 
     let existingListing: Record<string, unknown> | null = null;
 
-    if (website) {
+    if (website && !isPlaceholder) {
       const { data: rpcData } = await supabase
         .rpc('find_listing_by_normalized_domain', { target_domain: website })
         .limit(1)
@@ -80,11 +88,13 @@ async function tryMergeExistingListing(
       }
     }
 
-    if (!existingListing && title) {
+    // Title match: only within the same deal_source to avoid cross-pipeline false merges
+    if (!existingListing && title && dealSource) {
       const { data } = await supabase
         .from('listings')
         .select('*')
         .ilike('title', title)
+        .eq('deal_source', dealSource)
         .limit(1)
         .maybeSingle();
       existingListing = data as Record<string, unknown> | null;
@@ -199,11 +209,13 @@ export async function handleImport({
 
       if (!parsedData) continue;
 
-      // Skip rows without a website — can't enrich or deduplicate without one
+      // If the mapped "website" looks like an email address, move it to contact email instead
       const rawWebsite = (parsedData as Record<string, unknown>).website;
-      if (!rawWebsite || (typeof rawWebsite === 'string' && !rawWebsite.trim())) {
-        results.errors.push(`Row ${i + 2}: Skipped — no website provided`);
-        continue;
+      if (typeof rawWebsite === 'string' && rawWebsite.includes('@')) {
+        if (!(parsedData as Record<string, unknown>).main_contact_email) {
+          (parsedData as Record<string, unknown>).main_contact_email = rawWebsite;
+        }
+        (parsedData as Record<string, unknown>).website = undefined;
       }
 
       const city = typeof parsedData.address_city === 'string' ? parsedData.address_city : '';
@@ -234,6 +246,14 @@ export async function handleImport({
         if (normalized) {
           (listingData as Record<string, unknown>).website = normalized;
         }
+      }
+
+      // If still no website after normalization, generate a placeholder
+      // so the NOT NULL constraint is satisfied and the row can be imported
+      if (!(listingData as Record<string, unknown>).website) {
+        const companyName = ((listingData as Record<string, unknown>).title as string) || 'unknown';
+        const slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+        (listingData as Record<string, unknown>).website = `unknown-${slug}-${Date.now()}.unknown`;
       }
 
       if (referralPartnerId) {
