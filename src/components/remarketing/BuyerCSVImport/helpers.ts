@@ -316,16 +316,9 @@ export function guessMapping(column: string): string | null {
   )
     return 'contact_phone';
   if (lower === 'phone' || lower === 'phone number') return 'contact_phone';
-  if (
-    (lower.includes('pe') || lower.includes('sponsor')) &&
-    lower.includes('owner') &&
-    lower.includes('phone')
-  )
+  if ((lower.includes('pe') || lower.includes('sponsor')) && lower.includes('owner') && lower.includes('phone'))
     return 'contact_phone';
-  if (
-    (lower.includes('contact') || lower.includes('primary')) &&
-    (lower.includes('title') || lower.includes('role'))
-  )
+  if ((lower.includes('contact') || lower.includes('primary')) && (lower.includes('title') || lower.includes('role')))
     return 'contact_title';
   if (lower === 'title' || lower === 'job title' || lower === 'role') return 'contact_title';
 
@@ -338,8 +331,7 @@ export function guessMapping(column: string): string | null {
   )
     return 'pe_firm_website';
   if (
-    lower.includes('owner') &&
-    lower.includes('pe') &&
+    lower.includes('owner') && lower.includes('pe') &&
     (lower.includes('website') || lower.includes('url'))
   )
     return 'pe_firm_website';
@@ -349,19 +341,12 @@ export function guessMapping(column: string): string | null {
   // PE Firm name — check BEFORE generic "company"/"name" match
   if (
     (lower.includes('pe') || lower.includes('private equity') || lower.includes('sponsor')) &&
-    !lower.includes('url') &&
-    !lower.includes('website') &&
-    !lower.includes('phone') &&
-    !lower.includes('email')
+    !lower.includes('url') && !lower.includes('website') && !lower.includes('phone') && !lower.includes('email')
   )
     return 'pe_firm_name';
   if (
-    lower.includes('owner') &&
-    lower.includes('pe') &&
-    !lower.includes('url') &&
-    !lower.includes('website') &&
-    !lower.includes('phone') &&
-    !lower.includes('email')
+    lower.includes('owner') && lower.includes('pe') &&
+    !lower.includes('url') && !lower.includes('website') && !lower.includes('phone') && !lower.includes('email')
   )
     return 'pe_firm_name';
   if (lower.includes('pe firm') || lower.includes('sponsor')) return 'pe_firm_name';
