@@ -116,7 +116,7 @@ serve(async (req: Request) => {
     }
 
     // If already marked signed
-    if (firm[signedCol]) {
+    if ((firm as any)[signedCol]) {
       const docUrlCol = isNda ? 'nda_signed_document_url' : 'fee_signed_document_url';
       const { data: docData } = await supabaseAdmin
         .from('firm_agreements')
@@ -127,14 +127,14 @@ serve(async (req: Request) => {
         JSON.stringify({
           confirmed: true,
           alreadySigned: true,
-          signedDocumentUrl: docData?.[docUrlCol] || null,
+          signedDocumentUrl: (docData as any)?.[docUrlCol] || null,
           resolvedFirmId: firmId,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    const submissionId = firm[submissionCol];
+    const submissionId = (firm as any)[submissionCol];
     if (!submissionId) {
       return new Response(
         JSON.stringify({ confirmed: false, error: 'No submission found', resolvedFirmId: firmId }),

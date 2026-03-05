@@ -30,7 +30,7 @@ serve(async (req: Request) => {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Admin-only
-    const auth = await requireAdmin(req, supabaseAdmin);
+    const auth = await requireAdmin(req, supabaseAdmin as any);
     if (!auth.isAdmin) {
       return new Response(JSON.stringify({ error: auth.error }), {
         status: auth.authenticated ? 403 : 401,

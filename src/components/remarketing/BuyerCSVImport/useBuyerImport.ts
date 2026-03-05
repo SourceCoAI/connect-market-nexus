@@ -37,7 +37,12 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  const [importResults, setImportResults] = useState<{ success: number; errors: number; skipped: number; linked: number }>({
+  const [importResults, setImportResults] = useState<{
+    success: number;
+    errors: number;
+    skipped: number;
+    linked: number;
+  }>({
     success: 0,
     errors: 0,
     skipped: 0,
@@ -127,9 +132,8 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       }
 
       try {
-        const { data, columns: headers } = await parseSpreadsheet(
-          file,
-          (h) => h.replace(/^\ufeff/, '').trim(),
+        const { data, columns: headers } = await parseSpreadsheet(file, (h) =>
+          h.replace(/^\ufeff/, '').trim(),
         );
 
         if (data.length === 0) {
@@ -201,12 +205,6 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
     setImportProgress(0);
     setImportResults({ success: 0, errors: 0, skipped: 0, linked: 0 });
 
-    let success = 0;
-    let errors = 0;
-    let skipped = 0;
-    let linked = 0;
-    let contactsCreated = 0;
-
     // Build a map from row index → existing buyer ID for duplicates that should be linked
     const existingBuyerMap = new Map<number, string>();
     for (const dup of duplicates) {
@@ -215,145 +213,39 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       }
     }
 
-    // Helper: update an existing buyer's universe_id (link to this universe)
-    const linkBuyerToUniverse = async (buyerId: string): Promise<boolean> => {
-      const { error } = await supabase
-        .from('buyers')
-        .update({ universe_id: universeId } as never)
-        .eq('id', buyerId);
-      if (error) {
-        console.error('Link failed:', buyerId, error.code, error.message, error.details, error.hint);
-      }
-      return !error;
-    };
+
+
 
     // Filter out skipped duplicates
     const dataToImport = validRows.filter(({ index }) => !skipDuplicates.has(index));
     const wantContacts = hasContactMapping(mappings);
 
-    for (let i = 0; i < dataToImport.length; i++) {
-      const { index: rowIndex, row } = dataToImport[i];
-      const existingBuyerId = existingBuyerMap.get(rowIndex);
-
-      if (existingBuyerId && universeId) {
-        // Buyer already exists — link to this universe instead of creating a duplicate
-        if (await linkBuyerToUniverse(existingBuyerId)) {
-          linked += 1;
-        } else {
-          errors += 1;
-        }
-        setImportProgress(((i + 1) / dataToImport.length) * 100);
-        continue;
-      }
-
+    // Build the batch payload for the edge function
+    const payload = dataToImport.map(({ index: rowIndex, row }) => {
+      const existingBuyerId = existingBuyerMap.get(rowIndex) || null;
       const buyer = buildBuyerFromRow(row, mappings, universeId);
-      if (!buyer.company_name) {
-        errors += 1;
-        setImportProgress(((i + 1) / dataToImport.length) * 100);
-        continue;
-      }
+      const contact = wantContacts ? extractContactFromRow(row, mappings) : null;
+      return { buyer, contact, existingBuyerId };
+    });
 
-      if (wantContacts) {
-        // Single-insert mode: need buyer ID to create linked contacts
-        const { data: inserted, error: buyerError } = await supabase
-          .from('buyers')
-          .insert(buyer as never)
-          .select('id')
-          .single();
+    // Send to edge function (uses service role to bypass RLS)
+    const { data, error } = await supabase.functions.invoke('import-buyers', {
+      body: { buyers: payload, universeId },
+    });
 
-        if (buyerError || !inserted) {
-          if (buyerError?.code === '23505' && universeId) {
-            // Unique constraint — buyer already exists. Try to link instead.
-            const domain = (buyer.company_website as string) || (buyer.platform_website as string) || (buyer.pe_firm_website as string) || '';
-            if (domain) {
-              const { data: existing } = await supabase
-                .from('buyers')
-                .select('id')
-                .eq('company_website', domain)
-                .eq('archived', false)
-                .limit(1)
-                .single();
-              if (existing && await linkBuyerToUniverse(existing.id)) {
-                linked += 1;
-              } else {
-                skipped += 1;
-              }
-            } else {
-              skipped += 1;
-            }
-          } else if (buyerError?.code === '23505') {
-            skipped += 1;
-          } else {
-            console.warn('Failed to import buyer:', buyer.company_name, buyerError?.code, buyerError?.message);
-            errors += 1;
-          }
-        } else {
-          success += 1;
-
-          // Create contact if we have contact data
-          const contact = extractContactFromRow(row, mappings);
-          if (contact && inserted.id) {
-            const { error: contactError } = await supabase
-              .from('remarketing_buyer_contacts')
-              .insert({
-                buyer_id: inserted.id,
-                name:
-                  contact.name ||
-                  `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
-                  'Unknown',
-                email: contact.email || null,
-                phone: contact.phone || null,
-                role: contact.title || null,
-                linkedin_url: contact.linkedin_url || null,
-                is_primary: true,
-              } as never);
-
-            if (contactError) {
-              console.warn('Failed to create contact for buyer:', inserted.id, contactError.message);
-            } else {
-              contactsCreated++;
-            }
-          }
-        }
-      } else {
-        // Direct insert (no contacts needed)
-        const { error: insertError } = await supabase.from('buyers').insert(buyer as never);
-
-        if (insertError) {
-          if (insertError.code === '23505' && universeId) {
-            // Unique constraint — buyer already exists. Try to link instead.
-            const domain = (buyer.company_website as string) || (buyer.platform_website as string) || (buyer.pe_firm_website as string) || '';
-            if (domain) {
-              const { data: existing } = await supabase
-                .from('buyers')
-                .select('id')
-                .eq('company_website', domain)
-                .eq('archived', false)
-                .limit(1)
-                .single();
-              if (existing && await linkBuyerToUniverse(existing.id)) {
-                linked += 1;
-              } else {
-                skipped += 1;
-              }
-            } else {
-              skipped += 1;
-            }
-          } else if (insertError.code === '23505') {
-            skipped += 1;
-          } else {
-            console.warn('Failed to import buyer:', buyer.company_name, insertError.code, insertError.message);
-            errors += 1;
-          }
-        } else {
-          success += 1;
-        }
-      }
-
-      setImportProgress(((i + 1) / dataToImport.length) * 100);
+    if (error) {
+      console.error('import-buyers edge function error:', error);
+      toast.error('Import failed. Please try again.');
+      setImportResults({ success: 0, errors: dataToImport.length, skipped: 0, linked: 0 });
+      setImportProgress(100);
+      onComplete?.();
+      return;
     }
 
-    setImportResults((prev) => ({ ...prev, success, errors, skipped, linked }));
+    const { success = 0, errors: errorCount = 0, skipped = 0, linked = 0, contactsCreated = 0 } = data || {};
+
+    setImportProgress(100);
+    setImportResults({ success, errors: errorCount, skipped, linked });
 
     if (success > 0 || linked > 0) {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyers'] });
@@ -372,8 +264,8 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       toast.info(`${skipped} duplicate buyer(s) skipped`);
     }
 
-    if (errors > 0) {
-      toast.error(`Failed to import ${errors} buyers`);
+    if (errorCount > 0) {
+      toast.error(`Failed to import ${errorCount} buyers`);
     }
 
     onComplete?.();
@@ -398,7 +290,10 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
             index,
             company_name: (buyer.company_name as string) || '',
             company_website:
-              (buyer.company_website as string) || (buyer.platform_website as string) || (buyer.pe_firm_website as string) || null,
+              (buyer.company_website as string) ||
+              (buyer.platform_website as string) ||
+              (buyer.pe_firm_website as string) ||
+              null,
           };
         })
         .filter((b) => b.company_name);
@@ -410,26 +305,35 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       if (error) {
         // Dedupe check failed — surface the error rather than silently importing.
         // Importing without a dedup check risks creating duplicate buyers.
-        toast.error(
-          'Could not check for duplicate buyers. Please try again before importing.',
-        );
+        toast.error('Could not check for duplicate buyers. Please try again before importing.');
         return;
       }
 
       const foundDuplicates = (data?.results || [])
         .filter((r: { isDuplicate: boolean }) => r.isDuplicate)
-        .map((r: { index: number; companyName: string; potentialDuplicates: Array<{ existingId: string; existingName: string; matchType: string; confidence: number }> }) => ({
-          index: r.index,
-          companyName: r.companyName,
-          potentialDuplicates: r.potentialDuplicates
-            .filter((d) => d.matchType !== 'no_website')
-            .map((d) => ({
-              id: d.existingId,
-              companyName: d.existingName,
-              confidence: d.confidence,
-              matchType: d.matchType as 'domain' | 'name',
-            })),
-        }))
+        .map(
+          (r: {
+            index: number;
+            companyName: string;
+            potentialDuplicates: Array<{
+              existingId: string;
+              existingName: string;
+              matchType: string;
+              confidence: number;
+            }>;
+          }) => ({
+            index: r.index,
+            companyName: r.companyName,
+            potentialDuplicates: r.potentialDuplicates
+              .filter((d) => d.matchType !== 'no_website')
+              .map((d) => ({
+                id: d.existingId,
+                companyName: d.existingName,
+                confidence: d.confidence,
+                matchType: d.matchType as 'domain' | 'name',
+              })),
+          }),
+        )
         .filter((dup: DuplicateWarning) => dup.potentialDuplicates.length > 0);
 
       if (foundDuplicates.length > 0) {

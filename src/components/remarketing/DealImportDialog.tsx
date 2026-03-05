@@ -41,7 +41,7 @@ import {
 } from "@/lib/deal-csv-import";
 import { DealImportMapping } from "./deal-import/DealImportMapping";
 import { DealImportPreview } from "./deal-import/DealImportPreview";
-import { handleImport, type ImportResults, type ExistingDealRef } from "./deal-import/useDealImportSubmit";
+import { handleImport, type ImportResults } from "./deal-import/useDealImportSubmit";
 
 interface DealImportDialogProps {
   open: boolean;
@@ -70,14 +70,6 @@ const SOURCE_LABELS: Record<string, { label: string; path: string }> = {
   valuation_lead: { label: 'Active Deals', path: '/admin/remarketing' },
 };
 
-function groupBySource(deals: ExistingDealRef[]) {
-  const groups: Record<string, ExistingDealRef[]> = {};
-  for (const d of deals) {
-    const src = d.deal_source || 'unknown';
-    (groups[src] ??= []).push(d);
-  }
-  return groups;
-}
 
 export function DealImportDialog({
   open,
@@ -227,7 +219,17 @@ export function DealImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl h-[85vh] max-h-[85vh] flex flex-col">
+      <DialogContent
+        className="max-w-4xl h-[85vh] max-h-[85vh] flex flex-col"
+        onInteractOutside={(e) => {
+          // Prevent closing the dialog by clicking outside when past the upload step
+          if (step !== 'upload') e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          // Block Escape while importing
+          if (isImporting) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />

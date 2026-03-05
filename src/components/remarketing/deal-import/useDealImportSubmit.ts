@@ -77,12 +77,11 @@ async function resolveLocations(listing: Record<string, unknown>): Promise<DealL
   const dealSource = listing.deal_source as string | null;
   const pushed = listing.pushed_to_all_deals as boolean | null;
 
-  // Primary source page
   if (dealSource === 'sourceco') {
     locations.push({ label: 'SourceCo Deals', href: `/admin/remarketing/leads/sourceco/${id}` });
   } else if (dealSource === 'captarget') {
     locations.push({ label: 'CapTarget Deals', href: `/admin/remarketing/leads/captarget/${id}` });
-  } else if (dealSource === 'gp_partner') {
+  } else if (dealSource === 'gp_partners') {
     locations.push({ label: 'GP Partner Deals', href: `/admin/remarketing/leads/gp-partners/${id}` });
   } else if (dealSource === 'valuation') {
     locations.push({ label: 'Valuation Leads', href: `/admin/remarketing/leads/valuation` });
@@ -173,15 +172,6 @@ async function tryMergeExistingListing(
 
     if (!existingListing) return null;
 
-    const existingRef: MergeResult = {
-      id: existingListing.id as string,
-      fieldsUpdated: false,
-      deal_source: (existingListing.deal_source as string) ?? null,
-      company_name: (existingListing.internal_company_name as string)
-        || (existingListing.title as string)
-        || 'Unknown',
-    };
-
     const updates: Record<string, unknown> = {};
 
     for (const field of mergeableFields) {
@@ -224,6 +214,11 @@ async function tryMergeExistingListing(
     if (typeof newData.ebitda === 'number' && newData.ebitda > 0
         && (existingListing.ebitda === 0 || existingListing.ebitda === null)) {
       updates.ebitda = newData.ebitda;
+    }
+
+    // Update deal_source so the deal appears in the importing pipeline
+    if (dealSource && existingListing.deal_source !== dealSource) {
+      updates.deal_source = dealSource;
     }
 
     const existingId = existingListing.id as string;
