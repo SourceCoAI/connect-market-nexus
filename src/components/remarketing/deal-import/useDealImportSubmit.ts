@@ -249,11 +249,12 @@ export async function handleImport({
       }
 
       // If still no website after normalization, generate a placeholder
-      // so the NOT NULL constraint is satisfied and the row can be imported
+      // so the NOT NULL constraint is satisfied and the row can be imported.
+      // Include row index to guarantee uniqueness even within the same millisecond.
       if (!(listingData as Record<string, unknown>).website) {
         const companyName = ((listingData as Record<string, unknown>).title as string) || 'unknown';
         const slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
-        (listingData as Record<string, unknown>).website = `unknown-${slug}-${Date.now()}.unknown`;
+        (listingData as Record<string, unknown>).website = `unknown-${slug}-${Date.now()}-r${i}.unknown`;
       }
 
       if (referralPartnerId) {
