@@ -2,6 +2,7 @@
  * useDealImportSubmit.ts
  *
  * Import and merge logic for the deal spreadsheet import workflow.
+ * NOTE: Uses deal_source (single column) only — NOT deal_sources.
  * Handles row-by-row insertion, duplicate detection, merge-fill for
  * existing listings, and progress tracking.
  *
