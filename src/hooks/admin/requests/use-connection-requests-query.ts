@@ -112,7 +112,7 @@ export function useConnectionRequestsQuery() {
             ? supabase
                 .from('listings')
                 .select(
-                  'id, title, category, status, revenue, ebitda, image_url, location, user_id, internal_company_name',
+                  'id, title, category, status, revenue, ebitda, image_url, location, internal_company_name',
                 )
                 .in('id', listingIds)
             : emptyResult,
