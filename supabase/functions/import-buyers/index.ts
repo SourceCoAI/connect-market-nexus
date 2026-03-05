@@ -121,11 +121,9 @@ serve(async (req) => {
         continue;
       }
 
-      const { data: inserted, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('buyers')
-        .insert(buyer)
-        .select('id')
-        .single();
+        .insert(buyer);
 
       if (insertError) {
         if (insertError.code === '23505' && universeId) {
@@ -172,27 +170,40 @@ serve(async (req) => {
 
       success++;
 
-      // Create contact for new buyer
-      if (contact && inserted?.id) {
-        const contactName =
-          contact.name ||
-          `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
-          'Unknown';
-        const { error: contactError } = await supabase
-          .from('remarketing_buyer_contacts')
-          .insert({
-            buyer_id: inserted.id,
-            name: contactName,
-            email: contact.email || null,
-            phone: contact.phone || null,
-            role: contact.title || null,
-            linkedin_url: contact.linkedin_url || null,
-            is_primary: true,
-          });
-        if (contactError) {
-          console.warn('Contact creation failed for buyer:', inserted.id, contactError.message);
-        } else {
-          contactsCreated++;
+      // Create contact for new buyer — look up the inserted ID by domain
+      if (contact) {
+        const domain = normalizeDomain(buyer.company_website as string | null);
+        if (domain) {
+          const { data: newBuyer } = await supabase
+            .from('buyers')
+            .select('id')
+            .ilike('company_website', `%${domain}%`)
+            .eq('archived', false)
+            .limit(1)
+            .single();
+
+          if (newBuyer?.id) {
+            const contactName =
+              contact.name ||
+              `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
+              'Unknown';
+            const { error: contactError } = await supabase
+              .from('remarketing_buyer_contacts')
+              .insert({
+                buyer_id: newBuyer.id,
+                name: contactName,
+                email: contact.email || null,
+                phone: contact.phone || null,
+                role: contact.title || null,
+                linkedin_url: contact.linkedin_url || null,
+                is_primary: true,
+              });
+            if (contactError) {
+              console.warn('Contact creation failed for buyer:', newBuyer.id, contactError.message);
+            } else {
+              contactsCreated++;
+            }
+          }
         }
       }
     }
