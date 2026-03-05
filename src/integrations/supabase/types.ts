@@ -6979,6 +6979,59 @@ export type Database = {
           },
         ]
       }
+      listing_notes: {
+        Row: {
+          admin_id: string | null
+          created_at: string
+          id: string
+          listing_id: string
+          note: string
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          listing_id: string
+          note: string
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          listing_id?: string
+          note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_notes_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_notes_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_introduction_summary"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "listing_notes_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listing_notes_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       listings: {
         Row: {
           acquisition_type: string | null
