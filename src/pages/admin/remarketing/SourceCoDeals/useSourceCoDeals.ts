@@ -133,7 +133,7 @@ export function useSourceCoDeals() {
             deal_owner:profiles!listings_deal_owner_id_fkey(id, first_name, last_name, email)
           `,
           )
-          .eq('deal_source', 'sourceco')
+          .contains('deal_sources', ['sourceco'])
           .order('created_at', { ascending: false })
           .range(offset, offset + batchSize - 1);
 
@@ -572,6 +572,7 @@ export function useSourceCoDeals() {
       revenue: newDeal.revenue ? parseFloat(newDeal.revenue) : null,
       ebitda: newDeal.ebitda ? parseFloat(newDeal.ebitda) : null,
       deal_source: 'sourceco',
+      deal_sources: ['sourceco'],
       status: 'active',
       is_internal_deal: true,
       pushed_to_all_deals: false,
