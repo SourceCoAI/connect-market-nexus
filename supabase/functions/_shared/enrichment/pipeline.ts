@@ -99,9 +99,33 @@ export function classifyError(errorMessage: string): EnrichmentStepStatus {
  * - Otherwise the step is 'success' (or 'partial' if it returned fields
  *   but also produced warnings).
  */
+/**
+ * Check if an error is transient and eligible for retry.
+ * (Audit P3: enrichment retry logic for transient failures)
+ */
+function isTransientError(errorMessage: string): boolean {
+  const transientPatterns = [
+    'timeout', 'abort', 'EDGE_TIMEOUT',
+    '429', 'rate', 'Too Many Requests',
+    '502', '503', '504',
+    'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT',
+    'fetch failed', 'network',
+  ];
+  const lower = errorMessage.toLowerCase();
+  return transientPatterns.some(p => lower.includes(p.toLowerCase()));
+}
+
+/**
+ * Delay helper for retry backoff.
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function executeStep<TContext>(
   step: EnrichmentPipelineStep<TContext>,
   ctx: TContext,
+  maxRetries: number = 2,
 ): Promise<EnrichmentStepResult> {
   // Check precondition
   if (!step.shouldRun(ctx)) {
@@ -119,40 +143,76 @@ export async function executeStep<TContext>(
   const startMs = Date.now();
   console.log(`[${step.name}] Starting: ${step.label}`);
 
-  try {
-    const fieldsUpdated = await step.execute(ctx);
-    const durationMs = Date.now() - startMs;
-    const status: EnrichmentStepStatus = fieldsUpdated.length > 0 ? 'success' : 'partial';
+  let lastError: unknown = null;
 
-    console.log(
-      `[${step.name}] Completed in ${durationMs}ms: ${fieldsUpdated.length} fields updated`,
-    );
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const fieldsUpdated = await step.execute(ctx);
+      const durationMs = Date.now() - startMs;
+      const status: EnrichmentStepStatus = fieldsUpdated.length > 0 ? 'success' : 'partial';
 
-    return {
-      stepName: step.name,
-      label: step.label,
-      status,
-      durationMs,
-      fieldsUpdated,
-      warnings: [],
-    };
-  } catch (err) {
-    const durationMs = Date.now() - startMs;
-    const errorMessage = getErrorMessage(err);
-    const status = classifyError(errorMessage);
+      if (attempt > 0) {
+        console.log(
+          `[${step.name}] Succeeded on retry ${attempt} in ${durationMs}ms: ${fieldsUpdated.length} fields updated`,
+        );
+      } else {
+        console.log(
+          `[${step.name}] Completed in ${durationMs}ms: ${fieldsUpdated.length} fields updated`,
+        );
+      }
 
-    console.error(`[${step.name}] Failed in ${durationMs}ms (${status}): ${errorMessage}`);
+      return {
+        stepName: step.name,
+        label: step.label,
+        status,
+        durationMs,
+        fieldsUpdated,
+        warnings: attempt > 0 ? [`Succeeded after ${attempt} retry(ies)`] : [],
+      };
+    } catch (err) {
+      lastError = err;
+      const errorMessage = getErrorMessage(err);
 
-    return {
-      stepName: step.name,
-      label: step.label,
-      status,
-      durationMs,
-      fieldsUpdated: [],
-      warnings: [],
-      errorMessage,
-    };
+      // Only retry on transient errors
+      if (attempt < maxRetries && isTransientError(errorMessage)) {
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 8000);
+        console.warn(
+          `[${step.name}] Transient failure (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${backoffMs}ms: ${errorMessage}`,
+        );
+        await delay(backoffMs);
+        continue;
+      }
+
+      // Final failure
+      const durationMs = Date.now() - startMs;
+      const status = classifyError(errorMessage);
+
+      console.error(`[${step.name}] Failed in ${durationMs}ms (${status}): ${errorMessage}${attempt > 0 ? ` after ${attempt} retries` : ''}`);
+
+      return {
+        stepName: step.name,
+        label: step.label,
+        status,
+        durationMs,
+        fieldsUpdated: [],
+        warnings: attempt > 0 ? [`Failed after ${attempt} retry(ies)`] : [],
+        errorMessage,
+      };
+    }
   }
+
+  // Should not reach here, but handle gracefully
+  const durationMs = Date.now() - startMs;
+  const errorMessage = getErrorMessage(lastError);
+  return {
+    stepName: step.name,
+    label: step.label,
+    status: classifyError(errorMessage),
+    durationMs,
+    fieldsUpdated: [],
+    warnings: [],
+    errorMessage,
+  };
 }
 
 // ============================================================================

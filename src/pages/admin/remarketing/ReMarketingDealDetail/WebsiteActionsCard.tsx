@@ -281,18 +281,18 @@ function PushToMarketplaceButton({
   }
 
   /**
-   * Informational: items still needed before a listing can be created.
-   * These no longer block pushing to the queue.
+   * Hard gate checks: all items must be satisfied before marketplace push.
+   * (Audit P2: hardened from informational to blocking)
    */
   const gaps: string[] = [];
 
   if (!deal?.website) gaps.push('Website');
 
-  if (deal?.revenue == null) gaps.push('Revenue');
+  if (deal?.revenue == null || deal?.revenue <= 0) gaps.push('Revenue');
 
   if (deal?.ebitda == null) gaps.push('EBITDA');
 
-  if (!deal?.address_state && !deal?.location) gaps.push('Location');
+  if (!deal?.address_state && !deal?.location) gaps.push('Location / Geography');
 
   if (!deal?.category && !deal?.industry) gaps.push('Category / Industry');
 
@@ -302,6 +302,8 @@ function PushToMarketplaceButton({
 
   if (!deal?.main_contact_email) gaps.push('Main contact email');
 
+  const isBlocked = gaps.length > 0;
+
   return (
     <TooltipProvider>
       <Tooltip>
@@ -309,7 +311,12 @@ function PushToMarketplaceButton({
           <Button
             variant="outline"
             className="gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-500"
+            disabled={isBlocked}
             onClick={async () => {
+              if (isBlocked) {
+                toast.error(`Cannot push to marketplace: missing ${gaps.join(', ')}`);
+                return;
+              }
               const {
                 data: { user: authUser },
               } = await supabase.auth.getUser();
