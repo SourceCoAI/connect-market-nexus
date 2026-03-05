@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Upload, FileSpreadsheet, Loader2, Check, AlertCircle } from 'lucide-react';
+import { Upload, FileSpreadsheet, Loader2, Check, AlertCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 // Papa removed – using parseSpreadsheet instead
 import { normalizeDomain, isGenericEmailDomain } from '@/lib/remarketing/normalizeDomain';
@@ -41,6 +41,29 @@ export interface DealCSVImportProps {
 
 type ImportStep = 'upload' | 'mapping' | 'preview' | 'importing' | 'complete';
 
+interface NewDealDetail {
+  row: number;
+  companyName: string;
+  website?: string;
+}
+
+interface MergedDealDetail {
+  row: number;
+  csvCompanyName: string;
+  existingTitle: string;
+  existingId: string;
+  matchedBy: 'website' | 'name';
+  website?: string;
+}
+
+interface DetailedImportResults {
+  imported: number;
+  merged: number;
+  errors: string[];
+  newDeals: NewDealDetail[];
+  mergedDeals: MergedDealDetail[];
+}
+
 export const DealCSVImport = ({
   universeId,
   universeName: _universeName,
@@ -54,11 +77,9 @@ export const DealCSVImport = ({
   const [mappingStats, setMappingStats] = useState<MergeStats | null>(null);
   const [isMapping, setIsMapping] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  const [importResults, setImportResults] = useState<{
-    imported: number;
-    merged: number;
-    errors: string[];
-  } | null>(null);
+  const [importResults, setImportResults] = useState<DetailedImportResults | null>(null);
+  const [showNewDeals, setShowNewDeals] = useState(false);
+  const [showMergedDeals, setShowMergedDeals] = useState(false);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
@@ -120,20 +141,27 @@ export const DealCSVImport = ({
     );
   };
 
+  interface MergeExistingResult {
+    id: string;
+    existingTitle: string;
+    matchedBy: 'website' | 'name';
+  }
+
   /**
    * When a deal already exists (duplicate website), find the existing listing
    * and fill in any null/empty fields with new CSV data.
-   * Returns the listing ID if fields were updated, null otherwise.
+   * Returns match details if fields were updated, null otherwise.
    */
   const tryMergeExistingListing = async (
     newData: Record<string, unknown>,
     mergeableFields: string[],
-  ): Promise<string | null> => {
+  ): Promise<MergeExistingResult | null> => {
     try {
       const website = newData.website as string | undefined;
       const title = newData.title as string | undefined;
 
       let existingListing: Record<string, unknown> | null = null;
+      let matchedBy: 'website' | 'name' = 'website';
 
       if (website) {
         // Primary: use DB-level normalized domain matching via RPC
@@ -164,9 +192,12 @@ export const DealCSVImport = ({
           .limit(1)
           .maybeSingle();
         existingListing = data as Record<string, unknown> | null;
+        if (existingListing) matchedBy = 'name';
       }
 
       if (!existingListing) return null;
+
+      const existingTitle = (existingListing.title as string) || 'Unknown';
 
       const updates: Record<string, unknown> = {};
 
@@ -224,7 +255,7 @@ export const DealCSVImport = ({
         return null;
       }
 
-      return existingListing.id as string;
+      return { id: existingListing.id as string, existingTitle, matchedBy };
     } catch (err) {
       console.warn('Merge lookup failed:', (err as Error).message);
       return null;
@@ -238,7 +269,13 @@ export const DealCSVImport = ({
         error: authError,
       } = await supabase.auth.getUser();
       if (authError) throw authError;
-      const results = { imported: 0, merged: 0, errors: [] as string[] };
+      const results: DetailedImportResults = {
+        imported: 0,
+        merged: 0,
+        errors: [],
+        newDeals: [],
+        mergedDeals: [],
+      };
 
       // Fields eligible for merge-fill on existing deals
       const MERGEABLE_FIELDS = [
@@ -441,15 +478,23 @@ export const DealCSVImport = ({
               || listingError.code === '23505';
 
             if (isDuplicate) {
-              const mergedId = await tryMergeExistingListing(
+              const mergeResult = await tryMergeExistingListing(
                 listingData, MERGEABLE_FIELDS,
               );
-              if (mergedId) {
+              if (mergeResult) {
                 results.merged++;
+                results.mergedDeals.push({
+                  row: i + 1,
+                  csvCompanyName: (listingData.title as string) || 'Unknown',
+                  existingTitle: mergeResult.existingTitle,
+                  existingId: mergeResult.id,
+                  matchedBy: mergeResult.matchedBy,
+                  website: (listingData.website as string) || undefined,
+                });
                 // Also ensure universe link exists
                 await supabase.from('remarketing_universe_deals').upsert({
                   universe_id: universeId,
-                  listing_id: mergedId,
+                  listing_id: mergeResult.id,
                   added_by: user?.id,
                   status: 'active',
                 } as never, { onConflict: 'universe_id,listing_id' }).select();
@@ -471,6 +516,11 @@ export const DealCSVImport = ({
             if (linkError) throw linkError;
 
             results.imported++;
+            results.newDeals.push({
+              row: i + 1,
+              companyName: (listingData.title as string) || 'Unknown',
+              website: (listingData.website as string) || undefined,
+            });
           }
         } catch (error) {
           results.errors.push(`Row ${i + 1}: ${(error as Error).message}`);
@@ -507,6 +557,8 @@ export const DealCSVImport = ({
     setMappingStats(null);
     setImportProgress(0);
     setImportResults(null);
+    setShowNewDeals(false);
+    setShowMergedDeals(false);
   };
 
   return (
@@ -627,19 +679,19 @@ export const DealCSVImport = ({
 
       {/* Step: Complete */}
       {step === 'complete' && importResults && (
-        <div className="flex-1 flex flex-col items-center justify-center py-12">
+        <div className="flex-1 flex flex-col items-center py-8 max-w-2xl mx-auto w-full">
           {importResults.errors.length === 0 ? (
             <Check className="h-12 w-12 mb-4 text-primary" />
           ) : (
             <AlertCircle className="h-12 w-12 mb-4 text-destructive" />
           )}
-          <p className="font-medium mb-2">
+          <p className="font-medium mb-1">
             {(() => {
               const parts: string[] = [];
-              if (importResults.imported > 0) parts.push(`${importResults.imported} imported`);
-              if (importResults.merged > 0) parts.push(`${importResults.merged} updated`);
+              if (importResults.imported > 0) parts.push(`${importResults.imported} new deals imported`);
+              if (importResults.merged > 0) parts.push(`${importResults.merged} existing deals updated`);
               return parts.length > 0
-                ? `${parts.join(', ')} of ${csvData.length} deals`
+                ? parts.join(', ')
                 : `0 of ${csvData.length} deals imported`;
             })()}
           </p>
@@ -649,14 +701,111 @@ export const DealCSVImport = ({
             </p>
           )}
 
+          {/* New deals breakdown */}
+          {importResults.newDeals.length > 0 && (
+            <div className="w-full mt-4">
+              <button
+                type="button"
+                className="flex items-center gap-2 text-sm font-medium text-left w-full hover:underline"
+                onClick={() => setShowNewDeals(!showNewDeals)}
+              >
+                {showNewDeals ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                <span className="text-green-700">{importResults.newDeals.length} new deals imported</span>
+              </button>
+              {showNewDeals && (
+                <ScrollArea className="max-h-48 w-full border rounded-lg mt-2">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-16">Row</TableHead>
+                        <TableHead>Company Name</TableHead>
+                        <TableHead>Website</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {importResults.newDeals.map((deal) => (
+                        <TableRow key={`new-${deal.row}`}>
+                          <TableCell className="text-muted-foreground">{deal.row}</TableCell>
+                          <TableCell className="font-medium">{deal.companyName}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{deal.website || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              )}
+            </div>
+          )}
+
+          {/* Merged/updated deals breakdown */}
+          {importResults.mergedDeals.length > 0 && (
+            <div className="w-full mt-4">
+              <button
+                type="button"
+                className="flex items-center gap-2 text-sm font-medium text-left w-full hover:underline"
+                onClick={() => setShowMergedDeals(!showMergedDeals)}
+              >
+                {showMergedDeals ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                <span className="text-amber-700">{importResults.mergedDeals.length} existing deals updated</span>
+              </button>
+              {showMergedDeals && (
+                <ScrollArea className="max-h-48 w-full border rounded-lg mt-2">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-16">Row</TableHead>
+                        <TableHead>CSV Company</TableHead>
+                        <TableHead>Matched Existing Deal</TableHead>
+                        <TableHead className="w-24">Matched By</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {importResults.mergedDeals.map((deal) => (
+                        <TableRow key={`merged-${deal.row}`}>
+                          <TableCell className="text-muted-foreground">{deal.row}</TableCell>
+                          <TableCell>{deal.csvCompanyName}</TableCell>
+                          <TableCell>
+                            <a
+                              href={`/admin/remarketing/deals/${deal.existingId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-primary hover:underline"
+                            >
+                              {deal.existingTitle}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                            {deal.website && (
+                              <span className="text-xs text-muted-foreground block">{deal.website}</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">
+                              {deal.matchedBy}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              )}
+            </div>
+          )}
+
+          {/* Errors */}
           {importResults.errors.length > 0 && (
-            <ScrollArea className="max-h-32 w-full border rounded-lg p-4 mt-4">
-              <div className="space-y-1 text-sm text-destructive">
-                {importResults.errors.map((error) => (
-                  <p key={error}>{error}</p>
-                ))}
-              </div>
-            </ScrollArea>
+            <div className="w-full mt-4">
+              <p className="text-sm font-medium text-destructive mb-2">
+                {importResults.errors.length} failed to import:
+              </p>
+              <ScrollArea className="max-h-32 w-full border rounded-lg p-4">
+                <div className="space-y-1 text-sm text-destructive">
+                  {importResults.errors.map((error) => (
+                    <p key={error}>{error}</p>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
           )}
 
           <Button onClick={reset} className="mt-6">
