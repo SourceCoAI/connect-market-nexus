@@ -233,6 +233,8 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         body: { buyers: payload, universeId },
       });
 
+      console.log('import-buyers response:', JSON.stringify(data));
+
       if (error) {
         console.error('import-buyers edge function error:', error);
         toast.error('Import failed. Please try again.');
@@ -242,7 +244,7 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         return;
       }
 
-      const { success = 0, errors: errorCount = 0, skipped = 0, linked = 0, contactsCreated = 0 } = data || {};
+      const { success = 0, errors: errorCount = 0, skipped = 0, linked = 0, contactsCreated = 0, errorDetails = [] } = data || {};
 
       setImportProgress(100);
       setImportResults({ success, errors: errorCount, skipped, linked });
@@ -265,7 +267,11 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       }
 
       if (errorCount > 0) {
-        toast.error(`Failed to import ${errorCount} buyers`);
+        const detail = errorDetails.length > 0
+          ? ` (${errorDetails[0].code}: ${errorDetails[0].message})`
+          : '';
+        console.error('Import error details:', errorDetails);
+        toast.error(`Failed to import ${errorCount} buyers${detail}`);
       }
 
       onComplete?.();

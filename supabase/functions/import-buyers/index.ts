@@ -75,6 +75,12 @@ serve(async (req) => {
     let skipped = 0;
     let linked = 0;
     let contactsCreated = 0;
+    const errorDetails: Array<{ company: string; code: string; message: string }> = [];
+
+    // Log first buyer for debugging (remove once stable)
+    if (records.length > 0) {
+      console.log('First buyer payload:', JSON.stringify(records[0].buyer));
+    }
 
     for (const record of records) {
       const { buyer, contact, existingBuyerId } = record;
@@ -89,6 +95,9 @@ serve(async (req) => {
         if (linkError) {
           console.error('Link failed:', existingBuyerId, linkError.message);
           errors++;
+          if (errorDetails.length < 5) {
+            errorDetails.push({ company: String(buyer?.company_name || existingBuyerId), code: linkError.code || 'unknown', message: linkError.message });
+          }
         } else {
           linked++;
         }
@@ -166,6 +175,9 @@ serve(async (req) => {
         } else {
           console.warn('Insert failed:', buyer.company_name, insertError.code, insertError.message);
           errors++;
+          if (errorDetails.length < 5) {
+            errorDetails.push({ company: String(buyer.company_name), code: insertError.code || 'unknown', message: insertError.message });
+          }
         }
         continue;
       }
@@ -198,7 +210,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success, errors, skipped, linked, contactsCreated }),
+      JSON.stringify({ success, errors, skipped, linked, contactsCreated, errorDetails }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
