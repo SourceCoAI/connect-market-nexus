@@ -133,7 +133,7 @@ export function useGPPartnerDeals() {
             deal_owner:profiles!listings_deal_owner_id_fkey(id, first_name, last_name, email)
           `,
           )
-          .contains('deal_sources', ['gp_partners'])
+          .eq('deal_source', 'gp_partners')
           .order('created_at', { ascending: false })
           .range(offset, offset + batchSize - 1);
 
@@ -568,7 +568,6 @@ export function useGPPartnerDeals() {
       revenue: newDeal.revenue ? parseFloat(newDeal.revenue) : null,
       ebitda: newDeal.ebitda ? parseFloat(newDeal.ebitda) : null,
       deal_source: 'gp_partners',
-      deal_sources: ['gp_partners'],
       status: 'active',
       is_internal_deal: true,
       pushed_to_all_deals: false,

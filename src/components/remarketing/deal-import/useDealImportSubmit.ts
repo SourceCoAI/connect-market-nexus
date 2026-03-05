@@ -74,23 +74,17 @@ interface MergeResult {
 async function resolveLocations(listing: Record<string, unknown>): Promise<DealLocation[]> {
   const locations: DealLocation[] = [];
   const id = listing.id as string;
-  const dealSources = (listing.deal_sources as string[] | null) ?? [];
   const dealSource = listing.deal_source as string | null;
   const pushed = listing.pushed_to_all_deals as boolean | null;
 
-  // Check deal_sources array first, fall back to deal_source
-  const sources = dealSources.length > 0 ? dealSources : (dealSource ? [dealSource] : []);
-
-  for (const src of sources) {
-    if (src === 'sourceco') {
-      locations.push({ label: 'SourceCo Deals', href: `/admin/remarketing/leads/sourceco/${id}` });
-    } else if (src === 'captarget') {
-      locations.push({ label: 'CapTarget Deals', href: `/admin/remarketing/leads/captarget/${id}` });
-    } else if (src === 'gp_partners') {
-      locations.push({ label: 'GP Partner Deals', href: `/admin/remarketing/leads/gp-partners/${id}` });
-    } else if (src === 'valuation') {
-      locations.push({ label: 'Valuation Leads', href: `/admin/remarketing/leads/valuation` });
-    }
+  if (dealSource === 'sourceco') {
+    locations.push({ label: 'SourceCo Deals', href: `/admin/remarketing/leads/sourceco/${id}` });
+  } else if (dealSource === 'captarget') {
+    locations.push({ label: 'CapTarget Deals', href: `/admin/remarketing/leads/captarget/${id}` });
+  } else if (dealSource === 'gp_partners') {
+    locations.push({ label: 'GP Partner Deals', href: `/admin/remarketing/leads/gp-partners/${id}` });
+  } else if (dealSource === 'valuation') {
+    locations.push({ label: 'Valuation Leads', href: `/admin/remarketing/leads/valuation` });
   }
 
   // All Deals (pushed)
@@ -222,13 +216,9 @@ async function tryMergeExistingListing(
       updates.ebitda = newData.ebitda;
     }
 
-    // Append the target deal source to deal_sources so the deal appears in
-    // both the original pipeline and the importing pipeline.
-    if (dealSource) {
-      const existingSources = (existingListing.deal_sources as string[] | null) ?? [];
-      if (!existingSources.includes(dealSource)) {
-        updates.deal_sources = [...existingSources, dealSource];
-      }
+    // Update deal_source so the deal appears in the importing pipeline
+    if (dealSource && existingListing.deal_source !== dealSource) {
+      updates.deal_source = dealSource;
     }
 
     const existingId = existingListing.id as string;
@@ -331,7 +321,7 @@ export async function handleImport({
         status: referralPartnerId ? 'pending_referral_review' : 'active',
         location: computedLocation,
         is_internal_deal: true,
-        ...(dealSource ? { deal_source: dealSource, deal_sources: [dealSource] } : {}),
+        ...(dealSource ? { deal_source: dealSource } : {}),
         ...(hideFromAllDeals ? { pushed_to_all_deals: false } : {}),
       });
 

@@ -194,7 +194,7 @@ export function useCapTargetData() {
             category, executive_summary, industry, remarketing_status
           `,
           )
-          .contains('deal_sources', ['captarget'])
+          .eq('deal_source', 'captarget')
           .order('captarget_contact_date', { ascending: false, nullsFirst: false })
           .range(offset, offset + batchSize - 1);
 

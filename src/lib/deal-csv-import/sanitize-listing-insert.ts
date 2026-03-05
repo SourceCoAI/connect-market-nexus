@@ -10,7 +10,6 @@ const EXTRA_ALLOWED_FIELDS = [
   'status',
   'is_internal_deal',
   'deal_source',
-  'deal_sources',
   'pushed_to_all_deals',
   // required in schema (NOT NULL) but not user-mapped (public/anon-friendly)
   'location',

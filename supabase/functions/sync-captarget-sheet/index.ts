@@ -280,7 +280,6 @@ async function rowToRecord(
     captarget_status: captargetStatus,
     captarget_sheet_tab: tabName,
     deal_source: 'captarget',
-    deal_sources: ['captarget'],
     status: 'pending',
     pushed_to_all_deals: false,
     is_internal_deal: true,

@@ -103,7 +103,7 @@ export function useUniversalSearch() {
         .select(
           'id, title, internal_company_name, captarget_client_name, main_contact_name, main_contact_email, website, industry',
         )
-        .contains('deal_sources', ['captarget'])
+        .eq('deal_source', 'captarget')
         .order('created_at', { ascending: false })
         .limit(2000);
       if (error) throw error;
@@ -130,7 +130,7 @@ export function useUniversalSearch() {
         .select(
           'id, title, internal_company_name, main_contact_name, main_contact_email, website, industry',
         )
-        .contains('deal_sources', ['gp_partners'])
+        .eq('deal_source', 'gp_partners')
         .order('created_at', { ascending: false })
         .limit(2000);
       if (error) throw error;
@@ -153,7 +153,7 @@ export function useUniversalSearch() {
       const { data, error } = await supabase
         .from('listings')
         .select('id, title, internal_company_name, main_contact_name, main_contact_email, website, industry')
-        .contains('deal_sources', ['sourceco'])
+        .eq('deal_source', 'sourceco')
         .order('created_at', { ascending: false })
         .limit(2000);
       if (error) throw error;
