@@ -127,6 +127,10 @@ async function resolveLocations(listing: Record<string, unknown>): Promise<DealL
 /**
  * When a deal already exists (duplicate website), find the existing listing
  * and fill in any null/empty fields with new CSV data.
+ *
+ * Website match: searches globally (websites are unique across all sources).
+ * Title match: only searches within the same deal_source to prevent
+ * false-positive merges across unrelated deal pipelines.
  */
 async function tryMergeExistingListing(
   newData: Record<string, unknown>,
@@ -135,33 +139,32 @@ async function tryMergeExistingListing(
   try {
     const website = newData.website as string | undefined;
     const title = newData.title as string | undefined;
+    const dealSource = newData.deal_source as string | undefined;
+
+    // Skip placeholder websites — they're unique per row, not real duplicates
+    const isPlaceholder = website && (website.endsWith('.unknown') || website.startsWith('unknown-'));
 
     let existingListing: Record<string, unknown> | null = null;
     let matchedBy: 'website' | 'name' = 'website';
 
-    if (website) {
+    if (website && !isPlaceholder) {
+      // Use the RPC which normalizes both sides (strips protocol, www, etc.)
+      // so "https://www.example.com" matches "example.com" in the DB.
       const { data: rpcData } = await supabase
         .rpc('find_listing_by_normalized_domain', { target_domain: website })
         .limit(1)
         .maybeSingle();
       existingListing = rpcData as Record<string, unknown> | null;
-
-      if (!existingListing) {
-        const { data } = await supabase
-          .from('listings')
-          .select('*')
-          .eq('website', website)
-          .limit(1)
-          .maybeSingle();
-        existingListing = data as Record<string, unknown> | null;
-      }
     }
 
-    if (!existingListing && title) {
+    // Title match: only within the same deal_source to avoid cross-pipeline false merges.
+    // Also catches re-imports of the same CSV (where placeholder websites differ each time).
+    if (!existingListing && title && dealSource) {
       const { data } = await supabase
         .from('listings')
         .select('*')
         .ilike('title', title)
+        .eq('deal_source', dealSource)
         .limit(1)
         .maybeSingle();
       existingListing = data as Record<string, unknown> | null;
@@ -169,6 +172,15 @@ async function tryMergeExistingListing(
     }
 
     if (!existingListing) return null;
+
+    const existingRef: MergeResult = {
+      id: existingListing.id as string,
+      fieldsUpdated: false,
+      deal_source: (existingListing.deal_source as string) ?? null,
+      company_name: (existingListing.internal_company_name as string)
+        || (existingListing.title as string)
+        || 'Unknown',
+    };
 
     const updates: Record<string, unknown> = {};
 
@@ -303,6 +315,12 @@ export async function handleImport({
       const state = typeof parsedData.address_state === 'string' ? parsedData.address_state : '';
       const computedLocation = city && state ? `${city}, ${state}` : state || city || "Unknown";
 
+      // Auto-populate internal_company_name from title for dedup on re-imports
+      const parsed = parsedData as Record<string, unknown>;
+      if (parsed.title && !parsed.internal_company_name) {
+        parsed.internal_company_name = parsed.title;
+      }
+
       const listingData = sanitizeListingInsert({
         ...parsedData,
         status: referralPartnerId ? 'pending_referral_review' : 'active',
@@ -327,6 +345,15 @@ export async function handleImport({
         if (normalized) {
           (listingData as Record<string, unknown>).website = normalized;
         }
+      }
+
+      // If still no website after normalization, generate a placeholder
+      // so the NOT NULL constraint is satisfied and the row can be imported.
+      // Include row index to guarantee uniqueness even within the same millisecond.
+      if (!(listingData as Record<string, unknown>).website) {
+        const companyName = ((listingData as Record<string, unknown>).title as string) || 'unknown';
+        const slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+        (listingData as Record<string, unknown>).website = `unknown-${slug}-${Date.now()}-r${i}.unknown`;
       }
 
       if (referralPartnerId) {

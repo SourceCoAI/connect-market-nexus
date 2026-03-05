@@ -94,7 +94,7 @@ const DEAL_FIELDS = [
   { field: 'owner_goals', description: 'Owner goals or seller motivation' },
   { field: 'number_of_locations', description: 'Number of business locations' },
   { field: 'google_review_count', description: 'Number of Google reviews' },
-  { field: 'google_review_score', description: 'Google review score/rating' },
+  { field: 'google_rating', description: 'Google review score/rating (1-5)' },
   { field: 'linkedin_url', description: 'LinkedIn company profile URL' },
   { field: 'fireflies_url', description: 'URL to Fireflies call recording or transcript' },
   // status is intentionally omitted - it should never be imported from CSV
@@ -168,14 +168,19 @@ Be intelligent about variations:
 - "LinkedIn URL", "LinkedIn", "LI URL", "Company LinkedIn" → linkedin_url
 - "Fireflies", "Fireflies URL", "Recording URL", "Call Recording" → fireflies_url
 - "Google Reviews", "Review Count", "Reviews" → google_review_count
-- "Google Score", "Rating", "Review Score" → google_review_score
+- "Google Score", "Rating", "Review Score" → google_rating
 - "Locations", "Location Count", "# of Locations" → number_of_locations
 - "Status", "Stage", "Deal Status", "Pipeline Stage" → status
 - "Last Contacted", "Last Contact Date", "Last Touch" → last_contacted_at
 - "Marketplace" (if it's a yes/no flag) → ignore (internal only)
 
 Return null for columns that don't match any field.
-Look at sample data to disambiguate - e.g., if a column contains URLs, map to website; if it contains names, check if first or full name.`;
+Look at sample data to disambiguate - e.g., if a column contains URLs, map to website; if it contains names, check if first or full name.
+
+CRITICAL RULES:
+- NEVER map email addresses (containing @) to the website field. Emails go to main_contact_email.
+- "Company" alone (without "Name") should map to title.
+- "Title" with values like "Owner", "CEO", "President" should map to main_contact_title, NOT title.`;
     } else if (targetType === 'buyer') {
       systemPrompt = `You are a data mapping expert for M&A buyer data imports.
 Given CSV column names and sample data, map them to target database fields.
@@ -375,9 +380,12 @@ function heuristicMapping(
       else if (
         (lower.includes('company') && lower.includes('name')) ||
         lower === 'company name' ||
+        lower === 'company' ||
         lower === 'name' ||
         lower === 'business name' ||
-        lower === 'account'
+        lower === 'business' ||
+        lower === 'account' ||
+        lower === 'account name'
       ) {
         targetField = 'title';
         confidence = 0.95;
@@ -534,7 +542,7 @@ function heuristicMapping(
         lower === 'google rating' ||
         (lower.includes('google') && (lower.includes('score') || lower.includes('rating')))
       ) {
-        targetField = 'google_review_score';
+        targetField = 'google_rating';
         confidence = 0.95;
       }
       // Number of Locations

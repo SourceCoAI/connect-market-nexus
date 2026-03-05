@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSessionContext } from '@/contexts/SessionContext';
 
-const HEARTBEAT_INTERVAL = 30000; // 30 seconds
+const HEARTBEAT_INTERVAL = 60000; // 60 seconds (was 30s — reduces edge function calls by 50%)
 
 interface HeartbeatState {
   isActive: boolean;
@@ -73,10 +73,10 @@ export function useSessionHeartbeat(userId?: string | null) {
           user_id: userId || null,
           ended: true,
         });
-        
+
         navigator.sendBeacon?.(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/session-heartbeat`,
-          payload
+          payload,
         );
       } catch (error) {
         console.error('Failed to send final heartbeat:', error);

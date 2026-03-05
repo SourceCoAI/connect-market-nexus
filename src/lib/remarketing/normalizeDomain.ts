@@ -62,6 +62,12 @@ export function normalizeDomain(input: string | null | undefined): string | null
     // Trim whitespace
     let domain = input.trim();
 
+    // Handle email addresses: extract domain part after @
+    if (domain.includes('@')) {
+      const atIndex = domain.lastIndexOf('@');
+      domain = domain.substring(atIndex + 1);
+    }
+
     // If it looks like a URL, parse it
     if (domain.includes('://') || domain.includes('/')) {
       try {

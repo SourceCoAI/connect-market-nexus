@@ -263,7 +263,7 @@ export function EnhancedAnalyticsHealthDashboard() {
 
   useEffect(() => {
     if (autoRefresh) {
-      const interval = setInterval(checkAnalyticsHealth, 5000);
+      const interval = setInterval(checkAnalyticsHealth, 30000);
       return () => clearInterval(interval);
     }
   }, [autoRefresh]);

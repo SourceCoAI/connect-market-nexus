@@ -122,10 +122,10 @@ export const CIRCUIT_BREAKER = {
 // ── Polling intervals (milliseconds) ─────────────────────────────────
 
 export const POLL_INTERVALS = {
-  /** Session heartbeat ping (30 s). */
-  HEARTBEAT: 30_000,
-  /** Enrichment queue status poll (5 s). */
-  ENRICHMENT_QUEUE: 5_000,
+  /** Session heartbeat ping (60 s). */
+  HEARTBEAT: 60_000,
+  /** Enrichment queue status poll (10 s). */
+  ENRICHMENT_QUEUE: 10_000,
   /** Enrichment batch processing cycle (30 s). */
   ENRICHMENT_PROCESS: 30_000,
   /** Data quality metrics refresh (5 min). */

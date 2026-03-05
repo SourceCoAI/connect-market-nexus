@@ -41,7 +41,7 @@ import {
 } from "@/lib/deal-csv-import";
 import { DealImportMapping } from "./deal-import/DealImportMapping";
 import { DealImportPreview } from "./deal-import/DealImportPreview";
-import { handleImport, type ImportResults } from "./deal-import/useDealImportSubmit";
+import { handleImport, type ImportResults, type ExistingDealRef } from "./deal-import/useDealImportSubmit";
 
 interface DealImportDialogProps {
   open: boolean;
@@ -56,6 +56,28 @@ interface DealImportDialogProps {
 }
 
 type ImportStep = "upload" | "mapping" | "preview" | "importing" | "complete";
+
+const SOURCE_LABELS: Record<string, { label: string; path: string }> = {
+  marketplace: { label: 'Active Deals', path: '/admin/remarketing' },
+  manual: { label: 'Active Deals', path: '/admin/remarketing' },
+  referral: { label: 'Active Deals', path: '/admin/remarketing' },
+  remarketing: { label: 'Active Deals', path: '/admin/remarketing' },
+  salesforce_remarketing: { label: 'Active Deals', path: '/admin/remarketing' },
+  sourceco: { label: 'SourceCo Deals', path: '/admin/remarketing/sourceco' },
+  captarget: { label: 'CapTarget Deals', path: '/admin/remarketing/captarget' },
+  gp_partners: { label: 'GP Partners', path: '/admin/remarketing/gp-partners' },
+  valuation_calculator: { label: 'Active Deals', path: '/admin/remarketing' },
+  valuation_lead: { label: 'Active Deals', path: '/admin/remarketing' },
+};
+
+function groupBySource(deals: ExistingDealRef[]) {
+  const groups: Record<string, ExistingDealRef[]> = {};
+  for (const d of deals) {
+    const src = d.deal_source || 'unknown';
+    (groups[src] ??= []).push(d);
+  }
+  return groups;
+}
 
 export function DealImportDialog({
   open,

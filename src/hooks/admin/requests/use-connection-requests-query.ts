@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { AdminConnectionRequest } from '@/types/admin';
 import { toast } from '@/hooks/use-toast';
@@ -44,7 +43,8 @@ export function useConnectionRequestsQuery() {
 
         const { data: requests, error } = await supabase
           .from('connection_requests')
-          .select(`
+          .select(
+            `
             *,
             source_lead:inbound_leads!source_lead_id (
               id,
@@ -56,7 +56,8 @@ export function useConnectionRequestsQuery() {
               source,
               source_form_name
             )
-          `)
+          `,
+          )
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -68,25 +69,54 @@ export function useConnectionRequestsQuery() {
 
         // Collect unique IDs for batch fetching (avoid N+1 queries)
         // Filter out null user_ids for lead-only requests
-        const userIds = Array.from(new Set(requests.map(r => r.user_id).filter(Boolean)));
-        const listingIds = Array.from(new Set(requests.map(r => r.listing_id).filter(Boolean)));
-        const followedIds = Array.from(new Set(requests.map(r => r.followed_up_by).filter(Boolean)));
-        const negativeFollowedIds = Array.from(new Set(requests.map(r => r.negative_followed_up_by).filter(Boolean)));
-        const approvedIds = Array.from(new Set(requests.map(r => r.approved_by).filter(Boolean)));
-        const rejectedIds = Array.from(new Set(requests.map(r => r.rejected_by).filter(Boolean)));
-        const onHoldIds = Array.from(new Set(requests.map(r => r.on_hold_by).filter(Boolean)));
-        const flaggedIds = Array.from(new Set(requests.map(r => r.flagged_for_review_by).filter(Boolean)));
-        const flaggedAssignedIds = Array.from(new Set(requests.map(r => r.flagged_for_review_assigned_to).filter(Boolean)));
-        const profileIds = Array.from(new Set([...userIds, ...followedIds, ...negativeFollowedIds, ...approvedIds, ...rejectedIds, ...onHoldIds, ...flaggedIds, ...flaggedAssignedIds])).filter((id): id is string => id !== null);
+        const userIds = Array.from(new Set(requests.map((r) => r.user_id).filter(Boolean)));
+        const listingIds = Array.from(new Set(requests.map((r) => r.listing_id).filter(Boolean)));
+        const followedIds = Array.from(
+          new Set(requests.map((r) => r.followed_up_by).filter(Boolean)),
+        );
+        const negativeFollowedIds = Array.from(
+          new Set(requests.map((r) => r.negative_followed_up_by).filter(Boolean)),
+        );
+        const approvedIds = Array.from(new Set(requests.map((r) => r.approved_by).filter(Boolean)));
+        const rejectedIds = Array.from(new Set(requests.map((r) => r.rejected_by).filter(Boolean)));
+        const onHoldIds = Array.from(new Set(requests.map((r) => r.on_hold_by).filter(Boolean)));
+        const flaggedIds = Array.from(
+          new Set(requests.map((r) => r.flagged_for_review_by).filter(Boolean)),
+        );
+        const flaggedAssignedIds = Array.from(
+          new Set(requests.map((r) => r.flagged_for_review_assigned_to).filter(Boolean)),
+        );
+        const profileIds = Array.from(
+          new Set([
+            ...userIds,
+            ...followedIds,
+            ...negativeFollowedIds,
+            ...approvedIds,
+            ...rejectedIds,
+            ...onHoldIds,
+            ...flaggedIds,
+            ...flaggedAssignedIds,
+          ]),
+        ).filter((id): id is string => id !== null);
 
         // Batch fetch related data in parallel
         const emptyResult = { data: [] as Record<string, unknown>[], error: null };
         const [profilesRes, listingsRes] = await Promise.all([
           profileIds.length
-            ? supabase.from('profiles').select('*').in('id', profileIds)
+            ? supabase
+                .from('profiles')
+                .select(
+                  'id, first_name, last_name, email, company_name, approval_status, is_admin, avatar_url, user_type',
+                )
+                .in('id', profileIds)
             : emptyResult,
           listingIds.length
-            ? supabase.from('listings').select('*').in('id', listingIds)
+            ? supabase
+                .from('listings')
+                .select(
+                  'id, title, category, status, revenue, ebitda, asking_price, image_url, location, user_id',
+                )
+                .in('id', listingIds)
             : emptyResult,
         ]);
 
@@ -94,22 +124,36 @@ export function useConnectionRequestsQuery() {
         if (listingsRes.error) console.error('Error fetching listings batch:', listingsRes.error);
 
         const profilesById = new Map<string, NonNullable<typeof profilesRes.data>[number]>();
-        (profilesRes.data ?? []).forEach(p => profilesById.set(p.id as string, p));
+        (profilesRes.data ?? []).forEach((p) => profilesById.set(p.id as string, p));
 
         const listingsById = new Map<string, NonNullable<typeof listingsRes.data>[number]>();
-        (listingsRes.data ?? []).forEach(l => listingsById.set(l.id as string, l));
+        (listingsRes.data ?? []).forEach((l) => listingsById.set(l.id as string, l));
 
         const enhancedRequests: AdminConnectionRequest[] = requests.map((request) => {
           const userData = request.user_id ? profilesById.get(request.user_id) : undefined;
           const listingData = listingsById.get(request.listing_id);
 
-          const followedAdminProfile = request.followed_up_by ? profilesById.get(request.followed_up_by) : null;
-          const negativeFollowedAdminProfile = request.negative_followed_up_by ? profilesById.get(request.negative_followed_up_by) : null;
-          const approvedAdminProfile = request.approved_by ? profilesById.get(request.approved_by) : null;
-          const rejectedAdminProfile = request.rejected_by ? profilesById.get(request.rejected_by) : null;
-          const onHoldAdminProfile = request.on_hold_by ? profilesById.get(request.on_hold_by) : null;
-          const flaggedAdminProfile = request.flagged_for_review_by ? profilesById.get(request.flagged_for_review_by) : null;
-          const flaggedAssignedProfile = request.flagged_for_review_assigned_to ? profilesById.get(request.flagged_for_review_assigned_to) : null;
+          const followedAdminProfile = request.followed_up_by
+            ? profilesById.get(request.followed_up_by)
+            : null;
+          const negativeFollowedAdminProfile = request.negative_followed_up_by
+            ? profilesById.get(request.negative_followed_up_by)
+            : null;
+          const approvedAdminProfile = request.approved_by
+            ? profilesById.get(request.approved_by)
+            : null;
+          const rejectedAdminProfile = request.rejected_by
+            ? profilesById.get(request.rejected_by)
+            : null;
+          const onHoldAdminProfile = request.on_hold_by
+            ? profilesById.get(request.on_hold_by)
+            : null;
+          const flaggedAdminProfile = request.flagged_for_review_by
+            ? profilesById.get(request.flagged_for_review_by)
+            : null;
+          const flaggedAssignedProfile = request.flagged_for_review_assigned_to
+            ? profilesById.get(request.flagged_for_review_assigned_to)
+            : null;
 
           const user = userData ? createUserObject(userData) : null;
           const listing = listingData ? createListingFromData(listingData) : null;
@@ -122,9 +166,13 @@ export function useConnectionRequestsQuery() {
             user,
             listing,
             flaggedByAdmin: flaggedAdminProfile ? createUserObject(flaggedAdminProfile) : null,
-            flaggedAssignedToAdmin: flaggedAssignedProfile ? createUserObject(flaggedAssignedProfile) : null,
+            flaggedAssignedToAdmin: flaggedAssignedProfile
+              ? createUserObject(flaggedAssignedProfile)
+              : null,
             followedUpByAdmin: followedAdminProfile ? createUserObject(followedAdminProfile) : null,
-            negativeFollowedUpByAdmin: negativeFollowedAdminProfile ? createUserObject(negativeFollowedAdminProfile) : null,
+            negativeFollowedUpByAdmin: negativeFollowedAdminProfile
+              ? createUserObject(negativeFollowedAdminProfile)
+              : null,
             approvedByAdmin: approvedAdminProfile ? createUserObject(approvedAdminProfile) : null,
             rejectedByAdmin: rejectedAdminProfile ? createUserObject(rejectedAdminProfile) : null,
             onHoldByAdmin: onHoldAdminProfile ? createUserObject(onHoldAdminProfile) : null,
@@ -147,6 +195,6 @@ export function useConnectionRequestsQuery() {
       enabled: shouldEnable,
       staleTime: 1000 * 60 * 2,
       // Remove refetchOnWindowFocus - let global settings handle this
-    }
+    },
   );
 }

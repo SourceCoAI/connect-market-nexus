@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User as AppUser, TeamRole } from '@/types';
 import { createUserObject } from '@/lib/auth-helpers';
@@ -31,9 +30,11 @@ export function useNuclearAuth() {
         // Self-healing: if profile missing, create one from auth metadata
         let profile: typeof fetchedProfile = fetchedProfile;
         if (!fetchedProfile && (profileError?.code === 'PGRST116' || !profileError)) {
-          const { data: { session } } = await supabase.auth.getSession();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
           if (session?.user) {
-            profile = await selfHealProfile(session.user) as typeof fetchedProfile;
+            profile = (await selfHealProfile(session.user)) as typeof fetchedProfile;
           }
         }
 
@@ -61,20 +62,22 @@ export function useNuclearAuth() {
           // Link journey AND session to user (fire-and-forget)
           const visitorId = localStorage.getItem(VISITOR_ID_KEY);
           const currentSessionId = sessionStorage.getItem('session_id');
-          
+
           if (visitorId) {
-            supabase.rpc('link_journey_to_user', {
-              p_visitor_id: visitorId,
-              p_user_id: sessionUserId
-            }).then(({ error: linkError }) => {
-              if (linkError) console.error('Failed to link journey:', linkError);
-            });
+            supabase
+              .rpc('link_journey_to_user', {
+                p_visitor_id: visitorId,
+                p_user_id: sessionUserId,
+              })
+              .then(({ error: linkError }) => {
+                if (linkError) console.error('Failed to link journey:', linkError);
+              });
           }
-          
+
           if (currentSessionId) {
             supabase
               .from('user_sessions')
-              .update({ 
+              .update({
                 user_id: sessionUserId,
                 last_active_at: new Date().toISOString(),
               })
@@ -91,32 +94,35 @@ export function useNuclearAuth() {
     };
 
     // Listener for ONGOING auth changes — does NOT control isLoading
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!isMounted) return;
-        
-        if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setTeamRole(null);
-          // Don't touch isLoading here — only initial load controls it
-        } else if (event === 'SIGNED_IN' && session?.user) {
-          // Defer to avoid Supabase deadlock
-          setTimeout(() => {
-            if (isMounted) loadProfile(session.user.id);
-          }, 0);
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          // Silently refresh profile on token refresh
-          setTimeout(() => {
-            if (isMounted) loadProfile(session.user.id);
-          }, 0);
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setTeamRole(null);
+        // Don't touch isLoading here — only initial load controls it
+      } else if (event === 'SIGNED_IN' && session?.user) {
+        // Defer to avoid Supabase deadlock
+        setTimeout(() => {
+          if (isMounted) loadProfile(session.user.id);
+        }, 0);
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Silently refresh profile on token refresh
+        setTimeout(() => {
+          if (isMounted) loadProfile(session.user.id);
+        }, 0);
       }
-    );
+    });
 
     // INITIAL load — this is the ONLY place that controls isLoading
     const initializeAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
         if (error) throw error;
         if (!isMounted) return;
 
@@ -144,45 +150,43 @@ export function useNuclearAuth() {
     };
   }, []);
 
-  // Simple auth actions
-  const login = async (email: string, password: string) => {
+  // Simple auth actions — wrapped in useCallback to stabilize references
+  const login = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       setUser(null);
       setIsLoading(true);
-      
+
       const { cleanupAuthState } = await import('@/lib/auth-cleanup');
       cleanupAuthState();
-      
+
       try {
         const { error } = await supabase.auth.signOut({ scope: 'global' });
         if (error) console.warn('Supabase logout warning:', error);
       } catch (signOutError) {
         console.warn('Supabase signOut failed, continuing with cleanup:', signOutError);
       }
-      
+
       window.location.href = '/login';
     } catch (error) {
       console.error('Logout error:', error);
       setUser(null);
       window.location.href = '/login';
     }
-  };
+  }, []);
 
-  const signup = async (userData: Partial<AppUser>, password: string) => {
-    if (!userData.email) throw new Error("Email is required");
+  const signup = useCallback(async (userData: Partial<AppUser>, password: string) => {
+    if (!userData.email) throw new Error('Email is required');
 
     const websiteNormalized =
-      userData.website && userData.website.trim() !== ''
-        ? processUrl(userData.website)
-        : '';
+      userData.website && userData.website.trim() !== '' ? processUrl(userData.website) : '';
 
     const visitorId = localStorage.getItem(VISITOR_ID_KEY);
-    
+
     const { data, error } = await supabase.auth.signUp({
       email: userData.email,
       password,
@@ -198,8 +202,12 @@ export function useNuclearAuth() {
           buyer_type: userData.buyer_type || 'corporate',
           linkedin_profile: userData.linkedin_profile || '',
           ideal_target_description: userData.ideal_target_description || '',
-          business_categories: Array.isArray(userData.business_categories) ? standardizeCategories(userData.business_categories) : [],
-          target_locations: Array.isArray(userData.target_locations) ? standardizeLocations(userData.target_locations) : [],
+          business_categories: Array.isArray(userData.business_categories)
+            ? standardizeCategories(userData.business_categories)
+            : [],
+          target_locations: Array.isArray(userData.target_locations)
+            ? standardizeLocations(userData.target_locations)
+            : [],
           revenue_range_min: userData.revenue_range_min || '',
           revenue_range_max: userData.revenue_range_max || '',
           specific_business_search: userData.specific_business_search || '',
@@ -221,19 +229,37 @@ export function useNuclearAuth() {
           deploying_capital_now: userData.deploying_capital_now || '',
           owning_business_unit: userData.owning_business_unit || '',
           deal_size_band: userData.deal_size_band || '',
-          integration_plan: Array.isArray(userData.integration_plan) ? userData.integration_plan : [],
+          integration_plan: Array.isArray(userData.integration_plan)
+            ? userData.integration_plan
+            : [],
           corpdev_intent: userData.corpdev_intent || '',
           discretion_type: userData.discretion_type || '',
           committed_equity_band: userData.committed_equity_band || '',
           equity_source: Array.isArray(userData.equity_source) ? userData.equity_source : [],
           deployment_timing: userData.deployment_timing || '',
-          target_deal_size_min: typeof userData.target_deal_size_min === 'number' ? userData.target_deal_size_min : (userData.target_deal_size_min ? Number(userData.target_deal_size_min) : null),
-          target_deal_size_max: typeof userData.target_deal_size_max === 'number' ? userData.target_deal_size_max : (userData.target_deal_size_max ? Number(userData.target_deal_size_max) : null),
-          geographic_focus: Array.isArray(userData.geographic_focus) ? standardizeLocations(userData.geographic_focus) : [],
-          industry_expertise: Array.isArray(userData.industry_expertise) ? standardizeCategories(userData.industry_expertise) : [],
+          target_deal_size_min:
+            typeof userData.target_deal_size_min === 'number'
+              ? userData.target_deal_size_min
+              : userData.target_deal_size_min
+                ? Number(userData.target_deal_size_min)
+                : null,
+          target_deal_size_max:
+            typeof userData.target_deal_size_max === 'number'
+              ? userData.target_deal_size_max
+              : userData.target_deal_size_max
+                ? Number(userData.target_deal_size_max)
+                : null,
+          geographic_focus: Array.isArray(userData.geographic_focus)
+            ? standardizeLocations(userData.geographic_focus)
+            : [],
+          industry_expertise: Array.isArray(userData.industry_expertise)
+            ? standardizeCategories(userData.industry_expertise)
+            : [],
           deal_structure_preference: userData.deal_structure_preference || '',
           permanent_capital: userData.permanent_capital || null,
-          operating_company_targets: Array.isArray(userData.operating_company_targets) ? userData.operating_company_targets : [],
+          operating_company_targets: Array.isArray(userData.operating_company_targets)
+            ? userData.operating_company_targets
+            : [],
           flex_subxm_ebitda: userData.flex_subxm_ebitda || null,
           search_type: userData.search_type || '',
           acq_equity_band: userData.acq_equity_band || '',
@@ -254,107 +280,161 @@ export function useNuclearAuth() {
           deal_intent: userData.deal_intent || '',
           exclusions: Array.isArray(userData.exclusions)
             ? userData.exclusions
-            : (typeof userData.exclusions === 'string' && userData.exclusions
-                ? (userData.exclusions as string).split(',').map(s => s.trim()).filter(Boolean)
-                : []),
+            : typeof userData.exclusions === 'string' && userData.exclusions
+              ? (userData.exclusions as string)
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : [],
           include_keywords: Array.isArray(userData.include_keywords)
             ? userData.include_keywords
-            : (typeof userData.include_keywords === 'string' && userData.include_keywords
-                ? (userData.include_keywords as string).split(',').map(s => s.trim()).filter(Boolean)
-                : []),
+            : typeof userData.include_keywords === 'string' && userData.include_keywords
+              ? (userData.include_keywords as string)
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : [],
           referral_source: userData.referral_source || '',
           referral_source_detail: userData.referral_source_detail || '',
-          deal_sourcing_methods: Array.isArray(userData.deal_sourcing_methods) ? userData.deal_sourcing_methods : [],
+          deal_sourcing_methods: Array.isArray(userData.deal_sourcing_methods)
+            ? userData.deal_sourcing_methods
+            : [],
           target_acquisition_volume: userData.target_acquisition_volume || '',
-        }
-      }
+        },
+      },
     });
-    
+
     if (error) throw error;
 
     if (data.user) {
       const userName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'there';
 
       // Send welcome email + admin notification via user-journey-notifications
-      const welcomeEmailPromise = supabase.functions.invoke('user-journey-notifications', {
-        body: {
-          event_type: 'user_created',
-          user_id: data.user.id,
-          user_email: userData.email,
-          user_name: userName,
-          metadata: { company: userData.company || '' },
-        },
-      }).catch((err) => {
-        console.warn('Welcome email failed but user creation succeeded:', err);
-      });
+      const welcomeEmailPromise = supabase.functions
+        .invoke('user-journey-notifications', {
+          body: {
+            event_type: 'user_created',
+            user_id: data.user.id,
+            user_email: userData.email,
+            user_name: userName,
+            metadata: { company: userData.company || '' },
+          },
+        })
+        .catch((err) => {
+          console.warn('Welcome email failed but user creation succeeded:', err);
+        });
 
-      const adminNotificationPromise = supabase.functions.invoke('enhanced-admin-notification', {
-        body: {
-          first_name: userData.first_name || '',
-          last_name: userData.last_name || '',
-          email: userData.email,
-          company: userData.company || '',
-        },
-      }).catch((err) => {
-        console.warn('Admin notification failed but user creation succeeded:', err);
-      });
+      const adminNotificationPromise = supabase.functions
+        .invoke('enhanced-admin-notification', {
+          body: {
+            first_name: userData.first_name || '',
+            last_name: userData.last_name || '',
+            email: userData.email,
+            company: userData.company || '',
+          },
+        })
+        .catch((err) => {
+          console.warn('Admin notification failed but user creation succeeded:', err);
+        });
 
-      const firmCreationPromise = supabase.functions.invoke('auto-create-firm-on-signup', {
-        body: {
-          userId: data.user.id,
-          company: userData.company || '',
-        },
-      }).catch((err) => {
-        console.warn('Firm creation at signup failed (will retry on pending-approval page):', err);
-      });
+      const firmCreationPromise = supabase.functions
+        .invoke('auto-create-firm-on-signup', {
+          body: {
+            userId: data.user.id,
+            company: userData.company || '',
+          },
+        })
+        .catch((err) => {
+          console.warn(
+            'Firm creation at signup failed (will retry on pending-approval page):',
+            err,
+          );
+        });
 
-      await Promise.allSettled([welcomeEmailPromise, adminNotificationPromise, firmCreationPromise]);
+      await Promise.allSettled([
+        welcomeEmailPromise,
+        adminNotificationPromise,
+        firmCreationPromise,
+      ]);
     }
-  };
+  }, []);
 
-  const updateUserProfile = async (data: Partial<AppUser>) => {
-    if (!user) throw new Error("No user logged in");
+  const updateUserProfile = useCallback(
+    async (data: Partial<AppUser>) => {
+      if (!user) throw new Error('No user logged in');
 
-    const normalizedWebsite =
-      data.website && data.website.trim() !== '' ? processUrl(data.website) : undefined;
+      const normalizedWebsite =
+        data.website && data.website.trim() !== '' ? processUrl(data.website) : undefined;
 
-    const { investment_size, ...restData } = data;
+      const { investment_size, ...restData } = data;
 
-    let preparedInvestmentSize: string[] | undefined = undefined;
-    if (Array.isArray(investment_size)) {
-      preparedInvestmentSize = investment_size;
-    } else if (typeof investment_size === 'string' && investment_size.trim() !== '') {
-      const trimmed = investment_size.trim();
-      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-        try {
-          preparedInvestmentSize = JSON.parse(trimmed);
-        } catch {
+      let preparedInvestmentSize: string[] | undefined = undefined;
+      if (Array.isArray(investment_size)) {
+        preparedInvestmentSize = investment_size;
+      } else if (typeof investment_size === 'string' && investment_size.trim() !== '') {
+        const trimmed = investment_size.trim();
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          try {
+            preparedInvestmentSize = JSON.parse(trimmed);
+          } catch {
+            preparedInvestmentSize = [trimmed];
+          }
+        } else {
           preparedInvestmentSize = [trimmed];
         }
-      } else {
-        preparedInvestmentSize = [trimmed];
       }
-    }
 
-    const dbPayload: Record<string, unknown> = {
-      ...restData,
-      ...(normalizedWebsite !== undefined ? { website: normalizedWebsite } : {}),
-      ...(preparedInvestmentSize !== undefined ? { investment_size: preparedInvestmentSize } : {}),
-    };
+      const dbPayload: Record<string, unknown> = {
+        ...restData,
+        ...(normalizedWebsite !== undefined ? { website: normalizedWebsite } : {}),
+        ...(preparedInvestmentSize !== undefined
+          ? { investment_size: preparedInvestmentSize }
+          : {}),
+      };
 
-    const PRIVILEGED_FIELDS = ['is_admin', 'approval_status', 'email_verified', 'role', 'id', 'email'];
-    for (const field of PRIVILEGED_FIELDS) {
-      delete dbPayload[field];
-    }
+      const PRIVILEGED_FIELDS = [
+        'is_admin',
+        'approval_status',
+        'email_verified',
+        'role',
+        'id',
+        'email',
+      ];
+      for (const field of PRIVILEGED_FIELDS) {
+        delete dbPayload[field];
+      }
 
-    const { error } = await supabase
-      .from('profiles')
-      .update(dbPayload)
-      .eq('id', user.id);
+      const { error } = await supabase.from('profiles').update(dbPayload).eq('id', user.id);
 
-    if (error) throw error;
-    
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (error) throw error;
+
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (session?.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        if (profileError) throw profileError;
+
+        if (profile) {
+          const updatedUser = createUserObject(profile);
+          setUser(updatedUser);
+        }
+      }
+    },
+    [user],
+  );
+
+  const refreshUserProfile = useCallback(async () => {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
     if (session?.user) {
       const { data: profile, error: profileError } = await supabase
@@ -363,42 +443,42 @@ export function useNuclearAuth() {
         .eq('id', session.user.id)
         .single();
       if (profileError) throw profileError;
-
       if (profile) {
         const updatedUser = createUserObject(profile);
         setUser(updatedUser);
       }
     }
-  };
+  }, []);
 
-  const refreshUserProfile = async () => {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) throw sessionError;
-    if (session?.user) {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-      if (profileError) throw profileError;
-      if (profile) {
-        const updatedUser = createUserObject(profile);
-        setUser(updatedUser);
-      }
-    }
-  };
+  const isAdmin = user?.is_admin === true;
+  const isBuyer = user?.role === 'buyer';
 
-  return {
-    user,
-    login,
-    logout,
-    signup,
-    updateUserProfile,
-    refreshUserProfile,
-    isLoading,
-    isAdmin: user?.is_admin === true,
-    isBuyer: user?.role === "buyer",
-    authChecked,
-    teamRole,
-  };
+  return useMemo(
+    () => ({
+      user,
+      login,
+      logout,
+      signup,
+      updateUserProfile,
+      refreshUserProfile,
+      isLoading,
+      isAdmin,
+      isBuyer,
+      authChecked,
+      teamRole,
+    }),
+    [
+      user,
+      login,
+      logout,
+      signup,
+      updateUserProfile,
+      refreshUserProfile,
+      isLoading,
+      isAdmin,
+      isBuyer,
+      authChecked,
+      teamRole,
+    ],
+  );
 }

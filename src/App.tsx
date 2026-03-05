@@ -223,7 +223,7 @@ function RedirectWithId({ to }: { to: string }) {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false,
       staleTime: 15 * 60 * 1000,
       gcTime: 30 * 60 * 1000,
       retry: 3,

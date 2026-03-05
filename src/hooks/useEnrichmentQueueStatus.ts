@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 10000;
 const MAX_POLL_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
 type EnrichmentQueueStatus = 'pending' | 'processing' | 'completed' | 'failed';
@@ -68,7 +68,9 @@ export function useEnrichmentQueueStatus({
           stopPolling();
           toast.success('Deal enrichment complete — data updated', { duration: 5000 });
           queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', listingId] });
-          queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal-transcripts', listingId] });
+          queryClient.invalidateQueries({
+            queryKey: ['remarketing', 'deal-transcripts', listingId],
+          });
           onComplete?.('completed');
         } else if (status === 'failed') {
           stopPolling();
