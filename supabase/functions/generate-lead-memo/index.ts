@@ -461,25 +461,18 @@ function buildDataContext(
 // ─── Hero Description Builder ───
 
 /**
- * Build a compelling hero_description (max 500 chars) from the generated memo sections.
- * Extracts the opening sentences from company_overview and combines with key financial
- * highlights from financial_overview to create a concise elevator pitch.
+ * Build a hero_description (max 500 chars) from the generated memo sections.
+ * Uses the unified teaser section keys: business_overview and deal_snapshot.
  */
 function buildHeroFromMemo(sections: MemoSection[], _deal: Record<string, unknown>): string {
-  // Support both new keys (business_overview, deal_snapshot) and legacy keys (company_overview, financial_overview)
-  const overview =
-    sections.find((s) => s.key === 'business_overview') ||
-    sections.find((s) => s.key === 'company_overview');
-  const financial =
-    sections.find((s) => s.key === 'deal_snapshot') ||
-    sections.find((s) => s.key === 'financial_overview');
-  const growth = sections.find((s) => s.key === 'growth_opportunities');
+  const businessOverview = sections.find((s) => s.key === 'business_overview');
+  const dealSnapshot = sections.find((s) => s.key === 'deal_snapshot');
 
-  const heroParts: string[] = [];
+  let hero = '';
 
-  // Extract first 1-2 sentences from company overview (strip markdown formatting)
-  if (overview?.content) {
-    const plainText = overview.content
+  // Use the business overview as the primary hero text
+  if (businessOverview?.content) {
+    const plainText = businessOverview.content
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/\*(.*?)\*/g, '$1')
       .replace(/^[-•]\s*/gm, '')
@@ -487,42 +480,43 @@ function buildHeroFromMemo(sections: MemoSection[], _deal: Record<string, unknow
     // Get first 2 sentences
     const sentences = plainText.match(/[^.!?]+[.!?]+/g) || [];
     if (sentences.length >= 2) {
-      heroParts.push(sentences.slice(0, 2).join('').trim());
+      hero = sentences.slice(0, 2).join('').trim();
     } else if (sentences.length === 1) {
-      heroParts.push(sentences[0].trim());
+      hero = sentences[0].trim();
     } else if (plainText.length > 0) {
-      // No sentence endings found — take first 200 chars
-      heroParts.push(plainText.substring(0, 200).trim() + '.');
+      hero = plainText.substring(0, 200).trim() + '.';
     }
   }
 
-  // Add a financial highlight if company overview didn't cover it
-  const heroSoFar = heroParts.join(' ');
-  const hasRevenue = /\$[\d.]+[MKB]/i.test(heroSoFar) || /revenue/i.test(heroSoFar);
-  if (!hasRevenue && financial?.content) {
-    const plainFinancial = financial.content
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/\*(.*?)\*/g, '$1')
-      .trim();
-    const finSentences = plainFinancial.match(/[^.!?]+[.!?]+/g) || [];
-    if (finSentences.length > 0) {
-      heroParts.push(finSentences[0].trim());
+  // Append key financial highlights from deal snapshot if not already present
+  if (dealSnapshot?.content) {
+    const revenueMatch = dealSnapshot.content.match(/\*?\*?Revenue\*?\*?:.*$/m);
+    const ebitdaMatch = dealSnapshot.content.match(/\*?\*?EBITDA[^:]*\*?\*?:.*$/m);
+
+    const hasRevenue = /\$[\d.]+[MKB]/i.test(hero) || /revenue/i.test(hero);
+    if (!hasRevenue && (revenueMatch || ebitdaMatch)) {
+      const financialParts: string[] = [];
+      if (revenueMatch) {
+        financialParts.push(
+          revenueMatch[0]
+            .replace(/\*\*/g, '')
+            .replace(/^[-•*]\s*/, '')
+            .trim(),
+        );
+      }
+      if (ebitdaMatch) {
+        financialParts.push(
+          ebitdaMatch[0]
+            .replace(/\*\*/g, '')
+            .replace(/^[-•*]\s*/, '')
+            .trim(),
+        );
+      }
+      if (financialParts.length > 0 && hero.length + financialParts.join('. ').length + 3 <= 500) {
+        hero += ' ' + financialParts.join('. ') + '.';
+      }
     }
   }
-
-  // Add growth angle if we have room
-  if (growth?.content && heroParts.join(' ').length < 350) {
-    const plainGrowth = growth.content
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/\*(.*?)\*/g, '$1')
-      .trim();
-    const growthSentences = plainGrowth.match(/[^.!?]+[.!?]+/g) || [];
-    if (growthSentences.length > 0) {
-      heroParts.push(growthSentences[0].trim());
-    }
-  }
-
-  let hero = heroParts.join(' ').trim();
 
   // Enforce 500 char limit — trim to last complete sentence
   if (hero.length > 500) {
@@ -531,7 +525,7 @@ function buildHeroFromMemo(sections: MemoSection[], _deal: Record<string, unknow
     hero = lastPeriod > 100 ? trimmed.substring(0, lastPeriod + 1).trim() : trimmed.trim();
   }
 
-  return hero;
+  return hero.trim();
 }
 
 // ─── AI Memo Generation ───
@@ -1128,7 +1122,7 @@ Return the memo as markdown with ## headers. Headers must exactly match: COMPANY
         method: 'POST',
         headers: getAnthropicHeaders(apiKey),
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: DEFAULT_CLAUDE_MODEL,
           system: systemPrompt,
           messages: [{ role: 'user', content: promptToSend }],
           temperature: 0.2,
@@ -1284,105 +1278,104 @@ async function generateAnonymousTeaser(
 
   const systemPrompt = `You are a senior analyst at a tech-enabled investment bank writing an anonymous marketplace listing. Your audience is PE firms, family offices, and strategic acquirers in the lower-middle market ($500K-$10M EBITDA range) who evaluate dozens of opportunities per week.
 
-PURPOSE: Create a factual, structured blind profile that gives qualified buyers enough information to determine fit and request a connection — without revealing the company identity. A buyer should be able to read the entire teaser in under 2 minutes.
+PURPOSE: Create a factual, structured blind profile that gives qualified buyers enough information to determine fit and request a connection — without revealing the company identity. A buyer should read the entire teaser in under 2 minutes.
 
-FORMAT RULES:
-- The complete teaser must be 300-500 words. Do not exceed 600 words under any circumstance.
-- Use bullet points for all content outside the Business Overview section. Do not use prose paragraphs in any other section.
-- Business Overview should be 2-3 sentences maximum.
-- Include facts in this priority order: (1) financial figures, (2) transaction type and structure, (3) business model and services, (4) management and operations. If a fact must be omitted for length, it is acceptable to drop it entirely.
+CORE RULES
+1. ANONYMITY IS ABSOLUTE: No piece of information that could identify the specific company may appear in the output. When in doubt, generalize.
+2. ONLY STATED FACTS: Every claim must be traceable to the provided data. Replace adjectives with measurable facts.
+3. OMIT, DON'T APOLOGIZE: If information is not available, omit the topic entirely. Never write "not provided", "not stated", or any variation.
+4. NO CHARACTERIZATION: Do not describe any metric with evaluative adjectives. State the numbers.
+5. NO COMPARISONS: Do not compare to industry benchmarks unless the source data contains a specific stated comparison.
 
-WRITING PRINCIPLES:
-- Every claim must be traceable to the provided data. Do not infer, speculate, or editorialize.
-- Replace adjectives with measurable facts.
-- If information is not available, omit the topic entirely. Never use placeholders, estimates, or filler.
-- Tone: neutral, factual, controlled.
-- Do not characterize any data point. State the numbers and let the reader interpret.
-- Do not make comparisons to industry benchmarks, competitors, or market averages.
-- When the owner's exact words clarify the business model or transaction preference, use a direct quote without identifying the owner by name. Example: The business is described as "an automotive maintenance and repair facility that also installs tires."
-- If the owner provides a range, present the range. Do not use midpoints.
+FORMAT RULES
+* The complete teaser must be 300-500 words. Do not exceed 600 words.
+* Use bullet points for all content outside the Business Overview section.
+* Business Overview should be 2-3 sentences maximum.
+* Include facts in this priority order: (1) financial figures, (2) transaction type and structure, (3) business model and services, (4) management and operations.
 
-SOURCE HIERARCHY:
-- If financial statements or tax returns are provided, they take priority over verbal owner statements for financial figures specifically. Note the discrepancy: "Stated $X; financial statements show $Y."
-- For all other facts: Transcripts > General Notes > Enrichment/Website > Manual entries.
-- If multiple transcripts are provided, treat the most recent transcript as the highest priority. If figures differ between transcripts, use the most recent figure.
-- For verifiable objective facts (founding year, number of locations), cross-reference transcript statements with enrichment data. If they conflict, use the most conservative/anonymous-safe version.
-- If no call transcript is provided, note: "Based on enrichment data only. No owner call transcript available."
+ANONYMIZATION RULES
+RULE 1 — COMPANY NAME
+Use "${projectCodename}" only. Never include company name, owner name, or any identifying proper nouns.
 
-ANONYMITY RULES (absolute — violations break the listing):
-- Use "${projectCodename}" only. Never include the company name, owner name, or any identifying proper nouns.
-- Never include city or state names. Use "${regionName}" or similar regional descriptors only.
-- Never include URLs, email addresses, or social media references.
-- Present all financial figures as approximate ranges (plus or minus 10-15%).
-- Do not include any detail specific enough to identify the company through triangulation (e.g., exact founding year + exact headcount + exact metro area together may be identifying).
-- After drafting, perform a final anonymity audit: re-read every sentence and confirm no combination of details could identify the business.${bannedTermsLine}
+RULE 2 — GEOGRAPHY
+Never include city or state names. Use "${regionName}" only.
 
-SECTIONS — use only the following section headers, in this order, when data exists for the section. BUSINESS OVERVIEW and DEAL SNAPSHOT are always included regardless of data availability. Omit any other section that has no data.
+RULE 3 — PERSONAL NAMES
+Remove all names. Replace with role titles only ("the owner", "the General Manager").
 
-## BUSINESS OVERVIEW
-2-3 sentences. What the company does, how it makes money, approximate scale and geography (using regional descriptors only). No adjectives.
+RULE 4 — CUSTOMERS AND KEY ACCOUNTS
+Remove all customer names. Replace with type descriptions ("a national insurance carrier", "multiple national hotel chains").
 
-## DEAL SNAPSHOT
-Structured labeled bullet points. Include only fields where data is available:
-- **Revenue:** (range, anonymized with plus or minus 10-15%)
-- **EBITDA / SDE:** (range, anonymized)
-- **EBITDA Margin:** (range)
-- **Employees:** (approximate)
-- **Region:** (no city/state — use regional descriptors only)
-- **Years in Operation:** (approximate range, e.g., "15-20 years")
-- **Transaction Type:** (majority sale, full sale, recapitalization, etc.)
+RULE 5 — COMPETITORS
+Remove all competitor names. Replace with descriptions ("a regional competitor").
 
-## KEY FACTS
+RULE 6 — BUYERS AND PE FIRMS
+Remove all buyer/investor names. Deal terms (valuation, structure) CAN stay — just remove the buyer's name.
+
+RULE 7 — PROFESSIONAL ADVISORS
+Remove names. Replace with role only ("an acquisition attorney").
+
+RULE 8 — FINANCIALS
+Present all financial figures as approximate ranges (+/- 10-15%) to prevent identification through exact numbers.
+
+RULE 9 — CATCH-ALL
+After Rules 1-8, do a final anonymity audit. Could an industry expert identify this company from any remaining detail? If yes, generalize it.
+
+BANNED IDENTIFYING TERMS: ${bannedTermsLine}
+
+SOURCE HIERARCHY
+Financial statements/tax returns > Transcripts > General Notes > Enrichment/Website > Manual entries. Most recent transcript takes priority. If no call transcript is provided, note: "Based on enrichment data only."
+
+SECTIONS — use only these headers, in this order:
+
+BUSINESS OVERVIEW
+2-3 sentences. What the company does, how it makes money, approximate scale and geography (regional descriptors only). No adjectives.
+
+DEAL SNAPSHOT
+Structured labeled bullet points:
+* Revenue: (range, anonymized)
+* EBITDA / SDE: (range, anonymized)
+* EBITDA Margin: (range)
+* Employees: (approximate)
+* Region: (no city/state)
+* Years in Operation: (approximate range)
+* Transaction Type: (majority sale, full sale, etc.)
+
+KEY FACTS
 3-5 bullet points. Each must be a specific, sourced fact — not a characterization.
-
 Wrong: "Significant growth opportunity in adjacent markets"
-Right: "Owner has not pursued commercial contracts, which represent approximately 40% of the regional market according to owner statements"
+Right: "Owner has not pursued commercial contracts, which represent approximately 40% of the regional market"
 
-Wrong: "Recession-resistant business model"
-Right: "Revenue has remained within a 5% band over the past four years including 2020"
+GROWTH CONTEXT
+Only include if the owner explicitly stated growth plans or untapped opportunities. Bullet points. If nothing was stated, omit this section entirely.
 
-Wrong: "Strong management team in place"
-Right: "General manager has been with the company for 12 years and oversees daily operations without owner involvement"
+OWNER OBJECTIVES
+Transaction preference, timeline, transition willingness, reason for sale. Stated exactly as given.
 
-## GROWTH CONTEXT
-Only include if the owner explicitly stated growth plans. Bullet points with facts as stated. If no growth was discussed, omit this section entirely.
+BANNED LANGUAGE
+Never use: strong, robust, impressive, attractive, compelling, well-positioned, significant, poised for growth, track record, best-in-class, proven, synergies, uniquely positioned, market leader, healthy, diversified (without data), recession-resistant (without data), scalable (without specifics), turnkey, world-class, industry-leading, notable, consistent (as characterization), solid, substantial, meaningful, considerable, well-established, high-quality, top-tier, premier, differentiated, defensible, platform (as characterization), low-hanging fruit, runway, tailwinds, fragmented market, blue-chip, mission-critical, sticky revenue, white-space.
 
-## OWNER OBJECTIVES
-Transaction preference, timeline, transition willingness, reason for sale. Bullet points, stated exactly as given. If none were discussed, omit.
-
-COMPLETENESS RULES:
-- Omit any section where no data exists (except BUSINESS OVERVIEW and DEAL SNAPSHOT).
-- Never repeat the same data point across sections.
-- 300-500 words. Every bullet must earn its place.
-
-BANNED LANGUAGE — never use any of these words or phrases:
-strong, robust, impressive, attractive, compelling, well-positioned, significant opportunity, poised for growth, track record of success, best-in-class, proven, demonstrated, synergies, uniquely positioned, market leader, value creation opportunity, healthy, diversified (as adjective without data), recession-resistant (without data), scalable (without specifics), turnkey, world-class, industry-leading, deep bench, blue-chip, mission-critical, sticky revenue, white-space, low-hanging fruit, runway, tailwinds, fragmented market, platform opportunity, notable, consistent (as characterization), solid, substantial, meaningful, considerable, positioned for, well-established, high-quality, top-tier, premier, best-of-breed, differentiated, defensible, platform (when used to characterize or elevate the business)`;
+FINAL ANONYMITY CHECK: Before returning, re-read every sentence. Confirm no combination of details could identify the business.`;
 
   const userPrompt = `Generate an Anonymous Teaser from the following company data.
 
 Codename: ${projectCodename}
 
-IMPORTANT: Call transcripts may include conversations between SourceCo associates and the business owner. Extract only facts about the target company stated by the owner or confirmed by the owner. Do not include information about prospective buyers, the SourceCo associate's pitch, buyer expansion plans, or negotiation framing. The memo is about the seller's business only.
+IMPORTANT: Call transcripts may include conversations between SourceCo associates and the business owner. Extract only facts about the target company stated or confirmed by the owner.
 
-=== CALL TRANSCRIPTS (highest priority — treat as primary source) ===
-${context.transcriptExcerpts || 'No transcripts available.'}
+=== CALL TRANSCRIPTS === ${context.transcriptExcerpts || 'No transcripts available.'}
 
-=== ENRICHMENT DATA (website + LinkedIn — secondary source) ===
-${context.enrichmentData || 'No enrichment data available.'}
+=== ENRICHMENT DATA === ${context.enrichmentData || 'No enrichment data available.'}
 
-=== MANUAL DATA ENTRIES & GENERAL NOTES ===
-${context.manualEntries || 'No manual entries or notes.'}
+=== MANUAL DATA ENTRIES === ${context.manualEntries || 'No manual entries or notes.'}
 
-=== VALUATION CALCULATOR DATA ===
-${context.valuationData || 'No valuation data.'}
+=== VALUATION CALCULATOR DATA === ${context.valuationData || 'No valuation data.'}
 
-DATA SOURCE PRIORITY: Financial statements/tax returns (for financial figures) > Transcripts (most recent first) > General Notes > Enrichment/Website > Manual entries.
-When sources conflict, use the highest-priority source and note the discrepancy.
-When data is absent from all sources, omit the topic entirely. Do not guess.
+DATA SOURCE PRIORITY: Financial statements > Transcripts > General Notes > Enrichment > Manual entries. When sources conflict, use the highest-priority source. When data is absent, omit the topic entirely.
 
-Return the memo as markdown using ## headers for each section. Section headers must exactly match: BUSINESS OVERVIEW, DEAL SNAPSHOT, KEY FACTS, GROWTH CONTEXT, OWNER OBJECTIVES. Omit sections with no data except BUSINESS OVERVIEW and DEAL SNAPSHOT.
+Return as markdown with ## headers. Must exactly match: BUSINESS OVERVIEW, DEAL SNAPSHOT, KEY FACTS, GROWTH CONTEXT, OWNER OBJECTIVES. Omit GROWTH CONTEXT if no growth plans were stated.
 
-FINAL ANONYMITY CHECK: Before returning the memo, re-read every sentence. Confirm that no combination of details (founding year + headcount + metro + industry) could identify the business. If in doubt, generalize further.`;
+FINAL ANONYMITY CHECK: Before returning, re-read every sentence. Confirm no combination of details could identify the business.`;
 
   // Regeneration loop: up to 3 retries for blocking validation failures
   let bestSections: MemoSection[] = [];

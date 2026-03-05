@@ -3,11 +3,14 @@ import { describe, it, expect } from 'vitest';
 /**
  * Tests for the generate-teaser edge function's validation logic.
  *
+ * Uses the UNIFIED teaser sections: BUSINESS OVERVIEW, DEAL SNAPSHOT,
+ * KEY FACTS, GROWTH CONTEXT, OWNER OBJECTIVES.
+ *
  * Re-implements the validateTeaser function locally for unit testing
  * (same pattern used by existing tests in supabase/functions/).
  */
 
-// ─── Re-implemented validateTeaser ───
+// ─── Re-implemented validateTeaser (unified sections) ───
 
 function validateTeaser(
   teaserText: string,
@@ -111,22 +114,17 @@ function validateTeaser(
     errors.push('Contains banned placeholder language');
   }
 
-  if (/information not yet provided/i.test(teaserText)) {
-    errors.push('Contains INFORMATION NOT YET PROVIDED section');
-  }
-
   const wordCount = teaserText.split(/\s+/).filter(Boolean).length;
-  if (wordCount > 700) errors.push(`Exceeds 700 word limit (${wordCount} words)`);
+  if (wordCount > 600) errors.push(`Exceeds 600 word limit (${wordCount} words)`);
 
-  if (!/## COMPANY OVERVIEW/i.test(teaserText)) errors.push('Missing COMPANY OVERVIEW section');
+  if (!/## BUSINESS OVERVIEW/i.test(teaserText)) errors.push('Missing BUSINESS OVERVIEW section');
 
   const allowed = [
-    'COMPANY OVERVIEW',
-    'FINANCIAL SNAPSHOT',
-    'SERVICES AND OPERATIONS',
-    'OWNERSHIP AND TRANSACTION',
-    'MANAGEMENT AND STAFFING',
-    'KEY STRUCTURAL NOTES',
+    'BUSINESS OVERVIEW',
+    'DEAL SNAPSHOT',
+    'KEY FACTS',
+    'GROWTH CONTEXT',
+    'OWNER OBJECTIVES',
   ];
   const headers = teaserText.match(/^## .+$/gm) || [];
   for (const h of headers) {
@@ -159,30 +157,37 @@ function validateTeaser(
   return { pass: errors.length === 0, errors, warnings };
 }
 
-// ─── Test Data ───
+// ─── Test Data (unified teaser sections) ───
 
-/** A clean, properly anonymized teaser that should pass all checks */
-const CLEAN_TEASER = `## COMPANY OVERVIEW
-Project HVAC is an HVAC services company founded in 2008, operating 3 locations across the Mountain West region. The company employs 45 people.
+/** A clean, properly anonymized teaser using unified section headers (>150 words to avoid warning) */
+const CLEAN_TEASER = `## BUSINESS OVERVIEW
+Project HVAC is an HVAC services company operating 3 locations across the Mountain West region. The company employs approximately 45 people and serves both commercial and residential clients with installation and maintenance services.
 
-## FINANCIAL SNAPSHOT
-* 2024 Revenue: $4,200,000
-* 2023 Revenue: $3,800,000
-* EBITDA: $850,000
+## DEAL SNAPSHOT
+* **Revenue:** ~$4.0-4.5M
+* **EBITDA:** ~$800-900K
+* **EBITDA Margin:** ~20%
+* **Employees:** ~45
+* **Region:** Mountain West
+* **Years in Operation:** ~15-20 years
+* **Transaction Type:** Full sale
 
-## SERVICES AND OPERATIONS
-- 70% commercial HVAC, 30% residential
-- Serves multiple hospitality clients across the region
+## KEY FACTS
+- 70% commercial HVAC installation and repair, 30% residential services
+- Serves multiple hospitality clients across the region through recurring maintenance agreements
+- The General Manager has been with the company for 8 years and oversees daily operations without owner involvement
+- Fleet of 12 service vehicles covering the metropolitan service area
+- 150 active maintenance agreements generating recurring revenue each quarter
 
-## OWNERSHIP AND TRANSACTION
-- **Transaction type:** Full sale
-- The owner (sole owner) seeks a full sale
-- Expecting approximately 5x EBITDA
-- Legal counsel retained for transaction
+## GROWTH CONTEXT
+- Owner has not pursued government or municipal contracts, which represent an estimated 30% of the regional market
+- Second location added in recent years with third added shortly after
 
-## MANAGEMENT AND STAFFING
-- 45 total employees across 3 locations
-- The General Manager oversees daily operations`;
+## OWNER OBJECTIVES
+- Full sale preferred with no interest in recapitalization or minority investment
+- Expecting approximately 5x EBITDA based on adjusted figures
+- Owner willing to transition for 12 months post-close to ensure continuity
+- Reason for sale: retirement within 18 months`;
 
 // ─── Tests ───
 
@@ -195,7 +200,7 @@ describe('validateTeaser — anonymity checks', () => {
   });
 
   it('fails when owner first name appears in teaser', () => {
-    const teaser = CLEAN_TEASER.replace('The owner', 'John');
+    const teaser = CLEAN_TEASER.replace('The General Manager', 'John');
     const result = validateTeaser(teaser, '', 'John Smith', null, []);
     expect(result.pass).toBe(false);
     expect(result.errors.some((e) => e.includes('Owner name part') && e.includes('John'))).toBe(
@@ -204,7 +209,7 @@ describe('validateTeaser — anonymity checks', () => {
   });
 
   it('fails when owner last name appears in teaser', () => {
-    const teaser = CLEAN_TEASER.replace('The owner', 'Mr. Smith');
+    const teaser = CLEAN_TEASER.replace('The General Manager', 'Mr. Smith');
     const result = validateTeaser(teaser, '', 'John Smith', null, []);
     expect(result.pass).toBe(false);
     expect(result.errors.some((e) => e.includes('Owner name part') && e.includes('Smith'))).toBe(
@@ -250,20 +255,27 @@ describe('validateTeaser — anonymity checks', () => {
 });
 
 describe('validateTeaser — structure checks', () => {
-  it('fails with unexpected section header', () => {
-    const teaser = CLEAN_TEASER + '\n\n## GROWTH OPPORTUNITIES\n- Expansion into residential.';
+  it('fails with unexpected section header (old COMPANY OVERVIEW)', () => {
+    const teaser = CLEAN_TEASER + '\n\n## COMPANY OVERVIEW\n- This is the old header format.';
     const result = validateTeaser(teaser, '', '', null, []);
     expect(result.pass).toBe(false);
     expect(result.errors.some((e) => e.includes('Unexpected section'))).toBe(true);
   });
 
-  it('fails when COMPANY OVERVIEW is missing', () => {
-    const teaser = `## FINANCIAL SNAPSHOT
-* 2024 Revenue: $4,200,000
-* EBITDA: $850,000`;
+  it('fails with unexpected section header (old FINANCIAL SNAPSHOT)', () => {
+    const teaser = CLEAN_TEASER + '\n\n## FINANCIAL SNAPSHOT\n- Revenue: $5M.';
     const result = validateTeaser(teaser, '', '', null, []);
     expect(result.pass).toBe(false);
-    expect(result.errors.some((e) => e.includes('COMPANY OVERVIEW'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('Unexpected section'))).toBe(true);
+  });
+
+  it('fails when BUSINESS OVERVIEW is missing', () => {
+    const teaser = `## DEAL SNAPSHOT
+* **Revenue:** ~$4.0-4.5M
+* **EBITDA:** ~$800-900K`;
+    const result = validateTeaser(teaser, '', '', null, []);
+    expect(result.pass).toBe(false);
+    expect(result.errors.some((e) => e.includes('BUSINESS OVERVIEW'))).toBe(true);
   });
 
   it('fails when "not provided" appears in teaser', () => {
@@ -273,11 +285,31 @@ describe('validateTeaser — structure checks', () => {
     expect(result.errors.some((e) => e.includes('banned placeholder'))).toBe(true);
   });
 
-  it('fails when over 700 words', () => {
+  it('fails when "not stated" appears in teaser', () => {
+    const teaser = CLEAN_TEASER + '\n\nOwner goals not stated.';
+    const result = validateTeaser(teaser, '', '', null, []);
+    expect(result.pass).toBe(false);
+    expect(result.errors.some((e) => e.includes('banned placeholder'))).toBe(true);
+  });
+
+  it('fails when over 600 words', () => {
     const longTeaser = CLEAN_TEASER + '\n\n' + Array(500).fill('additional word').join(' ');
     const result = validateTeaser(longTeaser, '', '', null, []);
     expect(result.pass).toBe(false);
-    expect(result.errors.some((e) => e.includes('700 word limit'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('600 word limit'))).toBe(true);
+  });
+
+  it('accepts all five unified section headers', () => {
+    const result = validateTeaser(CLEAN_TEASER, '', '', null, []);
+    expect(result.pass).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('passes with only required BUSINESS OVERVIEW section', () => {
+    const teaser = `## BUSINESS OVERVIEW
+A commercial services company operating in the Southwest region with approximately 50 employees providing maintenance and repair services to commercial and residential clients across multiple locations.`;
+    const result = validateTeaser(teaser, '', '', null, []);
+    expect(result.pass).toBe(true);
   });
 });
 
@@ -296,7 +328,7 @@ describe('validateTeaser — warnings', () => {
   });
 
   it('warns when under 150 words', () => {
-    const shortTeaser = '## COMPANY OVERVIEW\nA company in the region.';
+    const shortTeaser = '## BUSINESS OVERVIEW\nA company in the region.';
     const result = validateTeaser(shortTeaser, '', '', null, []);
     expect(result.warnings.some((w) => w.includes('Only'))).toBe(true);
   });
@@ -304,39 +336,8 @@ describe('validateTeaser — warnings', () => {
 
 describe('validateTeaser — clean teaser', () => {
   it('returns zero errors and zero warnings for a clean teaser', () => {
-    // Build a teaser that is long enough to avoid the <150 word warning
-    const fullTeaser = `## COMPANY OVERVIEW
-Project HVAC is an HVAC services company founded in 2008, operating 3 locations across the Mountain West region. The company employs 45 people and provides commercial and residential heating, ventilation, and air conditioning services. The business model combines installation projects with recurring maintenance agreements.
-
-## FINANCIAL SNAPSHOT
-* 2024 Revenue: $4,200,000
-* 2023 Revenue: $3,800,000
-* EBITDA: $850,000
-* Owner Compensation: $200,000
-* EBITDA Margin: 20%
-
-## SERVICES AND OPERATIONS
-- 70% commercial HVAC installation and repair
-- 30% residential services
-- Serves multiple hospitality and commercial real estate clients
-- 150 active maintenance agreements generating recurring revenue
-- Fleet of 12 service vehicles
-
-## OWNERSHIP AND TRANSACTION
-- **Transaction type:** Full sale
-- The owner (sole owner) seeks a full sale
-- Expecting approximately 5x EBITDA
-- Owner willing to transition for 12 months post-close
-- **Real estate:** All locations leased, 3-5 year terms remaining
-
-## MANAGEMENT AND STAFFING
-- 45 total employees across 3 locations
-- The General Manager has been with the company for 8 years and oversees daily operations
-- 30 field technicians, 10 office staff, 5 managers
-- Owner focuses on sales and key client relationships`;
-
     const result = validateTeaser(
-      fullTeaser,
+      CLEAN_TEASER,
       'Desert Air Mechanical LLC',
       'John Smith',
       'Phoenix',

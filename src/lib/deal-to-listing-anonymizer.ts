@@ -377,9 +377,10 @@ function generateAnonymousDescription(deal: DealData): string {
     const financialParts: string[] = [];
 
     // Lead with a narrative sentence about the financial profile
-    let financialIntro = 'The business demonstrates a strong financial profile';
-    if (margin > 20) financialIntro += ' with attractive margins';
-    else if (deal.revenue && deal.revenue > 5_000_000) financialIntro += ' at scale';
+    let financialIntro = 'The business has the following financial profile';
+    if (margin > 20) financialIntro += ` with ${margin}% EBITDA margins`;
+    else if (deal.revenue && deal.revenue > 5_000_000)
+      financialIntro += ` at ${formatRevenue(deal.revenue)} in revenue`;
     financialIntro += '.';
     financialParts.push(financialIntro);
 
@@ -440,9 +441,7 @@ function generateAnonymousDescription(deal: DealData): string {
     : [];
   if (growthDrivers.length > 0 || deal.investment_thesis) {
     const growthParts: string[] = [];
-    growthParts.push(
-      'The business is well-positioned for continued growth with several identified expansion levers.',
-    );
+    growthParts.push('The owner has identified the following expansion opportunities.');
 
     if (growthDrivers.length > 0) {
       growthParts.push(

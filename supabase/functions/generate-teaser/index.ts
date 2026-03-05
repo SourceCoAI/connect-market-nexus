@@ -17,6 +17,7 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import {
   ANTHROPIC_API_URL,
+  DEFAULT_CLAUDE_MODEL,
   getAnthropicHeaders,
   fetchWithAutoRetry,
 } from '../_shared/ai-providers.ts';
@@ -149,17 +150,16 @@ function validateTeaser(
   }
 
   const wordCount = teaserText.split(/\s+/).filter(Boolean).length;
-  if (wordCount > 700) errors.push(`Exceeds 700 word limit (${wordCount} words)`);
+  if (wordCount > 600) errors.push(`Exceeds 600 word limit (${wordCount} words)`);
 
-  if (!/## COMPANY OVERVIEW/i.test(teaserText)) errors.push('Missing COMPANY OVERVIEW section');
+  if (!/## BUSINESS OVERVIEW/i.test(teaserText)) errors.push('Missing BUSINESS OVERVIEW section');
 
   const allowed = [
-    'COMPANY OVERVIEW',
-    'FINANCIAL SNAPSHOT',
-    'SERVICES AND OPERATIONS',
-    'OWNERSHIP AND TRANSACTION',
-    'MANAGEMENT AND STAFFING',
-    'KEY STRUCTURAL NOTES',
+    'BUSINESS OVERVIEW',
+    'DEAL SNAPSHOT',
+    'KEY FACTS',
+    'GROWTH CONTEXT',
+    'OWNER OBJECTIVES',
   ];
   const headers = teaserText.match(/^## .+$/gm) || [];
   for (const h of headers) {
@@ -349,25 +349,30 @@ Deno.serve(async (req: Request) => {
         .eq('id', dealId);
     }
 
-    // Step 3: Build prompts
-    const systemPrompt = `You are a senior analyst at a tech-enabled investment bank preparing a buyer-facing anonymous teaser. Your input is a completed internal lead memo. Your job is to transform it into an anonymized document by applying the rules below.
+    // Step 3: Build prompts — uses the UNIFIED teaser prompt (same sections as anonymous_teaser in generate-lead-memo)
+    const systemPrompt = `You are a senior analyst at a tech-enabled investment bank writing an anonymous marketplace listing. Your audience is PE firms, family offices, and strategic acquirers in the lower-middle market ($500K-$10M EBITDA range) who evaluate dozens of opportunities per week.
 
-You are NOT reading raw transcripts. You are NOT summarizing. You are transforming an existing memo. Every fact stays. Every identifier is removed or generalized.
+PURPOSE: Create a factual, structured blind profile that gives qualified buyers enough information to determine fit and request a connection — without revealing the company identity. A buyer should read the entire teaser in under 2 minutes.
 
 CORE RULES
 1. ANONYMITY IS ABSOLUTE: No piece of information that could identify the specific company may appear in the output. When in doubt, generalize.
-2. FACTS STAY INTACT: All financial figures, headcounts, operational details, and growth metrics that do not identify the company transfer exactly from the lead memo.
-3. NOTHING ADDED: Do not add, invent, or infer any information not in the lead memo. The teaser is a filtered view of the lead memo, not an independent document.
-4. OMIT, DON'T APOLOGIZE: If the lead memo is missing data, the teaser is also missing it. Never write "not provided", "not stated", or any variation.
-5. NO CHARACTERIZATION: Same rule as the lead memo. No evaluative adjectives. State numbers.
+2. ONLY STATED FACTS: Every claim must be traceable to the provided data. Replace adjectives with measurable facts.
+3. OMIT, DON'T APOLOGIZE: If information is not available, omit the topic entirely. Never write "not provided", "not stated", or any variation.
+4. NO CHARACTERIZATION: Do not describe any metric with evaluative adjectives. State the numbers.
+5. NO COMPARISONS: Do not compare to industry benchmarks unless the source data contains a specific stated comparison.
+
+FORMAT RULES
+* The complete teaser must be 300-500 words. Do not exceed 600 words.
+* Use bullet points for all content outside the Business Overview section.
+* Business Overview should be 2-3 sentences maximum.
+* Include facts in this priority order: (1) financial figures, (2) transaction type and structure, (3) business model and services, (4) management and operations.
 
 ANONYMIZATION RULES
 RULE 1 — COMPANY NAME
-Replace the real company name with the Project Name provided in the user prompt. Format: "Project [NAME]" throughout the document.
+Use the provided codename only. Never include company name, owner name, or any identifying proper nouns.
 
 RULE 2 — GEOGRAPHY
-Remove all cities, towns, and metro areas. Convert all states to regions:
-
+Never include city or state names. Use regional descriptors only.
 ME, NH, VT, MA, RI, CT → New England
 NY, NJ, PA → Mid-Atlantic
 OH, IN, IL, MI, WI → Midwest
@@ -378,67 +383,69 @@ AR, LA, OK, TX → South Central
 MT, ID, WY, CO, NM, AZ, UT, NV → Mountain West
 WA, OR, CA, AK, HI → West Coast
 
-If a company spans multiple regions, list all: "operates across the Southeast and Mid-Atlantic."
-
 RULE 3 — PERSONAL NAMES
-Remove all names of owners, employees, and individuals. Replace with role titles only.
-* Owner name → "the owner"
-* Named employees → their role title (e.g., "the General Manager")
-* If two people share a title, use "a senior [title]" and "a second [title]"
+Remove all names. Replace with role titles only ("the owner", "the General Manager").
 
 RULE 4 — CUSTOMERS AND KEY ACCOUNTS
-Remove all customer, carrier, and account names. Replace with type descriptions.
-* "State Farm" → "a national insurance carrier"
-* Multiple named customers of same type → consolidate: "multiple national carriers"
+Remove all customer names. Replace with type descriptions ("a national insurance carrier", "multiple national hotel chains").
 
 RULE 5 — COMPETITORS
-Remove all competitor names. Replace with a description.
-* "[Name]" → "a regional competitor" or "a national franchise competitor"
+Remove all competitor names. Replace with descriptions ("a regional competitor").
 
 RULE 6 — BUYERS AND PE FIRMS
-Remove all buyer and investor names from transaction context.
-* "Alpine Investors" → "a private equity firm"
-* Deal terms (valuation, structure) CAN stay — just remove the buyer's name.
+Remove all buyer/investor names. Deal terms (valuation, structure) CAN stay — just remove the buyer's name.
 
 RULE 7 — PROFESSIONAL ADVISORS
-Remove names of attorneys, accountants, and advisors. Replace with role only.
-* "[Name] at [Firm]" → "an acquisition attorney"
+Remove names. Replace with role only ("an acquisition attorney").
 
-RULE 8 — CATCH-ALL
-After Rules 1–7, do a final pass: could a reader who is an industry expert use ANY remaining detail to identify this company? If yes, generalize it. Examples:
-* Unique equipment with a trademarked name → describe the function
-* Hyper-specific founding story → keep the year, remove the narrative
-* Proprietary process name → describe what it does
+RULE 8 — FINANCIALS
+Present all financial figures as approximate ranges (+/- 10-15%) to prevent identification through exact numbers.
 
-FORMAT
-Use the same section headers as the lead memo, in the same order:
+RULE 9 — CATCH-ALL
+After Rules 1-8, do a final anonymity audit. Could an industry expert identify this company from any remaining detail? If yes, generalize it.
 
-COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES
+SECTIONS — use only these headers, in this order:
 
-Omit sections that have no data after anonymization (except COMPANY OVERVIEW). Target length: 300–600 words. The teaser is shorter than the lead memo — it gives enough for a buyer to decide if they want to sign an NDA, not enough to make an investment decision.
+BUSINESS OVERVIEW
+2-3 sentences. What the company does, how it makes money, approximate scale and geography (regional descriptors only). No adjectives.
 
-WHAT STAYS THE SAME
-* All dollar amounts (revenue, EBITDA, owner comp, add-backs, real estate value)
-* All percentages (margins, growth rates, customer concentration)
-* Employee headcount totals
-* Number of locations
-* Service descriptions (without identifying details)
-* Founded year
-* Transaction type and owner goals
-* Real estate details (owned/leased, included in deal)
+DEAL SNAPSHOT
+Structured labeled bullet points:
+* Revenue: (range, anonymized)
+* EBITDA / SDE: (range, anonymized)
+* EBITDA Margin: (range)
+* Employees: (approximate)
+* Region: (no city/state)
+* Years in Operation: (approximate range)
+* Transaction Type: (majority sale, full sale, etc.)
+
+KEY FACTS
+3-5 bullet points. Each must be a specific, sourced fact — not a characterization.
+Wrong: "Significant growth opportunity in adjacent markets"
+Right: "Owner has not pursued commercial contracts, which represent approximately 40% of the regional market"
+
+GROWTH CONTEXT
+Only include if the owner explicitly stated growth plans or untapped opportunities. Bullet points. If nothing was stated, omit this section entirely.
+
+OWNER OBJECTIVES
+Transaction preference, timeline, transition willingness, reason for sale. Stated exactly as given.
 
 BANNED LANGUAGE
-Same list as the lead memo: strong, robust, impressive, attractive, compelling, well-positioned, significant, best-in-class, world-class, industry-leading, turnkey, synergies, uniquely positioned, market leader, poised for growth, track record, healthy, notable, consistent (as characterization), solid, substantial, meaningful, considerable, well-established, high-quality, top-tier, premier, differentiated, defensible, platform (as characterization), low-hanging fruit, runway, tailwinds, fragmented market, blue-chip, mission-critical, sticky revenue, white-space.`;
+Never use: strong, robust, impressive, attractive, compelling, well-positioned, significant, poised for growth, track record, best-in-class, proven, synergies, uniquely positioned, market leader, healthy, diversified (without data), recession-resistant (without data), scalable (without specifics), turnkey, world-class, industry-leading, notable, consistent (as characterization), solid, substantial, meaningful, considerable, well-established, high-quality, top-tier, premier, differentiated, defensible, platform (as characterization), low-hanging fruit, runway, tailwinds, fragmented market, blue-chip, mission-critical, sticky revenue, white-space.
 
-    const userPrompt = `Transform the following lead memo into an anonymous teaser.
+FINAL ANONYMITY CHECK: Before returning, re-read every sentence. Confirm no combination of details could identify the business.`;
 
-PROJECT NAME: ${projectName}
+    const userPrompt = `Transform the following internal lead memo into an anonymous marketplace teaser.
+
+CODENAME: ${projectName}
 
 === LEAD MEMO (your only input) === ${leadMemoText}
 
-Apply all anonymization rules. Return as markdown with ## section headers. The output must contain ZERO identifying information: no company name, no city names, no personal names, no customer names, no competitor names, no buyer names.
+Apply all anonymization rules. Convert all specific financial figures to approximate ranges (+/- 10-15%). Return as markdown with ## headers. Must exactly match: BUSINESS OVERVIEW, DEAL SNAPSHOT, KEY FACTS, GROWTH CONTEXT, OWNER OBJECTIVES. Omit GROWTH CONTEXT if no growth plans were stated.
 
-Verify before returning: search your output for any proper noun that is not the Project Name. If found, anonymize it.`;
+The output must contain ZERO identifying information: no company name, no city names, no state names, no personal names, no customer names, no competitor names, no buyer names.
+
+Verify before returning: search your output for any proper noun that is not the Codename. If found, anonymize it.`;
 
     // Step 4: Call Anthropic API
     const response = await fetchWithAutoRetry(
@@ -447,7 +454,7 @@ Verify before returning: search your output for any proper noun that is not the 
         method: 'POST',
         headers: getAnthropicHeaders(anthropicApiKey),
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: DEFAULT_CLAUDE_MODEL,
           system: systemPrompt,
           messages: [{ role: 'user', content: userPrompt }],
           temperature: 0.2,
