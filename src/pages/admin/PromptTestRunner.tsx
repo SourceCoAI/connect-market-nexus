@@ -733,7 +733,6 @@ export default function PromptTestRunner() {
         <MemoTestCard
           key={`${run.memoType}-${idx}`}
           run={run}
-          index={idx}
           expanded={!!expandedMarkdown[idx]}
           onToggleExpand={() => setExpandedMarkdown((prev) => ({ ...prev, [idx]: !prev[idx] }))}
         />

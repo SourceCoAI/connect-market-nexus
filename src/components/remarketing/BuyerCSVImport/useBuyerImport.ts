@@ -370,7 +370,7 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
               matchType: d.matchType as 'domain' | 'name',
             })),
         }))
-        .filter((dup) => dup.potentialDuplicates.length > 0);
+        .filter((dup: DuplicateWarning) => dup.potentialDuplicates.length > 0);
 
       if (foundDuplicates.length > 0) {
         setDuplicates(foundDuplicates);
