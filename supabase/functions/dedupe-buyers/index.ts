@@ -3,30 +3,29 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
-// Normalize domain from URL or email
+/**
+ * Normalize a URL to its root domain.
+ * Mirrors the DB's `extract_domain()` function so dedup results match the
+ * unique index `idx_buyers_unique_domain`.
+ */
 function normalizeDomain(input: string | null): string | null {
   if (!input) return null;
 
-  try {
-    // Try to parse as URL
-    let domain = input.toLowerCase().trim();
+  let domain = input.toLowerCase().trim();
 
-    // Remove protocol
-    domain = domain.replace(/^https?:\/\//, '');
+  // Strip protocol
+  domain = domain.replace(/^https?:\/\//, '');
+  // Strip www.
+  domain = domain.replace(/^www\./, '');
+  // Strip path, query string, fragment
+  domain = domain.replace(/[/?#].*$/, '');
+  // Strip port
+  domain = domain.replace(/:\d+$/, '');
+  // Strip trailing dot
+  domain = domain.replace(/\.$/, '');
+  domain = domain.trim();
 
-    // Remove www prefix
-    domain = domain.replace(/^www\./, '');
-
-    // Get just the domain (before any path)
-    domain = domain.split('/')[0];
-
-    // Remove port
-    domain = domain.split(':')[0];
-
-    return domain || null;
-  } catch {
-    return null;
-  }
+  return domain || null;
 }
 
 // Website domain is the canonical unique identifier for buyers.

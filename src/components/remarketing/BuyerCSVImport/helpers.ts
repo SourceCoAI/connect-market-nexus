@@ -183,42 +183,60 @@ export const TARGET_FIELDS = [
 // Pure functions
 // ---------------------------------------------------------------------------
 
-/** Normalize domain for comparison -- validates URL structure */
+/**
+ * Normalize a URL to its root domain.
+ *
+ * Mirrors the DB's `extract_domain()` function so that the frontend and the
+ * unique index `idx_buyers_unique_domain` always agree on what constitutes the
+ * same domain.  The edge function `dedupe-buyers` uses equivalent logic.
+ *
+ * Steps: strip protocol → strip www. → strip path/query/fragment → strip
+ * trailing dot → lowercase + trim.
+ */
 export function normalizeDomain(url: string): string {
   if (!url) return '';
-  let normalized = url.trim().toLowerCase();
-  // Validate URL structure if it looks like a full URL
-  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
-    try {
-      const parsed = new URL(normalized);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
-      normalized = parsed.hostname;
-    } catch {
-      return '';
-    }
-  } else {
-    // Strip protocol-like prefixes and path components
-    normalized = normalized.replace(/^www\./, '');
-    normalized = normalized.split('/')[0];
-    normalized = normalized.split(':')[0];
-    // Basic domain validation: must contain a dot and only valid characters
-    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(normalized)) return '';
-  }
-  normalized = normalized.replace(/^www\./, '');
-  return normalized;
+  let domain = url.trim().toLowerCase();
+
+  // Strip protocol
+  domain = domain.replace(/^https?:\/\//, '');
+  // Strip www.
+  domain = domain.replace(/^www\./, '');
+  // Strip path, query string, fragment
+  domain = domain.replace(/[/?#].*$/, '');
+  // Strip port
+  domain = domain.replace(/:\d+$/, '');
+  // Strip trailing dot (DNS fully-qualified)
+  domain = domain.replace(/\.$/, '');
+  domain = domain.trim();
+
+  // Must look like a domain (contains a dot, no whitespace)
+  if (!domain || !domain.includes('.') || /\s/.test(domain)) return '';
+  return domain;
 }
 
 /** Heuristic column-to-field mapper used as fallback when AI mapping fails */
 export function guessMapping(column: string): string | null {
   const lower = column.toLowerCase();
 
-  // Platform/Company name
-  if (lower.includes('platform') && (lower.includes('company') || lower.includes('name')))
-    return 'company_name';
-  if (lower.includes('company') || lower.includes('name') || lower.includes('firm'))
-    return 'company_name';
+  // Contact fields — check BEFORE generic "name"/"firm" matches to avoid shadowing
+  if (lower.includes('linkedin')) return 'contact_linkedin_url';
+  if ((lower.includes('contact') || lower.includes('primary')) && lower.includes('name') && !lower.includes('first') && !lower.includes('last'))
+    return 'contact_name';
+  if ((lower.includes('contact') && lower.includes('first')) || lower === 'first name')
+    return 'contact_first_name';
+  if ((lower.includes('contact') && lower.includes('last')) || lower === 'last name')
+    return 'contact_last_name';
+  if ((lower.includes('contact') || lower.includes('primary')) && lower.includes('email'))
+    return 'contact_email';
+  if (lower === 'email' || lower === 'e-mail') return 'contact_email';
+  if ((lower.includes('contact') || lower.includes('primary')) && lower.includes('phone'))
+    return 'contact_phone';
+  if (lower === 'phone' || lower === 'phone number') return 'contact_phone';
+  if ((lower.includes('contact') || lower.includes('primary')) && (lower.includes('title') || lower.includes('role')))
+    return 'contact_title';
+  if (lower === 'title' || lower === 'job title' || lower === 'role') return 'contact_title';
 
-  // Websites - be specific about platform vs PE firm
+  // Websites — check BEFORE generic "name"/"firm" matches (e.g. "PE Firm Website")
   if (lower.includes('platform') && (lower.includes('website') || lower.includes('url')))
     return 'platform_website';
   if (
@@ -229,13 +247,19 @@ export function guessMapping(column: string): string | null {
   if (lower.includes('website') || lower.includes('url') || lower.includes('site'))
     return 'company_website';
 
-  // PE Firm name
+  // PE Firm name — check BEFORE generic "company"/"name" match
   if (
     (lower.includes('pe') || lower.includes('private equity') || lower.includes('sponsor')) &&
     lower.includes('name')
   )
     return 'pe_firm_name';
   if (lower.includes('pe firm') || lower.includes('sponsor')) return 'pe_firm_name';
+
+  // Platform/Company name — generic fallback for "name"/"company"/"firm"
+  if (lower.includes('platform') && (lower.includes('company') || lower.includes('name')))
+    return 'company_name';
+  if (lower.includes('company') || lower.includes('name') || lower.includes('firm'))
+    return 'company_name';
 
   // Location
   if (lower.includes('hq') && lower.includes('city') && lower.includes('state'))
@@ -283,24 +307,6 @@ export function guessMapping(column: string): string | null {
 
   // Notes
   if (lower.includes('note')) return 'notes';
-
-  // Contact fields
-  if ((lower.includes('contact') || lower.includes('primary')) && lower.includes('name') && !lower.includes('first') && !lower.includes('last'))
-    return 'contact_name';
-  if ((lower.includes('contact') && lower.includes('first')) || lower === 'first name')
-    return 'contact_first_name';
-  if ((lower.includes('contact') && lower.includes('last')) || lower === 'last name')
-    return 'contact_last_name';
-  if ((lower.includes('contact') || lower.includes('primary')) && lower.includes('email'))
-    return 'contact_email';
-  if (lower === 'email' || lower === 'e-mail') return 'contact_email';
-  if ((lower.includes('contact') || lower.includes('primary')) && lower.includes('phone'))
-    return 'contact_phone';
-  if (lower === 'phone' || lower === 'phone number') return 'contact_phone';
-  if ((lower.includes('contact') || lower.includes('primary')) && (lower.includes('title') || lower.includes('role')))
-    return 'contact_title';
-  if (lower === 'title' || lower === 'job title' || lower === 'role') return 'contact_title';
-  if (lower.includes('linkedin')) return 'contact_linkedin_url';
 
   return null;
 }
@@ -410,6 +416,9 @@ export function buildBuyerFromRow(
         else if (lower.includes('platform') || lower.includes('strategic') || lower.includes('corporate'))
           buyer.buyer_type = 'corporate';
         else if (lower.includes('family')) buyer.buyer_type = 'family_office';
+        else if (lower.includes('search fund')) buyer.buyer_type = 'search_fund';
+        else if (lower.includes('independent sponsor')) buyer.buyer_type = 'independent_sponsor';
+        else if (lower.includes('individual')) buyer.buyer_type = 'individual_buyer';
         else buyer.buyer_type = null;
         return;
       }
@@ -439,6 +448,9 @@ export function buildBuyerFromRow(
         return;
       }
 
+      // Skip contact fields — they're handled separately by extractContactFromRow
+      if (mapping.targetField.startsWith('contact_')) return;
+
       // Standard field assignment
       buyer[mapping.targetField] = value;
     }
@@ -447,6 +459,12 @@ export function buildBuyerFromRow(
   // If pe_firm_name not set but we have it as company name, infer
   if (!buyer.pe_firm_name && buyer.buyer_type === 'private_equity') {
     buyer.pe_firm_name = buyer.company_name;
+  }
+
+  // Ensure company_website is always set (DB constraint requires it for active buyers).
+  // Fall back to platform_website or pe_firm_website if company_website wasn't mapped.
+  if (!buyer.company_website) {
+    buyer.company_website = buyer.platform_website || buyer.pe_firm_website || null;
   }
 
   return buyer;
@@ -477,11 +495,7 @@ export function hasWebsiteMapping(mappings: ColumnMapping[]): boolean {
 /** Check whether any contact fields are mapped */
 export function hasContactMapping(mappings: ColumnMapping[]): boolean {
   return mappings.some(
-    (m) =>
-      m.targetField === 'contact_name' ||
-      m.targetField === 'contact_first_name' ||
-      m.targetField === 'contact_email' ||
-      m.targetField === 'contact_linkedin_url',
+    (m) => m.targetField != null && m.targetField.startsWith('contact_'),
   );
 }
 
@@ -500,10 +514,11 @@ export function computeRowValidation(csvData: CSVRow[], mappings: ColumnMapping[
     mappings.forEach((mapping) => {
       if (mapping.targetField && row[mapping.csvColumn]) {
         const value = row[mapping.csvColumn].trim();
-        if (mapping.targetField === 'platform_website') platformWebsite = value;
-        if (mapping.targetField === 'pe_firm_website') peFirmWebsite = value;
-        if (mapping.targetField === 'company_website') companyWebsite = value;
-        if (mapping.targetField === 'company_name') companyName = value;
+        // Normalize websites so validation matches what buildBuyerFromRow will produce
+        if (mapping.targetField === 'platform_website') platformWebsite = normalizeDomain(value) || null;
+        else if (mapping.targetField === 'pe_firm_website') peFirmWebsite = normalizeDomain(value) || null;
+        else if (mapping.targetField === 'company_website') companyWebsite = normalizeDomain(value) || null;
+        else if (mapping.targetField === 'company_name') companyName = value;
       }
     });
 
@@ -518,7 +533,7 @@ export function computeRowValidation(csvData: CSVRow[], mappings: ColumnMapping[
       skippedDetails.push({
         index,
         companyName: companyName || `Row ${index + 2}`,
-        reason: !hasCompanyName ? 'Missing company name' : 'Missing website',
+        reason: !hasCompanyName ? 'Missing company name' : 'Missing or invalid website',
       });
     }
   });

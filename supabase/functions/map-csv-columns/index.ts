@@ -48,6 +48,7 @@ const BUYER_FIELDS = [
   { field: 'target_geographies', description: 'Target states or regions for acquisitions' },
   { field: 'target_services', description: 'Target services or industries' },
   { field: 'geographic_footprint', description: 'Current operating locations' },
+  { field: 'investment_date', description: 'Date PE firm invested in the platform (various date formats)' },
   { field: 'notes', description: 'Additional notes' },
   // Primary contact fields (creates a contact linked to the buyer)
   { field: 'contact_name', description: 'Full name of primary contact person' },
@@ -567,14 +568,55 @@ function heuristicMapping(
         confidence = 0.85;
       }
     } else {
-      // Buyer mappings (original logic)
-      if (lower.includes('platform') && (lower.includes('company') || lower.includes('name'))) {
-        targetField = 'company_name';
-        confidence = 0.9;
-      } else if (lower.includes('company') || lower.includes('name') || lower.includes('firm')) {
-        targetField = 'company_name';
-        confidence = 0.8;
+      // Buyer mappings — ORDER MATTERS: specific fields before generic name/firm match
+      // Contact fields (check first to avoid shadowing by generic "name"/"firm")
+      if (lower.includes('linkedin')) {
+        targetField = 'contact_linkedin_url';
+        confidence = 0.7;
       } else if (
+        (lower.includes('contact') || lower.includes('primary')) &&
+        lower.includes('name') &&
+        !lower.includes('first') &&
+        !lower.includes('last')
+      ) {
+        targetField = 'contact_name';
+        confidence = 0.85;
+      } else if ((lower.includes('contact') && lower.includes('first')) || lower === 'first name') {
+        targetField = 'contact_first_name';
+        confidence = 0.85;
+      } else if ((lower.includes('contact') && lower.includes('last')) || lower === 'last name') {
+        targetField = 'contact_last_name';
+        confidence = 0.85;
+      } else if (
+        (lower.includes('contact') || lower.includes('primary')) &&
+        lower.includes('email')
+      ) {
+        targetField = 'contact_email';
+        confidence = 0.85;
+      } else if (lower === 'email' || lower === 'e-mail') {
+        targetField = 'contact_email';
+        confidence = 0.7;
+      } else if (
+        (lower.includes('contact') || lower.includes('primary')) &&
+        lower.includes('phone')
+      ) {
+        targetField = 'contact_phone';
+        confidence = 0.85;
+      } else if (lower === 'phone' || lower === 'phone number') {
+        targetField = 'contact_phone';
+        confidence = 0.7;
+      } else if (
+        (lower.includes('contact') || lower.includes('primary')) &&
+        (lower.includes('title') || lower.includes('role'))
+      ) {
+        targetField = 'contact_title';
+        confidence = 0.85;
+      } else if (lower === 'title' || lower === 'job title' || lower === 'role') {
+        targetField = 'contact_title';
+        confidence = 0.7;
+      }
+      // Websites (check before generic name/firm)
+      else if (
         lower.includes('platform') &&
         (lower.includes('website') || lower.includes('url') || lower.includes('site'))
       ) {
@@ -589,12 +631,22 @@ function heuristicMapping(
       } else if (lower.includes('website') || lower.includes('url') || lower.includes('site')) {
         targetField = 'company_website';
         confidence = 0.8;
-      } else if (
+      }
+      // PE Firm name (check before generic company/name/firm)
+      else if (
         (lower.includes('pe') || lower.includes('private equity') || lower.includes('sponsor')) &&
         (lower.includes('name') || lower === 'pe firm' || lower === 'sponsor')
       ) {
         targetField = 'pe_firm_name';
         confidence = 0.85;
+      }
+      // Platform/Company name — generic fallback
+      else if (lower.includes('platform') && (lower.includes('company') || lower.includes('name'))) {
+        targetField = 'company_name';
+        confidence = 0.9;
+      } else if (lower.includes('company') || lower.includes('name') || lower.includes('firm')) {
+        targetField = 'company_name';
+        confidence = 0.8;
       } else if (
         (lower.includes('hq') || lower.includes('headquarters')) &&
         (lower.includes('city') || lower.includes('state') || lower.includes('location'))
@@ -663,58 +715,13 @@ function heuristicMapping(
         targetField = 'notes';
         confidence = 0.8;
       }
-      // Contact fields for buyer import (check after general fields)
-      if (
-        !targetField &&
-        (lower.includes('contact') || lower.includes('primary')) &&
-        lower.includes('name') &&
-        !lower.includes('first') &&
-        !lower.includes('last')
+      // Investment date
+      else if (
+        (lower.includes('investment') || lower.includes('invested')) &&
+        lower.includes('date')
       ) {
-        targetField = 'contact_name';
+        targetField = 'investment_date';
         confidence = 0.85;
-      } else if ((lower.includes('contact') && lower.includes('first')) || lower === 'first name') {
-        targetField = 'contact_first_name';
-        confidence = 0.85;
-      } else if ((lower.includes('contact') && lower.includes('last')) || lower === 'last name') {
-        targetField = 'contact_last_name';
-        confidence = 0.85;
-      } else if (
-        (lower.includes('contact') || lower.includes('primary')) &&
-        lower.includes('email')
-      ) {
-        targetField = 'contact_email';
-        confidence = 0.85;
-      } else if (lower === 'email' || lower === 'e-mail') {
-        targetField = 'contact_email';
-        confidence = 0.7;
-      } else if (
-        (lower.includes('contact') || lower.includes('primary')) &&
-        lower.includes('phone')
-      ) {
-        targetField = 'contact_phone';
-        confidence = 0.85;
-      } else if (lower === 'phone' || lower === 'phone number') {
-        targetField = 'contact_phone';
-        confidence = 0.7;
-      } else if (
-        (lower.includes('contact') || lower.includes('primary')) &&
-        (lower.includes('title') || lower.includes('role'))
-      ) {
-        targetField = 'contact_title';
-        confidence = 0.85;
-      } else if (lower === 'title' || lower === 'job title' || lower === 'role') {
-        targetField = 'contact_title';
-        confidence = 0.7;
-      } else if (
-        lower.includes('linkedin') &&
-        (lower.includes('profile') || lower.includes('contact') || lower.includes('person'))
-      ) {
-        targetField = 'contact_linkedin_url';
-        confidence = 0.85;
-      } else if (lower.includes('linkedin')) {
-        targetField = 'contact_linkedin_url';
-        confidence = 0.7;
       }
     }
 
