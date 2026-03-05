@@ -143,7 +143,7 @@ Return questions as JSON matching this schema exactly.`;
       throw new Error(result.error.message);
     }
 
-    let questions: ClarifyQuestion[] = result.data?.questions || [];
+    let questions: ClarifyQuestion[] = (result.data?.questions as ClarifyQuestion[]) || [];
 
     if (questions.length === 0) {
       questions = getDefaultQuestions(industry_name);

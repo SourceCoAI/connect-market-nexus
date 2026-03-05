@@ -214,24 +214,25 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         }
       }
 
-      // Filter out skipped duplicates
-      const dataToImport = validRows.filter(({ index }) => !skipDuplicates.has(index));
-      const wantContacts = hasContactMapping(mappings);
 
-      // Build the batch payload for the edge function
-      const payload = dataToImport.map(({ index: rowIndex, row }) => {
-        const existingBuyerId = existingBuyerMap.get(rowIndex) || null;
-        const buyer = buildBuyerFromRow(row, mappings, universeId);
-        const contact = wantContacts ? extractContactFromRow(row, mappings) : null;
-        return { buyer, contact, existingBuyerId };
-      });
 
-      setImportProgress(10);
 
-      // Send to edge function (uses service role to bypass RLS)
-      const { data, error } = await supabase.functions.invoke('import-buyers', {
-        body: { buyers: payload, universeId },
-      });
+    // Filter out skipped duplicates
+    const dataToImport = validRows.filter(({ index }) => !skipDuplicates.has(index));
+    const wantContacts = hasContactMapping(mappings);
+
+    // Build the batch payload for the edge function
+    const payload = dataToImport.map(({ index: rowIndex, row }) => {
+      const existingBuyerId = existingBuyerMap.get(rowIndex) || null;
+      const buyer = buildBuyerFromRow(row, mappings, universeId);
+      const contact = wantContacts ? extractContactFromRow(row, mappings) : null;
+      return { buyer, contact, existingBuyerId };
+    });
+
+    // Send to edge function (uses service role to bypass RLS)
+    const { data, error } = await supabase.functions.invoke('import-buyers', {
+      body: { buyers: payload, universeId },
+    });
 
       console.log('import-buyers response:', JSON.stringify(data));
 

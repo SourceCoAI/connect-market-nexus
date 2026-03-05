@@ -10,6 +10,7 @@ function getErrorMessage(e: unknown): string {
 }
 
 interface ImportData {
+  [key: string]: unknown;
   universes: Record<string, unknown>[];
   buyers: Record<string, unknown>[];
   contacts: Record<string, unknown>[];
