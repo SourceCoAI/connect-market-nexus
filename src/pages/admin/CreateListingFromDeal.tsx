@@ -99,7 +99,10 @@ export default function CreateListingFromDeal() {
         internal_company_name: anonymized.internal_company_name,
         internal_notes: anonymized.internal_notes,
         // Use deal website as Company URL, falling back to deal memo link
-        internal_deal_memo_link: (deal as Record<string, unknown>).website as string || deal.internal_deal_memo_link || '',
+        internal_deal_memo_link:
+          ((deal as Record<string, unknown>).website as string) ||
+          deal.internal_deal_memo_link ||
+          '',
         company_website: anonymized.company_website || null,
         // Custom metrics
         metric_3_type: anonymized.metric_3_type,
@@ -126,9 +129,9 @@ export default function CreateListingFromDeal() {
 
   // Tracks whether the description is the mechanical anonymizer fallback
   // (low quality) vs. an AI-generated teaser (buyer-grade).
-  const [descriptionSource, setDescriptionSource] = useState<
-    'loading' | 'teaser' | 'anonymizer'
-  >('loading');
+  const [descriptionSource, setDescriptionSource] = useState<'loading' | 'teaser' | 'anonymizer'>(
+    'loading',
+  );
 
   // Auto-trigger AI content generation when prefilled data is ready.
   // Priority: 1) Call generate-marketplace-listing (dedicated, buyer-grade)  2) Anonymizer fallback
@@ -166,7 +169,10 @@ export default function CreateListingFromDeal() {
         }
 
         // Step 2: Call the dedicated marketplace listing generator
-        console.log('[CreateListingFromDeal] Calling generate-marketplace-listing for deal_id:', dealId);
+        console.log(
+          '[CreateListingFromDeal] Calling generate-marketplace-listing for deal_id:',
+          dealId,
+        );
         const { data, error } = await supabase.functions.invoke('generate-marketplace-listing', {
           body: { deal_id: dealId },
         });
@@ -179,7 +185,11 @@ export default function CreateListingFromDeal() {
               if (ctx instanceof Response) {
                 const body = await ctx.json();
                 errorDetail = body?.error || '';
-              } else if (typeof ctx === 'object' && ctx !== null && 'error' in (ctx as Record<string, unknown>)) {
+              } else if (
+                typeof ctx === 'object' &&
+                ctx !== null &&
+                'error' in (ctx as Record<string, unknown>)
+              ) {
                 errorDetail = (ctx as { error: string }).error;
               }
             }
@@ -193,7 +203,10 @@ export default function CreateListingFromDeal() {
             errorDetail = String(error);
           }
 
-          console.error('[CreateListingFromDeal] generate-marketplace-listing failed:', errorDetail);
+          console.error(
+            '[CreateListingFromDeal] generate-marketplace-listing failed:',
+            errorDetail,
+          );
           setDescriptionSource('anonymizer');
           toast.info('AI content generation could not complete. You can fill in content manually.');
           return;
@@ -207,6 +220,7 @@ export default function CreateListingFromDeal() {
             ...prev,
             description_html: data.description_html,
             description: data.description_markdown,
+            hero_description: data.hero_description || prev.hero_description,
             custom_sections: [],
           };
         });

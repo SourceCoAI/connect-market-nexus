@@ -50,7 +50,7 @@ function buildMetrics(deal: LandingPageDeal): MetricBox[] {
     });
   }
 
-  // Metric 4: Custom or Locations
+  // Metric 4: Custom or EBITDA Margin
   if (deal.metric_4_type === 'custom' && deal.metric_4_custom_label) {
     metrics.push({
       label: deal.metric_4_custom_label,
@@ -58,10 +58,14 @@ function buildMetrics(deal: LandingPageDeal): MetricBox[] {
       subtitle: deal.metric_4_custom_subtitle || '',
     });
   } else {
+    const margin4Pct =
+      deal.revenue && deal.revenue > 0 && deal.ebitda
+        ? ((deal.ebitda / deal.revenue) * 100).toFixed(1)
+        : null;
     metrics.push({
-      label: 'Locations',
-      value: deal.number_of_locations ? `${deal.number_of_locations}` : '—',
-      subtitle: deal.metric_4_custom_subtitle || 'Operating footprint',
+      label: 'EBITDA Margin',
+      value: margin4Pct ? `${margin4Pct}%` : '—',
+      subtitle: deal.metric_4_custom_subtitle || 'Profitability metric',
     });
   }
 

@@ -151,7 +151,7 @@ export default function DealSidebar({
           >
             Schedule Buyer Call
           </a>
-          {executiveSummaryUrl && (
+          {executiveSummaryUrl && /^https?:\/\//.test(executiveSummaryUrl) && (
             <a
               href={executiveSummaryUrl}
               target="_blank"
