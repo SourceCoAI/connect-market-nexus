@@ -33,7 +33,7 @@ export function useEntityTasks({
           `
           *,
           assignee:profiles!daily_standup_tasks_assignee_id_fkey(id, first_name, last_name, email),
-          deal:deals!daily_standup_tasks_deal_id_fkey(id, listing_id, listings(title, internal_company_name, ebitda), deal_stages(name)),
+          deal:deal_pipeline!daily_standup_tasks_deal_id_fkey(id, listing_id, listings(title, internal_company_name, ebitda), deal_stages(name)),
           source_meeting:standup_meetings(id, meeting_title, meeting_date, transcript_url)
         `,
         )
@@ -111,7 +111,7 @@ export function useSecondaryEntityTasks({
           `
           *,
           assignee:profiles!daily_standup_tasks_assignee_id_fkey(id, first_name, last_name, email),
-          deal:deals!daily_standup_tasks_deal_id_fkey(id, listing_id, listings(title, internal_company_name, ebitda), deal_stages(name)),
+          deal:deal_pipeline!daily_standup_tasks_deal_id_fkey(id, listing_id, listings(title, internal_company_name, ebitda), deal_stages(name)),
           source_meeting:standup_meetings(id, meeting_title, meeting_date, transcript_url)
         `,
         )

@@ -156,7 +156,7 @@ const ReMarketingDealDetail = () => {
       />
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className={cn('grid w-full', isValuationDeal ? 'grid-cols-6' : 'grid-cols-5')}>
+        <TabsList className={cn('grid w-full', isValuationDeal ? 'grid-cols-7' : 'grid-cols-6')}>
           <TabsTrigger value="overview" className="text-sm">
             <Eye className="mr-1.5 h-3.5 w-3.5" />
             Overview
@@ -175,9 +175,13 @@ const ReMarketingDealDetail = () => {
             <UserPlus className="mr-1.5 h-3.5 w-3.5" />
             Buyer Introductions
           </TabsTrigger>
+          <TabsTrigger value="listing-tasks" className="text-sm">
+            <ListChecks className="mr-1.5 h-3.5 w-3.5" />
+            Listing Tasks
+          </TabsTrigger>
           <TabsTrigger value="tasks" className="text-sm">
             <ListChecks className="mr-1.5 h-3.5 w-3.5" />
-            Tasks
+            Deal Tasks
           </TabsTrigger>
           <TabsTrigger value="data-room" className="text-sm">
             <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
@@ -228,6 +232,14 @@ const ReMarketingDealDetail = () => {
 
         <TabsContent value="buyer-introductions" className="space-y-6">
           <BuyerIntroductionPage listingId={dealId!} listingTitle={displayName} />
+        </TabsContent>
+
+        <TabsContent value="listing-tasks" className="space-y-6">
+          <EntityTasksTab
+            entityType="listing"
+            entityId={dealId!}
+            entityName={displayName}
+          />
         </TabsContent>
 
         <TabsContent value="tasks" className="space-y-6">

@@ -207,7 +207,7 @@ export function useApplyTaskTemplate() {
           task_type: task.task_type,
           due_date: dueDate,
           assignee_id: assigneeId,
-          entity_type: 'deal' as TaskEntityType,
+          entity_type: 'listing' as TaskEntityType,
           entity_id: listingId,
           source: 'template',
           priority: 'medium',

@@ -69,7 +69,7 @@ export function useDailyTasks(options: UseDailyTasksOptions) {
         }
 
         if (!options.includeCompleted) {
-          query = query.in('status', ['pending_approval', 'pending', 'in_progress', 'overdue']);
+          query = query.in('status', ['pending_approval', 'pending', 'in_progress', 'overdue', 'snoozed']);
         }
 
         if (options.dateFrom) {
