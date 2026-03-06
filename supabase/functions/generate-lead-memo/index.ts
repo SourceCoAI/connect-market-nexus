@@ -361,7 +361,6 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         error: 'Failed to generate memo',
-        details: error instanceof Error ? error.message : String(error),
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
@@ -601,7 +600,12 @@ Return ONLY the hero description text. No preamble, no quotes, no explanation.`;
     return hero || buildHeroFallback(sections);
   } catch (err) {
     console.error('Hero generation failed, using fallback:', err);
-    return buildHeroFallback(sections);
+    try {
+      return buildHeroFallback(sections);
+    } catch (fallbackErr) {
+      console.error('Hero fallback also failed:', fallbackErr);
+      return '';
+    }
   }
 }
 
@@ -757,6 +761,14 @@ function enforceAnonymization(
       }
     }
   }
+  // Generate and add company acronym (e.g., "Advanced Manufacturing Services" → "AMS")
+  if (companyName) {
+    const words = companyName.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(w => w.length > 0);
+    if (words.length >= 2) {
+      const acronym = words.map(w => w[0]).join('').toUpperCase();
+      if (acronym.length >= 2 && acronym.length <= 6) identifyingTerms.push(acronym);
+    }
+  }
   if (title && title !== companyName) identifyingTerms.push(title);
 
   if (website) {
@@ -809,9 +821,13 @@ function enforceAnonymization(
   return sections.map((s) => {
     let content = s.content;
 
-    // Replace identifying company/contact terms
+    // Replace identifying company/contact terms (including possessive forms)
     for (const term of uniqueTerms) {
       const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Match possessive form first (e.g., "John's" → "the Company's") to avoid
+      // broken "'s" fragments after replacing the base term
+      const possessiveRegex = new RegExp(`${escaped}'s\\b`, 'gi');
+      content = content.replace(possessiveRegex, `${projectCodename}'s`);
       const regex = new RegExp(escaped, 'gi');
       content = content.replace(regex, projectCodename);
     }
@@ -1176,7 +1192,8 @@ Return the memo as markdown with ## headers. Headers must exactly match: COMPANY
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Claude API error ${response.status}: ${errorText}`);
+      console.error(`Claude API error ${response.status}:`, errorText);
+      throw new Error(`AI generation failed (status ${response.status})`);
     }
 
     const result = await response.json();
@@ -1444,7 +1461,8 @@ FINAL ANONYMITY CHECK: Before returning, re-read every sentence. Confirm no comb
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Claude API error ${response.status}: ${errorText}`);
+      console.error(`Claude API error ${response.status}:`, errorText);
+      throw new Error(`AI generation failed (status ${response.status})`);
     }
 
     const result = await response.json();
@@ -1690,5 +1708,10 @@ function markdownToHtml(text: string): string {
 }
 
 function applyInlineFormatting(text: string): string {
-  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
+  // Extract bold/italic markers, escape everything else, then re-apply formatting
+  // This prevents XSS from content like **<script>alert(1)</script>**
+  const escaped = escapeHtmlForMemo(text);
+  return escaped
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 }

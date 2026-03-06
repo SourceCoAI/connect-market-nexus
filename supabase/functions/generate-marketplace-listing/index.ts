@@ -700,7 +700,6 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
     return new Response(
       JSON.stringify({
         error: 'Failed to generate marketplace listing description',
-        details: error instanceof Error ? error.message : String(error),
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
