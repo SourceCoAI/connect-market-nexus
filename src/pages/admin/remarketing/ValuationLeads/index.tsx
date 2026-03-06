@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { useValuationLeadsData } from './useValuationLeadsData';
 import { ValuationLeadsTable } from './ValuationLeadsTable';
 import { ValuationLeadUploadDialog } from './ValuationLeadUploadDialog';
+import { ValuationLeadDetailDrawer } from './ValuationLeadDetailDrawer';
 import { exportLeadsToCSV } from './helpers';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
@@ -87,6 +89,7 @@ export default function ValuationLeads() {
     hideNotFit,
     setHideNotFit,
     handleRowClick,
+    handleOpenDeal,
     handlePushToAllDeals,
     handlePushAndEnrich,
     handleReEnrich,
@@ -96,6 +99,9 @@ export default function ValuationLeads() {
     handleRetryFailedEnrichment,
     handleScoreLeads,
     handleAssignOwner,
+    selectedLead,
+    drawerOpen,
+    setDrawerOpen,
     isPushing,
     isPushEnriching,
     isReEnriching,
@@ -427,6 +433,20 @@ export default function ValuationLeads() {
 
       {/* Upload Dialog */}
       <ValuationLeadUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} />
+
+      {/* Detail Drawer */}
+      <ValuationLeadDetailDrawer
+        lead={selectedLead}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        onPushToDeals={(ids) => handlePushToAllDeals(ids)}
+        onMarkNotFit={(ids) => handleMarkNotFit(ids)}
+        onViewDeal={(listingId) => {
+          setDrawerOpen(false);
+          handleOpenDeal({ pushed_listing_id: listingId, id: '' } as any);
+        }}
+        isPushing={isPushing}
+      />
 
       {/* Leads Table */}
       <ValuationLeadsTable
