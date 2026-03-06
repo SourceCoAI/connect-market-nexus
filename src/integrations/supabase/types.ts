@@ -8506,6 +8506,36 @@ export type Database = {
           },
         ]
       }
+      permission_audit_log: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_role: Database["public"]["Enums"]["app_role"]
+          old_role: Database["public"]["Enums"]["app_role"] | null
+          reason: string | null
+          target_user_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_role: Database["public"]["Enums"]["app_role"]
+          old_role?: Database["public"]["Enums"]["app_role"] | null
+          reason?: string | null
+          target_user_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_role?: Database["public"]["Enums"]["app_role"]
+          old_role?: Database["public"]["Enums"]["app_role"] | null
+          reason?: string | null
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       phoneburner_oauth_tokens: {
         Row: {
           access_token: string
