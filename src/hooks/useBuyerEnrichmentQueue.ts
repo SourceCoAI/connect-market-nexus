@@ -170,6 +170,44 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
     }
   }, []);
 
+  // Start polling for status updates
+  const startPolling = useCallback(() => {
+    // Clear existing intervals
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    if (processingIntervalRef.current) clearInterval(processingIntervalRef.current);
+
+    // Track polling start time
+    pollingStartTimeRef.current = Date.now();
+
+    // Poll for status
+    pollIntervalRef.current = setInterval(async () => {
+      const result = await fetchQueueStatus();
+
+      // Check if we've exceeded the max polling duration (safety timeout)
+      const pollingDuration = Date.now() - (pollingStartTimeRef.current || 0);
+      const timedOut = pollingDuration > MAX_POLLING_DURATION_MS;
+
+      if (timedOut) {
+        console.warn('Enrichment polling timed out after 4 hours - force stopping');
+        toast.warning('Enrichment process timed out. Some items may still be processing.', {
+          description: 'Please refresh to see the latest status',
+        });
+      }
+
+      if ((result && !result.isRunning) || timedOut) {
+        // Stop polling when done or timed out
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        if (processingIntervalRef.current) clearInterval(processingIntervalRef.current);
+        pollIntervalRef.current = null;
+        processingIntervalRef.current = null;
+        pollingStartTimeRef.current = null;
+      }
+    }, POLL_INTERVAL_MS);
+
+    // Trigger processor periodically
+    processingIntervalRef.current = setInterval(triggerProcessor, PROCESS_INTERVAL_MS);
+  }, [fetchQueueStatus, triggerProcessor]);
+
   // Pause buyer enrichment
   const pause = useCallback(async () => {
     if (!universeId) return;
@@ -326,44 +364,6 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
     },
     [universeId, triggerProcessor, startPolling, startOrQueueMajorOp],
   );
-
-  // Start polling for status updates
-  const startPolling = useCallback(() => {
-    // Clear existing intervals
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    if (processingIntervalRef.current) clearInterval(processingIntervalRef.current);
-
-    // Track polling start time
-    pollingStartTimeRef.current = Date.now();
-
-    // Poll for status
-    pollIntervalRef.current = setInterval(async () => {
-      const result = await fetchQueueStatus();
-
-      // Check if we've exceeded the max polling duration (safety timeout)
-      const pollingDuration = Date.now() - (pollingStartTimeRef.current || 0);
-      const timedOut = pollingDuration > MAX_POLLING_DURATION_MS;
-
-      if (timedOut) {
-        console.warn('Enrichment polling timed out after 4 hours - force stopping');
-        toast.warning('Enrichment process timed out. Some items may still be processing.', {
-          description: 'Please refresh to see the latest status',
-        });
-      }
-
-      if ((result && !result.isRunning) || timedOut) {
-        // Stop polling when done or timed out
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        if (processingIntervalRef.current) clearInterval(processingIntervalRef.current);
-        pollIntervalRef.current = null;
-        processingIntervalRef.current = null;
-        pollingStartTimeRef.current = null;
-      }
-    }, POLL_INTERVAL_MS);
-
-    // Trigger processor periodically
-    processingIntervalRef.current = setInterval(triggerProcessor, PROCESS_INTERVAL_MS);
-  }, [fetchQueueStatus, triggerProcessor]);
 
   // Cancel enrichment
   const cancel = useCallback(async () => {
