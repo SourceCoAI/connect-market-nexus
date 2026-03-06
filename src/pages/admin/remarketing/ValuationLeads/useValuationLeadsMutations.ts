@@ -42,54 +42,69 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
   const [isEnriching, setIsEnriching] = useState(false);
   const [isMarkingNotFit, setIsMarkingNotFit] = useState(false);
 
-  const handleRowClick = useCallback(
+  // Drawer state
+  const [selectedLead, setSelectedLead] = useState<ValuationLead | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  /** Open the detail drawer on row click (non-destructive) */
+  const handleRowClick = useCallback((lead: ValuationLead) => {
+    setSelectedLead(lead);
+    setDrawerOpen(true);
+  }, []);
+
+  /** Navigate to deal page — creates listing if needed (with error handling) */
+  const handleOpenDeal = useCallback(
     async (lead: ValuationLead) => {
-      if (lead.pushed_listing_id) {
-        navigate('/admin/deals/' + lead.pushed_listing_id, {
-          state: { from: '/admin/remarketing/leads/valuation' },
-        });
-        return;
-      }
-
-      const dealIdentifier = `vlead_${lead.id.slice(0, 8)}`;
-      const { data: existing, error: existingError } = await supabase
-        .from('listings')
-        .select('id')
-        .eq('deal_identifier', dealIdentifier)
-        .maybeSingle();
-      if (existingError) throw existingError;
-
-      let listingId: string;
-
-      if (existing?.id) {
-        listingId = existing.id;
-        await supabase
-          .from('valuation_leads')
-          .update({ pushed_listing_id: listingId } as never)
-          .eq('id', lead.id);
-      } else {
-        const { data: listing, error: insertError } = await supabase
-          .from('listings')
-          .insert(buildListingFromLead(lead, false))
-          .select('id')
-          .single();
-
-        if (insertError || !listing) {
-          // Failed to create listing for lead — toast shown to user
-          sonnerToast.error('Failed to open deal page');
+      try {
+        if (lead.pushed_listing_id) {
+          navigate('/admin/deals/' + lead.pushed_listing_id, {
+            state: { from: '/admin/remarketing/leads/valuation' },
+          });
           return;
         }
-        listingId = listing.id;
-        await supabase
-          .from('valuation_leads')
-          .update({ pushed_listing_id: listingId } as never)
-          .eq('id', lead.id);
-      }
 
-      queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
-      navigate('/admin/deals/' + listingId, {
-        state: { from: '/admin/remarketing/leads/valuation' },
-      });
+        const dealIdentifier = `vlead_${lead.id.slice(0, 8)}`;
+        const { data: existing, error: existingError } = await supabase
+          .from('listings')
+          .select('id')
+          .eq('deal_identifier', dealIdentifier)
+          .maybeSingle();
+        if (existingError) throw existingError;
+
+        let listingId: string;
+
+        if (existing?.id) {
+          listingId = existing.id;
+          await supabase
+            .from('valuation_leads')
+            .update({ pushed_listing_id: listingId } as never)
+            .eq('id', lead.id);
+        } else {
+          const { data: listing, error: insertError } = await supabase
+            .from('listings')
+            .insert(buildListingFromLead(lead, false))
+            .select('id')
+            .single();
+
+          if (insertError || !listing) {
+            sonnerToast.error('Failed to open deal page');
+            return;
+          }
+          listingId = listing.id;
+          await supabase
+            .from('valuation_leads')
+            .update({ pushed_listing_id: listingId } as never)
+            .eq('id', lead.id);
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
+        navigate('/admin/deals/' + listingId, {
+          state: { from: '/admin/remarketing/leads/valuation' },
+        });
+      } catch (err) {
+        console.error('handleOpenDeal error:', err);
+        sonnerToast.error('Failed to open deal page. Please try again.');
+      }
     },
     [navigate, queryClient],
   );
@@ -569,6 +584,7 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
   return {
     // Actions
     handleRowClick,
+    handleOpenDeal,
     handlePushToAllDeals,
     handlePushAndEnrich,
     handleReEnrich,
@@ -578,6 +594,11 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
     handleRetryFailedEnrichment,
     handleScoreLeads,
     handleAssignOwner,
+    // Drawer state
+    selectedLead,
+    setSelectedLead,
+    drawerOpen,
+    setDrawerOpen,
     // Action states
     isPushing,
     isPushEnriching,
