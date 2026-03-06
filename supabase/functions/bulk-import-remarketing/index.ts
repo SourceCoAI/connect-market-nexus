@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { errorResponse } from '../_shared/error-response.ts';
@@ -579,7 +579,7 @@ serve(async (req) => {
             continue;
           }
 
-          const nameParts = (row.name || 'Unknown').trim().split(/\s+/);
+          const nameParts = String(row.name || 'Unknown').trim().split(/\s+/);
           const contactData = {
             remarketing_buyer_id: mappedBuyerId,
             first_name: nameParts[0] || 'Unknown',

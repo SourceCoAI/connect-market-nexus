@@ -420,7 +420,7 @@ async function searchBuyers(
   const { data, error } = await query;
   if (error) return { error: error.message };
 
-  let results = data || [];
+  let results: BuyerRecord[] = (data as BuyerRecord[]) || [];
 
   // ---- Universe-aware search ----
   // When searching by industry or free text, also find universes whose name/description

@@ -12,7 +12,7 @@
  * 4. Usage tracking
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import { routeIntent } from './router.ts';
@@ -163,7 +163,7 @@ Deno.serve(async (req: Request) => {
 // ---------- Main processing ----------
 
 async function processChat(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   userId: string,
   body: ChatRequest,
   writer: { write: (chunk: string) => Promise<void>; close: () => Promise<void> },
@@ -277,7 +277,7 @@ interface UsageData {
 }
 
 async function trackUsage(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   userId: string,
   conversationId: string | undefined,
   usage: UsageData,

@@ -1,54 +1,43 @@
 
 
-## Build Errors — Root Causes & Fixes
+# Plan: Fix Edge Function Build Errors & Deploy All
 
-There are **4 distinct issues** across 4 files, mostly caused by Supabase client version mismatches and missing type casts.
+The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
 
----
+## Errors & Fixes
 
-### 1. Supabase Client Version Mismatch (3 files)
+### 1. `auto-create-firm-on-approval/index.ts` (1 error)
+**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
+**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
 
-**Root cause:** Different edge functions import `@supabase/supabase-js` at different versions (`@2`, `@2.47.10`, `@2.49.4`), creating incompatible `SupabaseClient` types when passed to shared helpers like `requireAdmin()` and `processChat()`.
+### 2. `bulk-import-remarketing/index.ts` (2 errors)
+**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
+**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
 
-| File | Current Import | Fix |
-|------|---------------|-----|
-| `_shared/auth.ts` | `@2` (bare) | Keep as canonical |
-| `create-docuseal-submission/index.ts` | `@2.47.10` | Change to `@2` |
-| `bulk-import-remarketing/index.ts` | `@2.49.4` | Change to `@2` |
-| `ai-command-center/index.ts` | `@2` | Already correct — fix `processChat` param type |
+### 3. `calculate-deal-quality/index.ts` (24 errors)
+**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
+**Fix:**
+- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
+- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
 
-**Fix:** Align all imports to `https://esm.sh/@supabase/supabase-js@2` and type the `processChat` function parameter as `SupabaseClient` (imported from the same specifier) instead of `ReturnType<typeof createClient>`.
+### 4. `clarify-industry/index.ts` (1 error)
+**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
+**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
 
----
+### 5. `confirm-agreement-signed/index.ts` (3 errors)
+**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
+**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
 
-### 2. `row.name` Type Error — `bulk-import-remarketing/index.ts:582`
+## After Fixes
+Deploy all edge functions using the deployment tool.
 
-**Root cause:** `row` is from a `Record<string, unknown>[]` array, so `row.name` is `unknown` — no `.trim()` method.
-
-**Fix:** Cast to string: `String(row.name || 'Unknown').trim()`
-
----
-
-### 3. `results` Type Mismatch — `ai-command-center/tools/buyer-tools.ts:468+`
-
-**Root cause:** Line 423 assigns `let results = data || []` where `data` comes from an untyped Supabase `.select()`. TypeScript infers a generic type, not `BuyerRecord[]`. All subsequent `.map()` and `.filter()` calls with `(b: BuyerRecord)` annotations then fail.
-
-**Fix:** Cast at assignment: `let results: BuyerRecord[] = (data as BuyerRecord[]) || [];`
-
----
-
-### 4. `ai_command_center_usage` Insert Error — `ai-command-center/index.ts:286`
-
-**Root cause:** Same version mismatch — the `supabase` client passed to `trackUsage()` has mismatched generic types, causing `.from().insert()` to resolve to `never`.
-
-**Fix:** Resolved by fix #1 (aligning the import) plus typing the `supabase` parameter as `SupabaseClient` from the shared import.
-
----
-
-### Summary of Changes
-
-1. **`supabase/functions/create-docuseal-submission/index.ts`** — Change import from `@2.47.10` to `@2`
-2. **`supabase/functions/bulk-import-remarketing/index.ts`** — Change import from `@2.49.4` to `@2`; fix line 582 to `String(row.name || 'Unknown').trim()`
-3. **`supabase/functions/ai-command-center/index.ts`** — Type `processChat` and `trackUsage` params as `SupabaseClient` instead of `ReturnType<typeof createClient>`
-4. **`supabase/functions/ai-command-center/tools/buyer-tools.ts`** — Cast `results` to `BuyerRecord[]` at line 423
+## Summary of Changes
+| File | Change |
+|------|--------|
+| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
+| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
+| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
+| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
+| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
+| Deploy all ~148 functions | After fixes pass |
 
