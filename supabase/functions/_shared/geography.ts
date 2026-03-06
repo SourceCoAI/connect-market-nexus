@@ -64,6 +64,11 @@ export const STATE_CODE_TO_NAME: Record<string, string> = {
   SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah',
   VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia',
   WI: 'Wisconsin', WY: 'Wyoming', DC: 'Washington D.C.',
+  // Canadian provinces
+  AB: 'Alberta', BC: 'British Columbia', MB: 'Manitoba', NB: 'New Brunswick',
+  NL: 'Newfoundland and Labrador', NS: 'Nova Scotia', NT: 'Northwest Territories',
+  NU: 'Nunavut', ON: 'Ontario', PE: 'Prince Edward Island', QC: 'Quebec',
+  SK: 'Saskatchewan', YT: 'Yukon',
 };
 
 // Reverse: full state name to code
@@ -86,6 +91,12 @@ export const STATE_CODE_TO_REGION: Record<string, string> = {
   SD: 'Upper Midwest', TN: 'Southeast', TX: 'South Central', UT: 'Mountain West',
   VT: 'New England', VA: 'Mid-Atlantic', WA: 'Pacific Northwest', WV: 'Mid-Atlantic',
   WI: 'Great Lakes', WY: 'Mountain West', DC: 'Mid-Atlantic',
+  // Canadian provinces
+  AB: 'Western Canada', BC: 'Western Canada', MB: 'Central Canada',
+  NB: 'Atlantic Canada', NL: 'Atlantic Canada', NS: 'Atlantic Canada',
+  NT: 'Northern Canada', NU: 'Northern Canada', ON: 'Central Canada',
+  PE: 'Atlantic Canada', QC: 'Central Canada', SK: 'Western Canada',
+  YT: 'Northern Canada',
 };
 
 // Major city to state mapping for local context detection

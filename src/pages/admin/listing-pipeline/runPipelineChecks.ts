@@ -56,12 +56,10 @@ export async function runPipelineChecks(dealId: string): Promise<PipelineReport>
     detail: `${deal.internal_company_name || deal.title || dealId}`,
   });
 
-  // 2. Push-to-marketplace gate checks (Audit P2: all 10 requirements are now hard checks)
+  // 2. Push-to-marketplace gate checks (must match publish-listing edge function requirements)
   const gateFields: Array<{ label: string; check: () => boolean }> = [
-    { label: 'Website', check: () => !!deal.website },
     { label: 'Revenue', check: () => typeof deal.revenue === 'number' && deal.revenue > 0 },
     { label: 'EBITDA', check: () => deal.ebitda != null },
-    { label: 'EBITDA in range ($500K-$10M)', check: () => typeof deal.ebitda === 'number' && deal.ebitda >= 500000 && deal.ebitda <= 10000000 },
     { label: 'Location / Geography', check: () => !!(deal.address_state || deal.location) },
     { label: 'Category / Industry', check: () => !!(deal.category || deal.industry) },
     { label: 'Description', check: () => !!(deal.executive_summary || deal.description) },
@@ -72,13 +70,23 @@ export async function runPipelineChecks(dealId: string): Promise<PipelineReport>
 
   const failedGates = gateFields.filter((g) => !g.check());
   checks.push({
-    name: 'Push gate: deal fields (10 checks)',
+    name: 'Push gate: deal fields (8 checks)',
     status: failedGates.length === 0 ? 'pass' : 'fail',
     detail:
       failedGates.length === 0
-        ? 'All 10 required deal fields are present'
+        ? 'All 8 required deal fields are present'
         : `Missing: ${failedGates.map((g) => g.label).join(', ')}`,
   });
+
+  // EBITDA range advisory (not enforced by publish-listing gate)
+  const ebitdaInRange = typeof deal.ebitda === 'number' && deal.ebitda >= 500000 && deal.ebitda <= 10000000;
+  if (!ebitdaInRange && deal.ebitda != null) {
+    checks.push({
+      name: 'EBITDA range advisory',
+      status: 'warn',
+      detail: `EBITDA (${deal.ebitda}) is outside typical range ($500K–$10M). Publishing is still allowed.`,
+    });
+  }
 
   // 3. Memo PDFs (data_room_documents)
   const { data: memoDocs, error: memoErr } = await supabase
