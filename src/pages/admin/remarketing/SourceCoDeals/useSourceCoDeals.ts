@@ -399,14 +399,28 @@ export function useSourceCoDeals() {
           { body: { source: 'sourceco_bulk' } },
         );
         if (resultError) throw resultError;
-        if (result?.synced > 0 || result?.processed > 0) {
-          const totalDone = (result?.synced || 0) + (result?.processed || 0);
-          if (activityItem)
+
+        const synced = Number(result?.synced || 0);
+        const processed = Number(result?.processed || 0);
+        const remaining = Number(result?.remaining || 0);
+
+        if (synced > 0 || processed > 0) {
+          const totalDone = synced + processed;
+          if (activityItem) {
             updateProgress.mutate({ id: activityItem.id, completedItems: totalDone });
-          if (result?.processed === 0) {
-            sonnerToast.success(`All ${result.synced} deals were already enriched`);
-            if (activityItem)
-              completeOperation.mutate({ id: activityItem.id, finalStatus: 'completed' });
+          }
+
+          if (processed === 0 && synced > 0) {
+            if (remaining > 0) {
+              sonnerToast.info(
+                `${synced} deals were already enriched in the first batch. Continuing ${remaining} remaining in background.`,
+              );
+            } else {
+              sonnerToast.success(`All ${synced} deals were already enriched`);
+              if (activityItem) {
+                completeOperation.mutate({ id: activityItem.id, finalStatus: 'completed' });
+              }
+            }
           }
         }
       } catch {
@@ -524,10 +538,22 @@ export function useSourceCoDeals() {
           { body: { source: 'sourceco_selected' } },
         );
         if (resultError) throw resultError;
-        if (result?.synced > 0 || result?.processed > 0) {
-          const totalDone = (result?.synced || 0) + (result?.processed || 0);
-          if (activityItem)
+
+        const synced = Number(result?.synced || 0);
+        const processed = Number(result?.processed || 0);
+        const remaining = Number(result?.remaining || 0);
+
+        if (synced > 0 || processed > 0) {
+          const totalDone = synced + processed;
+          if (activityItem) {
             updateProgress.mutate({ id: activityItem.id, completedItems: totalDone });
+          }
+
+          if (processed === 0 && synced > 0 && remaining > 0) {
+            sonnerToast.info(
+              `${synced} selected deals were already enriched in the first batch. Continuing ${remaining} remaining in background.`,
+            );
+          }
         }
       } catch {
         /* Non-blocking */
