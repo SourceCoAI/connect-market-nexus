@@ -123,6 +123,10 @@ const ReMarketingUniverses = () => {
 
     // Flagged deal removal
     removeFlaggedDeal,
+
+    // Description backfill
+    isBackfillingDescriptions,
+    backfillMissingDescriptions,
   } = useUniversesData();
 
   const [activeTab, setActiveTab] = useState<'existing' | 'to_be_created'>('existing');
@@ -268,6 +272,20 @@ const ReMarketingUniverses = () => {
                   <Label htmlFor="show-archived" className="text-sm text-muted-foreground">
                     Show archived ({archivedCount})
                   </Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 ml-2"
+                    onClick={backfillMissingDescriptions}
+                    disabled={isBackfillingDescriptions}
+                  >
+                    {isBackfillingDescriptions ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    {isBackfillingDescriptions ? 'Generating...' : 'Generate Missing Descriptions'}
+                  </Button>
                 </div>
               </div>
             </CardContent>

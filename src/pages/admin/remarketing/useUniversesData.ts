@@ -668,5 +668,9 @@ export function useUniversesData() {
 
     // Flagged deal removal
     removeFlaggedDeal,
+
+    // Description backfill
+    isBackfillingDescriptions,
+    backfillMissingDescriptions,
   };
 }

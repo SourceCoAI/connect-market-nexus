@@ -412,7 +412,7 @@ serve(async (req) => {
             archived: row.archived === 'true',
           };
 
-          const { data: inserted, error } = await supabase
+      const { data: inserted, error } = await supabase
             .from('buyer_universes')
             .insert(universeData)
             .select('id')
@@ -423,6 +423,14 @@ serve(async (req) => {
           } else {
             universeIdMap[String(row.id)] = inserted.id;
             results.universes.imported++;
+
+            // Auto-generate description (non-blocking)
+            const uName = String(row.industry_name || 'Unknown');
+            if (uName !== 'Unknown') {
+              generateDescription(supabase, inserted.id, uName).catch((e: unknown) =>
+                console.warn(`Description gen failed for ${uName}:`, e)
+              );
+            }
           }
         } catch (e) {
           results.universes.errors.push(`Universe ${row.industry_name}: ${getErrorMessage(e)}`);
