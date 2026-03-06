@@ -7098,6 +7098,7 @@ export type Database = {
           extraction_sources: Json | null
           files: string[] | null
           financial_followup_questions: string[] | null
+          financial_notes: string | null
           fireflies_url: string | null
           founded_year: number | null
           fts: unknown
@@ -7291,6 +7292,7 @@ export type Database = {
           extraction_sources?: Json | null
           files?: string[] | null
           financial_followup_questions?: string[] | null
+          financial_notes?: string | null
           fireflies_url?: string | null
           founded_year?: number | null
           fts?: unknown
@@ -7484,6 +7486,7 @@ export type Database = {
           extraction_sources?: Json | null
           files?: string[] | null
           financial_followup_questions?: string[] | null
+          financial_notes?: string | null
           fireflies_url?: string | null
           founded_year?: number | null
           fts?: unknown
@@ -12321,6 +12324,7 @@ export type Database = {
           extraction_sources: Json | null
           files: string[] | null
           financial_followup_questions: string[] | null
+          financial_notes: string | null
           fireflies_url: string | null
           founded_year: number | null
           fts: unknown
