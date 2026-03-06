@@ -38,13 +38,14 @@ import { logEnrichmentEvent } from '../_shared/enrichment-events.ts';
 // Moderate parallelism to avoid rate limits across concurrent queue processors.
 // Each deal enrichment makes 1 Firecrawl + 1 Gemini + optional LinkedIn/Google calls.
 const BATCH_SIZE = 10; // Fetch 10 items per run
-const CONCURRENCY_LIMIT = 5; // Process 5 items in parallel (LinkedIn/Google removed — only enrich-deal now)
+const CONCURRENCY_LIMIT = 3; // Process 3 items in parallel — enrich-deal now includes notes analysis (30s+)
 const MAX_ATTEMPTS = 3; // Maximum retry attempts
-const PROCESSING_TIMEOUT_MS = 25000; // 25s per item — leaves adequate headroom for function overhead within the 50s runtime budget
+const PROCESSING_TIMEOUT_MS = 120000; // 120s per item — enrich-deal processes transcripts + notes + website
 const INTER_CHUNK_DELAY_MS = 1000; // 1s between parallel chunks
 
 // Stop early to avoid the platform killing the function mid-item.
-const MAX_FUNCTION_RUNTIME_MS = 50000; // 50s — must stay well under the 58s edge function hard-kill limit
+// enrich-deal uses 140s budget internally, so this worker needs at least that long.
+const MAX_FUNCTION_RUNTIME_MS = 140000; // 140s — matches enrich-deal's internal budget
 
 // N06 FIX: Maximum number of self-continuations to prevent infinite loops.
 // Each invocation processes BATCH_SIZE items, so 50 continuations = up to 500 items.
