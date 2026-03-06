@@ -56,6 +56,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { DailyStandupTaskWithRelations } from '@/types/daily-tasks';
+import { FirefliesDiagnosticPanel } from '@/components/daily-tasks/FirefliesDiagnosticPanel';
 
 // ─── Group tasks by assignee into separate sections ───
 interface TaskGroup {
@@ -492,6 +493,9 @@ const DailyTaskDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Fireflies Pipeline Diagnostic (leadership only) */}
+      {isLeadership && <FirefliesDiagnosticPanel />}
 
       {/* Pending Approval Banner (leadership only) */}
       {pendingApprovalTasks.length > 0 && (
