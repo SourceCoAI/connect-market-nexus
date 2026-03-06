@@ -1,6 +1,7 @@
-import { CheckCircle2, AlertCircle, Shield, MapPin, ImageIcon } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Shield, MapPin, ImageIcon, ExternalLink } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import ListingStatusTag from '@/components/listing/ListingStatusTag';
 import ListingCardBadges from '@/components/listing/ListingCardBadges';
 import ListingCardTitle from '@/components/listing/ListingCardTitle';
@@ -29,6 +30,7 @@ export interface EditorPreviewFormValues {
 interface EditorLivePreviewProps {
   formValues: EditorPreviewFormValues;
   imagePreview: string | null;
+  listingId?: string | null;
 }
 
 function parseNum(val: string | number | undefined): number {
@@ -520,7 +522,7 @@ function AnonymousLandingPreview({ formValues }: EditorLivePreviewProps) {
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
-export function EditorLivePreview({ formValues, imagePreview }: EditorLivePreviewProps) {
+export function EditorLivePreview({ formValues, imagePreview, listingId }: EditorLivePreviewProps) {
   return (
     <div className="p-5 space-y-5">
       {/* Quality Score */}
@@ -537,17 +539,30 @@ export function EditorLivePreview({ formValues, imagePreview }: EditorLivePrevie
                   How buyers see this listing across different surfaces
                 </p>
               </div>
-              <TabsList className="h-8">
-                <TabsTrigger value="card" className="text-xs h-7 px-3">
-                  Card
-                </TabsTrigger>
-                <TabsTrigger value="full" className="text-xs h-7 px-3">
-                  Full Listing
-                </TabsTrigger>
-                <TabsTrigger value="anonymous" className="text-xs h-7 px-3">
-                  Anonymous Page
-                </TabsTrigger>
-              </TabsList>
+              <div className="flex items-center gap-2">
+                {listingId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 px-3 gap-1.5"
+                    onClick={() => window.open(`/admin/listing-preview/${listingId}`, '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Open in Browser
+                  </Button>
+                )}
+                <TabsList className="h-8">
+                  <TabsTrigger value="card" className="text-xs h-7 px-3">
+                    Card
+                  </TabsTrigger>
+                  <TabsTrigger value="full" className="text-xs h-7 px-3">
+                    Full Listing
+                  </TabsTrigger>
+                  <TabsTrigger value="anonymous" className="text-xs h-7 px-3">
+                    Anonymous Page
+                  </TabsTrigger>
+                </TabsList>
+              </div>
             </div>
           </div>
 

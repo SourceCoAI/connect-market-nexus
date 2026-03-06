@@ -126,6 +126,7 @@ const EnrichmentQueue = lazyWithRetry(() => import('@/pages/admin/EnrichmentQueu
 const MarketplaceQueue = lazyWithRetry(() => import('@/pages/admin/MarketplaceQueue'));
 const CreateListingFromDeal = lazyWithRetry(() => import('@/pages/admin/CreateListingFromDeal'));
 const AdminListings = lazyWithRetry(() => import('@/pages/admin/AdminListings'));
+const ListingPreview = lazyWithRetry(() => import('@/pages/ListingPreview'));
 const DataRecoveryPage = lazyWithRetry(() => import('@/pages/admin/DataRecoveryPage'));
 const FormMonitoringPage = lazyWithRetry(() => import('@/pages/admin/FormMonitoringPage'));
 const SecuritySettings = lazyWithRetry(() => import('@/pages/admin/settings/SecuritySettings'));
@@ -365,6 +366,7 @@ function App() {
               <Route path="lists/:id" element={<ContactListDetailPage />} />
 
               {/* MARKETPLACE (listings absorbed into unified All Deals page) */}
+              <Route path="listing-preview/:id" element={<ListingPreview />} />
               <Route path="marketplace/listings" element={<AdminListings />} />
               <Route path="marketplace/queue" element={<MarketplaceQueue />} />
               <Route path="marketplace/create-listing" element={<CreateListingFromDeal />} />

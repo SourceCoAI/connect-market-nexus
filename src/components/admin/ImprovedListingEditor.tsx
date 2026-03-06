@@ -489,6 +489,7 @@ export function ImprovedListingEditor({
                   >['formValues']
                 }
                 imagePreview={imagePreview}
+                listingId={listing?.id}
               />
             </div>
 
