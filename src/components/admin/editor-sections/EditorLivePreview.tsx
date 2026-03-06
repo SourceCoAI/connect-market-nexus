@@ -339,9 +339,7 @@ function FullListingPreview({ formValues, imagePreview }: EditorLivePreviewProps
         {/* Sidebar CTA mockup */}
         <div className="mt-6 bg-white/50 border border-slate-200/60 rounded-lg p-6 shadow-sm max-w-[280px]">
           <div className="text-center mb-4">
-            <h3 className="text-base font-medium text-foreground mb-2">
-              Interested in This Deal?
-            </h3>
+            <h3 className="text-base font-medium text-foreground mb-2">Interested in This Deal?</h3>
             <p className="text-xs text-foreground/70 leading-relaxed">
               Get full access to detailed financials and business metrics
             </p>
@@ -357,7 +355,7 @@ function FullListingPreview({ formValues, imagePreview }: EditorLivePreviewProps
 
 // ─── Preview 3: Anonymous Landing Page Preview ───────────────────────────────
 
-function AnonymousLandingPreview({ formValues, imagePreview }: EditorLivePreviewProps) {
+function AnonymousLandingPreview({ formValues }: EditorLivePreviewProps) {
   const revenue = parseNum(formValues.revenue);
   const ebitda = parseNum(formValues.ebitda);
   const marginPct = revenue > 0 ? ((ebitda / revenue) * 100).toFixed(1) : '0';
@@ -370,9 +368,7 @@ function AnonymousLandingPreview({ formValues, imagePreview }: EditorLivePreview
   };
 
   const anonTitle = anonymizeText(formValues.title || 'Untitled Listing');
-  const anonHero = formValues.hero_description
-    ? anonymizeText(formValues.hero_description)
-    : null;
+  const anonHero = formValues.hero_description ? anonymizeText(formValues.hero_description) : null;
 
   const metrics = [
     {

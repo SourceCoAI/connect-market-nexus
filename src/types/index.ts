@@ -346,3 +346,23 @@ export type {
 } from './analytics';
 export type { NonMarketplaceUser, NonMarketplaceUserFilters } from './non-marketplace-user';
 export type { Transcript, WebhookConfig, WebhookDelivery, TranscriptHealth } from './transcript';
+export type {
+  ListingPipelineStatus,
+  ConnectionRequestStatus as FullConnectionRequestStatus,
+  IntroductionStatus as FullIntroductionStatus,
+  MemoStatus,
+  MarketplaceListingStatus,
+  EnrichmentJobStatus,
+  BuyerTypeEnum,
+  GlobalActivityStatus,
+} from './status-enums';
+export {
+  LISTING_PIPELINE_STATUSES,
+  CONNECTION_REQUEST_STATUSES,
+  INTRODUCTION_STATUSES,
+  MEMO_STATUSES,
+  MARKETPLACE_LISTING_STATUSES,
+  ENRICHMENT_JOB_STATUSES,
+  BUYER_TYPE_ENUMS,
+  GLOBAL_ACTIVITY_STATUSES,
+} from './status-enums';

@@ -1,19 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
-export type MFAStatus = "disabled" | "enrolled" | "verified";
+export type MFAStatus = 'disabled' | 'enrolled' | 'verified';
 
 interface MFAFactor {
   id: string;
   friendly_name?: string;
-  factor_type: "totp";
-  status: "unverified" | "verified";
+  factor_type: 'totp';
+  status: 'unverified' | 'verified';
   created_at: string;
 }
 
 interface EnrollResult {
   id: string;
-  type: "totp";
+  type: 'totp';
   totp: {
     qr_code: string; // data URI
     secret: string;
@@ -22,7 +22,7 @@ interface EnrollResult {
 }
 
 export function useMFA() {
-  const [status, setStatus] = useState<MFAStatus>("disabled");
+  const [status, setStatus] = useState<MFAStatus>('disabled');
   const [factors, setFactors] = useState<MFAFactor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,14 +38,14 @@ export function useMFA() {
       const totpFactors = (data?.totp || []) as MFAFactor[];
       setFactors(totpFactors);
 
-      const verifiedFactor = totpFactors.find((f) => f.status === "verified");
+      const verifiedFactor = totpFactors.find((f) => f.status === 'verified');
       if (verifiedFactor) {
-        setStatus("enrolled");
+        setStatus('enrolled');
       } else {
-        setStatus("disabled");
+        setStatus('disabled');
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to fetch MFA status");
+      setError(err instanceof Error ? err.message : 'Failed to fetch MFA status');
     } finally {
       setIsLoading(false);
     }
@@ -55,32 +55,28 @@ export function useMFA() {
     fetchFactors();
   }, [fetchFactors]);
 
-  const enroll = async (
-    friendlyName?: string
-  ): Promise<EnrollResult | null> => {
+  const enroll = async (friendlyName?: string): Promise<EnrollResult | null> => {
     try {
       setError(null);
       const { data, error: enrollError } = await supabase.auth.mfa.enroll({
-        factorType: "totp",
-        friendlyName: friendlyName || "SourceCo Authenticator",
+        factorType: 'totp',
+        friendlyName: friendlyName || 'SourceCo Authenticator',
       });
       if (enrollError) throw enrollError;
       return data as EnrollResult;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to start MFA enrollment");
+      setError(err instanceof Error ? err.message : 'Failed to start MFA enrollment');
       return null;
     }
   };
 
-  const verify = async (
-    factorId: string,
-    code: string
-  ): Promise<boolean> => {
+  const verify = async (factorId: string, code: string): Promise<boolean> => {
     try {
       setError(null);
 
-      const { data: challengeData, error: challengeError } =
-        await supabase.auth.mfa.challenge({ factorId });
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+        factorId,
+      });
       if (challengeError) throw challengeError;
 
       const { error: verifyError } = await supabase.auth.mfa.verify({
@@ -92,10 +88,10 @@ export function useMFA() {
 
       // Refresh factors
       await fetchFactors();
-      setStatus("verified");
+      setStatus('verified');
       return true;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Invalid verification code");
+      setError(err instanceof Error ? err.message : 'Invalid verification code');
       return false;
     }
   };
@@ -111,15 +107,15 @@ export function useMFA() {
       await fetchFactors();
       return true;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to disable MFA");
+      setError(err instanceof Error ? err.message : 'Failed to disable MFA');
       return false;
     }
   };
 
   const challengeAndVerify = async (code: string): Promise<boolean> => {
-    const verifiedFactor = factors.find((f) => f.status === "verified");
+    const verifiedFactor = factors.find((f) => f.status === 'verified');
     if (!verifiedFactor) {
-      setError("No MFA factor enrolled");
+      setError('No MFA factor enrolled');
       return false;
     }
     return verify(verifiedFactor.id, code);
@@ -130,8 +126,7 @@ export function useMFA() {
     nextLevel: string | null;
     currentAuthenticationMethods: Array<{ method: string; timestamp: number }>;
   }> => {
-    const { data, error: alError } =
-      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const { data, error: alError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (alError) throw alError;
     return {
       currentLevel: data.currentLevel ?? 'aal1',
@@ -163,28 +158,30 @@ export function useMFAChallengeRequired() {
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
+    let active = true;
     const check = async () => {
       try {
-        const { data, error } =
-          await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         if (error) throw error;
 
+        if (!active) return;
+
         // User has MFA enrolled (nextLevel is aal2) but current session is aal1
-        if (
-          data.currentLevel === "aal1" &&
-          data.nextLevel === "aal2"
-        ) {
+        if (data.currentLevel === 'aal1' && data.nextLevel === 'aal2') {
           setNeedsChallenge(true);
         } else {
           setNeedsChallenge(false);
         }
       } catch {
-        setNeedsChallenge(false);
+        if (active) setNeedsChallenge(false);
       } finally {
-        setIsChecking(false);
+        if (active) setIsChecking(false);
       }
     };
     check();
+    return () => {
+      active = false;
+    };
   }, []);
 
   return { needsChallenge, isChecking };

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FormField, FormItem, FormControl } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { NumericInput } from '@/components/ui/numeric-input';
 import {
   Select,
   SelectContent,
@@ -345,7 +344,6 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
               )}
             />
           </div>
-
 
           {/* Status */}
           <div className={cn('pt-3', EDITOR_DESIGN.subtleDivider, EDITOR_DESIGN.microFieldSpacing)}>

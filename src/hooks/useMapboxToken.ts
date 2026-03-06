@@ -35,28 +35,29 @@ export function useMapboxToken() {
   const [isLoading, setIsLoading] = useState(!cachedToken);
 
   useEffect(() => {
+    let active = true;
+
     // If we already have a cached token, use it immediately
     if (cachedToken) {
       setToken(cachedToken);
       setIsLoading(false);
-      return;
-    }
+    } else {
+      // If a fetch is in progress, wait for it; otherwise start one
+      if (!tokenPromise) {
+        tokenPromise = fetchMapboxToken();
+      }
 
-    // If a fetch is in progress, wait for it
-    if (tokenPromise) {
       tokenPromise.then((fetchedToken) => {
-        setToken(fetchedToken);
-        setIsLoading(false);
+        if (active) {
+          setToken(fetchedToken);
+          setIsLoading(false);
+        }
       });
-      return;
     }
 
-    // Start a new fetch
-    tokenPromise = fetchMapboxToken();
-    tokenPromise.then((fetchedToken) => {
-      setToken(fetchedToken);
-      setIsLoading(false);
-    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   return { token, isLoading };
