@@ -554,6 +554,7 @@ export async function executeTool(
     'enrich_contact',
     'find_contact',
     'clay_find_email',
+    'clay_find_phone',
     // Legacy names (backward compat)
     'enrich_buyer_contacts',
     'enrich_linkedin_contact',
