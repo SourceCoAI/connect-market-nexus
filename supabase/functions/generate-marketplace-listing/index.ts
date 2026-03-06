@@ -621,19 +621,7 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
       'VT': 'New England', 'VA': 'Southeast', 'WA': 'West Coast', 'WV': 'Mid-Atlantic',
       'WI': 'Midwest', 'WY': 'Mountain West',
     };
-    const region = state ? (stateAbbrevToRegion[state.toUpperCase()] || '') : '';
-    const margin = deal.ebitda && deal.revenue
-      ? Math.round(((deal.ebitda as number) / (deal.revenue as number)) * 100)
-      : 0;
-    const rev = (deal.revenue as number) || 0;
-    const titleDescriptor = margin >= 25 ? 'High-Margin'
-      : margin >= 15 ? 'Profitable'
-      : rev >= 10_000_000 ? 'Scaled'
-      : rev >= 5_000_000 ? 'Growth-Stage'
-      : 'Established';
-    const generatedTitle = region
-      ? `${titleDescriptor} ${industry} Business — ${region}`
-      : `${titleDescriptor} ${industry} Business`;
+    const regionDescriptor = state ? (stateAbbrevToRegion[state.toUpperCase()] || '') : '';
 
     // Step 6c: Extract hero_description from BUSINESS OVERVIEW section.
     // This section is already a clean 2-3 sentence elevator pitch that follows
@@ -674,13 +662,12 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
         title: anonymousTitle,
         description_html: descriptionHtml,
         description: markdownText,
-        title: generatedTitle,
       };
       if (heroDescription) {
         listingUpdate.hero_description = heroDescription;
       }
-      if (region) {
-        listingUpdate.location = region;
+      if (regionDescriptor) {
+        listingUpdate.location = regionDescriptor;
       }
       const { error: updateError } = await supabaseAdmin
         .from('listings')
@@ -721,7 +708,7 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
         description_html: descriptionHtml,
         description_markdown: markdownText,
         hero_description: heroDescription || null,
-        location: region || null,
+        location: regionDescriptor || null,
         validation,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
