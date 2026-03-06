@@ -296,6 +296,14 @@ serve(async (req) => {
           }
         }
 
+        // BUG-9 FIX: Update global queue progress for auto-completed items.
+        // Previously this was skipped, causing the global queue to show incorrect counts.
+        if (itemsToComplete.length > 0) {
+          await updateGlobalQueueProgress(supabase, 'deal_enrichment', {
+            completedDelta: itemsToComplete.length,
+          });
+        }
+
         // Remove completed non-force items, keep force items
         const nonForceRemaining = nonForceItems.filter(
           (item: { listing_id: string }) => !alreadyEnrichedIds.has(item.listing_id),
@@ -303,13 +311,61 @@ serve(async (req) => {
         queueItems = [...forceItems, ...nonForceRemaining];
 
         if (queueItems.length === 0) {
-          console.log('All items were already enriched — nothing to process');
+          console.log(
+            `All ${alreadyEnrichedIds.size} items in this batch were already enriched — checking for remaining queue items`,
+          );
+
+          // BUG-9 FIX: Don't return early! Check for remaining pending items
+          // and trigger self-continuation so the full queue gets processed.
+          const { count: remainingPendingCount } = await supabase
+            .from('enrichment_queue')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending');
+
+          const remainingPending = remainingPendingCount ?? 0;
+
+          if (remainingPending > 0) {
+            const continuationCount =
+              typeof body.continuationCount === 'number' ? body.continuationCount : 0;
+
+            if (continuationCount < MAX_CONTINUATIONS) {
+              console.log(
+                `${remainingPending} items still pending — triggering continuation ${continuationCount + 1}/${MAX_CONTINUATIONS}...`,
+              );
+              const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+              // Fire-and-forget self-continuation
+              fetch(`${supabaseUrl}/functions/v1/process-enrichment-queue`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${supabaseServiceKey}`,
+                  apikey: anonKey,
+                },
+                body: JSON.stringify({
+                  source: 'self-continuation',
+                  continuationCount: continuationCount + 1,
+                }),
+                signal: AbortSignal.timeout(30_000),
+              }).catch((err: unknown) => {
+                console.warn('[process-enrichment-queue] Continuation trigger failed:', err);
+              });
+            } else {
+              console.error(
+                `MAX_CONTINUATIONS reached — ${remainingPending} items still pending`,
+              );
+              await completeGlobalQueueOperation(supabase, 'deal_enrichment', 'failed');
+            }
+          } else {
+            await completeGlobalQueueOperation(supabase, 'deal_enrichment');
+          }
+
           return new Response(
             JSON.stringify({
               success: true,
               message: `Synced ${alreadyEnrichedIds.size} already-enriched items to completed`,
               processed: 0,
               synced: alreadyEnrichedIds.size,
+              remaining: remainingPending,
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
           );
