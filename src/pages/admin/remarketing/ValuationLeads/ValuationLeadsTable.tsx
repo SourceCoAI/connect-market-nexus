@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { formatCompactCurrency } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useShiftSelect } from '@/hooks/useShiftSelect';
@@ -113,7 +112,7 @@ export function ValuationLeadsTable({
   PAGE_SIZE,
   refetch,
 }: ValuationLeadsTableProps) {
-  const navigate = useNavigate();
+  
   const queryClient = useQueryClient();
 
   const orderedIds = useMemo(() => paginatedLeads.map((l) => l.id), [paginatedLeads]);
