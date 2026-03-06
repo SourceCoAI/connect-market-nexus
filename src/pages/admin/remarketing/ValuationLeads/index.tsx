@@ -91,7 +91,7 @@ export default function ValuationLeads() {
     setHidePushed,
     hideNotFit,
     setHideNotFit,
-    handleRowClick: _handleRowClick,
+    handleRowClick,
     handlePushToAllDeals,
     handlePushAndEnrich,
     handleReEnrich,
@@ -456,7 +456,7 @@ export default function ValuationLeads() {
         allSelected={allSelected}
         toggleSelectAll={toggleSelectAll}
         toggleSelect={toggleSelect}
-        handleRowClick={(lead: ValuationLead) => setDetailLead(lead)}
+        handleRowClick={handleRowClick}
         handlePushToAllDeals={handlePushToAllDeals}
         handleReEnrich={handleReEnrich}
         handlePushAndEnrich={handlePushAndEnrich}

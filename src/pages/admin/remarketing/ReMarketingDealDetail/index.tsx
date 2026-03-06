@@ -3,11 +3,12 @@
 // The monolithic sibling file ReMarketingDealDetail.tsx (1,675 lines) is ORPHANED.
 // AUDIT REF: CTO Audit February 2026
 
+import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building2, Eye, Activity, UserPlus, FolderOpen, ListChecks } from 'lucide-react';
+import { Building2, Eye, Activity, UserPlus, FolderOpen, ListChecks, Calculator } from 'lucide-react';
 import { CreateTaskButton, EntityTasksTab, DealSignalsPanel } from '@/components/daily-tasks';
 import { useDealDetail } from './useDealDetail';
 import { CapTargetInfoCard } from './CapTargetInfoCard';
@@ -21,6 +22,7 @@ import {
 } from '@/components/remarketing/deal-detail';
 import { ListingNotesLog } from '@/components/remarketing/deal-detail/ListingNotesLog';
 import { BuyerIntroductionPage } from '@/components/admin/deals/buyer-introductions/BuyerIntroductionPage';
+import { ValuationTab } from './ValuationTab';
 
 const ReMarketingDealDetail = () => {
   const {
@@ -72,6 +74,8 @@ const ReMarketingDealDetail = () => {
     );
   }
 
+  const isValuationDeal = deal?.deal_source === 'valuation_calculator';
+
   if (!deal) {
     return (
       <div className="p-6">
@@ -116,11 +120,17 @@ const ReMarketingDealDetail = () => {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className={cn('grid w-full', isValuationDeal ? 'grid-cols-6' : 'grid-cols-5')}>
           <TabsTrigger value="overview" className="text-sm">
             <Eye className="mr-1.5 h-3.5 w-3.5" />
             Overview
           </TabsTrigger>
+          {isValuationDeal && (
+            <TabsTrigger value="valuation" className="text-sm">
+              <Calculator className="mr-1.5 h-3.5 w-3.5" />
+              Valuation
+            </TabsTrigger>
+          )}
           <TabsTrigger value="contact-history" className="text-sm">
             <Activity className="mr-1.5 h-3.5 w-3.5" />
             Contact History
@@ -163,6 +173,12 @@ const ReMarketingDealDetail = () => {
             queryClient={queryClient}
           />
         </TabsContent>
+
+        {isValuationDeal && (
+          <TabsContent value="valuation" className="space-y-6">
+            <ValuationTab dealId={dealId!} />
+          </TabsContent>
+        )}
 
         <TabsContent value="contact-history" className="space-y-6">
           <DealContactHistoryTab

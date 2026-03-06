@@ -493,13 +493,7 @@ export function ValuationLeadsTable({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => {
-                              if (lead.pushed_listing_id)
-                                navigate('/admin/deals/' + lead.pushed_listing_id, {
-                                  state: { from: '/admin/remarketing/leads/valuation' },
-                                });
-                              else handleRowClick(lead);
-                            }}
+                            onClick={() => handleRowClick(lead)}
                           >
                             <ExternalLink className="h-4 w-4 mr-2" />
                             View Deal
