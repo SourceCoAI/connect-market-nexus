@@ -44,7 +44,7 @@ interface AddDealDialogProps {
 }
 
 const formatCurrency = (value: number | null) => {
-  if (!value) return null;
+  if (value === null || value === undefined) return null;
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
   return `$${value}`;

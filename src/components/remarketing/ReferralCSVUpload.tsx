@@ -167,7 +167,7 @@ export function ReferralCSVUpload({ shareToken, password, onUploaded }: Referral
   };
 
   const formatCurrency = (value: number | null) => {
-    if (!value) return '-';
+    if (value === null || value === undefined) return '-';
     if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
     if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
     return `$${value.toLocaleString()}`;

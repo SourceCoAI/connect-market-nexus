@@ -575,27 +575,40 @@ serve(async (req) => {
         }
 
         if (Object.keys(buyerUpdates).length > 0) {
-          // Merge per-field source tracking into existing extraction_sources object
+          // Build the per-field source map for priority lookups (canOverwriteField)
+          // getFieldSource() expects an object keyed by field name, so we must store
+          // extraction_sources as an object — NOT the legacy array format.
+          const existingSourcesObj =
+            existingBuyer?.extraction_sources &&
+            typeof existingBuyer.extraction_sources === 'object' &&
+            !Array.isArray(existingBuyer.extraction_sources)
+              ? existingBuyer.extraction_sources
+              : {};
+
           const mergedExtractionSources = updateExtractionSources(
-            existingBuyer?.extraction_sources,
+            existingSourcesObj as Record<string, any>,
             sourceUpdates as Record<string, any>,
           );
 
-          buyerUpdates.extraction_sources = [
-            ...existingSources,
-            {
-              type: 'transcript',
-              transcript_id: transcriptRecord.id,
-              extracted_at: new Date().toISOString(),
-              fields_extracted: Object.keys(buyerUpdates).filter((k) => k !== 'extraction_sources'),
-              confidence: insights.overall_confidence,
-            },
-          ];
-          // Also store the per-field source map for priority lookups
-          if (typeof mergedExtractionSources === 'object' && !Array.isArray(mergedExtractionSources)) {
-            // If extraction_sources is already an array (legacy format), keep appending
-            // The per-field source updates are stored alongside for canOverwriteField lookups
-          }
+          // Store as object format so getFieldSource() works on subsequent runs.
+          // Also embed a _history array for audit trail (replaces legacy top-level array).
+          const historyArray = Array.isArray(existingBuyer?.extraction_sources)
+            ? existingBuyer.extraction_sources
+            : (existingSourcesObj as Record<string, any>)?._history || [];
+
+          buyerUpdates.extraction_sources = {
+            ...mergedExtractionSources,
+            _history: [
+              ...historyArray,
+              {
+                type: 'transcript',
+                transcript_id: transcriptRecord.id,
+                extracted_at: new Date().toISOString(),
+                fields_extracted: Object.keys(buyerUpdates).filter((k) => k !== 'extraction_sources'),
+                confidence: insights.overall_confidence,
+              },
+            ],
+          };
           buyerUpdates.data_last_updated = new Date().toISOString();
 
           await supabase.from('buyers').update(buyerUpdates).eq('id', buyer_id);

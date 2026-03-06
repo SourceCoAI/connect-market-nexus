@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { normalizeStates, extractStatesFromText, mergeStates } from "../_shared/geography.ts";
 import { buildPriorityUpdates, updateExtractionSources } from "../_shared/source-priority.ts";
-import { isPlaceholder } from "../_shared/deal-extraction.ts";
+import { isPlaceholder, VALID_LISTING_UPDATE_KEYS } from "../_shared/deal-extraction.ts";
 import { callGeminiWithRetry, GEMINI_API_URL, getGeminiHeaders, DEFAULT_GEMINI_MODEL } from "../_shared/ai-providers.ts";
 
 import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
@@ -63,12 +63,15 @@ function parseNumberValue(match: string, multiplier?: string): number | null {
       return num * 1000;
     }
   }
-  
-  // If number is small, assume millions for revenue/EBITDA
-  if (num < 1000) {
+
+  // Without an explicit multiplier, only assume millions for values that look
+  // like shorthand (e.g., "2.5" or "12" meaning $2.5M or $12M).
+  // Values >= 100 without a multiplier are ambiguous — could be $800 literal
+  // or $800K shorthand — so return them as-is and let the threshold filter decide.
+  if (!multiplier && num > 0 && num < 100) {
     return num * 1000000;
   }
-  
+
   return num;
 }
 
@@ -446,6 +449,13 @@ Use the tool to return structured data.`;
         extracted.geographic_states as string[] | undefined,
         geographyFromNotes
       );
+    }
+
+    // Filter extracted fields to valid listing columns before priority check
+    for (const key of Object.keys(extracted)) {
+      if (!VALID_LISTING_UPDATE_KEYS.has(key)) {
+        delete extracted[key];
+      }
     }
 
     // Build priority-aware updates

@@ -165,7 +165,7 @@ export const getScoreDescription = (score: number, disqualified: boolean): strin
 };
 
 export const formatCurrency = (value: number | null | undefined) => {
-  if (!value) return null;
+  if (value === null || value === undefined) return null;
   if (value >= 1000000) {
     return `$${(value / 1000000).toFixed(0)}M`;
   }
