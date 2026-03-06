@@ -580,7 +580,7 @@ export async function enrichLinkedInContact(
       const { data: existingContacts } = await supabase
         .from('contacts')
         .select('id, email, phone, linkedin_url, first_name, last_name')
-        .or(`linkedin_url.ilike.%${normalizedUrl}%`)
+        .or(`linkedin_url.ilike.%${normalizedUrl.replace(/[,%()]/g, '')}%`)
         .eq('archived', false)
         .limit(1);
 
@@ -651,7 +651,7 @@ export async function enrichLinkedInContact(
       const { data: crmMatch } = await supabase
         .from('contacts')
         .select('id, first_name, last_name, title, company_name, listing_id, remarketing_buyer_id')
-        .or(`linkedin_url.ilike.%${normalizedUrl}%`)
+        .or(`linkedin_url.ilike.%${normalizedUrl.replace(/[,%()]/g, '')}%`)
         .eq('archived', false)
         .limit(1);
 
@@ -814,7 +814,7 @@ export async function enrichLinkedInContact(
       const { data: existingContacts } = await supabase
         .from('contacts')
         .select('id, email, phone, linkedin_url, first_name, last_name')
-        .or(`linkedin_url.ilike.%${normalizedUrl}%`)
+        .or(`linkedin_url.ilike.%${normalizedUrl.replace(/[,%()]/g, '')}%`)
         .eq('archived', false)
         .limit(1);
 
