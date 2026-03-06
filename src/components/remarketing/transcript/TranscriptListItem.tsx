@@ -106,7 +106,7 @@ export function TranscriptListItem({
   const isFireflies = transcript.source === 'fireflies';
   const isPhoneBurner = transcript.source === 'phoneburner';
   const showInternalLabel = isFireflies && transcript.external_participants != null && transcript.external_participants.length === 0;
-  const viewUrl = viewUrl || transcript.recording_url || null;
+  const viewUrl = transcript.transcript_url || transcript.recording_url || null;
 
   return (
     <Collapsible

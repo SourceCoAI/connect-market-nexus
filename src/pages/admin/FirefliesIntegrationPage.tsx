@@ -41,17 +41,23 @@ function useFirefliesStats() {
         .select('id', { count: 'exact', head: true })
         .eq('source', 'fireflies');
 
+      // Deal transcripts from PhoneBurner
+      const { count: dealPhoneBurnerCount } = await supabase
+        .from('deal_transcripts')
+        .select('id', { count: 'exact', head: true })
+        .eq('source', 'phoneburner');
+
       // Auto-linked deal transcripts
       const { count: autoLinkedCount } = await supabase
         .from('deal_transcripts')
         .select('id', { count: 'exact', head: true })
         .eq('auto_linked', true);
 
-      // Total deals with Fireflies transcripts
+      // Total deals with any transcripts
       const { data: dealIds } = await supabase
         .from('deal_transcripts')
         .select('listing_id')
-        .eq('source', 'fireflies');
+        .in('source', ['fireflies', 'phoneburner']);
       const uniqueDealIds = new Set((dealIds || []).map((r) => r.listing_id));
 
       // Total active buyers
@@ -82,6 +88,7 @@ function useFirefliesStats() {
         buyerTranscriptCount: buyerTranscriptCount ?? 0,
         buyersWithTranscripts: uniqueBuyerIds.size,
         dealFirefliesCount: dealFirefliesCount ?? 0,
+        dealPhoneBurnerCount: dealPhoneBurnerCount ?? 0,
         autoLinkedCount: autoLinkedCount ?? 0,
         dealsWithTranscripts: uniqueDealIds.size,
         totalBuyers: totalBuyers ?? 0,
@@ -106,9 +113,9 @@ function useRecentPairings() {
       const { data: recentDeal } = await supabase
         .from('deal_transcripts')
         .select(
-          'id, title, call_date, created_at, auto_linked, match_type, listing:listings(title)',
+          'id, title, source, call_date, created_at, auto_linked, match_type, listing:listings(title)',
         )
-        .eq('source', 'fireflies')
+        .in('source', ['fireflies', 'phoneburner'])
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -335,11 +342,18 @@ export default function FirefliesIntegrationPage() {
           subtitle={`${stats?.buyersWithTranscripts ?? 0} of ${stats?.totalBuyers ?? 0} buyers linked`}
         />
         <StatCard
-          title="Deal Transcripts"
+          title="Fireflies Transcripts"
           icon={<Building2 className="h-4 w-4" />}
           loading={statsLoading}
           value={stats?.dealFirefliesCount ?? 0}
           subtitle={`${stats?.dealsWithTranscripts ?? 0} of ${stats?.totalDeals ?? 0} deals linked`}
+        />
+        <StatCard
+          title="PhoneBurner Transcripts"
+          icon={<Phone className="h-4 w-4" />}
+          loading={statsLoading}
+          value={stats?.dealPhoneBurnerCount ?? 0}
+          subtitle="Auto-synced from calls"
         />
         <StatCard
           title="Auto-Linked"
@@ -444,6 +458,11 @@ export default function FirefliesIntegrationPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
+                      {(t as { source?: string }).source === 'phoneburner' && (
+                        <Badge variant="outline" className="text-[10px] h-4 text-green-600 border-green-300">
+                          PB
+                        </Badge>
+                      )}
                       {t.auto_linked && (
                         <Badge variant="outline" className="text-[10px] h-4">
                           auto

@@ -63,6 +63,9 @@ interface DealTranscriptRow {
   applied_to_deal: boolean;
   source: string | null;
   fireflies_transcript_id: string | null;
+  phoneburner_call_id: string | null;
+  contact_activity_id: string | null;
+  recording_url: string | null;
   transcript_url: string | null;
 }
 
