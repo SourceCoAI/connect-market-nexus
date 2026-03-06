@@ -1,27 +1,43 @@
 
 
-## Root Cause
+# Plan: Fix Edge Function Build Errors & Deploy All
 
-The `generate-marketplace-listing` edge function **crashes on boot** with `Identifier 'margin' has already been declared` because there are two `const margin = ...` declarations in the same scope (lines 625 and 659). This is a copy-paste duplication issue — the same title-generation logic appears twice:
+The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
 
-1. **Lines 625-636**: First block computing `margin`, `rev`, `titleDescriptor`, `generatedTitle`
-2. **Lines 659-664**: Second block computing `margin` again, `rev` again, `descriptor`, `anonymousTitle`
+## Errors & Fixes
 
-Because the function can't even boot, every call returns a 500, which causes `CreateListingFromDeal.tsx` to fall back to the "Placeholder description — not buyer-grade" anonymizer path (line 228).
+### 1. `auto-create-firm-on-approval/index.ts` (1 error)
+**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
+**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
 
-Additionally, the listing update object (lines 673-678) has duplicate `title` keys, which is also a bug — the second one silently overwrites the first.
+### 2. `bulk-import-remarketing/index.ts` (2 errors)
+**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
+**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
 
-## Fix Plan
+### 3. `calculate-deal-quality/index.ts` (24 errors)
+**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
+**Fix:**
+- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
+- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
 
-**Single file change: `supabase/functions/generate-marketplace-listing/index.ts`**
+### 4. `clarify-industry/index.ts` (1 error)
+**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
+**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
 
-1. **Remove the first duplicate block (lines 625-636)** — delete the `margin`, `rev`, `titleDescriptor`, `generatedTitle` declarations entirely. They are superseded by the second block which uses `regionDescriptor` (from the proper region-mapping logic earlier in the function) instead of the raw `region` variable.
+### 5. `confirm-agreement-signed/index.ts` (3 errors)
+**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
+**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
 
-2. **Keep lines 659-664** as the canonical title generation, renaming the output to `anonymousTitle` (already named that).
+## After Fixes
+Deploy all edge functions using the deployment tool.
 
-3. **Fix the listing update object (lines 673-678)** — remove the duplicate `title: generatedTitle` on line 677 (which no longer exists after step 1). Keep `title: anonymousTitle`.
-
-4. **Fix line 724** — `location: region` should use `regionDescriptor` to match the anonymized region, not the raw state code.
-
-After the code fix, **redeploy the edge function** so the running version matches the corrected source.
+## Summary of Changes
+| File | Change |
+|------|--------|
+| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
+| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
+| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
+| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
+| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
+| Deploy all ~148 functions | After fixes pass |
 
