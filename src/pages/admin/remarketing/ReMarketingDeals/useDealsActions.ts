@@ -342,6 +342,38 @@ export function useDealsActions({
     [toast, user?.id, setLocalOrder],
   );
 
+  const handleMarkNotAFit = useCallback(
+    async (dealId: string, reason: string) => {
+      const { error } = await supabase
+        .from('listings')
+        .update({ not_a_fit: true, not_a_fit_reason: reason })
+        .eq('id', dealId);
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Marked as Not a Fit', description: reason });
+      refetchListings();
+    },
+    [toast, refetchListings],
+  );
+
+  const handleRemoveNotAFit = useCallback(
+    async (dealId: string) => {
+      const { error } = await supabase
+        .from('listings')
+        .update({ not_a_fit: false, not_a_fit_reason: null })
+        .eq('id', dealId);
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Not a Fit flag removed' });
+      refetchListings();
+    },
+    [toast, refetchListings],
+  );
+
   const handleAssignOwner = useCallback(
     async (dealId: string, ownerId: string | null) => {
       const ownerProfile = ownerId && adminProfiles ? adminProfiles[ownerId] : null;
@@ -619,6 +651,8 @@ export function useDealsActions({
     handleTogglePriority,
     handleToggleUniverseBuild,
     handleToggleBuyerSearch,
+    handleMarkNotAFit,
+    handleRemoveNotAFit,
     handleAssignOwner,
     handleBulkAssignOwner,
     handleBulkArchive,

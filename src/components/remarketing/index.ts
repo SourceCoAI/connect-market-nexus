@@ -3,6 +3,7 @@ export { ScoreBadge, getTierFromScore } from '@/components/shared/ScoreBadge';
 export { ScoreBreakdown } from './ScoreBreakdown';
 export { AIReasoningPanel } from './AIReasoningPanel';
 export { PassReasonDialog } from './PassReasonDialog';
+export { NotAFitReasonDialog } from './NotAFitReasonDialog';
 export { IntelligenceBadge } from './IntelligenceBadge';
 export { BulkScoringPanel } from './BulkScoringPanel';
 export { ScoreFilters, filterScores } from './ScoreFilters';

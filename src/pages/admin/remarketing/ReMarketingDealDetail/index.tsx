@@ -3,13 +3,15 @@
 // The monolithic sibling file ReMarketingDealDetail.tsx (1,675 lines) is ORPHANED.
 // AUDIT REF: CTO Audit February 2026
 
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building2, Eye, Activity, UserPlus, FolderOpen, ListChecks, Calculator } from 'lucide-react';
+import { Ban, Building2, Eye, Activity, UserPlus, FolderOpen, ListChecks, Calculator } from 'lucide-react';
 import { CreateTaskButton, EntityTasksTab, DealSignalsPanel } from '@/components/daily-tasks';
+import { NotAFitReasonDialog } from '@/components/remarketing';
 import { useDealDetail } from './useDealDetail';
 import { CapTargetInfoCard } from './CapTargetInfoCard';
 import { SalesforceInfoCard } from './SalesforceInfoCard';
@@ -61,6 +63,8 @@ const ReMarketingDealDetail = () => {
     displayName,
     listedName,
   } = useDealDetail();
+
+  const [notAFitDialogOpen, setNotAFitDialogOpen] = useState(false);
 
   if (dealLoading) {
     return (
@@ -114,10 +118,42 @@ const ReMarketingDealDetail = () => {
             handleSaveName={handleSaveName}
             handleCancelEdit={handleCancelEdit}
             updateNameMutation={updateNameMutation}
+            onMarkNotAFit={() => setNotAFitDialogOpen(true)}
+            onRemoveNotAFit={() => updateDealMutation.mutate({ not_a_fit: false, not_a_fit_reason: null })}
           />
         </div>
         <CreateTaskButton entityType="deal" entityId={dealId!} entityName={displayName} />
       </div>
+
+      {deal.not_a_fit && (
+        <div className="flex items-center gap-3 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
+          <Ban className="h-5 w-5 text-orange-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-orange-800">This deal is marked as Not a Fit</p>
+            {deal.not_a_fit_reason && (
+              <p className="text-sm text-orange-700 mt-0.5">Reason: {deal.not_a_fit_reason}</p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => updateDealMutation.mutate({ not_a_fit: false, not_a_fit_reason: null })}
+            className="border-orange-300 text-orange-700 hover:bg-orange-100 shrink-0"
+          >
+            Remove Flag
+          </Button>
+        </div>
+      )}
+
+      <NotAFitReasonDialog
+        open={notAFitDialogOpen}
+        onOpenChange={setNotAFitDialogOpen}
+        dealName={displayName}
+        onConfirm={(reason) => {
+          updateDealMutation.mutate({ not_a_fit: true, not_a_fit_reason: reason });
+          setNotAFitDialogOpen(false);
+        }}
+      />
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className={cn('grid w-full', isValuationDeal ? 'grid-cols-6' : 'grid-cols-5')}>
