@@ -320,7 +320,7 @@ export function useUniverseActions(data: UseUniverseDataReturn) {
     // Filter based on mode — "unenriched" skips buyers that already have enrichment data
     const buyersToEnrich =
       mode === 'unenriched'
-        ? buyers.filter((b) => !b.data_last_updated)
+        ? buyers.filter((b) => !(b as any).data_last_updated)
         : buyers;
 
     if (buyersToEnrich.length === 0) {

@@ -121,7 +121,7 @@ export function useConnectionRequestsQuery() {
           let firstError: unknown = null;
           for (const res of results) {
             if (res.error && !firstError) firstError = res.error;
-            if (res.data) allData.push(...res.data);
+            if (res.data) allData.push(...(res.data as Record<string, unknown>[]));
           }
           return { data: allData, error: firstError };
         };

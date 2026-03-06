@@ -74,7 +74,7 @@ export async function generateMemoDocx({
 
   // ─── Letterhead with Logo ───
   // Try to fetch the SourceCo logo for embedding
-  let logoImageRun: ImageRun | null = null;
+  let logoImageRun: InstanceType<typeof ImageRun> | null = null;
   try {
     const logoResponse = await fetch('/lovable-uploads/b879fa06-6a99-4263-b973-b9ced4404acb.png');
     if (logoResponse.ok) {
@@ -90,7 +90,7 @@ export async function generateMemoDocx({
   }
 
   // Letterhead line with logo + brand name
-  const letterheadRuns: (TextRun | ImageRun)[] = [];
+  const letterheadRuns: (InstanceType<typeof TextRun> | InstanceType<typeof ImageRun>)[] = [];
   if (logoImageRun) {
     letterheadRuns.push(logoImageRun);
     letterheadRuns.push(new TextRun({ text: '  ', size: 28, font: 'Arial' }));

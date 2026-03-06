@@ -41,7 +41,7 @@ const labelStyle: React.CSSProperties = {
   fontFamily: "'DM Sans', sans-serif",
 };
 
-export default function DealRequestForm({ listingId, dealTitle }: DealRequestFormProps) {
+export default function DealRequestForm({ listingId, dealTitle: _dealTitle }: DealRequestFormProps) {
   const { submit, isSubmitting, isSuccess, error } = useDealLandingFormSubmit(listingId);
 
   const [firstName, setFirstName] = useState('');

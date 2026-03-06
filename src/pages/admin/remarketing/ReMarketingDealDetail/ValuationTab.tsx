@@ -192,7 +192,7 @@ export function ValuationTab({ dealId }: ValuationTabProps) {
               <div className="flex items-center gap-2 col-span-2">
                 <span className="text-muted-foreground">Submitted:</span>
                 <span>
-                  {format(new Date(lead.created_at), 'MMM d, yyyy h:mm a')}
+                  {format(new Date(lead.created_at || Date.now()), 'MMM d, yyyy h:mm a')}
                 </span>
               </div>
             </div>

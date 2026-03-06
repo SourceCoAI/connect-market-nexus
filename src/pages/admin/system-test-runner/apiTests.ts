@@ -378,7 +378,7 @@ export function buildApiTests(): TestDef[] {
 
   // --- 9h: PhoneBurner Transcript Integration ---
   add(C9, 'PhoneBurner transcript columns exist in deal_transcripts', async () => {
-    const { data, error } = await supabase
+    const { data: _data, error } = await supabase
       .from('deal_transcripts')
       .select('id, phoneburner_call_id, recording_url, contact_activity_id, source')
       .limit(1);

@@ -73,8 +73,8 @@ export function useRevenueOptimization(daysBack: number = 90) {
           .is('deleted_at', null),
         supabase
           .from('listing_analytics')
-          .select('id, listing_id, views, unique_views, saves, connection_requests, created_at')
-          .gte('created_at', startDate.toISOString()),
+          .select('id, listing_id, unique_views, saves, connection_requests, created_at')
+          .gte('created_at', startDate.toISOString()) as any,
         supabase
           .from('connection_requests')
           .select('id, listing_id, user_id, status, created_at')
@@ -108,7 +108,7 @@ export function useRevenueOptimization(daysBack: number = 90) {
         }
 
         const views =
-          analytics?.filter((a) => a.listing_id === listing.id && a.action_type === 'view')
+          (analytics as any[])?.filter((a: any) => a.listing_id === listing.id && a.action_type === 'view')
             .length || 0;
         const listingSaves = saves?.filter((s) => s.listing_id === listing.id).length || 0;
         const listingConnections =
@@ -186,7 +186,7 @@ export function useRevenueOptimization(daysBack: number = 90) {
             (Date.now() - new Date(listing.created_at).getTime()) / (1000 * 60 * 60 * 24),
           );
           const views =
-            analytics?.filter((a) => a.listing_id === listing.id && a.action_type === 'view')
+            (analytics as any[])?.filter((a: any) => a.listing_id === listing.id && a.action_type === 'view')
               .length || 0;
           const listingSaves = saves?.filter((s) => s.listing_id === listing.id).length || 0;
           const listingConnections =
@@ -241,7 +241,7 @@ export function useRevenueOptimization(daysBack: number = 90) {
         {
           stage: 'lead',
           user_count: users.filter((u) => {
-            const userViews = analytics?.filter((a) => a.user_id === u.id).length || 0;
+            const userViews = (analytics as any[])?.filter((a: any) => a.user_id === u.id).length || 0;
             return userViews > 0 && userViews < 5;
           }).length,
           avg_time_in_stage: 3, // days

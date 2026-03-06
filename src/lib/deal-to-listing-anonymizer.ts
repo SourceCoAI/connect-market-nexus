@@ -27,15 +27,6 @@ const STATE_TO_REGION: Record<string, string> = {
   HI: 'Pacific', AK: 'Northwest',
 };
 
-/**
- * Convert a state abbreviation (e.g. "TX") to a regional descriptor (e.g. "South Central").
- * Returns the input unchanged if not a recognized abbreviation.
- */
-export function stateToRegion(state: string): string {
-  const upper = state.trim().toUpperCase();
-  return STATE_TO_REGION[upper] || state;
-}
-
 export interface DealData {
   id: string;
   title: string | null;
@@ -415,7 +406,7 @@ function generateAnonymousDescription(deal: DealData): string {
   const sections: string[] = [];
   const industry = deal.industry || deal.category || 'services';
   const rawState = deal.address_state || deal.location;
-  const state = rawState ? stateToRegion(rawState) : null;
+  const region = rawState ? stateToRegion(rawState) : null;
   const employees = deal.full_time_employees || deal.linkedin_employee_count;
   const margin = deal.ebitda && deal.revenue ? Math.round((deal.ebitda / deal.revenue) * 100) : 0;
   const services = toStringArray(deal.service_mix);
@@ -597,7 +588,7 @@ function filterCleanServices(services: string[]): string[] {
 function generateHeroDescription(deal: DealData): string {
   const industry = deal.industry || deal.category || 'services';
   const rawState = deal.address_state || deal.location;
-  const state = rawState ? stateToRegion(rawState) : null;
+  const region = rawState ? stateToRegion(rawState) : null;
   const employees = deal.full_time_employees || deal.linkedin_employee_count;
   const margin = deal.ebitda && deal.revenue ? Math.round((deal.ebitda / deal.revenue) * 100) : 0;
   const services = toStringArray(deal.service_mix);

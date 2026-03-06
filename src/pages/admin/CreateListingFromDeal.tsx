@@ -126,12 +126,12 @@ export default function CreateListingFromDeal() {
         customer_types: ((deal as Record<string, unknown>).customer_types as string) || null,
         end_market_description:
           ((deal as Record<string, unknown>).end_market_description as string) || null,
-        investment_thesis: ((deal as Record<string, unknown>).investment_thesis as string) || null,
+        investment_thesis: ((deal as Record<string, unknown>).investment_thesis as string) ?? undefined,
         competitive_position:
-          ((deal as Record<string, unknown>).competitive_position as string) || null,
+          ((deal as Record<string, unknown>).competitive_position as string) ?? undefined,
         ownership_structure:
-          ((deal as Record<string, unknown>).ownership_structure as string) || null,
-        seller_motivation: ((deal as Record<string, unknown>).seller_motivation as string) || null,
+          ((deal as Record<string, unknown>).ownership_structure as string) ?? undefined,
+        seller_motivation: ((deal as Record<string, unknown>).seller_motivation as string) ?? undefined,
         business_model: ((deal as Record<string, unknown>).business_model as string) || null,
         revenue_model: ((deal as Record<string, unknown>).revenue_model as string) || null,
         growth_drivers: ((deal as Record<string, unknown>).growth_drivers as string[]) || null,

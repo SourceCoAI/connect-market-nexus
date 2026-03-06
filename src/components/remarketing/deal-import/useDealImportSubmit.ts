@@ -312,7 +312,7 @@ export async function handleImport({
       const computedLocation = city && state ? `${city}, ${state}` : state || city || "Unknown";
 
       // Auto-populate internal_company_name from title for dedup on re-imports
-      const parsed = parsedData as Record<string, unknown>;
+      const parsed = parsedData as unknown as Record<string, unknown>;
       if (parsed.title && !parsed.internal_company_name) {
         parsed.internal_company_name = parsed.title;
       }
