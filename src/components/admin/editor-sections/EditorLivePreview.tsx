@@ -193,9 +193,6 @@ function FullListingPreview({ formValues, imagePreview }: EditorLivePreviewProps
   const revenue = parseNum(formValues.revenue);
   const ebitda = parseNum(formValues.ebitda);
   const ebitdaMargin = revenue > 0 ? ((ebitda / revenue) * 100).toFixed(1) : '0';
-  const ft = formValues.full_time_employees || 0;
-  const pt = formValues.part_time_employees || 0;
-
   const customSections = Array.isArray(formValues.custom_sections)
     ? (formValues.custom_sections as Array<{ title: string; description: string }>)
     : [];
@@ -279,7 +276,7 @@ function FullListingPreview({ formValues, imagePreview }: EditorLivePreviewProps
         </div>
 
         {/* Financial Grid */}
-        <div className="grid grid-cols-4 gap-8 border-b border-border/30 pb-4 mb-6">
+        <div className="grid grid-cols-3 gap-8 border-b border-border/30 pb-4 mb-6">
           {[
             {
               label: `${new Date().getFullYear() - 1} Revenue`,
@@ -290,11 +287,6 @@ function FullListingPreview({ formValues, imagePreview }: EditorLivePreviewProps
               label: 'EBITDA',
               value: formatCurrency(ebitda),
               subtitle: `~${ebitdaMargin}% margin profile`,
-            },
-            {
-              label: 'Team Size',
-              value: `${ft + pt}`,
-              subtitle: `${ft} FT, ${pt} PT`,
             },
             {
               label: 'EBITDA Margin',
@@ -369,9 +361,6 @@ function AnonymousLandingPreview({ formValues, imagePreview }: EditorLivePreview
   const revenue = parseNum(formValues.revenue);
   const ebitda = parseNum(formValues.ebitda);
   const marginPct = revenue > 0 ? ((ebitda / revenue) * 100).toFixed(1) : '0';
-  const ft = formValues.full_time_employees || 0;
-  const pt = formValues.part_time_employees || 0;
-
   // Simulate anonymization: strip company name from title if present
   const companyName = formValues.internal_company_name?.trim();
   const anonymizeText = (text: string): string => {
@@ -395,11 +384,6 @@ function AnonymousLandingPreview({ formValues, imagePreview }: EditorLivePreview
       label: 'EBITDA',
       value: ebitda > 0 ? formatCurrency(ebitda) : '—',
       subtitle: `~${marginPct}% margin profile`,
-    },
-    {
-      label: 'Team Size',
-      value: ft + pt > 0 ? `${ft + pt}` : '—',
-      subtitle: `${ft} FT, ${pt} PT`,
     },
     {
       label: 'EBITDA Margin',
