@@ -258,3 +258,9 @@ verify_jwt = false
 verify_jwt = false
 [functions.receive-valuation-lead]
 verify_jwt = false
+[functions.analyze-buyer-notes]
+verify_jwt = false
+[functions.sync-phoneburner-transcripts]
+verify_jwt = false
+[functions.auto-pair-all-fireflies]
+verify_jwt = false
