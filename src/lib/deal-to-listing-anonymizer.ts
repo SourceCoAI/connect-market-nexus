@@ -318,17 +318,15 @@ function formatIntoParagraphs(text: string): string {
  * This is the primary text buyers see — it must be detailed, compelling, and
  * formatted with a clean mix of concise narrative sentences and bullet points
  * where data is best presented as a list. The goal is maximum readability.
+ *
+ * IMPORTANT: Always produces structured sections regardless of whether an
+ * executive summary exists. The exec summary is used as the Business Overview
+ * section, and additional sections are appended from deal fields for depth.
  */
 function generateAnonymousDescription(deal: DealData): string {
   const source = deal.executive_summary || deal.description || '';
 
-  // If we have existing text, anonymize it and format into paragraphs
-  if (source && source.length > 100) {
-    const anonymized = stripIdentifyingInfo(source, deal);
-    return formatIntoParagraphs(anonymized);
-  }
-
-  // Otherwise build a structured description from deal fields — be EXHAUSTIVE
+  // Build a structured description from deal fields — be EXHAUSTIVE
   // Mix short narrative sentences with bullet points for clean, digestible content
   const sections: string[] = [];
   const industry = deal.industry || deal.category || 'services';
@@ -339,38 +337,45 @@ function generateAnonymousDescription(deal: DealData): string {
   const servicesList = deal.services || [];
   const allServices = [...new Set([...services, ...servicesList])];
 
-  // Section 1: Business Overview — narrative intro + key facts as bullets
-  const overviewParts: string[] = [];
-  let intro = `The Company is an established ${industry.toLowerCase()} business`;
-  if (state) intro += ` headquartered in ${state}`;
-  if (employees && employees > 0) intro += ` with a team of approximately ${employees} employees`;
-  intro += '.';
-  overviewParts.push(intro);
+  // Section 1: Business Overview — use exec summary if available, else build from fields
+  if (source && source.length > 100) {
+    // Use anonymized exec summary as the overview, formatted into paragraphs
+    const anonymized = stripIdentifyingInfo(source, deal);
+    const formatted = formatIntoParagraphs(anonymized);
+    sections.push(`Business Overview\n\n${formatted}`);
+  } else {
+    const overviewParts: string[] = [];
+    let intro = `The Company is an established ${industry.toLowerCase()} business`;
+    if (state) intro += ` headquartered in ${state}`;
+    if (employees && employees > 0) intro += ` with a team of approximately ${employees} employees`;
+    intro += '.';
+    overviewParts.push(intro);
 
-  if (allServices.length > 0) {
-    if (allServices.length > 3) {
-      overviewParts.push(
-        `The company offers a diversified service portfolio spanning ${allServices.length} service lines, including ${allServices.slice(0, 4).join(', ')}, and other complementary offerings.`,
-      );
-    } else {
-      overviewParts.push(`Core capabilities include ${allServices.join(', ')}.`);
+    if (allServices.length > 0) {
+      if (allServices.length > 3) {
+        overviewParts.push(
+          `The company offers a diversified service portfolio spanning ${allServices.length} service lines, including ${allServices.slice(0, 4).join(', ')}, and other complementary offerings.`,
+        );
+      } else {
+        overviewParts.push(`Core capabilities include ${allServices.join(', ')}.`);
+      }
     }
-  }
 
-  // Only bullet out operational details when there are multiple discrete facts
-  const opsBullets: string[] = [];
-  if (deal.number_of_locations && deal.number_of_locations > 1) {
-    opsBullets.push(`${deal.number_of_locations} physical locations`);
-  }
-  if (deal.geographic_states && deal.geographic_states.length > 1) {
-    opsBullets.push(`Operations across ${deal.geographic_states.length} states`);
-  }
+    // Only bullet out operational details when there are multiple discrete facts
+    const opsBullets: string[] = [];
+    if (deal.number_of_locations && deal.number_of_locations > 1) {
+      opsBullets.push(`${deal.number_of_locations} physical locations`);
+    }
+    if (deal.geographic_states && deal.geographic_states.length > 1) {
+      opsBullets.push(`Operations across ${deal.geographic_states.length} states`);
+    }
 
-  let overviewContent = overviewParts.join(' ');
-  if (opsBullets.length > 0) {
-    overviewContent += '\n\n' + opsBullets.map((b) => `- ${b}`).join('\n');
+    let overviewContent = overviewParts.join(' ');
+    if (opsBullets.length > 0) {
+      overviewContent += '\n\n' + opsBullets.map((b) => `- ${b}`).join('\n');
+    }
+    sections.push(`Business Overview\n\n${overviewContent}`);
   }
-  sections.push(`Business Overview\n\n${overviewContent}`);
 
   // Section 2: Financial Highlights — opening sentence + metrics as bullets
   if (deal.revenue || deal.ebitda) {
@@ -640,4 +645,76 @@ export function anonymizeDealToListing(deal: DealData): AnonymizedListingData {
     main_contact_email: deal.main_contact_email || '',
     main_contact_phone: deal.main_contact_phone || '',
   };
+}
+
+/**
+ * Convert a structured plain-text description (with section headers, paragraphs,
+ * and bullet points) into HTML suitable for the TipTap rich text editor.
+ *
+ * Expected input format:
+ *   Section Title\n\nParagraph text.\n\n- Bullet 1\n- Bullet 2\n\nSection Title\n\n...
+ */
+export function descriptionToHtml(plainText: string): string {
+  if (!plainText || plainText.trim().length === 0) return '';
+
+  // Split into sections by double-newline-separated blocks
+  const blocks = plainText.split(/\n\n+/).filter((b) => b.trim().length > 0);
+  const htmlParts: string[] = [];
+
+  // Known section headers from generateAnonymousDescription
+  const sectionHeaders = new Set([
+    'Business Overview',
+    'Financial Highlights',
+    'Market Position',
+    'Growth Opportunities',
+    'Transaction Overview',
+  ]);
+
+  for (const block of blocks) {
+    const trimmed = block.trim();
+
+    // Check if this block is a section header
+    if (sectionHeaders.has(trimmed)) {
+      htmlParts.push(`<h2>${trimmed}</h2>`);
+      continue;
+    }
+
+    // Check if this is a bullet list (lines starting with "- ")
+    const lines = trimmed.split('\n');
+    const isBulletList = lines.every((l) => l.trim().startsWith('- '));
+    if (isBulletList) {
+      const items = lines
+        .map((l) => `<li>${l.trim().replace(/^- /, '')}</li>`)
+        .join('');
+      htmlParts.push(`<ul>${items}</ul>`);
+      continue;
+    }
+
+    // Mixed content: some bullets, some not — split into paragraphs and lists
+    const hasBullets = lines.some((l) => l.trim().startsWith('- '));
+    if (hasBullets) {
+      let currentParagraph: string[] = [];
+      for (const line of lines) {
+        if (line.trim().startsWith('- ')) {
+          // Flush any pending paragraph text
+          if (currentParagraph.length > 0) {
+            htmlParts.push(`<p>${currentParagraph.join(' ')}</p>`);
+            currentParagraph = [];
+          }
+          htmlParts.push(`<ul><li>${line.trim().replace(/^- /, '')}</li></ul>`);
+        } else if (line.trim().length > 0) {
+          currentParagraph.push(line.trim());
+        }
+      }
+      if (currentParagraph.length > 0) {
+        htmlParts.push(`<p>${currentParagraph.join(' ')}</p>`);
+      }
+      continue;
+    }
+
+    // Regular paragraph
+    htmlParts.push(`<p>${trimmed}</p>`);
+  }
+
+  return htmlParts.join('');
 }

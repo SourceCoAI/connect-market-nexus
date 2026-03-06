@@ -6,6 +6,7 @@ import { ImprovedListingEditor } from '@/components/admin/ImprovedListingEditor'
 import { useRobustListingCreation } from '@/hooks/admin/listings/use-robust-listing-creation';
 import {
   anonymizeDealToListing,
+  descriptionToHtml,
   type DealData as DealForAnonymizer,
 } from '@/lib/deal-to-listing-anonymizer';
 import { AdminListing } from '@/types/admin';
@@ -88,6 +89,7 @@ export default function CreateListingFromDeal() {
         id: '', // New listing, no ID yet
         title: anonymized.title,
         description: anonymized.description,
+        description_html: descriptionToHtml(anonymized.description),
         hero_description: anonymized.hero_description,
         categories: anonymized.categories,
         location: anonymized.location,
