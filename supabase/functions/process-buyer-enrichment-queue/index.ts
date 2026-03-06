@@ -225,7 +225,7 @@ Deno.serve(async (req) => {
             .eq('id', item.id);
           console.log(`Rate limited at buyer ${item.buyer_id}`);
           if (enrichmentJobId) {
-            supabase.rpc('update_enrichment_job_progress', { p_job_id: enrichmentJobId, p_rate_limited: true }).catch(() => {});
+            Promise.resolve(supabase.rpc('update_enrichment_job_progress', { p_job_id: enrichmentJobId, p_rate_limited: true })).catch(() => {});
           }
           logEnrichmentEvent(supabase, { entityType: 'buyer', entityId: item.buyer_id, provider: 'gemini', functionName: 'process-buyer-enrichment-queue', stepName: 'enrich-buyer', status: 'rate_limited', jobId: enrichmentJobId || undefined });
           return 'rate_limited';
@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
 
         await updateGlobalQueueProgress(supabase, 'buyer_enrichment', { completedDelta: 1 });
         if (enrichmentJobId) {
-          supabase.rpc('update_enrichment_job_progress', { p_job_id: enrichmentJobId, p_succeeded_delta: 1, p_last_processed_id: item.buyer_id }).catch(() => {});
+          Promise.resolve(supabase.rpc('update_enrichment_job_progress', { p_job_id: enrichmentJobId, p_succeeded_delta: 1, p_last_processed_id: item.buyer_id })).catch(() => {});
         }
         logEnrichmentEvent(supabase, { entityType: 'buyer', entityId: item.buyer_id, provider: 'pipeline', functionName: 'process-buyer-enrichment-queue', stepName: 'enrich-buyer', status: 'success', jobId: enrichmentJobId || undefined });
         return 'success';
@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
         await updateGlobalQueueProgress(supabase, 'buyer_enrichment', { failedDelta: 1, errorEntry: { itemId: item.buyer_id, error: errorMsg } });
 
         if (enrichmentJobId) {
-          supabase.rpc('update_enrichment_job_progress', { p_job_id: enrichmentJobId, p_failed_delta: 1, p_last_processed_id: item.buyer_id, p_error_message: errorMsg }).catch(() => {});
+          Promise.resolve(supabase.rpc('update_enrichment_job_progress', { p_job_id: enrichmentJobId, p_failed_delta: 1, p_last_processed_id: item.buyer_id, p_error_message: errorMsg })).catch(() => {});
         }
         logEnrichmentEvent(supabase, { entityType: 'buyer', entityId: item.buyer_id, provider: 'pipeline', functionName: 'process-buyer-enrichment-queue', stepName: 'enrich-buyer', status: 'failure', errorMessage: errorMsg, jobId: enrichmentJobId || undefined });
         return 'failed';
