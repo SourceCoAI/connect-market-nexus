@@ -373,6 +373,39 @@ export function useUniversesData() {
         .single();
 
       if (error) throw error;
+
+      // Auto-generate description if none was provided
+      if (!newDescription && newName.trim()) {
+        (async () => {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch(
+              `https://vhzipqarkmmfuqadefep.supabase.co/functions/v1/clarify-industry`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${session?.access_token}`,
+                },
+                body: JSON.stringify({
+                  industry_name: newName.trim(),
+                  generate_description: true,
+                }),
+              },
+            );
+            if (response.ok) {
+              const result = await response.json();
+              const desc = result.description ||
+                `Buyer universe targeting companies in the ${newName.trim()} industry. Includes PE firms, strategic acquirers, and family offices actively seeking acquisitions in this space.`;
+              await supabase.from('buyer_universes').update({ description: desc }).eq('id', data.id);
+              queryClient.invalidateQueries({ queryKey: ['remarketing'] });
+            }
+          } catch (e) {
+            console.warn('Auto-generate description failed:', e);
+          }
+        })();
+      }
+
       return data;
     },
     onSuccess: (data) => {
