@@ -845,7 +845,7 @@ serve(async (req) => {
     // ========================================================================
     // STEP 5: WRITE TO DATABASE
     // ========================================================================
-    const { updates, sourceUpdates } = buildPriorityUpdates(
+    const { updates, sourceUpdates, rejected } = buildPriorityUpdates(
       deal,
       deal.extraction_sources,
       extracted,
@@ -853,6 +853,9 @@ serve(async (req) => {
       undefined, // no transcriptId for website source
       isPlaceholder, // treat "Not discussed on this call." etc. as empty
     );
+    if (rejected.length > 0) {
+      console.log(`[Website] ${rejected.length} fields blocked by higher-priority sources:`, rejected);
+    }
 
     const finalUpdates: Record<string, unknown> = {
       ...updates,
