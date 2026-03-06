@@ -1,8 +1,8 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 interface OwnerInquiryNotification {
   name: string;
@@ -17,23 +17,23 @@ interface OwnerInquiryNotification {
 
 const formatRevenueRange = (range: string): string => {
   const labels: Record<string, string> = {
-    under_1m: "Under $1M",
-    "1m_5m": "$1M - $5M",
-    "5m_10m": "$5M - $10M",
-    "10m_25m": "$10M - $25M",
-    "25m_50m": "$25M - $50M",
-    "50m_plus": "$50M+",
+    under_1m: 'Under $1M',
+    '1m_5m': '$1M - $5M',
+    '5m_10m': '$5M - $10M',
+    '10m_25m': '$10M - $25M',
+    '25m_50m': '$25M - $50M',
+    '50m_plus': '$50M+',
   };
   return labels[range] || range;
 };
 
 const formatSaleTimeline = (timeline: string): string => {
   const labels: Record<string, string> = {
-    actively_exploring: "Actively exploring now",
-    within_6_months: "Within 6 months",
-    "6_12_months": "6-12 months",
-    "1_2_years": "1-2 years",
-    just_exploring: "Just exploring",
+    actively_exploring: 'Actively exploring now',
+    within_6_months: 'Within 6 months',
+    '6_12_months': '6-12 months',
+    '1_2_years': '1-2 years',
+    just_exploring: 'Just exploring',
   };
   return labels[timeline] || timeline;
 };
@@ -41,21 +41,24 @@ const formatSaleTimeline = (timeline: string): string => {
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
 
   try {
     const data: OwnerInquiryNotification = await req.json();
-    
-    console.log("Sending owner inquiry notification for:", data.companyName);
 
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    console.log('Sending owner inquiry notification for:', data.companyName);
 
-    const brevoApiKey = Deno.env.get("BREVO_API_KEY");
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
     if (!brevoApiKey) {
-      console.error("BREVO_API_KEY not configured");
-      throw new Error("BREVO_API_KEY not configured");
+      console.error('BREVO_API_KEY not configured');
+      throw new Error('BREVO_API_KEY not configured');
     }
 
     const htmlContent = `
@@ -80,11 +83,15 @@ const handler = async (req: Request): Promise<Response> => {
           <div style="margin-bottom: 12px;">
             <strong style="color: #475569;">Company:</strong> ${data.companyName}
           </div>
-          ${data.businessWebsite ? `
+          ${
+            data.businessWebsite
+              ? `
           <div style="margin-bottom: 12px;">
             <strong style="color: #475569;">Website:</strong> <a href="${data.businessWebsite}" target="_blank" style="color: #6d2c36;">${data.businessWebsite}</a>
           </div>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
 
         <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
@@ -98,14 +105,18 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         </div>
 
-        ${data.message ? `
+        ${
+          data.message
+            ? `
         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px;">Message</h2>
           <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #6d2c36;">
-            ${data.message.replace(/\n/g, "<br>")}
+            ${data.message.replace(/\n/g, '<br>')}
           </div>
         </div>
-        ` : ''}
+        `
+            : ''
+        }
 
         <div style="text-align: center; margin: 30px 0;">
           <a href="https://marketplace.sourcecodeals.com/admin/marketplace/users" 
@@ -120,39 +131,42 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    const recipientEmail = Deno.env.get('OWNER_INQUIRY_RECIPIENT_EMAIL') || "adam.haile@sourcecodeals.com";
+    const recipientEmail =
+      Deno.env.get('OWNER_INQUIRY_RECIPIENT_EMAIL') || 'adam.haile@sourcecodeals.com';
     const correlationId = crypto.randomUUID();
 
-    const emailResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
+    const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
       headers: {
-        "api-key": brevoApiKey,
-        "Content-Type": "application/json",
-        "Accept": "application/json"
+        'api-key': brevoApiKey,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
       body: JSON.stringify({
         sender: {
-          name: "SourceCo Marketplace",
-          email: Deno.env.get('OWNER_INQUIRY_SENDER_EMAIL') || "adam.haile@sourcecodeals.com"
+          name: 'SourceCo Marketplace',
+          email: Deno.env.get('OWNER_INQUIRY_SENDER_EMAIL') || 'adam.haile@sourcecodeals.com',
         },
-        to: [{
-          email: recipientEmail,
-          name: Deno.env.get('OWNER_INQUIRY_RECIPIENT_NAME') || "Adam Haile"
-        }],
+        to: [
+          {
+            email: recipientEmail,
+            name: Deno.env.get('OWNER_INQUIRY_RECIPIENT_NAME') || 'Adam Haile',
+          },
+        ],
         subject: `🏢 New Owner Inquiry: ${data.companyName} (${formatRevenueRange(data.revenueRange)})`,
         htmlContent: htmlContent,
         replyTo: {
           email: data.email,
-          name: data.name
-        }
-      })
+          name: data.name,
+        },
+      }),
     });
 
     if (!emailResponse.ok) {
       const errorText = await emailResponse.text();
-      console.error("Error sending email via Brevo:", {
+      console.error('Error sending email via Brevo:', {
         status: emailResponse.status,
-        error: errorText
+        error: errorText,
       });
       await logEmailDelivery(supabase, {
         email: recipientEmail,
@@ -165,7 +179,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const responseData = await emailResponse.json();
-    console.log("Owner inquiry notification sent successfully:", responseData.messageId);
+    console.log('Owner inquiry notification sent successfully:', responseData.messageId);
 
     await logEmailDelivery(supabase, {
       email: recipientEmail,
@@ -174,22 +188,21 @@ const handler = async (req: Request): Promise<Response> => {
       correlationId,
     });
 
-    return new Response(
-      JSON.stringify({ success: true, message: "Notification sent" }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
-      }
-    );
-
+    return new Response(JSON.stringify({ success: true, message: 'Notification sent' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
   } catch (error: unknown) {
-    console.error("Error in send-owner-inquiry-notification:", error);
+    console.error('Error in send-owner-inquiry-notification:', error);
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to send notification" }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500 
-      }
+      JSON.stringify({
+        error:
+          error instanceof Error ? error.message : String(error) || 'Failed to send notification',
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      },
     );
   }
 };

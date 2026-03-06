@@ -169,9 +169,14 @@ Write the message now. Do not include any preamble or explanation — just the m
     });
   } catch (error) {
     console.error('draft-connection-message error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Failed to draft message' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : String(error) || 'Failed to draft message',
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   }
 });

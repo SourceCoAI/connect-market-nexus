@@ -1,9 +1,9 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-import { Resend } from "resend";
+import { Resend } from 'resend';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { requireAdmin, escapeHtml } from "../_shared/auth.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { requireAdmin, escapeHtml } from '../_shared/auth.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -37,10 +37,10 @@ const handler = async (req: Request): Promise<Response> => {
     const { to, name, customMessage }: InvitationRequest = await req.json();
 
     if (!to || !name) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: to, name' }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
+      return new Response(JSON.stringify({ error: 'Missing required fields: to, name' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     }
 
     const signupUrl = `${Deno.env.get('SITE_URL') || 'https://app.sourcecodeals.com'}/welcome`;
@@ -63,12 +63,16 @@ const handler = async (req: Request): Promise<Response> => {
           connecting qualified acquisition buyers with exclusive deal flow.
         </p>
 
-        ${safeCustomMsg ? `
+        ${
+          safeCustomMsg
+            ? `
           <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 16px 0;">
             <p style="font-size: 13px; color: #6b7280; margin: 0 0 4px 0; font-weight: 500;">Personal note:</p>
             <p style="font-size: 14px; color: #374151; margin: 0; line-height: 1.5;">${safeCustomMsg}</p>
           </div>
-        ` : ''}
+        `
+            : ''
+        }
 
         <p style="font-size: 14px; color: #374151; line-height: 1.6;">
           <strong>What you get access to:</strong>
@@ -103,14 +107,16 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Marketplace invitation sent to ${to}`, emailResponse);
 
-    return new Response(
-      JSON.stringify({ success: true, emailId: emailResponse?.data?.id }),
-      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-    );
+    return new Response(JSON.stringify({ success: true, emailId: emailResponse?.data?.id }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
   } catch (error: unknown) {
     console.error('Error sending marketplace invitation:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to send invitation' }),
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Failed to send invitation',
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   }

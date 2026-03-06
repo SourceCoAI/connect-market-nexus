@@ -18,7 +18,6 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { callClaude, CLAUDE_MODELS } from '../_shared/claude-client.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import {
-  VALID_BUYER_TYPES,
   buildClassificationSystemPrompt,
   isValidBuyerType,
 } from '../_shared/buyer-type-definitions.ts';
@@ -184,7 +183,11 @@ Deno.serve(async (req: Request) => {
       // Confidence >= 85: auto-apply
       const autoApply = classification.confidence >= 85;
       const lowConfidence = classification.confidence < 70;
-      const action = autoApply ? 'auto_applied' : lowConfidence ? 'flagged_low_confidence' : 'staged_for_review';
+      const action = autoApply
+        ? 'auto_applied'
+        : lowConfidence
+          ? 'flagged_low_confidence'
+          : 'staged_for_review';
 
       results.push({
         id: classification.id,

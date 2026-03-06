@@ -1,9 +1,9 @@
-import { useState, useCallback } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import type { SignupFormData } from "./types";
+import { useState, useCallback } from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Info } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import type { SignupFormData } from './types';
 
 interface Props {
   formData: SignupFormData;
@@ -11,18 +11,19 @@ interface Props {
 }
 
 export function SignupStepAccount({ formData, onChange }: Props) {
-  const [domainMatch, setDomainMatch] = useState<{ found: boolean; firm_name: string | null } | null>(null);
-  
+  const [domainMatch, setDomainMatch] = useState<{
+    found: boolean;
+    firm_name: string | null;
+  } | null>(null);
 
   const checkDomain = useCallback(async (email: string) => {
-    if (!email || !email.includes("@")) {
+    if (!email || !email.includes('@')) {
       setDomainMatch(null);
       return;
     }
 
-    
     try {
-      const { data, error } = await supabase.functions.invoke("check-firm-domain", {
+      const { data, error } = await supabase.functions.invoke('check-firm-domain', {
         body: { email },
       });
 
@@ -34,14 +35,16 @@ export function SignupStepAccount({ formData, onChange }: Props) {
     } catch {
       setDomainMatch(null);
     } finally {
-      
+      // no-op
     }
   }, []);
 
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor="email" className="text-xs text-muted-foreground">Email</Label>
+        <Label htmlFor="email" className="text-xs text-muted-foreground">
+          Email
+        </Label>
         <Input
           id="email"
           name="email"
@@ -56,19 +59,39 @@ export function SignupStepAccount({ formData, onChange }: Props) {
           <div className="flex items-start gap-2 p-2.5 rounded-md bg-blue-50 border border-blue-200 mt-1.5">
             <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
             <p className="text-xs text-blue-700">
-              Someone from <strong>{domainMatch.firm_name}</strong> is already on SourceCo.
-              Your account will be linked to the existing firm record automatically.
+              Someone from <strong>{domainMatch.firm_name}</strong> is already on SourceCo. Your
+              account will be linked to the existing firm record automatically.
             </p>
           </div>
         )}
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="password" className="text-xs text-muted-foreground">Password</Label>
-        <Input id="password" name="password" type="password" placeholder="••••••••" value={formData.password} onChange={onChange} required />
+        <Label htmlFor="password" className="text-xs text-muted-foreground">
+          Password
+        </Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          placeholder="••••••••"
+          value={formData.password}
+          onChange={onChange}
+          required
+        />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="confirmPassword" className="text-xs text-muted-foreground">Confirm Password</Label>
-        <Input id="confirmPassword" name="confirmPassword" type="password" placeholder="••••••••" value={formData.confirmPassword} onChange={onChange} required />
+        <Label htmlFor="confirmPassword" className="text-xs text-muted-foreground">
+          Confirm Password
+        </Label>
+        <Input
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          placeholder="••••••••"
+          value={formData.confirmPassword}
+          onChange={onChange}
+          required
+        />
       </div>
     </div>
   );

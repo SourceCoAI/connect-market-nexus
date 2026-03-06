@@ -1,11 +1,10 @@
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { requireAuth, escapeHtml, escapeHtmlWithBreaks } from "../_shared/auth.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
-import { sendViaBervo } from "../_shared/brevo-sender.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { requireAuth, escapeHtml, escapeHtmlWithBreaks } from '../_shared/auth.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 
 interface ConnectionNotificationRequest {
   type: 'user_confirmation' | 'admin_notification' | 'approval_notification';
@@ -44,12 +43,16 @@ function buildUserConfirmationHtml(
         Your connection request for <strong>${escapeHtml(listingTitle)}</strong> has been submitted and is being reviewed.
       </p>
 
-      ${message ? `
+      ${
+        message
+          ? `
       <div style="background: #FCF9F0; border-left: 4px solid #DEC76B; padding: 16px; border-radius: 0 8px 8px 0; margin: 0 0 24px 0;">
         <p style="margin: 0 0 4px 0; font-size: 12px; color: #9A9A9A; font-weight: 600;">YOUR MESSAGE</p>
         <p style="margin: 0; color: #3A3A3A; font-size: 14px; font-style: italic;">"${escapeHtmlWithBreaks(message)}"</p>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
 
       <p style="margin: 0 0 8px 0; font-weight: 600;">What happens next?</p>
       <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #3A3A3A;">
@@ -101,12 +104,16 @@ function buildAdminNotificationHtml(
         <strong>${escapeHtml(requesterName)}</strong> (${escapeHtml(requesterEmail)}) has submitted a connection request for <strong>${escapeHtml(listingTitle)}</strong>.
       </p>
 
-      ${message ? `
+      ${
+        message
+          ? `
       <div style="background: #FCF9F0; border-left: 4px solid #DEC76B; padding: 16px; border-radius: 0 8px 8px 0; margin: 0 0 24px 0;">
         <p style="margin: 0 0 4px 0; font-size: 12px; color: #9A9A9A; font-weight: 600;">BUYER MESSAGE</p>
         <p style="margin: 0; color: #3A3A3A; font-size: 14px; font-style: italic;">"${escapeHtmlWithBreaks(message)}"</p>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
 
       <p style="margin: 0 0 24px 0;">Log in to the admin dashboard to review and respond.</p>
     </div>
@@ -130,7 +137,7 @@ function buildAdminNotificationHtml(
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
 
@@ -154,10 +161,15 @@ const handler = async (req: Request): Promise<Response> => {
       listingTitle,
       listingId,
       message,
-      requestId
+      requestId,
     } = requestData;
 
-    console.log("Processing connection notification:", { type, requesterName, listingTitle, requestId });
+    console.log('Processing connection notification:', {
+      type,
+      requesterName,
+      listingTitle,
+      requestId,
+    });
 
     const loginUrl = `https://marketplace.sourcecodeals.com/login`;
     const listingUrl = `https://marketplace.sourcecodeals.com/listing/${listingId}`;
@@ -165,13 +177,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
     if (type === 'user_confirmation') {
       // Send confirmation to the buyer
       if (!recipientEmail) {
-        throw new Error("recipientEmail is required for user_confirmation");
+        throw new Error('recipientEmail is required for user_confirmation');
       }
 
       const subject = `Connection Request Submitted — "${listingTitle}"`;
@@ -196,11 +208,11 @@ const handler = async (req: Request): Promise<Response> => {
 
       if (!result.success) throw new Error(`Failed to send confirmation: ${result.error}`);
 
-      console.log("User confirmation sent to:", recipientEmail);
+      console.log('User confirmation sent to:', recipientEmail);
     } else if (type === 'approval_notification') {
       // Send approval email to the buyer when connection request is approved
       if (!recipientEmail) {
-        throw new Error("recipientEmail is required for approval_notification");
+        throw new Error('recipientEmail is required for approval_notification');
       }
 
       const correlationId = `connection-approval-${requestId || crypto.randomUUID()}`;
@@ -214,10 +226,10 @@ const handler = async (req: Request): Promise<Response> => {
         .maybeSingle();
 
       if (existingLog) {
-        console.log("Approval email already sent for:", correlationId);
+        console.log('Approval email already sent for:', correlationId);
         return new Response(
-          JSON.stringify({ success: true, message: "Already sent", duplicate: true }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+          JSON.stringify({ success: true, message: 'Already sent', duplicate: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
         );
       }
 
@@ -283,7 +295,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       if (!result.success) throw new Error(`Failed to send approval email: ${result.error}`);
 
-      console.log("Connection approval email sent to:", recipientEmail);
+      console.log('Connection approval email sent to:', recipientEmail);
     } else {
       // Admin notification: look up all admins from user_roles
       const { data: adminRoles, error: rolesError } = await supabase
@@ -292,8 +304,8 @@ const handler = async (req: Request): Promise<Response> => {
         .eq('role', 'admin');
 
       if (rolesError || !adminRoles?.length) {
-        console.error("Failed to find admins:", rolesError);
-        throw new Error("No admin users found");
+        console.error('Failed to find admins:', rolesError);
+        throw new Error('No admin users found');
       }
 
       const adminIds = adminRoles.map((r) => r.user_id);
@@ -303,8 +315,8 @@ const handler = async (req: Request): Promise<Response> => {
         .in('id', adminIds);
 
       if (profilesError || !adminProfiles?.length) {
-        console.error("Failed to fetch admin profiles:", profilesError);
-        throw new Error("No admin profiles found");
+        console.error('Failed to fetch admin profiles:', profilesError);
+        throw new Error('No admin profiles found');
       }
 
       const subject = `New Connection Request: ${listingTitle} — ${requesterName}`;
@@ -315,7 +327,14 @@ const handler = async (req: Request): Promise<Response> => {
 
         const correlationId = `connection-admin-${requestId || crypto.randomUUID()}-${admin.id}`;
         const adminName = `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
-        const htmlContent = buildAdminNotificationHtml(requesterName, requesterEmail, listingTitle, listingUrl, adminUrl, message);
+        const htmlContent = buildAdminNotificationHtml(
+          requesterName,
+          requesterEmail,
+          listingTitle,
+          listingUrl,
+          adminUrl,
+          message,
+        );
 
         const result = await sendViaBervo({
           to: admin.email,
@@ -334,21 +353,23 @@ const handler = async (req: Request): Promise<Response> => {
         });
 
         if (result.success) sentCount++;
-        else console.error("Failed to notify admin:", admin.email, result.error);
+        else console.error('Failed to notify admin:', admin.email, result.error);
       }
 
       console.log(`Admin notifications sent: ${sentCount}/${adminProfiles.length}`);
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: "Connection notification sent" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      JSON.stringify({ success: true, message: 'Connection notification sent' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
     );
   } catch (error: unknown) {
-    console.error("Error in send-connection-notification:", error);
+    console.error('Error in send-connection-notification:', error);
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to send connection notification" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Failed to send connection notification',
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 },
     );
   }
 };

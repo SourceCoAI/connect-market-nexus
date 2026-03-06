@@ -196,7 +196,7 @@ serve(async (req) => {
         .from('buyer_transcripts')
         .select('*', { count: 'exact', head: true });
       const { count: contactCount } = await supabase
-        .from('remarketing_buyer_contacts')
+        .from('contacts')
         .select('*', { count: 'exact', head: true });
       const { count: buyerCount } = await supabase
         .from('buyers')
@@ -253,8 +253,9 @@ serve(async (req) => {
       }
 
       const { error: contactsError } = await supabase
-        .from('remarketing_buyer_contacts')
+        .from('contacts')
         .delete()
+        .eq('contact_type', 'buyer')
         .neq('id', '00000000-0000-0000-0000-000000000000');
       if (contactsError) {
         console.error('Failed to delete contacts:', contactsError);
@@ -578,25 +579,26 @@ serve(async (req) => {
             continue;
           }
 
+          const nameParts = (row.name || 'Unknown').trim().split(/\s+/);
           const contactData = {
-            buyer_id: mappedBuyerId,
-            name: row.name || 'Unknown',
+            remarketing_buyer_id: mappedBuyerId,
+            first_name: nameParts[0] || 'Unknown',
+            last_name: nameParts.slice(1).join(' ') || '',
             email: row.email || null,
             phone: row.phone || null,
-            role: row.title || null,
+            title: row.title || null,
             linkedin_url: row.linkedin_url || null,
-            is_primary: row.is_primary_contact === 'true',
-            notes: null,
-            company_type: row.company_type || null,
-            priority_level: parseInt(String(row.priority_level)) || 3,
-            email_confidence: row.email_confidence || null,
-            is_deal_team: row.is_deal_team === 'true',
-            role_category: row.role_category || null,
-            source: row.source || null,
-            source_url: row.source_url || null,
+            is_primary_at_firm: row.is_primary_contact === 'true',
+            contact_type: 'buyer',
+            source: row.source || 'import',
           };
 
-          const { error } = await supabase.from('remarketing_buyer_contacts').insert(contactData);
+          const { error } = await supabase
+            .from('contacts')
+            .upsert(contactData, {
+              onConflict: 'remarketing_buyer_id,first_name,last_name',
+              ignoreDuplicates: false,
+            });
 
           if (error) {
             results.contacts.errors.push(`Contact ${row.name}: ${error.message}`);

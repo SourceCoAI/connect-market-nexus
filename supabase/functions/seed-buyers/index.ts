@@ -90,22 +90,6 @@ function extractDomain(url: string | null): string | null {
   }
 }
 
-function normalizeCompanyName(name: string): string {
-  // NOTE: Must stay in sync with:
-  //  - dedupe-buyers/index.ts normalizeCompanyName()
-  //  - DB function normalize_buyer_name() in migration 20260517100000
-  let normalized = name
-    .toLowerCase()
-    .replace(/[^a-z0-9 ]/g, '') // strip non-alphanumeric but keep spaces
-    .trim();
-  // Strip trailing corporate suffixes (one pass covers >99% of real names)
-  normalized = normalized.replace(
-    /\s+(inc|llc|corp|ltd|lp|group|partners|capital|holdings|company|co|management|investments|advisors|advisory|ventures|equity|fund|funds|associates)\s*$/,
-    '',
-  ).trim();
-  return normalized;
-}
-
 function buildSystemPrompt(): string {
   return `You are an elite M&A buyer discovery specialist who deeply understands private equity roll-ups, platform strategies, and strategic acquisitions across niche industry verticals.
 
@@ -583,7 +567,10 @@ Deno.serve(async (req: Request) => {
                   .maybeSingle();
                 if (raced) resolvedPeFirmId = raced.id;
               } else {
-                console.error(`Failed to auto-create PE firm ${suggested.pe_firm_name}:`, firmError);
+                console.error(
+                  `Failed to auto-create PE firm ${suggested.pe_firm_name}:`,
+                  firmError,
+                );
               }
             } else if (newFirm) {
               resolvedPeFirmId = newFirm.id;

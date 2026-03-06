@@ -1,8 +1,8 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 interface TaskNotificationRequest {
   assignee_email: string;
@@ -27,39 +27,40 @@ serve(async (req) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    const { 
-      assignee_email, 
+    const {
+      assignee_email,
       assignee_name,
       assigner_name,
-      task_title, 
+      task_title,
       task_description,
       task_priority,
       task_due_date,
       deal_title,
-      deal_id
+      deal_id,
     }: TaskNotificationRequest = await req.json();
 
     const correlationId = crypto.randomUUID();
     console.log('Sending task notification email to:', assignee_email);
 
     // Format due date if provided
-    const dueDateFormatted = task_due_date 
-      ? new Date(task_due_date).toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
+    const dueDateFormatted = task_due_date
+      ? new Date(task_due_date).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
         })
       : null;
 
     // Priority badge color
-    const priorityColor = {
-      high: '#EF4444',
-      medium: '#F59E0B', 
-      low: '#3B82F6'
-    }[task_priority] || '#6B7280';
+    const priorityColor =
+      {
+        high: '#EF4444',
+        medium: '#F59E0B',
+        low: '#3B82F6',
+      }[task_priority] || '#6B7280';
 
     // Construct email HTML
     const emailHtml = `
@@ -108,21 +109,29 @@ serve(async (req) => {
                       </span>
                     </div>
                     
-                    ${task_description ? `
+                    ${
+                      task_description
+                        ? `
                       <p style="margin: 12px 0 0; font-size: 14px; color: #6b7280; line-height: 1.5;">
                         ${task_description}
                       </p>
-                    ` : ''}
+                    `
+                        : ''
+                    }
                     
                     <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
                       <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;">
                         <strong style="color: #374151;">Deal:</strong> ${deal_title}
                       </p>
-                      ${dueDateFormatted ? `
+                      ${
+                        dueDateFormatted
+                          ? `
                         <p style="margin: 0; font-size: 13px; color: #6b7280;">
                           <strong style="color: #374151;">Due:</strong> ${dueDateFormatted}
                         </p>
-                      ` : ''}
+                      `
+                          : ''
+                      }
                     </div>
                   </td>
                 </tr>
@@ -183,11 +192,14 @@ This is an automated notification from your admin task management system.`;
     if (!brevoApiKey) {
       console.warn('BREVO_API_KEY not configured, skipping email notification');
       return new Response(
-        JSON.stringify({ success: true, message: 'Notification created but email skipped (no API key)' }),
-        { 
+        JSON.stringify({
+          success: true,
+          message: 'Notification created but email skipped (no API key)',
+        }),
+        {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
-        }
+          status: 200,
+        },
       );
     }
 
@@ -195,64 +207,96 @@ This is an automated notification from your admin task management system.`;
     const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
+        accept: 'application/json',
         'api-key': brevoApiKey,
         'content-type': 'application/json',
       },
       body: JSON.stringify({
         sender: {
           name: 'SourceCo Pipeline',
-          email: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com'
+          email: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
         },
-        to: [{
-          email: assignee_email,
-          name: assignee_name
-        }],
+        to: [
+          {
+            email: assignee_email,
+            name: assignee_name,
+          },
+        ],
         subject: `New Task Assigned: ${task_title}`,
         htmlContent: emailHtml,
-        textContent: textContent
+        textContent: textContent,
       }),
     });
 
     if (!brevoResponse.ok) {
       const errorData = await brevoResponse.text();
       console.error('Brevo email error:', errorData);
-      await logEmailDelivery(supabaseClient, { email: assignee_email, emailType: 'task_notification', status: 'failed', correlationId, errorMessage: errorData });
+      await logEmailDelivery(supabaseClient, {
+        email: assignee_email,
+        emailType: 'task_notification',
+        status: 'failed',
+        correlationId,
+        errorMessage: errorData,
+      });
       // Don't throw - return success anyway since notification was created
       return new Response(
-        JSON.stringify({ success: true, warning: 'Email failed but notification created', error: errorData }),
+        JSON.stringify({
+          success: true,
+          warning: 'Email failed but notification created',
+          error: errorData,
+        }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
+          status: 200,
+        },
       );
     }
 
     const result = await brevoResponse.json();
     console.log('Email sent successfully via Brevo:', result);
 
-    await logEmailDelivery(supabaseClient, { email: assignee_email, emailType: 'task_notification', status: 'sent', correlationId });
+    await logEmailDelivery(supabaseClient, {
+      email: assignee_email,
+      emailType: 'task_notification',
+      status: 'sent',
+      correlationId,
+    });
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Email notification sent', messageId: result.messageId }),
-      { 
+      JSON.stringify({
+        success: true,
+        message: 'Email notification sent',
+        messageId: result.messageId,
+      }),
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
+        status: 200,
+      },
     );
-
   } catch (error) {
     console.error('Error sending task notification email:', error);
     try {
-      const sbClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-      await logEmailDelivery(sbClient, { email: 'unknown', emailType: 'task_notification', status: 'failed', errorMessage: String(error) });
-    } catch (_) { /* logging best-effort */ }
+      const sbClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      );
+      await logEmailDelivery(sbClient, {
+        email: 'unknown',
+        emailType: 'task_notification',
+        status: 'failed',
+        errorMessage: String(error),
+      });
+    } catch (_) {
+      /* logging best-effort */
+    }
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Failed to send notification',
+      }),
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
+        status: 500,
+      },
     );
   }
 });

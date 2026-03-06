@@ -159,7 +159,8 @@ const handler = async (req: Request): Promise<Response> => {
     console.error('Error in send-approval-email function:', error);
     return new Response(
       JSON.stringify({
-        error: error.message || 'Failed to send approval email',
+        error:
+          error instanceof Error ? error.message : String(error) || 'Failed to send approval email',
         details: error.toString(),
       }),
       {

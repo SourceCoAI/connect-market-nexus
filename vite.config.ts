@@ -43,6 +43,7 @@ export default defineConfig(({ mode }) => ({
             // Date utilities
             if (id.includes('date-fns')) return 'vendor-date-fns';
           }
+          return undefined;
         },
       },
     },

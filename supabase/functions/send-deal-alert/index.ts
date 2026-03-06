@@ -267,7 +267,7 @@ const handler = async (req: Request): Promise<Response> => {
           .from('alert_delivery_logs')
           .update({
             delivery_status: 'failed',
-            error_message: error.message,
+            error_message: error instanceof Error ? error.message : String(error),
           })
           .eq('alert_id', parsedBody.alert_id)
           .eq('listing_id', parsedBody.listing_id)
@@ -277,10 +277,13 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('Error updating error log:', logError);
     }
 
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    });
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      },
+    );
   }
 };
 

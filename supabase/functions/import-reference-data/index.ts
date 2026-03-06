@@ -242,29 +242,26 @@ async function importContacts(
         continue;
       }
 
+      const nameParts = (row.name || 'Unknown').trim().split(/\s+/);
       const contact = {
-        buyer_id: mappedBuyerId,
-        name: row.name || 'Unknown',
+        remarketing_buyer_id: mappedBuyerId,
+        first_name: nameParts[0] || 'Unknown',
+        last_name: nameParts.slice(1).join(' ') || '',
         email: row.email || null,
         phone: row.phone || null,
-        role: row.title || null,
+        title: row.title || null,
         linkedin_url: row.linkedin_url || null,
-        is_primary: row.is_primary_contact === 'true' || row.is_primary_contact === true,
-        notes: null,
-        // New columns
-        company_type: row.company_type || null,
-        priority_level: parseInt(row.priority_level) || 3,
-        email_confidence: row.email_confidence || null,
-        salesforce_id: row.salesforce_id || null,
-        is_deal_team: row.is_deal_team === 'true' || row.is_deal_team === true,
-        role_category: row.role_category || null,
-        is_primary_contact: row.is_primary_contact === 'true' || row.is_primary_contact === true,
-        source: row.source || null,
-        source_url: row.source_url || null,
-        created_at: row.created_at || new Date().toISOString(),
+        is_primary_at_firm: row.is_primary_contact === 'true' || row.is_primary_contact === true,
+        contact_type: 'buyer',
+        source: row.source || 'import',
       };
 
-      const { error } = await supabase.from('remarketing_buyer_contacts').insert(contact);
+      const { error } = await supabase
+        .from('contacts')
+        .upsert(contact, {
+          onConflict: 'remarketing_buyer_id,first_name,last_name',
+          ignoreDuplicates: false,
+        });
 
       if (error) {
         console.error(`Error inserting contact ${row.name}:`, error);

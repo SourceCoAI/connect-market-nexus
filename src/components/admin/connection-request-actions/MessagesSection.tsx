@@ -18,16 +18,22 @@ import { formatDistanceToNow, format } from 'date-fns';
 
 // ─── Helpers ───
 
+function escapeHtmlChars(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function linkifyText(text: string): string {
   const urlRegex = /(https?:\/\/[^\s<]+)/g;
-  return text.replace(urlRegex, (url) => {
-    const escaped = url
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  // First escape the entire text to prevent XSS, then replace URLs with links
+  const escaped = escapeHtmlChars(text);
+  return escaped.replace(urlRegex, (url) => {
     const display = url.length > 60 ? url.substring(0, 57) + '...' : url;
-    return `<a href="${escaped}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80 break-all" onclick="event.stopPropagation()">${display}</a>`;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80 break-all" onclick="event.stopPropagation()">${display}</a>`;
   });
 }
 
