@@ -63,12 +63,37 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
       // Use parallel count queries grouped by status — much lighter than fetching all rows
       const [pendingRes, processingRes, completedRes, failedRes, rateLimitedRes, pausedRes] =
         await Promise.all([
-          supabase.from('buyer_enrichment_queue').select('id', { count: 'exact', head: true }).eq('universe_id', universeId).eq('status', 'pending'),
-          supabase.from('buyer_enrichment_queue').select('id', { count: 'exact', head: true }).eq('universe_id', universeId).eq('status', 'processing'),
-          supabase.from('buyer_enrichment_queue').select('id', { count: 'exact', head: true }).eq('universe_id', universeId).eq('status', 'completed'),
-          supabase.from('buyer_enrichment_queue').select('id', { count: 'exact', head: true }).eq('universe_id', universeId).eq('status', 'failed'),
-          supabase.from('buyer_enrichment_queue').select('id, rate_limit_reset_at', { count: 'exact' }).eq('universe_id', universeId).eq('status', 'rate_limited').limit(1),
-          supabase.from('buyer_enrichment_queue').select('id', { count: 'exact', head: true }).eq('universe_id', universeId).eq('status', 'paused'),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id', { count: 'exact', head: true })
+            .eq('universe_id', universeId)
+            .eq('status', 'pending'),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id', { count: 'exact', head: true })
+            .eq('universe_id', universeId)
+            .eq('status', 'processing'),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id', { count: 'exact', head: true })
+            .eq('universe_id', universeId)
+            .eq('status', 'completed'),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id', { count: 'exact', head: true })
+            .eq('universe_id', universeId)
+            .eq('status', 'failed'),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id, rate_limit_reset_at', { count: 'exact' })
+            .eq('universe_id', universeId)
+            .eq('status', 'rate_limited')
+            .limit(1),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id', { count: 'exact', head: true })
+            .eq('universe_id', universeId)
+            .eq('status', 'paused'),
         ]);
 
       const counts = {
@@ -86,7 +111,12 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
       }
 
       const total =
-        counts.pending + counts.processing + counts.completed + counts.failed + counts.rateLimited + counts.paused;
+        counts.pending +
+        counts.processing +
+        counts.completed +
+        counts.failed +
+        counts.rateLimited +
+        counts.paused;
       const isRunning = counts.pending > 0 || counts.processing > 0 || counts.rateLimited > 0;
       const isPaused = counts.paused > 0 && !isRunning;
 
@@ -295,11 +325,13 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
         // Gate check: register as major operation
         const { data: userData, error: authError } = await supabase.auth.getUser();
         if (authError) throw authError;
+        const userId = userData?.user?.id;
+        if (!userId) throw new Error('User session expired. Please sign in again.');
         const { queued } = await startOrQueueMajorOp({
           operationType: 'buyer_enrichment',
           totalItems: enrichableBuyers.length,
           description: `Enrich ${enrichableBuyers.length} buyers`,
-          userId: userData?.user?.id || 'unknown',
+          userId,
         });
         if (queued) {
           // Another major op is running — ours was queued and will auto-start later
@@ -307,11 +339,12 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
         }
 
         // Clear any existing queue items for this universe first (for "enrich all" scenario)
-        await supabase
+        const { error: deleteError } = await supabase
           .from('buyer_enrichment_queue')
           .delete()
           .eq('universe_id', universeId)
           .in('status', ['pending', 'rate_limited', 'failed']);
+        if (deleteError) throw deleteError;
 
         // Insert new queue items using upsert to handle duplicates
         // Batch in chunks to avoid hitting PostgREST request size limits
@@ -358,7 +391,11 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
       } catch (error) {
         console.error('Failed to queue buyers for enrichment:', error);
         const message =
-          error instanceof Error ? error.message : 'Unknown error';
+          error instanceof Error
+            ? error.message
+            : error && typeof error === 'object' && 'message' in error
+              ? String((error as { message: unknown }).message)
+              : 'Unknown error';
         toast.error(`Failed to queue buyers for enrichment: ${message}`);
       }
     },
