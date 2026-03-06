@@ -9,43 +9,43 @@ import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 
 // Pre-extraction regex patterns per spec
 const REVENUE_PATTERNS = [
-  /\$\s*([\d,.]+)\s*(M|MM|m|million|mil)/gi,
-  /revenue[:\s]+\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/gi,
-  /([\d,.]+)\s*(M|MM|million)\s*(?:in\s+)?(?:revenue|sales)/gi,
-  /top\s*line[:\s]+\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/gi,
-  /annual\s+revenue[:\s]+\$?\s*([\d,.]+)\s*(M|MM|m|million|K|k|thousand)?/gi,
+  /~?\$\s*([\d,.]+)\s*(M|MM|m|million|mil)/i,
+  /revenue[:\s]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/i,
+  /([\d,.]+)\s*(M|MM|million)\s*(?:in\s+)?(?:revenue|sales)/i,
+  /top\s*line[:\s]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/i,
+  /annual\s+revenue[:\s]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|K|k|thousand)?/i,
 ];
 
 const EBITDA_PATTERNS = [
-  /EBITDA[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
-  /\$\s*([\d,.]+)\s*(K|k|M|MM)?\s*EBITDA/gi,
-  /cash\s*flow[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
-  /SDE[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
-  /owner.?s?\s*(?:cash|earnings)[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
+  /EBITDA[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /~?\$\s*([\d,.]+)\s*(K|k|M|MM)?\s*EBITDA/i,
+  /cash\s*flow[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /SDE[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /owner.?s?\s*(?:cash|earnings)[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
 ];
 
 const MARGIN_PATTERNS = [
-  /([\d.]+)\s*%\s*(?:EBITDA\s*)?margin/gi,
-  /margin[:\s]+([\d.]+)\s*%/gi,
-  /run(?:ning|s)?\s+(?:at\s+)?(?:about\s+)?([\d.]+)\s*%\s*margin/gi,
+  /([\d.]+)\s*%\s*(?:EBITDA\s*)?margin/i,
+  /margin[:\s]+([\d.]+)\s*%/i,
+  /run(?:ning|s)?\s+(?:at\s+)?(?:about\s+)?([\d.]+)\s*%\s*margin/i,
 ];
 
 const EMPLOYEE_PATTERNS = [
-  /([\d,]+)\s*(?:full[- ]?time\s*)?employees/gi,
-  /headcount[:\s]+([\d,]+)/gi,
-  /team\s*(?:of\s*)?([\d,]+)/gi,
-  /([\d,]+)\s*FTEs?/gi,
+  /([\d,]+)\s*(?:full[- ]?time\s*)?employees/i,
+  /headcount[:\s]+([\d,]+)/i,
+  /team\s*(?:of\s*)?([\d,]+)/i,
+  /([\d,]+)\s*FTEs?/i,
 ];
 
 const LOCATION_PATTERNS = [
-  /(\d+)\s+(?:staffed\s+)?locations?/gi,
-  /(\d+)\s+offices?/gi,
-  /(\d+)\s+branches?/gi,
-  /(\d+)\s+stores?/gi,
-  /(\d+)\s+shops?/gi,
-  /(\d+)\s+facilities/gi,
-  /operate\s+out\s+of\s+(\d+)/gi,
-  /(\d+)\s+sites?\s+across/gi,
+  /(\d+)\s+(?:staffed\s+)?locations?/i,
+  /(\d+)\s+offices?/i,
+  /(\d+)\s+branches?/i,
+  /(\d+)\s+stores?/i,
+  /(\d+)\s+shops?/i,
+  /(\d+)\s+facilities/i,
+  /operate\s+out\s+of\s+(\d+)/i,
+  /(\d+)\s+sites?\s+across/i,
 ];
 
 function parseNumberValue(match: string, multiplier?: string): number | null {
