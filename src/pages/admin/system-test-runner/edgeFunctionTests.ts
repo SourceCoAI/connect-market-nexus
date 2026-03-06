@@ -135,6 +135,10 @@ export function buildEdgeFunctionTests(): TestDef[] {
     await tableReadable('disposition_mappings');
   });
 
+  add(C15, 'sync-phoneburner-transcripts edge function reachable', async () => {
+    await invokeEdgeFunction('sync-phoneburner-transcripts', { limit: 1 });
+  });
+
   // --- Chat AI functions ---
   add(C15, 'query-tracker-universe edge function reachable', async () => {
     await invokeEdgeFunction('query-tracker-universe', {

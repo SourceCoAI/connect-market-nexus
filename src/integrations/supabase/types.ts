@@ -4515,6 +4515,7 @@ export type Database = {
           applied_to_deal: boolean | null
           auto_linked: boolean | null
           call_date: string | null
+          contact_activity_id: string | null
           created_at: string | null
           created_by: string | null
           duration_minutes: number | null
@@ -4530,7 +4531,9 @@ export type Database = {
           match_type: string | null
           meeting_attendees: string[] | null
           participants: Json | null
+          phoneburner_call_id: string | null
           processed_at: string | null
+          recording_url: string | null
           source: string | null
           title: string | null
           transcript_text: string
@@ -4542,6 +4545,7 @@ export type Database = {
           applied_to_deal?: boolean | null
           auto_linked?: boolean | null
           call_date?: string | null
+          contact_activity_id?: string | null
           created_at?: string | null
           created_by?: string | null
           duration_minutes?: number | null
@@ -4557,7 +4561,9 @@ export type Database = {
           match_type?: string | null
           meeting_attendees?: string[] | null
           participants?: Json | null
+          phoneburner_call_id?: string | null
           processed_at?: string | null
+          recording_url?: string | null
           source?: string | null
           title?: string | null
           transcript_text: string
@@ -4569,6 +4575,7 @@ export type Database = {
           applied_to_deal?: boolean | null
           auto_linked?: boolean | null
           call_date?: string | null
+          contact_activity_id?: string | null
           created_at?: string | null
           created_by?: string | null
           duration_minutes?: number | null
@@ -4584,7 +4591,9 @@ export type Database = {
           match_type?: string | null
           meeting_attendees?: string[] | null
           participants?: Json | null
+          phoneburner_call_id?: string | null
           processed_at?: string | null
+          recording_url?: string | null
           source?: string | null
           title?: string | null
           transcript_text?: string
