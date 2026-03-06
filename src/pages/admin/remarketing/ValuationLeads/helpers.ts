@@ -367,7 +367,7 @@ export function buildListingFromLead(lead: ValuationLead, forPush = true) {
     main_contact_name: lead.full_name || null,
     main_contact_email: lead.email || null,
     main_contact_phone: lead.phone || null,
-    website: cleanDomain ? `https://${cleanDomain}` : '',
+    website: cleanDomain ? `https://${cleanDomain}` : null,
     linkedin_url: lead.linkedin_url || null,
     industry: lead.industry || null,
     location: lead.location || null,
