@@ -348,8 +348,8 @@ export default function SourceCoDeals() {
         filteredCount={hook.filteredCount}
       />
 
-      {/* Hide Pushed Toggle */}
-      <div className="flex items-center gap-2">
+      {/* Hide Pushed Toggle + Bulk Actions */}
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => hook.setHidePushed(!hook.hidePushed)}
           className={cn(
@@ -374,9 +374,6 @@ export default function SourceCoDeals() {
           <ThumbsDown className="h-3.5 w-3.5" />
           {hook.hideNotFit ? 'Not Fit Hidden' : 'Show Not Fit'}
         </button>
-      </div>
-
-      {/* Bulk Actions */}
       <DealBulkActionBar
         selectedIds={hook.selectedIds}
         deals={hook.filteredDeals}
@@ -397,6 +394,7 @@ export default function SourceCoDeals() {
         onDelete={handleBulkDelete}
         isDeleting={isDeleting}
       />
+      </div>
       <PushToDialerModal
         open={dialerOpen}
         onOpenChange={setDialerOpen}
