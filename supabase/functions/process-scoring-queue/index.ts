@@ -243,7 +243,7 @@ Deno.serve(async (req: Request) => {
 
             const { error: upsertError } = await supabase
               .from('remarketing_scores')
-              .upsert(rows, { onConflict: 'listing_id,buyer_id' });
+              .upsert(rows, { onConflict: 'listing_id,buyer_id,universe_id' });
 
             if (upsertError) {
               console.error(
