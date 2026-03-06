@@ -316,9 +316,18 @@ export default function CreateListingFromDeal() {
             .maybeSingle();
 
           if (existingTeaser?.content) {
-            const teaserContent = existingTeaser.content as { sections?: Array<{ key: string; title: string; content: string }> };
-            if (teaserContent.sections && teaserContent.sections.length > 0) {
-              const contentSections = teaserContent.sections.filter(
+            const teaserContent = existingTeaser.content as { sections?: unknown[] };
+            const sections = Array.isArray(teaserContent.sections) ? teaserContent.sections : [];
+            // Validate each section has the expected shape before using it
+            const validSections = sections.filter(
+              (s): s is { key: string; title: string; content: string } =>
+                typeof s === 'object' && s !== null &&
+                typeof (s as Record<string, unknown>).key === 'string' &&
+                typeof (s as Record<string, unknown>).title === 'string' &&
+                typeof (s as Record<string, unknown>).content === 'string',
+            );
+            if (validSections.length > 0) {
+              const contentSections = validSections.filter(
                 (s) => s.key !== 'header_block' && s.key !== 'contact_information',
               );
               const customSections = contentSections.map((s) => ({

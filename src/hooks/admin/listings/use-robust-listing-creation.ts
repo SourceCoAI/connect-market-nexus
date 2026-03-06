@@ -243,7 +243,7 @@ export function useRobustListingCreation() {
 
           // Computed financial metric
           ebitda_margin:
-            listing.revenue && listing.ebitda
+            listing.revenue && listing.ebitda && sanitizeNumericField(listing.revenue) > 0
               ? Math.round(
                   (sanitizeNumericField(listing.ebitda) / sanitizeNumericField(listing.revenue)) *
                     100,
@@ -258,8 +258,8 @@ export function useRobustListingCreation() {
             ? sanitizeArrayField((listing as Record<string, unknown>).geographic_states)
             : null,
           investment_thesis: listing.investment_thesis || null,
-          services: listing.services || null,
-          growth_drivers: listing.growth_drivers || null,
+          services: sanitizeArrayField(listing.services) || null,
+          growth_drivers: sanitizeArrayField(listing.growth_drivers) || null,
           competitive_position: listing.competitive_position || null,
           ownership_structure: listing.ownership_structure || null,
           seller_motivation: listing.seller_motivation || null,
