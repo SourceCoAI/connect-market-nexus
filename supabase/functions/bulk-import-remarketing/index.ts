@@ -412,7 +412,7 @@ serve(async (req) => {
             archived: row.archived === 'true',
           };
 
-          const { data: inserted, error } = await supabase
+      const { data: inserted, error } = await supabase
             .from('buyer_universes')
             .insert(universeData)
             .select('id')
@@ -423,6 +423,14 @@ serve(async (req) => {
           } else {
             universeIdMap[String(row.id)] = inserted.id;
             results.universes.imported++;
+
+            // Auto-generate description (non-blocking)
+            const uName = String(row.industry_name || 'Unknown');
+            if (uName !== 'Unknown') {
+              generateDescription(supabase, inserted.id, uName).catch((e: unknown) =>
+                console.warn(`Description gen failed for ${uName}:`, e)
+              );
+            }
           }
         } catch (e) {
           results.universes.errors.push(`Universe ${row.industry_name}: ${getErrorMessage(e)}`);
@@ -857,4 +865,28 @@ function calculateTier(score: number): string {
   if (score >= 60) return 'B';
   if (score >= 40) return 'C';
   return 'D';
+}
+
+async function generateDescription(supabase: ReturnType<typeof createClient>, universeId: string, name: string) {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const response = await fetch(`${supabaseUrl}/functions/v1/clarify-industry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ industry_name: name, generate_description: true }),
+    });
+    if (response.ok) {
+      const result = await response.json();
+      if (result.description) {
+        await supabase.from('buyer_universes').update({ description: result.description }).eq('id', universeId);
+        console.log(`Generated description for universe: ${name}`);
+      }
+    }
+  } catch (e) {
+    console.warn(`Description generation failed for ${name}:`, e);
+  }
 }

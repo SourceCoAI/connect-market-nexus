@@ -97,7 +97,7 @@ async function importUniverses(
       // Map from SourceCo schema to our schema
       const universe = {
         name: row.industry_name || row.name,
-        description: `Industry tracker for ${row.industry_name || row.name}`,
+        description: null,
         fit_criteria: row.fit_criteria || null,
         size_criteria: parseJsonField(row.size_criteria),
         geography_criteria: parseJsonField(row.geography_criteria),
@@ -129,6 +129,14 @@ async function importUniverses(
         idMapping[row.id] = inserted.id;
         imported++;
         console.log(`Imported universe: ${row.industry_name} (${row.id} -> ${inserted.id})`);
+
+        // Auto-generate description via clarify-industry (non-blocking)
+        const universeName = String(row.industry_name || row.name || '');
+        if (universeName) {
+          generateUniverseDescription(supabase, inserted.id, universeName).catch((e) =>
+            console.warn(`Failed to generate description for ${universeName}:`, e)
+          );
+        }
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
@@ -137,6 +145,32 @@ async function importUniverses(
   }
 
   return { imported, errors, idMapping };
+}
+
+async function generateUniverseDescription(supabase: SupabaseClient, universeId: string, name: string) {
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) return;
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const response = await fetch(`${supabaseUrl}/functions/v1/clarify-industry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ industry_name: name, generate_description: true }),
+    });
+    if (response.ok) {
+      const result = await response.json();
+      if (result.description) {
+        await supabase.from('buyer_universes').update({ description: result.description }).eq('id', universeId);
+      }
+    }
+  } catch (e) {
+    console.warn(`Description generation failed for ${name}:`, e);
+  }
 }
 
 async function importBuyers(
