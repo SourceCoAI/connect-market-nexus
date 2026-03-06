@@ -172,6 +172,32 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Auth: Allow either internal service calls (x-internal-secret) OR valid user JWT
+    const internalSecret = req.headers.get('x-internal-secret') || '';
+    const authHeader = req.headers.get('authorization') || '';
+    const bearer = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7) : '';
+    const isInternalCall = internalSecret === supabaseKey;
+
+    if (!isInternalCall) {
+      if (!bearer) {
+        return new Response(
+          JSON.stringify({ error: 'Missing Authorization bearer token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Legacy fallback: allow direct service role bearer
+      if (bearer !== supabaseKey) {
+        const { data: userData, error: userErr } = await supabase.auth.getUser(bearer);
+        if (userErr || !userData?.user) {
+          return new Response(
+            JSON.stringify({ error: 'Unauthorized' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
+
     const { dealId, notesText } = await req.json();
 
     if (!dealId) {
