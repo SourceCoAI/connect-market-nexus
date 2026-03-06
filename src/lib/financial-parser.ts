@@ -47,18 +47,25 @@ export interface CustomInvestmentThesis {
   confidence: number;
 }
 
-// Standardized geographic regions
+// Standardized geographic regions — M&A regional descriptors first (most common),
+// followed by broader geography options for international deals.
 export const STANDARDIZED_LOCATIONS = [
+  'New England',
+  'Mid-Atlantic',
+  'Southeast',
+  'South Central',
+  'Midwest',
+  'Great Plains',
+  'Mountain West',
+  'West Coast',
+  'Pacific',
+  'Northwest',
+  'Multi-Market',
   'North America',
   'United States',
   'Canada',
-  'Northeast US', 
-  'Southeast US',
-  'Midwest US',
-  'Southwest US',
-  'Western US',
   'Europe',
-  'United Kingdom', 
+  'United Kingdom',
   'Asia Pacific',
   'Global/International'
 ] as const;

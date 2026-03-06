@@ -1,11 +1,19 @@
 import { STANDARDIZED_LOCATIONS } from '@/lib/financial-parser';
 
+// M&A regional descriptors (used for anonymized listings)
+const MA_REGIONS = [
+  'New England', 'Mid-Atlantic', 'Southeast', 'South Central',
+  'Midwest', 'Great Plains', 'Mountain West', 'West Coast',
+  'Pacific', 'Northwest',
+];
+
 // Location hierarchy mapping - when a user selects a broader location, include all sub-locations
 const LOCATION_HIERARCHY: Record<string, string[]> = {
-  'North America': ['United States', 'Canada', 'Northeast US', 'Southeast US', 'Midwest US', 'Southwest US', 'Western US'],
-  'United States': ['Northeast US', 'Southeast US', 'Midwest US', 'Southwest US', 'Western US'],
+  'North America': ['United States', 'Canada', ...MA_REGIONS],
+  'United States': [...MA_REGIONS],
+  'Multi-Market': [...MA_REGIONS],
   'Europe': ['United Kingdom'],
-  'Asia Pacific': [], // Add specific countries as needed
+  'Asia Pacific': [],
   'Global/International': [...STANDARDIZED_LOCATIONS.filter(loc => loc !== 'Global/International')]
 };
 
