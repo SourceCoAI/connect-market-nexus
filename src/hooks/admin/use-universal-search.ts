@@ -21,7 +21,8 @@ export type SearchCategory =
   | 'inbound_leads'
   | 'owner_leads'
   | 'referral_partners'
-  | 'buyers';
+  | 'buyers'
+  | 'buyer_contacts';
 
 const CATEGORY_CONFIG: Record<SearchCategory, { label: string; color: string }> = {
   deals: { label: 'Pipeline Deals', color: 'text-blue-600' },
@@ -34,6 +35,7 @@ const CATEGORY_CONFIG: Record<SearchCategory, { label: string; color: string }> 
   owner_leads: { label: 'Owner/Seller Leads', color: 'text-amber-600' },
   referral_partners: { label: 'Referral Partners', color: 'text-rose-600' },
   buyers: { label: 'Remarketing Buyers', color: 'text-teal-600' },
+  buyer_contacts: { label: 'Buyer Contacts', color: 'text-sky-600' },
 };
 
 export function getCategoryConfig(cat: SearchCategory) {
@@ -290,6 +292,31 @@ export function useUniversalSearch() {
     staleTime: 60_000,
   });
 
+  // --- Buyer Contacts ---
+  const buyerContactsQuery = useQuery({
+    queryKey: ['universal-search', 'buyer-contacts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('remarketing_buyer_contacts')
+        .select('id, name, email, role, phone, buyer_id, buyers!inner(company_name)')
+        .order('name')
+        .limit(2000);
+      if (error) throw error;
+      return (data ?? []).map((c: Record<string, unknown>) => {
+        const buyer = c.buyers as Record<string, unknown> | null;
+        return {
+          id: c.id as string,
+          title: (c.name as string) || (c.email as string) || 'Unknown Contact',
+          subtitle: [c.role, c.email, c.phone].filter(Boolean).join(' · '),
+          category: 'buyer_contacts' as SearchCategory,
+          href: `/admin/remarketing/buyers/${c.buyer_id as string}`,
+          meta: buyer?.company_name as string | undefined,
+        };
+      });
+    },
+    staleTime: 60_000,
+  });
+
   const isLoading =
     dealsQuery.isLoading ||
     allDealsQuery.isLoading ||
@@ -300,7 +327,8 @@ export function useUniversalSearch() {
     inboundQuery.isLoading ||
     ownerQuery.isLoading ||
     referralQuery.isLoading ||
-    buyersQuery.isLoading;
+    buyersQuery.isLoading ||
+    buyerContactsQuery.isLoading;
 
   const allResults: UniversalSearchResult[] = useMemo(
     () => [
@@ -313,6 +341,7 @@ export function useUniversalSearch() {
       ...(ownerQuery.data ?? []),
       ...(referralQuery.data ?? []),
       ...(buyersQuery.data ?? []),
+      ...(buyerContactsQuery.data ?? []),
     ],
     [
       dealsQuery.data,
@@ -324,6 +353,7 @@ export function useUniversalSearch() {
       ownerQuery.data,
       referralQuery.data,
       buyersQuery.data,
+      buyerContactsQuery.data,
     ],
   );
 
