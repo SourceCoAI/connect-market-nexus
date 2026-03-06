@@ -73,7 +73,7 @@ export function ActivityCompletionDialog() {
       const latestId = terminalItemIds[0];
       shownIdsRef.current.add(latestId);
 
-      // Small delay to let any in-flight DB updates settle, then fetch fresh data
+      // Longer delay to let final DB writes + queue counter increments settle
       const timer = setTimeout(async () => {
         try {
           const { data, error } = await supabase
@@ -83,9 +83,28 @@ export function ActivityCompletionDialog() {
             .maybeSingle();
           if (error) throw error;
           if (data) {
-            setCompletedItem(data as unknown as GlobalActivityQueueItem);
+            const item = data as unknown as GlobalActivityQueueItem;
+            const processed = (item.completed_items || 0) + (item.failed_items || 0);
+            const total = item.total_items || 0;
+
+            // Guard: if counters haven't caught up (< 50% of total processed),
+            // wait another 3s and re-fetch before showing the dialog.
+            if (total > 0 && processed < total * 0.5 && processed < total - 1) {
+              await new Promise(r => setTimeout(r, 3000));
+              const { data: refreshed } = await supabase
+                .from("global_activity_queue")
+                .select("*")
+                .eq("id", latestId)
+                .maybeSingle();
+              if (refreshed) {
+                setCompletedItem(refreshed as unknown as GlobalActivityQueueItem);
+              } else {
+                setCompletedItem(item);
+              }
+            } else {
+              setCompletedItem(item);
+            }
           } else {
-            // Fallback to cached version
             const cached = allItems.find(i => i.id === latestId);
             if (cached) setCompletedItem(cached);
           }
@@ -95,7 +114,7 @@ export function ActivityCompletionDialog() {
         }
         setOpen(true);
         setErrorsExpanded(false);
-      }, 1500); // 1.5s delay to let final DB writes complete
+      }, 2500); // 2.5s delay to let final DB writes complete
 
       return () => clearTimeout(timer);
     }

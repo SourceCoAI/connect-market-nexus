@@ -327,8 +327,19 @@ Deno.serve(async (req) => {
       }
 
       if (!queueItems || queueItems.length === 0) {
-        console.log(`No more pending items. Processed ${totalProcessed} buyers this run.`);
-        await completeGlobalQueueOperation(supabase, 'buyer_enrichment');
+        // Before declaring completion, check if any items are still being processed
+        // by concurrent workers — if so, DON'T complete the global operation yet.
+        const { count: processingCount } = await supabase
+          .from('buyer_enrichment_queue')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'processing');
+
+        if ((processingCount ?? 0) > 0) {
+          console.log(`No pending items, but ${processingCount} still processing — skipping completion`);
+        } else {
+          console.log(`No more pending items. Processed ${totalProcessed} buyers this run.`);
+          await completeGlobalQueueOperation(supabase, 'buyer_enrichment');
+        }
         break;
       }
 

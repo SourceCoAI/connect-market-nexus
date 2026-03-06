@@ -676,12 +676,11 @@ serve(async (req) => {
     if (remainingPending === 0) {
       await completeGlobalQueueOperation(supabase, 'deal_enrichment');
     } else if (remainingPendingCount === 0 && (remainingProcessingCount ?? 0) > 0) {
-      // No pending items, but some still in 'processing' — likely stuck from a crashed invocation.
-      // Mark complete; stale recovery at the start of the next run will reset them if needed.
-      console.warn(
-        `No pending items but ${remainingProcessingCount} items stuck in 'processing' — marking queue complete. Stale recovery will handle them on next invocation.`,
+      // No pending items, but some still in 'processing' — don't complete yet,
+      // they may finish and trigger self-continuation. Only log for observability.
+      console.log(
+        `No pending items but ${remainingProcessingCount} items still processing — skipping completion, will resolve on next invocation.`,
       );
-      await completeGlobalQueueOperation(supabase, 'deal_enrichment');
     } else if (remainingPending > 0) {
       // N06 FIX: Track continuation count to prevent infinite loops
       const continuationCount =
