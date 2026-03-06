@@ -140,20 +140,26 @@ export default function CreateListingFromDeal() {
 
     (async () => {
       try {
-        // Step 1: Check if a completed lead memo exists
-        const { data: leadMemo } = await supabase
-          .from('lead_memos')
-          .select('id')
+        // Step 1: Check that Final PDFs exist for both memo types
+        // The Final PDF (uploaded to data_room_documents) is the authoritative,
+        // reviewed document. Both must be present before generating a listing.
+        const { data: finalPdfs } = await supabase
+          .from('data_room_documents')
+          .select('document_category')
           .eq('deal_id', dealId)
-          .eq('memo_type', 'full_memo')
-          .eq('status', 'completed')
-          .maybeSingle();
+          .in('document_category', ['full_memo', 'anonymous_teaser'])
+          .eq('status', 'active');
 
-        if (!leadMemo) {
-          // No memo yet — show warning but don't block listing creation
+        const hasFinalLeadMemo = finalPdfs?.some((d) => d.document_category === 'full_memo');
+        const hasFinalTeaser = finalPdfs?.some((d) => d.document_category === 'anonymous_teaser');
+
+        if (!hasFinalLeadMemo || !hasFinalTeaser) {
+          const missing = [];
+          if (!hasFinalLeadMemo) missing.push('Full Lead Memo');
+          if (!hasFinalTeaser) missing.push('Anonymous Teaser');
           setDescriptionSource('anonymizer');
           toast.warning(
-            'No completed lead memo found. The listing description will need to be written manually, or regenerate after the lead memo is complete.',
+            `Final PDF missing for: ${missing.join(' and ')}. Upload Final PDFs in the Data Room before creating a listing.`,
             { duration: 8000 },
           );
           return;

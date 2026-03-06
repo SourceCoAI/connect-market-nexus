@@ -375,19 +375,50 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[generate-marketplace-listing] Starting for deal_id=${dealId}, listing_id=${listingId || 'none'}`);
 
-    // Step 1: Fetch the completed lead memo
+    // Step 1a: Verify Final PDFs exist in data_room_documents for both memo types.
+    // The Final PDF is the authoritative, reviewed document — both must be uploaded
+    // before a marketplace listing can be generated.
+    const { data: finalPdfs } = await supabaseAdmin
+      .from('data_room_documents')
+      .select('document_category')
+      .eq('deal_id', dealId)
+      .in('document_category', ['full_memo', 'anonymous_teaser'])
+      .eq('status', 'active');
+
+    const hasFinalLeadMemo = finalPdfs?.some((d: { document_category: string }) => d.document_category === 'full_memo');
+    const hasFinalTeaser = finalPdfs?.some((d: { document_category: string }) => d.document_category === 'anonymous_teaser');
+
+    if (!hasFinalLeadMemo || !hasFinalTeaser) {
+      const missing = [];
+      if (!hasFinalLeadMemo) missing.push('Full Lead Memo');
+      if (!hasFinalTeaser) missing.push('Anonymous Teaser');
+      return new Response(
+        JSON.stringify({
+          error: `Final PDF missing for: ${missing.join(' and ')}. Upload Final PDFs in the Data Room before generating a marketplace listing.`,
+          needs_pdf: true,
+          missing_pdfs: missing,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Step 1b: Fetch the lead memo content (draft or completed) — this provides the
+    // structured text that the AI uses as input. The Final PDF confirms it was reviewed;
+    // the lead_memos row contains the parseable content.
     const { data: leadMemo } = await supabaseAdmin
       .from('lead_memos')
-      .select('content')
+      .select('content, status')
       .eq('deal_id', dealId)
       .eq('memo_type', 'full_memo')
-      .eq('status', 'completed')
+      .in('status', ['completed', 'draft', 'published'])
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
     if (!leadMemo) {
       return new Response(
         JSON.stringify({
-          error: 'A completed lead memo is required before generating a marketplace listing description.',
+          error: 'Lead memo content not found. Generate a Full Lead Memo from the Data Room first.',
           needs_memo: true,
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
