@@ -520,14 +520,15 @@ Deno.serve(async (req: Request) => {
         ? `~${Math.round(((deal.ebitda as number) / (deal.revenue as number)) * 90)}-${Math.round(((deal.ebitda as number) / (deal.revenue as number)) * 110)}%`
         : null);
     const industry = (deal.industry || deal.category || 'Services') as string;
-    const state = (deal.address_state || '') as string;
+    const rawState = (deal.address_state || '') as string;
+    const regionDescriptor = rawState ? (stateAbbrevs[rawState.toUpperCase()] || rawState) : '';
 
     const metricsLines = [
       revenue ? `Revenue: ${revenue}` : null,
       ebitda ? `EBITDA: ${ebitda}` : null,
       ebitdaMargin ? `EBITDA Margin: ${ebitdaMargin}` : null,
       `Industry: ${industry}`,
-      state ? `Geography: ${state} (use regional descriptor, never the state name)` : null,
+      regionDescriptor ? `Geography: ${regionDescriptor} (regional descriptor)` : null,
     ].filter(Boolean).join('\n');
 
     const userPrompt = `Generate a marketplace listing description for the following deal.
@@ -623,6 +624,14 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
       }
     }
 
+    // Step 6c: Generate anonymous title using regional descriptor
+    const margin = deal.ebitda && deal.revenue ? Math.round(((deal.ebitda as number) / (deal.revenue as number)) * 100) : 0;
+    const rev = (deal.revenue || 0) as number;
+    const descriptor = margin >= 25 ? 'High-Margin' : margin >= 15 ? 'Profitable' : rev >= 10_000_000 ? 'Scaled' : rev >= 5_000_000 ? 'Growth-Stage' : 'Established';
+    const anonymousTitle = regionDescriptor
+      ? `${descriptor} ${industry} Business — ${regionDescriptor}`
+      : `${descriptor} ${industry} Business`;
+
     // Step 7: Convert markdown to HTML
     const descriptionHtml = markdownToHtml(markdownText);
 
@@ -631,6 +640,7 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
     // Step 8: If listing_id provided, update the listing row
     if (listingId) {
       const listingUpdate: Record<string, unknown> = {
+        title: anonymousTitle,
         description_html: descriptionHtml,
         description: markdownText,
       };
@@ -672,6 +682,7 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
     return new Response(
       JSON.stringify({
         success: true,
+        title: anonymousTitle,
         description_html: descriptionHtml,
         description_markdown: markdownText,
         hero_description: heroDescription || null,
