@@ -72,7 +72,7 @@ export function InviteTeamMemberDialog({ open, onOpenChange }: InviteTeamMemberD
         });
       } else {
         // User doesn't exist — call invite edge function
-        const { error } = await supabase.functions.invoke('invite-team-member', {
+        const { data, error } = await supabase.functions.invoke('invite-team-member', {
           body: {
             email: email.toLowerCase().trim(),
             first_name: firstName.trim(),
@@ -82,6 +82,7 @@ export function InviteTeamMemberDialog({ open, onOpenChange }: InviteTeamMemberD
         });
 
         if (error) throw error;
+        if (data?.error) throw new Error(data.error);
 
         toast({
           title: 'Invitation sent',
