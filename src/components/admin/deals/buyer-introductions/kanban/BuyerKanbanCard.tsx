@@ -123,15 +123,15 @@ export function BuyerKanbanCard({
               className="font-semibold text-sm hover:underline truncate block"
               onClick={(e) => e.stopPropagation()}
             >
-              {buyer.buyer_firm_name || buyer.buyer_name}
+              {buyer.buyer_name}
             </Link>
           ) : (
             <span className="font-semibold text-sm truncate block">
-              {buyer.buyer_firm_name || buyer.buyer_name}
+              {buyer.buyer_name}
             </span>
           )}
-          {buyer.buyer_name !== buyer.buyer_firm_name && (
-            <p className="text-xs text-muted-foreground truncate">{buyer.buyer_name}</p>
+          {buyer.buyer_firm_name && buyer.buyer_firm_name !== buyer.buyer_name && (
+            <p className="text-xs text-muted-foreground truncate">{buyer.buyer_firm_name}</p>
           )}
         </div>
 
