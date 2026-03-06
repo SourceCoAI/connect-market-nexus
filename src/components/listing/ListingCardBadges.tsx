@@ -10,6 +10,7 @@ import {
   MapPinIcon,
 } from "@/components/icons/LocationIcons";
 import AcquisitionTypeBadge from "./AcquisitionTypeBadge";
+import { stateToRegion } from "@/lib/deal-to-listing-anonymizer";
 
 import {
   TechnologyIcon,
@@ -40,16 +41,23 @@ interface ListingCardBadgesProps {
   acquisitionType?: 'add_on' | 'platform' | string | null;
 }
 
+// US regional descriptors from stateToRegion mapping
+const US_REGIONS = new Set([
+  'southeast', 'northwest', 'mountain west', 'south central',
+  'west coast', 'new england', 'mid-atlantic', 'midwest',
+  'great plains', 'pacific',
+]);
+
 // Helper function to get location icon based on location string
 const getLocationIcon = (location: string) => {
   const loc = location.toLowerCase();
-  
+
   // US and US regions get US flag
-  if (loc.includes('us') || loc === 'united states' || 
-      loc.includes('northeast') || loc.includes('southeast') || 
-      loc.includes('midwest') || loc.includes('southwest') || 
-      loc.includes('western') || loc.includes('west coast') || 
-      loc.includes('east coast')) {
+  if (loc.includes('us') || loc === 'united states' ||
+      loc.includes('northeast') || loc.includes('southeast') ||
+      loc.includes('midwest') || loc.includes('southwest') ||
+      loc.includes('western') || loc.includes('west coast') ||
+      loc.includes('east coast') || US_REGIONS.has(loc)) {
     return <USFlagIcon className="w-4 h-4 text-slate-500" />;
   }
   
@@ -136,12 +144,14 @@ const getCategoryIcon = (category: string) => {
 
 const ListingCardBadges = memo(function ListingCardBadges({ location, categories = [], acquisitionType }: ListingCardBadgesProps) {
   const categoriesToShow = categories.slice(0, 2);
-  
+  // Anonymize: convert any raw state names/abbreviations to regional descriptors
+  const displayLocation = location ? stateToRegion(location) : location;
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {/* Acquisition Type badge - FIRST (most strategic info) */}
       <AcquisitionTypeBadge type={acquisitionType} />
-      
+
       {/* Category badges (up to 2) */}
       {categoriesToShow.map((cat) => (
         <div
@@ -154,12 +164,12 @@ const ListingCardBadges = memo(function ListingCardBadges({ location, categories
           </span>
         </div>
       ))}
-      
+
       {/* Location badge */}
       <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-        {getLocationIcon(location)}
+        {getLocationIcon(displayLocation)}
         <span className="text-[11px] font-medium text-slate-700 tracking-[0.02em]">
-          {location}
+          {displayLocation}
         </span>
       </div>
     </div>
