@@ -407,7 +407,9 @@ serve(async (req) => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${supabaseAnonKey}`,
+            apikey: supabaseAnonKey!,
+            Authorization: `Bearer ${supabaseServiceKey}`,
+            'x-internal-secret': supabaseServiceKey,
           },
           body: JSON.stringify({ dealId, notesText: notesContent }),
           signal: AbortSignal.timeout(30000), // 30s timeout — must fit within parent function's budget
