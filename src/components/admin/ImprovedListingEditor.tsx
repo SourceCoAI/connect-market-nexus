@@ -466,6 +466,8 @@ export function ImprovedListingEditor({
                 form={formForSections}
                 isGenerating={isGenerating}
                 generatingField={generatingField}
+                dealId={effectiveDealId}
+                listingId={listing?.id || null}
               />
             </div>
 
