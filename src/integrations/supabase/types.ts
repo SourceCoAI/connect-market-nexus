@@ -7160,8 +7160,6 @@ export type Database = {
           needs_owner_contact: boolean | null
           needs_owner_contact_at: string | null
           needs_owner_contact_by: string | null
-          not_a_fit: boolean
-          not_a_fit_reason: string | null
           notes: string | null
           notes_analyzed_at: string | null
           number_of_locations: number | null
@@ -7353,8 +7351,6 @@ export type Database = {
           needs_owner_contact?: boolean | null
           needs_owner_contact_at?: string | null
           needs_owner_contact_by?: string | null
-          not_a_fit?: boolean
-          not_a_fit_reason?: string | null
           notes?: string | null
           notes_analyzed_at?: string | null
           number_of_locations?: number | null
@@ -7546,8 +7542,6 @@ export type Database = {
           needs_owner_contact?: boolean | null
           needs_owner_contact_at?: string | null
           needs_owner_contact_by?: string | null
-          not_a_fit?: boolean
-          not_a_fit_reason?: string | null
           notes?: string | null
           notes_analyzed_at?: string | null
           number_of_locations?: number | null
@@ -12353,8 +12347,6 @@ export type Database = {
           needs_owner_contact: boolean | null
           needs_owner_contact_at: string | null
           needs_owner_contact_by: string | null
-          not_a_fit: boolean
-          not_a_fit_reason: string | null
           notes: string | null
           notes_analyzed_at: string | null
           number_of_locations: number | null
