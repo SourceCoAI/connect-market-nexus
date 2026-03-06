@@ -21,6 +21,7 @@ export function useValuationLeadsData() {
     setSelectedIds: queries.setSelectedIds,
     enrichmentSummary: queries.enrichmentSummary,
     dismissSummary: queries.dismissSummary,
+    setHideNotFit: queries.setHideNotFit,
   });
 
   return {

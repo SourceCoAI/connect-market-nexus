@@ -402,6 +402,7 @@ const ReMarketingDeals = () => {
         onPushToSmartlead={() => setSmartleadOpen(true)}
         onPushToHeyreach={() => setHeyreachOpen(true)}
         onAddToList={() => setAddToListOpen(true)}
+        onMarkNotFit={h.handleBulkMarkNotAFit}
         onArchive={h.handleBulkArchive}
         isArchiving={h.isArchiving}
         onDelete={h.handleBulkDelete}

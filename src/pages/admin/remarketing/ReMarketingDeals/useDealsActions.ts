@@ -21,6 +21,7 @@ interface UseDealsActionsParams {
   adminProfiles:
     | Record<string, { id: string; first_name: string; last_name: string; email: string }>
     | undefined;
+  setHideNotAFit?: (v: boolean) => void;
 }
 
 export function useDealsActions({
@@ -30,6 +31,7 @@ export function useDealsActions({
   sortedListingsRef,
   refetchListings,
   adminProfiles,
+  setHideNotAFit,
 }: UseDealsActionsParams) {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -353,10 +355,33 @@ export function useDealsActions({
         return;
       }
       toast({ title: 'Marked as Not a Fit', description: reason });
+      // Show greyed-out rows instead of hiding them
+      if (setHideNotAFit) setHideNotAFit(false);
       refetchListings();
     },
-    [toast, refetchListings],
+    [toast, refetchListings, setHideNotAFit],
   );
+
+  const handleBulkMarkNotAFit = useCallback(async () => {
+    const ids = Array.from(selectedDeals);
+    if (ids.length === 0) return;
+    const { error } = await supabase
+      .from('listings')
+      .update({ not_a_fit: true, not_a_fit_reason: 'Bulk marked' })
+      .in('id', ids);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({
+      title: 'Marked as Not a Fit',
+      description: `${ids.length} deal(s) marked as not a fit`,
+    });
+    setSelectedDeals(new Set());
+    // Show greyed-out rows instead of hiding them
+    if (setHideNotAFit) setHideNotAFit(false);
+    refetchListings();
+  }, [selectedDeals, toast, refetchListings, setHideNotAFit]);
 
   const handleRemoveNotAFit = useCallback(
     async (dealId: string) => {
@@ -652,6 +677,7 @@ export function useDealsActions({
     handleToggleUniverseBuild,
     handleToggleBuyerSearch,
     handleMarkNotAFit,
+    handleBulkMarkNotAFit,
     handleRemoveNotAFit,
     handleAssignOwner,
     handleBulkAssignOwner,

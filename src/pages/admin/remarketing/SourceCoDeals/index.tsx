@@ -125,6 +125,8 @@ export default function SourceCoDeals() {
         description: `${dealIds.length} deal(s) marked as not a fit`,
       });
       hook.setSelectedIds(new Set());
+      // Show greyed-out rows instead of hiding them
+      hook.setHideNotFit(false);
       hook.queryClient.invalidateQueries({ queryKey: ['remarketing', 'sourceco-deals'] });
     } catch (err: unknown) {
       hook.toast({
@@ -135,7 +137,7 @@ export default function SourceCoDeals() {
     } finally {
       setIsMarkingNotFit(false);
     }
-  }, [hook.selectedIds, hook.toast, hook.queryClient, hook.setSelectedIds]);
+  }, [hook.selectedIds, hook.toast, hook.queryClient, hook.setSelectedIds, hook.setHideNotFit]);
 
   const handleMarkNotFitSingle = useCallback(
     async (dealId: string) => {
@@ -146,6 +148,8 @@ export default function SourceCoDeals() {
           .eq('id', dealId);
         if (error) throw error;
         hook.toast({ title: 'Marked as Not a Fit', description: '1 deal marked as not a fit' });
+        // Show greyed-out rows instead of hiding them
+        hook.setHideNotFit(false);
         hook.queryClient.invalidateQueries({ queryKey: ['remarketing', 'sourceco-deals'] });
       } catch (err: unknown) {
         hook.toast({
@@ -155,7 +159,7 @@ export default function SourceCoDeals() {
         });
       }
     },
-    [hook.toast, hook.queryClient],
+    [hook.toast, hook.queryClient, hook.setHideNotFit],
   );
 
   const selectedDealsForList = useMemo((): DealForList[] => {
