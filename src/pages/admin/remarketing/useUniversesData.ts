@@ -121,7 +121,7 @@ export function useUniversesData() {
     queryFn: async () => {
       const { data: buyers, error: buyersError } = await supabase
         .from('buyers')
-        .select('id, universe_id')
+        .select('id, universe_id, data_last_updated')
         .eq('archived', false)
         .limit(10000);
 
@@ -144,6 +144,10 @@ export function useUniversesData() {
           stats[buyer.universe_id] = { total: 0, enriched: 0, withTranscripts: 0 };
         }
         stats[buyer.universe_id].total++;
+
+        if (buyer.data_last_updated) {
+          stats[buyer.universe_id].enriched++;
+        }
 
         if (buyersWithTranscripts.has(buyer.id)) {
           stats[buyer.universe_id].withTranscripts++;
