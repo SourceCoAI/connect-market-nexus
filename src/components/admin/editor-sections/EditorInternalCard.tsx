@@ -20,6 +20,7 @@ import { STATUS_TAGS } from '@/constants/statusTags';
 import { ChevronDown, Sparkles, Loader2 } from 'lucide-react';
 import { EnhancedMultiCategorySelect } from '@/components/ui/enhanced-category-select';
 import { EnhancedMultiLocationSelect } from '@/components/ui/enhanced-location-select';
+import { stateToRegion } from '@/lib/deal-to-listing-anonymizer';
 
 interface EditorInternalCardProps {
   form: UseFormReturn<any>;
@@ -51,7 +52,8 @@ function generateSmartTitle(form: UseFormReturn<any>): string {
   const ebitda: number = parseFloat(form.getValues('ebitda') || '0') || 0;
 
   const industry = categories[0] || 'Services';
-  const state = Array.isArray(location) ? location[0] || '' : location;
+  const rawState = Array.isArray(location) ? location[0] || '' : location;
+  const region = stateToRegion(rawState);
   const margin = revenue > 0 && ebitda > 0 ? Math.round((ebitda / revenue) * 100) : 0;
 
   // Build a descriptive, buyer-appealing title
@@ -61,12 +63,12 @@ function generateSmartTitle(form: UseFormReturn<any>): string {
   const revenueDescriptor =
     revenue >= 10_000_000 ? 'Scaled' : revenue >= 5_000_000 ? 'Growth-Stage' : '';
 
-  // Pattern: [Margin/Scale Descriptor] [Industry] [Type] — [Geography]
+  // Pattern: [Margin/Scale Descriptor] [Industry] [Type] — [Region]
   const descriptors = [marginDescriptor, revenueDescriptor].filter(Boolean);
   const prefix = descriptors.length > 0 ? descriptors[0] + ' ' : '';
 
-  if (state) {
-    return `${prefix}${industry} ${typeLabel} — ${state}`.trim();
+  if (region) {
+    return `${prefix}${industry} ${typeLabel} — ${region}`.trim();
   }
   return `${prefix}${industry} ${typeLabel} Opportunity`.trim();
 }
@@ -255,7 +257,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
                 <FormItem>
                   <FormControl>
                     <Input
-                      placeholder="e.g. Profitable HVAC Platform — Texas"
+                      placeholder="e.g. Profitable HVAC Platform — South Central"
                       {...field}
                       value={field.value || ''}
                       className={cn(

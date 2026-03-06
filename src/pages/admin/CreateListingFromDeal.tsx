@@ -240,6 +240,7 @@ export default function CreateListingFromDeal() {
             description_html: data.description_html,
             description: data.description_markdown,
             hero_description: data.hero_description || prev.hero_description,
+            location: data.location || prev.location,
             custom_sections: [],
           };
         });
