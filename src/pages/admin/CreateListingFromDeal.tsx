@@ -122,65 +122,64 @@ export default function CreateListingFromDeal() {
     }
   }, [deal, prefilled]);
 
-  // Auto-trigger AI content generation when prefilled data is ready
+  // Auto-trigger AI content generation when prefilled data is ready.
+  // Uses generate-teaser (reads a completed lead memo) for higher-quality
+  // output without raw transcript leakage. Falls back to generate-lead-memo
+  // if no lead memo exists yet.
   useEffect(() => {
     if (!prefilled || !dealId || contentGenerationTriggered.current) return;
-    // Only trigger if custom_sections is empty (no content yet)
     if (prefilled.custom_sections && (prefilled.custom_sections as unknown[]).length > 0) return;
     contentGenerationTriggered.current = true;
     setIsGeneratingContent(true);
 
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('generate-lead-memo', {
-          body: { deal_id: dealId, memo_type: 'anonymous_teaser' },
+        // Try generate-teaser first — it reads a completed lead memo (no raw
+        // transcript fragments) and produces a properly structured teaser.
+        const { data, error } = await supabase.functions.invoke('generate-teaser', {
+          body: { deal_id: dealId },
         });
+
         if (error) {
-          console.error('AI content generation failed:', error);
-          // Parse the error for a more specific message
           const errorMsg =
             typeof error === 'object' && error !== null && 'message' in error
               ? (error as { message: string }).message
               : '';
-          if (errorMsg.includes('Final PDF') || errorMsg.includes('Full Lead Memo')) {
+          // If a lead memo doesn't exist yet, tell the user
+          if (
+            errorMsg.includes('Lead memo must be generated') ||
+            errorMsg.includes('lead memo')
+          ) {
             toast.info(
-              'AI content requires a Full Lead Memo PDF to be uploaded first. You can fill in content manually.',
+              'A Full Lead Memo must be generated before creating the listing teaser. Generate it from the Data Room, then retry.',
             );
           } else {
             toast.info(
               'AI content generation could not complete. You can fill in content manually.',
             );
+            console.error('generate-teaser failed:', error);
           }
           return;
         }
 
-        // Extract sections from the anonymous teaser memo response.
-        // Response shape: { success: true, memos: { anonymous_teaser: { content: { sections: [...] } } } }
-        const teaserMemo = data?.memos?.anonymous_teaser;
-        const sections = teaserMemo?.content?.sections;
+        // Response shape: { success: true, teaser: { content: { sections: [...] } }, validation }
+        const sections = data?.teaser?.content?.sections;
 
         if (sections && Array.isArray(sections) && sections.length > 0) {
-          // Merge all AI sections into the body description with clear section headings.
-          // This replaces the old custom_sections approach — everything goes into
-          // the description for a single, easy-to-edit rich text block.
           const contentSections = sections.filter(
             (s: { key: string }) => s.key !== 'header_block' && s.key !== 'contact_information',
           );
 
-          // Build a formatted description with section headings and content
-          const formattedDescription = contentSections
-            .map((s: { title: string; content: string }) => `${s.title}\n\n${s.content}`)
-            .join('\n\n');
+          applyTeaserSections(contentSections);
 
-          setPrefilled((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              custom_sections: [],
-              description: formattedDescription || prev.description,
-            };
-          });
-          toast.success('AI content generated — review and edit before saving.');
+          const validation = data?.validation;
+          if (validation && !validation.pass) {
+            toast.warning(
+              'AI content generated with validation warnings — review carefully before saving.',
+            );
+          } else {
+            toast.success('AI content generated — review and edit before saving.');
+          }
         } else {
           toast.info(
             'AI generation returned no content sections. You can fill in content manually.',
@@ -194,6 +193,60 @@ export default function CreateListingFromDeal() {
       }
     })();
   }, [prefilled, dealId]);
+
+  /** Convert teaser sections into HTML description and update prefilled state */
+  function applyTeaserSections(
+    contentSections: { key: string; title: string; content: string }[],
+  ) {
+    // Build HTML so the rich text editor renders properly (not raw markdown)
+    const descriptionHtml = contentSections
+      .map((s) => {
+        const htmlContent = markdownSectionToHtml(s.content);
+        return `<h2>${s.title}</h2>${htmlContent}`;
+      })
+      .join('');
+
+    // Plain text fallback for the description field
+    const plainText = contentSections
+      .map((s) => `${s.title}\n\n${s.content}`)
+      .join('\n\n');
+
+    setPrefilled((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        custom_sections: [],
+        description: plainText || prev.description,
+        description_html: descriptionHtml,
+      };
+    });
+  }
+
+  /** Lightweight markdown → HTML for teaser section content */
+  function markdownSectionToHtml(md: string): string {
+    return md
+      // Convert bullet lists (groups of lines starting with "- ")
+      .replace(/(?:^|\n)((?:- .+(?:\n|$))+)/g, (_match, list: string) => {
+        const items = list
+          .split('\n')
+          .filter((l: string) => l.trim().startsWith('- '))
+          .map((l: string) => `<li>${l.trim().replace(/^- /, '')}</li>`)
+          .join('');
+        return `<ul>${items}</ul>`;
+      })
+      // Bold
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      // Remaining double-newline blocks → paragraphs
+      .split(/\n\n+/)
+      .map((block: string) => {
+        const trimmed = block.trim();
+        if (!trimmed || trimmed.startsWith('<ul>') || trimmed.startsWith('<li>')) return trimmed;
+        return `<p>${trimmed}</p>`;
+      })
+      .join('');
+  }
 
   const handleSubmit = async (data: Record<string, unknown>, image?: File | null) => {
     try {

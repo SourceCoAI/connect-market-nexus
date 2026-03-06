@@ -346,49 +346,6 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
             />
           </div>
 
-          {/* Team Size */}
-          <div className={EDITOR_DESIGN.microFieldSpacing}>
-            <div className={EDITOR_DESIGN.microLabel}>Team Size</div>
-            <div className="grid grid-cols-2 gap-2">
-              <FormField
-                control={form.control}
-                name="full_time_employees"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <NumericInput
-                        placeholder="Full-time"
-                        value={field.value ?? ''}
-                        onChange={(value) =>
-                          field.onChange(value ? Number(value) : 0)
-                        }
-                        className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="part_time_employees"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <NumericInput
-                        placeholder="Part-time"
-                        value={field.value ?? ''}
-                        onChange={(value) =>
-                          field.onChange(value ? Number(value) : 0)
-                        }
-                        className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-
 
           {/* Status */}
           <div className={cn('pt-3', EDITOR_DESIGN.subtleDivider, EDITOR_DESIGN.microFieldSpacing)}>
