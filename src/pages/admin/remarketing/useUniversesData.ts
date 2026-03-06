@@ -567,6 +567,50 @@ export function useUniversesData() {
     [queryClient],
   );
 
+  // Backfill missing descriptions
+  const [isBackfillingDescriptions, setIsBackfillingDescriptions] = useState(false);
+  const backfillMissingDescriptions = useCallback(async () => {
+    if (!universes) return;
+    const missing = universes.filter((u) => !u.description);
+    if (missing.length === 0) {
+      toast.info('All universes already have descriptions');
+      return;
+    }
+    setIsBackfillingDescriptions(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    let success = 0;
+    for (const universe of missing) {
+      try {
+        const response = await fetch(
+          `https://vhzipqarkmmfuqadefep.supabase.co/functions/v1/clarify-industry`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({
+              industry_name: universe.name,
+              generate_description: true,
+            }),
+          },
+        );
+        if (response.ok) {
+          const result = await response.json();
+          const desc = result.description ||
+            `Buyer universe targeting companies in the ${universe.name} industry.`;
+          await supabase.from('buyer_universes').update({ description: desc }).eq('id', universe.id);
+          success++;
+        }
+      } catch (e) {
+        console.warn(`Failed to generate description for ${universe.name}:`, e);
+      }
+    }
+    setIsBackfillingDescriptions(false);
+    queryClient.invalidateQueries({ queryKey: ['remarketing'] });
+    toast.success(`Generated descriptions for ${success} of ${missing.length} universes`);
+  }, [universes, queryClient]);
+
   return {
     // Query data
     universes,
