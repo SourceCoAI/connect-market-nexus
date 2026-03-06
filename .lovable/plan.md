@@ -1,43 +1,34 @@
 
 
-# Plan: Fix Edge Function Build Errors & Deploy All
+## Problem
 
-The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
+The "No description" on buyer universe rows happens because description generation is **manual only** — the user must click "AI Generate" in the create dialog. Most universes were created without clicking it, or were imported via bulk flows that don't generate descriptions.
 
-## Errors & Fixes
+There is no auto-generation of the description when a universe is created or after it's been sitting without one.
 
-### 1. `auto-create-firm-on-approval/index.ts` (1 error)
-**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
-**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
+## Root Causes
 
-### 2. `bulk-import-remarketing/index.ts` (2 errors)
-**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
-**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
+1. **Create flow**: The "Create Universe" dialog has an optional manual "AI Generate" button for description. If the user doesn't click it, the universe is saved with `description: null`.
+2. **Bulk import flows**: `import-reference-data` and `bulk-import-remarketing` create universes without generating descriptions.
+3. **No backfill mechanism**: There's no process to retroactively generate descriptions for universes missing them.
 
-### 3. `calculate-deal-quality/index.ts` (24 errors)
-**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
-**Fix:**
-- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
-- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
+## Plan
 
-### 4. `clarify-industry/index.ts` (1 error)
-**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
-**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
+### Change 1: Auto-generate description on universe creation
+In `useUniversesData.ts`, modify the `createMutation` to automatically call `clarify-industry` with `generate_description: true` after inserting the universe (if no description was provided). This ensures every new universe gets a description without requiring the user to click the button.
 
-### 5. `confirm-agreement-signed/index.ts` (3 errors)
-**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
-**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
+### Change 2: Auto-trigger description generation when name is entered
+In `useUniversesData.ts`, add a debounced effect that auto-generates the description when the user types a universe name (after ~1.5s of no typing), replacing the manual button click. The button stays as a manual re-trigger option.
 
-## After Fixes
-Deploy all edge functions using the deployment tool.
+### Change 3: Backfill existing universes — add "Generate Missing Descriptions" action
+Add a bulk action button on the universes list page (near the existing bulk actions) that finds all universes with `description IS NULL` and generates descriptions for them sequentially via `clarify-industry`. This is a one-time catch-up for existing data.
 
-## Summary of Changes
-| File | Change |
-|------|--------|
-| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
-| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
-| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
-| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
-| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
-| Deploy all ~148 functions | After fixes pass |
+### Change 4: Bulk import description generation
+In `import-reference-data` and `bulk-import-remarketing` edge functions, after inserting a universe, fire a non-blocking call to `clarify-industry` with `generate_description: true` and update the universe record with the result.
+
+### Files to modify
+- `src/pages/admin/remarketing/useUniversesData.ts` — auto-generate on create, debounced auto-generate on name input
+- `src/pages/admin/remarketing/ReMarketingUniverses.tsx` — add bulk "Generate Missing Descriptions" button
+- `supabase/functions/import-reference-data/index.ts` — generate description on import
+- `supabase/functions/bulk-import-remarketing/index.ts` — generate description on import
 
