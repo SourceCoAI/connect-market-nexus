@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { useValuationLeadsData } from './useValuationLeadsData';
 import { ValuationLeadsTable } from './ValuationLeadsTable';
 import { ValuationLeadUploadDialog } from './ValuationLeadUploadDialog';
+import { ValuationLeadDetailDrawer } from './ValuationLeadDetailDrawer';
 import { exportLeadsToCSV } from './helpers';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
@@ -87,6 +88,7 @@ export default function ValuationLeads() {
     hideNotFit,
     setHideNotFit,
     handleRowClick,
+    handleOpenDeal,
     handlePushToAllDeals,
     handlePushAndEnrich,
     handleReEnrich,
@@ -96,6 +98,9 @@ export default function ValuationLeads() {
     handleRetryFailedEnrichment,
     handleScoreLeads,
     handleAssignOwner,
+    selectedLead,
+    drawerOpen,
+    setDrawerOpen,
     isPushing,
     isPushEnriching,
     isReEnriching,
