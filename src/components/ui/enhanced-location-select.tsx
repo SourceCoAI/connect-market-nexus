@@ -36,12 +36,10 @@ const getLocationIcon = (location: string) => {
   const iconClass = "w-3.5 h-3.5 text-slate-500";
   
   // US and US regions get US flag
-  const usRegions = [
-    'united states', 'northeast', 'southeast', 'midwest', 'southwest',
-    'western', 'pacific', 'new england', 'mid-atlantic', 'south central',
-    'great plains', 'mountain west', 'west coast', 'northwest',
-  ];
-  if (loc.includes('us') || usRegions.some((r) => loc.includes(r))) {
+  if (loc.includes('us') || loc === 'united states' || 
+      loc.includes('northeast') || loc.includes('southeast') || 
+      loc.includes('midwest') || loc.includes('southwest') || 
+      loc.includes('western') || loc.includes('pacific')) {
     return <USFlagIcon className={iconClass} />;
   }
   

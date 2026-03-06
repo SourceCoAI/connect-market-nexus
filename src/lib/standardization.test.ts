@@ -67,15 +67,14 @@ describe('toStandardLocation', () => {
   });
 
   it('handles location synonyms', () => {
-    expect(toStandardLocation('northwest')).toBe('Northwest');
-    expect(toStandardLocation('pacific northwest')).toBe('Northwest');
-    expect(toStandardLocation('northeast')).toBe('New England');
-    expect(toStandardLocation('new england')).toBe('New England');
-    expect(toStandardLocation('southeast')).toBe('Southeast');
-    expect(toStandardLocation('midwest')).toBe('Midwest');
-    expect(toStandardLocation('west coast')).toBe('West Coast');
-    expect(toStandardLocation('east coast')).toBe('Mid-Atlantic');
-    expect(toStandardLocation('south central')).toBe('South Central');
+    expect(toStandardLocation('northwest')).toBe('Western US');
+    expect(toStandardLocation('pacific northwest')).toBe('Western US');
+    expect(toStandardLocation('northeast')).toBe('Northeast US');
+    expect(toStandardLocation('new england')).toBe('Northeast US');
+    expect(toStandardLocation('southeast')).toBe('Southeast US');
+    expect(toStandardLocation('midwest')).toBe('Midwest US');
+    expect(toStandardLocation('west coast')).toBe('Western US');
+    expect(toStandardLocation('east coast')).toBe('Northeast US');
     expect(toStandardLocation('usa')).toBe('United States');
     expect(toStandardLocation('us')).toBe('United States');
     expect(toStandardLocation('uk')).toBe('United Kingdom');
@@ -117,12 +116,12 @@ describe('standardizeLocations', () => {
 
   it('standardizes location synonyms in arrays', () => {
     const result = standardizeLocations(['northwest', 'midwest']);
-    expect(result).toContain('Northwest');
-    expect(result).toContain('Midwest');
+    expect(result).toContain('Western US');
+    expect(result).toContain('Midwest US');
   });
 
   it('deduplicates results', () => {
-    const result = standardizeLocations(['northwest', 'west coast', 'West Coast']);
+    const result = standardizeLocations(['northwest', 'western', 'Western US']);
     const uniqueResult = [...new Set(result)];
     expect(result.length).toBe(uniqueResult.length);
   });

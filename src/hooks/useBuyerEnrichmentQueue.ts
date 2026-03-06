@@ -294,12 +294,13 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
       try {
         // Gate check: register as major operation
         const { data: userData, error: authError } = await supabase.auth.getUser();
-        if (authError) throw authError;
+        if (authError) throw new Error(authError.message || 'Authentication failed');
+        if (!userData?.user?.id) throw new Error('User session expired. Please sign in again.');
         const { queued } = await startOrQueueMajorOp({
           operationType: 'buyer_enrichment',
           totalItems: enrichableBuyers.length,
           description: `Enrich ${enrichableBuyers.length} buyers`,
-          userId: userData?.user?.id || 'unknown',
+          userId: userData.user.id,
         });
         if (queued) {
           // Another major op is running — ours was queued and will auto-start later
@@ -355,10 +356,15 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
 
         // Start polling and processing intervals
         startPolling();
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Failed to queue buyers for enrichment:', error);
+        // PostgrestError has .message but doesn't extend Error — check for it explicitly
         const message =
-          error instanceof Error ? error.message : 'Unknown error';
+          error instanceof Error
+            ? error.message
+            : typeof error === 'object' && error !== null && 'message' in error
+              ? String((error as { message: unknown }).message)
+              : 'Unknown error';
         toast.error(`Failed to queue buyers for enrichment: ${message}`);
       }
     },
