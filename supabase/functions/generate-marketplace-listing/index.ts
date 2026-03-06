@@ -375,19 +375,21 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[generate-marketplace-listing] Starting for deal_id=${dealId}, listing_id=${listingId || 'none'}`);
 
-    // Step 1: Fetch the completed lead memo
+    // Step 1: Fetch the lead memo (completed or draft — both have full content)
     const { data: leadMemo } = await supabaseAdmin
       .from('lead_memos')
-      .select('content')
+      .select('content, status')
       .eq('deal_id', dealId)
       .eq('memo_type', 'full_memo')
-      .eq('status', 'completed')
+      .in('status', ['completed', 'draft'])
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
     if (!leadMemo) {
       return new Response(
         JSON.stringify({
-          error: 'A completed lead memo is required before generating a marketplace listing description.',
+          error: 'A lead memo is required before generating a marketplace listing description. Generate a Full Lead Memo from the Data Room first.',
           needs_memo: true,
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },

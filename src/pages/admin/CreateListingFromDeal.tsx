@@ -140,20 +140,20 @@ export default function CreateListingFromDeal() {
 
     (async () => {
       try {
-        // Step 1: Check if a completed lead memo exists
+        // Step 1: Check if a lead memo exists (draft or completed)
         const { data: leadMemo } = await supabase
           .from('lead_memos')
           .select('id')
           .eq('deal_id', dealId)
           .eq('memo_type', 'full_memo')
-          .eq('status', 'completed')
+          .in('status', ['completed', 'draft'])
           .maybeSingle();
 
         if (!leadMemo) {
           // No memo yet — show warning but don't block listing creation
           setDescriptionSource('anonymizer');
           toast.warning(
-            'No completed lead memo found. The listing description will need to be written manually, or regenerate after the lead memo is complete.',
+            'No lead memo found. The listing description will need to be written manually, or regenerate after a lead memo is generated.',
             { duration: 8000 },
           );
           return;
