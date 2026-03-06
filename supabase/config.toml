@@ -139,7 +139,7 @@ verify_jwt = true
 [functions.clarify-industry]
 verify_jwt = true
 [functions.analyze-deal-notes]
-verify_jwt = true
+verify_jwt = false
 [functions.enrich-deal]
 verify_jwt = false
 [functions.track-session]
