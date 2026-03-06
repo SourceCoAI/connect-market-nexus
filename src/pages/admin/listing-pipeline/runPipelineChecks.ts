@@ -56,25 +56,27 @@ export async function runPipelineChecks(dealId: string): Promise<PipelineReport>
     detail: `${deal.internal_company_name || deal.title || dealId}`,
   });
 
-  // 2. Push-to-marketplace gate checks
+  // 2. Push-to-marketplace gate checks (Audit P2: all 10 requirements are now hard checks)
   const gateFields: Array<{ label: string; check: () => boolean }> = [
     { label: 'Website', check: () => !!deal.website },
-    { label: 'Revenue', check: () => deal.revenue != null },
+    { label: 'Revenue', check: () => typeof deal.revenue === 'number' && deal.revenue > 0 },
     { label: 'EBITDA', check: () => deal.ebitda != null },
-    { label: 'Location', check: () => !!(deal.address_state || deal.location) },
+    { label: 'EBITDA in range ($500K-$10M)', check: () => typeof deal.ebitda === 'number' && deal.ebitda >= 500000 && deal.ebitda <= 10000000 },
+    { label: 'Location / Geography', check: () => !!(deal.address_state || deal.location) },
     { label: 'Category / Industry', check: () => !!(deal.category || deal.industry) },
     { label: 'Description', check: () => !!(deal.executive_summary || deal.description) },
     { label: 'Main contact name', check: () => !!deal.main_contact_name },
     { label: 'Main contact email', check: () => !!deal.main_contact_email },
+    { label: 'Hero description', check: () => !!deal.hero_description },
   ];
 
   const failedGates = gateFields.filter((g) => !g.check());
   checks.push({
-    name: 'Push gate: deal fields (8 checks)',
+    name: 'Push gate: deal fields (10 checks)',
     status: failedGates.length === 0 ? 'pass' : 'fail',
     detail:
       failedGates.length === 0
-        ? 'All 8 required deal fields are present'
+        ? 'All 10 required deal fields are present'
         : `Missing: ${failedGates.map((g) => g.label).join(', ')}`,
   });
 

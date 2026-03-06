@@ -1,8 +1,7 @@
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -55,49 +54,51 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { identifier, action, limit, window_minutes }: RateLimitRequest = await req.json();
-    
+
     if (!identifier || !action) {
       throw new Error('Identifier and action are required');
     }
-    
-    const config = RATE_LIMITS[action as keyof typeof RATE_LIMITS] || 
-                   { limit: limit || 30, window_minutes: window_minutes || 60 };
-    
+
+    const config = RATE_LIMITS[action as keyof typeof RATE_LIMITS] || {
+      limit: limit || 30,
+      window_minutes: window_minutes || 60,
+    };
+
     const result = await checkRateLimit(identifier, action, config.limit, config.window_minutes);
-    
+
     // Log rate limit violations
     if (!result.allowed) {
       await logRateLimitViolation(identifier, action, result);
     }
-    
+
     return new Response(JSON.stringify(result), {
       status: result.allowed ? 200 : 429,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (error: unknown) {
-    console.error("Error in rate-limiter function:", error);
+    console.error('Error in rate-limiter function:', error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         allowed: false,
-        error: error.message || 'Rate limiting failed'
+        error: error instanceof Error ? error.message : String(error) || 'Rate limiting failed',
       }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      },
     );
   }
 };
 
 async function checkRateLimit(
-  identifier: string, 
-  action: string, 
-  limit: number, 
-  windowMinutes: number
+  identifier: string,
+  action: string,
+  limit: number,
+  windowMinutes: number,
 ): Promise<RateLimitResult> {
   const windowStart = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
   const resetTime = new Date(Date.now() + windowMinutes * 60 * 1000).toISOString();
-  
+
   try {
     // Count recent attempts
     const { data: attempts, error } = await supabase
@@ -106,7 +107,7 @@ async function checkRateLimit(
       .eq('activity_type', `rate_limit_${action}`)
       .eq('user_id', identifier)
       .gte('created_at', windowStart);
-    
+
     if (error) {
       console.error('Error querying rate limit data:', error);
       // Security-sensitive actions FAIL-CLOSED: block if we can't verify
@@ -118,7 +119,7 @@ async function checkRateLimit(
           remaining: 0,
           reset_time: resetTime,
           current_count: limit,
-          limit
+          limit,
         };
       }
       return {
@@ -126,36 +127,34 @@ async function checkRateLimit(
         remaining: limit - 1,
         reset_time: resetTime,
         current_count: 1,
-        limit
+        limit,
       };
     }
-    
+
     const currentCount = attempts?.length || 0;
     const allowed = currentCount < limit;
-    
+
     if (allowed) {
       // Record this attempt
-      await supabase
-        .from('user_activity')
-        .insert({
-          user_id: identifier,
-          activity_type: `rate_limit_${action}`,
-          metadata: {
-            action,
-            window_minutes: windowMinutes,
-            limit,
-            attempt_count: currentCount + 1,
-            timestamp: new Date().toISOString()
-          }
-        });
+      await supabase.from('user_activity').insert({
+        user_id: identifier,
+        activity_type: `rate_limit_${action}`,
+        metadata: {
+          action,
+          window_minutes: windowMinutes,
+          limit,
+          attempt_count: currentCount + 1,
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
-    
+
     return {
       allowed,
       remaining: Math.max(0, limit - currentCount - (allowed ? 1 : 0)),
       reset_time: resetTime,
       current_count: currentCount + (allowed ? 1 : 0),
-      limit
+      limit,
     };
   } catch (error) {
     console.error('Rate limit check failed:', error);
@@ -167,7 +166,7 @@ async function checkRateLimit(
         remaining: 0,
         reset_time: resetTime,
         current_count: limit,
-        limit
+        limit,
       };
     }
     return {
@@ -175,26 +174,24 @@ async function checkRateLimit(
       remaining: limit - 1,
       reset_time: resetTime,
       current_count: 1,
-      limit
+      limit,
     };
   }
 }
 
 async function logRateLimitViolation(identifier: string, action: string, result: RateLimitResult) {
   try {
-    await supabase
-      .from('user_activity')
-      .insert({
-        user_id: identifier,
-        activity_type: 'rate_limit_violation',
-        metadata: {
-          action,
-          violation_details: result,
-          timestamp: new Date().toISOString(),
-          severity: result.current_count > result.limit * 2 ? 'high' : 'medium'
-        }
-      });
-    
+    await supabase.from('user_activity').insert({
+      user_id: identifier,
+      activity_type: 'rate_limit_violation',
+      metadata: {
+        action,
+        violation_details: result,
+        timestamp: new Date().toISOString(),
+        severity: result.current_count > result.limit * 2 ? 'high' : 'medium',
+      },
+    });
+
     console.log(`Rate limit violation: ${identifier} exceeded ${action} limit`);
   } catch (error) {
     console.error('Error logging rate limit violation:', error);

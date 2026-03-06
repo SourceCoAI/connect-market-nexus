@@ -108,7 +108,11 @@ serve(async (req) => {
             console.error('Link failed:', existingBuyerId, directError.message);
             errors++;
             if (errorDetails.length < 5) {
-              errorDetails.push({ company: String(buyer?.company_name || existingBuyerId), code: (directError as { code?: string }).code || 'unknown', message: directError.message });
+              errorDetails.push({
+                company: String(buyer?.company_name || existingBuyerId),
+                code: (directError as { code?: string }).code || 'unknown',
+                message: directError.message,
+              });
             }
           } else {
             linked++;
@@ -118,7 +122,11 @@ serve(async (req) => {
           console.error('Link failed:', existingBuyerId, linkError.message);
           errors++;
           if (errorDetails.length < 5) {
-            errorDetails.push({ company: String(buyer?.company_name || existingBuyerId), code: (linkError as { code?: string }).code || 'unknown', message: linkError.message });
+            errorDetails.push({
+              company: String(buyer?.company_name || existingBuyerId),
+              code: (linkError as { code?: string }).code || 'unknown',
+              message: linkError.message,
+            });
           }
         } else {
           linked++;
@@ -127,21 +135,24 @@ serve(async (req) => {
 
         // Create contact for existing buyer if provided
         if (contact && linkSucceeded) {
-          const contactName =
-            contact.name ||
-            `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
-            'Unknown';
-          const { error: contactError } = await supabase
-            .from('remarketing_buyer_contacts')
-            .insert({
-              buyer_id: existingBuyerId,
-              name: contactName,
+          const nameParts = (contact.name || '').trim().split(/\s+/);
+          const firstName = contact.first_name || nameParts[0] || 'Unknown';
+          const lastName = contact.last_name || nameParts.slice(1).join(' ') || '';
+          const { error: contactError } = await supabase.from('contacts').upsert(
+            {
+              remarketing_buyer_id: existingBuyerId,
+              first_name: firstName,
+              last_name: lastName,
               email: contact.email || null,
               phone: contact.phone || null,
-              role: contact.title || null,
+              title: contact.title || null,
               linkedin_url: contact.linkedin_url || null,
-              is_primary: true,
-            });
+              is_primary_at_firm: true,
+              contact_type: 'buyer',
+              source: 'import',
+            },
+            { onConflict: 'remarketing_buyer_id,first_name,last_name', ignoreDuplicates: false },
+          );
           if (!contactError) contactsCreated++;
         }
         continue;
@@ -151,7 +162,11 @@ serve(async (req) => {
       if (!buyer || !buyer.company_name) {
         errors++;
         if (errorDetails.length < 5) {
-          errorDetails.push({ company: 'Unknown', code: 'missing_name', message: 'company_name is required' });
+          errorDetails.push({
+            company: 'Unknown',
+            code: 'missing_name',
+            message: 'company_name is required',
+          });
         }
         continue;
       }
@@ -160,14 +175,16 @@ serve(async (req) => {
       if (!buyer.company_website || String(buyer.company_website).trim() === '') {
         errors++;
         if (errorDetails.length < 5) {
-          errorDetails.push({ company: String(buyer.company_name), code: 'missing_website', message: 'company_website is required for active buyers' });
+          errorDetails.push({
+            company: String(buyer.company_name),
+            code: 'missing_website',
+            message: 'company_website is required for active buyers',
+          });
         }
         continue;
       }
 
-      const { error: insertError } = await supabase
-        .from('buyers')
-        .insert(buyer);
+      const { error: insertError } = await supabase.from('buyers').insert(buyer);
 
       if (insertError) {
         if (insertError.code === '23505' && universeId) {
@@ -217,7 +234,11 @@ serve(async (req) => {
           console.warn('Insert failed:', buyer.company_name, insertError.code, insertError.message);
           errors++;
           if (errorDetails.length < 5) {
-            errorDetails.push({ company: String(buyer.company_name), code: insertError.code || 'unknown', message: insertError.message });
+            errorDetails.push({
+              company: String(buyer.company_name),
+              code: insertError.code || 'unknown',
+              message: insertError.message,
+            });
           }
         }
         continue;
@@ -238,21 +259,24 @@ serve(async (req) => {
             .single();
 
           if (newBuyer?.id) {
-            const contactName =
-              contact.name ||
-              `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
-              'Unknown';
-            const { error: contactError } = await supabase
-              .from('remarketing_buyer_contacts')
-              .insert({
-                buyer_id: newBuyer.id,
-                name: contactName,
+            const nameParts2 = (contact.name || '').trim().split(/\s+/);
+            const fn = contact.first_name || nameParts2[0] || 'Unknown';
+            const ln = contact.last_name || nameParts2.slice(1).join(' ') || '';
+            const { error: contactError } = await supabase.from('contacts').upsert(
+              {
+                remarketing_buyer_id: newBuyer.id,
+                first_name: fn,
+                last_name: ln,
                 email: contact.email || null,
                 phone: contact.phone || null,
-                role: contact.title || null,
+                title: contact.title || null,
                 linkedin_url: contact.linkedin_url || null,
-                is_primary: true,
-              });
+                is_primary_at_firm: true,
+                contact_type: 'buyer',
+                source: 'import',
+              },
+              { onConflict: 'remarketing_buyer_id,first_name,last_name', ignoreDuplicates: false },
+            );
             if (contactError) {
               console.warn('Contact creation failed for buyer:', newBuyer.id, contactError.message);
             } else {

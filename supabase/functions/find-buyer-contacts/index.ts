@@ -192,24 +192,28 @@ serve(async (req) => {
       }
     }
 
-    // Save contacts if buyerId provided
-    // Use ignoreDuplicates: false so new data (email, linkedin_url) updates existing records
+    // Save contacts if buyerId provided — write to unified contacts table
+    // (Audit P1: migrate from legacy remarketing_buyer_contacts to contacts)
     if (buyerId && uniqueContacts.length > 0) {
       for (const contact of uniqueContacts) {
-        const { error: upsertError } = await supabase.from('remarketing_buyer_contacts').upsert(
+        // Split name into first/last for unified contacts schema
+        const nameParts = (contact.name || '').trim().split(/\s+/);
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        const { error: upsertError } = await supabase.from('contacts').upsert(
           {
-            buyer_id: buyerId,
-            name: contact.name,
+            remarketing_buyer_id: buyerId,
+            first_name: firstName,
+            last_name: lastName,
             title: contact.title,
             email: contact.email,
             linkedin_url: contact.linkedin_url,
-            role_category: contact.role_category,
+            contact_type: 'buyer',
             source: 'ai_discovery',
-            source_url: contact.source_url,
-            email_confidence: contact.email ? 'Guessed' : null,
           },
           {
-            onConflict: 'buyer_id,name',
+            onConflict: 'remarketing_buyer_id,first_name,last_name',
             ignoreDuplicates: false,
           },
         );

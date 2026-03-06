@@ -20,6 +20,21 @@ export function useDealLandingFormSubmit(listingId: string) {
     setError(null);
 
     try {
+      // Audit P2: Check for duplicate connection request by email + listing
+      const { data: existing } = await supabase
+        .from('connection_requests')
+        .select('id')
+        .eq('listing_id', listingId)
+        .eq('lead_email', formData.email)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        // Already submitted — treat as success to avoid confusing the user
+        setIsSuccess(true);
+        return;
+      }
+
       const { error: insertError } = await supabase.from('connection_requests').insert({
         listing_id: listingId,
         status: 'pending',

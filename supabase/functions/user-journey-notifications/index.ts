@@ -1,18 +1,22 @@
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { sendViaBervo } from "../_shared/brevo-sender.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
-import { escapeHtml } from "../_shared/auth.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
+import { escapeHtml } from '../_shared/auth.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 interface UserJourneyEvent {
-  event_type: 'user_created' | 'email_verified' | 'profile_approved' | 'profile_rejected' | 'reminder_due';
+  event_type:
+    | 'user_created'
+    | 'email_verified'
+    | 'profile_approved'
+    | 'profile_rejected'
+    | 'reminder_due';
   user_id: string;
   user_email: string;
   user_name: string;
@@ -140,11 +144,11 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const event: UserJourneyEvent = await req.json();
     const correlationId = crypto.randomUUID();
-    
+
     console.log(`[${correlationId}] Processing user journey event:`, {
       event_type: event.event_type,
       user_id: event.user_id,
-      user_email: event.user_email
+      user_email: event.user_email,
     });
 
     const { event_type, user_email, user_name } = event;
@@ -173,7 +177,8 @@ const handler = async (req: Request): Promise<Response> => {
         break;
 
       case 'profile_rejected': {
-        const reason = (event.metadata?.rejection_reason as string) || 'Application did not meet our criteria';
+        const reason =
+          (event.metadata?.rejection_reason as string) || 'Application did not meet our criteria';
         subject = 'SourceCo Account Update';
         htmlContent = buildRejectionHtml(user_name || 'there', reason);
         textContent = `Hi ${user_name || 'there'}, we were unable to approve your account. Reason: ${reason}`;
@@ -182,17 +187,23 @@ const handler = async (req: Request): Promise<Response> => {
 
       case 'reminder_due':
         console.log(`[${correlationId}] Skipping reminder email`);
-        return new Response(JSON.stringify({ success: true, correlationId, message: 'Reminder skipped' }), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
+        return new Response(
+          JSON.stringify({ success: true, correlationId, message: 'Reminder skipped' }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          },
+        );
 
       default:
         console.log(`[${correlationId}] Unknown event type: ${event_type}`);
-        return new Response(JSON.stringify({ success: true, correlationId, message: 'Unknown event type' }), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
+        return new Response(
+          JSON.stringify({ success: true, correlationId, message: 'Unknown event type' }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          },
+        );
     }
 
     // Send directly via Brevo
@@ -257,9 +268,10 @@ const handler = async (req: Request): Promise<Response> => {
   </div>
 </div></body></html>`;
 
-          for (const admin of (adminProfiles || [])) {
+          for (const admin of adminProfiles || []) {
             if (!admin.email) continue;
-            const adminName = `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
+            const adminName =
+              `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
             await sendViaBervo({
               to: admin.email,
               toName: adminName,
@@ -277,14 +289,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     return new Response(
       JSON.stringify({ success: true, correlationId, message: 'User journey event processed' }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
-
   } catch (error: unknown) {
-    console.error("Error in user-journey-notifications:", error);
+    console.error('Error in user-journey-notifications:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      JSON.stringify({
+        error: error instanceof Error ? error.message : String(error) || 'Internal server error',
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   }
 };

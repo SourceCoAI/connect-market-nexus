@@ -219,7 +219,8 @@ function validateBuyerTypesCriteria(criteria: Record<string, unknown> | undefine
 
   let score = 0;
 
-  const buyerTypes = ['pe_firms', 'strategics', 'family_offices', 'search_funds', 'independents'];
+  // Audit P1: Added individual_buyers to match 6-type taxonomy
+  const buyerTypes = ['pe_firms', 'strategics', 'family_offices', 'search_funds', 'independents', 'individual_buyers'];
   for (const type of buyerTypes) {
     if (criteria[type] !== undefined) {
       score += 20;

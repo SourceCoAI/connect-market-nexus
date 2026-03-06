@@ -59,15 +59,26 @@ export default function EmailCapture({ listingId }: EmailCaptureProps) {
 
     setIsSubmitting(true);
     try {
-      await supabase.from('connection_requests').insert({
-        listing_id: listingId,
-        status: 'pending',
-        lead_email: email,
-        lead_name: name || email.split('@')[0] || '',
-        lead_role: 'Email Capture',
-        user_message: 'Signed up for deal alerts via landing page email capture',
-        source: 'landing_page_email_capture',
-      });
+      // Audit P2: Check for duplicate before inserting
+      const { data: existing } = await supabase
+        .from('connection_requests')
+        .select('id')
+        .eq('listing_id', listingId)
+        .eq('lead_email', email)
+        .limit(1)
+        .maybeSingle();
+
+      if (!existing) {
+        await supabase.from('connection_requests').insert({
+          listing_id: listingId,
+          status: 'pending',
+          lead_email: email,
+          lead_name: name || email.split('@')[0] || '',
+          lead_role: 'Email Capture',
+          user_message: 'Signed up for deal alerts via landing page email capture',
+          source: 'landing_page_email_capture',
+        });
+      }
       setIsSubmitted(true);
       try {
         sessionStorage.setItem('sourceco_email_capture_dismissed', 'true');

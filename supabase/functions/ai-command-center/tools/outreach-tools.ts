@@ -79,13 +79,17 @@ export const outreachTools: ClaudeTool[] = [
         },
         start_date: {
           type: 'string',
-          description: 'Start of date range filter (ISO 8601, e.g. "2026-01-01"). Overrides days if provided.',
+          description:
+            'Start of date range filter (ISO 8601, e.g. "2026-01-01"). Overrides days if provided.',
         },
         end_date: {
           type: 'string',
           description: 'End of date range filter (ISO 8601, e.g. "2026-02-28"). Defaults to now.',
         },
-        days: { type: 'number', description: 'Lookback period in days (default 90). Ignored if start_date is provided.' },
+        days: {
+          type: 'number',
+          description: 'Lookback period in days (default 90). Ignored if start_date is provided.',
+        },
         limit: { type: 'number', description: 'Max results (default 50)' },
       },
       required: [],
@@ -165,7 +169,9 @@ async function getOutreachStatus(
   let filteredDealAccess = dealAccess;
   if (args.buyer_id) {
     const bid = args.buyer_id as string;
-    filteredAccess = (access as { remarketing_buyer_id?: string }[]).filter((a) => a.remarketing_buyer_id === bid);
+    filteredAccess = (access as { remarketing_buyer_id?: string }[]).filter(
+      (a) => a.remarketing_buyer_id === bid,
+    );
     filteredDealAccess = (dealAccess as { buyer_id?: string }[]).filter((a) => a.buyer_id === bid);
   }
 
@@ -402,7 +408,7 @@ async function getCallHistory(
 
   // Disposition filter: match against label (case-insensitive via ilike) or exact code
   if (args.disposition) {
-    const disp = args.disposition as string;
+    const disp = (args.disposition as string).replace(/[,%()]/g, '');
     query = query.or(`disposition_label.ilike.%${disp}%,disposition_code.eq.${disp}`);
   }
 

@@ -1,9 +1,9 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-import { Resend } from "resend";
+import { Resend } from 'resend';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { requireAdmin, escapeHtml } from "../_shared/auth.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { requireAdmin, escapeHtml } from '../_shared/auth.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -58,7 +58,7 @@ const handler = async (req: Request): Promise<Response> => {
         const emailResponse = await resend.emails.send({
           from: `Data Recovery <${Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com'}>`,
           to: [user.email],
-          subject: "Complete Your Profile - Missing Information",
+          subject: 'Complete Your Profile - Missing Information',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #333;">Complete Your Profile</h2>
@@ -95,56 +95,64 @@ const handler = async (req: Request): Promise<Response> => {
           email: user.email,
           email_type: 'data_recovery',
           status: 'sent',
-          correlation_id: `recovery_${user.id}_${Date.now()}`
+          correlation_id: `recovery_${user.id}_${Date.now()}`,
         });
 
         return { userId: user.id, email: user.email, status: 'sent' };
       } catch (error) {
         console.error(`Failed to send email to ${user.email}:`, error);
-        
+
         // Log the failed delivery
         await supabase.from('email_delivery_logs').insert({
           email: user.email,
           email_type: 'data_recovery',
           status: 'failed',
-          error_message: error.message,
-          correlation_id: `recovery_${user.id}_${Date.now()}`
+          error_message: error instanceof Error ? error.message : String(error),
+          correlation_id: `recovery_${user.id}_${Date.now()}`,
         });
 
-        return { userId: user.id, email: user.email, status: 'failed', error: error.message };
+        return {
+          userId: user.id,
+          email: user.email,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     });
 
     const results = await Promise.all(emailPromises);
-    const successCount = results.filter(r => r.status === 'sent').length;
-    const failedCount = results.filter(r => r.status === 'failed').length;
+    const successCount = results.filter((r) => r.status === 'sent').length;
+    const failedCount = results.filter((r) => r.status === 'failed').length;
 
     console.log(`Data recovery campaign completed: ${successCount} sent, ${failedCount} failed`);
 
-    return new Response(JSON.stringify({
-      success: true,
-      totalEmails: userIds.length,
-      successCount,
-      failedCount,
-      results
-    }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders,
+    return new Response(
+      JSON.stringify({
+        success: true,
+        totalEmails: userIds.length,
+        successCount,
+        failedCount,
+        results,
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
       },
-    });
+    );
   } catch (error: unknown) {
     console.error('Error in send-data-recovery-email function:', error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message 
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       }),
       {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      }
+      },
     );
   }
 };

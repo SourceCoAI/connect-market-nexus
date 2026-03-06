@@ -246,7 +246,10 @@ const handler = async (req: Request): Promise<Response> => {
     console.error('Error in send-feedback-notification function:', error);
     return new Response(
       JSON.stringify({
-        error: error.message || 'Failed to send feedback notification',
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error) || 'Failed to send feedback notification',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

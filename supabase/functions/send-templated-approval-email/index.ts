@@ -1,8 +1,8 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { requireAdmin } from "../_shared/auth.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/auth.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 /**
  * send-templated-approval-email
@@ -22,20 +22,20 @@ interface SendTemplatedApprovalRequest {
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
 
   try {
-    const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
+    const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY');
     if (!BREVO_API_KEY) {
-      throw new Error("BREVO_API_KEY is not configured");
+      throw new Error('BREVO_API_KEY is not configured');
     }
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error("Missing Supabase configuration");
+      throw new Error('Missing Supabase configuration');
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -45,7 +45,7 @@ const handler = async (req: Request): Promise<Response> => {
     if (!auth.isAdmin) {
       return new Response(JSON.stringify({ error: auth.error }), {
         status: auth.authenticated ? 403 : 401,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
@@ -53,38 +53,38 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Get user profile
     const { data: profile } = await supabase
-      .from("profiles")
-      .select("first_name, last_name, email")
-      .eq("id", userId)
+      .from('profiles')
+      .select('first_name, last_name, email')
+      .eq('id', userId)
       .single();
 
-    const firstName = profile?.first_name || "there";
+    const firstName = profile?.first_name || 'there';
     const email = userEmail || profile?.email;
 
     if (!email) {
-      throw new Error("No email address found for user");
+      throw new Error('No email address found for user');
     }
 
     // Check NDA status via firm membership
     let ndaSigned = false;
     const { data: membership } = await supabase
-      .from("firm_members")
-      .select("firm_id")
-      .eq("user_id", userId)
+      .from('firm_members')
+      .select('firm_id')
+      .eq('user_id', userId)
       .limit(1)
       .maybeSingle();
 
     if (membership) {
       const { data: firm } = await supabase
-        .from("firm_agreements")
-        .select("nda_signed")
-        .eq("id", membership.firm_id)
+        .from('firm_agreements')
+        .select('nda_signed')
+        .eq('id', membership.firm_id)
         .single();
 
       ndaSigned = firm?.nda_signed || false;
     }
 
-    const siteUrl = Deno.env.get("SITE_URL") || "https://marketplace.sourcecodeals.com";
+    const siteUrl = Deno.env.get('SITE_URL') || 'https://marketplace.sourcecodeals.com';
 
     let subject: string;
     let htmlContent: string;
@@ -162,17 +162,17 @@ Questions? Reply to this email.
     }
 
     // Send via Brevo
-    const emailResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
+    const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
       headers: {
-        accept: "application/json",
-        "api-key": BREVO_API_KEY,
-        "content-type": "application/json",
+        accept: 'application/json',
+        'api-key': BREVO_API_KEY,
+        'content-type': 'application/json',
       },
       body: JSON.stringify({
         sender: {
-          name: "SourceCo",
-          email: Deno.env.get("NOREPLY_EMAIL") || "noreply@sourcecodeals.com",
+          name: 'SourceCo',
+          email: Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com',
         },
         to: [{ email, name: firstName }],
         subject,
@@ -184,47 +184,48 @@ Questions? Reply to this email.
     const emailResult = await emailResponse.json();
 
     if (!emailResponse.ok) {
-      console.error("Brevo API error:", emailResult);
+      console.error('Brevo API error:', emailResult);
       await logEmailDelivery(supabase, {
         email,
-        emailType: "templated_approval",
-        status: "failed",
+        emailType: 'templated_approval',
+        status: 'failed',
         correlationId: crypto.randomUUID(),
-        errorMessage: emailResult.message || "Brevo API error",
+        errorMessage: emailResult.message || 'Brevo API error',
       });
-      throw new Error(`Email API error: ${emailResult.message || "Unknown error"}`);
+      throw new Error(`Email API error: ${emailResult.message || 'Unknown error'}`);
     }
 
-    console.log("Templated approval email sent successfully:", emailResult);
+    console.log('Templated approval email sent successfully:', emailResult);
 
     await logEmailDelivery(supabase, {
       email,
-      emailType: "templated_approval",
-      status: "sent",
+      emailType: 'templated_approval',
+      status: 'sent',
       correlationId: crypto.randomUUID(),
     });
 
     return new Response(
       JSON.stringify({
         success: true,
-        version: ndaSigned ? "B_nda_signed" : "A_nda_unsigned",
-        messageId: emailResult.messageId || "unknown",
+        version: ndaSigned ? 'B_nda_signed' : 'A_nda_unsigned',
+        messageId: emailResult.messageId || 'unknown',
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      },
     );
   } catch (error: unknown) {
-    console.error("Error in send-templated-approval-email:", error);
+    console.error('Error in send-templated-approval-email:', error);
     return new Response(
       JSON.stringify({
-        error: error.message || "Failed to send approval email",
+        error:
+          error instanceof Error ? error.message : String(error) || 'Failed to send approval email',
       }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      },
     );
   }
 };

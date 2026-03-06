@@ -137,6 +137,25 @@ Deno.serve(async (req: Request) => {
       .eq('pushed_listing_id', deal_id)
       .maybeSingle();
 
+    // Listing completeness check: require minimum data before generating memos
+    // (Audit P1: prevent blank-context memo generation)
+    const missingCritical: string[] = [];
+    if (!deal.industry && !deal.category) missingCritical.push('industry/category');
+    if (deal.ebitda == null) missingCritical.push('EBITDA');
+    if (deal.revenue == null) missingCritical.push('revenue');
+    if (!deal.description && !deal.executive_summary && !(transcripts && transcripts.length > 0)) {
+      missingCritical.push('description or transcripts');
+    }
+    if (missingCritical.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: `Listing is missing critical data for memo generation: ${missingCritical.join(', ')}. Please populate these fields before generating memos.`,
+          missing_fields: missingCritical,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // Build data context for AI
     const dataContext = buildDataContext(deal, transcripts || [], valuationData);
 
@@ -383,9 +402,18 @@ function buildDataContext(
   }
 
   // Enrichment data (website scrape + LinkedIn)
+  // NOTE: The audit identified that "business_description" was referenced but
+  // does not exist as a column. The canonical fields are "description" and
+  // "executive_summary". We also include investment_thesis, business_model,
+  // growth_drivers, competitive_position, and other rich-text fields that
+  // were previously missing from the memo context.
   const enrichmentFields = [
     'description',
     'executive_summary',
+    'investment_thesis',
+    'business_model',
+    'growth_drivers',
+    'competitive_position',
     'services',
     'service_mix',
     'geographic_states',
@@ -401,6 +429,11 @@ function buildDataContext(
     'ebitda_margin',
     'full_time_employees',
     'number_of_locations',
+    'customer_types',
+    'revenue_model',
+    'growth_trajectory',
+    'ownership_structure',
+    'management_depth',
   ];
   const enrichmentData = enrichmentFields
     .filter((f) => deal[f] != null && deal[f] !== '')
