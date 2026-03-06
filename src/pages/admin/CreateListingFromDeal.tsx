@@ -170,15 +170,33 @@ export default function CreateListingFromDeal() {
         });
 
         if (error) {
-          const errorMsg =
-            typeof error === 'object' && error !== null && 'message' in error
-              ? (error as { message: string }).message
-              : '';
+          // supabase.functions.invoke wraps errors — the real message is in context.
+          // Try to extract the actual error body from the response.
+          let errorDetail = '';
+          try {
+            if (error && typeof error === 'object' && 'context' in error) {
+              const ctx = (error as { context: unknown }).context;
+              if (ctx instanceof Response) {
+                const body = await ctx.json();
+                errorDetail = body?.error || '';
+              } else if (typeof ctx === 'object' && ctx !== null && 'error' in (ctx as Record<string, unknown>)) {
+                errorDetail = (ctx as { error: string }).error;
+              }
+            }
+            if (!errorDetail) {
+              errorDetail =
+                typeof error === 'object' && error !== null && 'message' in error
+                  ? (error as { message: string }).message
+                  : String(error);
+            }
+          } catch {
+            errorDetail = String(error);
+          }
+
+          console.error('generate-teaser failed:', errorDetail, error);
+
           // If a lead memo doesn't exist yet, fall back to anonymizer with clear warning
-          if (
-            errorMsg.includes('Lead memo must be generated') ||
-            errorMsg.includes('lead memo')
-          ) {
+          if (/lead memo/i.test(errorDetail)) {
             setDescriptionSource('anonymizer');
             toast.warning(
               'No lead memo found — using placeholder description. Generate a Full Lead Memo from the Data Room, then re-create this listing for a buyer-grade teaser.',
@@ -186,9 +204,8 @@ export default function CreateListingFromDeal() {
           } else {
             setDescriptionSource('anonymizer');
             toast.warning(
-              'AI teaser generation failed — using placeholder description. Review and edit before saving.',
+              `AI teaser generation failed — using placeholder description. (${errorDetail})`,
             );
-            console.error('generate-teaser failed:', error);
           }
           return;
         }
