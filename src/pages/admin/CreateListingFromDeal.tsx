@@ -236,9 +236,11 @@ export default function CreateListingFromDeal() {
           if (!prev) return prev;
           return {
             ...prev,
+            title: data.title || prev.title,
             description_html: data.description_html,
             description: data.description_markdown,
             hero_description: data.hero_description || prev.hero_description,
+            location: data.location || prev.location,
             custom_sections: [],
           };
         });

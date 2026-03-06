@@ -216,31 +216,84 @@ export function stripIdentifyingInfo(text: string, deal: DealData): string {
 }
 
 /**
+ * Map a US state abbreviation (e.g. "TX") or full state name to an anonymous
+ * regional descriptor. Returns the input unchanged if no mapping exists.
+ */
+const STATE_ABBREV_TO_REGION: Record<string, string> = {
+  AL: 'Southeast', AK: 'Northwest', AZ: 'Mountain West', AR: 'South Central',
+  CA: 'West Coast', CO: 'Mountain West', CT: 'New England', DE: 'Mid-Atlantic',
+  FL: 'Southeast', GA: 'Southeast', HI: 'Pacific', ID: 'Mountain West',
+  IL: 'Midwest', IN: 'Midwest', IA: 'Midwest', KS: 'Great Plains',
+  KY: 'Southeast', LA: 'South Central', ME: 'New England', MD: 'Mid-Atlantic',
+  MA: 'New England', MI: 'Midwest', MN: 'Great Plains', MS: 'Southeast',
+  MO: 'Great Plains', MT: 'Mountain West', NE: 'Great Plains', NV: 'Mountain West',
+  NH: 'New England', NJ: 'Mid-Atlantic', NM: 'Mountain West', NY: 'Mid-Atlantic',
+  NC: 'Southeast', ND: 'Great Plains', OH: 'Midwest', OK: 'South Central',
+  OR: 'West Coast', PA: 'Mid-Atlantic', RI: 'New England', SC: 'Southeast',
+  SD: 'Great Plains', TN: 'Southeast', TX: 'South Central', UT: 'Mountain West',
+  VT: 'New England', VA: 'Southeast', WA: 'West Coast', WV: 'Mid-Atlantic',
+  WI: 'Midwest', WY: 'Mountain West',
+};
+
+const STATE_NAME_TO_REGION: Record<string, string> = {
+  'Alabama': 'Southeast', 'Alaska': 'Northwest', 'Arizona': 'Mountain West',
+  'Arkansas': 'South Central', 'California': 'West Coast', 'Colorado': 'Mountain West',
+  'Connecticut': 'New England', 'Delaware': 'Mid-Atlantic', 'Florida': 'Southeast',
+  'Georgia': 'Southeast', 'Hawaii': 'Pacific', 'Idaho': 'Mountain West',
+  'Illinois': 'Midwest', 'Indiana': 'Midwest', 'Iowa': 'Midwest',
+  'Kansas': 'Great Plains', 'Kentucky': 'Southeast', 'Louisiana': 'South Central',
+  'Maine': 'New England', 'Maryland': 'Mid-Atlantic', 'Massachusetts': 'New England',
+  'Michigan': 'Midwest', 'Minnesota': 'Great Plains', 'Mississippi': 'Southeast',
+  'Missouri': 'Great Plains', 'Montana': 'Mountain West', 'Nebraska': 'Great Plains',
+  'Nevada': 'Mountain West', 'New Hampshire': 'New England', 'New Jersey': 'Mid-Atlantic',
+  'New Mexico': 'Mountain West', 'New York': 'Mid-Atlantic', 'North Carolina': 'Southeast',
+  'North Dakota': 'Great Plains', 'Ohio': 'Midwest', 'Oklahoma': 'South Central',
+  'Oregon': 'West Coast', 'Pennsylvania': 'Mid-Atlantic', 'Rhode Island': 'New England',
+  'South Carolina': 'Southeast', 'South Dakota': 'Great Plains', 'Tennessee': 'Southeast',
+  'Texas': 'South Central', 'Utah': 'Mountain West', 'Vermont': 'New England',
+  'Virginia': 'Southeast', 'Washington': 'West Coast', 'West Virginia': 'Mid-Atlantic',
+  'Wisconsin': 'Midwest', 'Wyoming': 'Mountain West',
+};
+
+export function stateToRegion(stateInput: string): string {
+  if (!stateInput) return '';
+  const trimmed = stateInput.trim();
+  // Try abbreviation first (most common)
+  const upper = trimmed.toUpperCase();
+  if (STATE_ABBREV_TO_REGION[upper]) return STATE_ABBREV_TO_REGION[upper];
+  // Try full name (title-cased)
+  const titleCased = trimmed.replace(/\b\w/g, (c) => c.toUpperCase());
+  if (STATE_NAME_TO_REGION[titleCased]) return STATE_NAME_TO_REGION[titleCased];
+  // Return as-is if not a recognized state (could already be a region)
+  return trimmed;
+}
+
+/**
  * Title template patterns for varied anonymous listing titles.
  * Titles lead with a business narrative descriptor, NOT dollar amounts.
  * The acquisition type (Platform/Add-on) is only used when explicitly known.
  */
-const TITLE_GENERATORS: Array<(industry: string, state: string, deal: DealData) => string> = [
+const TITLE_GENERATORS: Array<(industry: string, region: string, deal: DealData) => string> = [
   // Pattern 1: Margin-anchored (leads with profitability narrative)
-  (industry, state, deal) => {
+  (industry, region, deal) => {
     const margin = deal.ebitda && deal.revenue ? Math.round((deal.ebitda / deal.revenue) * 100) : 0;
     const descriptor = margin >= 25 ? 'High-Margin' : margin >= 15 ? 'Profitable' : 'Established';
-    if (state) return `${descriptor} ${industry} Business — ${state}`;
+    if (region) return `${descriptor} ${industry} Business — ${region}`;
     return `${descriptor} ${industry} Business`;
   },
   // Pattern 2: Scale-anchored (leads with business scale)
-  (industry, state, deal) => {
+  (industry, region, deal) => {
     const rev = deal.revenue || 0;
     const descriptor =
       rev >= 10_000_000 ? 'Scaled' : rev >= 5_000_000 ? 'Growth-Stage' : 'Established';
-    if (state) return `${descriptor} ${industry} Business — ${state}`;
+    if (region) return `${descriptor} ${industry} Business — ${region}`;
     return `${descriptor} ${industry} Business`;
   },
   // Pattern 3: Tenure-anchored (use vague ranges to avoid identifying the company)
-  (industry, state, deal) => {
+  (industry, region, deal) => {
     const years = deal.founded_year ? new Date().getFullYear() - deal.founded_year : 0;
     const yearsDesc = years >= 20 ? 'Long-Standing' : years >= 10 ? 'Multi-Decade' : 'Established';
-    if (state) return `${yearsDesc} ${industry} Business — ${state}`;
+    if (region) return `${yearsDesc} ${industry} Business — ${region}`;
     return `${yearsDesc} ${industry} Business`;
   },
 ];
@@ -253,7 +306,7 @@ const TITLE_GENERATORS: Array<(industry: string, state: string, deal: DealData) 
 function generateAnonymousTitle(deal: DealData): string {
   const smArr = toStringArray(deal.service_mix);
   const industry = deal.industry || deal.category || smArr[0] || 'Services';
-  const state = deal.address_state || deal.location || '';
+  const region = stateToRegion(deal.address_state || deal.location || '');
 
   // Pick the best template based on available data
   const margin = deal.ebitda && deal.revenue ? Math.round((deal.ebitda / deal.revenue) * 100) : 0;
@@ -261,16 +314,16 @@ function generateAnonymousTitle(deal: DealData): string {
 
   // Prefer margin-anchored if strong margins, then scale-based, then years
   if (margin > 15) {
-    return TITLE_GENERATORS[0](industry, state, deal);
+    return TITLE_GENERATORS[0](industry, region, deal);
   }
   if (deal.revenue && deal.revenue > 0) {
-    return TITLE_GENERATORS[1](industry, state, deal);
+    return TITLE_GENERATORS[1](industry, region, deal);
   }
   if (years > 10) {
-    return TITLE_GENERATORS[2](industry, state, deal);
+    return TITLE_GENERATORS[2](industry, region, deal);
   }
   // Default fallback
-  if (state) return `Established ${industry} Business — ${state}`;
+  if (region) return `Established ${industry} Business — ${region}`;
   return `${industry} Business Opportunity`;
 }
 
@@ -330,7 +383,7 @@ function generateAnonymousDescription(deal: DealData): string {
   // Mix short narrative sentences with bullet points for clean, digestible content
   const sections: string[] = [];
   const industry = deal.industry || deal.category || 'services';
-  const state = deal.address_state || deal.location;
+  const region = stateToRegion(deal.address_state || deal.location || '');
   const employees = deal.full_time_employees || deal.linkedin_employee_count;
   const margin = deal.ebitda && deal.revenue ? Math.round((deal.ebitda / deal.revenue) * 100) : 0;
   const services = toStringArray(deal.service_mix);
@@ -346,7 +399,7 @@ function generateAnonymousDescription(deal: DealData): string {
   } else {
     const overviewParts: string[] = [];
     let intro = `The Company is an established ${industry.toLowerCase()} business`;
-    if (state) intro += ` headquartered in ${state}`;
+    if (region) intro += ` headquartered in the ${region}`;
     if (employees && employees > 0) intro += ` with a team of approximately ${employees} employees`;
     intro += '.';
     overviewParts.push(intro);
@@ -511,18 +564,18 @@ function filterCleanServices(services: string[]): string[] {
  */
 function generateHeroDescription(deal: DealData): string {
   const industry = deal.industry || deal.category || 'services';
-  const state = deal.address_state || deal.location;
+  const region = stateToRegion(deal.address_state || deal.location || '');
   const employees = deal.full_time_employees || deal.linkedin_employee_count;
   const margin = deal.ebitda && deal.revenue ? Math.round((deal.ebitda / deal.revenue) * 100) : 0;
   const services = toStringArray(deal.service_mix);
   const servicesList = deal.services || [];
   const allServices = filterCleanServices([...new Set([...services, ...servicesList])]);
 
-  // Sentence 1: What the company is — industry, geography
+  // Sentence 1: What the company is — industry, geography (region only)
   // NOTE: Founding year / exact years in operation are excluded from anonymous
   // listings to prevent identification.
   let sentence1 = `Established ${industry.toLowerCase()} business`;
-  if (state) sentence1 += ` based in ${state}`;
+  if (region) sentence1 += ` based in the ${region}`;
   sentence1 += '.';
 
   // Sentence 2: Financial profile — revenue, EBITDA, margin, team size
@@ -626,7 +679,7 @@ export function anonymizeDealToListing(deal: DealData): AnonymizedListingData {
     if (!categories.includes(s)) categories.push(s);
   }
 
-  const location = deal.address_state || deal.location || '';
+  const location = stateToRegion(deal.address_state || deal.location || '');
   const employees = deal.full_time_employees || deal.linkedin_employee_count || 0;
   const margin =
     deal.ebitda && deal.revenue ? Math.round((deal.ebitda / deal.revenue) * 100) : null;

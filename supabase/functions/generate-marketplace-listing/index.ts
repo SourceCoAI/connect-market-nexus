@@ -603,7 +603,38 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
       console.warn(`[generate-marketplace-listing] Validation failed:`, validation.errors);
     }
 
-    // Step 6b: Extract hero_description from BUSINESS OVERVIEW section.
+    // Step 6b: Generate an anonymous title from the AI output.
+    // Extract key info from the listing to build a clean, anonymized title.
+    const stateAbbrevToRegion: Record<string, string> = {
+      'AL': 'Southeast', 'AK': 'Northwest', 'AZ': 'Mountain West', 'AR': 'South Central',
+      'CA': 'West Coast', 'CO': 'Mountain West', 'CT': 'New England', 'DE': 'Mid-Atlantic',
+      'FL': 'Southeast', 'GA': 'Southeast', 'HI': 'Pacific', 'ID': 'Mountain West',
+      'IL': 'Midwest', 'IN': 'Midwest', 'IA': 'Midwest', 'KS': 'Great Plains',
+      'KY': 'Southeast', 'LA': 'South Central', 'ME': 'New England', 'MD': 'Mid-Atlantic',
+      'MA': 'New England', 'MI': 'Midwest', 'MN': 'Great Plains', 'MS': 'Southeast',
+      'MO': 'Great Plains', 'MT': 'Mountain West', 'NE': 'Great Plains', 'NV': 'Mountain West',
+      'NH': 'New England', 'NJ': 'Mid-Atlantic', 'NM': 'Mountain West', 'NY': 'Mid-Atlantic',
+      'NC': 'Southeast', 'ND': 'Great Plains', 'OH': 'Midwest', 'OK': 'South Central',
+      'OR': 'West Coast', 'PA': 'Mid-Atlantic', 'RI': 'New England', 'SC': 'Southeast',
+      'SD': 'Great Plains', 'TN': 'Southeast', 'TX': 'South Central', 'UT': 'Mountain West',
+      'VT': 'New England', 'VA': 'Southeast', 'WA': 'West Coast', 'WV': 'Mid-Atlantic',
+      'WI': 'Midwest', 'WY': 'Mountain West',
+    };
+    const region = state ? (stateAbbrevToRegion[state.toUpperCase()] || '') : '';
+    const margin = deal.ebitda && deal.revenue
+      ? Math.round(((deal.ebitda as number) / (deal.revenue as number)) * 100)
+      : 0;
+    const rev = (deal.revenue as number) || 0;
+    const titleDescriptor = margin >= 25 ? 'High-Margin'
+      : margin >= 15 ? 'Profitable'
+      : rev >= 10_000_000 ? 'Scaled'
+      : rev >= 5_000_000 ? 'Growth-Stage'
+      : 'Established';
+    const generatedTitle = region
+      ? `${titleDescriptor} ${industry} Business — ${region}`
+      : `${titleDescriptor} ${industry} Business`;
+
+    // Step 6c: Extract hero_description from BUSINESS OVERVIEW section.
     // This section is already a clean 2-3 sentence elevator pitch that follows
     // all anonymization rules — perfect as the hero description for cards/pages.
     let heroDescription = '';
@@ -633,9 +664,13 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
       const listingUpdate: Record<string, unknown> = {
         description_html: descriptionHtml,
         description: markdownText,
+        title: generatedTitle,
       };
       if (heroDescription) {
         listingUpdate.hero_description = heroDescription;
+      }
+      if (region) {
+        listingUpdate.location = region;
       }
       const { error: updateError } = await supabaseAdmin
         .from('listings')
@@ -672,9 +707,11 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
     return new Response(
       JSON.stringify({
         success: true,
+        title: generatedTitle,
         description_html: descriptionHtml,
         description_markdown: markdownText,
         hero_description: heroDescription || null,
+        location: region || null,
         validation,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
