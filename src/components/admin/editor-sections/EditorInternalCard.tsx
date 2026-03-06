@@ -389,9 +389,16 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
             </div>
           </div>
 
-          {/* Structured Contact Fields */}
+          {/* Structured Contact Fields — auto-populated from deal when available */}
           <div className={cn('pt-3', EDITOR_DESIGN.subtleDivider, EDITOR_DESIGN.microFieldSpacing)}>
-            <div className={EDITOR_DESIGN.microLabel}>Deal Contact</div>
+            <div className="flex items-center gap-1.5">
+              <div className={EDITOR_DESIGN.microLabel}>Deal Contact</div>
+              {(form.getValues('main_contact_first_name') || form.getValues('main_contact_email')) && (
+                <span className="text-[10px] text-muted-foreground/60 font-normal">
+                  (auto-filled from deal)
+                </span>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <Input
                 placeholder="First name"

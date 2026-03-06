@@ -4,9 +4,9 @@ import { UseFormReturn } from 'react-hook-form';
 import { EDITOR_DESIGN } from '@/lib/editor-design-system';
 import { Sparkles, Loader2 } from 'lucide-react';
 
-const PremiumRichTextEditor = lazy(() =>
-  import('@/components/ui/premium-rich-text-editor').then((m) => ({
-    default: m.PremiumRichTextEditor,
+const SectionedDescriptionEditor = lazy(() =>
+  import('@/components/ui/sectioned-description-editor').then((m) => ({
+    default: m.SectionedDescriptionEditor,
   })),
 );
 import { cn } from '@/lib/utils';
@@ -55,9 +55,8 @@ export function EditorDescriptionSection({
         )}
       </div>
       <p className="text-xs text-muted-foreground mb-4">
-        The full listing description shown to buyers. Use section headings, concise sentences, and
-        bullet points for key data — present information in the cleanest, most digestible way
-        possible.
+        The full listing description shown to buyers. Each section is independently editable — use
+        bullet points and bold text to present information clearly.
       </p>
 
       <FormField
@@ -67,7 +66,7 @@ export function EditorDescriptionSection({
           <FormItem>
             <FormControl>
               <Suspense fallback={<div className="h-[300px] animate-pulse bg-muted rounded-lg" />}>
-                <PremiumRichTextEditor
+                <SectionedDescriptionEditor
                   content={form.getValues('description_html') || field.value || ''}
                   onChange={(html, json) => {
                     form.setValue('description_html', html);
