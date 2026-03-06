@@ -732,9 +732,13 @@ export function mapTranscriptToListing(
     const revenue = extracted?.revenue as Record<string, unknown> | undefined;
     const revenueValue = toFiniteNumber(revenue?.value);
     if (revenueValue != null) {
-      out.revenue = revenueValue;
-      out.revenue_is_inferred = !!revenue?.is_inferred;
-      if (revenue?.source_quote) out.revenue_source_quote = revenue.source_quote;
+      if (revenueValue >= 0 && revenueValue <= 10_000_000_000) {
+        out.revenue = revenueValue;
+        out.revenue_is_inferred = !!revenue?.is_inferred;
+        if (revenue?.source_quote) out.revenue_source_quote = revenue.source_quote;
+      } else {
+        console.warn(`Rejecting out-of-range revenue: ${revenueValue} (must be 0-10B)`);
+      }
     }
   }
 
@@ -742,7 +746,11 @@ export function mapTranscriptToListing(
   {
     const ebitda = extracted?.ebitda as Record<string, unknown> | undefined;
     const ebitdaAmount = toFiniteNumber(ebitda?.amount);
-    if (ebitdaAmount != null) out.ebitda = ebitdaAmount;
+    if (ebitdaAmount != null && ebitdaAmount >= -999_999_999 && ebitdaAmount <= 10_000_000_000) {
+      out.ebitda = ebitdaAmount;
+    } else if (ebitdaAmount != null) {
+      console.warn(`Rejecting out-of-range ebitda: ${ebitdaAmount}`);
+    }
 
     const marginPct = toFiniteNumber(ebitda?.margin_percentage);
     if (marginPct != null) {
@@ -763,7 +771,7 @@ export function mapTranscriptToListing(
 
   {
     const n = toFiniteNumber(extracted?.number_of_locations);
-    if (n != null) out.number_of_locations = n;
+    if (n != null && n > 0 && n < 10_000) out.number_of_locations = n;
   }
   if (extracted?.service_mix) out.service_mix = extracted.service_mix;
   if (extracted?.industry) out.industry = extracted.industry;
@@ -805,20 +813,19 @@ export function mapTranscriptToListing(
   if (Array.isArray(extracted?.services) && extracted.services.length)
     out.services = extracted.services;
   if (extracted?.website) out.website = extracted.website;
-  if (extracted?.location) out.location = extracted.location;
 
   // Additional enrichment fields from transcript extraction
   {
     const askingPrice = toFiniteNumber(extracted?.asking_price);
-    if (askingPrice != null) out.asking_price = askingPrice;
+    if (askingPrice != null && askingPrice > 0 && askingPrice <= 10_000_000_000) out.asking_price = askingPrice;
   }
   {
     const fte = toFiniteNumber(extracted?.full_time_employees);
-    if (fte != null) out.full_time_employees = fte;
+    if (fte != null && fte > 0 && fte < 1_000_000) out.full_time_employees = Math.round(fte);
   }
   {
     const pte = toFiniteNumber(extracted?.part_time_employees);
-    if (pte != null) out.part_time_employees = pte;
+    if (pte != null && pte > 0 && pte < 1_000_000) out.part_time_employees = Math.round(pte);
   }
   {
     const fy = toFiniteNumber(extracted?.founded_year);

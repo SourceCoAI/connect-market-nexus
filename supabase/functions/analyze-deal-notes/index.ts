@@ -9,43 +9,43 @@ import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 
 // Pre-extraction regex patterns per spec
 const REVENUE_PATTERNS = [
-  /\$\s*([\d,.]+)\s*(M|MM|m|million|mil)/gi,
-  /revenue[:\s]+\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/gi,
-  /([\d,.]+)\s*(M|MM|million)\s*(?:in\s+)?(?:revenue|sales)/gi,
-  /top\s*line[:\s]+\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/gi,
-  /annual\s+revenue[:\s]+\$?\s*([\d,.]+)\s*(M|MM|m|million|K|k|thousand)?/gi,
+  /~?\$\s*([\d,.]+)\s*(M|MM|m|million|mil)/i,
+  /revenue[:\s]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/i,
+  /([\d,.]+)\s*(M|MM|million)\s*(?:in\s+)?(?:revenue|sales)/i,
+  /top\s*line[:\s]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/i,
+  /annual\s+revenue[:\s]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|K|k|thousand)?/i,
 ];
 
 const EBITDA_PATTERNS = [
-  /EBITDA[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
-  /\$\s*([\d,.]+)\s*(K|k|M|MM)?\s*EBITDA/gi,
-  /cash\s*flow[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
-  /SDE[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
-  /owner.?s?\s*(?:cash|earnings)[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
+  /EBITDA[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /~?\$\s*([\d,.]+)\s*(K|k|M|MM)?\s*EBITDA/i,
+  /cash\s*flow[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /SDE[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /owner.?s?\s*(?:cash|earnings)[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
 ];
 
 const MARGIN_PATTERNS = [
-  /([\d.]+)\s*%\s*(?:EBITDA\s*)?margin/gi,
-  /margin[:\s]+([\d.]+)\s*%/gi,
-  /run(?:ning|s)?\s+(?:at\s+)?(?:about\s+)?([\d.]+)\s*%\s*margin/gi,
+  /([\d.]+)\s*%\s*(?:EBITDA\s*)?margin/i,
+  /margin[:\s]+([\d.]+)\s*%/i,
+  /run(?:ning|s)?\s+(?:at\s+)?(?:about\s+)?([\d.]+)\s*%\s*margin/i,
 ];
 
 const EMPLOYEE_PATTERNS = [
-  /([\d,]+)\s*(?:full[- ]?time\s*)?employees/gi,
-  /headcount[:\s]+([\d,]+)/gi,
-  /team\s*(?:of\s*)?([\d,]+)/gi,
-  /([\d,]+)\s*FTEs?/gi,
+  /([\d,]+)\s*(?:full[- ]?time\s*)?employees/i,
+  /headcount[:\s]+([\d,]+)/i,
+  /team\s*(?:of\s*)?([\d,]+)/i,
+  /([\d,]+)\s*FTEs?/i,
 ];
 
 const LOCATION_PATTERNS = [
-  /(\d+)\s+(?:staffed\s+)?locations?/gi,
-  /(\d+)\s+offices?/gi,
-  /(\d+)\s+branches?/gi,
-  /(\d+)\s+stores?/gi,
-  /(\d+)\s+shops?/gi,
-  /(\d+)\s+facilities/gi,
-  /operate\s+out\s+of\s+(\d+)/gi,
-  /(\d+)\s+sites?\s+across/gi,
+  /(\d+)\s+(?:staffed\s+)?locations?/i,
+  /(\d+)\s+offices?/i,
+  /(\d+)\s+branches?/i,
+  /(\d+)\s+stores?/i,
+  /(\d+)\s+shops?/i,
+  /(\d+)\s+facilities/i,
+  /operate\s+out\s+of\s+(\d+)/i,
+  /(\d+)\s+sites?\s+across/i,
 ];
 
 function parseNumberValue(match: string, multiplier?: string): number | null {
@@ -271,6 +271,10 @@ Use the tool to return structured data.`;
               geographic_states: { type: 'array', items: { type: 'string' }, description: 'All US states where business operates, has customers, or holds licenses (2-letter codes). Include expansion targets.' },
               location: { type: 'string', description: 'Primary location/HQ in "City, ST" format. Use suburb name if mentioned.' },
               number_of_locations: { type: 'number', description: 'Total physical locations: offices, shops, warehouses, branches, storage (owned + leased). Home office = 1.' },
+              revenue: { type: 'number', description: 'Annual revenue as a raw integer (e.g., 2000000 for $2M, 500000 for $500K). Extract from any mention of revenue, sales, top-line, or annual run-rate. Return null if not mentioned.' },
+              ebitda: { type: 'number', description: 'Annual EBITDA/SDE/cash flow as a raw integer (e.g., 400000 for $400K). Extract from any mention of EBITDA, SDE, discretionary earnings, or cash flow. Return null if not mentioned.' },
+              full_time_employees: { type: 'number', description: 'Total employee headcount (full-time equivalents). Extract from any mention of employees, team size, headcount, FTEs, or staff.' },
+              ebitda_margin: { type: 'number', description: 'EBITDA margin as a percentage (e.g., 25 for 25%). Extract from any mention of margin percentage, profitability rate, or "runs at X%". Return null if not mentioned.' },
               financial_notes: { type: 'string', description: 'Detailed 3-5 sentences: Revenue breakdown by segment/location, EBITDA adjustments and add-backs, owner compensation details, margin trends, seasonality patterns, capex requirements, working capital needs, debt structure, growth rates with specific numbers.' },
               growth_trajectory: { type: 'string', description: 'Detailed 2-3 sentences: Revenue CAGR or trend with specifics, new location openings, service line additions, headcount growth, contract wins, market expansion, pipeline indicators.' },
               management_depth: { type: 'string', description: 'Detailed 2-3 sentences: Key personnel by role and tenure, succession readiness, is there a strong #2? Who runs day-to-day operations? What happens if owner leaves? Training/mentoring pipeline.' },
@@ -391,6 +395,11 @@ Use the tool to return structured data.`;
       if (v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) {
         delete aiExtracted[k];
       }
+    }
+
+    // Normalize AI ebitda_margin from percentage (25) to decimal (0.25) to match DB format
+    if (typeof aiExtracted.ebitda_margin === 'number' && (aiExtracted.ebitda_margin as number) > 1) {
+      aiExtracted.ebitda_margin = (aiExtracted.ebitda_margin as number) / 100;
     }
 
     // Merge regex and AI extractions

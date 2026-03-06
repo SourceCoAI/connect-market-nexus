@@ -274,81 +274,72 @@ export async function processNewTranscripts(
   for (let i = 0; i < validTranscripts.length; i += BATCH_SIZE) {
     const batch = validTranscripts.slice(i, i + BATCH_SIZE);
 
-    const batchResults = await Promise.allSettled(
-      batch.map(async (transcript: DealTranscript) => {
-        const MAX_RETRIES = 1;
-        let lastError: Error | null = null;
+    // Process transcripts sequentially within each batch to avoid race conditions.
+    // Each extract-deal-transcript call writes directly to the listings row; parallel
+    // writes cause last-write-wins data loss.
+    for (const transcript of batch) {
+      const MAX_RETRIES = 1;
+      let lastError: Error | null = null;
+      let success = false;
 
-        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-          if (attempt > 0) {
-            console.log(`[Transcripts] Retrying transcript ${transcript.id} (attempt ${attempt + 1})`);
-            await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
-          }
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        if (attempt > 0) {
+          console.log(`[Transcripts] Retrying transcript ${transcript.id} (attempt ${attempt + 1})`);
+          await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+        }
 
-          try {
-            const extractResponse = await fetch(
-              `${supabaseUrl}/functions/v1/extract-deal-transcript`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${supabaseServiceKey}`,
-                  'apikey': supabaseAnonKey,
-                  'x-internal-secret': supabaseServiceKey,
+        try {
+          const extractResponse = await fetch(
+            `${supabaseUrl}/functions/v1/extract-deal-transcript`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+                'apikey': supabaseAnonKey,
+                'x-internal-secret': supabaseServiceKey,
+              },
+              body: JSON.stringify({
+                transcriptId: transcript.id,
+                transcriptText: transcript.transcript_text,
+                applyToDeal: true,
+                dealInfo: {
+                  company_name: deal.title || deal.internal_company_name,
+                  industry: deal.industry,
+                  location: deal.location || deal.address_city,
+                  revenue: deal.revenue,
+                  ebitda: deal.ebitda,
                 },
-                body: JSON.stringify({
-                  transcriptId: transcript.id,
-                  transcriptText: transcript.transcript_text,
-                  applyToDeal: true,
-                  dealInfo: {
-                    company_name: deal.title || deal.internal_company_name,
-                    industry: deal.industry,
-                    location: deal.location || deal.address_city,
-                    revenue: deal.revenue,
-                    ebitda: deal.ebitda,
-                  },
-                }),
-              }
-            );
-
-            if (!extractResponse.ok) {
-              const errText = await extractResponse.text();
-              lastError = new Error(errText.slice(0, 200));
-              if (extractResponse.status < 500 && extractResponse.status !== 429) {
-                throw lastError;
-              }
-              continue;
+              }),
             }
+          );
 
-            // Parse response to capture which fields were applied
-            const responseBody = await extractResponse.json().catch(() => ({}));
-            return {
-              transcriptId: transcript.id,
-              fieldsUpdated: responseBody.fieldsUpdated || [],
-            };
-          } catch (err) {
-            lastError = err instanceof Error ? err : new Error(String(err));
-            if (attempt === MAX_RETRIES) throw lastError;
+          if (!extractResponse.ok) {
+            const errText = await extractResponse.text();
+            lastError = new Error(errText.slice(0, 200));
+            if (extractResponse.status < 500 && extractResponse.status !== 429) {
+              break; // Non-retryable error
+            }
+            continue;
           }
+
+          const responseBody = await extractResponse.json().catch(() => ({}));
+          const fieldsUpdated = responseBody.fieldsUpdated || [];
+          transcriptsProcessed++;
+          if (fieldsUpdated.length > 0) {
+            allFieldNames.push(...fieldsUpdated);
+          }
+          console.log(`[Transcripts] Successfully processed transcript ${transcript.id} (${fieldsUpdated.length} fields applied)`);
+          success = true;
+          break;
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          if (attempt === MAX_RETRIES) break;
         }
+      }
 
-        throw lastError || new Error('Transcript extraction failed after retries');
-      })
-    );
-
-    for (let j = 0; j < batchResults.length; j++) {
-      const result = batchResults[j];
-      const transcript = batch[j];
-
-      if (result.status === 'fulfilled') {
-        transcriptsProcessed++;
-        const { fieldsUpdated } = result.value;
-        if (fieldsUpdated?.length > 0) {
-          allFieldNames.push(...fieldsUpdated);
-        }
-        console.log(`[Transcripts] Successfully processed transcript ${transcript.id} (${fieldsUpdated?.length || 0} fields applied)`);
-      } else {
-        const errMsg = getErrorMessage(result.reason);
+      if (!success) {
+        const errMsg = lastError ? getErrorMessage(lastError) : 'Unknown error';
         console.error(`[Transcripts] Failed transcript ${transcript.id}:`, errMsg);
         transcriptErrors.push(`Transcript ${transcript.id.slice(0, 8)}: ${errMsg.slice(0, 200)}`);
       }
