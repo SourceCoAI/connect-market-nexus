@@ -306,7 +306,7 @@ async function processEvent(
     .eq('id', firmId)
     .single();
 
-  const currentStatus = currentFirm?.[statusCol];
+  const currentStatus = (currentFirm as any)?.[statusCol];
   if (
     currentStatus &&
     TERMINAL_STATUSES.has(currentStatus) &&
