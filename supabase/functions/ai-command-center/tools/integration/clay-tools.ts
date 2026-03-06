@@ -22,6 +22,31 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function pickFirstPhoneValue(source: unknown): string | null {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return null;
+
+  const record = source as Record<string, unknown>;
+  const candidates = [
+    record.phone,
+    record.mobile,
+    record.mobile_phone,
+    record.mobileNumber,
+    record.mobile_number,
+    record.phone_number,
+    record.cell,
+    record.cell_phone,
+    record.direct_phone,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
 // ---------- Shared helper: synchronous Clay email lookup ----------
 
 export interface ClayLookupParams {
