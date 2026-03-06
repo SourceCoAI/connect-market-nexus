@@ -22,6 +22,31 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function pickFirstPhoneValue(source: unknown): string | null {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return null;
+
+  const record = source as Record<string, unknown>;
+  const candidates = [
+    record.phone,
+    record.mobile,
+    record.mobile_phone,
+    record.mobileNumber,
+    record.mobile_number,
+    record.phone_number,
+    record.cell,
+    record.cell_phone,
+    record.direct_phone,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
 // ---------- Shared helper: synchronous Clay email lookup ----------
 
 export interface ClayLookupParams {
@@ -296,7 +321,7 @@ export async function clayLookupPhone(
 
     const { data: row, error: pollErr } = await supabase
       .from('clay_enrichment_requests')
-      .select('status, result_phone')
+      .select('status, result_phone, result_data, raw_callback_payload')
       .eq('request_id', requestId)
       .maybeSingle();
 
@@ -307,9 +332,29 @@ export async function clayLookupPhone(
 
     if (!row || row.status === 'pending') continue;
 
-    if (row.status === 'completed' && row.result_phone) {
-      console.log(`[clayLookupPhone] Phone found: ${row.result_phone} for ${linkedinUrl}`);
-      return { phone: row.result_phone, source: 'clay_phone', requestId };
+    const resolvedPhone =
+      row.result_phone ||
+      pickFirstPhoneValue(row.result_data) ||
+      pickFirstPhoneValue(row.raw_callback_payload);
+
+    if (resolvedPhone) {
+      if (row.status !== 'completed' || row.result_phone !== resolvedPhone) {
+        const { error: repairErr } = await supabase
+          .from('clay_enrichment_requests')
+          .update({
+            status: 'completed',
+            result_phone: resolvedPhone,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('request_id', requestId);
+
+        if (repairErr) {
+          console.warn(`[clayLookupPhone] Failed to repair result_phone for ${requestId}: ${repairErr.message}`);
+        }
+      }
+
+      console.log(`[clayLookupPhone] Phone found: ${resolvedPhone} for ${linkedinUrl}`);
+      return { phone: resolvedPhone, source: 'clay_phone', requestId };
     }
 
     console.log(`[clayLookupPhone] No phone found by Clay for ${linkedinUrl}`);

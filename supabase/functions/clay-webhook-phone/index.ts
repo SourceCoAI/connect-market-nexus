@@ -72,7 +72,19 @@ serve(async (req: Request) => {
     }
 
     // 5. Extract phone from flexible payload
-    const resultPhone = (payload.phone as string) || null;
+    const resultPhone =
+      [
+        payload.phone,
+        payload.mobile,
+        payload.mobile_phone,
+        payload.mobileNumber,
+        payload.mobile_number,
+        payload.phone_number,
+        payload.cell,
+        payload.cell_phone,
+        payload.direct_phone,
+      ].find((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        ?.trim() || null;
 
     // 6. Update tracking row
     const { error: updateErr } = await supabase

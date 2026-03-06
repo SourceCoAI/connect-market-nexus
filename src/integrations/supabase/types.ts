@@ -7619,7 +7619,7 @@ export type Database = {
           universe_build_flagged_by?: string | null
           updated_at?: string
           visible_to_buyer_types?: string[] | null
-          website?: string
+          website?: string | null
         }
         Relationships: [
           {
@@ -12426,7 +12426,7 @@ export type Database = {
           universe_build_flagged_by: string | null
           updated_at: string
           visible_to_buyer_types: string[] | null
-          website: string
+          website: string | null
         }[]
         SetofOptions: {
           from: "*"
