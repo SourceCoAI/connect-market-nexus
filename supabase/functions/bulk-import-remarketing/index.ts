@@ -866,3 +866,27 @@ function calculateTier(score: number): string {
   if (score >= 40) return 'C';
   return 'D';
 }
+
+async function generateDescription(supabase: ReturnType<typeof createClient>, universeId: string, name: string) {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const response = await fetch(`${supabaseUrl}/functions/v1/clarify-industry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ industry_name: name, generate_description: true }),
+    });
+    if (response.ok) {
+      const result = await response.json();
+      if (result.description) {
+        await supabase.from('buyer_universes').update({ description: result.description }).eq('id', universeId);
+        console.log(`Generated description for universe: ${name}`);
+      }
+    }
+  } catch (e) {
+    console.warn(`Description generation failed for ${name}:`, e);
+  }
+}
