@@ -20,6 +20,8 @@ import {
   AlertTriangle,
   Users,
   Clock,
+  Phone,
+  Flame,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ExtractedIntelligenceView } from "./ExtractedIntelligenceView";
@@ -43,6 +45,7 @@ interface DealTranscript {
   updated_at?: string;
   title?: string | null;
   transcript_url?: string | null;
+  recording_url?: string | null;
   call_date?: string | null;
   has_content?: boolean | null;
   match_type?: string | null;
@@ -101,7 +104,9 @@ export function TranscriptListItem({
   const participantDisplay = formatParticipants(transcript.external_participants);
   // If external_participants is empty but we know it's a Fireflies transcript, show "Internal call"
   const isFireflies = transcript.source === 'fireflies';
+  const isPhoneBurner = transcript.source === 'phoneburner';
   const showInternalLabel = isFireflies && transcript.external_participants != null && transcript.external_participants.length === 0;
+  const viewUrl = viewUrl || transcript.recording_url || null;
 
   return (
     <Collapsible
@@ -149,16 +154,16 @@ export function TranscriptListItem({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {transcript.transcript_url && (
+              {viewUrl && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-7 text-xs text-primary gap-1 px-2"
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.open(transcript.transcript_url!, '_blank');
+                    window.open(viewUrl!, '_blank');
                   }}
-                  title="Open in Fireflies"
+                  title={isPhoneBurner ? 'Open recording' : 'Open in Fireflies'}
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   View
@@ -168,6 +173,18 @@ export function TranscriptListItem({
                 <Badge variant="outline" className="gap-1 text-xs text-amber-600 border-amber-300">
                   <AlertTriangle className="h-3 w-3" />
                   No Audio
+                </Badge>
+              )}
+              {isFireflies && (
+                <Badge variant="outline" className="gap-1 text-xs text-orange-600 border-orange-300">
+                  <Flame className="h-3 w-3" />
+                  Fireflies
+                </Badge>
+              )}
+              {isPhoneBurner && (
+                <Badge variant="outline" className="gap-1 text-xs text-green-600 border-green-300">
+                  <Phone className="h-3 w-3" />
+                  PhoneBurner
                 </Badge>
               )}
               {isKeywordMatch && (
@@ -219,15 +236,15 @@ export function TranscriptListItem({
                 <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
                   This call was recorded but the audio was not captured — may be a Teams audio routing issue.
                 </p>
-                {transcript.transcript_url && (
+                {viewUrl && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="mt-3 gap-1.5"
-                    onClick={() => window.open(transcript.transcript_url!, '_blank')}
+                    onClick={() => window.open(viewUrl!, '_blank')}
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
-                    Open in Fireflies
+                    {isPhoneBurner ? 'Open Recording' : 'Open in Fireflies'}
                   </Button>
                 )}
               </div>
@@ -240,12 +257,12 @@ export function TranscriptListItem({
                 <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">
                   The full transcript will be fetched from Fireflies when you extract intelligence.
                 </p>
-                {transcript.transcript_url && (
+                {viewUrl && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="mt-3 gap-1.5"
-                    onClick={() => window.open(transcript.transcript_url!, '_blank')}
+                    onClick={() => window.open(viewUrl!, '_blank')}
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     View in Fireflies
@@ -254,16 +271,16 @@ export function TranscriptListItem({
               </div>
             ) : (
               <div className="space-y-2">
-                {transcript.transcript_url && (
+                {viewUrl && (
                   <div className="flex justify-end">
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs gap-1 text-primary"
-                      onClick={() => window.open(transcript.transcript_url!, '_blank')}
+                      onClick={() => window.open(viewUrl!, '_blank')}
                     >
                       <ExternalLink className="h-3 w-3" />
-                      Open in Fireflies
+                      {isPhoneBurner ? 'Open Recording' : 'Open in Fireflies'}
                     </Button>
                   </div>
                 )}

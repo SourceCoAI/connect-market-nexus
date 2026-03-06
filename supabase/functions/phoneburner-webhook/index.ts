@@ -81,10 +81,28 @@ Deno.serve(async (req) => {
   // DO NOT re-add authentication here.
   const supabase: ReturnType<typeof createClient> = createClient(supabaseUrl, serviceRoleKey);
 
-  const rawBody = await req.text();
+  // Log all incoming request details for debugging auth-related rejections
+  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+  const apiKeyHeader = req.headers.get('x-api-key') || req.headers.get('X-Api-Key');
+  const contentType = req.headers.get('content-type') || '';
+  console.log(
+    `[phoneburner-webhook] Incoming POST from ${clientIp || 'unknown'} | ` +
+    `Content-Type: ${contentType} | ` +
+    `Auth header: ${authHeader ? 'present' : 'none'} | ` +
+    `API key header: ${apiKeyHeader ? 'present' : 'none'}`,
+  );
+
+  let rawBody: string;
+  try {
+    rawBody = await req.text();
+  } catch (bodyErr) {
+    console.error('[phoneburner-webhook] Failed to read request body:', bodyErr);
+    return jsonResponse({ error: 'Failed to read request body' }, 400, corsHeaders);
+  }
+
   const signatureValid = true; // no auth required — always accepted
 
-  console.log('PhoneBurner webhook received (no auth required)');
+  console.log(`[phoneburner-webhook] Received (no auth required), body length: ${rawBody.length}`);
 
   let payload: Record<string, unknown>;
   try {
@@ -728,6 +746,28 @@ async function processEvent(
           }
         }
       }
+
+      // ── Save transcript to deal_transcripts for unified processing ──
+      const pbCallId = String(payload.call_id || '');
+      if (topLevelTranscript && topLevelTranscript.trim().length > 0 && resolvedListingId) {
+        await savePhoneBurnerTranscript(supabase, {
+          listingId: resolvedListingId,
+          phoneburnerCallId: pbCallId,
+          transcriptText: topLevelTranscript,
+          contactActivityId: data?.id || null,
+          recordingUrl: recordingUrlPublic || recordingUrl || null,
+          callDate: callStartedAt,
+          durationMinutes: duration ? Math.round(duration / 60) : null,
+          contactName,
+          userName,
+          dispositionLabel: dispositionLabel || null,
+        });
+      } else if (topLevelTranscript && topLevelTranscript.trim().length > 0 && !resolvedListingId) {
+        console.log(
+          `[phoneburner-webhook] Transcript available (${topLevelTranscript.length} chars) but no listing_id resolved for call ${pbCallId}. Saving to contact_activities only.`,
+        );
+      }
+
       return data?.id || null;
     }
 
@@ -786,5 +826,95 @@ async function processEvent(
     default:
       console.log(`Unhandled PhoneBurner event type: ${eventType}`);
       return null;
+  }
+}
+
+/**
+ * Save a PhoneBurner transcript into the unified deal_transcripts table.
+ * Idempotent: skips if a transcript with the same phoneburner_call_id already exists.
+ */
+async function savePhoneBurnerTranscript(
+  supabase: ReturnType<typeof createClient>,
+  opts: {
+    listingId: string;
+    phoneburnerCallId: string;
+    transcriptText: string;
+    contactActivityId: string | null;
+    recordingUrl: string | null;
+    callDate: string;
+    durationMinutes: number | null;
+    contactName: string | null;
+    userName: string | null;
+    dispositionLabel: string | null;
+  },
+): Promise<void> {
+  // Idempotency: check if transcript already saved for this call
+  const { data: existing } = await supabase
+    .from('deal_transcripts')
+    .select('id')
+    .eq('phoneburner_call_id', opts.phoneburnerCallId)
+    .maybeSingle();
+
+  if (existing) {
+    console.log(
+      `[phoneburner-webhook] Transcript for call ${opts.phoneburnerCallId} already exists (${existing.id}), skipping.`,
+    );
+    return;
+  }
+
+  const title = [
+    'PhoneBurner Call',
+    opts.contactName ? `with ${opts.contactName}` : null,
+    opts.dispositionLabel ? `(${opts.dispositionLabel})` : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const { error } = await supabase.from('deal_transcripts').insert({
+    listing_id: opts.listingId,
+    transcript_text: opts.transcriptText,
+    source: 'phoneburner',
+    title,
+    call_date: opts.callDate,
+    duration_minutes: opts.durationMinutes,
+    phoneburner_call_id: opts.phoneburnerCallId,
+    contact_activity_id: opts.contactActivityId,
+    recording_url: opts.recordingUrl,
+    has_content: true,
+    auto_linked: true,
+  });
+
+  if (error) {
+    console.error(
+      `[phoneburner-webhook] Failed to save transcript to deal_transcripts for call ${opts.phoneburnerCallId}:`,
+      error,
+    );
+  } else {
+    console.log(
+      `[phoneburner-webhook] Saved PhoneBurner transcript (${opts.transcriptText.length} chars) to deal_transcripts for listing ${opts.listingId}`,
+    );
+
+    // Trigger enrichment processing (non-blocking)
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+      if (supabaseAnonKey) {
+        fetch(`${supabaseUrl}/functions/v1/enrich-deal`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({ dealId: opts.listingId }),
+        }).catch((err) => {
+          console.warn(
+            `[phoneburner-webhook] Non-blocking enrich-deal call failed:`,
+            err,
+          );
+        });
+      }
+    } catch (enrichErr) {
+      console.warn('[phoneburner-webhook] Failed to trigger enrichment:', enrichErr);
+    }
   }
 }
