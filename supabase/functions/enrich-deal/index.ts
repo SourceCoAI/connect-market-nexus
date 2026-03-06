@@ -172,6 +172,12 @@ serve(async (req) => {
 
     const { dealId, forceReExtract = false, skipExternalEnrichment = false } = await req.json();
 
+    // Timeout budget: Deno edge functions have a ~150s hard limit.
+    // Track a deadline so we can skip optional steps if running low.
+    const FUNCTION_TIMEOUT_MS = 140_000; // 140s budget (10s safety margin)
+    const functionStart = Date.now();
+    const hasTimeBudget = (requiredMs: number) => (Date.now() - functionStart) + requiredMs < FUNCTION_TIMEOUT_MS;
+
     if (!dealId) {
       return new Response(JSON.stringify({ error: 'Missing dealId' }), {
         status: 400,
@@ -394,7 +400,7 @@ serve(async (req) => {
       .join('\n\n');
 
     let notesFieldsUpdated: string[] = [];
-    if (notesContent.length >= 20) {
+    if (notesContent.length >= 20 && hasTimeBudget(35_000)) {
       console.log(`[Notes] Analyzing deal notes (${notesContent.length} chars)...`);
       try {
         const notesResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-deal-notes`, {
@@ -820,7 +826,7 @@ serve(async (req) => {
     // ========================================================================
     // STEP 4: EXTERNAL ENRICHMENT (LinkedIn + Google Reviews)
     // ========================================================================
-    if (!skipExternalEnrichment) {
+    if (!skipExternalEnrichment && hasTimeBudget(65_000)) {
       await enrichLinkedIn(
         supabaseUrl,
         supabaseAnonKey!,
@@ -830,15 +836,19 @@ serve(async (req) => {
         deal,
         websiteUrl,
       );
-      await enrichGoogleReviews(
-        supabaseUrl,
-        supabaseAnonKey!,
-        supabaseServiceKey,
-        dealId,
-        extracted,
-        deal,
-      );
-    } else {
+      if (hasTimeBudget(35_000)) {
+        await enrichGoogleReviews(
+          supabaseUrl,
+          supabaseAnonKey!,
+          supabaseServiceKey,
+          dealId,
+          extracted,
+          deal,
+        );
+      } else {
+        console.log('[enrich-deal] Skipping Google Reviews — insufficient time budget');
+      }
+    } else if (skipExternalEnrichment) {
       console.log('[enrich-deal] Skipping LinkedIn/Google (handled by pipeline)');
     }
 

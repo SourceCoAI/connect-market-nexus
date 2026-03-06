@@ -15,6 +15,7 @@ export function useDealDetail() {
   const queryClient = useQueryClient();
 
   const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichStartedAt, setEnrichStartedAt] = useState<string | null>(null);
   const [isAnalyzingNotes, setIsAnalyzingNotes] = useState(false);
   const [buyerHistoryOpen, setBuyerHistoryOpen] = useState(false);
   const [editFinancialsOpen, setEditFinancialsOpen] = useState(false);
@@ -34,7 +35,14 @@ export function useDealDetail() {
       return data;
     },
     enabled: !!dealId,
+    // Poll every 10s while enrichment is in progress so deal data refreshes automatically
+    refetchInterval: enrichStartedAt ? 10_000 : false,
   });
+
+  // Stop polling once enriched_at has advanced past when we started enrichment
+  if (enrichStartedAt && deal?.enriched_at && deal.enriched_at > enrichStartedAt) {
+    setEnrichStartedAt(null);
+  }
 
   // Score stats decommissioned — old scoring engine removed.
   // Downstream components (DataRoomTab, OverviewTab, WebsiteActionsCard) accept
@@ -212,7 +220,9 @@ export function useDealDetail() {
     try {
       const { queueDealEnrichment } = await import('@/lib/remarketing/queueEnrichment');
       await queueDealEnrichment([dealId!]);
-      toast.success('Queued for background enrichment');
+      // Start polling for deal data refresh until enriched_at advances
+      setEnrichStartedAt(new Date().toISOString());
+      toast.success('Queued for background enrichment — data will refresh automatically');
     } catch (error: unknown) {
       toast.error((error instanceof Error ? error.message : null) || 'Failed to queue enrichment');
     } finally {
