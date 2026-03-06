@@ -160,15 +160,46 @@ export default function CreateListingFromDeal() {
         const sections = teaserMemo?.content?.sections;
 
         if (sections && Array.isArray(sections) && sections.length > 0) {
-          // Merge all AI sections into the body description with clear section headings.
-          // This replaces the old custom_sections approach — everything goes into
-          // the description for a single, easy-to-edit rich text block.
+          // Merge all AI sections into a single rich-text description.
           const contentSections = sections.filter(
             (s: { key: string }) => s.key !== 'header_block' && s.key !== 'contact_information',
           );
 
-          // Build a formatted description with section headings and content
-          const formattedDescription = contentSections
+          // Build HTML description so the rich text editor renders it properly
+          const descriptionHtml = contentSections
+            .map((s: { title: string; content: string }) => {
+              // Convert markdown content to HTML
+              const htmlContent = s.content
+                // Convert bullet lists
+                .replace(
+                  /(?:^|\n)((?:- .+\n?)+)/g,
+                  (_match: string, list: string) => {
+                    const items = list
+                      .split('\n')
+                      .filter((l: string) => l.trim().startsWith('- '))
+                      .map((l: string) => `<li>${l.trim().replace(/^- /, '')}</li>`)
+                      .join('');
+                    return `<ul>${items}</ul>`;
+                  },
+                )
+                // Bold
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Italic
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                // Paragraphs from double newlines (only for non-list content)
+                .split(/\n\n+/)
+                .map((block: string) => {
+                  const trimmed = block.trim();
+                  if (!trimmed || trimmed.startsWith('<ul>') || trimmed.startsWith('<li>')) return trimmed;
+                  return `<p>${trimmed}</p>`;
+                })
+                .join('');
+              return `<h2>${s.title}</h2>${htmlContent}`;
+            })
+            .join('');
+
+          // Also build plain text fallback
+          const plainText = contentSections
             .map((s: { title: string; content: string }) => `${s.title}\n\n${s.content}`)
             .join('\n\n');
 
@@ -177,7 +208,8 @@ export default function CreateListingFromDeal() {
             return {
               ...prev,
               custom_sections: [],
-              description: formattedDescription || prev.description,
+              description: plainText || prev.description,
+              description_html: descriptionHtml,
             };
           });
           toast.success('AI content generated — review and edit before saving.');
