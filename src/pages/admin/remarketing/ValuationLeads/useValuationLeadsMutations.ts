@@ -23,10 +23,11 @@ interface MutationDeps {
   setSelectedIds: (ids: Set<string>) => void;
   enrichmentSummary: { errors: Array<{ listingId: string }> } | null;
   dismissSummary: () => void;
+  setHideNotFit?: (v: boolean) => void;
 }
 
 export function useValuationLeadsMutations(deps: MutationDeps) {
-  const { leads, filteredLeads, selectedIds: _selectedIds, setSelectedIds, enrichmentSummary, dismissSummary } =
+  const { leads, filteredLeads, selectedIds: _selectedIds, setSelectedIds, enrichmentSummary, dismissSummary, setHideNotFit } =
     deps;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -358,6 +359,8 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
           `Marked ${leadIds.length} lead${leadIds.length !== 1 ? 's' : ''} as not a fit`,
         );
         setSelectedIds(new Set());
+        // Show greyed-out rows instead of hiding them
+        if (setHideNotFit) setHideNotFit(false);
         queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
       } finally {
         setIsMarkingNotFit(false);
