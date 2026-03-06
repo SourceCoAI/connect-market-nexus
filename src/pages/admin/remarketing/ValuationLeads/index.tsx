@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -440,7 +441,10 @@ export default function ValuationLeads() {
         onOpenChange={setDrawerOpen}
         onPushToDeals={(ids) => handlePushToAllDeals(ids)}
         onMarkNotFit={(ids) => handleMarkNotFit(ids)}
-        onViewDeal={(listingId) => handleOpenDeal({ pushed_listing_id: listingId } as ValuationLead)}
+        onViewDeal={(listingId) => {
+          setDrawerOpen(false);
+          handleOpenDeal({ pushed_listing_id: listingId, id: '' } as any);
+        }}
         isPushing={isPushing}
       />
 
