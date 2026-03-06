@@ -328,7 +328,7 @@ function MemoSlotCard({
           content: s.content || s.body || (s.bullets ? s.bullets.join('\n') : ''),
         })),
         memoType: slotType,
-        dealTitle: dealTitle || 'Deal',
+        dealTitle: slotType === 'anonymous_teaser' ? (projectName || 'Deal') : (dealTitle || 'Deal'),
         branding: 'SourceCo',
         companyInfo: company,
       });
