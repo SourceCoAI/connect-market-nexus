@@ -87,6 +87,7 @@ export function useDealDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
     },
   });
 

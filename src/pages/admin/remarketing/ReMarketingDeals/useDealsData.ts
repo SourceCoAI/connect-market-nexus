@@ -28,6 +28,7 @@ export function useDealsData() {
   const [employeeFilter] = useState<string>('all');
   const [referralPartnerFilter] = useState<string>('all');
   const [universeBuildFilter, setUniverseBuildFilter] = useState<boolean>(false);
+  const [hideNotAFit, setHideNotAFit] = useState<boolean>(true);
 
   const { data: adminProfiles } = useAdminProfiles();
 
@@ -86,7 +87,8 @@ export function useDealsData() {
             needs_buyer_search, needs_buyer_search_at,
             universe_build_flagged, universe_build_flagged_at, universe_build_flagged_by,
             is_internal_deal,
-            pushed_to_marketplace, pushed_to_marketplace_at, pushed_to_marketplace_by
+            pushed_to_marketplace, pushed_to_marketplace_at, pushed_to_marketplace_by,
+            not_a_fit, not_a_fit_reason
           `,
           )
           .is('deleted_at', null)
@@ -289,6 +291,7 @@ export function useDealsData() {
           if (dateFilter === '90d' && daysDiff > 90) return false;
         }
       }
+      if (hideNotAFit && listing.not_a_fit) return false;
       if (universeBuildFilter && !listing.universe_build_flagged) return false;
       if (dealTab === 'marketplace') {
         if (listing.is_internal_deal !== false || listing.status !== 'active') return false;
@@ -320,6 +323,7 @@ export function useDealsData() {
     employeeFilter,
     referralPartnerFilter,
     scoreStats,
+    hideNotAFit,
     universeBuildFilter,
     dealTab,
     pipelineCounts,
@@ -470,6 +474,8 @@ export function useDealsData() {
     setShowCustomDatePicker,
     universeBuildFilter,
     setUniverseBuildFilter,
+    hideNotAFit,
+    setHideNotAFit,
     dealTab,
     setDealTab,
     filteredListings,
