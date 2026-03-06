@@ -709,9 +709,7 @@ export function descriptionToHtml(plainText: string): string {
     const lines = trimmed.split('\n');
     const isBulletList = lines.every((l) => l.trim().startsWith('- '));
     if (isBulletList) {
-      const items = lines
-        .map((l) => `<li>${l.trim().replace(/^- /, '')}</li>`)
-        .join('');
+      const items = lines.map((l) => `<li>${l.trim().replace(/^- /, '')}</li>`).join('');
       htmlParts.push(`<ul>${items}</ul>`);
       continue;
     }
@@ -720,21 +718,33 @@ export function descriptionToHtml(plainText: string): string {
     const hasBullets = lines.some((l) => l.trim().startsWith('- '));
     if (hasBullets) {
       let currentParagraph: string[] = [];
+      let currentBullets: string[] = [];
+
+      const flushParagraph = () => {
+        if (currentParagraph.length > 0) {
+          htmlParts.push(`<p>${currentParagraph.join(' ')}</p>`);
+          currentParagraph = [];
+        }
+      };
+      const flushBullets = () => {
+        if (currentBullets.length > 0) {
+          const items = currentBullets.map((b) => `<li>${b}</li>`).join('');
+          htmlParts.push(`<ul>${items}</ul>`);
+          currentBullets = [];
+        }
+      };
+
       for (const line of lines) {
         if (line.trim().startsWith('- ')) {
-          // Flush any pending paragraph text
-          if (currentParagraph.length > 0) {
-            htmlParts.push(`<p>${currentParagraph.join(' ')}</p>`);
-            currentParagraph = [];
-          }
-          htmlParts.push(`<ul><li>${line.trim().replace(/^- /, '')}</li></ul>`);
+          flushParagraph();
+          currentBullets.push(line.trim().replace(/^- /, ''));
         } else if (line.trim().length > 0) {
+          flushBullets();
           currentParagraph.push(line.trim());
         }
       }
-      if (currentParagraph.length > 0) {
-        htmlParts.push(`<p>${currentParagraph.join(' ')}</p>`);
-      }
+      flushBullets();
+      flushParagraph();
       continue;
     }
 

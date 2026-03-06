@@ -115,32 +115,91 @@ export default function DealHero({ deal }: DealHeroProps) {
       </h1>
 
       {/* Meta row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          marginBottom: 20,
+          flexWrap: 'wrap',
+        }}
+      >
         {deal.location && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '13.5px', color: '#6B6560' }}>
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} width={14} height={14}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              fontSize: '13.5px',
+              color: '#6B6560',
+            }}
+          >
+            <svg
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              width={14}
+              height={14}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+              />
               <circle cx="12" cy="11" r="3" />
             </svg>
             {deal.location}
           </div>
         )}
         {deal.number_of_locations && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '13.5px', color: '#6B6560' }}>
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} width={14} height={14}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              fontSize: '13.5px',
+              color: '#6B6560',
+            }}
+          >
+            <svg
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              width={14}
+              height={14}
+            >
               <rect x="2" y="7" width="20" height="14" rx="2" />
               <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" />
             </svg>
             {deal.number_of_locations} Location{deal.number_of_locations > 1 ? 's' : ''}
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '13.5px', color: '#6B6560' }}>
-          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} width={14} height={14}>
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 6v6l4 2" />
-          </svg>
-          3+ Years Under Current Ownership
-        </div>
+        {deal.acquisition_type && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              fontSize: '13.5px',
+              color: '#6B6560',
+            }}
+          >
+            <svg
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              width={14}
+              height={14}
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </svg>
+            {deal.acquisition_type === 'platform' ? 'Platform Acquisition' : 'Add-on Acquisition'}
+          </div>
+        )}
       </div>
 
       {/* Hero description */}
@@ -157,6 +216,31 @@ export default function DealHero({ deal }: DealHeroProps) {
         >
           {anon(deal.hero_description)}
         </p>
+      )}
+
+      {/* Featured Image */}
+      {deal.image_url && (
+        <div
+          style={{
+            marginBottom: 22,
+            borderRadius: 10,
+            overflow: 'hidden',
+            border: '1px solid #DDD8D0',
+            maxHeight: 360,
+          }}
+        >
+          <img
+            src={deal.image_url}
+            alt={anon(deal.title)}
+            style={{
+              width: '100%',
+              height: '100%',
+              maxHeight: 360,
+              objectFit: 'cover',
+              display: 'block',
+            }}
+          />
+        </div>
       )}
 
       {/* Confidential identity banner */}

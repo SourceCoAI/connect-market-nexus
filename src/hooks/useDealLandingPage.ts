@@ -14,6 +14,7 @@ export interface LandingPageDeal {
   categories: string[] | null;
   category: string | null;
   custom_sections: Array<{ title: string; description: string }> | null;
+  image_url: string | null;
   revenue_metric_subtitle: string | null;
   ebitda_metric_subtitle: string | null;
   metric_3_type: string | null;
@@ -29,6 +30,8 @@ export interface LandingPageDeal {
   part_time_employees: number | null;
   status: string;
   presented_by_admin_id: string | null;
+  is_internal_deal: boolean | null;
+  acquisition_type: string | null;
   // Structured business details
   geographic_states: string[] | null;
   services: string[] | null;
@@ -56,12 +59,12 @@ export interface RelatedDeal {
 
 const LANDING_PAGE_FIELDS = `
   id, title, deal_identifier, hero_description, description, description_html, location,
-  revenue, ebitda, categories, category, custom_sections,
+  revenue, ebitda, categories, category, custom_sections, image_url,
   revenue_metric_subtitle, ebitda_metric_subtitle,
   metric_3_type, metric_3_custom_label, metric_3_custom_value, metric_3_custom_subtitle,
   metric_4_type, metric_4_custom_label, metric_4_custom_value, metric_4_custom_subtitle,
   executive_summary, full_time_employees, part_time_employees,
-  status, presented_by_admin_id,
+  status, presented_by_admin_id, is_internal_deal, acquisition_type,
   geographic_states, services, number_of_locations, customer_types,
   revenue_model, business_model, growth_trajectory,
   internal_company_name, website
@@ -77,6 +80,8 @@ export function useDealLandingPage(dealId: string | undefined) {
         .from('listings')
         .select(LANDING_PAGE_FIELDS)
         .eq('id', dealId)
+        .eq('is_internal_deal', false)
+        .eq('status', 'active')
         .single();
 
       if (error) throw error;
@@ -99,9 +104,10 @@ export function useRelatedDeals(currentDealId: string | undefined) {
       const { data, error } = await supabase
         .from('listings')
         .select(
-          'id, title, location, revenue, ebitda, ebitda_margin, categories, description, hero_description',
+          'id, title, location, revenue, ebitda, ebitda_margin, categories, description, hero_description, image_url',
         )
         .eq('status', 'active')
+        .eq('is_internal_deal', false)
         .neq('id', currentDealId ?? '')
         .order('created_at', { ascending: false })
         .limit(3);
