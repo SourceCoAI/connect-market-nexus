@@ -96,7 +96,8 @@ export default function CreateListingFromDeal() {
         full_time_employees: anonymized.full_time_employees,
         internal_company_name: anonymized.internal_company_name,
         internal_notes: anonymized.internal_notes,
-        internal_deal_memo_link: deal.internal_deal_memo_link || '',
+        // Use deal website as Company URL, falling back to deal memo link
+        internal_deal_memo_link: (deal as Record<string, unknown>).website as string || deal.internal_deal_memo_link || '',
         company_website: anonymized.company_website || null,
         // Custom metrics
         metric_3_type: anonymized.metric_3_type,

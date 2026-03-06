@@ -12,6 +12,19 @@ const PremiumRichTextEditor = lazy(() =>
 import { cn } from '@/lib/utils';
 import { stripHtml } from '@/lib/sanitize';
 
+/**
+ * Default section template injected when the editor is empty.
+ * Gives authors a structured starting point they can fill in,
+ * while keeping everything in a single copy-pasteable editor.
+ */
+const SECTION_TEMPLATE = [
+  '<h2>Business Overview</h2><p></p>',
+  '<h2>Deal Snapshot</h2><ul><li></li></ul>',
+  '<h2>Key Facts</h2><ul><li></li></ul>',
+  '<h2>Growth Context</h2><ul><li></li></ul>',
+  '<h2>Owner Objectives</h2><ul><li></li></ul>',
+].join('');
+
 interface EditorDescriptionSectionProps {
   form: UseFormReturn<any>;
   onAiGenerate?: (field: string) => void;
@@ -26,6 +39,11 @@ export function EditorDescriptionSection({
   generatingField,
 }: EditorDescriptionSectionProps) {
   const isFieldGenerating = isGenerating && generatingField === 'description';
+
+  // Use existing content, or fall back to the section template for new listings
+  const existingHtml = form.getValues('description_html');
+  const existingPlain = form.getValues('description');
+  const initialContent = existingHtml || existingPlain || SECTION_TEMPLATE;
 
   return (
     <div
@@ -68,7 +86,7 @@ export function EditorDescriptionSection({
             <FormControl>
               <Suspense fallback={<div className="h-[300px] animate-pulse bg-muted rounded-lg" />}>
                 <PremiumRichTextEditor
-                  content={form.getValues('description_html') || field.value || ''}
+                  content={initialContent}
                   onChange={(html, json) => {
                     form.setValue('description_html', html);
                     form.setValue('description_json', json);
