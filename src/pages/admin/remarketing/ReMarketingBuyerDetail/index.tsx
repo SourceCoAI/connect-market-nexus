@@ -73,6 +73,7 @@ const ReMarketingBuyerDetail = () => {
     enrichMutation,
     updateBuyerMutation,
     updateFeeAgreementMutation,
+    analyzeNotesMutation,
     addContactMutation,
     deleteContactMutation,
     addTranscriptMutation,
@@ -251,6 +252,10 @@ const ReMarketingBuyerDetail = () => {
             onSave={async (notes) => {
               await updateBuyerMutation.mutateAsync({ notes });
             }}
+            onAnalyze={async (notes) => {
+              await analyzeNotesMutation.mutateAsync(notes);
+            }}
+            isAnalyzing={analyzeNotesMutation.isPending}
           />
           {/* Two-Column Grid Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -69,6 +69,9 @@ export const VALID_LISTING_UPDATE_KEYS = new Set([
   'real_estate_info',
   'growth_trajectory',
   'key_quotes',
+  'seller_motivation',
+  'management_depth',
+  'growth_drivers',
   'main_contact_name',
   'main_contact_email',
   'main_contact_phone',
@@ -694,9 +697,13 @@ export function isPlaceholder(v: unknown): boolean {
   ) {
     return true;
   }
-  // Check verbose patterns — strip leading field name prefix like "Ownership structure "
-  // before matching, since the AI often echoes the field name.
-  return PLACEHOLDER_PATTERNS.some((p) => p.test(raw));
+  // Check verbose patterns against the full string first
+  if (PLACEHOLDER_PATTERNS.some((p) => p.test(raw))) return true;
+  // Strip leading field name prefix like "Ownership structure " before matching
+  // ^-anchored patterns, since the AI often echoes the field name.
+  const stripped = raw.replace(/^[a-z_ ]+(?::\s*|\s+(?=not\s|no\s))/i, '');
+  if (stripped !== raw && PLACEHOLDER_PATTERNS.some((p) => p.test(stripped))) return true;
+  return false;
 }
 
 /**

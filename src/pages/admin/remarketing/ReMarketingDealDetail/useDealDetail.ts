@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,9 +40,11 @@ export function useDealDetail() {
   });
 
   // Stop polling once enriched_at has advanced past when we started enrichment
-  if (enrichStartedAt && deal?.enriched_at && deal.enriched_at > enrichStartedAt) {
-    setEnrichStartedAt(null);
-  }
+  useEffect(() => {
+    if (enrichStartedAt && deal?.enriched_at && deal.enriched_at > enrichStartedAt) {
+      setEnrichStartedAt(null);
+    }
+  }, [enrichStartedAt, deal?.enriched_at]);
 
   // Score stats decommissioned — old scoring engine removed.
   // Downstream components (DataRoomTab, OverviewTab, WebsiteActionsCard) accept

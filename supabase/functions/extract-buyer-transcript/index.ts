@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { GEMINI_API_URL, getGeminiHeaders } from '../_shared/ai-providers.ts';
+import { canOverwriteField, getFieldSource, createFieldSource, updateExtractionSources } from '../_shared/source-priority.ts';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
@@ -505,11 +506,25 @@ serve(async (req) => {
           unknown
         >[];
 
+        const sourceUpdates: Record<string, unknown> = {};
+        const rejectedFields: string[] = [];
+
         const safeSet = (field: string, value: unknown) => {
           if (value === null || value === undefined) return;
           if (Array.isArray(value) && value.length === 0) return;
           if (typeof value === 'string' && value.trim() === '') return;
-          buyerUpdates[field] = value;
+
+          // Enforce source priority: check if transcript (priority 100) can overwrite existing value
+          const existingFieldSource = getFieldSource(existingBuyer?.extraction_sources, field);
+          const existingSourceType = existingFieldSource?.source;
+          const existingValue = existingBuyer?.[field];
+
+          if (canOverwriteField(field, existingSourceType, 'transcript', existingValue)) {
+            buyerUpdates[field] = value;
+            sourceUpdates[field] = createFieldSource('transcript', transcriptRecord?.id);
+          } else {
+            rejectedFields.push(`${field}: transcript blocked by ${existingSourceType}`);
+          }
         };
 
         // Map buyer_profile fields
@@ -534,13 +549,8 @@ serve(async (req) => {
             safeSet('target_geographies', insights.buyer_criteria.geography_criteria.target_states);
           }
 
-          // Map geographic exclusions (e.g., "We don't want to go west of the Mississippi")
-          if (insights.buyer_criteria.geography_criteria?.geographic_exclusions?.length) {
-            safeSet(
-              'geographic_exclusions',
-              insights.buyer_criteria.geography_criteria.geographic_exclusions,
-            );
-          }
+          // Geographic exclusions are stored in extracted_insights JSONB on the
+          // transcript record. No dedicated column exists on the buyers table yet.
 
           // Map size criteria — deal structure can ONLY come from transcripts
           const size = insights.buyer_criteria.size_criteria;
@@ -552,17 +562,48 @@ serve(async (req) => {
           }
         }
 
+        if (rejectedFields.length > 0) {
+          console.log(
+            `[SOURCE_PRIORITY] ${rejectedFields.length} fields blocked by higher-priority sources:`,
+            rejectedFields,
+          );
+        }
+
         if (Object.keys(buyerUpdates).length > 0) {
-          buyerUpdates.extraction_sources = [
-            ...existingSources,
-            {
-              type: 'transcript',
-              transcript_id: transcriptRecord.id,
-              extracted_at: new Date().toISOString(),
-              fields_extracted: Object.keys(buyerUpdates).filter((k) => k !== 'extraction_sources'),
-              confidence: insights.overall_confidence,
-            },
-          ];
+          // Build the per-field source map for priority lookups (canOverwriteField)
+          // getFieldSource() expects an object keyed by field name, so we must store
+          // extraction_sources as an object — NOT the legacy array format.
+          const existingSourcesObj =
+            existingBuyer?.extraction_sources &&
+            typeof existingBuyer.extraction_sources === 'object' &&
+            !Array.isArray(existingBuyer.extraction_sources)
+              ? existingBuyer.extraction_sources
+              : {};
+
+          const mergedExtractionSources = updateExtractionSources(
+            existingSourcesObj as Record<string, any>,
+            sourceUpdates as Record<string, any>,
+          );
+
+          // Store as object format so getFieldSource() works on subsequent runs.
+          // Also embed a _history array for audit trail (replaces legacy top-level array).
+          const historyArray = Array.isArray(existingBuyer?.extraction_sources)
+            ? existingBuyer.extraction_sources
+            : (existingSourcesObj as Record<string, any>)?._history || [];
+
+          buyerUpdates.extraction_sources = {
+            ...mergedExtractionSources,
+            _history: [
+              ...historyArray,
+              {
+                type: 'transcript',
+                transcript_id: transcriptRecord.id,
+                extracted_at: new Date().toISOString(),
+                fields_extracted: Object.keys(buyerUpdates).filter((k) => k !== 'extraction_sources'),
+                confidence: insights.overall_confidence,
+              },
+            ],
+          };
           buyerUpdates.data_last_updated = new Date().toISOString();
 
           await supabase.from('buyers').update(buyerUpdates).eq('id', buyer_id);

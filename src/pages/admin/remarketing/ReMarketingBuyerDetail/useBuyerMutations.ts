@@ -297,6 +297,30 @@ export function useBuyerMutations(
     },
   });
 
+  const analyzeNotesMutation = useMutation({
+    mutationFn: async (notesText: string) => {
+      const { data, error } = await invokeWithTimeout<any>('analyze-buyer-notes', {
+        body: { buyerId: id, notesText },
+        timeoutMs: 120_000,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyer', id] });
+      const count = data?.fieldsUpdated?.length || 0;
+      const blocked = data?.blockedFields?.length || 0;
+      let msg = `Analyzed notes — ${count} fields updated`;
+      if (blocked > 0) {
+        msg += `, ${blocked} blocked by higher-priority sources`;
+      }
+      toast.success(msg);
+    },
+    onError: (error: Error) => {
+      toast.error(`Notes analysis failed: ${error.message}`);
+    },
+  });
+
   const deleteTranscriptMutation = useMutation({
     mutationFn: async (transcriptId: string) => {
       const { error } = await supabase.from('buyer_transcripts').delete().eq('id', transcriptId);
@@ -315,6 +339,7 @@ export function useBuyerMutations(
     enrichMutation,
     updateBuyerMutation,
     updateFeeAgreementMutation,
+    analyzeNotesMutation,
     addContactMutation,
     deleteContactMutation,
     addTranscriptMutation,

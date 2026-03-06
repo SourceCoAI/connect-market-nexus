@@ -2,26 +2,27 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { normalizeStates, extractStatesFromText, mergeStates } from "../_shared/geography.ts";
 import { buildPriorityUpdates, updateExtractionSources } from "../_shared/source-priority.ts";
-import { isPlaceholder } from "../_shared/deal-extraction.ts";
+import { isPlaceholder, VALID_LISTING_UPDATE_KEYS } from "../_shared/deal-extraction.ts";
 import { callGeminiWithRetry, GEMINI_API_URL, getGeminiHeaders, DEFAULT_GEMINI_MODEL } from "../_shared/ai-providers.ts";
 
 import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 
 // Pre-extraction regex patterns per spec
 const REVENUE_PATTERNS = [
-  /~?\$\s*([\d,.]+)\s*(M|MM|m|million|mil)/i,
-  /revenue[:\s]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/i,
-  /([\d,.]+)\s*(M|MM|million)\s*(?:in\s+)?(?:revenue|sales)/i,
-  /top\s*line[:\s]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/i,
-  /annual\s+revenue[:\s]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|K|k|thousand)?/i,
+  /~?\$\s*([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)/i,
+  /revenue[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)?/i,
+  /revenue\s+(?:of|is|at|around|approximately|about|~)\s+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)?/i,
+  /([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)\s*(?:in\s+)?(?:revenue|sales)/i,
+  /top\s*line[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)?/i,
+  /annual\s+revenue[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)?/i,
 ];
 
 const EBITDA_PATTERNS = [
-  /EBITDA[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
-  /~?\$\s*([\d,.]+)\s*(K|k|M|MM)?\s*EBITDA/i,
-  /cash\s*flow[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
-  /SDE[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
-  /owner.?s?\s*(?:cash|earnings)[:\s]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /EBITDA[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /~?\$\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million|mil)?\s*EBITDA/i,
+  /cash\s*flow[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /SDE[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /owner.?s?\s*(?:cash|earnings)[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
 ];
 
 const MARGIN_PATTERNS = [
@@ -62,12 +63,15 @@ function parseNumberValue(match: string, multiplier?: string): number | null {
       return num * 1000;
     }
   }
-  
-  // If number is small, assume millions for revenue/EBITDA
-  if (num < 1000) {
+
+  // Without an explicit multiplier, only assume millions for values that look
+  // like shorthand (e.g., "2.5" or "12" meaning $2.5M or $12M).
+  // Values >= 100 without a multiplier are ambiguous — could be $800 literal
+  // or $800K shorthand — so return them as-is and let the threshold filter decide.
+  if (!multiplier && num > 0 && num < 100) {
     return num * 1000000;
   }
-  
+
   return num;
 }
 
@@ -332,11 +336,16 @@ Use the tool to return structured data.`;
       };
 
       const parseToolResponse = (aiData: { choices?: { message?: { tool_calls?: { function?: { arguments?: string | Record<string, unknown> } }[] } }[] }): Record<string, unknown> | null => {
-        const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-        if (toolCall?.function?.arguments) {
-          return JSON.parse(typeof toolCall.function.arguments === 'string' ? toolCall.function.arguments : JSON.stringify(toolCall.function.arguments));
+        try {
+          const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+          if (toolCall?.function?.arguments) {
+            return JSON.parse(typeof toolCall.function.arguments === 'string' ? toolCall.function.arguments : JSON.stringify(toolCall.function.arguments));
+          }
+          return null;
+        } catch (e) {
+          console.warn('[AI] Failed to parse tool response JSON:', e instanceof Error ? e.message : e);
+          return null;
         }
-        return null;
       };
 
       let aiSuccess = false;
@@ -445,6 +454,13 @@ Use the tool to return structured data.`;
         extracted.geographic_states as string[] | undefined,
         geographyFromNotes
       );
+    }
+
+    // Filter extracted fields to valid listing columns before priority check
+    for (const key of Object.keys(extracted)) {
+      if (!VALID_LISTING_UPDATE_KEYS.has(key)) {
+        delete extracted[key];
+      }
     }
 
     // Build priority-aware updates

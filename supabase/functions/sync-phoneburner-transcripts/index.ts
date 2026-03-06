@@ -131,6 +131,33 @@ Deno.serve(async (req) => {
       `[sync-phoneburner-transcripts] Done: synced=${synced}, skipped=${skipped}, errors=${errors.length}`,
     );
 
+    // Fire-and-forget: trigger enrich-deal for each unique listing that got new transcripts
+    if (synced > 0) {
+      const listingIdsWithNewTranscripts = new Set(
+        activities
+          .filter((a) => a.phoneburner_call_id && !existingCallIds.has(a.phoneburner_call_id) && a.listing_id)
+          .map((a) => a.listing_id as string),
+      );
+
+      for (const lid of listingIdsWithNewTranscripts) {
+        fetch(`${supabaseUrl}/functions/v1/enrich-deal`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceRoleKey}`,
+            'x-internal-secret': serviceRoleKey,
+          },
+          body: JSON.stringify({ dealId: lid }),
+        }).catch((err) =>
+          console.warn(`[sync-phoneburner-transcripts] Fire-and-forget enrich-deal failed for ${lid}:`, err),
+        );
+      }
+
+      console.log(
+        `[sync-phoneburner-transcripts] Triggered enrich-deal for ${listingIdsWithNewTranscripts.size} listings`,
+      );
+    }
+
     return new Response(
       JSON.stringify({ synced, skipped, errors: errors.slice(0, 10), total: activities.length }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },

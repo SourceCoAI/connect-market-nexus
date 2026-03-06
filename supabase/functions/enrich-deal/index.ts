@@ -400,7 +400,15 @@ serve(async (req) => {
       .join('\n\n');
 
     let notesFieldsUpdated: string[] = [];
-    if (notesContent.length >= 20 && hasTimeBudget(35_000)) {
+    let notesStatus: 'analyzed' | 'skipped_empty' | 'skipped_timeout' | 'failed' = 'skipped_empty';
+    let notesError: string | undefined;
+    if (notesContent.length < 20) {
+      notesStatus = 'skipped_empty';
+      console.log('[Notes] No notes content to analyze (skipping)');
+    } else if (!hasTimeBudget(65_000)) {
+      notesStatus = 'skipped_timeout';
+      console.log('[Notes] Skipping notes analysis — insufficient time budget remaining');
+    } else {
       console.log(`[Notes] Analyzing deal notes (${notesContent.length} chars)...`);
       try {
         const notesResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-deal-notes`, {
@@ -412,24 +420,29 @@ serve(async (req) => {
             'x-internal-secret': supabaseServiceKey,
           },
           body: JSON.stringify({ dealId, notesText: notesContent }),
-          signal: AbortSignal.timeout(30000), // 30s timeout — must fit within parent function's budget
+          signal: AbortSignal.timeout(60000), // 60s timeout — Gemini calls can take 15-30s
         });
 
         if (notesResponse.ok) {
           const notesResult = await notesResponse.json();
           notesFieldsUpdated = notesResult.fieldsUpdated || [];
+          notesStatus = 'analyzed';
           console.log(
             `[Notes] Analysis complete: ${notesFieldsUpdated.length} fields updated:`,
             notesFieldsUpdated,
           );
         } else {
           const errText = await notesResponse.text().catch(() => `HTTP ${notesResponse.status}`);
+          notesStatus = 'failed';
+          notesError = `HTTP ${notesResponse.status}: ${errText.substring(0, 100)}`;
           console.warn(
             `[Notes] Analysis failed (non-fatal): ${notesResponse.status} - ${errText.substring(0, 200)}`,
           );
         }
       } catch (notesErr) {
-        console.warn('[Notes] Analysis error (non-fatal):', getErrorMessage(notesErr));
+        notesStatus = 'failed';
+        notesError = getErrorMessage(notesErr);
+        console.warn('[Notes] Analysis error (non-fatal):', notesError);
       }
 
       // Re-fetch deal after notes analysis to get updated extraction_sources
@@ -443,8 +456,6 @@ serve(async (req) => {
       if (!refreshErr && refreshedDeal) {
         Object.assign(deal, refreshedDeal);
       }
-    } else {
-      console.log('[Notes] No notes content to analyze (skipping)');
     }
 
     // ========================================================================
@@ -976,6 +987,14 @@ serve(async (req) => {
         },
         transcriptReport,
         notesFieldsUpdated,
+        notesReport: {
+          status: notesStatus,
+          fieldsUpdated: notesFieldsUpdated.length,
+          notesLength: notesContent.length,
+          error: notesError,
+        },
+        rejectedFields: rejected,
+        rejectedFieldCount: rejected.length,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );

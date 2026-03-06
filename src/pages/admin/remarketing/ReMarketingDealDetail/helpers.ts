@@ -67,7 +67,7 @@ export const calculateDataCompleteness = (
 };
 
 export const formatCurrency = (value: number | null): string => {
-  if (!value) return 'Not specified';
+  if (value === null || value === undefined) return 'Not specified';
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
   return `$${value}`;

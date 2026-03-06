@@ -31,17 +31,50 @@ interface ExtractedCriteria {
 interface TrackerNotesSectionProps {
   onApplyCriteria: (criteria: ExtractedCriteria) => void;
   universeName?: string;
+  universeId?: string;
 }
 
-export const TrackerNotesSection = ({ 
+function getDraftKey(universeId?: string) {
+  return `tracker-notes-draft-${universeId || 'new'}`;
+}
+
+function loadDraft(universeId?: string): { notes: string; criteria: ExtractedCriteria | null } | null {
+  try {
+    const raw = localStorage.getItem(getDraftKey(universeId));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(universeId: string | undefined, notes: string, criteria: ExtractedCriteria | null) {
+  try {
+    localStorage.setItem(getDraftKey(universeId), JSON.stringify({ notes, criteria }));
+  } catch {
+    // localStorage full or unavailable
+  }
+}
+
+function clearDraft(universeId?: string) {
+  try {
+    localStorage.removeItem(getDraftKey(universeId));
+  } catch {
+    // ignore
+  }
+}
+
+export const TrackerNotesSection = ({
   onApplyCriteria,
-  universeName 
+  universeName,
+  universeId,
 }: TrackerNotesSectionProps) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [notes, setNotes] = useState("");
+  const draft = loadDraft(universeId);
+  const [isOpen, setIsOpen] = useState(!!draft);
+  const [notes, setNotes] = useState(draft?.notes || "");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [extractedCriteria, setExtractedCriteria] = useState<ExtractedCriteria | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
+  const [extractedCriteria, setExtractedCriteria] = useState<ExtractedCriteria | null>(draft?.criteria || null);
+  const [showPreview, setShowPreview] = useState(!!draft?.criteria);
 
   const handleAnalyze = async () => {
     if (!notes.trim()) {
@@ -65,6 +98,7 @@ export const TrackerNotesSection = ({
       if (data) {
         setExtractedCriteria(data);
         setShowPreview(true);
+        saveDraft(universeId, notes, data);
         toast.success(`Extracted criteria with ${Math.round((data.confidence || 0.5) * 100)}% confidence`);
       }
     } catch (error) {
@@ -81,12 +115,14 @@ export const TrackerNotesSection = ({
       setShowPreview(false);
       setNotes("");
       setExtractedCriteria(null);
+      clearDraft(universeId);
     }
   };
 
   const handleDiscard = () => {
     setShowPreview(false);
     setExtractedCriteria(null);
+    clearDraft(universeId);
   };
 
   const formatCurrency = (value?: number) => {

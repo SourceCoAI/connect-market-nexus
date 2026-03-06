@@ -99,6 +99,10 @@ export function getFieldSource(
   if (!extractionSources || typeof extractionSources !== 'object') {
     return null;
   }
+  // Guard against legacy array-format extraction_sources (buyers)
+  if (Array.isArray(extractionSources)) {
+    return null;
+  }
   return extractionSources[fieldName] || null;
 }
 

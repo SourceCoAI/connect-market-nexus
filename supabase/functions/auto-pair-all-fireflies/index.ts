@@ -169,15 +169,15 @@ serve(async (req) => {
     // 1. Load database records we need for matching
     // ------------------------------------------------------------------
 
-    // a) Buyer contacts: email → buyer_id[]
+    // a) Buyer contacts: email → buyer_id[] AND name → buyer_id[]
     const emailToBuyerIds = new Map<string, Set<string>>();
+    const contactNameToBuyerIds = new Map<string, Set<string>>();
     {
       let contactQuery = supabase
         .from('contacts')
-        .select('email, remarketing_buyer_id')
+        .select('email, first_name, last_name, remarketing_buyer_id')
         .eq('contact_type', 'buyer')
         .eq('archived', false)
-        .not('email', 'is', null)
         .not('remarketing_buyer_id', 'is', null);
 
       if (body.buyerIds?.length) {
@@ -186,13 +186,24 @@ serve(async (req) => {
 
       const { data: contacts } = await contactQuery;
       for (const c of contacts || []) {
-        if (!c.email || !c.remarketing_buyer_id) continue;
-        const email = c.email.toLowerCase().trim();
-        if (!emailToBuyerIds.has(email)) emailToBuyerIds.set(email, new Set());
-        emailToBuyerIds.get(email)!.add(c.remarketing_buyer_id);
+        if (!c.remarketing_buyer_id) continue;
+
+        // Email match
+        if (c.email) {
+          const email = c.email.toLowerCase().trim();
+          if (!emailToBuyerIds.has(email)) emailToBuyerIds.set(email, new Set());
+          emailToBuyerIds.get(email)!.add(c.remarketing_buyer_id);
+        }
+
+        // Name match: build "first last" normalized key
+        const fullName = [c.first_name, c.last_name].filter(Boolean).join(' ').trim().toLowerCase();
+        if (fullName.length >= 3) {
+          if (!contactNameToBuyerIds.has(fullName)) contactNameToBuyerIds.set(fullName, new Set());
+          contactNameToBuyerIds.get(fullName)!.add(c.remarketing_buyer_id);
+        }
       }
     }
-    console.log(`Loaded ${emailToBuyerIds.size} unique buyer contact emails`);
+    console.log(`Loaded ${emailToBuyerIds.size} unique buyer contact emails, ${contactNameToBuyerIds.size} unique contact names`);
 
     // b) Buyers: company_name (normalised) → buyer_id
     const nameToBuyerIds = new Map<string, Set<string>>();
@@ -354,6 +365,21 @@ serve(async (req) => {
                 matchedBuyerIds.add(bid);
                 buyerMatchTypes.set(bid, 'keyword');
               }
+            }
+          }
+        }
+      }
+
+      // Phase 3: Participant name match against buyer contact names
+      for (const participant of externalParticipants) {
+        const pName = participant.name?.toLowerCase().trim();
+        if (!pName || pName.length < 3 || pName === 'unknown') continue;
+        const buyerIds = contactNameToBuyerIds.get(pName);
+        if (buyerIds) {
+          for (const bid of buyerIds) {
+            if (!matchedBuyerIds.has(bid)) {
+              matchedBuyerIds.add(bid);
+              buyerMatchTypes.set(bid, 'keyword');
             }
           }
         }
