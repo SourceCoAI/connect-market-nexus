@@ -31,7 +31,7 @@ export async function recomputeRanks() {
   const { data: tasks } = await supabase
     .from('daily_standup_tasks' as never)
     .select('id, priority_score, is_pinned, pinned_rank, created_at')
-    .in('status', ['pending_approval', 'pending', 'in_progress', 'overdue'])
+    .in('status', ['pending_approval', 'pending', 'overdue'])
     .order('priority_score', { ascending: false })
     .order('created_at', { ascending: true });
 
@@ -418,6 +418,7 @@ export function useReassignTask() {
 
 export function useEditTask() {
   const qc = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -437,6 +438,18 @@ export function useEditTask() {
         .update(updates as never)
         .eq('id', taskId);
       if (error) throw error;
+
+      // Log edit to activity log
+      try {
+        await (supabase.from('rm_task_activity_log' as any) as any).insert({
+          task_id: taskId,
+          user_id: user?.id ?? '',
+          action: 'edited',
+          new_value: updates,
+        } as never);
+      } catch (logErr) {
+        console.error('Failed to log edit activity:', logErr);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
@@ -448,6 +461,7 @@ export function useEditTask() {
 
 export function useAddManualTask() {
   const qc = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (
@@ -468,15 +482,48 @@ export function useAddManualTask() {
         .insert({
           ...task,
           is_manual: true,
+          source: 'manual',
           status: 'pending',
           priority_score: 50, // default mid-range for manual tasks
           extraction_confidence: 'high',
           needs_review: false,
+          created_by: user?.id ?? null,
         } as never)
         .select()
         .single();
 
       if (error) throw error;
+
+      const taskId = (data as Record<string, unknown>).id as string;
+
+      // Log activity
+      await (supabase.from('rm_task_activity_log' as any) as any).insert({
+        task_id: taskId,
+        user_id: user?.id ?? '',
+        action: 'created',
+        new_value: { source: 'manual' },
+      } as never);
+
+      // Notify assignee if different from creator
+      if (task.assignee_id && task.assignee_id !== user?.id) {
+        try {
+          await supabase.from('admin_notifications').insert({
+            admin_id: task.assignee_id,
+            notification_type: 'task_assigned',
+            title: 'New Task Assigned',
+            message: `You have been assigned a task: ${task.title}`,
+            deal_id: task.deal_id || null,
+            task_id: taskId,
+            action_url: '/admin/daily-tasks',
+            metadata: {
+              task_title: task.title,
+              assigned_by: user?.id,
+            },
+          });
+        } catch (notifError) {
+          console.error('Failed to send manual task assignment notification:', notifError);
+        }
+      }
 
       // Recompute ranks
       await recomputeRanks();
@@ -485,6 +532,7 @@ export function useAddManualTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['admin-notifications'] });
     },
   });
 }
@@ -493,14 +541,35 @@ export function useAddManualTask() {
 
 export function useDeleteTask() {
   const qc = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (taskId: string) => {
+      // Fetch task title before deleting for the activity log
+      const { data: taskRaw } = await supabase
+        .from('daily_standup_tasks' as never)
+        .select('id, title')
+        .eq('id', taskId)
+        .single();
+
       const { error } = await supabase
         .from('daily_standup_tasks' as never)
         .delete()
         .eq('id', taskId);
       if (error) throw error;
+
+      // Log deletion to activity log
+      try {
+        await (supabase.from('rm_task_activity_log' as any) as any).insert({
+          task_id: taskId,
+          user_id: user?.id ?? '',
+          action: 'deleted',
+          old_value: { title: (taskRaw as Record<string, unknown>)?.title },
+        } as never);
+      } catch (logErr) {
+        console.error('Failed to log delete activity:', logErr);
+      }
+
       await recomputeRanks();
     },
     onSuccess: () => {
@@ -541,13 +610,17 @@ export function usePinTask() {
       if (error) throw error;
 
       // Log the action
-      await (supabase.from('task_pin_log' as any) as any).insert({
-        task_id: taskId,
-        action: isPinning ? 'pinned' : 'unpinned',
-        pinned_rank: rank,
-        reason: reason || null,
-        performed_by: user?.id ?? '',
-      });
+      try {
+        await (supabase.from('task_pin_log' as any) as any).insert({
+          task_id: taskId,
+          action: isPinning ? 'pinned' : 'unpinned',
+          pinned_rank: rank,
+          reason: reason || null,
+          performed_by: user?.id ?? '',
+        });
+      } catch (logErr) {
+        console.error('Failed to log pin activity:', logErr);
+      }
 
       await recomputeRanks();
     },

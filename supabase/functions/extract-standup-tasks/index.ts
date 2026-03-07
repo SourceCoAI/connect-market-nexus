@@ -4,6 +4,26 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { fetchWithAutoRetry } from '../_shared/ai-providers.ts';
 
+// ─── Structured Logger ───
+
+function createLogger(correlationId: string) {
+  const ctx = { correlationId };
+  return {
+    info: (msg: string, data?: Record<string, unknown>) =>
+      console.log(
+        JSON.stringify({ level: 'info', msg, ...ctx, ...data, ts: new Date().toISOString() }),
+      ),
+    warn: (msg: string, data?: Record<string, unknown>) =>
+      console.warn(
+        JSON.stringify({ level: 'warn', msg, ...ctx, ...data, ts: new Date().toISOString() }),
+      ),
+    error: (msg: string, data?: Record<string, unknown>) =>
+      console.error(
+        JSON.stringify({ level: 'error', msg, ...ctx, ...data, ts: new Date().toISOString() }),
+      ),
+  };
+}
+
 // ─── Helpers ───
 
 /** Validate that a string is a proper YYYY-MM-DD date (not just a time like "22:51") */
@@ -38,6 +58,16 @@ interface ExtractedTask {
   source_timestamp: string;
   deal_reference: string;
   confidence: 'high' | 'medium' | 'low';
+}
+
+// ─── Helpers ───
+
+/** Compute a dedup key for cross-extraction duplicate prevention.
+ *  Format must match the SQL backfill in migration 20260530000002:
+ *  lower(trim(title)) || ':' || coalesce(source_meeting_id::text, 'none') || ':' || coalesce(due_date::text, 'none')
+ */
+function computeDedupKey(title: string, meetingId: string, dueDate: string): string {
+  return `${title.toLowerCase().trim()}:${meetingId || 'none'}:${dueDate || 'none'}`;
 }
 
 // ─── Constants ───
@@ -157,6 +187,7 @@ async function fetchTranscript(transcriptId: string) {
         date
         duration
         transcript_url
+        participants
         sentences {
           speaker_name
           text
@@ -184,6 +215,7 @@ async function fetchSummary(transcriptId: string) {
         date
         duration
         transcript_url
+        participants
         summary {
           action_items
           short_summary
@@ -396,6 +428,7 @@ function extractDealReference(text: string): string {
 function buildExtractionPrompt(
   teamMembers: { name: string; aliases: string[] }[],
   today: string,
+  activeDealNames?: string[],
 ): string {
   const memberList = teamMembers
     .map(
@@ -404,13 +437,18 @@ function buildExtractionPrompt(
     )
     .join('\n');
 
+  const dealSection =
+    activeDealNames && activeDealNames.length > 0
+      ? `\n## Active Deals (use these for deal_reference matching)\n${activeDealNames.map((n) => `- ${n}`).join('\n')}\n`
+      : '';
+
   return `You are a task extraction engine for a business development team's daily standup meeting.
 
 Your job is to parse the meeting transcript and extract concrete, actionable tasks that specific team members are expected to perform.
 
 ## Team Members
 ${memberList}
-
+${dealSection}
 ## Task Types
 - contact_owner: Reach out to a business owner about a deal
 - build_buyer_universe: Research and compile potential buyers for a deal
@@ -459,16 +497,37 @@ Return a JSON array of task objects. Example:
 Return ONLY the JSON array, no other text.`;
 }
 
-async function extractTasksWithAI(
-  transcriptText: string,
-  teamMembers: { name: string; aliases: string[] }[],
-  today: string,
+// Chunk long transcripts into overlapping segments so the AI doesn't lose
+// the second half of 60+ minute meetings.
+const MAX_CHUNK_CHARS = 80_000; // ~20k tokens — well within Gemini context
+const OVERLAP_CHARS = 2_000; // overlap to avoid splitting mid-action-item
+
+function chunkTranscript(text: string): string[] {
+  if (text.length <= MAX_CHUNK_CHARS) return [text];
+
+  const chunks: string[] = [];
+  let pos = 0;
+  const step = MAX_CHUNK_CHARS - OVERLAP_CHARS;
+  if (step <= 0) {
+    // Safety: overlap must be smaller than chunk size
+    return [text];
+  }
+  while (pos < text.length) {
+    const end = Math.min(pos + MAX_CHUNK_CHARS, text.length);
+    chunks.push(text.slice(pos, end));
+    if (end >= text.length) break;
+    pos += step;
+  }
+  console.log(`[chunking] Split ${text.length} char transcript into ${chunks.length} chunks`);
+  return chunks;
+}
+
+async function extractFromSingleChunk(
+  chunk: string,
+  chunkLabel: string,
+  systemPrompt: string,
+  apiKey: string,
 ): Promise<ExtractedTask[]> {
-  const systemPrompt = buildExtractionPrompt(teamMembers, today);
-
-  const apiKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY');
-  if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not configured');
-
   const response = await fetchWithAutoRetry(
     'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     {
@@ -481,7 +540,7 @@ async function extractTasksWithAI(
         model: 'gemini-2.0-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Here is the meeting transcript:\n\n${transcriptText}` },
+          { role: 'user', content: `Here is the meeting transcript${chunkLabel}:\n\n${chunk}` },
         ],
         temperature: 0,
         max_tokens: 4096,
@@ -499,22 +558,62 @@ async function extractTasksWithAI(
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content || '';
 
-  // Parse the JSON array from the response (non-greedy to avoid capturing extra text)
-  const jsonMatch = content.match(/\[[\s\S]*?\](?=[^[\]]*$)/);
+  // Find the outermost JSON array — use greedy match to capture nested brackets
+  const jsonMatch = content.match(/\[[\s\S]*\]/);
   if (!jsonMatch) return [];
 
   try {
     const tasks = JSON.parse(jsonMatch[0]) as ExtractedTask[];
-    // Validate task types
     return tasks.map((t) => ({
       ...t,
       task_type: TASK_TYPES.includes(t.task_type) ? t.task_type : 'other',
       confidence: ['high', 'medium', 'low'].includes(t.confidence) ? t.confidence : 'medium',
     }));
   } catch {
-    console.error('Failed to parse AI extraction output');
+    console.error(`Failed to parse AI extraction output for ${chunkLabel}`);
     return [];
   }
+}
+
+async function extractTasksWithAI(
+  transcriptText: string,
+  teamMembers: { name: string; aliases: string[] }[],
+  today: string,
+  activeDealNames?: string[],
+): Promise<ExtractedTask[]> {
+  const systemPrompt = buildExtractionPrompt(teamMembers, today, activeDealNames);
+
+  const apiKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not configured');
+
+  const chunks = chunkTranscript(transcriptText);
+
+  if (chunks.length === 1) {
+    return extractFromSingleChunk(chunks[0], '', systemPrompt, apiKey);
+  }
+
+  // Process chunks and merge, deduplicating by normalised title
+  // Continue on per-chunk failures so partial results are still returned
+  const allTasks: ExtractedTask[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const label = ` (part ${i + 1} of ${chunks.length})`;
+    try {
+      const chunkTasks = await extractFromSingleChunk(chunks[i], label, systemPrompt, apiKey);
+      allTasks.push(...chunkTasks);
+    } catch (chunkErr) {
+      console.error(`[chunking] Failed to extract from chunk ${i + 1}/${chunks.length}:`, chunkErr);
+      // Continue with other chunks rather than failing entirely
+    }
+  }
+
+  // Deduplicate across chunks by normalised title
+  const seen = new Set<string>();
+  return allTasks.filter((t) => {
+    const key = t.title.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // ─── Priority Scoring ───
@@ -635,9 +734,13 @@ async function matchDeal(
   stage_name: string | null;
 } | null> {
   if (!dealRef) return null;
-  // Sanitize dealRef to prevent PostgREST filter injection
-  const sanitized = dealRef.replace(/[(),."'\\]/g, '').trim();
-  if (!sanitized) return null;
+  // Sanitize: strip PostgREST operators and escape SQL LIKE wildcards
+  const sanitized = dealRef
+    .replace(/[(),."'\\]/g, '')
+    .replace(/%/g, '')
+    .replace(/_/g, '\\_')
+    .trim();
+  if (!sanitized || sanitized.length < 2) return null;
 
   const { data: deals } = await supabase
     .from('deal_pipeline')
@@ -684,8 +787,12 @@ async function matchBuyer(
     if (match) {
       const name = match[1]?.trim();
       if (!name || name.length < 3) continue;
-      const sanitized = name.replace(/[(),."'\\]/g, '').trim();
-      if (!sanitized) continue;
+      const sanitized = name
+        .replace(/[(),."'\\]/g, '')
+        .replace(/%/g, '')
+        .replace(/_/g, '\\_')
+        .trim();
+      if (!sanitized || sanitized.length < 2) continue;
 
       const { data: buyers } = await supabase
         .from('buyers')
@@ -702,6 +809,76 @@ async function matchBuyer(
   return null;
 }
 
+// ─── Match meeting participants to contacts table ───
+
+async function matchContactsFromParticipants(
+  participants: string[],
+  supabase: ReturnType<typeof createClient>,
+): Promise<{ id: string; first_name: string; last_name: string; email: string | null }[]> {
+  if (!participants || participants.length === 0) return [];
+
+  type ContactRow = { id: string; first_name: string; last_name: string; email: string | null };
+  const matchedMap = new Map<string, ContactRow>();
+
+  // Separate emails from names for batch processing
+  const emails: string[] = [];
+  const nameParts: { firstName: string; lastName: string }[] = [];
+
+  for (const participant of participants) {
+    const name = participant.trim();
+    if (!name || name.length < 2) continue;
+
+    if (name.includes('@')) {
+      emails.push(name.toLowerCase());
+    } else {
+      const parts = name.split(/\s+/);
+      if (parts.length >= 2) {
+        const firstName = parts[0].replace(/[^a-zA-Z'-]/g, '');
+        const lastName = parts
+          .slice(1)
+          .join(' ')
+          .replace(/[^a-zA-Z' -]/g, '');
+        if (firstName.length >= 2 && lastName.length >= 2) {
+          nameParts.push({ firstName, lastName });
+        }
+      }
+    }
+  }
+
+  // Batch email lookup in a single query
+  if (emails.length > 0) {
+    const { data: emailMatches } = await supabase
+      .from('contacts')
+      .select('id, first_name, last_name, email')
+      .in('email', emails);
+    for (const c of (emailMatches || []) as ContactRow[]) {
+      matchedMap.set(c.id, c);
+    }
+  }
+
+  // Name lookups still need individual queries due to ilike patterns,
+  // but run them in parallel instead of sequentially
+  if (nameParts.length > 0) {
+    const namePromises = nameParts.map(async ({ firstName, lastName }) => {
+      const { data } = await supabase
+        .from('contacts')
+        .select('id, first_name, last_name, email')
+        .ilike('first_name', firstName)
+        .ilike('last_name', `${lastName}%`)
+        .limit(1);
+      return (data || []) as ContactRow[];
+    });
+    const results = await Promise.all(namePromises);
+    for (const rows of results) {
+      for (const c of rows) {
+        matchedMap.set(c.id, c);
+      }
+    }
+  }
+
+  return [...matchedMap.values()];
+}
+
 async function loadAllEbitdaValues(supabase: ReturnType<typeof createClient>): Promise<number[]> {
   const { data: allDeals } = await supabase
     .from('deal_pipeline')
@@ -712,11 +889,32 @@ async function loadAllEbitdaValues(supabase: ReturnType<typeof createClient>): P
     .filter((e: unknown): e is number => typeof e === 'number' && e > 0);
 }
 
+/** Load active deal names so the AI prompt can match deal references more accurately. */
+async function loadActiveDealNames(supabase: ReturnType<typeof createClient>): Promise<string[]> {
+  const { data: deals } = await supabase
+    .from('deal_pipeline')
+    .select('title, listings!inner(title, internal_company_name)')
+    .limit(200);
+
+  if (!deals) return [];
+
+  const names = new Set<string>();
+  for (const d of deals as {
+    title: string;
+    listings: { title: string; internal_company_name: string };
+  }[]) {
+    if (d.title) names.add(d.title);
+    if (d.listings?.title) names.add(d.listings.title);
+    if (d.listings?.internal_company_name) names.add(d.listings.internal_company_name);
+  }
+  return [...names].sort();
+}
+
 async function recomputeRanks(supabase: ReturnType<typeof createClient>): Promise<void> {
   const { data: allTasks } = await supabase
     .from('daily_standup_tasks')
     .select('id, priority_score, is_pinned, pinned_rank, created_at')
-    .in('status', ['pending', 'overdue'])
+    .in('status', ['pending_approval', 'pending', 'overdue'])
     .order('priority_score', { ascending: false })
     .order('created_at', { ascending: true });
 
@@ -762,6 +960,10 @@ interface ProcessResult {
   tasks_extracted: number;
   tasks_unassigned: number;
   tasks_needing_review: number;
+  tasks_deduplicated?: number;
+  contacts_matched?: number;
+  low_confidence_count?: number;
+  processing_duration_ms?: number;
   tasks: unknown[];
   skipped?: boolean;
   skip_reason?: string;
@@ -775,7 +977,12 @@ async function processSingleMeeting(
   allEbitdaValues: number[],
   autoApproveEnabled: boolean,
   today: string,
+  activeDealNames: string[],
+  log: ReturnType<typeof createLogger>,
+  correlationId: string,
+  webhookLogId: string | null,
 ): Promise<ProcessResult> {
+  const processingStart = performance.now();
   const useFirefliesActions = body.use_fireflies_actions ?? false;
 
   // Check if already processed
@@ -786,7 +993,7 @@ async function processSingleMeeting(
     .maybeSingle();
 
   if (existing) {
-    console.log(`Transcript ${firefliesId} already processed as meeting ${existing.id}`);
+    log.info('Transcript already processed', { firefliesId, meetingId: existing.id });
     return {
       meeting_id: existing.id,
       fireflies_id: firefliesId,
@@ -806,10 +1013,11 @@ async function processSingleMeeting(
   let transcriptUrl = '';
   let meetingDuration = 0;
   let extractedTasks: ExtractedTask[] = [];
+  let meetingParticipants: string[] = [];
 
   if (useFirefliesActions) {
     // ── Fireflies-native mode: parse action_items from summary ──
-    console.log(`[Fireflies-native] Fetching summary for ${firefliesId}...`);
+    log.info('Fetching Fireflies summary', { firefliesId, mode: 'fireflies-native' });
     const summary = await fetchSummary(firefliesId);
     if (!summary) {
       throw new Error(`Transcript ${firefliesId} not found in Fireflies`);
@@ -818,6 +1026,7 @@ async function processSingleMeeting(
     meetingTitle = summary.title || meetingTitle;
     transcriptUrl = summary.transcript_url || '';
     meetingDuration = summary.duration ? Math.round(summary.duration) : 0;
+    meetingParticipants = summary.participants || [];
 
     if (summary.date) {
       const dateNum = typeof summary.date === 'number' ? summary.date : parseInt(summary.date, 10);
@@ -828,15 +1037,15 @@ async function processSingleMeeting(
 
     const actionItemsText = summary.summary?.action_items || '';
     if (!actionItemsText.trim()) {
-      console.log(`[Fireflies-native] No action items found for ${firefliesId}`);
+      log.info('No action items found in summary', { firefliesId });
     }
 
     extractedTasks = parseFirefliesActionItems(actionItemsText, today);
-    console.log(`[Fireflies-native] Parsed ${extractedTasks.length} tasks from action items`);
+    log.info('Parsed Fireflies action items', { firefliesId, taskCount: extractedTasks.length });
   } else {
     // ── AI mode: fetch full transcript and use Gemini ──
     if (firefliesId && !transcriptText) {
-      console.log(`Fetching transcript ${firefliesId} from Fireflies...`);
+      log.info('Fetching transcript from Fireflies', { firefliesId, mode: 'ai' });
       const transcript = await fetchTranscript(firefliesId);
       if (!transcript) {
         throw new Error(`Transcript ${firefliesId} not found in Fireflies`);
@@ -845,6 +1054,7 @@ async function processSingleMeeting(
       meetingTitle = transcript.title || meetingTitle;
       transcriptUrl = transcript.transcript_url || '';
       meetingDuration = transcript.duration ? Math.round(transcript.duration) : 0;
+      meetingParticipants = transcript.participants || [];
 
       if (transcript.date) {
         const dateNum =
@@ -869,13 +1079,14 @@ async function processSingleMeeting(
       throw new Error('No transcript text available');
     }
 
-    console.log('Running AI extraction...');
+    log.info('Running AI extraction', { transcriptLength: transcriptText.length });
     extractedTasks = await extractTasksWithAI(
       transcriptText,
       teamMembers.map((m) => ({ name: m.name, aliases: m.aliases })),
       today,
+      activeDealNames,
     );
-    console.log(`Extracted ${extractedTasks.length} tasks`);
+    log.info('AI extraction complete', { taskCount: extractedTasks.length });
   }
 
   // Create standup meeting record
@@ -903,6 +1114,15 @@ async function processSingleMeeting(
 
   if (meetingError) throw meetingError;
 
+  // Match meeting participants to contacts (for entity linking)
+  const matchedContacts = await matchContactsFromParticipants(meetingParticipants, supabase);
+  if (matchedContacts.length > 0) {
+    log.info('Matched contacts from participants', {
+      matched: matchedContacts.length,
+      totalParticipants: meetingParticipants.length,
+    });
+  }
+
   // Create task records with priority scoring
   const taskRecords = [];
   for (const task of extractedTasks) {
@@ -925,7 +1145,7 @@ async function processSingleMeeting(
     const shouldAutoApprove =
       autoApproveEnabled && task.confidence === 'high' && assigneeId !== null && !needsReview;
 
-    // Determine entity linking: prefer deal > buyer > null
+    // Determine entity linking: prefer deal > buyer > contact > null
     let entityType: string | null = null;
     let entityId: string | null = null;
     let secondaryEntityType: string | null = null;
@@ -934,14 +1154,25 @@ async function processSingleMeeting(
     if (dealMatch) {
       entityType = 'deal';
       entityId = dealMatch.id;
-      // If buyer also matched, link as secondary entity
       if (buyerMatch) {
         secondaryEntityType = 'buyer';
         secondaryEntityId = buyerMatch.id;
+      } else if (matchedContacts.length > 0) {
+        // Link first matched contact as secondary entity
+        secondaryEntityType = 'contact';
+        secondaryEntityId = matchedContacts[0].id;
       }
     } else if (buyerMatch) {
       entityType = 'buyer';
       entityId = buyerMatch.id;
+      if (matchedContacts.length > 0) {
+        secondaryEntityType = 'contact';
+        secondaryEntityId = matchedContacts[0].id;
+      }
+    } else if (matchedContacts.length > 0) {
+      // No deal or buyer match — link to the first matched contact
+      entityType = 'contact';
+      entityId = matchedContacts[0].id;
     }
 
     taskRecords.push({
@@ -962,29 +1193,172 @@ async function processSingleMeeting(
       approved_by: shouldAutoApprove ? 'system' : null,
       approved_at: shouldAutoApprove ? new Date().toISOString() : null,
       source: 'ai',
+      // created_by is intentionally null — edge function runs as service role with no auth user
+      created_by: null,
       entity_type: entityType,
       entity_id: entityId,
       secondary_entity_type: secondaryEntityType,
       secondary_entity_id: secondaryEntityId,
+      // Cross-extraction dedup key: prevents duplicates if same meeting is re-processed
+      dedup_key: computeDedupKey(
+        task.title,
+        meeting.id,
+        isValidDateString(task.due_date) ? task.due_date : today,
+      ),
     });
   }
 
-  // Insert all tasks
-  const { data: insertedTasks, error: insertError } = await supabase
-    .from('daily_standup_tasks')
-    .insert(taskRecords)
-    .select();
+  // Batch insert tasks, handling dedup conflicts via ON CONFLICT
+  let insertedTasks: unknown[] = [];
+  const skippedDuplicates: string[] = [];
 
-  if (insertError) throw insertError;
+  if (taskRecords.length > 0) {
+    // Try batch insert first — much faster than one-at-a-time
+    const { data: batchResult, error: batchError } = await supabase
+      .from('daily_standup_tasks')
+      .insert(taskRecords)
+      .select();
+
+    if (batchError) {
+      // If batch fails due to dedup conflict, fall back to individual inserts
+      if (batchError.code === '23505' && batchError.message?.includes('dedup')) {
+        log.info('Batch insert hit dedup conflict, falling back to individual inserts', {
+          totalRecords: taskRecords.length,
+        });
+        for (const record of taskRecords) {
+          const { data, error: insertError } = await supabase
+            .from('daily_standup_tasks')
+            .insert(record)
+            .select()
+            .maybeSingle();
+
+          if (insertError) {
+            if (insertError.code === '23505' && insertError.message?.includes('dedup')) {
+              skippedDuplicates.push(record.title);
+              continue;
+            }
+            throw insertError;
+          }
+          if (data) insertedTasks.push(data);
+        }
+      } else {
+        throw batchError;
+      }
+    } else {
+      insertedTasks = batchResult || [];
+    }
+  }
+
+  // Update meeting record with actual inserted count (may differ due to dedup/failures)
+  if (insertedTasks.length !== extractedTasks.length) {
+    await supabase
+      .from('standup_meetings')
+      .update({ tasks_extracted: insertedTasks.length })
+      .eq('id', meeting.id);
+  }
+
+  if (skippedDuplicates.length > 0) {
+    log.info('Skipped duplicate tasks', {
+      count: skippedDuplicates.length,
+      titles: skippedDuplicates,
+    });
+  }
+
+  // Count low-confidence tasks for metrics
+  const lowConfidenceCount = taskRecords.filter((t) => t.extraction_confidence === 'low').length;
+
+  // Send notifications to assignees for newly created tasks
+  if (insertedTasks.length > 0) {
+    try {
+      const assignedTasks = taskRecords.filter((t) => t.assignee_id);
+      // Group by assignee to send one notification per person
+      const tasksByAssignee = new Map<string, typeof taskRecords>();
+      for (const task of assignedTasks) {
+        const existing = tasksByAssignee.get(task.assignee_id!) || [];
+        existing.push(task);
+        tasksByAssignee.set(task.assignee_id!, existing);
+      }
+
+      const notifications = [];
+      for (const [assigneeId, tasks] of tasksByAssignee) {
+        const taskTitles = tasks.map((t) => t.title).slice(0, 5);
+        const moreCount = tasks.length > 5 ? tasks.length - 5 : 0;
+        const taskList = taskTitles.join(', ') + (moreCount > 0 ? ` +${moreCount} more` : '');
+        notifications.push({
+          admin_id: assigneeId,
+          notification_type: 'tasks_extracted',
+          title: `${tasks.length} New Task${tasks.length > 1 ? 's' : ''} from Meeting`,
+          message: `Tasks extracted from "${meetingTitle}": ${taskList}`,
+          action_url: '/admin/daily-tasks',
+          metadata: {
+            meeting_id: meeting.id,
+            meeting_title: meetingTitle,
+            task_count: tasks.length,
+            task_titles: taskTitles,
+            correlation_id: correlationId,
+          },
+        });
+      }
+
+      if (notifications.length > 0) {
+        await supabase.from('admin_notifications').insert(notifications);
+        log.info('Sent task extraction notifications', {
+          notificationCount: notifications.length,
+          assigneeCount: tasksByAssignee.size,
+        });
+      }
+    } catch (notifError) {
+      log.warn('Failed to send task extraction notifications', {
+        error: notifError instanceof Error ? notifError.message : 'Unknown error',
+      });
+    }
+  }
+
+  const processingDurationMs = Math.round(performance.now() - processingStart);
+
+  // Record processing metrics
+  try {
+    await supabase.from('task_processing_metrics').insert({
+      meeting_id: meeting.id,
+      webhook_log_id: webhookLogId || null,
+      correlation_id: correlationId,
+      fireflies_transcript_id: firefliesId,
+      tasks_extracted: insertedTasks.length,
+      tasks_deduplicated: skippedDuplicates.length,
+      tasks_unassigned: taskRecords.filter((t) => !t.assignee_id).length,
+      tasks_needing_review: taskRecords.filter((t) => t.needs_review).length,
+      contacts_matched: matchedContacts.length,
+      low_confidence_count: lowConfidenceCount,
+      processing_duration_ms: processingDurationMs,
+      extraction_mode: useFirefliesActions ? 'fireflies-native' : 'ai',
+    });
+  } catch (metricsError) {
+    log.warn('Failed to record processing metrics', {
+      error: metricsError instanceof Error ? metricsError.message : 'Unknown error',
+    });
+  }
+
+  log.info('Meeting processing complete', {
+    meetingId: meeting.id,
+    tasksExtracted: insertedTasks.length,
+    tasksDeduplicated: skippedDuplicates.length,
+    lowConfidenceCount,
+    contactsMatched: matchedContacts.length,
+    processingDurationMs,
+  });
 
   return {
     meeting_id: meeting.id,
     fireflies_id: firefliesId,
     meeting_title: meetingTitle,
-    tasks_extracted: taskRecords.length,
+    tasks_extracted: insertedTasks.length,
+    tasks_deduplicated: skippedDuplicates.length,
     tasks_unassigned: taskRecords.filter((t) => !t.assignee_id).length,
     tasks_needing_review: taskRecords.filter((t) => t.needs_review).length,
-    tasks: insertedTasks || [],
+    contacts_matched: matchedContacts.length,
+    low_confidence_count: lowConfidenceCount,
+    processing_duration_ms: processingDurationMs,
+    tasks: insertedTasks,
   };
 }
 
@@ -997,6 +1371,12 @@ serve(async (req) => {
     return corsPreflightResponse(req);
   }
 
+  // Correlation ID for end-to-end tracing
+  const correlationId =
+    req.headers.get('x-correlation-id') || `ext-${crypto.randomUUID().slice(0, 12)}`;
+  const webhookLogId = req.headers.get('x-webhook-log-id') || null;
+  const log = createLogger(correlationId);
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -1007,9 +1387,11 @@ serve(async (req) => {
 
     // Load shared data once
     const teamMembers = await loadTeamMembers(supabase);
-    console.log(`Found ${teamMembers.length} team members`);
+    log.info('Loaded team members', { count: teamMembers.length });
 
     const allEbitdaValues = await loadAllEbitdaValues(supabase);
+    const activeDealNames = await loadActiveDealNames(supabase);
+    log.info('Loaded active deal names for AI context', { count: activeDealNames.length });
 
     // Check auto-approve setting from app_settings table
     let autoApproveEnabled = true;
@@ -1053,10 +1435,17 @@ serve(async (req) => {
           allEbitdaValues,
           autoApproveEnabled,
           today,
+          activeDealNames,
+          log,
+          correlationId,
+          webhookLogId,
         );
         results.push(result);
       } catch (err) {
-        console.error(`Error processing ${fid}:`, err);
+        log.error('Error processing transcript', {
+          firefliesId: fid,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
         errors.push({
           fireflies_id: fid,
           error: err instanceof Error ? err.message : 'Unknown error',
@@ -1078,8 +1467,13 @@ serve(async (req) => {
           success: true,
           meeting_id: r.meeting_id,
           tasks_extracted: r.tasks_extracted,
+          tasks_deduplicated: r.tasks_deduplicated,
           tasks_unassigned: r.tasks_unassigned,
           tasks_needing_review: r.tasks_needing_review,
+          contacts_matched: r.contacts_matched,
+          low_confidence_count: r.low_confidence_count,
+          processing_duration_ms: r.processing_duration_ms,
+          correlation_id: correlationId,
           tasks: r.tasks,
           ...(r.skipped ? { skipped: true, skip_reason: r.skip_reason } : {}),
         }),
@@ -1095,11 +1489,18 @@ serve(async (req) => {
         processed: results.filter((r) => !r.skipped).length,
         skipped: results.filter((r) => r.skipped).length,
         total_tasks_extracted: results.reduce((sum, r) => sum + r.tasks_extracted, 0),
+        total_deduplicated: results.reduce((sum, r) => sum + (r.tasks_deduplicated || 0), 0),
+        total_low_confidence: results.reduce((sum, r) => sum + (r.low_confidence_count || 0), 0),
+        correlation_id: correlationId,
         results: results.map((r) => ({
           meeting_id: r.meeting_id,
           fireflies_id: r.fireflies_id,
           meeting_title: r.meeting_title,
           tasks_extracted: r.tasks_extracted,
+          tasks_deduplicated: r.tasks_deduplicated,
+          contacts_matched: r.contacts_matched,
+          low_confidence_count: r.low_confidence_count,
+          processing_duration_ms: r.processing_duration_ms,
           skipped: r.skipped || false,
           skip_reason: r.skip_reason,
         })),
@@ -1108,11 +1509,15 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
-    console.error('Extraction error:', error);
+    log.error('Extraction error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return new Response(
       JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
+        correlation_id: correlationId,
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
