@@ -141,6 +141,7 @@ const ReMarketingBuyerDetail = () => {
             isPeBacked={buyer?.is_pe_backed || false}
             peFirmName={buyer?.pe_firm_name}
             peFirmId={peFirmRecord?.id || null}
+            peFirmWebsite={peFirmRecord?.company_website || null}
             platformWebsite={buyer?.platform_website || buyer?.company_website}
             hqCity={buyer?.hq_city}
             hqState={buyer?.hq_state}
