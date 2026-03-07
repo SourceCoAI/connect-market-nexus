@@ -33,9 +33,8 @@ interface FindIntroductionContactsRequest {
 
 // Title filters by buyer type — priority-ordered
 const PE_TITLE_FILTER = [
-  'business development',
+  'bd',
   'vp',
-  'vice president',
   'senior associate',
   'principal',
   'partner',
@@ -44,13 +43,16 @@ const PE_TITLE_FILTER = [
 
 const COMPANY_TITLE_FILTER = [
   'corporate development',
+  'corp dev',
   'cfo',
-  'chief financial',
+  'chief financial officer',
   'vp finance',
   'director of finance',
   'head of finance',
+  'finance director',
   'ceo',
-  'president',
+  'owner',
+  'founder',
 ];
 
 Deno.serve(async (req: Request) => {
@@ -164,11 +166,10 @@ Deno.serve(async (req: Request) => {
     try {
       const companyDomain =
         extractDomain(body.company_website) || body.email_domain || undefined;
-      const companyTitleFilter = isPE ? COMPANY_TITLE_FILTER : COMPANY_TITLE_FILTER;
       const companyResponse = await supabaseAdmin.functions.invoke('find-contacts', {
         body: {
           company_name: body.company_name,
-          title_filter: companyTitleFilter,
+          title_filter: COMPANY_TITLE_FILTER,
           target_count: 5, // Ask for more than 3 to allow for dedup losses
           company_domain: companyDomain,
         },
@@ -183,23 +184,11 @@ Deno.serve(async (req: Request) => {
     }
 
     // Step C — Deduplicate and save
-    // Build a set of existing contact keys for dedup
-    const existingKeys = new Set<string>();
-    if (existingContacts) {
-      for (const c of existingContacts) {
-        // We can't easily dedup by name here since existing contacts don't have full_name
-        // The upsert conflict clause will handle it
-      }
-    }
-
     let totalSaved = 0;
     let skippedDuplicates = 0;
 
-    // Deduplicate across PE and company results
-    const allContacts = [
-      ...peContacts.map((c: any) => ({ ...c, _source_type: 'pe' })),
-      ...companyContacts.map((c: any) => ({ ...c, _source_type: 'company' })),
-    ];
+    // Merge PE and company results for dedup + save
+    const allContacts = [...peContacts, ...companyContacts];
 
     const seenKeys = new Set<string>();
     for (const contact of allContacts) {
