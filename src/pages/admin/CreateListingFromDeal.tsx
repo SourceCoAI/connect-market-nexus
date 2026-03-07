@@ -136,7 +136,7 @@ export default function CreateListingFromDeal() {
         revenue_model: ((deal as Record<string, unknown>).revenue_model as string) ?? undefined,
         growth_drivers: ((deal as Record<string, unknown>).growth_drivers as string[]) || null,
         services: anonymized.services.length > 0 ? anonymized.services : ((deal as Record<string, unknown>).services as string[]) || null,
-        service_mix: (anonymized.service_mix || ((deal as Record<string, unknown>).service_mix as string)) ?? undefined,
+        service_mix: (() => { const mix = anonymized.service_mix || ((deal as Record<string, unknown>).service_mix as string); return mix ? [mix] : null; })(),
         geographic_states: anonymized.geographic_states.length > 0 ? anonymized.geographic_states : ((deal as Record<string, unknown>).geographic_states as string[]) || null,
         custom_sections: [],
         tags: [],
