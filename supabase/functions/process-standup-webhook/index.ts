@@ -87,6 +87,30 @@ serve(async (req) => {
       });
     }
 
+    // Log the webhook event for observability and retry support.
+    // If this is a retry, update the existing log entry instead.
+    const retryLogId = req.headers.get('x-retry-webhook-log-id');
+    let webhookLogId: string | null = retryLogId;
+
+    if (retryLogId) {
+      await supabase
+        .from('fireflies_webhook_log')
+        .update({ status: 'processing' })
+        .eq('id', retryLogId);
+    } else {
+      const { data: logEntry } = await supabase
+        .from('fireflies_webhook_log')
+        .insert({
+          transcript_id: transcriptId,
+          event_type: body.data?.event_type || 'transcription_completed',
+          payload: body,
+          status: 'processing',
+        })
+        .select('id')
+        .single();
+      webhookLogId = logEntry?.id ?? null;
+    }
+
     // If the webhook payload doesn't include the title (or it's empty),
     // fetch it from the Fireflies API so we can check for the <ds> tag.
     if (!meetingTitle) {
@@ -110,6 +134,15 @@ serve(async (req) => {
 
     if (existing) {
       console.log(`Transcript ${transcriptId} already processed as meeting ${existing.id}`);
+
+      // Mark webhook log as success (already-processed is a valid outcome)
+      if (webhookLogId) {
+        await supabase
+          .from('fireflies_webhook_log')
+          .update({ status: 'success', processed_at: new Date().toISOString() })
+          .eq('id', webhookLogId);
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -146,6 +179,18 @@ serve(async (req) => {
 
     if (!extractResponse.ok) {
       console.error('Extraction failed:', extractResult);
+
+      // Mark webhook log as failed for retry
+      if (webhookLogId) {
+        await supabase
+          .from('fireflies_webhook_log')
+          .update({
+            status: 'failed',
+            last_error: extractResult.error || 'Extraction failed',
+          })
+          .eq('id', webhookLogId);
+      }
+
       return new Response(
         JSON.stringify({
           success: false,
@@ -153,6 +198,14 @@ serve(async (req) => {
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
+    }
+
+    // Mark webhook log as success
+    if (webhookLogId) {
+      await supabase
+        .from('fireflies_webhook_log')
+        .update({ status: 'success', processed_at: new Date().toISOString() })
+        .eq('id', webhookLogId);
     }
 
     console.log('Extraction complete:', extractResult);
@@ -167,6 +220,10 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Webhook processing error:', error);
+
+    // Best-effort: mark webhook log as failed (we may not have webhookLogId if error was early)
+    // The retry cron job will pick this up.
+
     return new Response(
       JSON.stringify({
         success: false,

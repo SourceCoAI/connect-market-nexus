@@ -480,13 +480,36 @@ export function useAddManualTask() {
 
       if (error) throw error;
 
+      const taskId = (data as Record<string, unknown>).id as string;
+
       // Log activity
       await (supabase.from('rm_task_activity_log' as any) as any).insert({
-        task_id: (data as Record<string, unknown>).id as string,
+        task_id: taskId,
         user_id: user?.id ?? '',
         action: 'created',
         new_value: { source: 'manual' },
       } as never);
+
+      // Notify assignee if different from creator
+      if (task.assignee_id && task.assignee_id !== user?.id) {
+        try {
+          await supabase.from('admin_notifications').insert({
+            admin_id: task.assignee_id,
+            notification_type: 'task_assigned',
+            title: 'New Task Assigned',
+            message: `You have been assigned a task: ${task.title}`,
+            deal_id: task.deal_id || null,
+            task_id: taskId,
+            action_url: '/admin/daily-tasks',
+            metadata: {
+              task_title: task.title,
+              assigned_by: user?.id,
+            },
+          });
+        } catch (notifError) {
+          console.error('Failed to send manual task assignment notification:', notifError);
+        }
+      }
 
       // Recompute ranks
       await recomputeRanks();
@@ -495,6 +518,7 @@ export function useAddManualTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['admin-notifications'] });
     },
   });
 }

@@ -459,16 +459,32 @@ Return a JSON array of task objects. Example:
 Return ONLY the JSON array, no other text.`;
 }
 
-async function extractTasksWithAI(
-  transcriptText: string,
-  teamMembers: { name: string; aliases: string[] }[],
-  today: string,
+// Chunk long transcripts into overlapping segments so the AI doesn't lose
+// the second half of 60+ minute meetings.
+const MAX_CHUNK_CHARS = 80_000; // ~20k tokens — well within Gemini context
+const OVERLAP_CHARS = 2_000; // overlap to avoid splitting mid-action-item
+
+function chunkTranscript(text: string): string[] {
+  if (text.length <= MAX_CHUNK_CHARS) return [text];
+
+  const chunks: string[] = [];
+  let pos = 0;
+  while (pos < text.length) {
+    const end = Math.min(pos + MAX_CHUNK_CHARS, text.length);
+    chunks.push(text.slice(pos, end));
+    pos = end - OVERLAP_CHARS;
+    if (pos >= text.length) break;
+  }
+  console.log(`[chunking] Split ${text.length} char transcript into ${chunks.length} chunks`);
+  return chunks;
+}
+
+async function extractFromSingleChunk(
+  chunk: string,
+  chunkLabel: string,
+  systemPrompt: string,
+  apiKey: string,
 ): Promise<ExtractedTask[]> {
-  const systemPrompt = buildExtractionPrompt(teamMembers, today);
-
-  const apiKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY');
-  if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not configured');
-
   const response = await fetchWithAutoRetry(
     'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     {
@@ -481,7 +497,7 @@ async function extractTasksWithAI(
         model: 'gemini-2.0-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Here is the meeting transcript:\n\n${transcriptText}` },
+          { role: 'user', content: `Here is the meeting transcript${chunkLabel}:\n\n${chunk}` },
         ],
         temperature: 0,
         max_tokens: 4096,
@@ -499,22 +515,54 @@ async function extractTasksWithAI(
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content || '';
 
-  // Parse the JSON array from the response (non-greedy to avoid capturing extra text)
   const jsonMatch = content.match(/\[[\s\S]*?\](?=[^[\]]*$)/);
   if (!jsonMatch) return [];
 
   try {
     const tasks = JSON.parse(jsonMatch[0]) as ExtractedTask[];
-    // Validate task types
     return tasks.map((t) => ({
       ...t,
       task_type: TASK_TYPES.includes(t.task_type) ? t.task_type : 'other',
       confidence: ['high', 'medium', 'low'].includes(t.confidence) ? t.confidence : 'medium',
     }));
   } catch {
-    console.error('Failed to parse AI extraction output');
+    console.error(`Failed to parse AI extraction output for ${chunkLabel}`);
     return [];
   }
+}
+
+async function extractTasksWithAI(
+  transcriptText: string,
+  teamMembers: { name: string; aliases: string[] }[],
+  today: string,
+): Promise<ExtractedTask[]> {
+  const systemPrompt = buildExtractionPrompt(teamMembers, today);
+
+  const apiKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not configured');
+
+  const chunks = chunkTranscript(transcriptText);
+
+  if (chunks.length === 1) {
+    return extractFromSingleChunk(chunks[0], '', systemPrompt, apiKey);
+  }
+
+  // Process chunks and merge, deduplicating by normalised title
+  const allTasks: ExtractedTask[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const label = ` (part ${i + 1} of ${chunks.length})`;
+    const chunkTasks = await extractFromSingleChunk(chunks[i], label, systemPrompt, apiKey);
+    allTasks.push(...chunkTasks);
+  }
+
+  // Deduplicate across chunks by normalised title
+  const seen = new Set<string>();
+  return allTasks.filter((t) => {
+    const key = t.title.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // ─── Priority Scoring ───
