@@ -939,7 +939,7 @@ async function processSingleMeeting(
       assignee_id: assigneeId,
       task_type: task.task_type,
       status: shouldAutoApprove ? 'pending' : 'pending_approval',
-      due_date: task.due_date || today,
+      due_date: isValidDateString(task.due_date) ? task.due_date : today,
       source_meeting_id: meeting.id,
       source_timestamp: task.source_timestamp || null,
       deal_reference: task.deal_reference || null,
