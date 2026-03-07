@@ -40,9 +40,6 @@ export interface LandingPageDeal {
   revenue_model: string | null;
   business_model: string | null;
   growth_trajectory: string | null;
-  // Internal fields used only for anonymization — never displayed directly
-  internal_company_name: string | null;
-  website: string | null;
 }
 
 export interface RelatedDeal {
@@ -107,7 +104,7 @@ export function useRelatedDeals(currentDealId: string | undefined) {
         )
         .eq('status', 'active')
         .eq('is_internal_deal', false)
-        .neq('id', currentDealId ?? '')
+        .neq('id', currentDealId!)
         .order('created_at', { ascending: false })
         .limit(3);
 

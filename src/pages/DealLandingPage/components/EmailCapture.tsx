@@ -57,6 +57,10 @@ export default function EmailCapture({ listingId }: EmailCaptureProps) {
     e.preventDefault();
     if (!email || isSubmitting) return;
 
+    // Validate email format before submission
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return;
+
     setIsSubmitting(true);
     try {
       // Audit P2: Check for duplicate before inserting

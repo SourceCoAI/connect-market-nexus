@@ -16,10 +16,23 @@ export function useDealLandingFormSubmit(listingId: string) {
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (formData: FormData) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setError(null);
 
     try {
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setError('Please enter a valid email address.');
+        return;
+      }
+
+      // Validate message length
+      if (formData.message && formData.message.length > 2000) {
+        setError('Message must be under 2000 characters.');
+        return;
+      }
       // Audit P2: Check for duplicate connection request by email + listing
       const { data: existing } = await supabase
         .from('connection_requests')
