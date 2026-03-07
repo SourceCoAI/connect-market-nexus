@@ -35,6 +35,7 @@ interface LaunchOutreachPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   dealId: string;
+  dealName?: string;
   selectedBuyers: SelectedBuyer[];
   onSuccess: () => void;
 }
@@ -48,6 +49,7 @@ export function LaunchOutreachPanel({
   open,
   onOpenChange,
   dealId,
+  dealName,
   selectedBuyers,
   onSuccess,
 }: LaunchOutreachPanelProps) {
@@ -252,21 +254,31 @@ export function LaunchOutreachPanel({
       const totalErrors = results.reduce((sum, r) => sum + r.errors.length, 0);
       const channelSummary = results.map(r => r.channel).join(', ');
 
-      if (totalErrors > 0) {
+      if (totalPushed === 0 && totalErrors > 0) {
+        // Full failure — keep panel open for retry
+        toast({
+          title: 'Launch failed',
+          description: `${totalErrors} error(s) across ${channelSummary}. No contacts were pushed.`,
+          variant: 'destructive',
+        });
+      } else if (totalErrors > 0) {
+        // Partial success — close panel but warn
         toast({
           title: `Outreach launched with some issues`,
           description: `Pushed ${totalPushed} contacts across ${channelSummary}. ${totalErrors} error(s).`,
           variant: 'destructive',
         });
+        onSuccess();
+        onOpenChange(false);
       } else {
+        // Full success
         toast({
           title: `Outreach launched for ${selectedBuyers.length} buyers`,
           description: `Channels: ${channelSummary}`,
         });
+        onSuccess();
+        onOpenChange(false);
       }
-
-      onSuccess();
-      onOpenChange(false);
     } catch (err) {
       toast({
         title: 'Launch failed',
@@ -282,7 +294,7 @@ export function LaunchOutreachPanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[480px] sm:max-w-[480px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Launch Outreach</SheetTitle>
+          <SheetTitle>Launch Outreach{dealName ? ` — ${dealName}` : ''}</SheetTitle>
           <p className="text-sm text-muted-foreground">
             {selectedBuyers.length} buyer{selectedBuyers.length !== 1 ? 's' : ''} selected
           </p>

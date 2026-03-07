@@ -8,26 +8,13 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { deriveBuyerRef } from '../_shared/derive-buyer-ref.ts';
 
 const PB_API_BASE = 'https://www.phoneburner.com/rest/1';
 
 interface PushRequest {
   deal_id: string;
   buyer_ids: string[];
-}
-
-function deriveBuyerRef(buyerType: string | null, platformName: string | null): string {
-  if (buyerType === 'pe_firm') {
-    if (platformName && platformName.trim().length > 0) {
-      return `your ${platformName.trim()} platform`;
-    }
-    return 'your portfolio';
-  }
-  if (buyerType === 'independent_sponsor') return 'your deal pipeline';
-  if (buyerType === 'family_office') return 'your acquisition criteria';
-  if (buyerType === 'individual_buyer') return 'your search';
-  if (buyerType === 'strategic') return 'your growth strategy';
-  return 'your investment criteria';
 }
 
 function generateCallScript(vars: {
@@ -150,6 +137,12 @@ Deno.serve(async (req) => {
 
     if (profileError || !profile) {
       return new Response(JSON.stringify({ error: 'Deal outreach profile not found. Complete the outreach profile first.' }), {
+        status: 400, headers: jsonHeaders,
+      });
+    }
+
+    if (!profile.deal_descriptor?.trim() || !profile.geography?.trim() || !profile.ebitda?.trim()) {
+      return new Response(JSON.stringify({ error: 'Deal outreach profile has empty fields. All fields must be filled.' }), {
         status: 400, headers: jsonHeaders,
       });
     }

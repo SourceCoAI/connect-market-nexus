@@ -9,25 +9,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { addLeadsToCampaign } from '../_shared/heyreach-client.ts';
+import { deriveBuyerRef } from '../_shared/derive-buyer-ref.ts';
 
 interface PushRequest {
   deal_id: string;
   buyer_ids: string[];
   campaign_id: number;
-}
-
-function deriveBuyerRef(buyerType: string | null, platformName: string | null): string {
-  if (buyerType === 'pe_firm') {
-    if (platformName && platformName.trim().length > 0) {
-      return `your ${platformName.trim()} platform`;
-    }
-    return 'your portfolio';
-  }
-  if (buyerType === 'independent_sponsor') return 'your deal pipeline';
-  if (buyerType === 'family_office') return 'your acquisition criteria';
-  if (buyerType === 'individual_buyer') return 'your search';
-  if (buyerType === 'strategic') return 'your growth strategy';
-  return 'your investment criteria';
 }
 
 Deno.serve(async (req) => {
@@ -85,6 +72,12 @@ Deno.serve(async (req) => {
 
     if (profileError || !profile) {
       return new Response(JSON.stringify({ error: 'Deal outreach profile not found. Complete the outreach profile first.' }), {
+        status: 400, headers: jsonHeaders,
+      });
+    }
+
+    if (!profile.deal_descriptor?.trim() || !profile.geography?.trim() || !profile.ebitda?.trim()) {
+      return new Response(JSON.stringify({ error: 'Deal outreach profile has empty fields. All fields must be filled.' }), {
         status: 400, headers: jsonHeaders,
       });
     }
@@ -160,14 +153,18 @@ Deno.serve(async (req) => {
       };
     });
 
-    // Push to HeyReach
-    const leadsForApi = accountLeadPairs.map(({ _contactId: _, ...rest }) => rest);
-    const result = await addLeadsToCampaign(campaign_id, leadsForApi);
+    // Push to HeyReach in batches of 25
+    const BATCH_SIZE = 25;
+    for (let i = 0; i < accountLeadPairs.length; i += BATCH_SIZE) {
+      const batch = accountLeadPairs.slice(i, i + BATCH_SIZE);
+      const leadsForApi = batch.map(({ _contactId: _, ...rest }) => rest);
+      const result = await addLeadsToCampaign(campaign_id, leadsForApi);
 
-    if (result.ok) {
-      pushed.push(...accountLeadPairs.map(p => p._contactId));
-    } else {
-      errors.push(result.error || 'Failed to add leads to HeyReach campaign');
+      if (result.ok) {
+        pushed.push(...batch.map(p => p._contactId));
+      } else {
+        errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${result.error || 'Failed to add leads'}`);
+      }
     }
 
     // Record 'launched' events

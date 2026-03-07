@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { useBuyerOutreachStatus } from './useBuyerOutreachStatus';
 
 interface BuyerOutreachTabProps {
   dealId: string;
+  dealName?: string;
 }
 
 interface BuyerContact {
@@ -37,7 +38,8 @@ interface BuyerContact {
   buyer_company_name: string | null;
 }
 
-export function BuyerOutreachTab({ dealId }: BuyerOutreachTabProps) {
+export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
+  const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [launchPanelOpen, setLaunchPanelOpen] = useState(false);
@@ -138,6 +140,7 @@ export function BuyerOutreachTab({ dealId }: BuyerOutreachTabProps) {
 
   const handleLaunchSuccess = () => {
     setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ['buyer-outreach-events'] });
   };
 
   return (
@@ -174,9 +177,11 @@ export function BuyerOutreachTab({ dealId }: BuyerOutreachTabProps) {
                     </Button>
                   </div>
                 </TooltipTrigger>
-                {!hasProfile && (
+                {(selectedIds.size === 0 || !hasProfile) && (
                   <TooltipContent>
-                    Complete the outreach profile first
+                    {!hasProfile
+                      ? 'Complete the outreach profile first'
+                      : 'Select at least one buyer to launch outreach'}
                   </TooltipContent>
                 )}
               </Tooltip>
@@ -300,6 +305,7 @@ export function BuyerOutreachTab({ dealId }: BuyerOutreachTabProps) {
         open={launchPanelOpen}
         onOpenChange={setLaunchPanelOpen}
         dealId={dealId}
+        dealName={dealName}
         selectedBuyers={selectedBuyers}
         onSuccess={handleLaunchSuccess}
       />

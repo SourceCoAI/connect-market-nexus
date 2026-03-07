@@ -240,7 +240,7 @@ const ReMarketingDealDetail = () => {
         </TabsContent>
 
         <TabsContent value="buyer-outreach" className="space-y-6">
-          <BuyerOutreachTab dealId={dealId!} />
+          <BuyerOutreachTab dealId={dealId!} dealName={displayName} />
         </TabsContent>
 
         <TabsContent value="listing-tasks" className="space-y-6">
