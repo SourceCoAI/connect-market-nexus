@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { batchCreateBuyerIntroductions } from '@/lib/remarketing/createBuyerIntroduction';
+import { findIntroductionContacts } from '@/lib/remarketing/findIntroductionContacts';
 import {
   Dialog,
   DialogContent,
@@ -184,10 +185,31 @@ export function BulkApproveForDealsDialog({
         }
       }
 
-      // Fire-and-forget: discover contacts for all buyers
+      // Fire-and-forget: discover contacts for all buyers (legacy website scrape)
       for (const buyerId of buyerIds) {
         supabase.functions.invoke('find-buyer-contacts', { body: { buyerId } }).catch(() => {});
       }
+
+      // Fire-and-forget: auto-discover introduction contacts with title-filtered search
+      // Use Promise.allSettled to consolidate into a single summary toast for bulk ops
+      Promise.allSettled(buyerIds.map((bId) => findIntroductionContacts(bId)))
+        .then((results) => {
+          let totalContacts = 0;
+          let buyersWithContacts = 0;
+          for (const r of results) {
+            if (r.status === 'fulfilled' && r.value && r.value.total_saved > 0) {
+              totalContacts += r.value.total_saved;
+              buyersWithContacts++;
+            }
+          }
+          if (totalContacts > 0) {
+            queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts'] });
+            toast.success(
+              `${totalContacts} contact${totalContacts !== 1 ? 's' : ''} found across ${buyersWithContacts} buyer${buyersWithContacts !== 1 ? 's' : ''} — see Contacts tab`,
+            );
+          }
+        })
+        .catch(() => {});
 
       // Auto-create buyer introductions at first Kanban stage
       if (user?.id) {

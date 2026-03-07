@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { logDealActivity } from '@/lib/deal-activity-logger';
+import { findIntroductionContacts } from '@/lib/remarketing/findIntroductionContacts';
 import type {
   BuyerIntroduction,
   CreateBuyerIntroductionInput,
@@ -62,9 +63,27 @@ export function useBuyerIntroductions(listingId: string | undefined) {
       if (error) throw error;
       return data as unknown as BuyerIntroduction;
     },
-    onSuccess: () => {
+    onSuccess: (_data, input) => {
       queryClient.invalidateQueries({ queryKey });
       toast.success('Buyer added to introduction pipeline');
+
+      // Fire-and-forget: auto-discover contacts for this buyer
+      if (input.remarketing_buyer_id) {
+        findIntroductionContacts(input.remarketing_buyer_id)
+          .then((result) => {
+            if (result && result.total_saved > 0) {
+              queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts'] });
+              toast.success(
+                `${result.total_saved} contact${result.total_saved !== 1 ? 's' : ''} found at ${result.firmName} — see Contacts tab`,
+              );
+            } else if (result && result.total_saved === 0 && !result.message) {
+              toast.info(`No contacts found for ${result.firmName} — try manual search`);
+            }
+          })
+          .catch(() => {
+            // Silent — never surface contact search errors
+          });
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message || 'Failed to add buyer');
