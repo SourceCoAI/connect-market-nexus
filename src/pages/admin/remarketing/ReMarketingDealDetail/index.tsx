@@ -9,9 +9,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Ban, Building2, Eye, Activity, UserPlus, FolderOpen, ListChecks, Calculator } from 'lucide-react';
+import { Ban, Building2, Eye, Activity, UserPlus, FolderOpen, ListChecks, Calculator, Send } from 'lucide-react';
 import { CreateTaskButton, EntityTasksTab, DealSignalsPanel } from '@/components/daily-tasks';
 import { NotAFitReasonDialog } from '@/components/remarketing';
+import { BuyerOutreachTab } from '@/components/buyer-outreach';
 import { useDealDetail } from './useDealDetail';
 import { CapTargetInfoCard } from './CapTargetInfoCard';
 import { SalesforceInfoCard } from './SalesforceInfoCard';
@@ -156,7 +157,7 @@ const ReMarketingDealDetail = () => {
       />
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className={cn('grid w-full', isValuationDeal ? 'grid-cols-7' : 'grid-cols-6')}>
+        <TabsList className={cn('grid w-full', isValuationDeal ? 'grid-cols-8' : 'grid-cols-7')}>
           <TabsTrigger value="overview" className="text-sm">
             <Eye className="mr-1.5 h-3.5 w-3.5" />
             Overview
@@ -174,6 +175,10 @@ const ReMarketingDealDetail = () => {
           <TabsTrigger value="buyer-introductions" className="text-sm">
             <UserPlus className="mr-1.5 h-3.5 w-3.5" />
             Buyer Introductions
+          </TabsTrigger>
+          <TabsTrigger value="buyer-outreach" className="text-sm">
+            <Send className="mr-1.5 h-3.5 w-3.5" />
+            Buyer Outreach
           </TabsTrigger>
           <TabsTrigger value="listing-tasks" className="text-sm">
             <ListChecks className="mr-1.5 h-3.5 w-3.5" />
@@ -232,6 +237,10 @@ const ReMarketingDealDetail = () => {
 
         <TabsContent value="buyer-introductions" className="space-y-6">
           <BuyerIntroductionPage listingId={dealId!} listingTitle={displayName} />
+        </TabsContent>
+
+        <TabsContent value="buyer-outreach" className="space-y-6">
+          <BuyerOutreachTab dealId={dealId!} />
         </TabsContent>
 
         <TabsContent value="listing-tasks" className="space-y-6">
