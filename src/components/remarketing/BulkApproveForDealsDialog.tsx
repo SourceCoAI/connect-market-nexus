@@ -31,6 +31,7 @@ interface BulkApproveForDealsDialogProps {
   onOpenChange: (open: boolean) => void;
   buyerIds: string[];
   buyerCount: number;
+  universeId?: string;
 }
 
 interface DealGroup {
@@ -39,6 +40,7 @@ interface DealGroup {
   listingLocation: string | null;
   listingCategory: string | null;
   pendingScoreIds: string[];
+  unscoredBuyerIds: string[];
   approvedCount: number;
   totalBuyerCount: number;
 }
@@ -48,35 +50,79 @@ export function BulkApproveForDealsDialog({
   onOpenChange,
   buyerIds,
   buyerCount,
+  universeId,
 }: BulkApproveForDealsDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set());
 
-  // Fetch all scores for the selected buyers, grouped by deal
+  // Fetch all deals from the universe + any existing scores for the selected buyers
   const { data: dealGroups, isLoading } = useQuery({
-    queryKey: ['bulk-buyer-scored-deals', buyerIds],
+    queryKey: ['bulk-buyer-scored-deals', buyerIds, universeId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('remarketing_scores')
-        .select(
-          `
-          id,
-          listing_id,
-          buyer_id,
-          composite_score,
-          status,
-          listing:listings!remarketing_scores_listing_id_fkey(id, title, location, category)
-        `,
-        )
-        .in('buyer_id', buyerIds)
-        .order('composite_score', { ascending: false });
+      // Fetch scores and universe deals in parallel
+      const [scoresResult, universeDealsResult] = await Promise.all([
+        supabase
+          .from('remarketing_scores')
+          .select(
+            `
+            id,
+            listing_id,
+            buyer_id,
+            composite_score,
+            status,
+            listing:listings!remarketing_scores_listing_id_fkey(id, title, location, category)
+          `,
+          )
+          .in('buyer_id', buyerIds)
+          .order('composite_score', { ascending: false }),
+        universeId
+          ? supabase
+              .from('remarketing_universe_deals')
+              .select(
+                `
+                listing_id,
+                listing:listings!remarketing_universe_deals_listing_id_fkey(id, title, location, category)
+              `,
+              )
+              .eq('universe_id', universeId)
+              .neq('status', 'archived')
+          : Promise.resolve({ data: [], error: null }),
+      ]);
 
-      if (error) throw error;
+      if (scoresResult.error) throw scoresResult.error;
+      if (universeDealsResult.error) throw universeDealsResult.error;
 
       // Group scores by listing
       const groupMap = new Map<string, DealGroup>();
-      for (const s of data || []) {
+
+      // First, seed groups from universe deals so all deals appear
+      for (const ud of universeDealsResult.data || []) {
+        const listing = ud.listing as {
+          id: string;
+          title: string;
+          location: string | null;
+          category: string | null;
+        } | null;
+        if (!ud.listing_id || !listing) continue;
+        if (!groupMap.has(ud.listing_id)) {
+          groupMap.set(ud.listing_id, {
+            listingId: ud.listing_id,
+            listingTitle: listing.title || 'Unknown Deal',
+            listingLocation: listing.location || null,
+            listingCategory: listing.category || null,
+            pendingScoreIds: [],
+            unscoredBuyerIds: [...buyerIds], // all buyers start as unscored
+            approvedCount: 0,
+            totalBuyerCount: 0,
+          });
+        }
+      }
+
+      // Track which buyers have scores per listing
+      const scoredBuyersByListing = new Map<string, Set<string>>();
+
+      for (const s of scoresResult.data || []) {
         const listingId = s.listing_id;
         const listing = s.listing as {
           id: string;
@@ -94,11 +140,18 @@ export function BulkApproveForDealsDialog({
             listingLocation: listing.location || null,
             listingCategory: listing.category || null,
             pendingScoreIds: [],
+            unscoredBuyerIds: [],
             approvedCount: 0,
             totalBuyerCount: 0,
           };
           groupMap.set(listingId, group);
         }
+
+        // Track this buyer as scored for this listing
+        if (!scoredBuyersByListing.has(listingId)) {
+          scoredBuyersByListing.set(listingId, new Set());
+        }
+        scoredBuyersByListing.get(listingId)!.add(s.buyer_id);
 
         group.totalBuyerCount++;
         if (s.status === 'approved') {
@@ -108,9 +161,18 @@ export function BulkApproveForDealsDialog({
         }
       }
 
+      // Compute unscoredBuyerIds for each group
+      for (const [listingId, group] of groupMap) {
+        const scoredBuyers = scoredBuyersByListing.get(listingId) || new Set();
+        group.unscoredBuyerIds = buyerIds.filter((id) => !scoredBuyers.has(id));
+      }
+
       return Array.from(groupMap.values())
-        .filter((g) => g.pendingScoreIds.length > 0)
-        .sort((a, b) => b.pendingScoreIds.length - a.pendingScoreIds.length);
+        .filter((g) => g.pendingScoreIds.length > 0 || g.unscoredBuyerIds.length > 0)
+        .sort((a, b) =>
+          (b.pendingScoreIds.length + b.unscoredBuyerIds.length) -
+          (a.pendingScoreIds.length + a.unscoredBuyerIds.length),
+        );
     },
     enabled: open && buyerIds.length > 0,
   });
@@ -141,33 +203,57 @@ export function BulkApproveForDealsDialog({
     setSelectedListingIds(new Set(groups.map((g) => g.listingId)));
   };
 
-  // Count total scores to approve
+  // Count total buyer-deal pairs to approve
   const totalScoresToApprove = useMemo(() => {
     return groups
       .filter((g) => selectedListingIds.has(g.listingId))
-      .reduce((sum, g) => sum + g.pendingScoreIds.length, 0);
+      .reduce((sum, g) => sum + g.pendingScoreIds.length + g.unscoredBuyerIds.length, 0);
   }, [groups, selectedListingIds]);
 
   // Mutation to approve all buyer-deal pairs for selected deals
   const approveMutation = useMutation({
     mutationFn: async () => {
-      const scoreIds = groups
-        .filter((g) => selectedListingIds.has(g.listingId))
-        .flatMap((g) => g.pendingScoreIds);
+      const selectedGroups = groups.filter((g) => selectedListingIds.has(g.listingId));
+      const scoreIds = selectedGroups.flatMap((g) => g.pendingScoreIds);
 
-      if (scoreIds.length === 0) return;
+      if (scoreIds.length === 0 && selectedGroups.every((g) => g.unscoredBuyerIds.length === 0)) {
+        return;
+      }
 
-      const { error } = await supabase
-        .from('remarketing_scores')
-        .update({ status: 'approved' })
-        .in('id', scoreIds);
+      // Update existing pending scores to approved
+      if (scoreIds.length > 0) {
+        const { error } = await supabase
+          .from('remarketing_scores')
+          .update({ status: 'approved' })
+          .in('id', scoreIds);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
+
+      // Create score records for unscored buyer-deal pairs and approve them directly
+      const newScoreIds: string[] = [];
+      for (const group of selectedGroups) {
+        if (group.unscoredBuyerIds.length === 0) continue;
+        const rows = group.unscoredBuyerIds.map((bId) => ({
+          listing_id: group.listingId,
+          buyer_id: bId,
+          status: 'approved' as const,
+        }));
+        const { data: inserted, error } = await supabase
+          .from('remarketing_scores')
+          .upsert(rows, { onConflict: 'listing_id,buyer_id', ignoreDuplicates: false })
+          .select('id');
+        if (error) throw error;
+        if (inserted) {
+          newScoreIds.push(...inserted.map((r: { id: string }) => r.id));
+        }
+      }
+
+      const allScoreIds = [...scoreIds, ...newScoreIds];
 
       // Auto-create outreach records for approved scores
-      for (const group of groups) {
-        if (!selectedListingIds.has(group.listingId)) continue;
-        for (const scoreId of group.pendingScoreIds) {
+      for (const group of selectedGroups) {
+        for (const scoreId of [...group.pendingScoreIds, ...newScoreIds.filter(() => true)]) {
           try {
             await (supabase.from('remarketing_outreach') as any).upsert(
               {
@@ -269,7 +355,7 @@ export function BulkApproveForDealsDialog({
             </div>
           ) : groups.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No scored deals found for the selected buyers. Score the buyers against deals first.
+              No deals found. Add deals to this universe first.
             </p>
           ) : (
             <div className="space-y-1">
@@ -316,7 +402,7 @@ export function BulkApproveForDealsDialog({
                   </div>
                   <div className="text-right flex-shrink-0">
                     <Badge variant="outline" className="text-xs">
-                      {group.pendingScoreIds.length} to approve
+                      {group.pendingScoreIds.length + group.unscoredBuyerIds.length} to approve
                     </Badge>
                     {group.approvedCount > 0 && (
                       <div className="text-[10px] text-emerald-600 mt-0.5">
