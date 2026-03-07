@@ -4,6 +4,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { fetchWithAutoRetry } from '../_shared/ai-providers.ts';
 
+// ─── Helpers ───
+
+/** Validate that a string is a proper YYYY-MM-DD date (not just a time like "22:51") */
+function isValidDateString(value: string | null | undefined): boolean {
+  if (!value) return false;
+  // Must match YYYY-MM-DD pattern
+  if (!/^\d{4}-\d{2}-\d{2}/.test(value)) return false;
+  const d = new Date(value);
+  return !isNaN(d.getTime());
+}
+
 // ─── Types ───
 
 interface ExtractRequest {
@@ -939,7 +950,7 @@ async function processSingleMeeting(
       assignee_id: assigneeId,
       task_type: task.task_type,
       status: shouldAutoApprove ? 'pending' : 'pending_approval',
-      due_date: task.due_date || today,
+      due_date: isValidDateString(task.due_date) ? task.due_date : today,
       source_meeting_id: meeting.id,
       source_timestamp: task.source_timestamp || null,
       deal_reference: task.deal_reference || null,
