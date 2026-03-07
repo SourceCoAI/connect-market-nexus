@@ -42,8 +42,7 @@ const PE_TITLE_FILTER = [
 ];
 
 const COMPANY_TITLE_FILTER = [
-  'corporate development',
-  'corp dev',
+  'bd',
   'cfo',
   'chief financial officer',
   'vp finance',
@@ -51,8 +50,6 @@ const COMPANY_TITLE_FILTER = [
   'head of finance',
   'finance director',
   'ceo',
-  'owner',
-  'founder',
 ];
 
 Deno.serve(async (req: Request) => {
@@ -92,36 +89,24 @@ Deno.serve(async (req: Request) => {
   }
 
   const isPE = body.buyer_type === 'private_equity';
+  const hasPEFirm = isPE && !!body.pe_firm_name?.trim();
   const peTarget = 5;
   const companyTarget = 3;
+  // PE buyers with a firm name need both PE + company contacts; otherwise just company
+  const totalTarget = hasPEFirm ? peTarget + companyTarget : companyTarget;
 
   try {
     // Step A — Check existing contacts to avoid redundant work
     const { data: existingContacts } = await supabaseAdmin
       .from('contacts')
-      .select('id, title, source')
+      .select('id')
       .eq('remarketing_buyer_id', body.buyer_id)
       .eq('contact_type', 'buyer')
       .eq('archived', false);
 
     const existingCount = existingContacts?.length || 0;
 
-    // If we already have enough contacts, skip
-    if (isPE && existingCount >= peTarget + companyTarget) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          pe_contacts_found: 0,
-          company_contacts_found: 0,
-          total_saved: 0,
-          skipped_duplicates: 0,
-          message: 'Contacts already populated',
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    if (!isPE && existingCount >= companyTarget) {
+    if (existingCount >= totalTarget) {
       return new Response(
         JSON.stringify({
           success: true,
@@ -140,7 +125,7 @@ Deno.serve(async (req: Request) => {
 
     // Step B — Call find-contacts for PE firm (if applicable)
     let peContacts: any[] = [];
-    if (isPE && body.pe_firm_name) {
+    if (hasPEFirm) {
       try {
         const peDomain = extractDomain(body.pe_firm_website);
         const peResponse = await supabaseAdmin.functions.invoke('find-contacts', {
@@ -153,7 +138,9 @@ Deno.serve(async (req: Request) => {
           headers: { Authorization: authHeader },
         });
 
-        if (peResponse.data?.contacts) {
+        if (peResponse.error) {
+          console.error('[find-introduction-contacts] PE find-contacts error:', peResponse.error);
+        } else if (peResponse.data?.contacts) {
           peContacts = peResponse.data.contacts;
         }
       } catch (err) {
@@ -176,7 +163,9 @@ Deno.serve(async (req: Request) => {
         headers: { Authorization: authHeader },
       });
 
-      if (companyResponse.data?.contacts) {
+      if (companyResponse.error) {
+        console.error('[find-introduction-contacts] Company find-contacts error:', companyResponse.error);
+      } else if (companyResponse.data?.contacts) {
         companyContacts = companyResponse.data.contacts;
       }
     } catch (err) {

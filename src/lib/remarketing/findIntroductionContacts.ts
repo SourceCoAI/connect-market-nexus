@@ -57,13 +57,18 @@ export async function findIntroductionContacts(
       },
     });
 
-    if (error) {
-      console.error('[findIntroductionContacts] Edge function error:', error);
+    if (error || !data) {
+      console.error('[findIntroductionContacts] Edge function error:', error?.message || 'No data');
       return null;
     }
 
     return {
-      ...data,
+      success: data.success ?? false,
+      pe_contacts_found: data.pe_contacts_found ?? 0,
+      company_contacts_found: data.company_contacts_found ?? 0,
+      total_saved: data.total_saved ?? 0,
+      skipped_duplicates: data.skipped_duplicates ?? 0,
+      message: data.message,
       firmName: buyer.pe_firm_name || buyer.company_name,
     };
   } catch (err) {
