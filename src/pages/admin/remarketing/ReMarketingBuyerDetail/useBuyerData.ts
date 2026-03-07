@@ -24,7 +24,7 @@ export function useBuyerData(id: string | undefined, isNew: boolean) {
       if (!buyer?.pe_firm_name) return null;
       const { data, error } = await supabase
         .from('buyers')
-        .select('id, company_name')
+        .select('id, company_name, company_website')
         .eq('company_name', buyer.pe_firm_name)
         .eq('buyer_type', 'private_equity')
         .eq('archived', false)
