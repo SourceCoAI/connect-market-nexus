@@ -54,6 +54,7 @@ interface ExtractedTask {
   description: string;
   assignee_name: string;
   task_type: string;
+  task_category: 'deal_task' | 'platform_task' | 'operations_task';
   due_date: string;
   source_timestamp: string;
   deal_reference: string;
@@ -276,6 +277,7 @@ function parseFirefliesActionItems(
     if (!taskText || taskText.length < 5) continue;
 
     const taskType = inferTaskType(taskText);
+    const taskCategory = inferTaskCategory(taskText, taskType, currentSpeaker);
     const dealRef = extractDealReference(taskText);
 
     tasks.push({
@@ -283,6 +285,7 @@ function parseFirefliesActionItems(
       description: `From Fireflies action items. Speaker: ${currentSpeaker}`,
       assignee_name: currentSpeaker,
       task_type: taskType,
+      task_category: taskCategory,
       due_date: defaultDueDate,
       source_timestamp: timestamp,
       deal_reference: dealRef,
@@ -375,6 +378,68 @@ function inferTaskType(text: string): string {
   }
 
   return 'other';
+}
+
+/** Classify a task as deal-related, platform/dev, or operations */
+function inferTaskCategory(
+  text: string,
+  taskType: string,
+  _assigneeName: string,
+): 'deal_task' | 'platform_task' | 'operations_task' {
+  const lower = text.toLowerCase();
+
+  // Platform/dev indicators
+  if (
+    /\b(bug|fix|deploy|push|code|feature|api|database|migration|enrichment.*bug|upload.*issue|smartleads|data warehouse|webhook|integration)\b/.test(
+      lower,
+    )
+  ) {
+    return 'platform_task';
+  }
+
+  // Operations indicators
+  if (
+    /\b(invoice|billing|onboard|training|license|subscription|payroll|admin.*setup|office)\b/.test(
+      lower,
+    )
+  ) {
+    return 'operations_task';
+  }
+
+  // If task type is deal-specific, it's a deal task
+  const dealTaskTypes = new Set([
+    'contact_owner',
+    'build_buyer_universe',
+    'follow_up_with_buyer',
+    'send_materials',
+    'nda_execution',
+    'ioi_loi_process',
+    'due_diligence',
+    'buyer_qualification',
+    'seller_relationship',
+    'buyer_ic_followup',
+    'find_buyers',
+    'contact_buyers',
+  ]);
+
+  if (dealTaskTypes.has(taskType)) return 'deal_task';
+
+  // update_pipeline could be either — check context
+  if (taskType === 'update_pipeline') {
+    if (/\b(crm|salesforce|deal.*status|pipeline.*stage)\b/.test(lower)) return 'deal_task';
+    if (/\b(data|system|platform|tool)\b/.test(lower)) return 'platform_task';
+    return 'deal_task';
+  }
+
+  return 'deal_task'; // default for standup meetings
+}
+
+/** Parse a MM:SS or M:SS timestamp string to total seconds */
+function parseTimestampToSeconds(timestamp: string): number | null {
+  if (!timestamp) return null;
+  const match = timestamp.match(/^(\d{1,3}):(\d{2})$/);
+  if (!match) return null;
+  return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
 }
 
 /** Known deal names loaded from the database — set before extraction runs */
@@ -501,9 +566,14 @@ ${dealSection}
 - contact_buyers: Reach out to specific buyers
 - other: Tasks that don't fit above categories
 
+## Task Categories
+- deal_task: Any task directly related to a deal (calling owners, sending NDAs, buyer outreach, etc.)
+- platform_task: Technical/dev tasks (fixing bugs, deploying code, system updates, data issues)
+- operations_task: Administrative tasks (billing, onboarding, training, licenses)
+
 ## Extraction Rules
 1. A task is any specific action a named person is expected to perform
-2. Each task must have: title, description, assignee_name, task_type, due_date, confidence
+2. Each task must have: title, description, assignee_name, task_type, task_category, due_date, confidence
 3. If no specific person is named for a task, set assignee_name to "Unassigned"
 4. Default due_date is "${today}" unless context implies multi-day (e.g., "this week" = end of week)
 5. Include source_timestamp (approximate time in meeting like "2:30") if discernible
@@ -520,6 +590,7 @@ Return a JSON array of task objects. Example:
     "description": "Owner hasn't responded to last email. Try calling directly.",
     "assignee_name": "Tom",
     "task_type": "contact_owner",
+    "task_category": "deal_task",
     "due_date": "${today}",
     "source_timestamp": "3:45",
     "deal_reference": "Smith Manufacturing",
@@ -600,6 +671,9 @@ async function extractFromSingleChunk(
     return tasks.map((t) => ({
       ...t,
       task_type: TASK_TYPES.includes(t.task_type) ? t.task_type : 'other',
+      task_category: ['deal_task', 'platform_task', 'operations_task'].includes(t.task_category)
+        ? t.task_category
+        : inferTaskCategory(t.title, t.task_type, t.assignee_name),
       confidence: ['high', 'medium', 'low'].includes(t.confidence) ? t.confidence : 'medium',
     }));
   } catch {
@@ -943,6 +1017,200 @@ async function loadActiveDealNames(supabase: ReturnType<typeof createClient>): P
   return [...names].sort();
 }
 
+// ─── Auto-learn team member aliases ───
+
+async function autoLearnAliases(
+  extractedTasks: ExtractedTask[],
+  teamMembers: TeamMember[],
+  firefliesId: string,
+  supabase: ReturnType<typeof createClient>,
+  log: ReturnType<typeof createLogger>,
+): Promise<number> {
+  let learned = 0;
+  const seen = new Set<string>();
+
+  for (const task of extractedTasks) {
+    const name = task.assignee_name?.trim();
+    if (!name || name === 'Unassigned' || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+
+    // Check if this name matches a team member by first/last name (not alias)
+    const matchedMember = teamMembers.find((m) => {
+      const lower = name.toLowerCase();
+      return m.first_name.toLowerCase() === lower || m.last_name.toLowerCase() === lower;
+    });
+
+    if (!matchedMember) continue;
+
+    // Check if this exact name is already stored as a full name or alias
+    const isFullName =
+      name.toLowerCase() === matchedMember.name.toLowerCase() ||
+      name.toLowerCase() ===
+        matchedMember.first_name.toLowerCase() + ' ' + matchedMember.last_name.toLowerCase();
+
+    if (isFullName) continue; // skip exact full name matches
+
+    const existingAlias = matchedMember.aliases.find((a) => a.toLowerCase() === name.toLowerCase());
+    if (existingAlias) continue; // already known alias
+
+    // Auto-learn this as a new alias
+    const { error } = await supabase.from('team_member_aliases').insert({
+      profile_id: matchedMember.id,
+      alias: name,
+      auto_learned: true,
+      source_transcript_id: firefliesId,
+    });
+
+    if (!error) {
+      learned++;
+      log.info('Auto-learned new alias', {
+        profileId: matchedMember.id,
+        memberName: matchedMember.name,
+        alias: name,
+      });
+    }
+  }
+
+  return learned;
+}
+
+// ─── Deal mention timeline tracking ───
+
+async function recordDealMentions(
+  meetingId: string,
+  meetingDate: string,
+  extractedTasks: ExtractedTask[],
+  teamMembers: TeamMember[],
+  supabase: ReturnType<typeof createClient>,
+  log: ReturnType<typeof createLogger>,
+): Promise<number> {
+  // Group tasks by deal reference
+  const dealMentions = new Map<string, { tasks: ExtractedTask[]; dealId: string | null }>();
+
+  for (const task of extractedTasks) {
+    if (!task.deal_reference) continue;
+    const ref = task.deal_reference;
+    if (!dealMentions.has(ref)) {
+      // Try to resolve deal ID
+      const sanitized = ref
+        .replace(/[(),."'\\]/g, '')
+        .replace(/%/g, '')
+        .trim();
+      let dealId: string | null = null;
+      if (sanitized.length >= 2) {
+        const { data } = await supabase
+          .from('deal_pipeline')
+          .select('id')
+          .or(
+            `title.ilike.%${sanitized}%`,
+            // Simplified query — just check deal title
+          )
+          .limit(1);
+        dealId = data?.[0]?.id || null;
+      }
+      dealMentions.set(ref, { tasks: [], dealId });
+    }
+    dealMentions.get(ref)!.tasks.push(task);
+  }
+
+  if (dealMentions.size === 0) return 0;
+
+  const records = [];
+  for (const [dealRef, { tasks, dealId }] of dealMentions) {
+    // Find who mentioned this deal (first speaker)
+    const mentionedBy = tasks[0]?.assignee_name
+      ? teamMembers.find(
+          (m) =>
+            m.first_name.toLowerCase() === tasks[0].assignee_name.toLowerCase() ||
+            m.name.toLowerCase() === tasks[0].assignee_name.toLowerCase(),
+        )?.id || null
+      : null;
+
+    records.push({
+      deal_id: dealId,
+      deal_reference: dealRef,
+      meeting_id: meetingId,
+      meeting_date: meetingDate,
+      mentioned_by: mentionedBy,
+      context: tasks
+        .map((t) => t.title)
+        .join('; ')
+        .slice(0, 500),
+      tasks_generated: tasks.length,
+    });
+  }
+
+  const { error } = await supabase.from('deal_mention_timeline').insert(records);
+  if (error) {
+    log.warn('Failed to record deal mention timeline', { error: error.message });
+    return 0;
+  }
+
+  log.info('Recorded deal mention timeline', {
+    dealsTracked: records.length,
+    totalDealTasks: extractedTasks.filter((t) => t.deal_reference).length,
+  });
+
+  return records.length;
+}
+
+// ─── Meeting effectiveness scoring ───
+
+async function computeEffectivenessScore(
+  meetingId: string,
+  meetingDate: string,
+  tasksExtracted: number,
+  recurringSkipped: number,
+  carriedOverCount: number,
+  supabase: ReturnType<typeof createClient>,
+): Promise<number> {
+  // Count tasks completed from the previous standup
+  const { data: prevMeetings } = await supabase
+    .from('standup_meetings')
+    .select('id')
+    .lt('meeting_date', meetingDate)
+    .order('meeting_date', { ascending: false })
+    .limit(1);
+
+  let tasksCompletedFromPrevious = 0;
+  if (prevMeetings && prevMeetings.length > 0) {
+    const { count } = await supabase
+      .from('daily_standup_tasks')
+      .select('*', { count: 'exact', head: true })
+      .eq('source_meeting_id', prevMeetings[0].id)
+      .eq('status', 'completed');
+    tasksCompletedFromPrevious = count ?? 0;
+  }
+
+  // Effectiveness formula:
+  // - New tasks generated: +3 pts each (max 30)
+  // - Previous tasks completed: +5 pts each (max 50)
+  // - Recurring tasks skipped (= already tracked): +1 pt each (max 10)
+  // - Tasks carried over (= incomplete from previous): -2 pts each (max -20)
+  const newTaskScore = Math.min(tasksExtracted * 3, 30);
+  const completionScore = Math.min(tasksCompletedFromPrevious * 5, 50);
+  const recurringScore = Math.min(recurringSkipped * 1, 10);
+  const carryoverPenalty = Math.min(carriedOverCount * 2, 20);
+
+  const score = Math.max(
+    0,
+    Math.min(100, newTaskScore + completionScore + recurringScore - carryoverPenalty),
+  );
+
+  // Update the meeting record
+  await supabase
+    .from('standup_meetings')
+    .update({
+      effectiveness_score: score,
+      tasks_completed_from_previous: tasksCompletedFromPrevious,
+      tasks_carried_over: carriedOverCount,
+      recurring_tasks_skipped: recurringSkipped,
+    })
+    .eq('id', meetingId);
+
+  return score;
+}
+
 // ─── Cross-meeting recurring task dedup ───
 
 /**
@@ -1104,8 +1372,15 @@ async function recomputeRanks(supabase: ReturnType<typeof createClient>): Promis
     }
   }
 
-  for (const { id, rank } of ranked) {
-    await supabase.from('daily_standup_tasks').update({ priority_rank: rank }).eq('id', id);
+  // Batch update: group by rank and update in parallel batches of 10
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < ranked.length; i += BATCH_SIZE) {
+    const batch = ranked.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(({ id, rank }) =>
+        supabase.from('daily_standup_tasks').update({ priority_rank: rank }).eq('id', id),
+      ),
+    );
   }
 }
 
@@ -1124,6 +1399,9 @@ interface ProcessResult {
   contacts_matched?: number;
   low_confidence_count?: number;
   processing_duration_ms?: number;
+  effectiveness_score?: number;
+  deal_mentions_recorded?: number;
+  aliases_learned?: number;
   tasks: unknown[];
   skipped?: boolean;
   skip_reason?: string;
@@ -1360,10 +1638,12 @@ async function processSingleMeeting(
       description: task.description || null,
       assignee_id: assigneeId,
       task_type: task.task_type,
+      task_category: task.task_category,
       status: shouldAutoApprove ? 'pending' : 'pending_approval',
       due_date: isValidDateString(task.due_date) ? task.due_date : today,
       source_meeting_id: meeting.id,
       source_timestamp: task.source_timestamp || null,
+      source_timestamp_seconds: parseTimestampToSeconds(task.source_timestamp),
       deal_reference: task.deal_reference || null,
       deal_id: dealMatch?.id || null,
       priority_score: Math.round(priorityScore * 100) / 100,
@@ -1466,14 +1746,133 @@ async function processSingleMeeting(
     });
   }
 
+  // Log deal activities for tasks linked to deals (so tasks appear in deal history)
+  try {
+    const dealLinkedTasks = taskRecords.filter((t) => t.entity_type === 'deal' && t.entity_id);
+    if (dealLinkedTasks.length > 0) {
+      const dealActivities = dealLinkedTasks.map((t) => ({
+        deal_id: t.entity_id,
+        admin_id: t.assignee_id || null,
+        activity_type: 'task_created',
+        title: `Task from standup: ${t.title}`,
+        description:
+          `Extracted from "${meetingTitle}". ${t.deal_reference ? 'Deal: ' + t.deal_reference : ''} Type: ${t.task_type}`.trim(),
+        metadata: {
+          source: 'standup_extraction',
+          meeting_id: meeting.id,
+          task_type: t.task_type,
+          task_category: t.task_category,
+          priority_score: t.priority_score,
+          correlation_id: correlationId,
+        },
+      }));
+
+      await supabase.from('deal_activities').insert(dealActivities);
+      log.info('Logged deal activities for standup tasks', {
+        dealActivityCount: dealActivities.length,
+      });
+    }
+  } catch (dealActivityError) {
+    log.warn('Failed to log deal activities (non-fatal)', {
+      error: dealActivityError instanceof Error ? dealActivityError.message : 'Unknown error',
+    });
+  }
+
+  // Log buyer activities for tasks linked to buyers
+  try {
+    const buyerLinkedTasks = taskRecords.filter(
+      (t) =>
+        (t.entity_type === 'buyer' && t.entity_id) ||
+        (t.secondary_entity_type === 'buyer' && t.secondary_entity_id),
+    );
+
+    if (buyerLinkedTasks.length > 0) {
+      // If buyer_activities table exists, log there too
+      // Otherwise, deal_activities already captures deal+buyer combos
+      const buyerTaskSummary = buyerLinkedTasks.map((t) => ({
+        buyer_id: t.entity_type === 'buyer' ? t.entity_id : t.secondary_entity_id,
+        task_title: t.title,
+        task_type: t.task_type,
+      }));
+
+      log.info('Tasks linked to buyers', {
+        buyerTaskCount: buyerTaskSummary.length,
+        buyers: [...new Set(buyerTaskSummary.map((b) => b.buyer_id))],
+      });
+    }
+  } catch (buyerLogError) {
+    log.warn('Failed to log buyer task linkage (non-fatal)', {
+      error: buyerLogError instanceof Error ? buyerLogError.message : 'Unknown error',
+    });
+  }
+
   // Count low-confidence tasks for metrics
   const lowConfidenceCount = taskRecords.filter((t) => t.extraction_confidence === 'low').length;
 
-  // Send notifications to assignees for newly created tasks
+  // Auto-learn team member aliases from speaker names
+  let aliasesLearned = 0;
+  try {
+    aliasesLearned = await autoLearnAliases(
+      extractedTasks,
+      teamMembers,
+      firefliesId,
+      supabase,
+      log,
+    );
+  } catch (aliasError) {
+    log.warn('Alias auto-learning failed (non-fatal)', {
+      error: aliasError instanceof Error ? aliasError.message : 'Unknown error',
+    });
+  }
+
+  // Record deal mention timeline
+  let dealMentionsRecorded = 0;
+  try {
+    dealMentionsRecorded = await recordDealMentions(
+      meeting.id,
+      meetingDate,
+      extractedTasks,
+      teamMembers,
+      supabase,
+      log,
+    );
+  } catch (timelineError) {
+    log.warn('Deal timeline recording failed (non-fatal)', {
+      error: timelineError instanceof Error ? timelineError.message : 'Unknown error',
+    });
+  }
+
+  // Update meeting with deals_mentioned count
+  if (dealMentionsRecorded > 0) {
+    await supabase
+      .from('standup_meetings')
+      .update({ deals_mentioned: dealMentionsRecorded })
+      .eq('id', meeting.id);
+  }
+
+  // Compute meeting effectiveness score
+  let effectivenessScore = 0;
+  try {
+    effectivenessScore = await computeEffectivenessScore(
+      meeting.id,
+      meetingDate,
+      insertedTasks.length,
+      recurringSkipped,
+      carriedOverCount,
+      supabase,
+    );
+    log.info('Meeting effectiveness score computed', { score: effectivenessScore });
+  } catch (effectError) {
+    log.warn('Effectiveness scoring failed (non-fatal)', {
+      error: effectError instanceof Error ? effectError.message : 'Unknown error',
+    });
+  }
+
+  // Smart notification routing: high-urgency tasks get immediate notifications,
+  // low-priority/low-confidence tasks are grouped into a digest
   if (insertedTasks.length > 0) {
     try {
       const assignedTasks = taskRecords.filter((t) => t.assignee_id);
-      // Group by assignee to send one notification per person
       const tasksByAssignee = new Map<string, typeof taskRecords>();
       for (const task of assignedTasks) {
         const existing = tasksByAssignee.get(task.assignee_id!) || [];
@@ -1483,34 +1882,69 @@ async function processSingleMeeting(
 
       const notifications = [];
       for (const [assigneeId, tasks] of tasksByAssignee) {
-        const taskTitles = tasks.map((t) => t.title).slice(0, 5);
-        const moreCount = tasks.length > 5 ? tasks.length - 5 : 0;
-        const taskList = taskTitles.join(', ') + (moreCount > 0 ? ` +${moreCount} more` : '');
-        notifications.push({
-          admin_id: assigneeId,
-          notification_type: 'tasks_extracted',
-          title: `${tasks.length} New Task${tasks.length > 1 ? 's' : ''} from Meeting`,
-          message: `Tasks extracted from "${meetingTitle}": ${taskList}`,
-          action_url: '/admin/daily-tasks',
-          metadata: {
-            meeting_id: meeting.id,
-            meeting_title: meetingTitle,
-            task_count: tasks.length,
-            task_titles: taskTitles,
-            correlation_id: correlationId,
-          },
-        });
+        // Split into urgent (high-confidence deal tasks due today) vs normal
+        const urgentTasks = tasks.filter(
+          (t) =>
+            t.extraction_confidence === 'high' &&
+            t.task_category === 'deal_task' &&
+            t.due_date === today &&
+            (t.priority_score ?? 0) >= 60,
+        );
+        const normalTasks = tasks.filter((t) => !urgentTasks.includes(t));
+
+        // Urgent tasks get individual notifications
+        for (const urgent of urgentTasks) {
+          notifications.push({
+            admin_id: assigneeId,
+            notification_type: 'urgent_task',
+            title: `Urgent: ${urgent.title}`,
+            message: `High-priority task from "${meetingTitle}" — due today`,
+            action_url: '/admin/daily-tasks',
+            metadata: {
+              meeting_id: meeting.id,
+              meeting_title: meetingTitle,
+              task_title: urgent.title,
+              task_type: urgent.task_type,
+              deal_reference: urgent.deal_reference,
+              priority_score: urgent.priority_score,
+              correlation_id: correlationId,
+            },
+          });
+        }
+
+        // Normal tasks get grouped digest notification
+        if (normalTasks.length > 0) {
+          const taskTitles = normalTasks.map((t) => t.title).slice(0, 5);
+          const moreCount = normalTasks.length > 5 ? normalTasks.length - 5 : 0;
+          const taskList = taskTitles.join(', ') + (moreCount > 0 ? ` +${moreCount} more` : '');
+          notifications.push({
+            admin_id: assigneeId,
+            notification_type: 'tasks_extracted',
+            title: `${normalTasks.length} New Task${normalTasks.length > 1 ? 's' : ''} from Standup`,
+            message: `Tasks from "${meetingTitle}": ${taskList}`,
+            action_url: '/admin/daily-tasks',
+            metadata: {
+              meeting_id: meeting.id,
+              meeting_title: meetingTitle,
+              task_count: normalTasks.length,
+              task_titles: taskTitles,
+              correlation_id: correlationId,
+            },
+          });
+        }
       }
 
       if (notifications.length > 0) {
         await supabase.from('admin_notifications').insert(notifications);
-        log.info('Sent task extraction notifications', {
+        log.info('Sent smart notifications', {
           notificationCount: notifications.length,
-          assigneeCount: tasksByAssignee.size,
+          urgentCount: notifications.filter((n) => n.notification_type === 'urgent_task').length,
+          digestCount: notifications.filter((n) => n.notification_type === 'tasks_extracted')
+            .length,
         });
       }
     } catch (notifError) {
-      log.warn('Failed to send task extraction notifications', {
+      log.warn('Failed to send task notifications', {
         error: notifError instanceof Error ? notifError.message : 'Unknown error',
       });
     }
@@ -1540,6 +1974,68 @@ async function processSingleMeeting(
     });
   }
 
+  // Generate daily standup report notification for admins
+  try {
+    const dealTaskCount = taskRecords.filter((t) => t.task_category === 'deal_task').length;
+    const platformTaskCount = taskRecords.filter((t) => t.task_category === 'platform_task').length;
+    const opsTaskCount = taskRecords.filter((t) => t.task_category === 'operations_task').length;
+    const uniqueDeals = [
+      ...new Set(taskRecords.filter((t) => t.deal_reference).map((t) => t.deal_reference)),
+    ];
+    const uniqueAssignees = [
+      ...new Set(taskRecords.filter((t) => t.assignee_id).map((t) => t.assignee_id)),
+    ];
+
+    const reportLines = [
+      `Standup Report: "${meetingTitle}"`,
+      `Tasks: ${insertedTasks.length} new, ${recurringSkipped} recurring (skipped), ${carriedOverCount} carried over`,
+      dealTaskCount > 0 ? `Deal tasks: ${dealTaskCount}` : null,
+      platformTaskCount > 0 ? `Platform tasks: ${platformTaskCount}` : null,
+      opsTaskCount > 0 ? `Operations tasks: ${opsTaskCount}` : null,
+      uniqueDeals.length > 0 ? `Deals mentioned: ${uniqueDeals.join(', ')}` : null,
+      `Effectiveness score: ${effectivenessScore}/100`,
+      lowConfidenceCount > 0 ? `Low confidence: ${lowConfidenceCount} (needs review)` : null,
+      aliasesLearned > 0 ? `New aliases learned: ${aliasesLearned}` : null,
+    ].filter(Boolean);
+
+    // Send report to all admins/owners
+    const { data: adminUsers } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .in('role', ['owner', 'admin']);
+
+    if (adminUsers && adminUsers.length > 0) {
+      const reportNotifications = adminUsers.map((u) => ({
+        admin_id: u.user_id,
+        notification_type: 'standup_report',
+        title: `Standup Report: ${insertedTasks.length} tasks from ${meetingTitle}`,
+        message: reportLines.join(' | '),
+        action_url: '/admin/daily-tasks',
+        metadata: {
+          meeting_id: meeting.id,
+          meeting_title: meetingTitle,
+          tasks_extracted: insertedTasks.length,
+          tasks_recurring_skipped: recurringSkipped,
+          tasks_carried_over: carriedOverCount,
+          deal_task_count: dealTaskCount,
+          platform_task_count: platformTaskCount,
+          ops_task_count: opsTaskCount,
+          deals_mentioned: uniqueDeals,
+          assignees: uniqueAssignees.length,
+          effectiveness_score: effectivenessScore,
+          correlation_id: correlationId,
+        },
+      }));
+
+      await supabase.from('admin_notifications').insert(reportNotifications);
+      log.info('Sent standup report', { recipientCount: reportNotifications.length });
+    }
+  } catch (reportError) {
+    log.warn('Failed to generate standup report (non-fatal)', {
+      error: reportError instanceof Error ? reportError.message : 'Unknown error',
+    });
+  }
+
   log.info('Meeting processing complete', {
     meetingId: meeting.id,
     tasksExtracted: insertedTasks.length,
@@ -1548,6 +2044,9 @@ async function processSingleMeeting(
     carriedOver: carriedOverCount,
     lowConfidenceCount,
     contactsMatched: matchedContacts.length,
+    dealMentionsRecorded,
+    aliasesLearned,
+    effectivenessScore,
     processingDurationMs,
   });
 
@@ -1564,6 +2063,9 @@ async function processSingleMeeting(
     contacts_matched: matchedContacts.length,
     low_confidence_count: lowConfidenceCount,
     processing_duration_ms: processingDurationMs,
+    effectiveness_score: effectivenessScore,
+    deal_mentions_recorded: dealMentionsRecorded,
+    aliases_learned: aliasesLearned,
     tasks: insertedTasks,
   };
 }
