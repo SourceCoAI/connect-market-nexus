@@ -255,7 +255,17 @@ export function TaskCard({
           </Badge>
         )}
 
-        {/* Due date */}
+        {/* Source meeting badge */}
+        {task.source_meeting?.meeting_title && (
+          <Badge
+            variant="outline"
+            className="shrink-0 text-[9px] px-1.5 py-0 h-4 border-sky-300 text-sky-700 bg-sky-50 max-w-[160px] truncate"
+            title={task.source_meeting.meeting_title}
+          >
+            {task.source_meeting.meeting_title}
+          </Badge>
+        )}
+
         <span
           className={cn(
             'inline-flex items-center gap-1 text-[11px] shrink-0 tabular-nums',

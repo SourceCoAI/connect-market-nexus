@@ -40,6 +40,7 @@ import {
   RefreshCcw,
   Loader2,
   PauseCircle,
+  Mic,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn, getLocalDateString } from '@/lib/utils';
@@ -178,6 +179,7 @@ const DailyTaskDashboard = () => {
   const [entityFilter, setEntityFilter] = useState<'all' | 'deal' | 'buyer'>('all');
   const [showCompleted, setShowCompleted] = useState(false);
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [selectedMeeting, setSelectedMeeting] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editTask, setEditTask] = useState<DailyStandupTaskWithRelations | null>(null);
   const [reassignTask, setReassignTask] = useState<DailyStandupTaskWithRelations | null>(null);
@@ -271,15 +273,39 @@ const DailyTaskDashboard = () => {
     };
   }, [entityFilter]);
 
+  // Distinct source meetings for the filter dropdown
+  const distinctMeetings = useMemo(() => {
+    if (!tasks) return [];
+    const seen = new Map<string, string>();
+    for (const t of tasks) {
+      const sm = t.source_meeting;
+      if (sm?.id && sm?.meeting_title && !seen.has(sm.id)) {
+        seen.set(sm.id, sm.meeting_title);
+      }
+    }
+    return Array.from(seen.entries())
+      .map(([id, title]) => ({ id, title }))
+      .sort((a, b) => a.title.localeCompare(b.title));
+  }, [tasks]);
+
+  // Combined filter: entity + meeting
+  const matchesAllFilters = useMemo(() => {
+    return (t: DailyStandupTaskWithRelations) => {
+      if (!matchesEntityFilter(t)) return false;
+      if (selectedMeeting && t.source_meeting?.id !== selectedMeeting) return false;
+      return true;
+    };
+  }, [matchesEntityFilter, selectedMeeting]);
+
   // Separate tasks by approval status
   const pendingApprovalTasks = useMemo(() => {
     if (!tasks) return [];
-    return tasks.filter((t) => t.status === 'pending_approval' && matchesEntityFilter(t));
-  }, [tasks, matchesEntityFilter]);
+    return tasks.filter((t) => t.status === 'pending_approval' && matchesAllFilters(t));
+  }, [tasks, matchesAllFilters]);
 
   const approvedTasks = useMemo(() => {
     if (!tasks) return [];
-    let filtered = tasks.filter((t) => t.status !== 'pending_approval' && matchesEntityFilter(t));
+    let filtered = tasks.filter((t) => t.status !== 'pending_approval' && matchesAllFilters(t));
 
     // Apply tag filter
     if (selectedTags.size > 0) {
@@ -291,7 +317,7 @@ const DailyTaskDashboard = () => {
     }
 
     return filtered;
-  }, [tasks, selectedTags, matchesEntityFilter]);
+  }, [tasks, selectedTags, matchesAllFilters]);
 
   // Stats (only from approved tasks)
   const stats = useMemo(() => {
@@ -635,8 +661,44 @@ const DailyTaskDashboard = () => {
             </DropdownMenu>
           )}
 
-          <Button
-            variant="ghost"
+          {/* Meeting source filter */}
+          {distinctMeetings.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={selectedMeeting ? 'default' : 'outline'}
+                  size="sm"
+                  className="text-xs gap-1.5"
+                >
+                  <Mic className="h-3.5 w-3.5" />
+                  {selectedMeeting
+                    ? distinctMeetings.find((m) => m.id === selectedMeeting)?.title || 'Meeting'
+                    : 'Meeting'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-60 overflow-auto min-w-[200px]">
+                <DropdownMenuCheckboxItem
+                  checked={!selectedMeeting}
+                  onCheckedChange={() => setSelectedMeeting(null)}
+                >
+                  All Meetings
+                </DropdownMenuCheckboxItem>
+                {distinctMeetings.map((m) => (
+                  <DropdownMenuCheckboxItem
+                    key={m.id}
+                    checked={selectedMeeting === m.id}
+                    onCheckedChange={() =>
+                      setSelectedMeeting(selectedMeeting === m.id ? null : m.id)
+                    }
+                  >
+                    {m.title}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+            <Button
             size="sm"
             onClick={() => setShowCompleted(!showCompleted)}
             className="text-xs"
