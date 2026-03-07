@@ -306,6 +306,143 @@ async function checkExtractionPipeline(): Promise<{
   };
 }
 
+async function checkProcessingMetrics(): Promise<{
+  status: 'pass' | 'fail' | 'warn';
+  detail: string;
+}> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('task_processing_metrics' as never)
+    .select(
+      'tasks_extracted, tasks_deduplicated, contacts_matched, low_confidence_count, processing_duration_ms',
+    )
+    .gte('created_at', sevenDaysAgo);
+  if (error) {
+    if (error.message?.includes('task_processing_metrics')) {
+      return { status: 'warn', detail: 'Metrics table not yet deployed (run migration)' };
+    }
+    return { status: 'fail', detail: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { status: 'warn', detail: 'No processing metrics recorded yet' };
+  }
+  const metrics = data as {
+    tasks_extracted: number;
+    tasks_deduplicated: number;
+    contacts_matched: number;
+    low_confidence_count: number;
+    processing_duration_ms: number;
+  }[];
+  const totalExtracted = metrics.reduce((s, m) => s + m.tasks_extracted, 0);
+  const totalDeduped = metrics.reduce((s, m) => s + m.tasks_deduplicated, 0);
+  const totalLowConf = metrics.reduce((s, m) => s + m.low_confidence_count, 0);
+  const avgDuration = Math.round(
+    metrics.reduce((s, m) => s + (m.processing_duration_ms || 0), 0) / metrics.length,
+  );
+  const dedupRate =
+    totalExtracted > 0 ? Math.round((totalDeduped / (totalExtracted + totalDeduped)) * 100) : 0;
+  return {
+    status: totalLowConf > totalExtracted * 0.3 ? 'warn' : 'pass',
+    detail: `${metrics.length} meetings: ${totalExtracted} tasks, ${dedupRate}% dedup rate, ${totalLowConf} low-confidence, avg ${avgDuration}ms`,
+  };
+}
+
+async function checkDeadLetterQueue(): Promise<{
+  status: 'pass' | 'fail' | 'warn';
+  detail: string;
+}> {
+  const { count, error } = await supabase
+    .from('fireflies_webhook_log' as never)
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'dead_letter');
+  if (error) return { status: 'warn', detail: `Cannot check DLQ: ${error.message}` };
+  const total = count ?? 0;
+  if (total > 0) {
+    return {
+      status: 'warn',
+      detail: `${total} webhooks in dead-letter queue (exceeded max retries)`,
+    };
+  }
+  return { status: 'pass', detail: 'No dead-lettered webhooks' };
+}
+
+async function checkRateLimiting(): Promise<{
+  status: 'pass' | 'fail' | 'warn';
+  detail: string;
+}> {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count, error } = await supabase
+    .from('webhook_rate_limit' as never)
+    .select('*', { count: 'exact', head: true })
+    .gte('requested_at', oneHourAgo);
+  if (error) {
+    if (error.message?.includes('webhook_rate_limit')) {
+      return { status: 'warn', detail: 'Rate limit table not yet deployed (run migration)' };
+    }
+    return { status: 'fail', detail: error.message };
+  }
+  const total = count ?? 0;
+  return {
+    status: total > 100 ? 'warn' : 'pass',
+    detail: `${total} webhook requests in last hour`,
+  };
+}
+
+async function checkDelayedWebhooks(): Promise<{
+  status: 'pass' | 'fail' | 'warn';
+  detail: string;
+}> {
+  const { data, error } = await supabase
+    .from('fireflies_webhook_log' as never)
+    .select('id, process_after, delay_reason')
+    .eq('status', 'delayed')
+    .order('process_after', { ascending: true })
+    .limit(5);
+  if (error) return { status: 'warn', detail: `Cannot check delayed webhooks: ${error.message}` };
+  if (!data || data.length === 0) {
+    return { status: 'pass', detail: 'No delayed webhooks pending' };
+  }
+  const entries = data as { id: string; process_after: string; delay_reason: string }[];
+  const nextProcessAt = entries[0]?.process_after;
+  return {
+    status: 'pass',
+    detail: `${entries.length} delayed webhook(s), next processing at ${nextProcessAt ? new Date(nextProcessAt).toLocaleString() : 'unknown'}`,
+  };
+}
+
+async function checkLowConfidenceTasks(): Promise<{
+  status: 'pass' | 'fail' | 'warn';
+  detail: string;
+}> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const [lowConfResult, totalResult] = await Promise.all([
+    supabase
+      .from('daily_standup_tasks' as never)
+      .select('*', { count: 'exact', head: true })
+      .eq('extraction_confidence', 'low')
+      .gte('created_at', sevenDaysAgo),
+    supabase
+      .from('daily_standup_tasks' as never)
+      .select('*', { count: 'exact', head: true })
+      .eq('source', 'ai')
+      .gte('created_at', sevenDaysAgo),
+  ]);
+  if (lowConfResult.error || totalResult.error) {
+    return {
+      status: 'fail',
+      detail: lowConfResult.error?.message || totalResult.error?.message || 'Query error',
+    };
+  }
+  const lowConf = lowConfResult.count ?? 0;
+  const total = totalResult.count ?? 0;
+  if (total === 0) return { status: 'pass', detail: 'No AI tasks in last 7 days' };
+  const rate = Math.round((lowConf / total) * 100);
+  return {
+    status: rate > 30 ? 'warn' : 'pass',
+    detail: `${lowConf}/${total} AI tasks (${rate}%) have low confidence in last 7 days`,
+  };
+}
+
 const ALL_CHECKS = [
   { id: 'task-table', name: 'Task Table Health', category: 'Database', fn: checkTaskTableHealth },
   {
@@ -322,12 +459,42 @@ const ALL_CHECKS = [
     fn: checkWebhookRetry,
   },
   {
+    id: 'dead-letter',
+    name: 'Dead-Letter Queue',
+    category: 'Pipeline',
+    fn: checkDeadLetterQueue,
+  },
+  {
+    id: 'delayed-webhooks',
+    name: 'Delayed Webhooks',
+    category: 'Pipeline',
+    fn: checkDelayedWebhooks,
+  },
+  {
+    id: 'rate-limiting',
+    name: 'Webhook Rate Limiting',
+    category: 'Pipeline',
+    fn: checkRateLimiting,
+  },
+  {
     id: 'extraction-pipeline',
     name: 'Extraction Pipeline',
     category: 'Pipeline',
     fn: checkExtractionPipeline,
   },
   { id: 'completion', name: 'Task Completion Rate', category: 'Metrics', fn: checkTaskCompletion },
+  {
+    id: 'processing-metrics',
+    name: 'Processing Metrics',
+    category: 'Metrics',
+    fn: checkProcessingMetrics,
+  },
+  {
+    id: 'low-confidence',
+    name: 'Low-Confidence Tasks',
+    category: 'Metrics',
+    fn: checkLowConfidenceTasks,
+  },
   { id: 'activity-log', name: 'Activity Audit Log', category: 'Audit', fn: checkActivityLog },
   { id: 'dedup-keys', name: 'Deduplication Keys', category: 'Data Integrity', fn: checkDedupKeys },
   { id: 'overdue', name: 'Overdue Tasks', category: 'Metrics', fn: checkOverdueTasks },
