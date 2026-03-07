@@ -561,10 +561,26 @@ export function TaskCard({
 
             {/* Source meeting */}
             {task.source_meeting && (
-              <p className="text-xs text-muted-foreground">
-                From: {task.source_meeting.meeting_title}
-                {task.source_timestamp && ` (at ${task.source_timestamp})`}
-              </p>
+              <div className="rounded-md bg-sky-50 border border-sky-200 px-3 py-2 space-y-0.5">
+                <p className="text-xs font-medium text-sky-800">
+                  Source: {task.source_meeting.meeting_title}
+                </p>
+                {task.source_meeting.meeting_date && (
+                  <p className="text-xs text-sky-700">
+                    Meeting date:{' '}
+                    {(() => {
+                      const d = new Date(task.source_meeting.meeting_date);
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, '0');
+                      const day = String(d.getDate()).padStart(2, '0');
+                      return `${month}/${day}/${year}`;
+                    })()}
+                  </p>
+                )}
+                {task.source_timestamp && (
+                  <p className="text-xs text-sky-600">Timestamp: {task.source_timestamp}</p>
+                )}
+              </div>
             )}
 
             {/* AI source + confidence indicator */}

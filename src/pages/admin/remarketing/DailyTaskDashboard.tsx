@@ -276,16 +276,26 @@ const DailyTaskDashboard = () => {
   // Distinct source meetings for the filter dropdown
   const distinctMeetings = useMemo(() => {
     if (!tasks) return [];
-    const seen = new Map<string, string>();
+    const seen = new Map<string, { title: string; date: string | null; count: number }>();
     for (const t of tasks) {
       const sm = t.source_meeting;
-      if (sm?.id && sm?.meeting_title && !seen.has(sm.id)) {
-        seen.set(sm.id, sm.meeting_title);
+      if (sm?.id && sm?.meeting_title) {
+        if (!seen.has(sm.id)) {
+          seen.set(sm.id, { title: sm.meeting_title, date: sm.meeting_date ?? null, count: 1 });
+        } else {
+          seen.get(sm.id)!.count++;
+        }
       }
     }
     return Array.from(seen.entries())
-      .map(([id, title]) => ({ id, title }))
-      .sort((a, b) => a.title.localeCompare(b.title));
+      .map(([id, info]) => ({ id, title: info.title, date: info.date, count: info.count }))
+      .sort((a, b) => {
+        // Sort by date descending (newest first), then title
+        if (a.date && b.date) return b.date.localeCompare(a.date);
+        if (a.date) return -1;
+        if (b.date) return 1;
+        return a.title.localeCompare(b.title);
+      });
   }, [tasks]);
 
   // Combined filter: entity + meeting
@@ -676,7 +686,7 @@ const DailyTaskDashboard = () => {
                     : 'Meeting'}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-60 overflow-auto min-w-[200px]">
+              <DropdownMenuContent align="end" className="max-h-72 overflow-auto min-w-[280px]">
                 <DropdownMenuCheckboxItem
                   checked={!selectedMeeting}
                   onCheckedChange={() => setSelectedMeeting(null)}
@@ -691,7 +701,18 @@ const DailyTaskDashboard = () => {
                       setSelectedMeeting(selectedMeeting === m.id ? null : m.id)
                     }
                   >
-                    {m.title}
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm truncate max-w-[220px]">{m.title}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {m.date
+                          ? (() => {
+                              const d = new Date(m.date);
+                              return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+                            })()
+                          : 'No date'}{' '}
+                        · {m.count} {m.count === 1 ? 'task' : 'tasks'}
+                      </span>
+                    </div>
                   </DropdownMenuCheckboxItem>
                 ))}
               </DropdownMenuContent>
