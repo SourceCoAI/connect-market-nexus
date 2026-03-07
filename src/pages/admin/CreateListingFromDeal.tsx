@@ -126,17 +126,17 @@ export default function CreateListingFromDeal() {
         customer_types: ((deal as Record<string, unknown>).customer_types as string) || null,
         end_market_description:
           ((deal as Record<string, unknown>).end_market_description as string) || null,
-        investment_thesis: ((deal as Record<string, unknown>).investment_thesis as string) || null,
+        investment_thesis: ((deal as Record<string, unknown>).investment_thesis as string) ?? undefined,
         competitive_position:
-          ((deal as Record<string, unknown>).competitive_position as string) || null,
+          ((deal as Record<string, unknown>).competitive_position as string) ?? undefined,
         ownership_structure:
-          ((deal as Record<string, unknown>).ownership_structure as string) || null,
-        seller_motivation: ((deal as Record<string, unknown>).seller_motivation as string) || null,
-        business_model: ((deal as Record<string, unknown>).business_model as string) || null,
-        revenue_model: ((deal as Record<string, unknown>).revenue_model as string) || null,
+          ((deal as Record<string, unknown>).ownership_structure as string) ?? undefined,
+        seller_motivation: ((deal as Record<string, unknown>).seller_motivation as string) ?? undefined,
+        business_model: ((deal as Record<string, unknown>).business_model as string) ?? undefined,
+        revenue_model: ((deal as Record<string, unknown>).revenue_model as string) ?? undefined,
         growth_drivers: ((deal as Record<string, unknown>).growth_drivers as string[]) || null,
         services: anonymized.services.length > 0 ? anonymized.services : ((deal as Record<string, unknown>).services as string[]) || null,
-        service_mix: anonymized.service_mix || ((deal as Record<string, unknown>).service_mix as string) || null,
+        service_mix: (() => { const mix = anonymized.service_mix || ((deal as Record<string, unknown>).service_mix as string); return mix ? [mix] : null; })(),
         geographic_states: anonymized.geographic_states.length > 0 ? anonymized.geographic_states : ((deal as Record<string, unknown>).geographic_states as string[]) || null,
         custom_sections: [],
         tags: [],
@@ -285,8 +285,8 @@ export default function CreateListingFromDeal() {
             revenue_model: prefilled.revenue_model || null,
             growth_drivers: prefilled.growth_drivers || null,
             services: prefilled.services || null,
-            service_mix: (prefilled as Record<string, unknown>).service_mix || null,
-            geographic_states: (prefilled as Record<string, unknown>).geographic_states || null,
+            service_mix: (prefilled as unknown as Record<string, unknown>).service_mix || null,
+            geographic_states: (prefilled as unknown as Record<string, unknown>).geographic_states || null,
           }
         : {};
 

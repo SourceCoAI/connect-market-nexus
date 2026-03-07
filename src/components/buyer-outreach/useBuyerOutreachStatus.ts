@@ -39,7 +39,7 @@ export function useBuyerOutreachStatus(dealId: string, buyerIds: string[]) {
 
       if (error) throw error;
 
-      const events = (data || []) as OutreachEvent[];
+      const events = (data || []) as unknown as OutreachEvent[];
       const map = new Map<string, BuyerOutreachSummary>();
 
       // Group events by buyer_id

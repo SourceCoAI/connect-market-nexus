@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import {
   Sheet,
   SheetContent,
@@ -70,7 +70,7 @@ export function LaunchOutreachPanel({
         .eq('deal_id', dealId)
         .single();
       if (error) throw error;
-      return data as OutreachProfile | null;
+      return data as unknown as OutreachProfile | null;
     },
     enabled: !!dealId && open,
   });

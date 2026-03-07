@@ -19,7 +19,6 @@ import {
   Square,
   History,
   Plus,
-  GripVertical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -103,105 +102,6 @@ function getSuggestions(page?: string): string[] {
   }
 }
 
-// ---------- Draggable position hook ----------
-
-const POSITION_STORAGE_KEY = 'ai-command-center-position';
-
-interface Position {
-  x: number;
-  y: number;
-}
-
-function getDefaultPosition(): Position {
-  return {
-    x: window.innerWidth - 88,
-    y: window.innerHeight - 88,
-  };
-}
-
-function loadSavedPosition(): Position | null {
-  try {
-    const saved = localStorage.getItem(POSITION_STORAGE_KEY);
-    if (saved) {
-      const pos = JSON.parse(saved) as Position;
-      // Validate the saved position is still on screen
-      if (
-        pos.x >= 0 &&
-        pos.x <= window.innerWidth - 40 &&
-        pos.y >= 0 &&
-        pos.y <= window.innerHeight - 40
-      ) {
-        return pos;
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
-function useDraggablePosition() {
-  const [position, setPosition] = useState<Position>(
-    () => loadSavedPosition() || getDefaultPosition(),
-  );
-  const isDragging = useRef(false);
-  const hasDragged = useRef(false);
-  const dragOffset = useRef<Position>({ x: 0, y: 0 });
-
-  // Keep position on screen when window resizes
-  useEffect(() => {
-    const handleResize = () => {
-      setPosition((prev) => ({
-        x: Math.min(prev.x, window.innerWidth - 40),
-        y: Math.min(prev.y, window.innerHeight - 40),
-      }));
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    isDragging.current = true;
-    hasDragged.current = false;
-    dragOffset.current = {
-      x: e.clientX - (e.currentTarget as HTMLElement).getBoundingClientRect().left,
-      y: e.clientY - (e.currentTarget as HTMLElement).getBoundingClientRect().top,
-    };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    e.preventDefault();
-  }, []);
-
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDragging.current) return;
-    hasDragged.current = true;
-    const newX = Math.max(0, Math.min(e.clientX - dragOffset.current.x, window.innerWidth - 40));
-    const newY = Math.max(0, Math.min(e.clientY - dragOffset.current.y, window.innerHeight - 40));
-    setPosition({ x: newX, y: newY });
-  }, []);
-
-  const onPointerUp = useCallback((e: React.PointerEvent) => {
-    if (isDragging.current) {
-      isDragging.current = false;
-      // Save position
-      const newX = Math.max(0, Math.min(e.clientX - dragOffset.current.x, window.innerWidth - 40));
-      const newY = Math.max(0, Math.min(e.clientY - dragOffset.current.y, window.innerHeight - 40));
-      const pos = { x: newX, y: newY };
-      setPosition(pos);
-      try {
-        localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(pos));
-      } catch {
-        // ignore
-      }
-    }
-  }, []);
-
-  return {
-    position,
-    hasDragged,
-    dragHandlers: { onPointerDown, onPointerMove, onPointerUp },
-  };
-}
-
 // ---------- Component ----------
 
 export function AICommandCenterPanel({
@@ -216,8 +116,6 @@ export function AICommandCenterPanel({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  const { position, hasDragged, dragHandlers } = useDraggablePosition();
 
   // Feature 2: Proactive alert badge count
   const { data: alertCounts } = useProactiveAlerts();
@@ -356,18 +254,12 @@ export function AICommandCenterPanel({
   // ---------- Floating bubble (closed) ----------
   if (!isOpen) {
     return (
-      <div
-        className={cn('fixed z-50 touch-none', className)}
-        style={{ left: position.x, top: position.y }}
-        {...dragHandlers}
-      >
+      <div className={cn('fixed bottom-8 right-8 z-50', className)}>
         <div className="relative">
           <Button
-            onClick={() => {
-              if (!hasDragged.current) setIsOpen(true);
-            }}
+            onClick={() => setIsOpen(true)}
             size="lg"
-            className="rounded-full h-14 w-14 shadow-lg hover:scale-105 transition-transform bg-[#0E101A] hover:bg-[#000000] text-[#DEC76B] cursor-grab active:cursor-grabbing"
+            className="rounded-full h-14 w-14 shadow-lg hover:scale-105 transition-transform bg-[#0E101A] hover:bg-[#000000] text-[#DEC76B]"
           >
             <Sparkles className="h-6 w-6" />
           </Button>
@@ -389,19 +281,10 @@ export function AICommandCenterPanel({
   // ---------- Minimized bar ----------
   if (isMinimized) {
     return (
-      <div
-        className={cn('fixed z-50 flex items-center gap-1 touch-none', className)}
-        style={{ left: position.x, top: position.y }}
-      >
-        <div
-          className="cursor-grab active:cursor-grabbing p-1 text-white/60 hover:text-white bg-[#0E101A] rounded-l-full pl-2"
-          {...dragHandlers}
-        >
-          <GripVertical className="h-4 w-4" />
-        </div>
+      <div className={cn('fixed bottom-8 right-8 z-50', className)}>
         <Button
           onClick={() => setIsMinimized(false)}
-          className="gap-2 shadow-lg rounded-r-full rounded-l-none px-4 bg-[#0E101A] hover:bg-[#000000] text-[#DEC76B]"
+          className="gap-2 shadow-lg rounded-full px-4 bg-[#0E101A] hover:bg-[#000000] text-[#DEC76B]"
         >
           <Sparkles className="h-4 w-4" />
           AI Command Center
@@ -417,22 +300,8 @@ export function AICommandCenterPanel({
   }
 
   // ---------- Full panel ----------
-
-  // Anchor panel so its bottom-right corner aligns near the button position,
-  // but clamp so it never overflows the viewport.
-  const panelMaxW = Math.min(640, window.innerWidth - 32);
-  const panelMaxH = Math.min(800, window.innerHeight * 0.85);
-  const panelLeft = Math.max(
-    16,
-    Math.min(position.x - panelMaxW + 56, window.innerWidth - panelMaxW - 16),
-  );
-  const panelTop = Math.max(
-    16,
-    Math.min(position.y - panelMaxH + 56, window.innerHeight - panelMaxH - 16),
-  );
-
   return (
-    <div className={cn('fixed z-50', className)} style={{ left: panelLeft, top: panelTop }}>
+    <div className={cn('fixed bottom-8 right-8 z-50', className)}>
       <Card
         className="w-[640px] max-w-[calc(100vw-64px)] h-[800px] max-h-[85vh] flex flex-col shadow-2xl border-[#DEC76B]/30"
         style={{ backgroundColor: '#FCF9F0' }}
@@ -441,13 +310,6 @@ export function AICommandCenterPanel({
         <CardHeader className="pb-3 bg-[#0E101A] text-[#FCF9F0] rounded-t-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div
-                className="cursor-grab active:cursor-grabbing p-0.5 -ml-1 text-white/40 hover:text-white/70 touch-none"
-                title="Drag to reposition"
-                {...dragHandlers}
-              >
-                <GripVertical className="h-4 w-4" />
-              </div>
               <Sparkles className="h-5 w-5" />
               <CardTitle className="text-base font-semibold">AI Command Center</CardTitle>
               {routeInfo && (

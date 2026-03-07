@@ -249,7 +249,7 @@ export function BulkApproveForDealsDialog({
         }
       }
 
-      const allScoreIds = [...scoreIds, ...newScoreIds];
+      void [...scoreIds, ...newScoreIds];
 
       // Auto-create outreach records for approved scores
       for (const group of selectedGroups) {

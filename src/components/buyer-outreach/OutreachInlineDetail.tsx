@@ -51,9 +51,6 @@ export function OutreachInlineDetail({ dealId, buyerId, summary }: OutreachInlin
     }
   };
 
-  const formatEventType = (type: string) => {
-    return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  };
 
   return (
     <div className="px-6 py-3 bg-muted/30 border-t space-y-3">

@@ -538,9 +538,9 @@ export function useDealsActions({
         ];
 
         for (const { table, column } of dependentTables) {
-          const { error: depError } = await supabase
-            .from(table)
-            .delete()
+          const { error: depError } = await (supabase
+            .from(table as any)
+            .delete() as any)
             .eq(column, dealId);
           if (depError) {
             throw new Error(`Failed to delete from ${table}: ${depError.message}`);

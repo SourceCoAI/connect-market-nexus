@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,11 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Progress } from '@/components/ui/progress';
 import { useNewRecommendedBuyers, type BuyerScore } from '@/hooks/admin/use-new-recommended-buyers';
 import { useSeedBuyers, type SeedBuyerResult } from '@/hooks/admin/use-seed-buyers';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
-import { queueBuyerEnrichment } from '@/lib/remarketing/queueEnrichment';
 import {
   RefreshCw,
   Users,
@@ -30,7 +28,6 @@ import {
   Globe,
   ChevronDown,
   ExternalLink,
-  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -306,69 +303,6 @@ function SeedResultsSummary({ results }: { results: SeedBuyerResult[] }) {
   );
 }
 
-type SearchPhase = 'discovering' | 'scoring' | 'enriching' | 'done';
-
-const SEARCH_PHASES: { phase: SearchPhase; label: string; duration: number }[] = [
-  { phase: 'discovering', label: 'AI is discovering matching buyers...', duration: 30000 },
-  { phase: 'scoring', label: 'Scoring and deduplicating results...', duration: 10000 },
-  { phase: 'enriching', label: 'Queueing buyers for enrichment...', duration: 3000 },
-  { phase: 'done', label: 'Complete!', duration: 0 },
-];
-
-function BuyerSearchProgress({ phase, startedAt }: { phase: SearchPhase; startedAt: number }) {
-  const [elapsed, setElapsed] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => setElapsed(Date.now() - startedAt), 500);
-    return () => clearInterval(interval);
-  }, [startedAt]);
-
-  const currentIdx = SEARCH_PHASES.findIndex((p) => p.phase === phase);
-  const progressPct = phase === 'done' ? 100 : Math.min(95, ((currentIdx + 0.5) / (SEARCH_PHASES.length - 1)) * 100);
-  const elapsedSec = Math.floor(elapsed / 1000);
-
-  return (
-    <Card className="border-purple-200 bg-purple-50/50 mb-4">
-      <CardContent className="py-4">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-2">
-              <p className="font-medium text-sm text-purple-900">AI Buyer Search</p>
-              <span className="text-xs text-muted-foreground">{elapsedSec}s elapsed</span>
-            </div>
-            <Progress value={progressPct} className="h-2 mb-2" />
-            <div className="space-y-1">
-              {SEARCH_PHASES.slice(0, -1).map((step, idx) => {
-                const isActive = idx === currentIdx;
-                const isComplete = idx < currentIdx;
-                return (
-                  <div key={step.phase} className="flex items-center gap-2 text-xs">
-                    {isComplete ? (
-                      <CheckCircle className="h-3.5 w-3.5 text-green-600 shrink-0" />
-                    ) : isActive ? (
-                      <Loader2 className="h-3.5 w-3.5 text-purple-600 animate-spin shrink-0" />
-                    ) : (
-                      <div className="h-3.5 w-3.5 rounded-full border border-gray-300 shrink-0" />
-                    )}
-                    <span className={cn(
-                      isActive ? 'text-purple-700 font-medium' : isComplete ? 'text-green-700' : 'text-muted-foreground',
-                    )}>
-                      {step.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedBuyersPanelProps) {
   const { data, isLoading, isError, error, refresh } = useNewRecommendedBuyers(listingId);
   const seedMutation = useSeedBuyers();
@@ -380,8 +314,6 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
   const [internalVisible, setInternalVisible] = useState(PAGE_SIZE);
   const [externalVisible, setExternalVisible] = useState(PAGE_SIZE);
-  const [searchPhase, setSearchPhase] = useState<SearchPhase | null>(null);
-  const searchStartedAt = useRef<number>(0);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -397,15 +329,11 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
 
   const handleSeedBuyers = async () => {
     setSeedResults(null);
-    setSearchPhase('discovering');
-    searchStartedAt.current = Date.now();
     try {
       // AI search always runs without buyerCategory filter — Opus finds the best buyers across all types.
       // forceRefresh: true ensures clicking this button always runs a fresh Claude search instead
       // of returning stale cached results from a previous run.
       const result = await seedMutation.mutateAsync({ listingId, forceRefresh: true });
-
-      setSearchPhase('scoring');
       setSeedResults(result.seeded_buyers);
       if (result.cached) {
         toast.info(`Found ${result.total} cached AI-seeded buyers`);
@@ -414,30 +342,11 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
           `AI seeded ${result.total} buyers: ${result.inserted || 0} new, ${result.enriched_existing || 0} updated`,
         );
       }
-
-      // Queue newly discovered/updated buyers for enrichment
-      const buyerIdsToEnrich = result.seeded_buyers
-        .filter((b) => b.action === 'inserted' || b.action === 'enriched_existing')
-        .map((b) => b.buyer_id);
-      if (buyerIdsToEnrich.length > 0) {
-        setSearchPhase('enriching');
-        try {
-          await queueBuyerEnrichment(buyerIdsToEnrich);
-        } catch (enrichErr) {
-          console.error('Failed to queue buyer enrichment:', enrichErr);
-          // Non-fatal — buyers were still seeded successfully
-        }
-      }
-
       // Auto-refresh scores with forceRefresh so newly seeded buyers appear
       // (the server-side 4h score cache would otherwise return stale data)
       await refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to seed buyers');
-    } finally {
-      setSearchPhase('done');
-      // Clear progress after a brief moment so user sees "Complete!"
-      setTimeout(() => setSearchPhase(null), 2000);
     }
   };
 
@@ -602,9 +511,6 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
         </div>
       </CardHeader>
       <CardContent>
-        {searchPhase && searchPhase !== 'done' && (
-          <BuyerSearchProgress phase={searchPhase} startedAt={searchStartedAt.current} />
-        )}
         {seedResults && seedResults.length > 0 && (
           <div className="mb-4">
             <SeedResultsSummary results={seedResults} />
