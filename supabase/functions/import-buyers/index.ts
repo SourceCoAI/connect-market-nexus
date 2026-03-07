@@ -171,6 +171,12 @@ serve(async (req) => {
         continue;
       }
 
+      // Enforce Platform Company Rule: pe_firm_name set → corporate + is_pe_backed
+      if (buyer.pe_firm_name && String(buyer.pe_firm_name).trim() !== '' && buyer.buyer_type === 'private_equity') {
+        buyer.buyer_type = 'corporate';
+        buyer.is_pe_backed = true;
+      }
+
       // Validate company_website (required by DB CHECK constraint for active buyers)
       if (!buyer.company_website || String(buyer.company_website).trim() === '') {
         errors++;

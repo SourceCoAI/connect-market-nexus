@@ -1057,6 +1057,15 @@ export function buildBuyerUpdateObject(
   baseEntries.push({ type: 'field_sources', fields: fieldSources });
   updateData.extraction_sources = baseEntries;
 
+  // Enforce Platform Company Rule: if pe_firm_name is set, buyer must be corporate + is_pe_backed
+  const effectivePeFirmName = (updateData.pe_firm_name as string) || (buyer.pe_firm_name as string);
+  const effectiveBuyerType = (updateData.buyer_type as string) || (buyer.buyer_type as string);
+  if (effectivePeFirmName && effectivePeFirmName.trim() !== '' && effectiveBuyerType === 'private_equity') {
+    updateData.buyer_type = 'corporate';
+    updateData.is_pe_backed = true;
+    console.log('Platform Company Rule enforced: pe_firm_name set → buyer_type corrected to corporate');
+  }
+
   console.log(`Built update with ${fieldsUpdated} field changes`);
   return updateData;
 }
