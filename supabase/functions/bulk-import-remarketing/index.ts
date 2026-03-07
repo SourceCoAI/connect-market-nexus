@@ -427,7 +427,7 @@ serve(async (req) => {
             // Auto-generate description (non-blocking)
             const uName = String(row.industry_name || 'Unknown');
             if (uName !== 'Unknown') {
-              generateDescription(supabase, inserted.id, uName).catch((e: unknown) =>
+              generateDescription(supabase as any, inserted.id, uName).catch((e: unknown) =>
                 console.warn(`Description gen failed for ${uName}:`, e)
               );
             }
@@ -882,7 +882,7 @@ async function generateDescription(supabase: ReturnType<typeof createClient>, un
     if (response.ok) {
       const result = await response.json();
       if (result.description) {
-        await supabase.from('buyer_universes').update({ description: result.description }).eq('id', universeId);
+        await (supabase as any).from('buyer_universes').update({ description: result.description }).eq('id', universeId);
         console.log(`Generated description for universe: ${name}`);
       }
     }

@@ -420,7 +420,7 @@ async function searchBuyers(
   const { data, error } = await query;
   if (error) return { error: error.message };
 
-  let results: BuyerRecord[] = (data as BuyerRecord[]) || [];
+  let results: BuyerRecord[] = (data as unknown as BuyerRecord[]) || [];
 
   // ---- Universe-aware search ----
   // When searching by industry or free text, also find universes whose name/description
@@ -481,7 +481,7 @@ async function searchBuyers(
 
       const { data: universeBuyers } = await universeQuery;
       if (universeBuyers) {
-        for (const b of universeBuyers) {
+        for (const b of universeBuyers as unknown as BuyerRecord[]) {
           if (!existingIds.has(b.id)) {
             results.push(b);
             existingIds.add(b.id);

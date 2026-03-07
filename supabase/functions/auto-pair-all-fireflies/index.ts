@@ -116,15 +116,32 @@ function transcriptHasContent(t: {
   return true;
 }
 
-function extractExternalParticipants(attendees: unknown[]): { name: string; email: string }[] {
+interface FirefliesAttendee {
+  email?: string;
+  displayName?: string;
+  name?: string;
+}
+
+interface FirefliesTranscript {
+  id?: string;
+  title?: string;
+  date?: number | string;
+  transcript_url?: string;
+  meeting_attendees?: FirefliesAttendee[];
+  meeting_info?: { silent_meeting?: boolean; summary_status?: string };
+  summary?: { short_summary?: string; keywords?: string[] };
+  duration?: number;
+}
+
+function extractExternalParticipants(attendees: FirefliesAttendee[]): { name: string; email: string }[] {
   if (!Array.isArray(attendees)) return [];
   return attendees
-    .filter((a: { email?: string; displayName?: string; name?: string }) => {
+    .filter((a) => {
       const email = (a.email || '').toLowerCase();
       if (!email) return false;
       return !INTERNAL_DOMAINS.some((domain) => email.endsWith(`@${domain}`));
     })
-    .map((a: { email?: string; displayName?: string; name?: string }) => ({
+    .map((a) => ({
       name: a.displayName || a.name || a.email?.split('@')[0] || 'Unknown',
       email: a.email || '',
     }));
@@ -294,7 +311,7 @@ serve(async (req) => {
     // ------------------------------------------------------------------
     // 2. Fetch all recent Fireflies transcripts
     // ------------------------------------------------------------------
-    const allTranscripts: unknown[] = [];
+    const allTranscripts: FirefliesTranscript[] = [];
     const batchSize = 50;
     const maxPages = Math.ceil(maxTranscripts / batchSize);
 
@@ -460,7 +477,7 @@ serve(async (req) => {
 
         try {
           const attendeeEmails = (transcript.meeting_attendees || [])
-            .map((a: { email?: string }) => a.email)
+            .map((a) => a.email)
             .filter(Boolean);
 
           const { error: insertErr } = await supabase.from('deal_transcripts').insert({
