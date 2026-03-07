@@ -234,44 +234,89 @@ function repairAndParseJson(raw: string): unknown {
 
   const jsonEnd = cleaned.lastIndexOf(']');
   cleaned =
-    jsonEnd > jsonStart ? cleaned.substring(jsonStart, jsonEnd + 1) : cleaned.substring(jsonStart); // truncated — no closing bracket
+    jsonEnd > jsonStart ? cleaned.substring(jsonStart, jsonEnd + 1) : cleaned.substring(jsonStart);
 
-  // Remove control chars that break JSON (use RegExp constructor to satisfy no-control-regex)
-  // eslint-disable-next-line no-control-regex
+  // Remove control chars that break JSON
   cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, ' ');
 
-  // First attempt: direct parse
+  // Attempt 1: direct parse
   try {
     return JSON.parse(cleaned);
-  } catch {
-    /* continue */
-  }
+  } catch { /* continue */ }
 
-  // Second attempt: strip trailing commas
+  // Attempt 2: strip trailing commas
   let repaired = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-
   try {
     return JSON.parse(repaired);
-  } catch {
-    /* continue */
-  }
+  } catch { /* continue */ }
 
-  // Third attempt: find the last properly-closed object (not inside a string)
-  // This handles truncated output where a string literal is unterminated
+  // Attempt 3: find the last properly-closed object and truncate there
   const lastGood = findLastCompleteObject(cleaned);
   if (lastGood > 0) {
     repaired = cleaned.substring(0, lastGood + 1);
-    // Remove trailing comma before we close
     repaired = repaired.replace(/,\s*$/, '');
     if (!repaired.endsWith(']')) repaired += ']';
     if (!repaired.startsWith('[')) repaired = '[' + repaired;
     repaired = repaired.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-
     try {
       return JSON.parse(repaired);
-    } catch {
-      /* continue */
+    } catch { /* continue */ }
+  }
+
+  // Attempt 4: aggressive repair — close any unterminated string, then close structures
+  // Walk the string tracking state to find where it breaks
+  let inStr = false;
+  let depth = 0;
+  let arrDepth = 0;
+  let lastCompleteObjEnd = -1;
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (inStr) {
+      if (ch === '\\') { i++; continue; }
+      if (ch === '"') inStr = false;
+    } else {
+      if (ch === '"') inStr = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0 && arrDepth === 1) lastCompleteObjEnd = i;
+      }
+      else if (ch === '[') arrDepth++;
+      else if (ch === ']') arrDepth--;
     }
+  }
+
+  if (lastCompleteObjEnd > 0) {
+    repaired = cleaned.substring(0, lastCompleteObjEnd + 1);
+    repaired = repaired.replace(/,\s*$/, '');
+    // Ensure proper array wrapping
+    const firstBracket = repaired.indexOf('[');
+    if (firstBracket >= 0) {
+      repaired = repaired.substring(firstBracket);
+    }
+    if (!repaired.endsWith(']')) repaired += ']';
+    repaired = repaired.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+    try {
+      const result = JSON.parse(repaired);
+      console.log(`JSON repair attempt 4 succeeded — recovered ${Array.isArray(result) ? result.length : '?'} items from truncated response`);
+      return result;
+    } catch { /* continue */ }
+  }
+
+  // Attempt 5: extract individual objects with regex as last resort
+  const objectMatches: unknown[] = [];
+  const objRegex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+  let match;
+  while ((match = objRegex.exec(cleaned)) !== null) {
+    try {
+      const obj = JSON.parse(match[0]);
+      if (obj.company_name) objectMatches.push(obj);
+    } catch { /* skip malformed */ }
+  }
+  if (objectMatches.length > 0) {
+    console.log(`JSON repair attempt 5 (regex) recovered ${objectMatches.length} buyer objects`);
+    return objectMatches;
   }
 
   throw new Error(`Cannot parse Claude response as JSON (length=${raw.length})`);
