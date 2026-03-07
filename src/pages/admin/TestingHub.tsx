@@ -16,6 +16,7 @@ import {
   Square,
   History,
   FileText,
+  Users,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -35,6 +36,7 @@ const BuyerRecommendationTest = lazy(() => import('@/pages/admin/BuyerRecommenda
 const BuyerClassificationTest = lazy(() => import('@/pages/admin/BuyerClassificationTest'));
 const PromptTestRunner = lazy(() => import('@/pages/admin/PromptTestRunner'));
 const TestRunTracker = lazy(() => import('@/pages/admin/TestRunTracker'));
+const ContactLookupTestPanel = lazy(() => import('@/pages/admin/ContactLookupTestPanel'));
 
 // Storage keys — must match individual tab components exactly
 const SYSTEM_TEST_KEY = 'sourceco-system-test-results';
@@ -888,6 +890,10 @@ export default function TestingHub() {
               <FileText className="h-4 w-4" />
               Prompt Tests
             </TabsTrigger>
+            <TabsTrigger value="contact-lookup" className="gap-2">
+              <Users className="h-4 w-4" />
+              Contact Lookup
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="system">
@@ -941,6 +947,12 @@ export default function TestingHub() {
           <TabsContent value="prompt-tests">
             <Suspense fallback={<Loading />}>
               <PromptTestRunner />
+            </Suspense>
+          </TabsContent>
+
+          <TabsContent value="contact-lookup">
+            <Suspense fallback={<Loading />}>
+              <ContactLookupTestPanel />
             </Suspense>
           </TabsContent>
         </Tabs>
