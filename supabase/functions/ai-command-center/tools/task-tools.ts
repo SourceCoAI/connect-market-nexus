@@ -238,6 +238,19 @@ CRITICAL: Every task MUST be linked to an entity (deal, listing, buyer, or conta
     },
   },
   {
+    name: 'complete_task',
+    description: `Mark a task as completed. Logs the completion in activity log and deal activities.
+Use when the user says "mark task done", "complete task", "I finished the task", "task is done".`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'The task UUID to complete' },
+        notes: { type: 'string', description: 'Optional completion notes' },
+      },
+      required: ['task_id'],
+    },
+  },
+  {
     name: 'bulk_reassign_tasks',
     description:
       'Reassign all open tasks from one user to another. REQUIRES CONFIRMATION. Use when someone is out or responsibilities shift.',
@@ -279,6 +292,8 @@ export async function executeTaskTool(
       return confirmAITask(supabase, args, userId);
     case 'dismiss_ai_task':
       return dismissAITask(supabase, args, userId);
+    case 'complete_task':
+      return completeTask(supabase, args, userId);
     case 'add_task_comment':
       return addTaskComment(supabase, args, userId);
     case 'bulk_reassign_tasks':
@@ -658,6 +673,18 @@ async function createTask(
     new_value: { source: 'chatbot', entity_type: entityType, entity_id: entityId },
   });
 
+  // Log deal activity if linked to a deal
+  if (entityType === 'deal' && entityId) {
+    await supabase.from('deal_activities').insert({
+      deal_id: entityId,
+      admin_id: userId,
+      activity_type: 'task_created',
+      title: `Task: ${data.title}`,
+      description: `Created via AI Command Center. Type: ${insertData.task_type}`,
+      metadata: { task_id: data.id, source: 'chatbot' },
+    });
+  }
+
   return {
     data: {
       task: data,
@@ -715,6 +742,53 @@ async function dismissAITask(
   });
 
   return { data: { success: true, task_id: taskId } };
+}
+
+async function completeTask(
+  supabase: SupabaseClient,
+  args: Record<string, unknown>,
+  userId: string,
+): Promise<ToolResult> {
+  const taskId = args.task_id as string;
+  const notes = (args.notes as string) || null;
+
+  // Fetch task to get entity info
+  const { data: task, error: fetchError } = await supabase
+    .from('daily_standup_tasks')
+    .select('id, title, entity_type, entity_id, task_type')
+    .eq('id', taskId)
+    .single();
+
+  if (fetchError) return { error: fetchError.message };
+
+  const { error } = await supabase
+    .from('daily_standup_tasks')
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('id', taskId);
+
+  if (error) return { error: error.message };
+
+  // Log activity
+  await supabase.from('rm_task_activity_log').insert({
+    task_id: taskId,
+    user_id: userId,
+    action: 'completed',
+    new_value: notes ? { notes } : {},
+  });
+
+  // Log deal activity if linked to a deal
+  if (task.entity_type === 'deal' && task.entity_id) {
+    await supabase.from('deal_activities').insert({
+      deal_id: task.entity_id,
+      admin_id: userId,
+      activity_type: 'task_completed',
+      title: `Completed: ${task.title}`,
+      description: notes || `Task type: ${task.task_type}`,
+      metadata: { task_id: taskId },
+    });
+  }
+
+  return { data: { success: true, task_id: taskId, message: `Task "${task.title}" marked as completed.` } };
 }
 
 async function addTaskComment(

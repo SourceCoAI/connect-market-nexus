@@ -34,6 +34,7 @@ interface ExtractedTask {
   description: string;
   assignee_name: string;
   task_type: string;
+  task_category: 'deal_task' | 'platform_task' | 'operations_task';
   due_date: string;
   source_timestamp: string;
   deal_reference: string;
@@ -251,6 +252,7 @@ function parseFirefliesActionItems(
       description: `From Fireflies action items. Speaker: ${currentSpeaker}`,
       assignee_name: currentSpeaker,
       task_type: taskType,
+      task_category: inferTaskCategory(taskText, taskType),
       due_date: defaultDueDate,
       source_timestamp: timestamp,
       deal_reference: dealRef,
@@ -347,35 +349,28 @@ function inferTaskType(text: string): string {
 
 /** Try to extract a deal/company reference from action item text */
 function extractDealReference(text: string): string {
-  // Look for capitalized multi-word names that likely reference deals
-  // Common patterns: "owner of [Deal Name]", "for [Deal Name]", "[Deal Name] deal"
+  // First: check against known deal names from DB (supports single-word names like "Supernova")
+  // _knownDealNames is sorted longest-first to prefer "Smith Manufacturing" over "Smith"
+  if (_knownDealNames.length > 0) {
+    const textLower = text.toLowerCase();
+    for (const name of _knownDealNames) {
+      if (name.length < 3) continue; // skip very short names
+      if (textLower.includes(name.toLowerCase())) {
+        return name;
+      }
+    }
+  }
+
+  // Fallback: regex patterns for capitalized multi-word names
   const patterns = [
     /(?:owner of|for|regarding|about|on)\s+([A-Z][A-Za-z'']+(?:\s+[A-Z&][A-Za-z'']*)*)/,
     /([A-Z][A-Za-z'']+(?:\s+[A-Z&][A-Za-z'']*){1,4})\s+(?:deal|listing|company|business)/i,
   ];
 
   const commonWords = new Set([
-    'The',
-    'This',
-    'That',
-    'These',
-    'Those',
-    'Team',
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
+    'The', 'This', 'That', 'These', 'Those', 'Team',
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+    'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
   ]);
 
   for (const pattern of patterns) {
@@ -389,6 +384,130 @@ function extractDealReference(text: string): string {
   }
 
   return '';
+}
+
+/** Infer task_category from text and task_type */
+function inferTaskCategory(text: string, taskType: string): 'deal_task' | 'platform_task' | 'operations_task' {
+  const lower = text.toLowerCase();
+  // Platform/dev tasks
+  if (/\b(fix|bug|deploy|push|merge|code|api|endpoint|database|migration|integration|upload|enrichment|smartleads|data warehouse|platform|technical|dev|developer)\b/.test(lower)) {
+    return 'platform_task';
+  }
+  // Operations tasks
+  if (/\b(invoice|billing|payroll|hr|onboard|training|license|compliance|accounting|admin|operations|office)\b/.test(lower)) {
+    return 'operations_task';
+  }
+  // update_pipeline could be either
+  if (taskType === 'update_pipeline' && /\b(system|crm|data|enrich|upload)\b/.test(lower)) {
+    return 'platform_task';
+  }
+  return 'deal_task';
+}
+
+/** Parse MM:SS timestamp to total seconds */
+function parseTimestampToSeconds(ts: string): number | null {
+  if (!ts) return null;
+  const match = ts.match(/^(\d{1,3}):(\d{2})$/);
+  if (!match) return null;
+  return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+}
+
+/** Known deal names loaded from DB for single-word matching */
+let _knownDealNames: string[] = [];
+
+async function loadActiveDealNames(supabase: ReturnType<typeof createClient>): Promise<string[]> {
+  const { data } = await supabase
+    .from('deal_pipeline')
+    .select('listings!inner(title, internal_company_name)')
+    .not('listings.title', 'is', null);
+
+  const names = new Set<string>();
+  for (const d of data || []) {
+    const listing = d.listings as { title: string | null; internal_company_name: string | null };
+    if (listing.title) names.add(listing.title.trim());
+    if (listing.internal_company_name) names.add(listing.internal_company_name.trim());
+  }
+  // Sort longest first so "Smith Manufacturing" matches before "Smith"
+  return Array.from(names).sort((a, b) => b.length - a.length);
+}
+
+/** Check if a task already exists as pending/overdue for the same assignee */
+async function findRecurringTask(
+  supabase: ReturnType<typeof createClient>,
+  assigneeId: string | null,
+  title: string,
+): Promise<boolean> {
+  if (!assigneeId) return false;
+  const normalized = title.toLowerCase().trim();
+  if (normalized.length < 10) return false; // Too short to reliably dedup
+
+  // Look for existing open tasks for this assignee
+  const { data: existing } = await supabase
+    .from('daily_standup_tasks')
+    .select('id, title')
+    .eq('assignee_id', assigneeId)
+    .in('status', ['pending', 'overdue', 'in_progress'])
+    .limit(100);
+
+  if (!existing || existing.length === 0) return false;
+
+  for (const task of existing) {
+    const existingNorm = task.title.toLowerCase().trim();
+    // Exact match
+    if (existingNorm === normalized) return true;
+    // Substring match for longer titles (≥15 chars)
+    if (normalized.length >= 15 && (existingNorm.includes(normalized) || normalized.includes(existingNorm))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Carry over incomplete tasks from the previous standup that weren't re-mentioned */
+async function carryOverIncompleteTasks(
+  supabase: ReturnType<typeof createClient>,
+  currentMeetingId: string,
+  currentMeetingDate: string,
+  newTaskTitles: string[],
+): Promise<number> {
+  // Find the most recent previous standup meeting
+  const { data: prevMeetings } = await supabase
+    .from('standup_meetings')
+    .select('id')
+    .lt('meeting_date', currentMeetingDate)
+    .order('meeting_date', { ascending: false })
+    .limit(1);
+
+  if (!prevMeetings || prevMeetings.length === 0) return 0;
+  const prevMeetingId = prevMeetings[0].id;
+
+  // Find incomplete tasks from that meeting
+  const { data: incompleteTasks } = await supabase
+    .from('daily_standup_tasks')
+    .select('id, title, due_date, carry_count')
+    .eq('source_meeting_id', prevMeetingId)
+    .in('status', ['pending', 'in_progress']);
+
+  if (!incompleteTasks || incompleteTasks.length === 0) return 0;
+
+  const newTitlesLower = new Set(newTaskTitles.map(t => t.toLowerCase().trim()));
+  let carriedCount = 0;
+
+  for (const task of incompleteTasks) {
+    // Skip if this task was re-mentioned in the current meeting
+    if (newTitlesLower.has(task.title.toLowerCase().trim())) continue;
+
+    const isOverdue = task.due_date && task.due_date < currentMeetingDate;
+    await supabase.from('daily_standup_tasks').update({
+      source_meeting_id: currentMeetingId,
+      carried_over: true,
+      carry_count: (task.carry_count || 0) + 1,
+      ...(isOverdue ? { status: 'overdue' } : {}),
+    }).eq('id', task.id);
+    carriedCount++;
+  }
+
+  return carriedCount;
 }
 
 // ─── AI Extraction ───
@@ -505,10 +624,11 @@ async function extractTasksWithAI(
 
   try {
     const tasks = JSON.parse(jsonMatch[0]) as ExtractedTask[];
-    // Validate task types
+    // Validate task types and add task_category
     return tasks.map((t) => ({
       ...t,
       task_type: TASK_TYPES.includes(t.task_type) ? t.task_type : 'other',
+      task_category: inferTaskCategory(t.title || '', t.task_type),
       confidence: ['high', 'medium', 'low'].includes(t.confidence) ? t.confidence : 'medium',
     }));
   } catch {
@@ -748,8 +868,16 @@ async function recomputeRanks(supabase: ReturnType<typeof createClient>): Promis
     }
   }
 
-  for (const { id, rank } of ranked) {
-    await supabase.from('daily_standup_tasks').update({ priority_rank: rank }).eq('id', id);
+  // Batch update: group by rank isn't possible in PostgREST, but we can
+  // reduce round-trips by running updates in parallel batches of 10
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < ranked.length; i += BATCH_SIZE) {
+    const batch = ranked.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(({ id, rank }) =>
+        supabase.from('daily_standup_tasks').update({ priority_rank: rank }).eq('id', id)
+      ),
+    );
   }
 }
 
@@ -762,6 +890,8 @@ interface ProcessResult {
   tasks_extracted: number;
   tasks_unassigned: number;
   tasks_needing_review: number;
+  tasks_deduplicated: number;
+  tasks_carried_over: number;
   tasks: unknown[];
   skipped?: boolean;
   skip_reason?: string;
@@ -794,6 +924,8 @@ async function processSingleMeeting(
       tasks_extracted: 0,
       tasks_unassigned: 0,
       tasks_needing_review: 0,
+      tasks_deduplicated: 0,
+      tasks_carried_over: 0,
       tasks: [],
       skipped: true,
       skip_reason: 'Already processed',
@@ -903,10 +1035,19 @@ async function processSingleMeeting(
 
   if (meetingError) throw meetingError;
 
-  // Create task records with priority scoring
+  // Create task records with priority scoring + dedup
   const taskRecords = [];
+  let dedupCount = 0;
   for (const task of extractedTasks) {
     const assigneeId = matchAssignee(task.assignee_name, teamMembers);
+
+    // Recurring task dedup: skip if same task already open for this assignee
+    if (await findRecurringTask(supabase, assigneeId, task.title)) {
+      console.log(`[dedup] Skipping duplicate task: "${task.title}" for assignee ${assigneeId}`);
+      dedupCount++;
+      continue;
+    }
+
     const dealMatch = await matchDeal(task.deal_reference, supabase);
     const buyerMatch = await matchBuyer(task.title, supabase);
 
@@ -934,7 +1075,6 @@ async function processSingleMeeting(
     if (dealMatch) {
       entityType = 'deal';
       entityId = dealMatch.id;
-      // If buyer also matched, link as secondary entity
       if (buyerMatch) {
         secondaryEntityType = 'buyer';
         secondaryEntityId = buyerMatch.id;
@@ -949,10 +1089,12 @@ async function processSingleMeeting(
       description: task.description || null,
       assignee_id: assigneeId,
       task_type: task.task_type,
+      task_category: task.task_category || 'deal_task',
       status: shouldAutoApprove ? 'pending' : 'pending_approval',
       due_date: isValidDateString(task.due_date) ? task.due_date : today,
       source_meeting_id: meeting.id,
       source_timestamp: task.source_timestamp || null,
+      source_timestamp_seconds: parseTimestampToSeconds(task.source_timestamp || ''),
       deal_reference: task.deal_reference || null,
       deal_id: dealMatch?.id || null,
       priority_score: Math.round(priorityScore * 100) / 100,
@@ -977,6 +1119,29 @@ async function processSingleMeeting(
 
   if (insertError) throw insertError;
 
+  // Log deal activities for tasks linked to deals
+  const dealActivityRecords = (insertedTasks || [])
+    .filter((t: { entity_type: string | null; entity_id: string | null }) => t.entity_type === 'deal' && t.entity_id)
+    .map((t: { id: string; entity_id: string; title: string; task_type: string; assignee_id: string | null }) => ({
+      deal_id: t.entity_id,
+      activity_type: 'task_created',
+      title: `Task: ${t.title}`,
+      description: `Auto-extracted from standup meeting. Type: ${t.task_type}`,
+      metadata: { task_id: t.id, source: 'standup', assignee_id: t.assignee_id },
+    }));
+  if (dealActivityRecords.length > 0) {
+    await supabase.from('deal_activities').insert(dealActivityRecords);
+  }
+
+  // Task carryover: bring forward incomplete tasks from previous standup
+  const carriedOver = await carryOverIncompleteTasks(
+    supabase, meeting.id, meetingDate,
+    extractedTasks.map(t => t.title),
+  );
+  if (carriedOver > 0) {
+    console.log(`[carryover] Carried forward ${carriedOver} incomplete tasks`);
+  }
+
   return {
     meeting_id: meeting.id,
     fireflies_id: firefliesId,
@@ -984,6 +1149,8 @@ async function processSingleMeeting(
     tasks_extracted: taskRecords.length,
     tasks_unassigned: taskRecords.filter((t) => !t.assignee_id).length,
     tasks_needing_review: taskRecords.filter((t) => t.needs_review).length,
+    tasks_deduplicated: dedupCount,
+    tasks_carried_over: carriedOver,
     tasks: insertedTasks || [],
   };
 }
@@ -1010,6 +1177,10 @@ serve(async (req) => {
     console.log(`Found ${teamMembers.length} team members`);
 
     const allEbitdaValues = await loadAllEbitdaValues(supabase);
+
+    // Load known deal names for single-word deal matching
+    _knownDealNames = await loadActiveDealNames(supabase);
+    console.log(`Loaded ${_knownDealNames.length} known deal names`);
 
     // Check auto-approve setting from app_settings table
     let autoApproveEnabled = true;
@@ -1080,6 +1251,8 @@ serve(async (req) => {
           tasks_extracted: r.tasks_extracted,
           tasks_unassigned: r.tasks_unassigned,
           tasks_needing_review: r.tasks_needing_review,
+          tasks_deduplicated: r.tasks_deduplicated,
+          tasks_carried_over: r.tasks_carried_over,
           tasks: r.tasks,
           ...(r.skipped ? { skipped: true, skip_reason: r.skip_reason } : {}),
         }),
