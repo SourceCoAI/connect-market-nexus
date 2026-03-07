@@ -68,10 +68,35 @@ serve(async (req) => {
     return corsPreflightResponse(req);
   }
 
+  // Hoist webhookLogId so the catch block can mark failures for retry
+  let webhookLogId: string | null = null;
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Validate request size to prevent oversized payloads
+    const contentLength = parseInt(req.headers.get('content-length') || '0', 10);
+    if (contentLength > 1_000_000) {
+      return new Response(JSON.stringify({ error: 'Payload too large' }), {
+        status: 413,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Optional webhook secret verification (if FIREFLIES_WEBHOOK_SECRET is configured)
+    const webhookSecret = Deno.env.get('FIREFLIES_WEBHOOK_SECRET');
+    if (webhookSecret) {
+      const signature = req.headers.get('x-webhook-secret') || req.headers.get('authorization');
+      if (!signature || !signature.includes(webhookSecret)) {
+        console.warn('Webhook request failed secret verification');
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     const body = await req.json();
     console.log('Received Fireflies webhook:', JSON.stringify(body).slice(0, 500));
@@ -87,10 +112,22 @@ serve(async (req) => {
       });
     }
 
+    // Validate transcript ID format to prevent injection
+    if (
+      typeof transcriptId !== 'string' ||
+      transcriptId.length > 200 ||
+      !/^[\w-]+$/.test(transcriptId)
+    ) {
+      return new Response(JSON.stringify({ error: 'Invalid transcript_id format' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Log the webhook event for observability and retry support.
     // If this is a retry, update the existing log entry instead.
     const retryLogId = req.headers.get('x-retry-webhook-log-id');
-    let webhookLogId: string | null = retryLogId;
+    webhookLogId = retryLogId;
 
     if (retryLogId) {
       await supabase
@@ -221,8 +258,23 @@ serve(async (req) => {
   } catch (error) {
     console.error('Webhook processing error:', error);
 
-    // Best-effort: mark webhook log as failed (we may not have webhookLogId if error was early)
-    // The retry cron job will pick this up.
+    // Best-effort: mark webhook log as failed so retry cron can pick it up
+    if (typeof webhookLogId === 'string' && webhookLogId) {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const sb = createClient(supabaseUrl, supabaseKey);
+        await sb
+          .from('fireflies_webhook_log')
+          .update({
+            status: 'failed',
+            last_error: error instanceof Error ? error.message : 'Unknown error',
+          })
+          .eq('id', webhookLogId);
+      } catch (logErr) {
+        console.error('Failed to update webhook log on error:', logErr);
+      }
+    }
 
     return new Response(
       JSON.stringify({

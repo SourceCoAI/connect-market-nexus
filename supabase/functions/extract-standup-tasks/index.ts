@@ -42,17 +42,12 @@ interface ExtractedTask {
 
 // ─── Helpers ───
 
-/** Compute a dedup key for cross-extraction duplicate prevention. */
+/** Compute a dedup key for cross-extraction duplicate prevention.
+ *  Format must match the SQL backfill in migration 20260530000002:
+ *  lower(trim(title)) || ':' || coalesce(source_meeting_id::text, 'none') || ':' || coalesce(due_date::text, 'none')
+ */
 function computeDedupKey(title: string, meetingId: string, dueDate: string): string {
-  // Simple hash: use btoa as a lightweight fingerprint in Deno
-  const raw = `${title.toLowerCase().trim()}:${meetingId}:${dueDate}`;
-  // Use a simple hash since we don't have md5 in Deno by default
-  let hash = 0;
-  for (let i = 0; i < raw.length; i++) {
-    const chr = raw.charCodeAt(i);
-    hash = ((hash << 5) - hash + chr) | 0;
-  }
-  return `${Math.abs(hash).toString(36)}-${meetingId.slice(0, 8)}-${dueDate}`;
+  return `${title.toLowerCase().trim()}:${meetingId || 'none'}:${dueDate || 'none'}`;
 }
 
 // ─── Constants ───
@@ -492,11 +487,16 @@ function chunkTranscript(text: string): string[] {
 
   const chunks: string[] = [];
   let pos = 0;
+  const step = MAX_CHUNK_CHARS - OVERLAP_CHARS;
+  if (step <= 0) {
+    // Safety: overlap must be smaller than chunk size
+    return [text];
+  }
   while (pos < text.length) {
     const end = Math.min(pos + MAX_CHUNK_CHARS, text.length);
     chunks.push(text.slice(pos, end));
-    pos = end - OVERLAP_CHARS;
-    if (pos >= text.length) break;
+    if (end >= text.length) break;
+    pos += step;
   }
   console.log(`[chunking] Split ${text.length} char transcript into ${chunks.length} chunks`);
   return chunks;
@@ -538,7 +538,8 @@ async function extractFromSingleChunk(
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content || '';
 
-  const jsonMatch = content.match(/\[[\s\S]*?\](?=[^[\]]*$)/);
+  // Find the outermost JSON array — use greedy match to capture nested brackets
+  const jsonMatch = content.match(/\[[\s\S]*\]/);
   if (!jsonMatch) return [];
 
   try {
@@ -572,11 +573,17 @@ async function extractTasksWithAI(
   }
 
   // Process chunks and merge, deduplicating by normalised title
+  // Continue on per-chunk failures so partial results are still returned
   const allTasks: ExtractedTask[] = [];
   for (let i = 0; i < chunks.length; i++) {
     const label = ` (part ${i + 1} of ${chunks.length})`;
-    const chunkTasks = await extractFromSingleChunk(chunks[i], label, systemPrompt, apiKey);
-    allTasks.push(...chunkTasks);
+    try {
+      const chunkTasks = await extractFromSingleChunk(chunks[i], label, systemPrompt, apiKey);
+      allTasks.push(...chunkTasks);
+    } catch (chunkErr) {
+      console.error(`[chunking] Failed to extract from chunk ${i + 1}/${chunks.length}:`, chunkErr);
+      // Continue with other chunks rather than failing entirely
+    }
   }
 
   // Deduplicate across chunks by normalised title
@@ -707,9 +714,13 @@ async function matchDeal(
   stage_name: string | null;
 } | null> {
   if (!dealRef) return null;
-  // Sanitize dealRef to prevent PostgREST filter injection
-  const sanitized = dealRef.replace(/[(),."'\\]/g, '').trim();
-  if (!sanitized) return null;
+  // Sanitize: strip PostgREST operators and escape SQL LIKE wildcards
+  const sanitized = dealRef
+    .replace(/[(),."'\\]/g, '')
+    .replace(/%/g, '')
+    .replace(/_/g, '\\_')
+    .trim();
+  if (!sanitized || sanitized.length < 2) return null;
 
   const { data: deals } = await supabase
     .from('deal_pipeline')
@@ -756,8 +767,12 @@ async function matchBuyer(
     if (match) {
       const name = match[1]?.trim();
       if (!name || name.length < 3) continue;
-      const sanitized = name.replace(/[(),."'\\]/g, '').trim();
-      if (!sanitized) continue;
+      const sanitized = name
+        .replace(/[(),."'\\]/g, '')
+        .replace(/%/g, '')
+        .replace(/_/g, '\\_')
+        .trim();
+      if (!sanitized || sanitized.length < 2) continue;
 
       const { data: buyers } = await supabase
         .from('buyers')
@@ -782,48 +797,66 @@ async function matchContactsFromParticipants(
 ): Promise<{ id: string; first_name: string; last_name: string; email: string | null }[]> {
   if (!participants || participants.length === 0) return [];
 
-  const matched: { id: string; first_name: string; last_name: string; email: string | null }[] = [];
+  type ContactRow = { id: string; first_name: string; last_name: string; email: string | null };
+  const matchedMap = new Map<string, ContactRow>();
+
+  // Separate emails from names for batch processing
+  const emails: string[] = [];
+  const nameParts: { firstName: string; lastName: string }[] = [];
 
   for (const participant of participants) {
     const name = participant.trim();
     if (!name || name.length < 2) continue;
 
-    // Try email match first (Fireflies sometimes includes emails)
     if (name.includes('@')) {
-      const { data: emailMatch } = await supabase
-        .from('contacts')
-        .select('id, first_name, last_name, email')
-        .ilike('email', name)
-        .limit(1);
-      if (emailMatch && emailMatch.length > 0) {
-        matched.push(emailMatch[0]);
-        continue;
+      emails.push(name.toLowerCase());
+    } else {
+      const parts = name.split(/\s+/);
+      if (parts.length >= 2) {
+        const firstName = parts[0].replace(/[^a-zA-Z'-]/g, '');
+        const lastName = parts
+          .slice(1)
+          .join(' ')
+          .replace(/[^a-zA-Z' -]/g, '');
+        if (firstName.length >= 2 && lastName.length >= 2) {
+          nameParts.push({ firstName, lastName });
+        }
       }
     }
+  }
 
-    // Try name match: split into parts and match first_name + last_name
-    const parts = name.split(/\s+/);
-    if (parts.length >= 2) {
-      const firstName = parts[0].replace(/[^a-zA-Z'-]/g, '');
-      const lastName = parts
-        .slice(1)
-        .join(' ')
-        .replace(/[^a-zA-Z' -]/g, '');
-      if (firstName.length < 2 || lastName.length < 2) continue;
+  // Batch email lookup in a single query
+  if (emails.length > 0) {
+    const { data: emailMatches } = await supabase
+      .from('contacts')
+      .select('id, first_name, last_name, email')
+      .in('email', emails);
+    for (const c of (emailMatches || []) as ContactRow[]) {
+      matchedMap.set(c.id, c);
+    }
+  }
 
-      const { data: nameMatch } = await supabase
+  // Name lookups still need individual queries due to ilike patterns,
+  // but run them in parallel instead of sequentially
+  if (nameParts.length > 0) {
+    const namePromises = nameParts.map(async ({ firstName, lastName }) => {
+      const { data } = await supabase
         .from('contacts')
         .select('id, first_name, last_name, email')
         .ilike('first_name', firstName)
         .ilike('last_name', `${lastName}%`)
         .limit(1);
-      if (nameMatch && nameMatch.length > 0) {
-        matched.push(nameMatch[0]);
+      return (data || []) as ContactRow[];
+    });
+    const results = await Promise.all(namePromises);
+    for (const rows of results) {
+      for (const c of rows) {
+        matchedMap.set(c.id, c);
       }
     }
   }
 
-  return matched;
+  return [...matchedMap.values()];
 }
 
 async function loadAllEbitdaValues(supabase: ReturnType<typeof createClient>): Promise<number[]> {
@@ -861,7 +894,7 @@ async function recomputeRanks(supabase: ReturnType<typeof createClient>): Promis
   const { data: allTasks } = await supabase
     .from('daily_standup_tasks')
     .select('id, priority_score, is_pinned, pinned_rank, created_at')
-    .in('status', ['pending', 'overdue'])
+    .in('status', ['pending_approval', 'pending', 'overdue'])
     .order('priority_score', { ascending: false })
     .order('created_at', { ascending: true });
 
@@ -907,6 +940,8 @@ interface ProcessResult {
   tasks_extracted: number;
   tasks_unassigned: number;
   tasks_needing_review: number;
+  tasks_deduplicated?: number;
+  contacts_matched?: number;
   tasks: unknown[];
   skipped?: boolean;
   skip_reason?: string;
@@ -1166,6 +1201,14 @@ async function processSingleMeeting(
       throw insertError;
     }
     if (data) insertedTasks.push(data);
+  }
+
+  // Update meeting record with actual inserted count (may differ due to dedup/failures)
+  if (insertedTasks.length !== extractedTasks.length) {
+    await supabase
+      .from('standup_meetings')
+      .update({ tasks_extracted: insertedTasks.length })
+      .eq('id', meeting.id);
   }
 
   if (skippedDuplicates.length > 0) {

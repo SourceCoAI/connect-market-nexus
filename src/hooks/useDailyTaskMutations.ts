@@ -31,7 +31,7 @@ export async function recomputeRanks() {
   const { data: tasks } = await supabase
     .from('daily_standup_tasks' as never)
     .select('id, priority_score, is_pinned, pinned_rank, created_at')
-    .in('status', ['pending_approval', 'pending', 'in_progress', 'overdue'])
+    .in('status', ['pending_approval', 'pending', 'overdue'])
     .order('priority_score', { ascending: false })
     .order('created_at', { ascending: true });
 
@@ -541,14 +541,35 @@ export function useAddManualTask() {
 
 export function useDeleteTask() {
   const qc = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (taskId: string) => {
+      // Fetch task title before deleting for the activity log
+      const { data: taskRaw } = await supabase
+        .from('daily_standup_tasks' as never)
+        .select('id, title')
+        .eq('id', taskId)
+        .single();
+
       const { error } = await supabase
         .from('daily_standup_tasks' as never)
         .delete()
         .eq('id', taskId);
       if (error) throw error;
+
+      // Log deletion to activity log
+      try {
+        await (supabase.from('rm_task_activity_log' as any) as any).insert({
+          task_id: taskId,
+          user_id: user?.id ?? '',
+          action: 'deleted',
+          old_value: { title: (taskRaw as Record<string, unknown>)?.title },
+        } as never);
+      } catch (logErr) {
+        console.error('Failed to log delete activity:', logErr);
+      }
+
       await recomputeRanks();
     },
     onSuccess: () => {
@@ -589,13 +610,17 @@ export function usePinTask() {
       if (error) throw error;
 
       // Log the action
-      await (supabase.from('task_pin_log' as any) as any).insert({
-        task_id: taskId,
-        action: isPinning ? 'pinned' : 'unpinned',
-        pinned_rank: rank,
-        reason: reason || null,
-        performed_by: user?.id ?? '',
-      });
+      try {
+        await (supabase.from('task_pin_log' as any) as any).insert({
+          task_id: taskId,
+          action: isPinning ? 'pinned' : 'unpinned',
+          pinned_rank: rank,
+          reason: reason || null,
+          performed_by: user?.id ?? '',
+        });
+      } catch (logErr) {
+        console.error('Failed to log pin activity:', logErr);
+      }
 
       await recomputeRanks();
     },

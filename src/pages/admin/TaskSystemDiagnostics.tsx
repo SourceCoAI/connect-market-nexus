@@ -90,27 +90,43 @@ async function checkTaskCompletion(): Promise<{
   detail: string;
 }> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { data, error } = await supabase
-    .from('daily_standup_tasks' as never)
-    .select('status, completed_at')
-    .gte('created_at', thirtyDaysAgo);
-  if (error) return { status: 'fail', detail: error.message };
-  const tasks = (data || []) as { status: string; completed_at: string | null }[];
-  const total = tasks.length;
-  if (total === 0) return { status: 'warn', detail: 'No tasks in last 30 days' };
-  const completed = tasks.filter((t) => t.status === 'completed');
-  const completedWithTimestamp = completed.filter((t) => t.completed_at);
-  const rate = Math.round((completed.length / total) * 100);
 
-  if (completed.length > 0 && completedWithTimestamp.length < completed.length) {
+  // Use parallel count queries instead of fetching all rows
+  const [totalResult, completedResult, completedNoTimestampResult] = await Promise.all([
+    supabase
+      .from('daily_standup_tasks' as never)
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thirtyDaysAgo),
+    supabase
+      .from('daily_standup_tasks' as never)
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thirtyDaysAgo)
+      .eq('status', 'completed'),
+    supabase
+      .from('daily_standup_tasks' as never)
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thirtyDaysAgo)
+      .eq('status', 'completed')
+      .is('completed_at', null),
+  ]);
+
+  if (totalResult.error) return { status: 'fail', detail: totalResult.error.message };
+  const total = totalResult.count ?? 0;
+  if (total === 0) return { status: 'warn', detail: 'No tasks in last 30 days' };
+
+  const completedCount = completedResult.count ?? 0;
+  const missingTimestamp = completedNoTimestampResult.count ?? 0;
+  const rate = Math.round((completedCount / total) * 100);
+
+  if (completedCount > 0 && missingTimestamp > 0) {
     return {
       status: 'warn',
-      detail: `${rate}% completion rate (${completed.length}/${total}), but ${completed.length - completedWithTimestamp.length} completed tasks missing completed_at timestamp`,
+      detail: `${rate}% completion rate (${completedCount}/${total}), but ${missingTimestamp} completed tasks missing completed_at timestamp`,
     };
   }
   return {
     status: rate >= 30 ? 'pass' : 'warn',
-    detail: `${rate}% completion rate (${completed.length}/${total}) in last 30 days`,
+    detail: `${rate}% completion rate (${completedCount}/${total}) in last 30 days`,
   };
 }
 
@@ -143,53 +159,81 @@ async function checkDedupKeys(): Promise<{ status: 'pass' | 'fail' | 'warn'; det
 }
 
 async function checkOverdueTasks(): Promise<{ status: 'pass' | 'fail' | 'warn'; detail: string }> {
-  const { data, error } = await supabase
+  const { count, error } = await supabase
     .from('daily_standup_tasks' as never)
-    .select('id')
+    .select('*', { count: 'exact', head: true })
     .eq('status', 'overdue');
   if (error) return { status: 'fail', detail: error.message };
-  const count = data?.length ?? 0;
-  if (count > 20) return { status: 'warn', detail: `${count} overdue tasks need attention` };
-  return { status: 'pass', detail: `${count} overdue tasks` };
+  const total = count ?? 0;
+  if (total > 20) return { status: 'warn', detail: `${total} overdue tasks need attention` };
+  return { status: 'pass', detail: `${total} overdue tasks` };
 }
 
 async function checkSourceCoverage(): Promise<{
   status: 'pass' | 'fail' | 'warn';
   detail: string;
 }> {
-  const { data, error } = await supabase
+  const { count, error } = await supabase
     .from('daily_standup_tasks' as never)
-    .select('source')
-    .is('source', null)
-    .limit(1);
+    .select('*', { count: 'exact', head: true })
+    .is('source', null);
   if (error) return { status: 'fail', detail: error.message };
-  if (data && data.length > 0) {
-    return { status: 'warn', detail: 'Some tasks have NULL source field' };
+  if (count && count > 0) {
+    return { status: 'warn', detail: `${count} tasks have NULL source field` };
   }
   return { status: 'pass', detail: 'All tasks have source field populated' };
 }
 
 async function checkEntityLinking(): Promise<{ status: 'pass' | 'fail' | 'warn'; detail: string }> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { data, error } = await supabase
-    .from('daily_standup_tasks' as never)
-    .select('entity_type, entity_id')
-    .gte('created_at', thirtyDaysAgo);
-  if (error) return { status: 'fail', detail: error.message };
-  const tasks = (data || []) as { entity_type: string | null; entity_id: string | null }[];
-  if (tasks.length === 0) return { status: 'warn', detail: 'No recent tasks to check' };
-  const linked = tasks.filter((t) => t.entity_type && t.entity_id);
-  const rate = Math.round((linked.length / tasks.length) * 100);
-  const byType: Record<string, number> = {};
-  for (const t of linked) {
-    byType[t.entity_type!] = (byType[t.entity_type!] || 0) + 1;
-  }
-  const breakdown = Object.entries(byType)
-    .map(([k, v]) => `${k}: ${v}`)
+
+  // Use parallel count queries instead of fetching all rows
+  const [totalResult, linkedResult, dealResult, buyerResult, contactResult] = await Promise.all([
+    supabase
+      .from('daily_standup_tasks' as never)
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thirtyDaysAgo),
+    supabase
+      .from('daily_standup_tasks' as never)
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thirtyDaysAgo)
+      .not('entity_type', 'is', null)
+      .not('entity_id', 'is', null),
+    supabase
+      .from('daily_standup_tasks' as never)
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thirtyDaysAgo)
+      .eq('entity_type', 'deal'),
+    supabase
+      .from('daily_standup_tasks' as never)
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thirtyDaysAgo)
+      .eq('entity_type', 'buyer'),
+    supabase
+      .from('daily_standup_tasks' as never)
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thirtyDaysAgo)
+      .eq('entity_type', 'contact'),
+  ]);
+
+  if (totalResult.error) return { status: 'fail', detail: totalResult.error.message };
+  const total = totalResult.count ?? 0;
+  if (total === 0) return { status: 'warn', detail: 'No recent tasks to check' };
+
+  const linked = linkedResult.count ?? 0;
+  const rate = Math.round((linked / total) * 100);
+
+  const breakdown = [
+    dealResult.count ? `deal: ${dealResult.count}` : null,
+    buyerResult.count ? `buyer: ${buyerResult.count}` : null,
+    contactResult.count ? `contact: ${contactResult.count}` : null,
+  ]
+    .filter(Boolean)
     .join(', ');
+
   return {
     status: rate >= 50 ? 'pass' : 'warn',
-    detail: `${rate}% entity-linked (${linked.length}/${tasks.length}). ${breakdown || 'none'}`,
+    detail: `${rate}% entity-linked (${linked}/${total}). ${breakdown || 'none'}`,
   };
 }
 
@@ -209,6 +253,59 @@ async function checkContactMatching(): Promise<{
   return { status: 'pass', detail: 'Contact linking is active' };
 }
 
+async function checkWebhookRetry(): Promise<{ status: 'pass' | 'fail' | 'warn'; detail: string }> {
+  const { data, error } = await supabase
+    .from('fireflies_webhook_log' as never)
+    .select('id, attempt_count, status, created_at')
+    .gt('attempt_count', 1)
+    .order('created_at', { ascending: false })
+    .limit(5);
+  if (error) return { status: 'warn', detail: `Cannot check retry data: ${error.message}` };
+  if (!data || data.length === 0)
+    return { status: 'pass', detail: 'No webhook retries recorded (no failures to retry)' };
+  const entries = data as { id: string; attempt_count: number; status: string }[];
+  const stillFailed = entries.filter((e) => e.status === 'failed');
+  if (stillFailed.length > 0) {
+    return {
+      status: 'warn',
+      detail: `${stillFailed.length} webhooks still failed after retry (max attempts: ${Math.max(...stillFailed.map((e) => e.attempt_count))})`,
+    };
+  }
+  return { status: 'pass', detail: `${entries.length} webhooks recovered via retry` };
+}
+
+async function checkExtractionPipeline(): Promise<{
+  status: 'pass' | 'fail' | 'warn';
+  detail: string;
+}> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const [meetingsResult, tasksResult] = await Promise.all([
+    supabase
+      .from('standup_meetings' as never)
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', sevenDaysAgo),
+    supabase
+      .from('daily_standup_tasks' as never)
+      .select('*', { count: 'exact', head: true })
+      .eq('source', 'ai')
+      .gte('created_at', sevenDaysAgo),
+  ]);
+  if (meetingsResult.error || tasksResult.error) {
+    return {
+      status: 'fail',
+      detail: meetingsResult.error?.message || tasksResult.error?.message || 'Query error',
+    };
+  }
+  const meetings = meetingsResult.count ?? 0;
+  const tasks = tasksResult.count ?? 0;
+  if (meetings === 0) return { status: 'warn', detail: 'No meetings processed in last 7 days' };
+  const avgTasks = Math.round((tasks / meetings) * 10) / 10;
+  return {
+    status: avgTasks >= 1 ? 'pass' : 'warn',
+    detail: `${meetings} meetings → ${tasks} AI tasks (avg ${avgTasks}/meeting) in last 7 days`,
+  };
+}
+
 const ALL_CHECKS = [
   { id: 'task-table', name: 'Task Table Health', category: 'Database', fn: checkTaskTableHealth },
   {
@@ -218,6 +315,18 @@ const ALL_CHECKS = [
     fn: checkStandupMeetings,
   },
   { id: 'webhook-log', name: 'Webhook Log', category: 'Pipeline', fn: checkWebhookLog },
+  {
+    id: 'webhook-retry',
+    name: 'Webhook Retry Health',
+    category: 'Pipeline',
+    fn: checkWebhookRetry,
+  },
+  {
+    id: 'extraction-pipeline',
+    name: 'Extraction Pipeline',
+    category: 'Pipeline',
+    fn: checkExtractionPipeline,
+  },
   { id: 'completion', name: 'Task Completion Rate', category: 'Metrics', fn: checkTaskCompletion },
   { id: 'activity-log', name: 'Activity Audit Log', category: 'Audit', fn: checkActivityLog },
   { id: 'dedup-keys', name: 'Deduplication Keys', category: 'Data Integrity', fn: checkDedupKeys },
