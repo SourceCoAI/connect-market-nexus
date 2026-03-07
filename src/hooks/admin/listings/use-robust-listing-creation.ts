@@ -381,6 +381,7 @@ async function triggerDealAlertsForListing(listing: Record<string, unknown>): Pr
     });
 
     if (error) {
+      console.error('Failed to match deal alerts with listing:', error.message);
       return;
     }
 
@@ -389,12 +390,16 @@ async function triggerDealAlertsForListing(listing: Record<string, unknown>): Pr
       for (const alert of matchingAlerts) {
         if (alert.alert_frequency === 'instant') {
           // Log delivery attempt
-          await supabase.from('alert_delivery_logs').insert({
+          const { error: logInsertError } = await supabase.from('alert_delivery_logs').insert({
             alert_id: alert.alert_id as string,
             listing_id: listing.id as string,
             user_id: alert.user_id as string,
             delivery_status: 'pending',
           });
+
+          if (logInsertError) {
+            console.error('Failed to insert alert delivery log:', logInsertError.message);
+          }
 
           // Trigger edge function
           try {
@@ -413,12 +418,18 @@ async function triggerDealAlertsForListing(listing: Record<string, unknown>): Pr
               throw functionError;
             }
           } catch (emailError) {
-            // Deal alert email failed for this user
+            console.error(
+              `Deal alert email failed for user ${alert.user_id}:`,
+              emailError instanceof Error ? emailError.message : emailError,
+            );
           }
         }
       }
     }
-  } catch (_triggerError) {
-    // Silently fail deal alerts - they should not block listing creation
+  } catch (triggerError) {
+    console.error(
+      'Deal alert trigger failed:',
+      triggerError instanceof Error ? triggerError.message : triggerError,
+    );
   }
 }

@@ -338,7 +338,7 @@ export default function CreateListingFromDeal() {
                 .map((s) => `**${s.title}**\n\n${s.content}`)
                 .join('\n\n---\n\n');
 
-              await supabase
+              const { error: syncUpdateError } = await supabase
                 .from('listings')
                 .update({
                   custom_sections: customSections,
@@ -346,7 +346,11 @@ export default function CreateListingFromDeal() {
                 })
                 .eq('id', newListing.id);
 
-              console.log('[CreateListingFromDeal] Auto-synced teaser content to new listing');
+              if (syncUpdateError) {
+                console.warn('[CreateListingFromDeal] Teaser sync update failed:', syncUpdateError.message);
+              } else {
+                console.log('[CreateListingFromDeal] Auto-synced teaser content to new listing');
+              }
             }
           }
         } catch (syncErr) {
