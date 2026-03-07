@@ -34,7 +34,8 @@ import {
   User,
 } from 'lucide-react';
 import type { DailyStandupTaskWithRelations } from '@/types/daily-tasks';
-import { TASK_TYPE_LABELS, TASK_TYPE_COLORS } from '@/types/daily-tasks';
+import { TASK_TYPE_LABELS, TASK_TYPE_COLORS, TASK_CATEGORY_LABELS, TASK_CATEGORY_COLORS } from '@/types/daily-tasks';
+import type { TaskCategory } from '@/types/daily-tasks';
 import { useToggleTaskComplete, useReassignTask, useEditTask } from '@/hooks/useDailyTasks';
 import { useSnoozeTask } from '@/hooks/useTaskActions';
 import { useAdminProfiles } from '@/hooks/admin/use-admin-profiles';
@@ -255,6 +256,27 @@ export function TaskCard({
           </Badge>
         )}
 
+        {/* Task category badge */}
+        {task.task_category && task.task_category !== 'deal_task' && (
+          <Badge
+            variant="outline"
+            className={cn('shrink-0 text-[9px] px-1.5 py-0 h-4', TASK_CATEGORY_COLORS[task.task_category as TaskCategory])}
+          >
+            {TASK_CATEGORY_LABELS[task.task_category as TaskCategory]}
+          </Badge>
+        )}
+
+        {/* Carried over indicator */}
+        {task.carried_over && (
+          <Badge
+            variant="outline"
+            className="shrink-0 text-[9px] px-1.5 py-0 h-4 border-amber-300 text-amber-700 bg-amber-50"
+            title={`Carried over ${task.carry_count || 1} time${(task.carry_count || 1) > 1 ? 's' : ''}`}
+          >
+            Carried {task.carry_count || 1}x
+          </Badge>
+        )}
+
         {/* Source meeting badge */}
         {task.source_meeting?.meeting_title && (
           <Badge
@@ -467,6 +489,24 @@ export function TaskCard({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Task category */}
+              {task.task_category && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Category</p>
+                  <Badge
+                    variant="outline"
+                    className={cn('text-xs', TASK_CATEGORY_COLORS[task.task_category as TaskCategory])}
+                  >
+                    {TASK_CATEGORY_LABELS[task.task_category as TaskCategory] || task.task_category}
+                  </Badge>
+                  {task.carried_over && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Carried over {task.carry_count || 1} time{(task.carry_count || 1) > 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Due date */}
               <div>

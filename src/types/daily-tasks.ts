@@ -115,6 +115,12 @@ export interface DailyStandupTask {
 
   // v3.2 — Free-form tags
   tags: string[];
+
+  // v3.3 — Recurring task dedup & categories
+  task_category: 'deal_task' | 'platform_task' | 'operations_task';
+  carried_over: boolean;
+  carry_count: number;
+  source_timestamp_seconds: number | null;
 }
 
 export interface DailyStandupTaskWithRelations extends DailyStandupTask {
@@ -250,6 +256,20 @@ export const PRIORITY_COLORS: Record<TaskPriority, string> = {
   high: 'bg-red-100 text-red-800 border-red-200',
   medium: 'bg-amber-100 text-amber-800 border-amber-200',
   low: 'bg-gray-100 text-gray-800 border-gray-200',
+};
+
+export type TaskCategory = 'deal_task' | 'platform_task' | 'operations_task';
+
+export const TASK_CATEGORY_LABELS: Record<TaskCategory, string> = {
+  deal_task: 'Deal',
+  platform_task: 'Platform',
+  operations_task: 'Operations',
+};
+
+export const TASK_CATEGORY_COLORS: Record<TaskCategory, string> = {
+  deal_task: 'bg-blue-50 text-blue-700 border-blue-200',
+  platform_task: 'bg-violet-50 text-violet-700 border-violet-200',
+  operations_task: 'bg-orange-50 text-orange-700 border-orange-200',
 };
 
 // ─── Priority Scoring Constants ───
