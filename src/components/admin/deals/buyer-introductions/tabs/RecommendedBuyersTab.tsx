@@ -36,6 +36,7 @@ import {
   ExternalLink,
   MoreHorizontal,
   ArrowRight,
+  Ban,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -46,7 +47,7 @@ interface RecommendedBuyersTabProps {
   pipelineBuyerIds: Set<string>;
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 const TIER_CONFIG: Record<BuyerScore['tier'], { label: string; color: string; icon: typeof Zap }> = {
   move_now: {
@@ -104,6 +105,7 @@ function TierSummary({ buyers }: { buyers: BuyerScore[] }) {
 function BuyerCard({
   buyer,
   onAccept,
+  onDismiss,
   isAccepting,
   isInPipeline,
   isSelected,
@@ -111,6 +113,7 @@ function BuyerCard({
 }: {
   buyer: BuyerScore;
   onAccept: (buyer: BuyerScore) => void;
+  onDismiss: (buyer: BuyerScore) => void;
   isAccepting?: boolean;
   isInPipeline?: boolean;
   isSelected: boolean;
@@ -251,8 +254,18 @@ function BuyerCard({
                 onClick={() => onAccept(buyer)}
                 disabled={isAccepting}
               >
-                <Plus className="h-3.5 w-3.5" />
-                Add to Pipeline
+                <Check className="h-3.5 w-3.5" />
+                Approve Introduction
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2.5 text-xs gap-1 bg-red-50 border-red-300 text-red-700 hover:bg-red-100 hover:border-red-500"
+                onClick={() => onDismiss(buyer)}
+              >
+                <Ban className="h-3.5 w-3.5" />
+                Not a Fit
               </Button>
 
               {/* Overflow menu */}
@@ -358,9 +371,17 @@ export function RecommendedBuyersTab({
   const [seedResults, setSeedResults] = useState<SeedBuyerResult[] | null>(null);
   const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(`dismissed-buyers-${listingId}`);
+      return stored ? new Set(JSON.parse(stored) as string[]) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [internalVisible, setInternalVisible] = useState(PAGE_SIZE);
-  const [externalVisible, setExternalVisible] = useState(PAGE_SIZE);
+  const [internalPage, setInternalPage] = useState(0);
+  const [externalPage, setExternalPage] = useState(0);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -477,6 +498,27 @@ export function RecommendedBuyersTab({
     }
   };
 
+  const handleDismiss = useCallback(
+    (buyer: BuyerScore) => {
+      setDismissedIds((prev) => {
+        const next = new Set([...prev, buyer.buyer_id]);
+        try {
+          localStorage.setItem(`dismissed-buyers-${listingId}`, JSON.stringify([...next]));
+        } catch {
+          // localStorage full or unavailable
+        }
+        return next;
+      });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(buyer.buyer_id);
+        return next;
+      });
+      toast.success(`${buyer.company_name} marked as not a fit`);
+    },
+    [listingId],
+  );
+
   const toggleSelect = useCallback((buyerId: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -488,12 +530,14 @@ export function RecommendedBuyersTab({
 
   const allBuyers = data?.buyers || [];
   const available = allBuyers.filter(
-    (b) => !acceptedIds.has(b.buyer_id),
+    (b) => !acceptedIds.has(b.buyer_id) && !dismissedIds.has(b.buyer_id),
   );
   const allInternal = available.filter(isInternal);
   const allExternal = available.filter((b) => !isInternal(b));
-  const internalBuyers = allInternal.slice(0, internalVisible);
-  const externalBuyers = allExternal.slice(0, externalVisible);
+  const internalBuyers = allInternal.slice(internalPage * PAGE_SIZE, (internalPage + 1) * PAGE_SIZE);
+  const externalBuyers = allExternal.slice(externalPage * PAGE_SIZE, (externalPage + 1) * PAGE_SIZE);
+  const internalTotalPages = Math.max(1, Math.ceil(allInternal.length / PAGE_SIZE));
+  const externalTotalPages = Math.max(1, Math.ceil(allExternal.length / PAGE_SIZE));
   const buyers = [...allInternal, ...allExternal];
 
   if (isLoading) {
@@ -582,7 +626,7 @@ export function RecommendedBuyersTab({
               onClick={handleBatchAdd}
             >
               <ArrowRight className="h-3.5 w-3.5" />
-              Add {selectedIds.size} Selected to Pipeline
+              Approve {selectedIds.size} Selected
             </Button>
           </div>
         </div>
@@ -630,21 +674,37 @@ export function RecommendedBuyersTab({
                     key={buyer.buyer_id}
                     buyer={buyer}
                     onAccept={handleAccept}
+                    onDismiss={handleDismiss}
                     isAccepting={acceptingIds.has(buyer.buyer_id)}
                     isInPipeline={pipelineBuyerIds.has(buyer.buyer_id)}
                     isSelected={selectedIds.has(buyer.buyer_id)}
                     onToggleSelect={toggleSelect}
                   />
                 ))}
-                {allInternal.length > internalVisible && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => setInternalVisible((prev) => Math.min(prev + PAGE_SIZE, allInternal.length))}
-                  >
-                    Show More ({Math.max(0, allInternal.length - internalVisible)} remaining)
-                  </Button>
+                {internalTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setInternalPage((p) => p - 1)}
+                      disabled={internalPage === 0}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Page {internalPage + 1} of {internalTotalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setInternalPage((p) => p + 1)}
+                      disabled={internalPage >= internalTotalPages - 1}
+                    >
+                      Next
+                    </Button>
+                  </div>
                 )}
               </>
             )}
@@ -665,21 +725,37 @@ export function RecommendedBuyersTab({
                     key={buyer.buyer_id}
                     buyer={buyer}
                     onAccept={handleAccept}
+                    onDismiss={handleDismiss}
                     isAccepting={acceptingIds.has(buyer.buyer_id)}
                     isInPipeline={pipelineBuyerIds.has(buyer.buyer_id)}
                     isSelected={selectedIds.has(buyer.buyer_id)}
                     onToggleSelect={toggleSelect}
                   />
                 ))}
-                {allExternal.length > externalVisible && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => setExternalVisible((prev) => Math.min(prev + PAGE_SIZE, allExternal.length))}
-                  >
-                    Show More ({Math.max(0, allExternal.length - externalVisible)} remaining)
-                  </Button>
+                {externalTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setExternalPage((p) => p - 1)}
+                      disabled={externalPage === 0}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Page {externalPage + 1} of {externalTotalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setExternalPage((p) => p + 1)}
+                      disabled={externalPage >= externalTotalPages - 1}
+                    >
+                      Next
+                    </Button>
+                  </div>
                 )}
               </>
             )}
