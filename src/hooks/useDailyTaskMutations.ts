@@ -418,6 +418,7 @@ export function useReassignTask() {
 
 export function useEditTask() {
   const qc = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -437,6 +438,18 @@ export function useEditTask() {
         .update(updates as never)
         .eq('id', taskId);
       if (error) throw error;
+
+      // Log edit to activity log
+      try {
+        await (supabase.from('rm_task_activity_log' as any) as any).insert({
+          task_id: taskId,
+          user_id: user?.id ?? '',
+          action: 'edited',
+          new_value: updates,
+        } as never);
+      } catch (logErr) {
+        console.error('Failed to log edit activity:', logErr);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
