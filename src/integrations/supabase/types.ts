@@ -1028,6 +1028,60 @@ export type Database = {
         }
         Relationships: []
       }
+      buyer_search_jobs: {
+        Row: {
+          buyers_found: number | null
+          buyers_inserted: number | null
+          buyers_updated: number | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          listing_id: string
+          listing_name: string | null
+          progress_message: string | null
+          progress_pct: number
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          buyers_found?: number | null
+          buyers_inserted?: number | null
+          buyers_updated?: number | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          listing_id: string
+          listing_name?: string | null
+          progress_message?: string | null
+          progress_pct?: number
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          buyers_found?: number | null
+          buyers_inserted?: number | null
+          buyers_updated?: number | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          listing_id?: string
+          listing_name?: string | null
+          progress_message?: string | null
+          progress_pct?: number
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       buyer_seed_cache: {
         Row: {
           buyer_ids: string[] | null
