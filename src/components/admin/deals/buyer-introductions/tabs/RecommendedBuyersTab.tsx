@@ -703,6 +703,50 @@ export function RecommendedBuyersTab({
         </div>
       </div>
 
+      {/* AI Search Progress Bar */}
+      {job && (
+        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {job.status === 'failed' ? (
+                <AlertCircle className="h-4 w-4 text-destructive" />
+              ) : job.status === 'completed' ? (
+                <CheckCircle className="h-4 w-4 text-emerald-600" />
+              ) : (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              )}
+              <span className="text-sm font-medium text-foreground">
+                {job.status === 'completed'
+                  ? 'Search Complete'
+                  : job.status === 'failed'
+                    ? 'Search Failed'
+                    : 'AI Buyer Search'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{job.progress_pct}%</span>
+              {(job.status === 'completed' || job.status === 'failed') && (
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={dismissJob}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+          <Progress value={job.progress_pct} className="h-1.5" />
+          {job.progress_message && (
+            <p className="text-xs text-muted-foreground">{job.progress_message}</p>
+          )}
+          {job.error && (
+            <p className="text-xs text-destructive">{job.error}</p>
+          )}
+          {job.status === 'completed' && job.buyers_found > 0 && (
+            <p className="text-xs text-emerald-600">
+              Found {job.buyers_found} buyers ({job.buyers_inserted} new, {job.buyers_updated} updated)
+            </p>
+          )}
+        </div>
+      )}
+
       {seedResults && seedResults.length > 0 && <SeedResultsSummary results={seedResults} />}
 
       {/* Batch action bar */}
