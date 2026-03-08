@@ -21,8 +21,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useNewRecommendedBuyers, type BuyerScore } from '@/hooks/admin/use-new-recommended-buyers';
-import { useSeedBuyers, type SeedBuyerResult } from '@/hooks/admin/use-seed-buyers';
+import { useSeedBuyers, type SeedBuyerResult, type SeedBuyersResponse } from '@/hooks/admin/use-seed-buyers';
 import { useBuyerSearchJob } from '@/hooks/admin/use-buyer-search-job';
+import { BuyerSearchSummaryDialog } from '@/components/admin/deals/buyer-introductions/BuyerSearchSummaryDialog';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -448,6 +449,10 @@ export function RecommendedBuyersTab({
   const [externalPage, setExternalPage] = useState(0);
   // Rejection dialog state
   const [rejectingBuyer, setRejectingBuyer] = useState<BuyerScore | null>(null);
+  // Search summary dialog state
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summaryCached, setSummaryCached] = useState(false);
 
   const nicheCategory = listingIndustry || listingCategories?.[0] || 'general';
 
@@ -465,6 +470,8 @@ export function RecommendedBuyersTab({
 
   const handleSeedBuyers = async () => {
     setSeedResults(null);
+    setSummaryError(null);
+    setSummaryCached(false);
     try {
       // Create a job for progress tracking
       const jobId = await createJob(listingTitle);
@@ -473,16 +480,13 @@ export function RecommendedBuyersTab({
       // of returning stale cached results from a previous run.
       const result = await seedMutation.mutateAsync({ listingId, forceRefresh: true, jobId });
       setSeedResults(result.seeded_buyers);
-      if (result.cached) {
-        toast.info(`Found ${result.total} cached AI-seeded buyers`);
-      } else {
-        toast.success(
-          `AI seeded ${result.total} buyers: ${result.inserted || 0} new, ${result.enriched_existing || 0} updated`,
-        );
-      }
+      setSummaryCached(!!result.cached);
+      setSummaryDialogOpen(true);
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to seed buyers');
+      const msg = err instanceof Error ? err.message : 'Failed to seed buyers';
+      setSummaryError(msg);
+      setSummaryDialogOpen(true);
     }
   };
 
@@ -947,6 +951,15 @@ export function RecommendedBuyersTab({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AI Search Summary Dialog */}
+      <BuyerSearchSummaryDialog
+        open={summaryDialogOpen}
+        onOpenChange={setSummaryDialogOpen}
+        results={seedResults}
+        cached={summaryCached}
+        error={summaryError}
+      />
     </div>
   );
 }
