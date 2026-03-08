@@ -1106,6 +1106,7 @@ export type Database = {
       buyer_seed_log: {
         Row: {
           action: string | null
+          buyer_profile: Json | null
           category_cache_key: string | null
           id: string
           known_acquisitions: string[] | null
@@ -1113,11 +1114,13 @@ export type Database = {
           seed_model: string | null
           seeded_at: string | null
           source_deal_id: string | null
+          verification_status: string | null
           was_new_record: boolean | null
           why_relevant: string | null
         }
         Insert: {
           action?: string | null
+          buyer_profile?: Json | null
           category_cache_key?: string | null
           id?: string
           known_acquisitions?: string[] | null
@@ -1125,11 +1128,13 @@ export type Database = {
           seed_model?: string | null
           seeded_at?: string | null
           source_deal_id?: string | null
+          verification_status?: string | null
           was_new_record?: boolean | null
           why_relevant?: string | null
         }
         Update: {
           action?: string | null
+          buyer_profile?: Json | null
           category_cache_key?: string | null
           id?: string
           known_acquisitions?: string[] | null
@@ -1137,6 +1142,7 @@ export type Database = {
           seed_model?: string | null
           seeded_at?: string | null
           source_deal_id?: string | null
+          verification_status?: string | null
           was_new_record?: boolean | null
           why_relevant?: string | null
         }
