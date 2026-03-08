@@ -977,7 +977,8 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('seed-buyers error:', error);
     // Mark job as failed if we have a jobId
-    if (typeof jobId !== 'undefined') {
+    // Mark job as failed if we have a jobId
+    if (_jobId) {
       try {
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -989,7 +990,7 @@ Deno.serve(async (req: Request) => {
           error: String(error).slice(0, 500),
           completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }).eq('id', jobId);
+        }).eq('id', _jobId);
       } catch { /* best effort */ }
     }
     return new Response(
