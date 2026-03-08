@@ -98,12 +98,14 @@ YOUR MISSION: Find the BEST-FIT acquirers for a specific deal — not the most o
 CRITICAL RULES:
 - Only suggest REAL companies that actually exist. Never fabricate names.
 - Prioritize NICHE, SPECIALIZED buyers over large generalist firms. A $200M PE fund with three portfolio companies in the exact sub-sector is far more valuable than a $10B fund that occasionally invests in the broad industry.
+- STRICT INDUSTRY MATCH: Only return companies that operate in or directly acquire businesses in the EXACT same niche as the deal. Do NOT return companies from adjacent or tangentially related industries. For example, if the deal is a fleet repair business, only return companies that own/acquire fleet repair and maintenance businesses — NOT utility contractors, NOT general construction firms, NOT logistics companies, and NOT generic "services" PE firms.
 - Look for firms actively executing "buy-and-build" or roll-up strategies in the deal's specific vertical. Platform companies doing add-on acquisitions in the same niche are the highest-value finds.
 - Include firms that have made RECENT, VERIFIABLE acquisitions in the specific sub-sector — not firms that might theoretically be interested.
 - Think about the full ecosystem: Who are the PE-backed platforms rolling up this space? Which strategic acquirers are on acquisition sprees in this niche? Which infrastructure funds or specialty PE firms have thesis overlap?
 - For each buyer, explain specifically WHY they are a uniquely good fit for THIS deal — reference their portfolio companies, known acquisitions, stated thesis, or geographic strategy.
 - Include the company's website if you know it.
 - Quality over quantity: 5 highly relevant buyers beats 10 generic ones.
+- When in doubt about whether a company is a good fit, LEAVE IT OUT. It is far better to return 3 perfect matches than 10 mediocre ones.
 
 You must respond with valid JSON only. No markdown, no code fences, no explanatory text outside the JSON.`;
 }
@@ -147,11 +149,15 @@ BUYER TYPE FILTER: ONLY return financial sponsors — PE firms, growth equity fi
 `;
   } else if (buyerCategory === 'operating_companies') {
     categoryInstruction = `
-BUYER TYPE FILTER: ONLY return operating companies and strategic acquirers — real businesses that operate in the same or adjacent industries.
-- Prioritize PE-backed platform companies actively doing add-on acquisitions to consolidate this niche
-- Include regional or national operators that compete in or serve the same end market
-- Look for companies that have recently acquired similar businesses as part of a roll-up strategy
-- Do NOT include PE firms, financial sponsors, family offices, or investment funds (the PE backer can be listed as pe_firm_name but the company_name must be the operating company)
+BUYER TYPE FILTER: ONLY return OPERATING COMPANIES — real businesses that actually perform the same or very similar work as this deal's business.
+- The company_name MUST be an actual operating business, NOT an investment firm, PE fund, capital firm, or holding company.
+- CRITICAL: Do NOT return companies with "Capital", "Partners", "Equity", "Investment", "Holdings", "Fund", or "Group" in their name unless they are genuinely an operating company that performs the services described in this deal.
+- Prioritize PE-backed PLATFORM COMPANIES (the operating entity, not the PE fund) actively doing add-on acquisitions to consolidate this exact niche. For example, if this is a fleet repair deal, return the fleet repair platform company, NOT the PE firm that backs it.
+- Include regional or national operators that DIRECTLY compete in or serve the same end market — they must actually perform the same type of work.
+- Look for companies that have recently acquired similar businesses as part of a roll-up strategy.
+- Do NOT include PE firms, financial sponsors, family offices, venture capital firms, or investment funds. The PE backer can be listed as pe_firm_name, but the company_name MUST be the operating company.
+- Do NOT include companies from adjacent-but-different industries (e.g., utility construction companies for a fleet repair deal, or general maintenance firms for a specialized repair business).
+- Every company you return should be one that a business owner in this exact niche would recognize as a competitor, customer, or direct industry peer.
 `;
   }
 
@@ -178,6 +184,7 @@ DISCOVERY GUIDANCE:
 - Consider the full buyer ecosystem: PE-backed platforms doing add-ons, specialty PE funds, regional consolidators, national strategic acquirers expanding into this geography
 - Prioritize buyers with VERIFIABLE recent acquisitions in this niche over firms that are merely tangentially related
 - A small specialized firm with 3 acquisitions in this exact space is more valuable than a Fortune 500 with broad interests
+- IMPORTANT: Do NOT include companies from adjacent industries. "Adjacent" means they are in a DIFFERENT business even if they serve overlapping customers. A utility construction company is NOT a match for a fleet repair deal, even though both serve infrastructure markets. Stick to the EXACT same business type.
 
 Return a JSON array of up to ${maxBuyers} buyers. Each object must have:
 {
@@ -528,7 +535,47 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const suggestedBuyers = parseClaudeResponse(responseText);
+    let suggestedBuyers = parseClaudeResponse(responseText);
+
+    // ── Post-generation buyer type filtering ──
+    // Claude sometimes ignores the category instruction and returns wrong buyer types.
+    // Enforce the constraint at runtime to prevent PE firms leaking into operating_companies results.
+    if (buyerCategory === 'operating_companies') {
+      const financialBuyerTypes = new Set(['private_equity', 'family_office', 'search_fund', 'independent_sponsor']);
+      // Also flag companies whose names strongly suggest they are financial buyers, not operators
+      const financialNamePatterns = /\b(capital|partners|equity|investment|holdings|fund|ventures|advisors|asset management)\b/i;
+
+      const before = suggestedBuyers.length;
+      suggestedBuyers = suggestedBuyers.filter((b) => {
+        if (financialBuyerTypes.has(b.buyer_type)) {
+          console.info(`Filtered out ${b.company_name} — buyer_type "${b.buyer_type}" not allowed for operating_companies category`);
+          return false;
+        }
+        if (financialNamePatterns.test(b.company_name) && !b.pe_firm_name) {
+          // If the company name looks like a financial firm and there's no separate PE backer,
+          // it's likely the PE firm itself rather than an operating company
+          console.info(`Filtered out ${b.company_name} — name matches financial buyer pattern without separate PE backer`);
+          return false;
+        }
+        return true;
+      });
+      if (before !== suggestedBuyers.length) {
+        console.info(`Post-filter: removed ${before - suggestedBuyers.length} financial buyers from operating_companies results`);
+      }
+    } else if (buyerCategory === 'sponsors') {
+      // For sponsors mode, filter out pure operating companies
+      const before = suggestedBuyers.length;
+      suggestedBuyers = suggestedBuyers.filter((b) => {
+        if (b.buyer_type === 'corporate' && !b.pe_firm_name) {
+          console.info(`Filtered out ${b.company_name} — corporate without PE backing not allowed for sponsors category`);
+          return false;
+        }
+        return true;
+      });
+      if (before !== suggestedBuyers.length) {
+        console.info(`Post-filter: removed ${before - suggestedBuyers.length} non-sponsor buyers from sponsors results`);
+      }
+    }
 
     // ── Deduplicate and insert ──
     const results: SeedResult[] = [];
