@@ -11,7 +11,6 @@ interface ScoringBehaviorPanelProps {
   scoringBehavior: ScoringBehavior;
   weights: {
     geography: number;
-    size: number;
     service: number;
     ownerGoals: number;
   };
@@ -26,7 +25,7 @@ export const ScoringBehaviorPanel = ({
   readOnly = false,
 }: ScoringBehaviorPanelProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const totalWeight = weights.geography + weights.size + weights.service + weights.ownerGoals;
+  const totalWeight = weights.geography + weights.service + weights.ownerGoals;
 
   const handleChange = (key: keyof ScoringBehavior, value: boolean | string) => {
     if (onScoringBehaviorChange) {

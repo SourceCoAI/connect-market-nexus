@@ -23,7 +23,7 @@ export interface BuyerScore {
   composite_score: number;
   service_score: number;
   geography_score: number;
-  size_score: number;
+  size_score?: number;
   bonus_score: number;
   fit_signals: string[];
   fit_reason: string;
