@@ -2,15 +2,14 @@
  * Find Contacts Edge Function
  *
  * Core orchestration for contact intelligence:
- *   1. Resolve company → LinkedIn URL
- *   2. Check cache for recent results
- *   3. Apify scrape LinkedIn employees
+ *   1. Check cache for recent results
+ *   2. Discover employees via Serper Google search (role-specific queries)
+ *   3. Parse LinkedIn titles, score & deduplicate
  *   4. Filter by title criteria
- *   5. Dedup against existing contacts
- *   6. Prospeo enrich (email/phone)
- *   7. Domain fallback if enrichment is sparse
- *   8. Save to enriched_contacts table
- *   9. Log the search
+ *   5. Prospeo enrich (email/phone)
+ *   6. Domain fallback if enrichment is sparse
+ *   7. Save to enriched_contacts table
+ *   8. Log the search
  *
  * POST /find-contacts
  * Body: { company_name, title_filter?, target_count?, company_linkedin_url?, company_domain? }
@@ -19,9 +18,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
-import { scrapeCompanyEmployees, resolveCompanyUrl, inferDomain } from '../_shared/apify-client.ts';
+import { inferDomain } from '../_shared/apify-client.ts';
 import { batchEnrich, domainSearchEnrich } from '../_shared/prospeo-client.ts';
-import { findCompanyLinkedIn } from '../_shared/serper-client.ts';
+import { googleSearch } from '../_shared/serper-client.ts';
 import { fireClayFallback } from '../_shared/clay-fallback.ts';
 
 interface FindContactsRequest {
@@ -77,6 +76,204 @@ function matchesTitle(title: string, filters: string[]): boolean {
   }
 
   return false;
+}
+
+/**
+ * Validate a LinkedIn URL is a real personal profile (not company, posts, etc.)
+ */
+function isValidLinkedInProfileUrl(url: string): boolean {
+  if (!url || !url.includes('linkedin.com/in/')) return false;
+  const disallowed = [
+    'linkedin.com/company/',
+    'linkedin.com/posts/',
+    'linkedin.com/pub/dir/',
+    'linkedin.com/feed/',
+    'linkedin.com/jobs/',
+    'linkedin.com/school/',
+    'linkedin.com/in/ACo',
+  ];
+  return !disallowed.some((d) => url.includes(d));
+}
+
+/**
+ * Parse a LinkedIn search result title into structured contact data.
+ * LinkedIn titles follow patterns like:
+ *   "Ryan Brown - President at Essential Benefit Administrators | LinkedIn"
+ *   "John Smith - CEO & Founder at Acme Corp | LinkedIn"
+ */
+function parseLinkedInTitle(resultTitle: string): {
+  firstName: string;
+  lastName: string;
+  role: string;
+  company: string;
+} | null {
+  const cleaned = resultTitle.replace(/\s*[|·–—-]\s*LinkedIn\s*$/i, '').trim();
+  if (!cleaned) return null;
+
+  const dashParts = cleaned.split(/\s+[-–—]\s+/);
+  const namePart = dashParts[0]?.trim() || '';
+  const names = namePart.split(/\s+/).filter(Boolean);
+  if (names.length < 2) return null;
+
+  const firstName = names[0];
+  const lastName = names[names.length - 1];
+
+  let role = '';
+  let company = '';
+  if (dashParts.length >= 2) {
+    const rest = dashParts.slice(1).join(' - ').trim();
+    const atMatch = rest.match(/^(.+?)\s+at\s+(.+)$/i);
+    if (atMatch) {
+      role = atMatch[1].trim();
+      company = atMatch[2].trim();
+    } else {
+      const looksLikeRole =
+        /\b(CEO|CFO|COO|CTO|VP|President|Founder|Owner|Partner|Principal|Director|Manager|Chairman)\b/i;
+      if (looksLikeRole.test(rest)) {
+        role = rest;
+      } else {
+        company = rest;
+      }
+    }
+  }
+
+  return { firstName, lastName, role, company };
+}
+
+interface DiscoveredEmployee {
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  title: string;
+  profileUrl: string;
+  companyName: string;
+  confidence: number;
+}
+
+/**
+ * Discover employees at a company via Serper Google search.
+ * Replaces the broken Apify LinkedIn scraper with the same approach
+ * used by the AI command center's discoverDecisionMakers.
+ */
+async function discoverEmployeesViaSerper(
+  companyName: string,
+  domain: string,
+  titleFilter: string[],
+  maxResults: number = 25,
+): Promise<DiscoveredEmployee[]> {
+  const companyDomain = domain || inferDomain(companyName);
+  const excludeNoise = '-zoominfo -dnb -rocketreach -signalhire -apollo.io';
+
+  // Role-specific search queries (same strategy as AI command center)
+  const roleQueries = [
+    `${companyDomain} "${companyName}" CEO owner founder site:linkedin.com/in ${excludeNoise}`,
+    `${companyDomain} "${companyName}" president chairman site:linkedin.com/in ${excludeNoise}`,
+    `${companyDomain} "${companyName}" partner principal site:linkedin.com/in ${excludeNoise}`,
+    `${companyDomain} "${companyName}" VP director site:linkedin.com/in ${excludeNoise}`,
+    `"${companyName}" contact email ${excludeNoise}`,
+  ];
+
+  // Add targeted queries for specific title filters
+  if (titleFilter.length > 0) {
+    for (const tf of titleFilter) {
+      roleQueries.push(
+        `${companyDomain} "${companyName}" ${tf} site:linkedin.com/in ${excludeNoise}`,
+      );
+    }
+  }
+
+  // Broader coverage query
+  roleQueries.push(`${companyDomain} "${companyName}" leadership team ${excludeNoise}`);
+
+  console.log(
+    `[find-contacts] Running ${roleQueries.length} Serper queries for "${companyName}"`,
+  );
+
+  // Run all queries and collect results
+  const allResults: Array<{ title: string; url: string; description: string }> = [];
+
+  for (const query of roleQueries) {
+    try {
+      const results = await googleSearch(query, 10);
+      for (const r of results) {
+        allResults.push(r);
+      }
+    } catch (err) {
+      console.warn(
+        `[find-contacts] Serper query failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  console.log(`[find-contacts] Collected ${allResults.length} total search results`);
+
+  // Extract contacts from LinkedIn results
+  const contactMap = new Map<string, DiscoveredEmployee>();
+
+  for (const result of allResults) {
+    if (!isValidLinkedInProfileUrl(result.url)) continue;
+
+    const parsed = parseLinkedInTitle(result.title);
+    if (!parsed) continue;
+
+    // Verify this person is associated with the target company
+    const combined = `${result.title} ${result.description}`.toLowerCase();
+    const compWords = companyName
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 2);
+    const companyWordMatches = compWords.filter((w) => combined.includes(w));
+
+    if (companyWordMatches.length === 0 && !combined.includes(companyDomain.toLowerCase())) {
+      continue;
+    }
+
+    // Clean LinkedIn URL
+    let cleanUrl = result.url.split('?')[0];
+    if (!cleanUrl.startsWith('https://')) {
+      cleanUrl = cleanUrl.replace('http://', 'https://');
+    }
+
+    // Dedup key
+    const dedupKey = `${parsed.firstName.toLowerCase()}:${parsed.lastName.toLowerCase()}`;
+
+    // Score this contact
+    let confidence = 20; // Name found
+    confidence += Math.min(companyWordMatches.length * 15, 30); // Company match
+    if (parsed.role) confidence += 20; // Has role
+    if (
+      /\b(CEO|CFO|COO|CTO|President|Founder|Owner|Chairman|Partner|Principal)\b/i.test(
+        parsed.role,
+      )
+    ) {
+      confidence += 20;
+    } else if (/\b(VP|Director|Manager|General\s*Manager)\b/i.test(parsed.role)) {
+      confidence += 10;
+    }
+
+    const existing = contactMap.get(dedupKey);
+    if (!existing || confidence > existing.confidence) {
+      const title = parsed.role || existing?.title || '';
+      contactMap.set(dedupKey, {
+        fullName: `${parsed.firstName} ${parsed.lastName}`,
+        firstName: parsed.firstName,
+        lastName: parsed.lastName,
+        title: title.length > (existing?.title?.length || 0) ? title : existing?.title || title,
+        profileUrl: cleanUrl,
+        companyName: companyName,
+        confidence,
+      });
+    }
+  }
+
+  // Sort by confidence and limit
+  const results = Array.from(contactMap.values()).sort((a, b) => b.confidence - a.confidence);
+
+  console.log(
+    `[find-contacts] Discovered ${results.length} unique contacts for "${companyName}" via Serper`,
+  );
+
+  return results.slice(0, maxResults);
 }
 
 function deduplicateContacts<
@@ -176,45 +373,38 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 2. Resolve company LinkedIn URL
-    let linkedInUrl = body.company_linkedin_url;
-    if (!linkedInUrl) {
-      console.log(`[find-contacts] Resolving LinkedIn URL for "${companyName}"`);
-      try {
-        linkedInUrl =
-          (await findCompanyLinkedIn(companyName)) ||
-          resolveCompanyUrl(companyName, body.company_domain);
-      } catch (err) {
-        console.warn(`[find-contacts] LinkedIn URL resolution failed: ${err}`);
-        linkedInUrl = resolveCompanyUrl(companyName, body.company_domain);
+    // 2-4. Discover employees via Serper Google search (replaces Apify LinkedIn scraper)
+    //       Uses the same strategy as the AI command center's discoverDecisionMakers:
+    //       role-specific Google queries → parse LinkedIn titles → score & deduplicate
+    const domain = body.company_domain || inferDomain(companyName);
+    let discovered: DiscoveredEmployee[] = [];
+    try {
+      discovered = await discoverEmployeesViaSerper(
+        companyName,
+        domain,
+        titleFilter,
+        Math.max(targetCount * 3, 25),
+      );
+    } catch (err) {
+      console.error(`[find-contacts] Serper discovery failed: ${err}`);
+      errors.push(`Contact discovery failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // 5. Apply title filter (Serper discovery already scores by role, but apply explicit filter)
+    let filtered = discovered;
+    if (titleFilter.length > 0 && discovered.length > 0) {
+      const titleFiltered = discovered.filter((e) => matchesTitle(e.title || '', titleFilter));
+      // If filter produced results, use them; otherwise keep all (filter might be too narrow)
+      if (titleFiltered.length > 0) {
+        filtered = titleFiltered;
+        console.log(`[find-contacts] Title filter: ${discovered.length} → ${filtered.length}`);
       }
     }
-
-    // 3. Scrape LinkedIn employees via Apify
-    console.log(`[find-contacts] Scraping employees at ${linkedInUrl}`);
-    let employees: Record<string, unknown>[] = [];
-    try {
-      employees = await scrapeCompanyEmployees(linkedInUrl!, Math.max(targetCount * 3, 50));
-    } catch (err) {
-      console.error(`[find-contacts] Apify scrape failed: ${err}`);
-      errors.push(`LinkedIn scrape failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
-
-    // 4. Filter by title
-    let filtered = employees;
-    if (titleFilter.length > 0 && employees.length > 0) {
-      filtered = employees.filter((e) => matchesTitle(e.title || '', titleFilter));
-      console.log(`[find-contacts] Title filter: ${employees.length} → ${filtered.length}`);
-    }
-
-    // 5. Dedup
-    filtered = deduplicateContacts(filtered);
 
     // Limit to target count for enrichment
     const toEnrich = filtered.slice(0, targetCount);
 
     // 6. Prospeo enrichment
-    const domain = body.company_domain || inferDomain(companyName);
     console.log(`[find-contacts] Enriching ${toEnrich.length} contacts via Prospeo`);
 
     let enriched: Record<string, unknown>[] = [];
@@ -223,7 +413,7 @@ Deno.serve(async (req: Request) => {
         toEnrich.map((e) => ({
           firstName: e.firstName || e.fullName?.split(' ')[0] || '',
           lastName: e.lastName || e.fullName?.split(' ').slice(1).join(' ') || '',
-          linkedinUrl: e.profileUrl,
+          linkedinUrl: e.profileUrl || undefined,
           domain,
           title: e.title,
           company: companyName,
@@ -251,7 +441,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Build final contact list (merge Apify data + Prospeo data)
+    // Build final contact list (merge Serper discovery + Prospeo enrichment)
     const contacts = enriched.map((e) => ({
       company_name: companyName,
       full_name: `${e.first_name} ${e.last_name}`.trim(),
@@ -267,7 +457,7 @@ Deno.serve(async (req: Request) => {
       search_query: cacheKey,
     }));
 
-    // Also include unenriched Apify contacts (no email but have LinkedIn)
+    // Also include unenriched contacts (no email but have LinkedIn URL from Serper)
     const enrichedLinkedIns = new Set(
       enriched.map((e) => (e.linkedin_url as string)?.toLowerCase()),
     );

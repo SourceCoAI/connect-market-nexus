@@ -80,8 +80,9 @@ export function useBuyerIntroductions(listingId: string | undefined) {
               toast.info(`No contacts found for ${result.firmName} — try manual search`);
             }
           })
-          .catch(() => {
-            // Silent — never surface contact search errors
+          .catch((err) => {
+            console.error('[findIntroductionContacts] Error:', err);
+            toast.error('Contact discovery failed — try manual search in the AI Command Center');
           });
       }
     },
