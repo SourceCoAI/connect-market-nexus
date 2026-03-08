@@ -57,6 +57,8 @@ Deno.serve(async (req: Request) => {
 
     const body: ScoreRequest = await req.json();
     const { listingId, forceRefresh } = body;
+    const tab: 'internal' | 'external' =
+      (body as Record<string, unknown>).tab === 'external' ? 'external' : 'internal';
 
     if (!listingId) {
       return new Response(JSON.stringify({ error: 'listingId is required' }), {
@@ -106,38 +108,42 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // ── Fetch PE-backed buyers only ──
-    // Only surface buyers that are PE-owned: PE firms, PE-backed platforms,
-    // family offices, independent sponsors, and search funds.
-    // Non-PE corporates and individual buyers are excluded.
-    const PE_BUYER_TYPES = [
-      'private_equity',
-      'family_office',
-      'independent_sponsor',
-      'search_fund',
-    ];
-    const { data: peBuyers, error: peBuyerError } = await supabase
-      .from('buyers')
-      .select(
-        'id, company_name, company_website, pe_firm_name, pe_firm_id, buyer_type, is_pe_backed, hq_state, hq_city, ' +
-          'target_services, target_industries, industry_vertical, ' +
-          'target_geographies, geographic_footprint, ' +
-          'target_ebitda_min, target_ebitda_max, ' +
-          'has_fee_agreement, acquisition_appetite, total_acquisitions, ' +
-          'thesis_summary, ai_seeded, ai_seeded_from_deal_id, ai_seeded_at, marketplace_firm_id',
-      )
-      .eq('archived', false)
-      .or(PE_BUYER_TYPES.map((t) => `buyer_type.eq.${t}`).join(',') + ',is_pe_backed.eq.true')
-      .limit(10000);
+    // ── Fetch buyers ──
+    // External tab: PE-backed only (PE firms, PE-backed platforms,
+    //   family offices, independent sponsors, search funds).
+    // Internal tab: ALL active, non-archived buyers in the database.
+    const BUYER_SELECT =
+      'id, company_name, company_website, pe_firm_name, pe_firm_id, buyer_type, is_pe_backed, hq_state, hq_city, ' +
+      'target_services, target_industries, industry_vertical, ' +
+      'target_geographies, geographic_footprint, ' +
+      'target_ebitda_min, target_ebitda_max, ' +
+      'has_fee_agreement, acquisition_appetite, total_acquisitions, ' +
+      'thesis_summary, ai_seeded, ai_seeded_from_deal_id, ai_seeded_at, marketplace_firm_id';
 
-    if (peBuyerError) {
+    let buyerQuery = supabase.from('buyers').select(BUYER_SELECT).eq('archived', false);
+
+    if (tab === 'external') {
+      const PE_BUYER_TYPES = [
+        'private_equity',
+        'family_office',
+        'independent_sponsor',
+        'search_fund',
+      ];
+      buyerQuery = buyerQuery.or(
+        PE_BUYER_TYPES.map((t) => `buyer_type.eq.${t}`).join(',') + ',is_pe_backed.eq.true',
+      );
+    }
+
+    const { data: fetchedBuyers, error: buyerError } = await buyerQuery.limit(10000);
+
+    if (buyerError) {
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch buyers', details: peBuyerError.message }),
+        JSON.stringify({ error: 'Failed to fetch buyers', details: buyerError.message }),
         { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } },
       );
     }
 
-    const buyers = peBuyers;
+    const buyers = fetchedBuyers;
     if (!buyers || buyers.length === 0) {
       const emptyResult = {
         buyers: [],
@@ -196,6 +202,11 @@ Deno.serve(async (req: Request) => {
       const buyerFootprint = normArray(buyer.geographic_footprint);
       const buyerHqState = norm(buyer.hq_state);
 
+      // AI-seeded buyers get +20 service_score bonus from seed log why_relevant
+      const seedLogReason = seedLogMap.get(buyer.id);
+      const AI_SEED_BONUS = 20;
+      const aiSeedBoost = seedLogReason ? AI_SEED_BONUS : 0;
+
       const svc = scoreService(
         dealCategories,
         dealIndustry,
@@ -203,6 +214,10 @@ Deno.serve(async (req: Request) => {
         buyerIndustries,
         buyerIndustryVertical,
       );
+      // Apply AI-seeded bonus: cap at 100
+      svc.score = Math.min(svc.score + aiSeedBoost, 100);
+      if (aiSeedBoost > 0) svc.signals.push(`AI-seeded +${AI_SEED_BONUS} (why_relevant)`);
+
       const geo = scoreGeography(dealState, dealGeoStates, buyerGeos, buyerFootprint, buyerHqState);
       const bonus = scoreBonus(buyer);
 
@@ -236,8 +251,7 @@ Deno.serve(async (req: Request) => {
 
       const tier = classifyTier(composite, !!buyer.has_fee_agreement, buyer.acquisition_appetite);
 
-      // Build fit_reason
-      const seedLogReason = seedLogMap.get(buyer.id);
+      // Build fit_reason (seedLogReason already fetched above for AI boost)
       const seedLogAcquisitions = seedLogAcquisitionsMap.get(buyer.id);
       const rawThesis = (buyer.thesis_summary || '').trim();
       const thesisCleaned = rawThesis
@@ -383,7 +397,6 @@ Deno.serve(async (req: Request) => {
         composite_score: composite,
         service_score: svc.score,
         geography_score: geo.score,
-        size_score: 0,
         bonus_score: bonus.score,
         fit_signals: fitSignals,
         fit_reason,
@@ -402,13 +415,9 @@ Deno.serve(async (req: Request) => {
       return (a.buyer_type_priority || 5) - (b.buyer_type_priority || 5);
     });
 
-    const internal = scored.filter((b) => b.source !== 'ai_seeded').slice(0, MAX_INTERNAL);
-    const external = scored.filter((b) => b.source === 'ai_seeded').slice(0, MAX_EXTERNAL);
-    const topBuyers = [...internal, ...external].sort((a, b) => {
-      const scoreDiff = b.composite_score - a.composite_score;
-      if (scoreDiff !== 0) return scoreDiff;
-      return (a.buyer_type_priority || 5) - (b.buyer_type_priority || 5);
-    });
+    // Apply result cap based on tab
+    const resultCap = tab === 'external' ? MAX_EXTERNAL : MAX_INTERNAL;
+    const topBuyers = scored.slice(0, resultCap);
 
     // ── Write to cache ──
     const now = new Date();

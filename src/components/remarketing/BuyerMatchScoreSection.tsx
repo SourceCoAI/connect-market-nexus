@@ -217,7 +217,6 @@ interface ScoreBreakdownPanelProps {
   score: {
     composite_score: number;
     geography_score: number;
-    size_score: number;
     service_score: number;
     owner_goals_score: number;
     size_multiplier?: number | null;

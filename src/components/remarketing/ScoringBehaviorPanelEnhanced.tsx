@@ -18,17 +18,11 @@ interface ScoringBehaviorPanelEnhancedProps {
   scoringBehavior: ScoringBehavior;
   weights: {
     geography: number;
-    size: number;
     service: number;
     ownerGoals: number;
   };
   onScoringBehaviorChange?: (behavior: ScoringBehavior) => void;
-  onWeightsChange?: (weights: {
-    geography: number;
-    size: number;
-    service: number;
-    ownerGoals: number;
-  }) => void;
+  onWeightsChange?: (weights: { geography: number; service: number; ownerGoals: number }) => void;
   onSave?: () => void;
   readOnly?: boolean;
 }
