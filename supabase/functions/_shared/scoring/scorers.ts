@@ -232,8 +232,8 @@ export function scoreSize(
 ): { score: number; signals: string[] } {
   const signals: string[] = [];
 
-  if (dealEbitda == null || (buyerMin == null && buyerMax == null)) {
-    return { score: 0, signals: [] }; // No data -- cannot score, don't inflate
+  if (dealEbitda == null || dealEbitda < 0 || (buyerMin == null && buyerMax == null)) {
+    return { score: 0, signals: [] }; // No data or negative EBITDA -- cannot score
   }
 
   const min = buyerMin ?? 0;

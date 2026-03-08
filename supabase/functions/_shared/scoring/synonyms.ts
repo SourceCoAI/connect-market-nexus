@@ -33,8 +33,8 @@ export const SECTOR_SYNONYMS: Record<string, string[]> = {
   // Home Services -- each maps to "home services" as their shared parent but NOT
   // to each other's specific terms (hvac != plumbing, plumbing != roofing)
   'home services': ['residential services', 'home repair'],
-  hvac: ['mechanical', 'climate control', 'heating and cooling'],
-  plumbing: ['plumbing services', 'mechanical services', 'pipe services'],
+  hvac: ['hvac services', 'climate control', 'heating and cooling', 'air conditioning'],
+  plumbing: ['plumbing services', 'plumbing contractor', 'pipe services'],
   roofing: ['roofing services', 'exterior services'],
   collision: ['auto body', 'paint and body', 'auto repair'],
   // Healthcare -- each sub-vertical maps to its own close synonyms, NOT the
@@ -77,11 +77,7 @@ export const SECTOR_SYNONYMS: Record<string, string[]> = {
   landscaping: ['grounds maintenance', 'outdoor services', 'lawn care', 'landscape services'],
   'pest control': ['extermination', 'pest management', 'termite control'],
   'waste management': ['waste services', 'recycling', 'hauling', 'waste collection'],
-  'environmental services': [
-    'remediation',
-    'environmental consulting',
-    'environmental compliance',
-  ],
+  'environmental services': ['remediation', 'environmental consulting', 'environmental compliance'],
   insurance: ['insurance services', 'insurance brokerage', 'risk management'],
   'food services': ['food distribution', 'catering', 'food manufacturing'],
   automotive: ['auto services', 'auto repair', 'collision', 'vehicle services'],

@@ -105,7 +105,8 @@ function validateDealFields(deal: Record<string, unknown>): string[] {
     (deal.executive_summary as string)?.trim() ||
     (deal.description as string)?.trim() ||
     (deal.hero_description as string)?.trim();
-  if (!hasDescription) missing.push('description (executive_summary, description, or hero_description)');
+  if (!hasDescription)
+    missing.push('description (executive_summary, description, or hero_description)');
 
   if (!(deal.industry as string)?.trim()) missing.push('industry');
 
@@ -263,6 +264,9 @@ Return ONLY the JSON array. No markdown, no explanation.`;
 
 // ── JSON Parsing (robust) ──
 
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS_RE = /[\x00-\x1F\x7F]/g;
+
 function findLastCompleteObject(text: string): number {
   let inString = false;
   let lastGoodClose = -1;
@@ -289,36 +293,49 @@ function repairAndParseJson(raw: string): unknown {
     .trim();
 
   const jsonStart = cleaned.indexOf('[');
-  if (jsonStart === -1) {
-    // Try parsing as a single object (Pass 1 response)
-    const objStart = cleaned.indexOf('{');
-    if (objStart === -1) throw new Error('No JSON found in response');
+  const objStart = cleaned.indexOf('{');
+
+  // If '{' appears before '[' (or no '[' exists), try object parsing first.
+  // This handles Pass 1 responses like {"key": "val", "arr": ["a", "b"]}
+  // where the first '[' is inside the object, not a top-level array.
+  if (objStart !== -1 && (jsonStart === -1 || objStart < jsonStart)) {
     const objEnd = cleaned.lastIndexOf('}');
-    cleaned = objEnd > objStart ? cleaned.substring(objStart, objEnd + 1) : cleaned.substring(objStart);
-    cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, ' ');
+    const objSlice =
+      objEnd > objStart ? cleaned.substring(objStart, objEnd + 1) : cleaned.substring(objStart);
+    const objCleaned = objSlice.replace(CONTROL_CHARS_RE, ' ');
     try {
-      return JSON.parse(cleaned);
+      return JSON.parse(objCleaned);
     } catch {
-      throw new Error(`Cannot parse Claude response as JSON object (length=${raw.length})`);
+      // If object parsing fails, fall through to array parsing
+      // (the '{' might be inside a preamble before the actual array)
     }
+  }
+
+  if (jsonStart === -1) {
+    if (objStart === -1) throw new Error('No JSON found in response');
+    throw new Error(`Cannot parse Claude response as JSON (length=${raw.length})`);
   }
 
   const jsonEnd = cleaned.lastIndexOf(']');
   cleaned =
     jsonEnd > jsonStart ? cleaned.substring(jsonStart, jsonEnd + 1) : cleaned.substring(jsonStart);
 
-  cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, ' ');
+  cleaned = cleaned.replace(CONTROL_CHARS_RE, ' ');
 
   // Attempt 1: direct parse
   try {
     return JSON.parse(cleaned);
-  } catch { /* continue */ }
+  } catch {
+    /* continue */
+  }
 
   // Attempt 2: strip trailing commas
   let repaired = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
   try {
     return JSON.parse(repaired);
-  } catch { /* continue */ }
+  } catch {
+    /* continue */
+  }
 
   // Attempt 3: find the last properly-closed object and truncate there
   const lastGood = findLastCompleteObject(cleaned);
@@ -330,7 +347,9 @@ function repairAndParseJson(raw: string): unknown {
     repaired = repaired.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
     try {
       return JSON.parse(repaired);
-    } catch { /* continue */ }
+    } catch {
+      /* continue */
+    }
   }
 
   // Attempt 4: aggressive repair
@@ -342,7 +361,10 @@ function repairAndParseJson(raw: string): unknown {
   for (let i = 0; i < cleaned.length; i++) {
     const ch = cleaned[i];
     if (inStr) {
-      if (ch === '\\') { i++; continue; }
+      if (ch === '\\') {
+        i++;
+        continue;
+      }
       if (ch === '"') inStr = false;
     } else {
       if (ch === '"') inStr = true;
@@ -350,8 +372,7 @@ function repairAndParseJson(raw: string): unknown {
       else if (ch === '}') {
         depth--;
         if (depth === 0 && arrDepth === 1) lastCompleteObjEnd = i;
-      }
-      else if (ch === '[') arrDepth++;
+      } else if (ch === '[') arrDepth++;
       else if (ch === ']') arrDepth--;
     }
   }
@@ -367,9 +388,13 @@ function repairAndParseJson(raw: string): unknown {
     repaired = repaired.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
     try {
       const result = JSON.parse(repaired);
-      console.log(`JSON repair attempt 4 succeeded — recovered ${Array.isArray(result) ? result.length : '?'} items from truncated response`);
+      console.log(
+        `JSON repair attempt 4 succeeded — recovered ${Array.isArray(result) ? result.length : '?'} items from truncated response`,
+      );
       return result;
-    } catch { /* continue */ }
+    } catch {
+      /* continue */
+    }
   }
 
   // Attempt 5: extract individual objects with regex as last resort
@@ -380,7 +405,9 @@ function repairAndParseJson(raw: string): unknown {
     try {
       const obj = JSON.parse(match[0]);
       if (obj.company_name) objectMatches.push(obj);
-    } catch { /* skip malformed */ }
+    } catch {
+      /* skip malformed */
+    }
   }
   if (objectMatches.length > 0) {
     console.log(`JSON repair attempt 5 (regex) recovered ${objectMatches.length} buyer objects`);
@@ -428,7 +455,8 @@ function parseClaudeResponse(responseText: string): AISuggestedBuyer[] {
       estimated_ebitda_max:
         typeof b.estimated_ebitda_max === 'number' ? b.estimated_ebitda_max : null,
       verification_status: (b.verification_status === 'verified' ? 'verified' : 'unverified') as
-        'verified' | 'unverified',
+        | 'verified'
+        | 'unverified',
     }))
     .filter((b) => b.company_name.length > 0);
 }
@@ -649,7 +677,10 @@ Deno.serve(async (req: Request) => {
     }
 
     const buyerProfile = parseBuyerProfile(pass1Text);
-    console.log('Pass 1 complete. Buyer profile defined:', JSON.stringify(buyerProfile).slice(0, 500));
+    console.log(
+      'Pass 1 complete. Buyer profile defined:',
+      JSON.stringify(buyerProfile).slice(0, 500),
+    );
 
     // ── Pass 2: Find PE-backed platforms matching the profile ──
     console.log('Pass 2: Finding PE-backed platform companies...');
@@ -905,7 +936,8 @@ Deno.serve(async (req: Request) => {
           pass1: pass1Response.usage,
           pass2: pass2Response.usage,
           total_input_tokens: pass1Response.usage.input_tokens + pass2Response.usage.input_tokens,
-          total_output_tokens: pass1Response.usage.output_tokens + pass2Response.usage.output_tokens,
+          total_output_tokens:
+            pass1Response.usage.output_tokens + pass2Response.usage.output_tokens,
         },
         buyer_profile: buyerProfile,
       }),
