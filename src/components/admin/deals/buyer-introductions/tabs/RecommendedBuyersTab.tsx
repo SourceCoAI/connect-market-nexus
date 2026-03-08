@@ -466,9 +466,12 @@ export function RecommendedBuyersTab({
   const handleSeedBuyers = async () => {
     setSeedResults(null);
     try {
+      // Create a job for progress tracking
+      const jobId = await createJob(listingTitle);
+
       // forceRefresh: true ensures clicking this button always runs a fresh Claude search instead
       // of returning stale cached results from a previous run.
-      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: true });
+      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: true, jobId });
       setSeedResults(result.seeded_buyers);
       if (result.cached) {
         toast.info(`Found ${result.total} cached AI-seeded buyers`);
