@@ -179,9 +179,11 @@ export default function EnrichmentQueue() {
   const [dealStats, setDealStats] = useState<QueueStats>(EMPTY_STATS);
   const [buyerStats, setBuyerStats] = useState<QueueStats>(EMPTY_STATS);
   const [scoringStats, setScoringStats] = useState<QueueStats>(EMPTY_STATS);
+  const [searchStats, setSearchStats] = useState<QueueStats>(EMPTY_STATS);
   const [dealItems, setDealItems] = useState<QueueItem[]>([]);
   const [buyerItems, setBuyerItems] = useState<QueueItem[]>([]);
   const [scoringItems, setScoringItems] = useState<QueueItem[]>([]);
+  const [searchItems, setSearchItems] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('deals');
 
