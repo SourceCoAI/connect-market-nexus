@@ -15,7 +15,8 @@ import {
   classifyTier,
 } from '../_shared/scoring/scorers.ts';
 
-const MAX_RESULTS = 50;
+const MAX_INTERNAL = 50;
+const MAX_EXTERNAL = 25;
 const CACHE_HOURS = 4;
 
 // ── Main handler ──
@@ -403,9 +404,11 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ── Rank and cap ──
+    // ── Rank and cap (separate limits for internal vs AI-seeded so external buyers aren't squeezed out) ──
     scored.sort((a, b) => b.composite_score - a.composite_score);
-    const topBuyers = scored.slice(0, MAX_RESULTS);
+    const internal = scored.filter((b) => b.source !== 'ai_seeded').slice(0, MAX_INTERNAL);
+    const external = scored.filter((b) => b.source === 'ai_seeded').slice(0, MAX_EXTERNAL);
+    const topBuyers = [...internal, ...external].sort((a, b) => b.composite_score - a.composite_score);
 
     // ── Write to cache (non-blocking -- scoring still succeeds if cache write fails) ──
     const now = new Date();
