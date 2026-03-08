@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -37,6 +38,10 @@ import {
   MoreHorizontal,
   ArrowRight,
   Ban,
+  Search,
+  Brain,
+  UserCheck,
+  BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -359,6 +364,55 @@ function SeedResultsSummary({ results }: { results: SeedBuyerResult[] }) {
   );
 }
 
+type SearchPhase = 'analyzing' | 'discovering' | 'deduplicating' | 'scoring' | 'done';
+
+const SEARCH_PHASES: { key: SearchPhase; label: string; icon: typeof Search; progress: number }[] = [
+  { key: 'analyzing', label: 'Analyzing deal profile...', icon: Search, progress: 15 },
+  { key: 'discovering', label: 'AI discovering potential buyers...', icon: Brain, progress: 50 },
+  { key: 'deduplicating', label: 'Deduplicating against existing buyers...', icon: UserCheck, progress: 75 },
+  { key: 'scoring', label: 'Scoring and ranking matches...', icon: BarChart3, progress: 90 },
+  { key: 'done', label: 'Complete!', icon: Check, progress: 100 },
+];
+
+function AISearchProgressBar({ phase }: { phase: SearchPhase }) {
+  const currentPhase = SEARCH_PHASES.find((p) => p.key === phase) || SEARCH_PHASES[0];
+
+  return (
+    <div className="border rounded-lg bg-purple-50/50 border-purple-200 p-4 space-y-3">
+      <div className="flex items-center gap-2 text-sm font-medium text-purple-800">
+        <Sparkles className="h-4 w-4 animate-pulse" />
+        AI Buyer Search in Progress
+      </div>
+      <Progress value={currentPhase.progress} className="h-2 bg-purple-100 [&>div]:bg-purple-600" />
+      <div className="flex items-center gap-3">
+        {SEARCH_PHASES.filter((p) => p.key !== 'done').map((p) => {
+          const Icon = p.icon;
+          const isCurrent = p.key === phase;
+          const isPast = SEARCH_PHASES.findIndex((sp) => sp.key === p.key) < SEARCH_PHASES.findIndex((sp) => sp.key === phase);
+          return (
+            <div
+              key={p.key}
+              className={cn(
+                'flex items-center gap-1.5 text-xs transition-colors',
+                isCurrent && 'text-purple-700 font-medium',
+                isPast && 'text-purple-500',
+                !isCurrent && !isPast && 'text-gray-400',
+              )}
+            >
+              {isPast ? (
+                <Check className="h-3.5 w-3.5 text-purple-500" />
+              ) : (
+                <Icon className={cn('h-3.5 w-3.5', isCurrent && 'animate-pulse')} />
+              )}
+              {p.label.replace('...', '')}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function RecommendedBuyersTab({
   listingId,
   listingTitle,
@@ -382,6 +436,9 @@ export function RecommendedBuyersTab({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [internalPage, setInternalPage] = useState(0);
   const [externalPage, setExternalPage] = useState(0);
+  const [searchPhase, setSearchPhase] = useState<SearchPhase | null>(null);
+  const [activeSubTab, setActiveSubTab] = useState<string>('internal');
+  const phaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -395,13 +452,35 @@ export function RecommendedBuyersTab({
     }
   };
 
+  // Cleanup phase timer on unmount
+  useEffect(() => {
+    return () => {
+      if (phaseTimerRef.current) clearTimeout(phaseTimerRef.current);
+    };
+  }, []);
+
   const handleSeedBuyers = async () => {
     setSeedResults(null);
+    setSearchPhase('analyzing');
+
+    // Advance phases on a timer to give visual feedback while the backend works
+    phaseTimerRef.current = setTimeout(() => setSearchPhase('discovering'), 2000);
+    const discoverTimer = setTimeout(() => setSearchPhase('deduplicating'), 15000);
+    const dedupeTimer = setTimeout(() => setSearchPhase('scoring'), 25000);
+
     try {
       // forceRefresh: true ensures clicking this button always runs a fresh Claude search instead
       // of returning stale cached results from a previous run.
       const result = await seedMutation.mutateAsync({ listingId, forceRefresh: true });
+
+      // Clear phase timers since the actual work is done
+      clearTimeout(discoverTimer);
+      clearTimeout(dedupeTimer);
+      if (phaseTimerRef.current) clearTimeout(phaseTimerRef.current);
+
+      setSearchPhase('scoring');
       setSeedResults(result.seeded_buyers);
+
       if (result.cached) {
         toast.info(`Found ${result.total} cached AI-seeded buyers`);
       } else {
@@ -409,8 +488,22 @@ export function RecommendedBuyersTab({
           `AI seeded ${result.total} buyers: ${result.inserted || 0} new, ${result.enriched_existing || 0} updated`,
         );
       }
+
       await refresh();
+
+      setSearchPhase('done');
+      setTimeout(() => setSearchPhase(null), 2000);
+
+      // Auto-switch to External tab if new external buyers were found
+      if (result.seeded_buyers && result.seeded_buyers.length > 0) {
+        setActiveSubTab('external');
+      }
     } catch (err) {
+      // Clear phase timers on error
+      clearTimeout(discoverTimer);
+      clearTimeout(dedupeTimer);
+      if (phaseTimerRef.current) clearTimeout(phaseTimerRef.current);
+      setSearchPhase(null);
       toast.error(err instanceof Error ? err.message : 'Failed to seed buyers');
     }
   };
@@ -602,6 +695,8 @@ export function RecommendedBuyersTab({
         </div>
       </div>
 
+      {searchPhase && searchPhase !== 'done' && <AISearchProgressBar phase={searchPhase} />}
+
       {seedResults && seedResults.length > 0 && <SeedResultsSummary results={seedResults} />}
 
       {/* Batch action bar */}
@@ -640,7 +735,7 @@ export function RecommendedBuyersTab({
           </p>
         </div>
       ) : (
-        <Tabs defaultValue="internal" className="w-full">
+        <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
           <TabsList className="mb-3">
             <TabsTrigger value="internal" className="gap-1.5">
               <Database className="h-3.5 w-3.5" />

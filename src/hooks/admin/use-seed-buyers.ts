@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SeedBuyerResult {
@@ -57,8 +57,6 @@ function validateSeedResult(data: unknown): SeedBuyersResponse {
 }
 
 export function useSeedBuyers() {
-  const queryClient = useQueryClient();
-
   return useMutation<SeedBuyersResponse, Error, SeedBuyersParams>({
     mutationFn: async ({ listingId, maxBuyers, forceRefresh, buyerCategory }) => {
       const { data, error } = await supabase.functions.invoke('seed-buyers', {
@@ -70,11 +68,9 @@ export function useSeedBuyers() {
       }
       return validateSeedResult(data);
     },
-    onSuccess: (_data, variables) => {
-      // Invalidate recommended buyers so the list refreshes with newly seeded buyers
-      queryClient.invalidateQueries({
-        queryKey: ['new-recommended-buyers', variables.listingId],
-      });
-    },
+    // Note: do NOT invalidate 'new-recommended-buyers' here.
+    // The caller (handleSeedBuyers) explicitly calls refresh() with forceRefresh: true
+    // after seeding completes. An automatic invalidation here would race with that
+    // refresh and potentially return stale cached data from buyer_recommendation_cache.
   });
 }
