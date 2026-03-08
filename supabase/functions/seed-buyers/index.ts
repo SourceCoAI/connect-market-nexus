@@ -521,6 +521,7 @@ Deno.serve(async (req: Request) => {
 
     const body: SeedRequest = await req.json();
     const { listingId, maxBuyers = 8, forceRefresh = false, buyerCategory, jobId } = body;
+    _jobId = jobId; // hoist for catch block
 
     // Helper to update job progress (non-fatal if it fails)
     async function updateJobProgress(updates: Record<string, unknown>) {
