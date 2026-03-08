@@ -440,9 +440,9 @@ export default function EnrichmentQueue() {
   }, [fetchAll]);
 
   const clearFailed = async (
-    table: 'enrichment_queue' | 'buyer_enrichment_queue' | 'remarketing_scoring_queue',
+    table: 'enrichment_queue' | 'buyer_enrichment_queue' | 'remarketing_scoring_queue' | 'buyer_search_jobs',
   ) => {
-    const { error } = await supabase.from(table).delete().eq('status', 'failed');
+    const { error } = await (supabase as any).from(table).delete().eq('status', 'failed');
     if (error) {
       toast.error('Failed to clear');
       return;
@@ -457,7 +457,9 @@ export default function EnrichmentQueue() {
     buyerStats.pending +
     buyerStats.processing +
     scoringStats.pending +
-    scoringStats.processing;
+    scoringStats.processing +
+    searchStats.pending +
+    searchStats.processing;
 
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-6xl mx-auto">
