@@ -792,7 +792,7 @@ async function getDealDocuments(
   const docs = data || [];
   const byCategory: Record<string, number> = {};
   const byFolder: Record<string, number> = {};
-  for (const d of docs) {
+  for (const d of docs as any[]) {
     byCategory[d.document_category] = (byCategory[d.document_category] || 0) + 1;
     byFolder[d.folder_name] = (byFolder[d.folder_name] || 0) + 1;
   }
@@ -909,7 +909,7 @@ async function getNdaLogs(
 
   const logs = data || [];
   const byAction: Record<string, number> = {};
-  for (const l of logs) {
+  for (const l of logs as any[]) {
     byAction[l.action_type] = (byAction[l.action_type] || 0) + 1;
   }
 

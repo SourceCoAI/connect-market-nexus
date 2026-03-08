@@ -539,7 +539,7 @@ async function searchBuyers(
     const term = (args.industry as string).toLowerCase();
     results = results.filter(
       (b: BuyerRecord) =>
-        (matchingUniverseIds.size > 0 && matchingUniverseIds.has(b.universe_id)) ||
+        (matchingUniverseIds.size > 0 && b.universe_id && matchingUniverseIds.has(b.universe_id)) ||
         fieldContains(b.target_industries, term) ||
         fieldContains(b.target_services, term) ||
         fieldContains(b.services_offered, term) ||
@@ -559,7 +559,7 @@ async function searchBuyers(
     const term = (args.search as string).toLowerCase();
     const searchWords = term.split(/\s+/).filter((w) => w.length > 2);
     results = results.filter((b: BuyerRecord) => {
-      if (matchingUniverseIds.size > 0 && matchingUniverseIds.has(b.universe_id)) return true;
+      if (matchingUniverseIds.size > 0 && b.universe_id && matchingUniverseIds.has(b.universe_id)) return true;
 
       const compName = (b.company_name || '').toLowerCase();
       const peName = (b.pe_firm_name || '').toLowerCase();
@@ -879,7 +879,7 @@ async function searchLeadSources(
     const { data: batch, error } = await query;
     if (error) return { error: error.message };
     if (!batch || batch.length === 0) break;
-    allData = allData.concat(batch);
+    allData = allData.concat(batch as any);
     if (batch.length < batchSize) break;
     offset += batch.length;
   }

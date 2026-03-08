@@ -167,7 +167,7 @@ async function generateMeetingPrep(
   // Add buyer-specific queries if buyer is specified
   if (buyerId) {
     queries.push(
-      supabase.from('buyers').select('*').eq('id', buyerId).single(),
+      supabase.from('buyers').select('*').eq('id', buyerId).single() as any,
       supabase
         .from('remarketing_scores')
         .select('*')
@@ -318,19 +318,19 @@ async function generatePipelineReport(
   const bySource: Record<string, number> = {};
   let totalRevenue = 0;
 
-  for (const d of deals) {
+  for (const d of deals as any[]) {
     byStatus[d.status] = (byStatus[d.status] || 0) + 1;
     bySource[d.deal_source || 'unknown'] = (bySource[d.deal_source || 'unknown'] || 0) + 1;
     totalRevenue += d.revenue || 0;
   }
 
   const activityByType: Record<string, number> = {};
-  for (const a of activities) {
+  for (const a of activities as any[]) {
     activityByType[a.activity_type] = (activityByType[a.activity_type] || 0) + 1;
   }
 
   const scoreStatusChanges: Record<string, number> = {};
-  for (const s of scores) {
+  for (const s of scores as any[]) {
     scoreStatusChanges[s.status] = (scoreStatusChanges[s.status] || 0) + 1;
   }
 
