@@ -29,6 +29,8 @@ interface SeedBuyersParams {
   maxBuyers?: number;
   forceRefresh?: boolean;
   buyerCategory?: 'sponsors' | 'operating_companies';
+  /** Optional job ID for progress tracking */
+  jobId?: string;
 }
 
 /** Extract the real error message from a Supabase FunctionsHttpError */
@@ -62,9 +64,9 @@ export function useSeedBuyers() {
   const queryClient = useQueryClient();
 
   return useMutation<SeedBuyersResponse, Error, SeedBuyersParams>({
-    mutationFn: async ({ listingId, maxBuyers, forceRefresh, buyerCategory }) => {
+    mutationFn: async ({ listingId, maxBuyers, forceRefresh, buyerCategory, jobId }) => {
       const { data, error } = await supabase.functions.invoke('seed-buyers', {
-        body: { listingId, maxBuyers, forceRefresh, buyerCategory },
+        body: { listingId, maxBuyers, forceRefresh, buyerCategory, jobId },
       });
       if (error) {
         const msg = await extractEdgeFunctionError(error);

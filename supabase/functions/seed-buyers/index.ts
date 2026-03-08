@@ -32,6 +32,8 @@ interface SeedRequest {
   maxBuyers?: number;
   forceRefresh?: boolean;
   buyerCategory?: 'sponsors' | 'operating_companies';
+  /** Optional job ID for progress tracking in buyer_search_jobs table */
+  jobId?: string;
 }
 
 interface AISuggestedBuyer {
@@ -477,6 +479,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const headers = getCorsHeaders(req);
+  let _jobId: string | undefined; // hoisted for error handler access
 
   try {
     // ── Auth guard (mirrors score-deal-buyers pattern) ──
@@ -517,7 +520,21 @@ Deno.serve(async (req: Request) => {
     // ── End auth guard ──
 
     const body: SeedRequest = await req.json();
-    const { listingId, maxBuyers = 8, forceRefresh = false, buyerCategory } = body;
+    const { listingId, maxBuyers = 8, forceRefresh = false, buyerCategory, jobId } = body;
+    _jobId = jobId; // hoist for catch block
+
+    // Helper to update job progress (non-fatal if it fails)
+    async function updateJobProgress(updates: Record<string, unknown>) {
+      if (!jobId) return;
+      try {
+        await supabase.from('buyer_search_jobs').update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        }).eq('id', jobId);
+      } catch (e) {
+        console.warn('Job progress update failed (non-fatal):', e);
+      }
+    }
 
     if (!listingId) {
       return new Response(JSON.stringify({ error: 'listingId is required' }), {
@@ -652,6 +669,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Pass 1: Define the buyer profile ──
+    await updateJobProgress({ status: 'searching', progress_pct: 10, progress_message: 'Defining ideal buyer profile (Pass 1)…' });
     console.log('Pass 1: Defining buyer profile...');
     const pass1Response = await callClaude({
       model: CLAUDE_MODELS.sonnet,
@@ -683,6 +701,7 @@ Deno.serve(async (req: Request) => {
     );
 
     // ── Pass 2: Find PE-backed platforms matching the profile ──
+    await updateJobProgress({ status: 'searching', progress_pct: 35, progress_message: 'Searching for PE-backed platform companies (Pass 2)…' });
     console.log('Pass 2: Finding PE-backed platform companies...');
     const cappedMax = Math.min(maxBuyers, 8);
 
@@ -718,6 +737,7 @@ Deno.serve(async (req: Request) => {
     const suggestedBuyers = parseClaudeResponse(pass2Text);
 
     // ── Deduplicate and insert ──
+    await updateJobProgress({ status: 'scoring', progress_pct: 65, progress_message: `Found ${suggestedBuyers.length} candidates. Deduplicating & inserting…` });
     const results: SeedResult[] = [];
     const newBuyerIds: string[] = [];
     const seedLogEntries: Record<string, unknown>[] = [];
@@ -921,6 +941,17 @@ Deno.serve(async (req: Request) => {
     const enriched = results.filter((r) => r.action === 'enriched_existing').length;
     const dupes = results.filter((r) => r.action === 'probable_duplicate').length;
 
+    // Mark job as completed
+    await updateJobProgress({
+      status: 'completed',
+      progress_pct: 100,
+      progress_message: `Done! Found ${results.length} buyers (${inserted} new, ${enriched} updated)`,
+      buyers_found: results.length,
+      buyers_inserted: inserted,
+      buyers_updated: enriched,
+      completed_at: new Date().toISOString(),
+    });
+
     return new Response(
       JSON.stringify({
         seeded_buyers: results,
@@ -945,6 +976,23 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error) {
     console.error('seed-buyers error:', error);
+    // Mark job as failed if we have a jobId
+    // Mark job as failed if we have a jobId
+    if (_jobId) {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const errClient = createClient(supabaseUrl, supabaseServiceKey);
+        await errClient.from('buyer_search_jobs').update({
+          status: 'failed',
+          progress_pct: 0,
+          progress_message: 'Search failed',
+          error: String(error).slice(0, 500),
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq('id', _jobId);
+      } catch { /* best effort */ }
+    }
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: String(error) }),
       { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } },

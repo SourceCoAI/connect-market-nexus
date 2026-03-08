@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -178,9 +179,11 @@ export default function EnrichmentQueue() {
   const [dealStats, setDealStats] = useState<QueueStats>(EMPTY_STATS);
   const [buyerStats, setBuyerStats] = useState<QueueStats>(EMPTY_STATS);
   const [scoringStats, setScoringStats] = useState<QueueStats>(EMPTY_STATS);
+  const [searchStats, setSearchStats] = useState<QueueStats>(EMPTY_STATS);
   const [dealItems, setDealItems] = useState<QueueItem[]>([]);
   const [buyerItems, setBuyerItems] = useState<QueueItem[]>([]);
   const [scoringItems, setScoringItems] = useState<QueueItem[]>([]);
+  const [searchItems, setSearchItems] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('deals');
 
@@ -213,18 +216,49 @@ export default function EnrichmentQueue() {
     [],
   );
 
+  /** Fetch stats for buyer_search_jobs (different status names) */
+  const fetchSearchStats = useCallback(async (cutoff: string): Promise<QueueStats> => {
+    const q = (status: string) =>
+      (supabase as any)
+        .from('buyer_search_jobs')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', status)
+        .gte('created_at', cutoff);
+    const [p, pr, c, f] = await Promise.all([
+      q('pending'),
+      q('searching'),
+      q('completed'),
+      q('failed'),
+    ]);
+    // "searching" and "scoring" both count as processing
+    const scoringRes = await (supabase as any)
+      .from('buyer_search_jobs')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'scoring')
+      .gte('created_at', cutoff);
+    return {
+      pending: p.count ?? 0,
+      processing: (pr.count ?? 0) + (scoringRes.count ?? 0),
+      completed: c.count ?? 0,
+      failed: f.count ?? 0,
+      total: (p.count ?? 0) + (pr.count ?? 0) + (scoringRes.count ?? 0) + (c.count ?? 0) + (f.count ?? 0),
+    };
+  }, []);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     try {
-      const [ds, bs, ss] = await Promise.all([
+      const [ds, bs, ss, searchS] = await Promise.all([
         fetchStatsForTable('enrichment_queue', cutoff),
         fetchStatsForTable('buyer_enrichment_queue', cutoff),
         fetchStatsForTable('remarketing_scoring_queue', cutoff),
+        fetchSearchStats(cutoff),
       ]);
       setDealStats(ds);
       setBuyerStats(bs);
       setScoringStats(ss);
+      setSearchStats(searchS);
 
       // Fetch recent items for the active tab
       const [dealRes, buyerRes, scoringRes] = await Promise.all([
@@ -372,12 +406,32 @@ export default function EnrichmentQueue() {
               : '—',
         })),
       );
+
+      // Fetch buyer search jobs
+      const { data: searchJobsData } = await (supabase as any)
+        .from('buyer_search_jobs')
+        .select('id, listing_id, listing_name, status, progress_pct, progress_message, buyers_found, buyers_inserted, buyers_updated, error, started_at, completed_at, created_at')
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      setSearchItems(
+        (searchJobsData || []).map((s: any) => ({
+          id: s.id,
+          status: s.status === 'searching' || s.status === 'scoring' ? 'processing' : s.status,
+          queued_at: s.created_at,
+          started_at: s.started_at,
+          completed_at: s.completed_at,
+          last_error: s.error,
+          attempts: 1,
+          label: s.listing_name || s.listing_id?.slice(0, 8) || '—',
+        })),
+      );
     } catch (err) {
       console.error('Failed to fetch queue data:', err);
     } finally {
       setLoading(false);
     }
-  }, [fetchStatsForTable]);
+  }, [fetchStatsForTable, fetchSearchStats]);
 
   useEffect(() => {
     fetchAll();
@@ -386,9 +440,9 @@ export default function EnrichmentQueue() {
   }, [fetchAll]);
 
   const clearFailed = async (
-    table: 'enrichment_queue' | 'buyer_enrichment_queue' | 'remarketing_scoring_queue',
+    table: 'enrichment_queue' | 'buyer_enrichment_queue' | 'remarketing_scoring_queue' | 'buyer_search_jobs',
   ) => {
-    const { error } = await supabase.from(table).delete().eq('status', 'failed');
+    const { error } = await (supabase as any).from(table).delete().eq('status', 'failed');
     if (error) {
       toast.error('Failed to clear');
       return;
@@ -403,7 +457,9 @@ export default function EnrichmentQueue() {
     buyerStats.pending +
     buyerStats.processing +
     scoringStats.pending +
-    scoringStats.processing;
+    scoringStats.processing +
+    searchStats.pending +
+    searchStats.processing;
 
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-6xl mx-auto">
@@ -453,6 +509,15 @@ export default function EnrichmentQueue() {
             {scoringStats.pending + scoringStats.processing > 0 && (
               <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
                 {scoringStats.pending + scoringStats.processing}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="search" className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            AI Buyer Search
+            {searchStats.pending + searchStats.processing > 0 && (
+              <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
+                {searchStats.pending + searchStats.processing}
               </Badge>
             )}
           </TabsTrigger>
@@ -523,6 +588,29 @@ export default function EnrichmentQueue() {
             </CardHeader>
             <CardContent className="p-0">
               <QueueTable items={scoringItems} loading={loading} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="search" className="space-y-4 mt-4">
+          <StatsCards stats={searchStats} label="AI Buyer Search" />
+          <Card>
+            <CardHeader className="py-3 px-4 flex-row items-center justify-between">
+              <CardTitle className="text-sm font-medium">Recent AI Buyer Searches</CardTitle>
+              {searchStats.failed > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-500 text-xs"
+                  onClick={() => clearFailed('buyer_search_jobs')}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Clear Failed
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="p-0">
+              <QueueTable items={searchItems} loading={loading} />
             </CardContent>
           </Card>
         </TabsContent>

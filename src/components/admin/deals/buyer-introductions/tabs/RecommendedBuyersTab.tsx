@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -21,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { useNewRecommendedBuyers, type BuyerScore } from '@/hooks/admin/use-new-recommended-buyers';
 import { useSeedBuyers, type SeedBuyerResult } from '@/hooks/admin/use-seed-buyers';
+import { useBuyerSearchJob } from '@/hooks/admin/use-buyer-search-job';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -45,6 +47,7 @@ import {
   MoreHorizontal,
   ArrowRight,
   Ban,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -426,6 +429,7 @@ export function RecommendedBuyersTab({
 }: RecommendedBuyersTabProps) {
   const { data, isLoading, isError, error, refresh } = useNewRecommendedBuyers(listingId);
   const seedMutation = useSeedBuyers();
+  const { job, createJob, dismiss: dismissJob } = useBuyerSearchJob(listingId);
   const { createIntroduction } = useBuyerIntroductions(listingId);
   const [refreshing, setRefreshing] = useState(false);
   const [seedResults, setSeedResults] = useState<SeedBuyerResult[] | null>(null);
@@ -462,9 +466,12 @@ export function RecommendedBuyersTab({
   const handleSeedBuyers = async () => {
     setSeedResults(null);
     try {
+      // Create a job for progress tracking
+      const jobId = await createJob(listingTitle);
+
       // forceRefresh: true ensures clicking this button always runs a fresh Claude search instead
       // of returning stale cached results from a previous run.
-      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: true });
+      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: true, jobId });
       setSeedResults(result.seeded_buyers);
       if (result.cached) {
         toast.info(`Found ${result.total} cached AI-seeded buyers`);
@@ -695,6 +702,50 @@ export function RecommendedBuyersTab({
           </Button>
         </div>
       </div>
+
+      {/* AI Search Progress Bar */}
+      {job && (
+        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {job.status === 'failed' ? (
+                <AlertCircle className="h-4 w-4 text-destructive" />
+              ) : job.status === 'completed' ? (
+                <CheckCircle className="h-4 w-4 text-emerald-600" />
+              ) : (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              )}
+              <span className="text-sm font-medium text-foreground">
+                {job.status === 'completed'
+                  ? 'Search Complete'
+                  : job.status === 'failed'
+                    ? 'Search Failed'
+                    : 'AI Buyer Search'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{job.progress_pct}%</span>
+              {(job.status === 'completed' || job.status === 'failed') && (
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={dismissJob}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+          <Progress value={job.progress_pct} className="h-1.5" />
+          {job.progress_message && (
+            <p className="text-xs text-muted-foreground">{job.progress_message}</p>
+          )}
+          {job.error && (
+            <p className="text-xs text-destructive">{job.error}</p>
+          )}
+          {job.status === 'completed' && job.buyers_found > 0 && (
+            <p className="text-xs text-emerald-600">
+              Found {job.buyers_found} buyers ({job.buyers_inserted} new, {job.buyers_updated} updated)
+            </p>
+          )}
+        </div>
+      )}
 
       {seedResults && seedResults.length > 0 && <SeedResultsSummary results={seedResults} />}
 
