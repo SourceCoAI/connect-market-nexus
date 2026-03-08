@@ -32,6 +32,8 @@ interface SeedRequest {
   maxBuyers?: number;
   forceRefresh?: boolean;
   buyerCategory?: 'sponsors' | 'operating_companies';
+  /** Optional job ID for progress tracking in buyer_search_jobs table */
+  jobId?: string;
 }
 
 interface AISuggestedBuyer {
@@ -517,7 +519,20 @@ Deno.serve(async (req: Request) => {
     // ── End auth guard ──
 
     const body: SeedRequest = await req.json();
-    const { listingId, maxBuyers = 8, forceRefresh = false, buyerCategory } = body;
+    const { listingId, maxBuyers = 8, forceRefresh = false, buyerCategory, jobId } = body;
+
+    // Helper to update job progress (non-fatal if it fails)
+    async function updateJobProgress(updates: Record<string, unknown>) {
+      if (!jobId) return;
+      try {
+        await supabase.from('buyer_search_jobs').update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        }).eq('id', jobId);
+      } catch (e) {
+        console.warn('Job progress update failed (non-fatal):', e);
+      }
+    }
 
     if (!listingId) {
       return new Response(JSON.stringify({ error: 'listingId is required' }), {
