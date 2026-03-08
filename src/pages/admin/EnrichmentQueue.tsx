@@ -406,12 +406,32 @@ export default function EnrichmentQueue() {
               : '—',
         })),
       );
+
+      // Fetch buyer search jobs
+      const { data: searchJobsData } = await (supabase as any)
+        .from('buyer_search_jobs')
+        .select('id, listing_id, listing_name, status, progress_pct, progress_message, buyers_found, buyers_inserted, buyers_updated, error, started_at, completed_at, created_at')
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      setSearchItems(
+        (searchJobsData || []).map((s: any) => ({
+          id: s.id,
+          status: s.status === 'searching' || s.status === 'scoring' ? 'processing' : s.status,
+          queued_at: s.created_at,
+          started_at: s.started_at,
+          completed_at: s.completed_at,
+          last_error: s.error,
+          attempts: 1,
+          label: s.listing_name || s.listing_id?.slice(0, 8) || '—',
+        })),
+      );
     } catch (err) {
       console.error('Failed to fetch queue data:', err);
     } finally {
       setLoading(false);
     }
-  }, [fetchStatsForTable]);
+  }, [fetchStatsForTable, fetchSearchStats]);
 
   useEffect(() => {
     fetchAll();
