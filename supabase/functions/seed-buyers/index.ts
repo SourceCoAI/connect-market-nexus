@@ -1026,24 +1026,8 @@ Deno.serve(async (req: Request) => {
     const enriched = results.filter((r) => r.action === 'enriched_existing').length;
     const dupes = results.filter((r) => r.action === 'probable_duplicate').length;
 
-    // ── Auto-trigger score-deal-buyers so External tab populates immediately ──
-    if (results.length > 0) {
-      try {
-        console.log('Auto-triggering score-deal-buyers to refresh External tab…');
-        await fetch(`${supabaseUrl}/functions/v1/score-deal-buyers`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ listingId, forceRefresh: true }),
-          signal: AbortSignal.timeout(30000),
-        });
-        console.log('score-deal-buyers auto-refresh completed');
-      } catch (e) {
-        console.warn('Auto-refresh score-deal-buyers failed (non-fatal):', e);
-      }
-    }
+    // Note: score-deal-buyers refresh is handled by the frontend after seed completes
+    // (RecommendedBuyersTab calls refresh() which invokes score-deal-buyers with forceRefresh).
 
     // Mark job as completed
     await updateJobProgress({

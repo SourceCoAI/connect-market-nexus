@@ -20,8 +20,6 @@ export function BuyerSearchSummaryDialog({
   cached,
   error,
 }: BuyerSearchSummaryDialogProps) {
-  if (!results && !error) return null;
-
   const inserted = results?.filter(r => r.action === 'inserted').length ?? 0;
   const enriched = results?.filter(r => r.action === 'enriched_existing').length ?? 0;
   const dupes = results?.filter(r => r.action === 'probable_duplicate').length ?? 0;

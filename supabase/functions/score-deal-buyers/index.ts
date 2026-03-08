@@ -57,8 +57,6 @@ Deno.serve(async (req: Request) => {
 
     const body: ScoreRequest = await req.json();
     const { listingId, forceRefresh } = body;
-    const tab: 'internal' | 'external' =
-      (body as Record<string, unknown>).tab === 'external' ? 'external' : 'internal';
 
     if (!listingId) {
       return new Response(JSON.stringify({ error: 'listingId is required' }), {
@@ -108,10 +106,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // ── Fetch buyers ──
-    // External tab: PE-backed only (PE firms, PE-backed platforms,
-    //   family offices, independent sponsors, search funds).
-    // Internal tab: ALL active, non-archived buyers in the database.
+    // ── Fetch buyers (all active, non-archived) ──
     const BUYER_SELECT =
       'id, company_name, company_website, pe_firm_name, pe_firm_id, buyer_type, is_pe_backed, hq_state, hq_city, ' +
       'target_services, target_industries, industry_vertical, ' +
@@ -120,19 +115,7 @@ Deno.serve(async (req: Request) => {
       'has_fee_agreement, acquisition_appetite, total_acquisitions, ' +
       'thesis_summary, ai_seeded, ai_seeded_from_deal_id, ai_seeded_at, marketplace_firm_id';
 
-    let buyerQuery = supabase.from('buyers').select(BUYER_SELECT).eq('archived', false);
-
-    if (tab === 'external') {
-      const PE_BUYER_TYPES = [
-        'private_equity',
-        'family_office',
-        'independent_sponsor',
-        'search_fund',
-      ];
-      buyerQuery = buyerQuery.or(
-        PE_BUYER_TYPES.map((t) => `buyer_type.eq.${t}`).join(',') + ',is_pe_backed.eq.true',
-      );
-    }
+    const buyerQuery = supabase.from('buyers').select(BUYER_SELECT).eq('archived', false);
 
     const { data: fetchedBuyers, error: buyerError } = await buyerQuery.limit(10000);
 
@@ -441,9 +424,12 @@ Deno.serve(async (req: Request) => {
       return (a.buyer_type_priority || 5) - (b.buyer_type_priority || 5);
     });
 
-    // Apply result cap based on tab
-    const resultCap = tab === 'external' ? MAX_EXTERNAL : MAX_INTERNAL;
-    const topBuyers = scored.slice(0, resultCap);
+    // Split into internal (pool) and external (AI-discovered) pools with independent caps.
+    // This ensures AI-seeded buyers always surface in the External tab rather than
+    // competing with the entire buyer pool for a single capped list.
+    const internalBuyers = scored.filter((b) => b.source !== 'ai_seeded').slice(0, MAX_INTERNAL);
+    const externalBuyers = scored.filter((b) => b.source === 'ai_seeded').slice(0, MAX_EXTERNAL);
+    const topBuyers = [...internalBuyers, ...externalBuyers];
 
     // ── Write to cache ──
     const now = new Date();
