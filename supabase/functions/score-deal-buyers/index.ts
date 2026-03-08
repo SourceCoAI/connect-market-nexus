@@ -2,7 +2,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import type { BuyerScore, ScoreRequest } from '../_shared/scoring/types.ts';
-import { SCORE_WEIGHTS, getServiceGateMultiplier, getBuyerTypePriority } from '../_shared/scoring/types.ts';
+import {
+  SCORE_WEIGHTS,
+  getServiceGateMultiplier,
+  getBuyerTypePriority,
+} from '../_shared/scoring/types.ts';
 import {
   norm,
   normArray,
@@ -10,7 +14,6 @@ import {
   extractDealKeywords,
   scoreService,
   scoreGeography,
-  scoreSize,
   scoreBonus,
   classifyTier,
 } from '../_shared/scoring/scorers.ts';
@@ -173,8 +176,6 @@ Deno.serve(async (req: Request) => {
     const dealIndustry = norm(deal.industry);
     const dealState = norm(deal.address_state);
     const dealGeoStates = normArray(deal.geographic_states);
-    const dealEbitda = deal.ebitda;
-
     // ── Score each buyer ──
     const scored: BuyerScore[] = [];
 
@@ -194,14 +195,12 @@ Deno.serve(async (req: Request) => {
         buyerIndustryVertical,
       );
       const geo = scoreGeography(dealState, dealGeoStates, buyerGeos, buyerFootprint, buyerHqState);
-      const size = scoreSize(dealEbitda, buyer.target_ebitda_min, buyer.target_ebitda_max);
       const bonus = scoreBonus(buyer);
 
-      // Calculate raw composite score using weighted dimensions
+      // Calculate raw composite score using weighted dimensions (v3: no EBITDA)
       const rawComposite = Math.round(
         svc.score * SCORE_WEIGHTS.service +
           geo.score * SCORE_WEIGHTS.geography +
-          size.score * SCORE_WEIGHTS.size +
           bonus.score * SCORE_WEIGHTS.bonus,
       );
 
@@ -209,7 +208,7 @@ Deno.serve(async (req: Request) => {
       const gateMultiplier = getServiceGateMultiplier(svc.score);
       const composite = Math.round(rawComposite * gateMultiplier);
 
-      const fitSignals = [...svc.signals, ...geo.signals, ...size.signals, ...bonus.signals];
+      const fitSignals = [...svc.signals, ...geo.signals, ...bonus.signals];
 
       // Add gate signal if it reduced the score
       if (gateMultiplier < 1.0) {
@@ -259,21 +258,6 @@ Deno.serve(async (req: Request) => {
         buyer.hq_city && buyer.hq_state
           ? `${buyer.hq_city}, ${buyer.hq_state}`
           : buyer.hq_state || '';
-      const ebitdaMinStr = buyer.target_ebitda_min
-        ? `$${(buyer.target_ebitda_min / 1_000_000).toFixed(1)}M`
-        : null;
-      const ebitdaMaxStr = buyer.target_ebitda_max
-        ? `$${(buyer.target_ebitda_max / 1_000_000).toFixed(1)}M`
-        : null;
-      const ebitdaRangeStr =
-        ebitdaMinStr && ebitdaMaxStr
-          ? `${ebitdaMinStr}\u2013${ebitdaMaxStr}`
-          : ebitdaMinStr
-            ? `${ebitdaMinStr}+`
-            : ebitdaMaxStr
-              ? `up to ${ebitdaMaxStr}`
-              : null;
-
       const matchingServiceTerms = svc.signals
         .map((s) => {
           const m = s.match(/^(?:Exact industry match|Adjacent industry):\s*(.+)/i);
@@ -326,13 +310,6 @@ Deno.serve(async (req: Request) => {
         } else if (geo.score >= 60) {
           matchDetails.push('regional geographic overlap');
         }
-        if (size.score >= 100 && ebitdaRangeStr) {
-          matchDetails.push(`targets ${ebitdaRangeStr} EBITDA (deal is in range)`);
-        } else if (size.score >= 100) {
-          matchDetails.push('EBITDA range aligns with deal');
-        } else if (size.score >= 60) {
-          matchDetails.push('EBITDA near target range');
-        }
         if (buyer.total_acquisitions && buyer.total_acquisitions > 0) {
           matchDetails.push(
             `${buyer.total_acquisitions} completed acquisition${buyer.total_acquisitions > 1 ? 's' : ''}`,
@@ -377,7 +354,6 @@ Deno.serve(async (req: Request) => {
           parts.push(`active in ${dealState?.toUpperCase() || 'target geography'}`);
         else if (geo.score >= 80) parts.push('national acquisition footprint');
         else if (geo.score >= 60) parts.push('regional geographic overlap');
-        if (size.score >= 60) parts.push('EBITDA range matches deal size');
         if (buyer.has_fee_agreement) parts.push('has existing fee agreement');
         if (norm(buyer.acquisition_appetite) === 'aggressive') parts.push('actively acquiring');
         const detail = parts.length > 0 ? ` that ${parts.join(', ')}` : '';
@@ -398,7 +374,7 @@ Deno.serve(async (req: Request) => {
         composite_score: composite,
         service_score: svc.score,
         geography_score: geo.score,
-        size_score: size.score,
+        size_score: 0,
         bonus_score: bonus.score,
         fit_signals: fitSignals,
         fit_reason,

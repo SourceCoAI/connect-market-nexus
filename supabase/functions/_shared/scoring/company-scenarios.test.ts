@@ -227,23 +227,6 @@ function scoreGeography(
   return { score: 0, signals: [] };
 }
 
-function scoreSize(
-  dealEbitda: number | null,
-  buyerMin: number | null,
-  buyerMax: number | null,
-): { score: number; signals: string[] } {
-  if (dealEbitda == null || dealEbitda < 0 || (buyerMin == null && buyerMax == null))
-    return { score: 0, signals: [] };
-  const min = buyerMin ?? 0;
-  const max = buyerMax ?? Number.MAX_SAFE_INTEGER;
-  if (dealEbitda >= min && dealEbitda <= max) return { score: 100, signals: [`EBITDA in range`] };
-  const rangeSize = max === Number.MAX_SAFE_INTEGER ? min * 2 : max - min;
-  const tolerance = rangeSize * 0.5;
-  if (dealEbitda >= min - tolerance && dealEbitda <= max + tolerance)
-    return { score: 60, signals: ['EBITDA near range'] };
-  return { score: 0, signals: [] };
-}
-
 function scoreBonus(buyer: {
   hasFee: boolean;
   appetite: string | null;
@@ -266,7 +249,7 @@ function scoreBonus(buyer: {
   return { score: Math.min(points, 100), signals };
 }
 
-const SCORE_WEIGHTS = { service: 0.6, geography: 0.15, size: 0.1, bonus: 0.15 } as const;
+const SCORE_WEIGHTS = { service: 0.7, geography: 0.15, bonus: 0.15 } as const;
 
 function getServiceGateMultiplier(serviceScore: number): number {
   if (serviceScore === 0) return 0.0;
@@ -322,7 +305,6 @@ function scoreBuyer(deal: Deal, buyer: Buyer) {
     [],
     norm(buyer.hqState),
   );
-  const size = scoreSize(deal.ebitda, buyer.ebitdaMin, buyer.ebitdaMax);
   const bonus = scoreBonus({
     hasFee: buyer.hasFee,
     appetite: buyer.appetite,
@@ -331,7 +313,6 @@ function scoreBuyer(deal: Deal, buyer: Buyer) {
   const raw = Math.round(
     svc.score * SCORE_WEIGHTS.service +
       geo.score * SCORE_WEIGHTS.geography +
-      size.score * SCORE_WEIGHTS.size +
       bonus.score * SCORE_WEIGHTS.bonus,
   );
   const gate = getServiceGateMultiplier(svc.score);
@@ -341,10 +322,9 @@ function scoreBuyer(deal: Deal, buyer: Buyer) {
     composite,
     svc: svc.score,
     geo: geo.score,
-    size: size.score,
     bonus: bonus.score,
     tier,
-    signals: [...svc.signals, ...geo.signals, ...size.signals, ...bonus.signals],
+    signals: [...svc.signals, ...geo.signals, ...bonus.signals],
     gate,
   };
 }
@@ -1211,20 +1191,18 @@ describe('10 Companies × 5 Buyers: Full Scoring Results', () => {
           expect(r.svc).toBeLessThanOrEqual(100);
           expect(r.geo).toBeGreaterThanOrEqual(0);
           expect(r.geo).toBeLessThanOrEqual(100);
-          expect(r.size).toBeGreaterThanOrEqual(0);
-          expect(r.size).toBeLessThanOrEqual(100);
           expect(r.bonus).toBeGreaterThanOrEqual(0);
           expect(r.bonus).toBeLessThanOrEqual(100);
         });
       });
 
       // Build report line for final summary
-      const header = `\n━━━ ${idx + 1}. ${scenario.deal.name} (${scenario.deal.industry}, ${scenario.deal.state}, EBITDA: $${((scenario.deal.ebitda || 0) / 1_000_000).toFixed(1)}M) ━━━`;
+      const header = `\n━━━ ${idx + 1}. ${scenario.deal.name} (${scenario.deal.industry}, ${scenario.deal.state}) ━━━`;
       allResults.push(header);
       results.forEach((r, rank) => {
         const pe = r.buyer.peFirm ? ` [PE: ${r.buyer.peFirm}]` : '';
         allResults.push(
-          `  #${rank + 1} ${r.buyer.name}${pe} → ${r.composite} (${r.tier}) | Svc:${r.svc} Geo:${r.geo} Size:${r.size} Bonus:${r.bonus} Gate:${r.gate} | ${r.signals.join(', ')}`,
+          `  #${rank + 1} ${r.buyer.name}${pe} → ${r.composite} (${r.tier}) | Svc:${r.svc} Geo:${r.geo} Bonus:${r.bonus} Gate:${r.gate} | ${r.signals.join(', ')}`,
         );
       });
     });

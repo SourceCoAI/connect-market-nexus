@@ -44,17 +44,16 @@ export interface ScoreRequest {
 /**
  * Relative weights for each scoring dimension (must sum to 1.0).
  *
- * v2 — Service fit is the dominant signal. Geography is a minor tiebreaker.
- * EBITDA size is unreliable for most buyers and contributes minimally.
- * Bonus signals (fee agreements, appetite) help rank among qualified buyers.
+ * v3 — EBITDA size removed (unreliable for most buyers, inflated scores
+ * for wrong-industry matches). Service fit is the dominant signal.
  *
- * Previous v1 weights for reference:
- *   service: 0.4, geography: 0.3, size: 0.2, bonus: 0.1
+ * Previous weights for reference:
+ *   v1: service: 0.4, geography: 0.3, size: 0.2, bonus: 0.1
+ *   v2: service: 0.6, geography: 0.15, size: 0.10, bonus: 0.15
  */
 export const SCORE_WEIGHTS = {
-  service: 0.60,
+  service: 0.7,
   geography: 0.15,
-  size: 0.10,
   bonus: 0.15,
 } as const;
 
@@ -70,12 +69,12 @@ export type ScoreWeights = typeof SCORE_WEIGHTS;
  * multiplied by the corresponding factor.
  */
 export function getServiceGateMultiplier(serviceScore: number): number {
-  if (serviceScore === 0) return 0.0;   // Hard kill — explicitly wrong industry
-  if (serviceScore <= 20) return 0.4;    // Completely unrelated services
-  if (serviceScore <= 40) return 0.6;    // Weak adjacency at best
-  if (serviceScore <= 60) return 0.8;    // Partial overlap, some adjacency
-  if (serviceScore <= 80) return 0.9;    // Good alignment, minor gaps
-  return 1.0;                             // Strong or exact service match
+  if (serviceScore === 0) return 0.0; // Hard kill — explicitly wrong industry
+  if (serviceScore <= 20) return 0.4; // Completely unrelated services
+  if (serviceScore <= 40) return 0.6; // Weak adjacency at best
+  if (serviceScore <= 60) return 0.8; // Partial overlap, some adjacency
+  if (serviceScore <= 80) return 0.9; // Good alignment, minor gaps
+  return 1.0; // Strong or exact service match
 }
 
 /**
@@ -87,10 +86,7 @@ export function getServiceGateMultiplier(serviceScore: number): number {
  * 3. Independent sponsors & search funds — need to raise per-deal
  * 4. Non-PE operating companies — legitimate but lower priority
  */
-export function getBuyerTypePriority(
-  buyerType: string | null,
-  isPeBacked: boolean,
-): number {
+export function getBuyerTypePriority(buyerType: string | null, isPeBacked: boolean): number {
   // PE-backed platform company (corporate with PE backing)
   if (buyerType === 'corporate' && isPeBacked) return 1;
 

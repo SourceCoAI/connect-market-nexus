@@ -341,7 +341,7 @@ function getServiceGateMultiplier(serviceScore: number): number {
   return 1.0;
 }
 
-const SCORE_WEIGHTS = { service: 0.6, geography: 0.15, size: 0.1, bonus: 0.15 } as const;
+const SCORE_WEIGHTS = { service: 0.7, geography: 0.15, bonus: 0.15 } as const;
 
 function getBuyerTypePriority(buyerType: string | null, isPeBacked: boolean): number {
   if (buyerType === 'corporate' && isPeBacked) return 1;
@@ -689,8 +689,7 @@ describe('getBuyerTypePriority()', () => {
 
 describe('SCORE_WEIGHTS', () => {
   it('weights sum to 1.0', () => {
-    const sum =
-      SCORE_WEIGHTS.service + SCORE_WEIGHTS.geography + SCORE_WEIGHTS.size + SCORE_WEIGHTS.bonus;
+    const sum = SCORE_WEIGHTS.service + SCORE_WEIGHTS.geography + SCORE_WEIGHTS.bonus;
     expect(sum).toBeCloseTo(1.0);
   });
 });
@@ -743,7 +742,6 @@ describe('10 Real Company Scenarios', () => {
       normArray(buyer.footprint),
       norm(buyer.hqState),
     );
-    const size = scoreSize(deal.ebitda, buyer.ebitdaMin, buyer.ebitdaMax);
     const bonus = scoreBonus({
       has_fee_agreement: buyer.hasFee,
       acquisition_appetite: buyer.appetite,
@@ -752,14 +750,13 @@ describe('10 Real Company Scenarios', () => {
     const rawComposite = Math.round(
       svc.score * SCORE_WEIGHTS.service +
         geo.score * SCORE_WEIGHTS.geography +
-        size.score * SCORE_WEIGHTS.size +
         bonus.score * SCORE_WEIGHTS.bonus,
     );
     const gate = getServiceGateMultiplier(svc.score);
     const composite = Math.round(rawComposite * gate);
     const tier = classifyTier(composite, buyer.hasFee, buyer.appetite);
     const priority = getBuyerTypePriority(buyer.buyerType, buyer.isPeBacked);
-    return { composite, svc, geo, size, bonus, tier, priority, gate };
+    return { composite, svc, geo, bonus, tier, priority, gate };
   }
 
   // 1. Perfect PE-backed HVAC platform for HVAC deal in TX
@@ -787,7 +784,6 @@ describe('10 Real Company Scenarios', () => {
     expect(r.priority).toBe(1);
     expect(r.svc.score).toBe(100);
     expect(r.geo.score).toBe(100);
-    expect(r.size.score).toBe(100);
   });
 
   // 2. Dental practice buyer looking at veterinary deal — should NOT match
@@ -849,7 +845,6 @@ describe('10 Real Company Scenarios', () => {
     );
     expect(r.svc.score).toBe(100);
     expect(r.geo.score).toBe(80);
-    expect(r.size.score).toBe(100);
     expect(r.composite).toBeGreaterThanOrEqual(60);
     expect(r.tier).toBe('strong');
   });
@@ -1030,14 +1025,13 @@ describe('10 Real Company Scenarios', () => {
     );
     expect(r.svc.score).toBe(100);
     expect(r.geo.score).toBe(100);
-    expect(r.size.score).toBe(100);
     expect(r.bonus.score).toBe(100);
     expect(r.composite).toBe(100);
     expect(r.tier).toBe('move_now');
   });
 
-  // 10. EBITDA way too big — $50M deal vs $1-5M buyer
-  it('Scenario 10: EBITDA mismatch — deal too large for buyer', () => {
+  // 10. Good service + geo but no bonus signals — strong not move_now
+  it('Scenario 10: Good fit but no readiness signals — strong tier', () => {
     const r = computeComposite(
       {
         categories: ['electrical'],
@@ -1063,8 +1057,8 @@ describe('10 Real Company Scenarios', () => {
       },
     );
     expect(r.svc.score).toBe(100);
-    expect(r.size.score).toBe(0);
-    expect(r.composite).toBeLessThan(80);
+    expect(r.geo.score).toBe(100);
+    expect(r.tier).toBe('strong'); // no readiness signals, so not move_now
   });
 });
 
@@ -1076,12 +1070,10 @@ describe('Edge Cases', () => {
   it('composite score never exceeds 100', () => {
     const svc = { score: 100 };
     const geo = { score: 100 };
-    const size = { score: 100 };
     const bonus = { score: 100 };
     const raw = Math.round(
       svc.score * SCORE_WEIGHTS.service +
         geo.score * SCORE_WEIGHTS.geography +
-        size.score * SCORE_WEIGHTS.size +
         bonus.score * SCORE_WEIGHTS.bonus,
     );
     expect(raw).toBeLessThanOrEqual(100);
@@ -1090,7 +1082,6 @@ describe('Edge Cases', () => {
   it('composite score is never negative', () => {
     const svc = scoreService([], '', [], [], '');
     const geo = scoreGeography('', [], [], [], '');
-    const size = scoreSize(null, null, null);
     const bonus = scoreBonus({
       has_fee_agreement: false,
       acquisition_appetite: null,
@@ -1099,7 +1090,6 @@ describe('Edge Cases', () => {
     const raw = Math.round(
       svc.score * SCORE_WEIGHTS.service +
         geo.score * SCORE_WEIGHTS.geography +
-        size.score * SCORE_WEIGHTS.size +
         bonus.score * SCORE_WEIGHTS.bonus,
     );
     const gated = Math.round(raw * getServiceGateMultiplier(svc.score));
@@ -1121,12 +1111,9 @@ describe('Edge Cases', () => {
     expect(result.score).toBe(0);
   });
 
-  it('service gate at 0 ensures zero composite even with perfect geo/size/bonus', () => {
+  it('service gate at 0 ensures zero composite even with perfect geo/bonus', () => {
     const raw = Math.round(
-      0 * SCORE_WEIGHTS.service +
-        100 * SCORE_WEIGHTS.geography +
-        100 * SCORE_WEIGHTS.size +
-        100 * SCORE_WEIGHTS.bonus,
+      0 * SCORE_WEIGHTS.service + 100 * SCORE_WEIGHTS.geography + 100 * SCORE_WEIGHTS.bonus,
     );
     const gated = Math.round(raw * getServiceGateMultiplier(0));
     expect(gated).toBe(0);
@@ -1135,7 +1122,6 @@ describe('Edge Cases', () => {
   it('buyer with all empty arrays/nulls scores 0 across the board', () => {
     const svc = scoreService([], '', [], [], '');
     const geo = scoreGeography('', [], [], [], '');
-    const size = scoreSize(null, null, null);
     const bonus = scoreBonus({
       has_fee_agreement: null,
       acquisition_appetite: null,
@@ -1143,7 +1129,6 @@ describe('Edge Cases', () => {
     });
     expect(svc.score).toBe(0);
     expect(geo.score).toBe(0);
-    expect(size.score).toBe(0);
     expect(bonus.score).toBe(0);
   });
 });
