@@ -297,19 +297,22 @@ export function useUniversalSearch() {
     queryKey: ['universal-search', 'buyer-contacts'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('remarketing_buyer_contacts')
-        .select('id, name, email, role, phone, buyer_id, buyers!inner(company_name)')
-        .order('name')
+        .from('contacts')
+        .select('id, first_name, last_name, email, title, phone, remarketing_buyer_id, buyers!inner(company_name)')
+        .eq('contact_type', 'buyer')
+        .eq('archived', false)
+        .order('first_name')
         .limit(2000);
       if (error) throw error;
       return (data ?? []).map((c: Record<string, unknown>) => {
         const buyer = c.buyers as Record<string, unknown> | null;
+        const fullName = [c.first_name, c.last_name].filter(Boolean).join(' ');
         return {
           id: c.id as string,
-          title: (c.name as string) || (c.email as string) || 'Unknown Contact',
-          subtitle: [c.role, c.email, c.phone].filter(Boolean).join(' · '),
+          title: fullName || (c.email as string) || 'Unknown Contact',
+          subtitle: [c.title, c.email, c.phone].filter(Boolean).join(' · '),
           category: 'buyer_contacts' as SearchCategory,
-          href: `/admin/remarketing/buyers/${c.buyer_id as string}`,
+          href: `/admin/remarketing/buyers/${c.remarketing_buyer_id as string}`,
           meta: buyer?.company_name as string | undefined,
         };
       });

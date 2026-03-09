@@ -290,10 +290,13 @@ export function BulkApproveForDealsDialog({
             toast.success(
               `${totalContacts} contact${totalContacts !== 1 ? 's' : ''} found across ${buyersWithContacts} buyer${buyersWithContacts !== 1 ? 's' : ''} — see Contacts tab`,
             );
+          } else if (results.length > 0) {
+            toast.info('No contacts found for approved buyers — try AI Command Center');
           }
         })
         .catch((err) => {
           console.error('[BulkApproveForDealsDialog] Contact discovery failed:', err);
+          toast.error('Contact discovery failed — try manual search in AI Command Center');
         });
 
       // Auto-create buyer introductions at first Kanban stage

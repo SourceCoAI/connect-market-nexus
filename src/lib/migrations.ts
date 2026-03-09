@@ -412,8 +412,8 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
     id: '20260204_buyer_fit_criteria_extraction',
     date: '2026-02-04',
     purpose:
-      'Create buyer_type_profiles, criteria_extraction_sources, criteria_extraction_history tables',
-    tables: ['buyer_type_profiles', 'criteria_extraction_sources', 'criteria_extraction_history'],
+      'Create criteria_extraction_sources, criteria_extraction_history tables (buyer_type_profiles dropped in 20260604)',
+    tables: ['criteria_extraction_sources', 'criteria_extraction_history'],
   },
   {
     id: '20260207_chatbot_complete_v2',
@@ -812,7 +812,6 @@ export const TABLES_WITH_RLS: string[] = [
   'ma_guide_generations',
   'tracker_activity_logs',
   'buyer_criteria_extractions',
-  'buyer_type_profiles',
   'criteria_extraction_sources',
   'criteria_extraction_history',
   'referral_partners',

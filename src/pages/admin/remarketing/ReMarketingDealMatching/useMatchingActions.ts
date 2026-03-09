@@ -177,6 +177,8 @@ export function useMatchingActions({
               .then((result) => {
                 if (result && result.total_saved > 0) {
                   queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts'] });
+                } else if (result && result.total_saved === 0 && !result.message) {
+                  console.warn(`[bulk-approve] No contacts found for buyer ${scoreData.buyer_id} (${result.firmName})`);
                 }
               })
               .catch((err) => {
@@ -364,10 +366,13 @@ export function useMatchingActions({
             toast.success(
               `${result.total_saved} contact${result.total_saved !== 1 ? 's' : ''} found at ${result.firmName} — see Contacts tab`,
             );
+          } else if (result && result.total_saved === 0 && !result.message) {
+            toast.info(`No contacts found at ${result.firmName} — try AI Command Center`);
           }
         })
         .catch((err) => {
           console.error('[useMatchingActions] Contact discovery failed:', err);
+          toast.error('Contact discovery failed — try manual search in AI Command Center');
         });
     }
   };

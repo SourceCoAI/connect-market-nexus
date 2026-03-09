@@ -81,12 +81,19 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const isPE = body.buyer_type === 'private_equity';
-  const hasPEFirm = isPE && !!body.pe_firm_name?.trim();
+  // Accept all PE-related buyer_type values (DB stores 'pe_firm', UI may send 'private_equity')
+  const PE_BUYER_TYPES = ['private_equity', 'pe_firm', 'independent_sponsor', 'search_fund'];
+  const isPE = PE_BUYER_TYPES.includes(body.buyer_type?.toLowerCase() || '');
+  // Platform companies and other buyer types may still have a PE firm backing them — search it too
+  const hasPEFirm = !!body.pe_firm_name?.trim();
   const peTarget = 5;
   const companyTarget = 3;
-  // PE buyers with a firm name need both PE + company contacts; otherwise just company
+  // Buyers with a PE firm name need both PE + company contacts; otherwise just company
   const totalTarget = hasPEFirm ? peTarget + companyTarget : companyTarget;
+
+  console.log(
+    `[find-introduction-contacts] buyer=${body.buyer_id} type=${body.buyer_type} isPE=${isPE} hasPEFirm=${hasPEFirm} pe_firm=${body.pe_firm_name || 'none'} company=${body.company_name}`,
+  );
 
   const startTime = Date.now();
   const peDomain = extractDomain(body.pe_firm_website);
