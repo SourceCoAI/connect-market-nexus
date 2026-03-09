@@ -245,12 +245,7 @@ export function ApproveBuyerMultiDealDialog({
         }
       }
 
-      // Fire-and-forget: discover contacts (legacy website scrape)
-      supabase.functions
-        .invoke('find-buyer-contacts', { body: { buyerId } })
-        .catch(() => {});
-
-      // Fire-and-forget: auto-discover introduction contacts with title-filtered search
+      // Fire-and-forget: auto-discover contacts via Serper + Clay + Prospeo pipeline
       findIntroductionContacts(buyerId)
         .then((result) => {
           if (result && result.total_saved > 0) {
@@ -262,7 +257,10 @@ export function ApproveBuyerMultiDealDialog({
             toast.info(`No contacts found for ${result.firmName} — try manual search`);
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.error('[ApproveBuyerMultiDealDialog] Contact discovery failed:', err);
+          toast.error('Contact discovery failed — try manual search in the AI Command Center');
+        });
 
       // Auto-create buyer introductions at first Kanban stage for each approved deal
       if (user?.id) {

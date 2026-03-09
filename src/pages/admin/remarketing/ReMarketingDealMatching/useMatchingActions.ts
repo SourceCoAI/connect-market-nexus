@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import type { OutreachStatus } from '@/components/remarketing';
 import { createBuyerIntroductionFromApproval } from '@/lib/remarketing/createBuyerIntroduction';
+import { findIntroductionContacts } from '@/lib/remarketing/findIntroductionContacts';
 
 interface ScoreData {
   id: string;
@@ -157,17 +158,6 @@ export function useMatchingActions({
             // Failed to create outreach record — non-blocking
           }
 
-          // Fire-and-forget: discover contacts
-          if (scoreData.buyer_id) {
-            supabase.functions
-              .invoke('find-buyer-contacts', {
-                body: { buyerId: scoreData.buyer_id },
-              })
-              .catch(() => {
-                /* contact discovery failure is non-blocking */
-              });
-          }
-
           // Auto-create buyer introduction at first Kanban stage
           if (scoreData.buyer_id && listingId && user?.id) {
             try {
@@ -179,6 +169,19 @@ export function useMatchingActions({
             } catch {
               /* buyer introduction creation failure is non-blocking */
             }
+          }
+
+          // Fire-and-forget: auto-discover contacts via Serper + Clay + Prospeo pipeline
+          if (scoreData.buyer_id) {
+            findIntroductionContacts(scoreData.buyer_id)
+              .then((result) => {
+                if (result && result.total_saved > 0) {
+                  queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts'] });
+                }
+              })
+              .catch((err) => {
+                console.error('[useMatchingActions] Contact discovery failed:', err);
+              });
           }
         }
       }
@@ -337,17 +340,6 @@ export function useMatchingActions({
       // Outreach creation failed — non-blocking
     }
 
-    // Fire-and-forget: auto-discover buyer contacts for approved buyer
-    if (scoreData?.buyer_id) {
-      supabase.functions
-        .invoke('find-buyer-contacts', {
-          body: { buyerId: scoreData.buyer_id },
-        })
-        .catch(() => {
-          /* contact discovery failure is non-blocking */
-        });
-    }
-
     // Auto-create buyer introduction at first Kanban stage
     if (scoreData?.buyer_id && listingId && user?.id) {
       createBuyerIntroductionFromApproval({
@@ -359,6 +351,22 @@ export function useMatchingActions({
       }).catch(() => {
         /* buyer introduction creation failure is non-blocking */
       });
+    }
+
+    // Fire-and-forget: auto-discover contacts via Serper + Clay + Prospeo pipeline
+    if (scoreData?.buyer_id) {
+      findIntroductionContacts(scoreData.buyer_id)
+        .then((result) => {
+          if (result && result.total_saved > 0) {
+            queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts'] });
+            toast.success(
+              `${result.total_saved} contact${result.total_saved !== 1 ? 's' : ''} found at ${result.firmName} — see Contacts tab`,
+            );
+          }
+        })
+        .catch((err) => {
+          console.error('[useMatchingActions] Contact discovery failed:', err);
+        });
     }
   };
 

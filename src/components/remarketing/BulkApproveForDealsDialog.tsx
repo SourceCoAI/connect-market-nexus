@@ -271,12 +271,7 @@ export function BulkApproveForDealsDialog({
         }
       }
 
-      // Fire-and-forget: discover contacts for all buyers (legacy website scrape)
-      for (const buyerId of buyerIds) {
-        supabase.functions.invoke('find-buyer-contacts', { body: { buyerId } }).catch(() => {});
-      }
-
-      // Fire-and-forget: auto-discover introduction contacts with title-filtered search
+      // Fire-and-forget: auto-discover contacts via Serper + Clay + Prospeo pipeline
       // Use Promise.allSettled to consolidate into a single summary toast for bulk ops
       Promise.allSettled(buyerIds.map((bId) => findIntroductionContacts(bId)))
         .then((results) => {
@@ -295,7 +290,9 @@ export function BulkApproveForDealsDialog({
             );
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.error('[BulkApproveForDealsDialog] Contact discovery failed:', err);
+        });
 
       // Auto-create buyer introductions at first Kanban stage
       if (user?.id) {
