@@ -299,6 +299,7 @@ export function useDealDetail() {
     pipelineStats,
     transcripts,
     transcriptsLoading,
+    dealOwnerName,
     // Mutations
     updateDealMutation,
     toggleUniverseFlagMutation,
