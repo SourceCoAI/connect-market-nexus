@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import {
@@ -81,6 +81,18 @@ export function LaunchOutreachPanel({
   const [heyreachCampaignId, setHeyreachCampaignId] = useState<string>('');
   const [isLaunching, setIsLaunching] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
+
+  // Reset state when panel opens with new buyers
+  useEffect(() => {
+    if (open) {
+      setEmailEnabled(true);
+      setLinkedinEnabled(true);
+      setSmartleadCampaignId('');
+      setHeyreachCampaignId('');
+      setIsLaunching(false);
+      setShowPreview(true);
+    }
+  }, [open]);
 
   // Fetch deal outreach profile
   const { data: profile } = useQuery({
@@ -182,6 +194,11 @@ export function LaunchOutreachPanel({
     emailEnabled && 'Email',
     linkedinEnabled && 'LinkedIn',
   ].filter(Boolean);
+
+  // Check if enabled channels have their campaigns selected
+  const emailReady = !emailEnabled || !!smartleadCampaignId;
+  const linkedinReady = !linkedinEnabled || !!heyreachCampaignId;
+  const allChannelsReady = emailReady && linkedinReady;
 
   // Pick first buyer with email for the preview
   const previewBuyer = useMemo(() => {
@@ -337,7 +354,11 @@ export function LaunchOutreachPanel({
                   </div>
                   <div>
                     <span className="text-muted-foreground">EBITDA: </span>
-                    <span className="font-medium">{profile.ebitda}</span>
+                    <span className="font-medium">
+                      {profile.ebitda
+                        ? `$${Number(profile.ebitda.replace(/,/g, '')).toLocaleString('en-US')}`
+                        : '—'}
+                    </span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Buyer Ref: </span>
@@ -473,12 +494,26 @@ export function LaunchOutreachPanel({
             </div>
           )}
 
+          {/* Campaign selection hints */}
+          {emailEnabled && !smartleadCampaignId && (
+            <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>Select a Smartlead campaign to enable email outreach</span>
+            </div>
+          )}
+          {linkedinEnabled && !heyreachCampaignId && (
+            <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>Select a HeyReach campaign to enable LinkedIn outreach</span>
+            </div>
+          )}
+
           {/* Launch button */}
           <Button
             className="w-full"
             size="lg"
             onClick={handleLaunch}
-            disabled={isLaunching || !profile || activeChannels.length === 0}
+            disabled={isLaunching || !profile || activeChannels.length === 0 || !allChannelsReady}
           >
             {isLaunching ? (
               <>
