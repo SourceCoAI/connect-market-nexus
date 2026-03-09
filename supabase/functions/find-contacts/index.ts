@@ -45,36 +45,112 @@ interface FindContactsRequest {
 
 // Title matching utility — expanded to catch more PE and platform company roles
 const TITLE_ALIASES: Record<string, string[]> = {
-  associate: ['associate', 'sr associate', 'senior associate', 'investment associate', 'investment professional'],
+  associate: [
+    'associate',
+    'sr associate',
+    'senior associate',
+    'investment associate',
+    'investment professional',
+  ],
   principal: ['principal', 'sr principal', 'senior principal', 'investment principal'],
-  vp: ['vp', 'vice president', 'vice-president', 'svp', 'senior vice president', 'evp',
-    'executive vice president', 'vp of operations', 'vp operations', 'vp finance',
-    'vp business development', 'vp strategy', 'vp corporate development'],
+  vp: [
+    'vp',
+    'vice president',
+    'vice-president',
+    'svp',
+    'senior vice president',
+    'evp',
+    'executive vice president',
+    'vp of operations',
+    'vp operations',
+    'vp finance',
+    'vp business development',
+    'vp strategy',
+    'vp corporate development',
+  ],
   director: [
-    'director', 'managing director', 'sr director', 'senior director', 'associate director',
-    'director of operations', 'director of finance', 'director of business development',
-    'director of acquisitions', 'director of strategy', 'executive director',
+    'director',
+    'managing director',
+    'sr director',
+    'senior director',
+    'associate director',
+    'director of operations',
+    'director of finance',
+    'director of business development',
+    'director of acquisitions',
+    'director of strategy',
+    'executive director',
   ],
-  partner: ['partner', 'managing partner', 'general partner', 'senior partner',
-    'operating partner', 'venture partner', 'founding partner', 'equity partner'],
+  partner: [
+    'partner',
+    'managing partner',
+    'general partner',
+    'senior partner',
+    'operating partner',
+    'venture partner',
+    'founding partner',
+    'equity partner',
+  ],
   analyst: ['analyst', 'sr analyst', 'senior analyst', 'investment analyst'],
-  ceo: ['ceo', 'chief executive officer', 'president', 'owner', 'founder', 'co-founder',
-    'chief executive', 'managing member', 'general manager', 'gm'],
-  cfo: ['cfo', 'chief financial officer', 'head of finance', 'finance director',
-    'vp finance', 'controller', 'treasurer'],
-  coo: ['coo', 'chief operating officer', 'head of operations', 'operations director',
-    'vp operations'],
-  bd: [
-    'business development', 'corp dev', 'corporate development',
-    'head of acquisitions', 'vp acquisitions', 'vp m&a', 'head of m&a',
-    'director of acquisitions', 'acquisitions', 'deal origination',
-    'deal sourcing', 'investment origination', 'business development officer',
-    'bdo', 'head of growth', 'vp growth', 'chief development officer',
-    'chief business development officer', 'chief growth officer',
+  ceo: [
+    'ceo',
+    'chief executive officer',
+    'president',
+    'owner',
+    'founder',
+    'co-founder',
+    'chief executive',
+    'managing member',
+    'general manager',
+    'gm',
   ],
-  operating_partner: ['operating partner', 'operating executive', 'operating advisor',
-    'senior operating partner', 'executive in residence', 'eir',
-    'operating principal', 'portfolio operations'],
+  cfo: [
+    'cfo',
+    'chief financial officer',
+    'head of finance',
+    'finance director',
+    'vp finance',
+    'controller',
+    'treasurer',
+  ],
+  coo: [
+    'coo',
+    'chief operating officer',
+    'head of operations',
+    'operations director',
+    'vp operations',
+  ],
+  bd: [
+    'business development',
+    'corp dev',
+    'corporate development',
+    'head of acquisitions',
+    'vp acquisitions',
+    'vp m&a',
+    'head of m&a',
+    'director of acquisitions',
+    'acquisitions',
+    'deal origination',
+    'deal sourcing',
+    'investment origination',
+    'business development officer',
+    'bdo',
+    'head of growth',
+    'vp growth',
+    'chief development officer',
+    'chief business development officer',
+    'chief growth officer',
+  ],
+  operating_partner: [
+    'operating partner',
+    'operating executive',
+    'operating advisor',
+    'senior operating partner',
+    'executive in residence',
+    'eir',
+    'operating principal',
+    'portfolio operations',
+  ],
   senior_associate: ['senior associate', 'sr associate', 'investment associate'],
 };
 
@@ -134,14 +210,17 @@ function parseLinkedInTitle(resultTitle: string): {
   if (!cleaned) return null;
 
   // Handle "Name, Title - Company" pattern (common in LinkedIn)
-  const commaPattern = cleaned.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+),\s*(.+?)(?:\s+[-–—]\s+(.+))?$/);
+  const commaPattern = cleaned.match(
+    /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+),\s*(.+?)(?:\s+[-–—]\s+(.+))?$/,
+  );
   if (commaPattern) {
     const namePart = commaPattern[1].trim();
     const roleOrCompany = commaPattern[2].trim();
     const afterDash = commaPattern[3]?.trim() || '';
     const names = namePart.split(/\s+/).filter(Boolean);
     if (names.length >= 2) {
-      const looksLikeRole = /\b(CEO|CFO|COO|CTO|VP|President|Founder|Owner|Partner|Principal|Director|Manager|Chairman|Associate|Analyst|Managing|Operating|Senior|Head)\b/i;
+      const looksLikeRole =
+        /\b(CEO|CFO|COO|CTO|VP|President|Founder|Owner|Partner|Principal|Director|Manager|Chairman|Associate|Analyst|Managing|Operating|Senior|Head)\b/i;
       let role = '';
       let company = '';
       if (looksLikeRole.test(roleOrCompany)) {
@@ -176,7 +255,8 @@ function parseLinkedInTitle(resultTitle: string): {
       // Try "Role, Company" pattern
       const commaMatch = rest.match(/^(.+?),\s+(.+)$/);
       if (commaMatch) {
-        const looksLikeRole = /\b(CEO|CFO|COO|CTO|VP|President|Founder|Owner|Partner|Principal|Director|Manager|Chairman|Associate|Analyst|Managing|Operating|Senior|Head)\b/i;
+        const looksLikeRole =
+          /\b(CEO|CFO|COO|CTO|VP|President|Founder|Owner|Partner|Principal|Director|Manager|Chairman|Associate|Analyst|Managing|Operating|Senior|Head)\b/i;
         if (looksLikeRole.test(commaMatch[1])) {
           role = commaMatch[1].trim();
           company = commaMatch[2].trim();
@@ -216,44 +296,67 @@ interface DiscoveredEmployee {
  */
 function getCompanyNameVariations(companyName: string): string[] {
   const variations = [companyName];
-  const words = companyName.split(/\s+/).filter(Boolean);
 
-  const suffixes = ['partners', 'capital', 'group', 'holdings', 'advisors', 'advisory',
-    'management', 'investments', 'equity', 'fund', 'ventures', 'associates', 'llc', 'inc',
-    'corp', 'corporation', 'industries', 'enterprises', 'company', 'co'];
-  const core = words.filter(w => !suffixes.includes(w.toLowerCase()));
+  // Step 1: Extract primary name (before any parenthetical)
+  const primaryName = companyName.replace(/\s*\(.*$/, '').trim() || companyName;
+  if (primaryName !== companyName) {
+    variations.push(primaryName);
+  }
 
-  // Without suffix: "Bernhard Capital Partners" → "Bernhard Capital"
+  // Step 2: Handle parenthetical names: "BigRentz (Equipt/America..." → "Equipt", "America"
+  const parenMatch = companyName.match(/^(.+?)\s*\((.+?)\)?$/);
+  if (parenMatch) {
+    const inner = parenMatch[2].replace(/\.\.\.$/, '').trim();
+    // Handle "dba" prefix inside parens
+    const dbaInner = inner.match(/^(?:dba|d\/b\/a|doing business as)\s+(.+)$/i);
+    if (dbaInner) {
+      variations.push(dbaInner[1].trim());
+    } else {
+      // Split on / for alternate names
+      for (const alt of inner.split('/')) {
+        const trimmed = alt.trim();
+        if (trimmed.length > 2) variations.push(trimmed);
+      }
+    }
+  }
+
+  // Step 3: Apply suffix stripping to the PRIMARY name (not the full parenthetical mess)
+  const suffixes = [
+    'partners',
+    'capital',
+    'group',
+    'holdings',
+    'advisors',
+    'advisory',
+    'management',
+    'investments',
+    'equity',
+    'fund',
+    'ventures',
+    'associates',
+    'llc',
+    'inc',
+    'corp',
+    'corporation',
+    'industries',
+    'enterprises',
+    'company',
+    'co',
+  ];
+  const words = primaryName.split(/\s+/).filter(Boolean);
+  const core = words.filter((w) => !suffixes.includes(w.toLowerCase()));
+
   if (core.length > 0 && core.length < words.length) {
-    // Try core words only
-    if (core.length >= 1) variations.push(core.join(' '));
-    // Try core + first suffix (many firms known as "Name Capital" not just "Name")
-    const firstSuffix = words.find(w => suffixes.includes(w.toLowerCase()));
+    // Core words only: "Bernhard Capital Partners" → "Bernhard"
+    variations.push(core.join(' '));
+    // Core + first suffix: "Bernhard Capital Partners" → "Bernhard Capital"
+    const firstSuffix = words.find((w) => suffixes.includes(w.toLowerCase()));
     if (firstSuffix && core.length >= 1) {
       variations.push(`${core.join(' ')} ${firstSuffix}`);
     }
   }
 
-  // Handle parenthetical names: "BigRentz (Equipt/America..." → "BigRentz", "Equipt"
-  const parenMatch = companyName.match(/^(.+?)\s*\((.+?)\)?$/);
-  if (parenMatch) {
-    variations.push(parenMatch[1].trim());
-    const inner = parenMatch[2].replace(/\.\.\.$/, '').trim();
-    // Split on / for alternate names
-    for (const alt of inner.split('/')) {
-      const trimmed = alt.trim();
-      if (trimmed.length > 2) variations.push(trimmed);
-    }
-  }
-
-  // Handle "dba" names: "Brammo Holdings (dba Mi..." → extract both
-  const dbaMatch = companyName.match(/^(.+?)\s*\((?:dba|d\/b\/a|doing business as)\s+(.+?)\)?$/i);
-  if (dbaMatch) {
-    variations.push(dbaMatch[1].trim());
-    variations.push(dbaMatch[2].replace(/\.\.\.$/, '').trim());
-  }
-
-  return [...new Set(variations.filter(v => v.length > 1))];
+  return [...new Set(variations.filter((v) => v.length > 1))];
 }
 
 /**
@@ -294,7 +397,8 @@ async function discoverEmployeesViaSerper(
   );
 
   // ---- Layer 3: Company name variations (handles DBA names, abbreviations) ----
-  for (const variation of nameVariations.slice(1)) { // skip first (already used above)
+  for (const variation of nameVariations.slice(1)) {
+    // skip first (already used above)
     roleQueries.push(
       `"${variation}" CEO partner principal director site:linkedin.com/in ${excludeNoise}`,
     );
@@ -308,9 +412,7 @@ async function discoverEmployeesViaSerper(
         `${companyDomain} "${companyName}" ${tf} site:linkedin.com/in ${excludeNoise}`,
       );
       // Without domain (fallback)
-      roleQueries.push(
-        `"${companyName}" "${tf}" site:linkedin.com/in ${excludeNoise}`,
-      );
+      roleQueries.push(`"${companyName}" "${tf}" site:linkedin.com/in ${excludeNoise}`);
     }
   }
 
@@ -368,11 +470,15 @@ async function discoverEmployeesViaSerper(
     const companyWordMatches = [...allCompanyWords].filter((w) => combined.includes(w));
 
     // Also check if the parsed company from LinkedIn title matches
-    const parsedCompanyWords = (parsed.company || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const parsedCompanyMatches = parsedCompanyWords.filter(w => allCompanyWords.has(w));
+    const parsedCompanyWords = (parsed.company || '')
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 2);
+    const parsedCompanyMatches = parsedCompanyWords.filter((w) => allCompanyWords.has(w));
 
     // Accept if: any company word matches in text, OR parsed company matches, OR domain appears
-    const hasCompanyMatch = companyWordMatches.length > 0 ||
+    const hasCompanyMatch =
+      companyWordMatches.length > 0 ||
       parsedCompanyMatches.length > 0 ||
       combined.includes(companyDomain.toLowerCase().replace('.com', ''));
 
@@ -401,7 +507,9 @@ async function discoverEmployeesViaSerper(
       )
     ) {
       confidence += 20;
-    } else if (/\b(VP|Director|Manager|General\s*Manager|Head\s+of|Operating\s*Partner)\b/i.test(parsed.role)) {
+    } else if (
+      /\b(VP|Director|Manager|General\s*Manager|Head\s+of|Operating\s*Partner)\b/i.test(parsed.role)
+    ) {
       confidence += 10;
     }
 
@@ -540,7 +648,7 @@ async function clayBatchPoll(
   return results;
 }
 
-function deduplicateContacts<
+function _deduplicateContacts<
   T extends { linkedin_url?: string; email?: string | null; full_name?: string; fullName?: string },
 >(contacts: T[]): T[] {
   const seen = new Set<string>();
@@ -648,22 +756,34 @@ Deno.serve(async (req: Request) => {
     if (providedDomain) {
       // Domain was provided (extracted from buyer record) — trust it as primary
       primaryDomain = providedDomain;
-      domainCandidates = [providedDomain, ...inferredCandidates.filter((d) => d !== providedDomain)];
+      domainCandidates = [
+        providedDomain,
+        ...inferredCandidates.filter((d) => d !== providedDomain),
+      ];
       console.log(`[find-contacts] Using provided domain: ${primaryDomain}`);
     } else {
       // No domain provided — discover it via Google search
-      console.log(`[find-contacts] No domain provided for "${companyName}", running domain discovery...`);
+      console.log(
+        `[find-contacts] No domain provided for "${companyName}", running domain discovery...`,
+      );
       try {
         const discovered = await discoverCompanyDomain(companyName, inferredCandidates);
         if (discovered && discovered.confidence !== 'low') {
           primaryDomain = discovered.domain;
-          domainCandidates = [discovered.domain, ...inferredCandidates.filter((d) => d !== discovered.domain)];
-          console.log(`[find-contacts] Domain discovered: ${primaryDomain} (${discovered.confidence} confidence via ${discovered.source})`);
+          domainCandidates = [
+            discovered.domain,
+            ...inferredCandidates.filter((d) => d !== discovered.domain),
+          ];
+          console.log(
+            `[find-contacts] Domain discovered: ${primaryDomain} (${discovered.confidence} confidence via ${discovered.source})`,
+          );
         } else {
           // Discovery returned low confidence or nothing — use inferred but don't rely on it
           primaryDomain = inferredCandidates[0] || inferDomain(companyName);
           domainCandidates = inferredCandidates;
-          console.log(`[find-contacts] Domain discovery inconclusive, using inferred: ${primaryDomain}`);
+          console.log(
+            `[find-contacts] Domain discovery inconclusive, using inferred: ${primaryDomain}`,
+          );
         }
       } catch (err) {
         console.warn(`[find-contacts] Domain discovery failed: ${err}, falling back to inference`);
@@ -713,10 +833,18 @@ Deno.serve(async (req: Request) => {
         if (existingByLinkedIn?.length) {
           for (const c of existingByLinkedIn) {
             if (c.linkedin_url) {
-              const norm = c.linkedin_url.toLowerCase()
-                .replace('https://www.', '').replace('https://', '').replace('http://', '');
-              if (linkedInUrls.some((u: string) =>
-                u.includes(norm) || norm.includes(u.replace('https://www.', '').replace('https://', '')))) {
+              const norm = c.linkedin_url
+                .toLowerCase()
+                .replace('https://www.', '')
+                .replace('https://', '')
+                .replace('http://', '');
+              if (
+                linkedInUrls.some(
+                  (u: string) =>
+                    u.includes(norm) ||
+                    norm.includes(u.replace('https://www.', '').replace('https://', '')),
+                )
+              ) {
                 crmAlreadyKnown.add(c.linkedin_url.toLowerCase());
               }
             }
@@ -733,16 +861,24 @@ Deno.serve(async (req: Request) => {
 
       if (existingByName?.length) {
         for (const c of existingByName) {
-          crmAlreadyKnown.add(`${(c.first_name || '').toLowerCase()}:${(c.last_name || '').toLowerCase()}`);
+          crmAlreadyKnown.add(
+            `${(c.first_name || '').toLowerCase()}:${(c.last_name || '').toLowerCase()}`,
+          );
         }
       }
     }
 
     // Filter out contacts already in CRM with email
     const needsEnrichment = filtered.filter((d) => {
-      const normUrl = (d.profileUrl || '').toLowerCase()
-        .replace('https://www.', '').replace('https://', '').replace('http://', '');
-      if (normUrl && Array.from(crmAlreadyKnown).some((k) => k.includes(normUrl) || normUrl.includes(k))) {
+      const normUrl = (d.profileUrl || '')
+        .toLowerCase()
+        .replace('https://www.', '')
+        .replace('https://', '')
+        .replace('http://', '');
+      if (
+        normUrl &&
+        Array.from(crmAlreadyKnown).some((k) => k.includes(normUrl) || normUrl.includes(k))
+      ) {
         return false;
       }
       const nameKey = `${d.firstName.toLowerCase()}:${d.lastName.toLowerCase()}`;
@@ -864,22 +1000,20 @@ Deno.serve(async (req: Request) => {
           search_query: cacheKey,
         })),
       // Contacts with Prospeo email
-      ...prospeoEnriched.map(
-        (e: Record<string, unknown>) => ({
-          company_name: companyName,
-          full_name: `${e.first_name} ${e.last_name}`.trim(),
-          first_name: e.first_name,
-          last_name: e.last_name,
-          title: (e.title as string) || '',
-          email: e.email,
-          phone: e.phone,
-          linkedin_url: (e.linkedin_url as string) || '',
-          confidence: (e.confidence as string) || 'low',
-          source: (e.source as string) || 'prospeo',
-          enriched_at: new Date().toISOString(),
-          search_query: cacheKey,
-        }),
-      ),
+      ...prospeoEnriched.map((e: Record<string, unknown>) => ({
+        company_name: companyName,
+        full_name: `${e.first_name} ${e.last_name}`.trim(),
+        first_name: e.first_name,
+        last_name: e.last_name,
+        title: (e.title as string) || '',
+        email: e.email,
+        phone: e.phone,
+        linkedin_url: (e.linkedin_url as string) || '',
+        confidence: (e.confidence as string) || 'low',
+        source: (e.source as string) || 'prospeo',
+        enriched_at: new Date().toISOString(),
+        search_query: cacheKey,
+      })),
     ];
 
     // Include unenriched contacts (neither Clay nor Prospeo found email)
