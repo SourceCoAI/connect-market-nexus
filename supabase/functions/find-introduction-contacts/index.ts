@@ -209,7 +209,14 @@ Deno.serve(async (req: Request) => {
     }
 
     // Extract the auth header to pass to sub-function calls
+    // For service-role calls, forward the internal secret so sub-functions also accept
     const authHeader = req.headers.get('Authorization') || '';
+    const subHeaders: Record<string, string> = authHeader
+      ? { Authorization: authHeader }
+      : {};
+    if (isServiceCall) {
+      subHeaders['x-internal-secret'] = supabaseServiceKey;
+    }
 
     // Step B — Call find-contacts for PE firm + company IN PARALLEL
     let peContacts: any[] = [];
