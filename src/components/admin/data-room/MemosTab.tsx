@@ -76,10 +76,12 @@ export function MemosTab({ dealId, dealTitle, projectName }: MemosTabProps) {
 
   // Project Name state
   const [editableProjectName, setEditableProjectName] = useState(projectName || '');
+  const [savedProjectName, setSavedProjectName] = useState(projectName || '');
   const [isSavingProjectName, setIsSavingProjectName] = useState(false);
 
   useEffect(() => {
     setEditableProjectName(projectName || '');
+    setSavedProjectName(projectName || '');
   }, [projectName]);
 
   const handleSaveProjectName = async () => {
@@ -90,6 +92,7 @@ export function MemosTab({ dealId, dealTitle, projectName }: MemosTabProps) {
         .update({ project_name: editableProjectName.trim() || null })
         .eq('id', dealId);
       if (error) throw error;
+      setSavedProjectName(editableProjectName.trim());
       toast({ title: 'Project name saved' });
     } catch {
       toast({ title: 'Failed to save project name', variant: 'destructive' });
@@ -173,6 +176,7 @@ export function MemosTab({ dealId, dealTitle, projectName }: MemosTabProps) {
         draft={teaserLocked ? undefined : teaserDraft}
         locked={teaserLocked}
         lockedMessage="Upload a Final PDF for the Full Lead Memo before drafting the Anonymous Teaser."
+        isProjectNameSaved={!!savedProjectName.trim()}
       />
       <MemoSlotCard
         dealId={dealId}
@@ -183,6 +187,7 @@ export function MemosTab({ dealId, dealTitle, projectName }: MemosTabProps) {
         description="Comprehensive investment memo. Includes company name, financials, operations detail. Sent after NDA execution."
         document={fullMemoDoc}
         draft={fullMemoDraft}
+        isProjectNameSaved={!!savedProjectName.trim()}
       />
       </div>
     </div>
@@ -203,6 +208,7 @@ interface MemoSlotCardProps {
   generateDisabledReason?: string;
   locked?: boolean;
   lockedMessage?: string;
+  isProjectNameSaved?: boolean;
 }
 
 function MemoSlotCard({
@@ -217,12 +223,14 @@ function MemoSlotCard({
   generateDisabledReason,
   locked,
   lockedMessage,
+  isProjectNameSaved,
 }: MemoSlotCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadDocument = useUploadDocument();
   const deleteDocument = useDeleteDocument();
   const documentUrl = useDocumentUrl();
   const generateMemo = useGenerateMemo();
+  const { toast } = useToast();
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateProgress, setGenerateProgress] = useState(0);
@@ -280,6 +288,14 @@ function MemoSlotCard({
   };
 
   const handleGenerateDraft = async () => {
+    if (!isProjectNameSaved) {
+      toast({
+        title: 'Project name required',
+        description: 'Please fill out and save the Project Name before generating a memo.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsGenerating(true);
     setGenerateProgress(0);
     // Simulate progress steps while AI generates
