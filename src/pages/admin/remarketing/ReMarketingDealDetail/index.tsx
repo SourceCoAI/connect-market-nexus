@@ -113,6 +113,7 @@ const ReMarketingDealDetail = () => {
             listedName={listedName}
             dataCompleteness={dataCompleteness}
             tier={tier}
+            dealOwnerName={dealOwnerName}
             isEditingName={isEditingName}
             setIsEditingName={setIsEditingName}
             editedName={editedName}
