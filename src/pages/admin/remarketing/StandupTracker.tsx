@@ -25,6 +25,8 @@ import {
   FileText,
   UserRound,
   ClipboardList,
+  Building2,
+  ShieldAlert,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStandupMeetings } from '@/hooks/useStandupMeetings';
@@ -68,12 +70,15 @@ function MeetingTaskRow({ task }: { task: DailyStandupTaskWithRelations }) {
     ? `${task.assignee.first_name || ''} ${task.assignee.last_name || ''}`.trim()
     : 'Unassigned';
   const isCompleted = task.status === 'completed';
+  const isPendingApproval = task.status === 'pending_approval';
+  const dealName =
+    task.deal?.listings?.internal_company_name || task.deal?.listings?.title || task.deal_reference;
 
   return (
     <div
       className={cn(
         'flex items-center gap-3 px-3 py-2 rounded-md border text-sm',
-        isCompleted ? 'bg-muted/30 opacity-70' : 'bg-card',
+        isCompleted ? 'bg-muted/30 opacity-70' : isPendingApproval ? 'bg-amber-50/50 border-amber-200' : 'bg-card',
       )}
     >
       {/* Status indicator */}
@@ -81,6 +86,8 @@ function MeetingTaskRow({ task }: { task: DailyStandupTaskWithRelations }) {
         <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
       ) : task.status === 'overdue' ? (
         <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+      ) : isPendingApproval ? (
+        <ShieldAlert className="h-4 w-4 text-amber-500 shrink-0" />
       ) : (
         <div className="h-4 w-4 rounded-full border-2 border-gray-300 shrink-0" />
       )}
@@ -94,6 +101,18 @@ function MeetingTaskRow({ task }: { task: DailyStandupTaskWithRelations }) {
       >
         {task.title}
       </span>
+
+      {/* Deal reference */}
+      {dealName && (
+        <Badge
+          variant="outline"
+          className="shrink-0 text-[10px] px-1.5 py-0 h-4 border-indigo-200 text-indigo-700 bg-indigo-50 max-w-[120px] truncate"
+          title={dealName}
+        >
+          <Building2 className="h-2.5 w-2.5 mr-0.5 inline" />
+          {dealName}
+        </Badge>
+      )}
 
       {/* Task type */}
       <Badge
@@ -134,6 +153,7 @@ function MeetingCard({ meeting }: { meeting: StandupMeetingWithTasks }) {
 
   const completedCount = meeting.tasks.filter((t) => t.status === 'completed').length;
   const overdueCount = meeting.tasks.filter((t) => t.status === 'overdue').length;
+  const pendingApprovalCount = meeting.tasks.filter((t) => t.status === 'pending_approval').length;
   const totalTasks = meeting.tasks.length;
   const completionPct = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
 
@@ -202,29 +222,40 @@ function MeetingCard({ meeting }: { meeting: StandupMeetingWithTasks }) {
 
               {/* Right side stats */}
               <div className="flex items-center gap-3 shrink-0">
+                {pendingApprovalCount > 0 && (
+                  <Badge variant="outline" className="text-[10px] px-2 py-0 h-5 border-amber-300 text-amber-700 bg-amber-50">
+                    {pendingApprovalCount} awaiting approval
+                  </Badge>
+                )}
                 {overdueCount > 0 && (
                   <Badge variant="destructive" className="text-[10px] px-2 py-0 h-5">
                     {overdueCount} overdue
                   </Badge>
                 )}
-                <div className="flex items-center gap-1.5">
-                  <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className={cn(
-                        'h-full rounded-full transition-all',
-                        completionPct === 100
-                          ? 'bg-green-500'
-                          : completionPct >= 50
-                            ? 'bg-blue-500'
-                            : 'bg-amber-500',
-                      )}
-                      style={{ width: `${completionPct}%` }}
-                    />
+                {totalTasks > 0 ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all',
+                          completionPct === 100
+                            ? 'bg-green-500'
+                            : completionPct >= 50
+                              ? 'bg-blue-500'
+                              : 'bg-amber-500',
+                        )}
+                        style={{ width: `${completionPct}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium tabular-nums w-8 text-right">
+                      {completionPct}%
+                    </span>
                   </div>
-                  <span className="text-xs font-medium tabular-nums w-8 text-right">
-                    {completionPct}%
-                  </span>
-                </div>
+                ) : (
+                  <Badge variant="secondary" className="text-[10px] px-2 py-0 h-5">
+                    No tasks
+                  </Badge>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -265,30 +296,52 @@ function MeetingCard({ meeting }: { meeting: StandupMeetingWithTasks }) {
               </div>
             )}
 
+            {/* Meeting-level extraction metadata */}
+            {(meeting.tasks_extracted > 0 || meeting.tasks_unassigned > 0) && (
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                {meeting.tasks_extracted > 0 && (
+                  <span>{meeting.tasks_extracted} tasks extracted from transcript</span>
+                )}
+                {meeting.tasks_unassigned > 0 && (
+                  <span className="text-amber-600 font-medium">
+                    {meeting.tasks_unassigned} unassigned
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Tasks by assignee */}
-            <div className="space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Assigned Tasks
-              </p>
-              {tasksByAssignee.map((group) => (
-                <div key={group.name} className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
-                      <UserRound className="h-3 w-3 text-primary" />
+            {totalTasks > 0 ? (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Assigned Tasks
+                </p>
+                {tasksByAssignee.map((group) => (
+                  <div key={group.name} className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                        <UserRound className="h-3 w-3 text-primary" />
+                      </div>
+                      <span className="text-xs font-semibold">{group.name}</span>
+                      <Badge variant="secondary" className="h-4 px-1 text-[9px]">
+                        {group.tasks.length}
+                      </Badge>
                     </div>
-                    <span className="text-xs font-semibold">{group.name}</span>
-                    <Badge variant="secondary" className="h-4 px-1 text-[9px]">
-                      {group.tasks.length}
-                    </Badge>
+                    <div className="pl-8 space-y-1">
+                      {group.tasks.map((task) => (
+                        <MeetingTaskRow key={task.id} task={task} />
+                      ))}
+                    </div>
                   </div>
-                  <div className="pl-8 space-y-1">
-                    {group.tasks.map((task) => (
-                      <MeetingTaskRow key={task.id} task={task} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-sm text-muted-foreground">
+                <ListChecks className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                No tasks were extracted from this meeting.
+                {meeting.transcript_url && ' Check the transcript for manual task creation.'}
+              </div>
+            )}
 
             {/* Transcript link */}
             {meeting.transcript_url && (
