@@ -18,7 +18,9 @@ import { DealOutreachProfileForm } from './DealOutreachProfileForm';
 import { StatusBadge } from './StatusBadge';
 import { OutreachInlineDetail } from './OutreachInlineDetail';
 import { LaunchOutreachPanel } from './LaunchOutreachPanel';
+import { BuyerOutreachBulkBar } from './BuyerOutreachBulkBar';
 import { useBuyerOutreachStatus } from './useBuyerOutreachStatus';
+import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface BuyerOutreachTabProps {
@@ -105,7 +107,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
     document.addEventListener('mouseup', onUp);
   }, [colWidths]);
 
-  
+
 
   // Sort toggle
   const toggleSort = (field: SortField) => {
@@ -314,6 +316,16 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
     [buyers, selectedIds],
   );
 
+  const selectedContactIds = useMemo(
+    () => selectedBuyers.map(b => b.id),
+    [selectedBuyers],
+  );
+
+  const selectedWithPhone = useMemo(
+    () => selectedBuyers.filter(b => b.phone).length,
+    [selectedBuyers],
+  );
+
   const channelIcon = (channel: string | null) => {
     switch (channel) {
       case 'email': return <Mail className="h-3 w-3" />;
@@ -326,6 +338,26 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
   const handleLaunchSuccess = () => {
     setSelectedIds(new Set());
     queryClient.invalidateQueries({ queryKey: ['buyer-outreach-events'] });
+  };
+
+  const handleRemoveFromList = async () => {
+    const ids = Array.from(selectedIds);
+    const { error } = await supabase
+      .from('contacts')
+      .update({ archived: true })
+      .in('id', ids);
+
+    if (error) {
+      toast({ title: 'Failed to remove contacts', variant: 'destructive' });
+    } else {
+      toast({ title: `${ids.length} contact(s) removed from list` });
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ['deal-buyer-contacts', dealId] });
+    }
+  };
+
+  const handleAddToList = () => {
+    toast({ title: 'Add to list', description: 'Feature coming soon.' });
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -416,6 +448,20 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Bulk action bar */}
+          {selectedIds.size > 0 && (
+            <div className="mb-4">
+              <BuyerOutreachBulkBar
+                selectedCount={selectedIds.size}
+                contactIds={selectedContactIds}
+                contactsWithPhone={selectedWithPhone}
+                onRemoveFromList={handleRemoveFromList}
+                onAddToList={handleAddToList}
+                onClearSelection={() => setSelectedIds(new Set())}
+              />
+            </div>
+          )}
+
           {buyersLoading ? (
             <div className="space-y-3">
               <Skeleton className="h-12 w-full" />

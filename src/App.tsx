@@ -130,6 +130,7 @@ const ListingPreview = lazyWithRetry(() => import('@/pages/ListingPreview'));
 const DataRecoveryPage = lazyWithRetry(() => import('@/pages/admin/DataRecoveryPage'));
 const FormMonitoringPage = lazyWithRetry(() => import('@/pages/admin/FormMonitoringPage'));
 const SecuritySettings = lazyWithRetry(() => import('@/pages/admin/settings/SecuritySettings'));
+const OutreachSettingsPage = lazyWithRetry(() => import('@/pages/admin/settings/OutreachSettingsPage'));
 const GlobalApprovalsPage = lazyWithRetry(() => import('@/pages/admin/GlobalApprovalsPage'));
 const DocumentTrackingPage = lazyWithRetry(() => import('@/pages/admin/DocumentTrackingPage'));
 const TestingHub = lazyWithRetry(() => import('@/pages/admin/TestingHub'));
@@ -564,6 +565,14 @@ function App() {
                 element={
                   <RoleGate min="admin">
                     <ReMarketingSettings />
+                  </RoleGate>
+                }
+              />
+              <Route
+                path="settings/outreach"
+                element={
+                  <RoleGate min="admin">
+                    <OutreachSettingsPage />
                   </RoleGate>
                 }
               />

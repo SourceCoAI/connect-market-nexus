@@ -334,6 +334,12 @@ export function UnifiedAdminSidebar({
                   icon: <Wrench className="h-4 w-4" />,
                 },
                 {
+                  label: 'Outreach Settings',
+                  href: '/admin/settings/outreach',
+                  icon: <Mail className="h-4 w-4" />,
+                  separator: 'Outreach',
+                },
+                {
                   label: 'Data Recovery',
                   href: '/admin/settings/data-recovery',
                   icon: <Database className="h-4 w-4" />,

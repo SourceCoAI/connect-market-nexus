@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import {
@@ -13,7 +13,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { Mail, Linkedin, Phone, AlertTriangle, Loader2, FileText } from 'lucide-react';
+import { Mail, Linkedin, AlertTriangle, Loader2, FileText, Eye, EyeOff } from 'lucide-react';
+
+const DEFAULT_OUTREACH_TEMPLATE = `Hi {{first_name}},
+We have an off-market {{deal_descriptor}} {{geography}} generating {{ebitda}} that could be a fit for {{buyer_ref}}.
+Would you be interested in learning more?
+Best,
+[Sender Name]
+SourceCo`;
 
 interface SelectedBuyer {
   id: string;
@@ -23,6 +30,8 @@ interface SelectedBuyer {
   linkedin_url: string | null;
   phone: string | null;
   remarketing_buyer_id: string | null;
+  buyer_company_name?: string | null;
+  buyer_type?: string | null;
 }
 
 interface LaunchOutreachPanelProps {
@@ -39,6 +48,25 @@ interface Campaign {
   name: string;
 }
 
+function renderMessagePreview(
+  template: string,
+  profile: { deal_descriptor: string; geography: string; ebitda: string } | null,
+  buyer: SelectedBuyer | null,
+): string {
+  if (!profile || !buyer) return template;
+  const ebitdaFormatted = profile.ebitda
+    ? `$${Number(profile.ebitda.replace(/,/g, '')).toLocaleString('en-US')}`
+    : '';
+  // Derive buyer_ref based on buyer type
+  const buyerRef = buyer.buyer_company_name || 'your firm';
+  return template
+    .replace(/\{\{first_name\}\}/g, buyer.first_name || '')
+    .replace(/\{\{deal_descriptor\}\}/g, profile.deal_descriptor || '')
+    .replace(/\{\{geography\}\}/g, profile.geography || '')
+    .replace(/\{\{ebitda\}\}/g, ebitdaFormatted)
+    .replace(/\{\{buyer_ref\}\}/g, buyerRef);
+}
+
 export function LaunchOutreachPanel({
   open,
   onOpenChange,
@@ -49,10 +77,22 @@ export function LaunchOutreachPanel({
 }: LaunchOutreachPanelProps) {
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [linkedinEnabled, setLinkedinEnabled] = useState(true);
-  const [phoneEnabled, setPhoneEnabled] = useState(true);
   const [smartleadCampaignId, setSmartleadCampaignId] = useState<string>('');
   const [heyreachCampaignId, setHeyreachCampaignId] = useState<string>('');
   const [isLaunching, setIsLaunching] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
+
+  // Reset state when panel opens with new buyers
+  useEffect(() => {
+    if (open) {
+      setEmailEnabled(true);
+      setLinkedinEnabled(true);
+      setSmartleadCampaignId('');
+      setHeyreachCampaignId('');
+      setIsLaunching(false);
+      setShowPreview(true);
+    }
+  }, [open]);
 
   // Fetch deal outreach profile
   const { data: profile } = useQuery({
@@ -68,6 +108,23 @@ export function LaunchOutreachPanel({
     },
     enabled: !!dealId && open,
   });
+
+  // Fetch outreach message template from app_settings
+  const { data: messageTemplate } = useQuery({
+    queryKey: ['outreach-message-template'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'outreach_message_template')
+        .maybeSingle();
+      if (error) throw error;
+      return data?.value || DEFAULT_OUTREACH_TEMPLATE;
+    },
+    enabled: open,
+  });
+
+  const template = messageTemplate || DEFAULT_OUTREACH_TEMPLATE;
 
   // Fetch Smartlead campaigns
   const { data: smartleadCampaigns } = useQuery({
@@ -130,20 +187,27 @@ export function LaunchOutreachPanel({
         result.push({ channel: 'LinkedIn', field: 'LinkedIn URL', count: missing.length });
       }
     }
-    if (phoneEnabled) {
-      const missing = selectedBuyers.filter(b => !b.phone);
-      if (missing.length > 0) {
-        result.push({ channel: 'Phone', field: 'phone number', count: missing.length });
-      }
-    }
     return result;
-  }, [selectedBuyers, emailEnabled, linkedinEnabled, phoneEnabled]);
+  }, [selectedBuyers, emailEnabled, linkedinEnabled]);
 
   const activeChannels = [
     emailEnabled && 'Email',
     linkedinEnabled && 'LinkedIn',
-    phoneEnabled && 'Calls',
   ].filter(Boolean);
+
+  // Check if enabled channels have their campaigns selected
+  const emailReady = !emailEnabled || !!smartleadCampaignId;
+  const linkedinReady = !linkedinEnabled || !!heyreachCampaignId;
+  const allChannelsReady = emailReady && linkedinReady;
+
+  // Pick first buyer with email for the preview
+  const previewBuyer = useMemo(() => {
+    return selectedBuyers.find(b => b.email) || selectedBuyers[0] || null;
+  }, [selectedBuyers]);
+
+  const renderedMessage = useMemo(() => {
+    return renderMessagePreview(template, profile || null, previewBuyer);
+  }, [template, profile, previewBuyer]);
 
   const handleLaunch = async () => {
     if (!profile) {
@@ -219,29 +283,6 @@ export function LaunchOutreachPanel({
         );
       }
 
-      if (phoneEnabled) {
-        promises.push(
-          fetch(`${SUPABASE_URL}/functions/v1/push-buyer-to-phoneburner`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              deal_id: dealId,
-              buyer_ids: buyerIds,
-            }),
-          })
-            .then(r => r.json())
-            .then(data => {
-              results.push({ channel: 'Calls', pushed: data.pushed || 0, errors: data.errors || [] });
-            })
-            .catch(err => {
-              results.push({ channel: 'Calls', pushed: 0, errors: [err.message] });
-            }),
-        );
-      }
-
       await Promise.all(promises);
 
       const totalPushed = results.reduce((sum, r) => sum + r.pushed, 0);
@@ -249,14 +290,12 @@ export function LaunchOutreachPanel({
       const channelSummary = results.map(r => r.channel).join(', ');
 
       if (totalPushed === 0 && totalErrors > 0) {
-        // Full failure — keep panel open for retry
         toast({
           title: 'Launch failed',
           description: `${totalErrors} error(s) across ${channelSummary}. No contacts were pushed.`,
           variant: 'destructive',
         });
       } else if (totalErrors > 0) {
-        // Partial success — close panel but warn
         toast({
           title: `Outreach launched with some issues`,
           description: `Pushed ${totalPushed} contacts across ${channelSummary}. ${totalErrors} error(s).`,
@@ -265,7 +304,6 @@ export function LaunchOutreachPanel({
         onSuccess();
         onOpenChange(false);
       } else {
-        // Full success
         toast({
           title: `Outreach launched for ${selectedBuyers.length} buyers`,
           description: `Channels: ${channelSummary}`,
@@ -316,7 +354,11 @@ export function LaunchOutreachPanel({
                   </div>
                   <div>
                     <span className="text-muted-foreground">EBITDA: </span>
-                    <span className="font-medium">{profile.ebitda}</span>
+                    <span className="font-medium">
+                      {profile.ebitda
+                        ? `$${Number(profile.ebitda.replace(/,/g, '')).toLocaleString('en-US')}`
+                        : '—'}
+                    </span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Buyer Ref: </span>
@@ -392,21 +434,48 @@ export function LaunchOutreachPanel({
                 </Select>
               )}
             </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-green-600" />
-                  <Label htmlFor="phone-toggle">Calls (PhoneBurner)</Label>
-                </div>
-                <Switch
-                  id="phone-toggle"
-                  checked={phoneEnabled}
-                  onCheckedChange={setPhoneEnabled}
-                />
-              </div>
-            </div>
           </div>
+
+          {/* Message Preview */}
+          {emailEnabled && profile && previewBuyer && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium">Message Preview</h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 text-xs"
+                  onClick={() => setShowPreview(!showPreview)}
+                >
+                  {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                  {showPreview ? 'Hide' : 'Show'}
+                </Button>
+              </div>
+              {showPreview && (
+                <>
+                  <div className="text-xs text-muted-foreground mb-1">
+                    Preview for: <span className="font-medium">{previewBuyer.first_name} {previewBuyer.last_name}</span>
+                    {previewBuyer.buyer_company_name && (
+                      <span> at <span className="font-medium">{previewBuyer.buyer_company_name}</span></span>
+                    )}
+                  </div>
+                  <Card className="bg-muted/30">
+                    <CardContent className="py-3">
+                      <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">
+                        {renderedMessage}
+                      </pre>
+                    </CardContent>
+                  </Card>
+                  <p className="text-xs text-muted-foreground">
+                    Template can be customized in{' '}
+                    <a href="/admin/settings/outreach" className="text-primary underline" target="_blank">
+                      Outreach Settings
+                    </a>
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Warnings */}
           {warnings.length > 0 && (
@@ -425,12 +494,26 @@ export function LaunchOutreachPanel({
             </div>
           )}
 
+          {/* Campaign selection hints */}
+          {emailEnabled && !smartleadCampaignId && (
+            <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>Select a Smartlead campaign to enable email outreach</span>
+            </div>
+          )}
+          {linkedinEnabled && !heyreachCampaignId && (
+            <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>Select a HeyReach campaign to enable LinkedIn outreach</span>
+            </div>
+          )}
+
           {/* Launch button */}
           <Button
             className="w-full"
             size="lg"
             onClick={handleLaunch}
-            disabled={isLaunching || !profile || activeChannels.length === 0}
+            disabled={isLaunching || !profile || activeChannels.length === 0 || !allChannelsReady}
           >
             {isLaunching ? (
               <>
