@@ -1,43 +1,47 @@
 
 
-# Plan: Fix Edge Function Build Errors & Deploy All
+# Audit: AI Search Progress Bar Not Showing
 
-The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
+## Root Cause Analysis
 
-## Errors & Fixes
+After tracing the full flow (`handleSeedBuyers` → `createJob` → polling via `useBuyerSearchJob` → `{job && ...}` render), I identified **two bugs** in `src/hooks/admin/use-buyer-search-job.ts`:
 
-### 1. `auto-create-firm-on-approval/index.ts` (1 error)
-**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
-**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
+### Bug 1: `pollJob` silently swallows query errors (PRIMARY CAUSE)
 
-### 2. `bulk-import-remarketing/index.ts` (2 errors)
-**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
-**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
+```ts
+// Line 43-53 of use-buyer-search-job.ts
+const pollJob = useCallback(async (jobId: string) => {
+  const { data } = await (supabase as any)
+    .from('buyer_search_jobs')
+    .select('*')
+    .eq('id', jobId)
+    .single();
+  if (data) {
+    setJob(data as BuyerSearchJob);
+    // ...
+  }
+  // ← If there's an error, data is null, job stays null FOREVER
+  // ← No error logging — impossible to debug
+}, [stopPolling]);
+```
 
-### 3. `calculate-deal-quality/index.ts` (24 errors)
-**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
-**Fix:**
-- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
-- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
+If the Supabase query returns an error (even transiently), `data` is null, `job` stays null, and the progress bar (`{job && ...}` at line 711 of RecommendedBuyersTab) never renders. The polling continues silently failing every 2 seconds with no indication.
 
-### 4. `clarify-industry/index.ts` (1 error)
-**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
-**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
+### Bug 2: No recovery on component remount
 
-### 5. `confirm-agreement-signed/index.ts` (3 errors)
-**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
-**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
+`activeJobId` is stored in `useState`. If the user switches deal tabs (e.g., Overview → Buyer Introductions) while a search is running, the component remounts, `activeJobId` resets to null, and the progress bar is permanently lost — even though the edge function is still running and updating the job row.
 
-## After Fixes
-Deploy all edge functions using the deployment tool.
+## Fix Plan
 
-## Summary of Changes
-| File | Change |
-|------|--------|
-| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
-| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
-| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
-| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
-| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
-| Deploy all ~148 functions | After fixes pass |
+### File: `src/hooks/admin/use-buyer-search-job.ts`
+
+1. **Add error handling to `pollJob`** — destructure `error` from the query, log it with `console.error`, and optionally set a fallback error state so the UI can show something went wrong.
+
+2. **Check for active jobs on mount** — when the hook initializes, query `buyer_search_jobs` for any job with this `listing_id` that's still in `pending`/`searching`/`scoring` status. If found, resume polling that job. This handles the remount case.
+
+3. **Remove unnecessary `(supabase as any)` cast** — `buyer_search_jobs` exists in the generated types, so the `any` cast is hiding potential type issues.
+
+### File: `src/components/admin/deals/buyer-introductions/tabs/RecommendedBuyersTab.tsx`
+
+4. **No changes needed** — the rendering logic at lines 710-752 is correct; it just needs `job` to actually be populated.
 
