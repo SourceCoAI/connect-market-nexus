@@ -1,27 +1,9 @@
 /**
- * Tests for _shared/apify-client.ts — LinkedIn scraper and URL resolution
- *
- * Tests pure functions (resolveCompanyUrl, inferDomain) without Deno/API dependencies.
+ * Tests for _shared/apify-client.ts — Domain inference utilities
  */
 import { describe, it, expect } from 'vitest';
 
 // Re-implement pure functions for testing (same as source, avoids Deno imports)
-
-function resolveCompanyUrl(companyName: string, domain?: string): string {
-  if (domain) {
-    const slug = domain.replace(/\.(com|io|co|net|org)$/, '').replace(/[^a-z0-9]/gi, '');
-    return `https://www.linkedin.com/company/${slug}`;
-  }
-
-  const slug = companyName
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-
-  return `https://www.linkedin.com/company/${slug}`;
-}
 
 function inferDomain(companyName: string): string {
   const slug = companyName
@@ -33,51 +15,29 @@ function inferDomain(companyName: string): string {
   return `${slug}.com`;
 }
 
-// ============================================================================
-// resolveCompanyUrl
-// ============================================================================
+function inferDomainCandidates(companyName: string): string[] {
+  const candidates: string[] = [];
+  const clean = companyName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+  const words = clean.split(/\s+/).filter(Boolean);
 
-describe('resolveCompanyUrl', () => {
-  it('generates URL from company name', () => {
-    expect(resolveCompanyUrl('Trivest Partners')).toBe(
-      'https://www.linkedin.com/company/trivest-partners',
-    );
-  });
+  candidates.push(`${words.join('')}.com`);
 
-  it('handles company names with special characters', () => {
-    expect(resolveCompanyUrl('AT&T Inc.')).toBe('https://www.linkedin.com/company/att-inc');
-  });
+  const suffixes = ['partners', 'capital', 'group', 'holdings', 'advisors', 'advisory',
+    'management', 'investments', 'equity', 'fund', 'ventures', 'associates', 'llc', 'inc', 'corp'];
+  const core = words.filter(w => !suffixes.includes(w));
+  if (core.length > 0 && core.length < words.length) {
+    candidates.push(`${core.join('')}.com`);
+  }
 
-  it('generates URL from domain when provided', () => {
-    expect(resolveCompanyUrl('Trivest', 'trivest.com')).toBe(
-      'https://www.linkedin.com/company/trivest',
-    );
-  });
+  if (words.length >= 2) {
+    const initials = words.map(w => w[0]).join('');
+    if (initials.length >= 2 && initials.length <= 5) {
+      candidates.push(`${initials}.com`);
+    }
+  }
 
-  it('strips common TLDs from domain', () => {
-    expect(resolveCompanyUrl('Test Co', 'testco.io')).toBe(
-      'https://www.linkedin.com/company/testco',
-    );
-    expect(resolveCompanyUrl('Test Co', 'testco.net')).toBe(
-      'https://www.linkedin.com/company/testco',
-    );
-  });
-
-  it('handles single word company names', () => {
-    expect(resolveCompanyUrl('Blackstone')).toBe('https://www.linkedin.com/company/blackstone');
-  });
-
-  it('handles multi-word company names with extra spaces', () => {
-    expect(resolveCompanyUrl('  New  Heritage  Capital  ')).toBe(
-      'https://www.linkedin.com/company/new-heritage-capital',
-    );
-  });
-
-  it('handles empty company name gracefully', () => {
-    const url = resolveCompanyUrl('');
-    expect(url).toBe('https://www.linkedin.com/company/');
-  });
-});
+  return [...new Set(candidates)];
+}
 
 // ============================================================================
 // inferDomain
@@ -98,5 +58,30 @@ describe('inferDomain', () => {
 
   it('handles extra whitespace', () => {
     expect(inferDomain('  New Heritage  Capital  ')).toBe('newheritagecapital.com');
+  });
+});
+
+// ============================================================================
+// inferDomainCandidates
+// ============================================================================
+
+describe('inferDomainCandidates', () => {
+  it('returns full concatenation, suffix-stripped, and initials', () => {
+    const result = inferDomainCandidates('New Heritage Capital');
+    expect(result).toContain('newheritagecapital.com');
+    expect(result).toContain('newheritage.com');
+    expect(result).toContain('nhc.com');
+  });
+
+  it('deduplicates when suffix stripping produces same result', () => {
+    const result = inferDomainCandidates('Blackstone');
+    expect(result).toEqual(['blackstone.com']);
+  });
+
+  it('handles company with no suffix words', () => {
+    const result = inferDomainCandidates('Acme Tech');
+    expect(result).toContain('acmetech.com');
+    expect(result).toContain('at.com');
+    expect(result).not.toContain('acme.com'); // "tech" is not a suffix
   });
 });

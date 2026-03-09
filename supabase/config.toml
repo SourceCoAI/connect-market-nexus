@@ -172,8 +172,6 @@ verify_jwt = false
 verify_jwt = false
 [functions.process-buyer-enrichment-queue]
 verify_jwt = false
-[functions.find-buyer-contacts]
-verify_jwt = true
 [functions.sync-captarget-sheet]
 verify_jwt = false
 [functions.enrich-external-only]
