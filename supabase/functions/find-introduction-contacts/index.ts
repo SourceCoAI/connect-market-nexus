@@ -211,9 +211,7 @@ Deno.serve(async (req: Request) => {
     // Extract the auth header to pass to sub-function calls
     // For service-role calls, forward the internal secret so sub-functions also accept
     const authHeader = req.headers.get('Authorization') || '';
-    const subHeaders: Record<string, string> = authHeader
-      ? { Authorization: authHeader }
-      : {};
+    const subHeaders: Record<string, string> = authHeader ? { Authorization: authHeader } : {};
     if (isServiceCall) {
       subHeaders['x-internal-secret'] = supabaseServiceKey;
     }
@@ -231,17 +229,21 @@ Deno.serve(async (req: Request) => {
             title_filter: PE_TITLE_FILTER,
             target_count: 6, // Ask for slightly more to allow for dedup losses and enrichment failures
             company_domain: peDomain || undefined,
+            company_type: 'pe_firm' as const,
           },
           headers: subHeaders,
         })
       : Promise.resolve(null);
 
+    // When the buyer IS a PE-type firm (not PE-backed), use PE cascade for the company search
+    const useCompanyPECascade = isPE && !hasPEFirm;
     const companySearchPromise = supabaseAdmin.functions.invoke('find-contacts', {
       body: {
         company_name: body.company_name,
-        title_filter: COMPANY_TITLE_FILTER,
+        title_filter: useCompanyPECascade ? PE_TITLE_FILTER : COMPANY_TITLE_FILTER,
         target_count: 5, // Ask for slightly more to allow for dedup losses and enrichment failures
         company_domain: companyDomain || undefined,
+        company_type: useCompanyPECascade ? ('pe_firm' as const) : ('company' as const),
       },
       headers: subHeaders,
     });

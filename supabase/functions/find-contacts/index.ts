@@ -9,7 +9,9 @@
  *      b. No domain? → Serper discoverCompanyDomain → Blitz domain-to-linkedin
  *      c. Blitz fails? → Serper findCompanyLinkedIn (fallback)
  *   3. PRIMARY: Blitz Waterfall ICP Search for contacts
- *      - 3-tier cascade: C-suite/Partners → VPs/Directors → Associates/BD
+ *      - 3-tier cascade tailored by company_type:
+ *        PE firms: Partners/Principals → VPs/Directors → Associates/BD
+ *        Companies: C-suite/Operators → VPs/Directors → BD/Finance/Ops
  *      - Supplement with Employee Finder if needed
  *      - FALLBACK: Serper Google search if Blitz fails
  *   4. Filter by title criteria
@@ -21,7 +23,7 @@
  *  10. Log the search
  *
  * POST /find-contacts
- * Body: { company_name, title_filter?, target_count?, company_linkedin_url?, company_domain? }
+ * Body: { company_name, title_filter?, target_count?, company_linkedin_url?, company_domain?, company_type? }
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -51,7 +53,163 @@ interface FindContactsRequest {
   target_count?: number;
   company_linkedin_url?: string;
   company_domain?: string;
+  company_type?: 'pe_firm' | 'company';
 }
+
+// ─── Company-type-specific waterfall ICP cascades ────────────────────────────
+
+const PE_FIRM_CASCADE: CascadeFilter[] = [
+  {
+    include_title: [
+      'Partner',
+      'Managing Partner',
+      'General Partner',
+      'Senior Partner',
+      'Operating Partner',
+      'Principal',
+      'Managing Director',
+    ],
+    exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+    location: ['WORLD'],
+    include_headline_search: true,
+  },
+  {
+    include_title: [
+      'VP',
+      'Vice President',
+      'SVP',
+      'EVP',
+      'Director',
+      'Senior Director',
+      'CEO',
+      'President',
+      'Founder',
+    ],
+    exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+    location: ['WORLD'],
+    include_headline_search: true,
+  },
+  {
+    include_title: [
+      'Senior Associate',
+      'Associate',
+      'Analyst',
+      'Business Development',
+      'Corporate Development',
+      'Acquisitions',
+      'Deal Sourcing',
+      'Investment Origination',
+    ],
+    exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+    location: ['WORLD'],
+    include_headline_search: true,
+  },
+];
+
+const TARGET_COMPANY_CASCADE: CascadeFilter[] = [
+  {
+    include_title: [
+      'CEO',
+      'President',
+      'Founder',
+      'Owner',
+      'CFO',
+      'COO',
+      'Chief Financial Officer',
+      'Chief Operating Officer',
+    ],
+    exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+    location: ['WORLD'],
+    include_headline_search: true,
+  },
+  {
+    include_title: [
+      'VP',
+      'Vice President',
+      'SVP',
+      'EVP',
+      'Director',
+      'Senior Director',
+      'General Manager',
+      'Head of',
+      'CTO',
+      'Chief Technology Officer',
+    ],
+    exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+    location: ['WORLD'],
+    include_headline_search: true,
+  },
+  {
+    include_title: [
+      'Business Development',
+      'Corporate Development',
+      'Controller',
+      'Finance Director',
+      'Head of Finance',
+      'Head of Operations',
+      'VP Finance',
+      'VP Operations',
+    ],
+    exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+    location: ['WORLD'],
+    include_headline_search: true,
+  },
+];
+
+const DEFAULT_CASCADE: CascadeFilter[] = [
+  {
+    include_title: [
+      'CEO',
+      'CFO',
+      'COO',
+      'CTO',
+      'President',
+      'Founder',
+      'Owner',
+      'Chairman',
+      'Partner',
+      'Managing Partner',
+      'General Partner',
+      'Senior Partner',
+      'Principal',
+      'Managing Director',
+    ],
+    exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+    location: ['WORLD'],
+    include_headline_search: true,
+  },
+  {
+    include_title: [
+      'VP',
+      'Vice President',
+      'SVP',
+      'EVP',
+      'Director',
+      'Senior Director',
+      'Executive Director',
+      'Head of',
+      'Operating Partner',
+    ],
+    exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+    location: ['WORLD'],
+    include_headline_search: true,
+  },
+  {
+    include_title: [
+      'Senior Associate',
+      'Associate',
+      'Analyst',
+      'Business Development',
+      'Corporate Development',
+      'Acquisitions',
+      'Deal Sourcing',
+      'Investment Origination',
+    ],
+    exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+    location: ['WORLD'],
+    include_headline_search: true,
+  },
+];
 
 // Title matching utility — expanded to catch more PE and platform company roles
 const TITLE_ALIASES: Record<string, string[]> = {
@@ -521,6 +679,7 @@ async function discoverContactsViaBlitz(
   domain: string,
   titleFilter: string[],
   maxResults: number,
+  companyType?: 'pe_firm' | 'company',
 ): Promise<DiscoveredEmployee[]> {
   // If we don't have a LinkedIn URL, go straight to Serper fallback
   if (!companyLinkedInUrl) {
@@ -528,64 +687,22 @@ async function discoverContactsViaBlitz(
     return discoverEmployeesViaSerper(companyName, domain, titleFilter, maxResults);
   }
 
-  // Build 3-tier cascade from title filter
-  const cascade: CascadeFilter[] = [
-    {
-      include_title: [
-        'CEO',
-        'CFO',
-        'COO',
-        'CTO',
-        'President',
-        'Founder',
-        'Owner',
-        'Chairman',
-        'Partner',
-        'Managing Partner',
-        'General Partner',
-        'Senior Partner',
-        'Principal',
-        'Managing Director',
-      ],
-      exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
-      location: ['WORLD'],
-      include_headline_search: true,
-    },
-    {
-      include_title: [
-        'VP',
-        'Vice President',
-        'SVP',
-        'EVP',
-        'Director',
-        'Senior Director',
-        'Executive Director',
-        'Head of',
-        'Operating Partner',
-      ],
-      exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
-      location: ['WORLD'],
-      include_headline_search: true,
-    },
-    {
-      include_title: [
-        'Senior Associate',
-        'Associate',
-        'Analyst',
-        'Business Development',
-        'Corporate Development',
-        'Acquisitions',
-        'Deal Sourcing',
-        'Investment Origination',
-      ],
-      exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
-      location: ['WORLD'],
-      include_headline_search: true,
-    },
-  ];
+  // Select cascade based on company type
+  const cascade: CascadeFilter[] =
+    companyType === 'pe_firm'
+      ? PE_FIRM_CASCADE
+      : companyType === 'company'
+        ? TARGET_COMPANY_CASCADE
+        : DEFAULT_CASCADE;
 
+  const cascadeLabel =
+    companyType === 'pe_firm'
+      ? 'PE firm'
+      : companyType === 'company'
+        ? 'target company'
+        : 'default';
   console.log(
-    `[find-contacts] Blitz waterfall ICP search for ${companyLinkedInUrl} (max ${maxResults})`,
+    `[find-contacts] Blitz waterfall ICP search for ${companyLinkedInUrl} (max ${maxResults}, cascade=${cascadeLabel})`,
   );
 
   let blitzContacts: DiscoveredEmployee[] = [];
@@ -612,10 +729,18 @@ async function discoverContactsViaBlitz(
   if (blitzContacts.length < maxResults / 2) {
     console.log(`[find-contacts] Supplementing with Blitz Employee Finder...`);
     try {
+      const efJobLevels =
+        companyType === 'pe_firm'
+          ? ['C-Team', 'VP', 'Director', 'Partner']
+          : ['C-Team', 'VP', 'Director', 'Manager'];
+      const efJobFunctions =
+        companyType === 'pe_firm'
+          ? ['Finance', 'Business Development']
+          : ['Sales & Business Development', 'Finance'];
       const efRes = await employeeFinder(
         companyLinkedInUrl,
-        ['C-Team', 'VP', 'Director', 'Manager'],
-        ['Sales & Business Development', 'Finance'],
+        efJobLevels,
+        efJobFunctions,
         maxResults - blitzContacts.length,
       );
 
@@ -1068,6 +1193,7 @@ Deno.serve(async (req: Request) => {
         primaryDomain,
         titleFilter,
         Math.max(targetCount * 3, 30),
+        body.company_type,
       );
     } catch (err) {
       console.error(`[find-contacts] Contact discovery failed: ${err}`);
