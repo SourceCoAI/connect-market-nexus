@@ -39,19 +39,18 @@ export function useBuyerOutreachStatus(dealId: string, buyerIds: string[]) {
 
       if (error) throw error;
 
-      const events = data || [];
+      const events: OutreachEvent[] = data || [];
       const map = new Map<string, BuyerOutreachSummary>();
 
-      // Group events by buyer_id
       for (const buyerId of buyerIds) {
-        const buyerEvents = events.filter(e => e.buyer_id === buyerId);
-        const eventTypes = buyerEvents.map(e => e.event_type);
+        const buyerEvents = events.filter((e: OutreachEvent) => e.buyer_id === buyerId);
+        const eventTypes = buyerEvents.map((e: OutreachEvent) => e.event_type);
         const status = getHighestPriorityStatus(eventTypes);
         const lastEvent = buyerEvents[0] || null;
 
-        const emailEvents = buyerEvents.filter(e => e.channel === 'email');
-        const linkedinEvents = buyerEvents.filter(e => e.channel === 'linkedin');
-        const phoneEvents = buyerEvents.filter(e => e.channel === 'phone');
+        const emailEvents = buyerEvents.filter((e: OutreachEvent) => e.channel === 'email');
+        const linkedinEvents = buyerEvents.filter((e: OutreachEvent) => e.channel === 'linkedin');
+        const phoneEvents = buyerEvents.filter((e: OutreachEvent) => e.channel === 'phone');
 
         map.set(buyerId, {
           status,
