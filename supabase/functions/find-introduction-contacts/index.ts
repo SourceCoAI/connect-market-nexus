@@ -232,7 +232,7 @@ Deno.serve(async (req: Request) => {
             target_count: 6, // Ask for slightly more to allow for dedup losses and enrichment failures
             company_domain: peDomain || undefined,
           },
-          headers: { Authorization: authHeader },
+          headers: subHeaders,
         })
       : Promise.resolve(null);
 
@@ -243,7 +243,7 @@ Deno.serve(async (req: Request) => {
         target_count: 5, // Ask for slightly more to allow for dedup losses and enrichment failures
         company_domain: companyDomain || undefined,
       },
-      headers: { Authorization: authHeader },
+      headers: subHeaders,
     });
 
     const [peResult, companyResult] = await Promise.allSettled([
