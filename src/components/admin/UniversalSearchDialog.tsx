@@ -67,6 +67,7 @@ export function UniversalSearchDialog({ open, onOpenChange }: UniversalSearchDia
     'all_deals',
     'captarget',
     'gp_partners',
+    'sourceco',
     'valuation_leads',
     'inbound_leads',
     'owner_leads',

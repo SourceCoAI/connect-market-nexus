@@ -333,12 +333,14 @@ export function useUniversalSearch() {
     buyersQuery.isLoading ||
     buyerContactsQuery.isLoading;
 
+
   const allResults: UniversalSearchResult[] = useMemo(
     () => [
       ...(dealsQuery.data ?? []),
       ...(allDealsQuery.data ?? []),
       ...(captargetQuery.data ?? []),
       ...(gpPartnersQuery.data ?? []),
+      ...(sourcecoQuery.data ?? []),
       ...(valuationQuery.data ?? []),
       ...(inboundQuery.data ?? []),
       ...(ownerQuery.data ?? []),
@@ -351,6 +353,7 @@ export function useUniversalSearch() {
       allDealsQuery.data,
       captargetQuery.data,
       gpPartnersQuery.data,
+      sourcecoQuery.data,
       valuationQuery.data,
       inboundQuery.data,
       ownerQuery.data,
