@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Mail, Linkedin, Phone, Send, Users } from 'lucide-react';
+import { BuyerTypeBadge } from '@/components/admin/deals/buyer-introductions/shared/BuyerTypeBadge';
 import { format } from 'date-fns';
 import { DealOutreachProfileForm } from './DealOutreachProfileForm';
 import { StatusBadge } from './StatusBadge';
@@ -35,6 +36,7 @@ interface BuyerContact {
   title: string | null;
   remarketing_buyer_id: string | null;
   buyer_type: string | null;
+  is_pe_backed: boolean | null;
   buyer_company_name: string | null;
 }
 
@@ -106,7 +108,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
       // Get buyer info
       const { data: buyerRows } = await supabase
         .from('buyers')
-        .select('id, company_name, buyer_type')
+        .select('id, company_name, buyer_type, is_pe_backed')
         .in('id', buyerIds);
 
       const buyerMap = new Map((buyerRows || []).map(b => [b.id, b]));
@@ -152,6 +154,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
           return {
             ...c,
             buyer_type: buyer?.buyer_type || null,
+            is_pe_backed: buyer?.is_pe_backed || null,
             buyer_company_name: buyer?.company_name || null,
           } as BuyerContact;
         });
@@ -162,6 +165,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
         return {
           ...c,
           buyer_type: buyer?.buyer_type || null,
+          is_pe_backed: buyer?.is_pe_backed || null,
           buyer_company_name: buyer?.company_name || null,
         } as BuyerContact;
       });
@@ -269,14 +273,17 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
           ) : (
             <div className="border rounded-lg overflow-hidden">
               {/* Header row */}
-              <div className="grid grid-cols-[40px_1fr_200px_160px_120px_120px_100px] gap-2 px-3 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+              <div className="grid grid-cols-[40px_1fr_160px_140px_110px_200px_160px_120px_120px_100px] gap-2 px-3 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
                 <div className="flex items-center justify-center">
                   <Checkbox
                     checked={selectedIds.size === buyers.length && buyers.length > 0}
                     onCheckedChange={toggleSelectAll}
                   />
                 </div>
-                <div>Contact</div>
+                <div>Name</div>
+                <div>Company</div>
+                <div>Title</div>
+                <div>Type</div>
                 <div>Email</div>
                 <div>Phone</div>
                 <div>Channels</div>
@@ -292,7 +299,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
 
                 return (
                   <div key={buyer.id}>
-                    <div className="grid grid-cols-[40px_1fr_200px_160px_120px_120px_100px] gap-2 px-3 py-2.5 border-b hover:bg-muted/20 transition-colors items-center">
+                    <div className="grid grid-cols-[40px_1fr_160px_140px_110px_200px_160px_120px_120px_100px] gap-2 px-3 py-2.5 border-b hover:bg-muted/20 transition-colors items-center">
                       <div className="flex items-center justify-center">
                         <Checkbox
                           checked={selectedIds.has(buyer.id)}
@@ -301,21 +308,28 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
                       </div>
 
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm truncate">
-                            {buyer.first_name} {buyer.last_name}
-                          </span>
-                          {buyer.buyer_type && (
-                            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                              {buyer.buyer_type.replace(/_/g, ' ')}
-                            </span>
-                          )}
-                        </div>
-                        {buyer.buyer_company_name && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {buyer.buyer_company_name}
-                            {buyer.title && ` — ${buyer.title}`}
-                          </p>
+                        <span className="font-medium text-sm truncate block">
+                          {buyer.first_name} {buyer.last_name}
+                        </span>
+                      </div>
+
+                      <div className="min-w-0">
+                        <span className="text-xs text-muted-foreground truncate block">
+                          {buyer.buyer_company_name || '—'}
+                        </span>
+                      </div>
+
+                      <div className="min-w-0">
+                        <span className="text-xs text-muted-foreground truncate block">
+                          {buyer.title || '—'}
+                        </span>
+                      </div>
+
+                      <div className="min-w-0">
+                        {buyer.buyer_type ? (
+                          <BuyerTypeBadge buyerType={buyer.buyer_type} isPeBacked={buyer.is_pe_backed ?? false} />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </div>
 
