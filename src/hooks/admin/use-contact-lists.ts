@@ -154,11 +154,36 @@ export function useContactList(listId: string | undefined) {
             .from('listings')
             .select('id, deal_owner_id, primary_owner_id')
             .in('id', listingDealIds);
+
+          // Build a set of listing IDs that still need an owner (no deal_owner_id or primary_owner_id)
+          const unownedListingIds: string[] = [];
+
           for (const l of listingRows ?? []) {
             const ownerId = l.deal_owner_id || l.primary_owner_id;
             if (ownerId) {
               allOwnerIds.add(ownerId);
               dealOwnerMap[l.id] = { name: '', id: ownerId };
+            } else {
+              unownedListingIds.push(l.id);
+            }
+          }
+
+          // Fallback: check deal_pipeline.assigned_to for listings without a direct owner
+          if (unownedListingIds.length > 0) {
+            const { data: pipelineForListings } = await supabase
+              .from('deal_pipeline')
+              .select('listing_id, assigned_to')
+              .in('listing_id', unownedListingIds)
+              .not('assigned_to', 'is', null)
+              .is('deleted_at', null)
+              .order('updated_at', { ascending: false });
+
+            for (const dp of pipelineForListings ?? []) {
+              // Use the first (most recently updated) pipeline entry's owner
+              if (dp.listing_id && dp.assigned_to && !dealOwnerMap[dp.listing_id]) {
+                allOwnerIds.add(dp.assigned_to);
+                dealOwnerMap[dp.listing_id] = { name: '', id: dp.assigned_to };
+              }
             }
           }
         }
