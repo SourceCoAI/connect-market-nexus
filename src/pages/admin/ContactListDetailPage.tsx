@@ -368,17 +368,9 @@ const ContactListDetailPage = () => {
                     }
                     onRemove={() => removeMember.mutate({ memberId: member.id, listId: list.id })}
                     onNavigateToDeal={() => {
-                      const LISTING_TYPES = [
-                        'sourceco_deal',
-                        'gp_partner_deal',
-                        'referral_deal',
-                        'listing',
-                      ];
-                      if (member.entity_type === 'deal') {
-                        navigate(`/admin/pipeline?deal=${member.entity_id}`);
-                      } else if (LISTING_TYPES.includes(member.entity_type)) {
-                        navigate(`/admin/deals/${member.entity_id}`);
-                      }
+                      // All entity IDs in this list point to listings (even 'deal' type),
+                      // so always navigate to the deal detail page.
+                      navigate(`/admin/deals/${member.entity_id}`);
                     }}
                   />
                 ))
