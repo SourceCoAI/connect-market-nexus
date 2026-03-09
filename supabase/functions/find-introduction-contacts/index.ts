@@ -144,7 +144,7 @@ Deno.serve(async (req: Request) => {
       .from('contact_discovery_log')
       .insert({
         buyer_id: body.buyer_id,
-        triggered_by: auth.userId || null,
+        triggered_by: authUserId || null,
         trigger_source: (body as any).trigger_source || 'approval',
         status: 'started',
         pe_firm_name: hasPEFirm ? body.pe_firm_name : null,
