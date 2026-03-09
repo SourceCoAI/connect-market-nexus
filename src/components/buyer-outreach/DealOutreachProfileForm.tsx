@@ -235,7 +235,7 @@ export function DealOutreachProfileForm({ dealId }: DealOutreachProfileFormProps
             placeholder="e.g. 1,000,000"
           />
           <p className="text-xs text-muted-foreground">
-            e.g. ~$1M of EBITDA, $1.2M of EBITDA, ~$600K of EBITDA
+            e.g. 1,000,000, 1,200,000, 600,000
           </p>
         </div>
 
