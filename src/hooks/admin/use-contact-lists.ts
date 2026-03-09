@@ -114,33 +114,68 @@ export function useContactList(listId: string | undefined) {
         }
       }
 
-      // Fetch deal owners for deal-type members
-      const dealEntityIds = (members ?? [])
-        .filter((m) => m.entity_type === 'deal' || m.entity_type === 'listing')
-        .map((m) => m.entity_id)
-        .filter(Boolean);
+      // Fetch deal owners for all deal-type members
+      const DEAL_ENTITY_TYPES = ['deal', 'listing', 'sourceco_deal', 'gp_partner_deal', 'referral_deal'];
+      const dealMembers = (members ?? []).filter((m) => DEAL_ENTITY_TYPES.includes(m.entity_type));
       const dealOwnerMap: Record<string, { name: string; id: string }> = {};
 
-      if (dealEntityIds.length > 0) {
-        const { data: dealRows } = await supabase
-          .from('deal_pipeline')
-          .select('id, assigned_to')
-          .in('id', dealEntityIds);
+      if (dealMembers.length > 0) {
+        // For 'deal' entity_type, entity_id is a deal_pipeline ID
+        const pipelineDealIds = dealMembers
+          .filter((m) => m.entity_type === 'deal')
+          .map((m) => m.entity_id)
+          .filter(Boolean);
 
-        const ownerIds = [...new Set((dealRows ?? []).map((d) => d.assigned_to).filter(Boolean))] as string[];
-        const ownerProfiles: Record<string, string> = {};
-        if (ownerIds.length > 0) {
+        // For listing-based types, entity_id is a listing ID
+        const listingDealIds = dealMembers
+          .filter((m) => m.entity_type !== 'deal')
+          .map((m) => m.entity_id)
+          .filter(Boolean);
+
+        const allOwnerIds = new Set<string>();
+
+        // Fetch from deal_pipeline for 'deal' type
+        if (pipelineDealIds.length > 0) {
+          const { data: dealRows } = await supabase
+            .from('deal_pipeline')
+            .select('id, assigned_to')
+            .in('id', pipelineDealIds);
+          for (const d of dealRows ?? []) {
+            if (d.assigned_to) {
+              allOwnerIds.add(d.assigned_to);
+              dealOwnerMap[d.id] = { name: '', id: d.assigned_to };
+            }
+          }
+        }
+
+        // Fetch from listings for sourceco_deal, gp_partner_deal, referral_deal
+        if (listingDealIds.length > 0) {
+          const { data: listingRows } = await supabase
+            .from('listings')
+            .select('id, deal_owner_id')
+            .in('id', listingDealIds);
+          for (const l of listingRows ?? []) {
+            if (l.deal_owner_id) {
+              allOwnerIds.add(l.deal_owner_id);
+              dealOwnerMap[l.id] = { name: '', id: l.deal_owner_id };
+            }
+          }
+        }
+
+        // Resolve owner names
+        const ownerIdArray = [...allOwnerIds];
+        if (ownerIdArray.length > 0) {
           const { data: profiles } = await supabase
             .from('profiles')
             .select('id, first_name, last_name')
-            .in('id', ownerIds);
+            .in('id', ownerIdArray);
+          const ownerNames: Record<string, string> = {};
           for (const p of profiles ?? []) {
-            ownerProfiles[p.id] = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
+            ownerNames[p.id] = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
           }
-        }
-        for (const d of dealRows ?? []) {
-          if (d.assigned_to && ownerProfiles[d.assigned_to]) {
-            dealOwnerMap[d.id] = { name: ownerProfiles[d.assigned_to], id: d.assigned_to };
+          for (const key of Object.keys(dealOwnerMap)) {
+            const entry = dealOwnerMap[key];
+            entry.name = ownerNames[entry.id] || '';
           }
         }
       }

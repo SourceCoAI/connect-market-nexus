@@ -367,8 +367,11 @@ const ContactListDetailPage = () => {
                     }
                     onRemove={() => removeMember.mutate({ memberId: member.id, listId: list.id })}
                     onNavigateToDeal={() => {
-                      if (member.entity_type === 'deal' || member.entity_type === 'listing') {
+                      const LISTING_TYPES = ['sourceco_deal', 'gp_partner_deal', 'referral_deal', 'listing'];
+                      if (member.entity_type === 'deal') {
                         navigate(`/admin/pipeline?deal=${member.entity_id}`);
+                      } else if (LISTING_TYPES.includes(member.entity_type)) {
+                        navigate(`/admin/deals/${member.entity_id}`);
                       }
                     }}
                   />
@@ -417,7 +420,8 @@ function MemberRow({
   onRemove: () => void;
   onNavigateToDeal: () => void;
 }) {
-  const isDealType = member.entity_type === 'deal' || member.entity_type === 'listing';
+  const DEAL_ENTITY_TYPES = ['deal', 'listing', 'sourceco_deal', 'gp_partner_deal', 'referral_deal'];
+  const isDealType = DEAL_ENTITY_TYPES.includes(member.entity_type);
 
   return (
     <TableRow
