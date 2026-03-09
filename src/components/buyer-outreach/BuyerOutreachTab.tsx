@@ -152,6 +152,15 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
         .is('archived_at', null)
         .not('remarketing_buyer_id', 'is', null);
 
+      // Also fetch approved buyers from remarketing_scores that may not have
+      // a buyer_introduction or deal_pipeline entry yet (e.g. if the
+      // auto-create call failed silently during approval).
+      const { data: approvedScoreEntries } = await supabase
+        .from('remarketing_scores')
+        .select('buyer_id')
+        .eq('listing_id', dealId)
+        .eq('status', 'approved');
+
       const typedIntroEntries = (introEntries || []) as Array<{
         id: string;
         remarketing_buyer_id: string;
@@ -165,6 +174,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
       const buyerIds = [...new Set([
         ...(pipelineEntries || []).map(e => e.remarketing_buyer_id),
         ...typedIntroEntries.map(e => e.remarketing_buyer_id),
+        ...(approvedScoreEntries || []).map(e => e.buyer_id),
       ].filter(Boolean))] as string[];
       if (!buyerIds.length) return [];
 
