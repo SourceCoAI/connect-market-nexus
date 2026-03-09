@@ -173,7 +173,7 @@ export function useMatchingActions({
 
           // Fire-and-forget: auto-discover contacts via Serper + Clay + Prospeo pipeline
           if (scoreData.buyer_id) {
-            findIntroductionContacts(scoreData.buyer_id)
+            findIntroductionContacts(scoreData.buyer_id, 'bulk_approval')
               .then((result) => {
                 if (result && result.total_saved > 0) {
                   queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts'] });
@@ -346,16 +346,18 @@ export function useMatchingActions({
         buyerId: scoreData.buyer_id,
         listingId: listingId,
         userId: user.id,
-      }).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['buyer-introductions', listingId] });
-      }).catch(() => {
-        /* buyer introduction creation failure is non-blocking */
-      });
+      })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['buyer-introductions', listingId] });
+        })
+        .catch(() => {
+          /* buyer introduction creation failure is non-blocking */
+        });
     }
 
     // Fire-and-forget: auto-discover contacts via Serper + Clay + Prospeo pipeline
     if (scoreData?.buyer_id) {
-      findIntroductionContacts(scoreData.buyer_id)
+      findIntroductionContacts(scoreData.buyer_id, 'approval')
         .then((result) => {
           if (result && result.total_saved > 0) {
             queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts'] });

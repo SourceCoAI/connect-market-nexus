@@ -169,9 +169,11 @@ export function BulkApproveForDealsDialog({
 
       return Array.from(groupMap.values())
         .filter((g) => g.pendingScoreIds.length > 0 || g.unscoredBuyerIds.length > 0)
-        .sort((a, b) =>
-          (b.pendingScoreIds.length + b.unscoredBuyerIds.length) -
-          (a.pendingScoreIds.length + a.unscoredBuyerIds.length),
+        .sort(
+          (a, b) =>
+            b.pendingScoreIds.length +
+            b.unscoredBuyerIds.length -
+            (a.pendingScoreIds.length + a.unscoredBuyerIds.length),
         );
     },
     enabled: open && buyerIds.length > 0,
@@ -273,7 +275,7 @@ export function BulkApproveForDealsDialog({
 
       // Fire-and-forget: auto-discover contacts via Serper + Clay + Prospeo pipeline
       // Use Promise.allSettled to consolidate into a single summary toast for bulk ops
-      Promise.allSettled(buyerIds.map((bId) => findIntroductionContacts(bId)))
+      Promise.allSettled(buyerIds.map((bId) => findIntroductionContacts(bId, 'bulk_approval')))
         .then((results) => {
           let totalContacts = 0;
           let buyersWithContacts = 0;

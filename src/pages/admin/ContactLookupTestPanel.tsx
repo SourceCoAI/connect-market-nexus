@@ -62,7 +62,13 @@ const TITLE_ALIASES: Record<string, string[]> = {
   associate: ['associate', 'sr associate', 'senior associate', 'investment associate'],
   principal: ['principal', 'sr principal', 'senior principal', 'investment principal'],
   vp: ['vp', 'vice president', 'vice-president', 'svp', 'senior vice president', 'evp'],
-  director: ['director', 'managing director', 'sr director', 'senior director', 'associate director'],
+  director: [
+    'director',
+    'managing director',
+    'sr director',
+    'senior director',
+    'associate director',
+  ],
   partner: ['partner', 'managing partner', 'general partner', 'senior partner'],
   analyst: ['analyst', 'sr analyst', 'senior analyst', 'investment analyst'],
   ceo: ['ceo', 'chief executive officer', 'president', 'owner', 'founder', 'co-founder'],
@@ -163,7 +169,8 @@ function buildInitialSuites(): TestSuite[] {
     {
       id: 'edge-function-direct',
       name: '2. Edge Function Direct',
-      description: 'Calls find-introduction-contacts with real buyer data, validates response shape',
+      description:
+        'Calls find-introduction-contacts with real buyer data, validates response shape',
       requiresBuyer: true,
       steps: [],
       running: false,
@@ -253,7 +260,9 @@ export default function ContactLookupTestPanel() {
 
   // ── Update a suite's state ──
   const updateSuite = useCallback((suiteId: string, patch: Partial<TestSuite>) => {
-    setSuites((prev: TestSuite[]) => prev.map((s: TestSuite) => (s.id === suiteId ? { ...s, ...patch } : s)));
+    setSuites((prev: TestSuite[]) =>
+      prev.map((s: TestSuite) => (s.id === suiteId ? { ...s, ...patch } : s)),
+    );
   }, []);
 
   // ── Suite Runners ──
@@ -261,7 +270,10 @@ export default function ContactLookupTestPanel() {
   const runTriggerAudit = useCallback(async () => {
     const suiteId = 'trigger-audit';
     const steps: TestStep[] = [];
-    updateSuite(suiteId, { running: true, steps: [mkStep('Starting trigger audit...', 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [mkStep('Starting trigger audit...', 'running')],
+    });
 
     // Check 1: findIntroductionContacts module exists
     try {
@@ -350,7 +362,11 @@ export default function ContactLookupTestPanel() {
       }
     } catch (err: unknown) {
       steps.push(
-        mkStep('Edge function deployed', 'fail', `Not reachable: ${err instanceof Error ? err.message : String(err)}`),
+        mkStep(
+          'Edge function deployed',
+          'fail',
+          `Not reachable: ${err instanceof Error ? err.message : String(err)}`,
+        ),
       );
     }
 
@@ -361,7 +377,10 @@ export default function ContactLookupTestPanel() {
     const suiteId = 'edge-function-direct';
     if (!selectedBuyer) return;
     const steps: TestStep[] = [];
-    updateSuite(suiteId, { running: true, steps: [mkStep('Fetching buyer details...', 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [mkStep('Fetching buyer details...', 'running')],
+    });
 
     // Step 1: Fetch buyer
     const { data: buyer, error: buyerErr } = await supabase
@@ -385,11 +404,14 @@ export default function ContactLookupTestPanel() {
         `${buyer.company_name} (${buyer.buyer_type || 'corporate'})${buyer.pe_firm_name ? ` / PE: ${buyer.pe_firm_name}` : ''}`,
       ),
     );
-    updateSuite(suiteId, { running: true, steps: [...steps, mkStep('Calling edge function...', 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [...steps, mkStep('Calling edge function...', 'running')],
+    });
 
     // Step 2: Call edge function
     const start = performance.now();
-    const result = await findIntroductionContacts(selectedBuyer.id);
+    const result = await findIntroductionContacts(selectedBuyer.id, 'manual');
     const dur = Math.round(performance.now() - start);
 
     if (!result) {
@@ -447,7 +469,10 @@ export default function ContactLookupTestPanel() {
     const suiteId = 'db-state-inspector';
     if (!selectedBuyer) return;
     const steps: TestStep[] = [];
-    updateSuite(suiteId, { running: true, steps: [mkStep('Querying contacts table...', 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [mkStep('Querying contacts table...', 'running')],
+    });
 
     // Query contacts table
     const { data: contacts, error: contactsErr } = await supabase
@@ -472,7 +497,7 @@ export default function ContactLookupTestPanel() {
     // Source breakdown
     const sources: Record<string, number> = {};
     for (const r of rows) {
-      const src = (r as Record<string, unknown>).source as string || 'unknown';
+      const src = ((r as Record<string, unknown>).source as string) || 'unknown';
       sources[src] = (sources[src] || 0) + 1;
     }
     const sourceStr = Object.entries(sources)
@@ -540,7 +565,10 @@ export default function ContactLookupTestPanel() {
     const suiteId = 'full-workflow';
     if (!selectedBuyer) return;
     const steps: TestStep[] = [];
-    updateSuite(suiteId, { running: true, steps: [mkStep('Starting workflow simulation...', 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [mkStep('Starting workflow simulation...', 'running')],
+    });
 
     // Step 1: Count contacts before
     const { data: before } = await supabase
@@ -552,11 +580,14 @@ export default function ContactLookupTestPanel() {
 
     const countBefore = before?.length || 0;
     steps.push(mkStep('Pre-run contact count', 'pass', `${countBefore} contacts exist`));
-    updateSuite(suiteId, { running: true, steps: [...steps, mkStep('Running findIntroductionContacts...', 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [...steps, mkStep('Running findIntroductionContacts...', 'running')],
+    });
 
     // Step 2: Run the function
     const start = performance.now();
-    const result = await findIntroductionContacts(selectedBuyer.id);
+    const result = await findIntroductionContacts(selectedBuyer.id, 'manual');
     const dur = Math.round(performance.now() - start);
 
     if (!result) {
@@ -617,7 +648,10 @@ export default function ContactLookupTestPanel() {
   const runTitleFilterAudit = useCallback(async () => {
     const suiteId = 'title-filter-audit';
     const steps: TestStep[] = [];
-    updateSuite(suiteId, { running: true, steps: [mkStep('Auditing title filters...', 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [mkStep('Auditing title filters...', 'running')],
+    });
 
     // Check 1: No banned standalone terms in PE filter
     const peBanned = PE_TITLE_FILTER.filter((f: string) =>
@@ -754,7 +788,10 @@ export default function ContactLookupTestPanel() {
     const suiteId = 'duplicate-guard';
     if (!selectedBuyer) return;
     const steps: TestStep[] = [];
-    updateSuite(suiteId, { running: true, steps: [mkStep('Counting existing contacts...', 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [mkStep('Counting existing contacts...', 'running')],
+    });
 
     // Count before
     const { data: before } = await supabase
@@ -766,10 +803,13 @@ export default function ContactLookupTestPanel() {
 
     const countBefore = before?.length || 0;
     steps.push(mkStep('Pre-run count', 'pass', `${countBefore} contacts`));
-    updateSuite(suiteId, { running: true, steps: [...steps, mkStep('Running findIntroductionContacts (1st call)...', 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [...steps, mkStep('Running findIntroductionContacts (1st call)...', 'running')],
+    });
 
     // Run once
-    await findIntroductionContacts(selectedBuyer.id);
+    await findIntroductionContacts(selectedBuyer.id, 'manual');
     const { data: mid } = await supabase
       .from('contacts')
       .select('id')
@@ -779,10 +819,13 @@ export default function ContactLookupTestPanel() {
 
     const countMid = mid?.length || 0;
     steps.push(mkStep('After 1st call', 'pass', `${countMid} contacts`));
-    updateSuite(suiteId, { running: true, steps: [...steps, mkStep('Running findIntroductionContacts (2nd call)...', 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [...steps, mkStep('Running findIntroductionContacts (2nd call)...', 'running')],
+    });
 
     // Run again
-    await findIntroductionContacts(selectedBuyer.id);
+    await findIntroductionContacts(selectedBuyer.id, 'manual');
     const { data: after } = await supabase
       .from('contacts')
       .select('id')
@@ -832,13 +875,13 @@ export default function ContactLookupTestPanel() {
       return;
     }
 
-    updateSuite(suiteId, { running: true, steps: [mkStep(`Running for ${ids.length} buyers...`, 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [mkStep(`Running for ${ids.length} buyers...`, 'running')],
+    });
 
     // Validate buyers exist
-    const { data: buyers } = await supabase
-      .from('buyers')
-      .select('id, company_name')
-      .in('id', ids);
+    const { data: buyers } = await supabase.from('buyers').select('id, company_name').in('id', ids);
 
     const validBuyers = buyers || [];
     const validIds = validBuyers.map((b: { id: string }) => b.id);
@@ -846,7 +889,11 @@ export default function ContactLookupTestPanel() {
 
     if (invalidIds.length > 0) {
       steps.push(
-        mkStep('Buyer validation', 'warn', `${invalidIds.length} ID(s) not found: ${invalidIds.join(', ').slice(0, 80)}`),
+        mkStep(
+          'Buyer validation',
+          'warn',
+          `${invalidIds.length} ID(s) not found: ${invalidIds.join(', ').slice(0, 80)}`,
+        ),
       );
     }
     if (validIds.length < 2) {
@@ -864,7 +911,7 @@ export default function ContactLookupTestPanel() {
     // Run exactly like BulkApproveForDealsDialog does
     const start = performance.now();
     const results = await Promise.allSettled(
-      validIds.map((bId: string) => findIntroductionContacts(bId)),
+      validIds.map((bId: string) => findIntroductionContacts(bId, 'manual')),
     );
     const dur = Math.round(performance.now() - start);
 
@@ -874,15 +921,15 @@ export default function ContactLookupTestPanel() {
 
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
-      const buyerName = validBuyers.find((b: { id: string; company_name: string }) => b.id === validIds[i])?.company_name || validIds[i];
+      const buyerName =
+        validBuyers.find((b: { id: string; company_name: string }) => b.id === validIds[i])
+          ?.company_name || validIds[i];
       if (r.status === 'fulfilled' && r.value && r.value.total_saved > 0) {
         totalContacts += r.value.total_saved;
         buyersWithContacts++;
         perBuyer.push(`${buyerName}: ${r.value.total_saved} saved`);
       } else if (r.status === 'fulfilled' && r.value) {
-        perBuyer.push(
-          `${buyerName}: 0 saved${r.value.message ? ` (${r.value.message})` : ''}`,
-        );
+        perBuyer.push(`${buyerName}: 0 saved${r.value.message ? ` (${r.value.message})` : ''}`);
       } else {
         perBuyer.push(`${buyerName}: failed`);
       }
@@ -932,14 +979,15 @@ export default function ContactLookupTestPanel() {
     const suiteId = 'contacts-query-validator';
     if (!selectedBuyer) return;
     const steps: TestStep[] = [];
-    updateSuite(suiteId, { running: true, steps: [mkStep('Replicating useBuyerData query...', 'running')] });
+    updateSuite(suiteId, {
+      running: true,
+      steps: [mkStep('Replicating useBuyerData query...', 'running')],
+    });
 
     // Replicate the exact query from useBuyerData.ts
     const { data, error } = await supabase
       .from('contacts')
-      .select(
-        'id, first_name, last_name, email, phone, linkedin_url, title, is_primary_at_firm',
-      )
+      .select('id, first_name, last_name, email, phone, linkedin_url, title, is_primary_at_firm')
       .eq('remarketing_buyer_id', selectedBuyer.id)
       .eq('contact_type', 'buyer')
       .eq('archived', false)
@@ -1172,8 +1220,7 @@ export default function ContactLookupTestPanel() {
       {/* Test suites */}
       <div className="grid gap-4">
         {suites.map((suite: TestSuite) => {
-          const canRun =
-            !suite.requiresBuyer || !!selectedBuyer || suite.id === 'bulk-simulation';
+          const canRun = !suite.requiresBuyer || !!selectedBuyer || suite.id === 'bulk-simulation';
           const hasResults = suite.steps.length > 0;
           const passCount = suite.steps.filter((s: TestStep) => s.status === 'pass').length;
           const failCount = suite.steps.filter((s: TestStep) => s.status === 'fail').length;
@@ -1190,13 +1237,9 @@ export default function ContactLookupTestPanel() {
                   <div className="flex items-center gap-2">
                     {hasResults && (
                       <div className="flex gap-1.5 text-xs">
-                        {passCount > 0 && (
-                          <span className="text-green-600">{passCount} pass</span>
-                        )}
+                        {passCount > 0 && <span className="text-green-600">{passCount} pass</span>}
                         {failCount > 0 && <span className="text-red-600">{failCount} fail</span>}
-                        {warnCount > 0 && (
-                          <span className="text-yellow-600">{warnCount} warn</span>
-                        )}
+                        {warnCount > 0 && <span className="text-yellow-600">{warnCount} warn</span>}
                       </div>
                     )}
                     <Button

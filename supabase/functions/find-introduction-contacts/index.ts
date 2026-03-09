@@ -32,14 +32,7 @@ interface FindIntroductionContactsRequest {
 }
 
 // Title filters by buyer type — priority-ordered
-const PE_TITLE_FILTER = [
-  'bd',
-  'vp',
-  'senior associate',
-  'principal',
-  'partner',
-  'analyst',
-];
+const PE_TITLE_FILTER = ['bd', 'vp', 'senior associate', 'principal', 'partner', 'analyst'];
 
 const COMPANY_TITLE_FILTER = [
   'bd',
@@ -82,10 +75,10 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!body.buyer_id || !body.company_name?.trim()) {
-    return new Response(
-      JSON.stringify({ error: 'buyer_id and company_name are required' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+    return new Response(JSON.stringify({ error: 'buyer_id and company_name are required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   const isPE = body.buyer_type === 'private_equity';
@@ -94,6 +87,52 @@ Deno.serve(async (req: Request) => {
   const companyTarget = 3;
   // PE buyers with a firm name need both PE + company contacts; otherwise just company
   const totalTarget = hasPEFirm ? peTarget + companyTarget : companyTarget;
+
+  const startTime = Date.now();
+  const peDomain = extractDomain(body.pe_firm_website);
+  const companyDomain = extractDomain(body.company_website) || body.email_domain || null;
+
+  // Create a log entry upfront so we can track even crashes
+  let logId: string | undefined;
+  try {
+    const { data: logRow, error: logInsertError } = await supabaseAdmin
+      .from('contact_discovery_log')
+      .insert({
+        buyer_id: body.buyer_id,
+        triggered_by: auth.userId || null,
+        trigger_source: (body as any).trigger_source || 'approval',
+        status: 'started',
+        pe_firm_name: hasPEFirm ? body.pe_firm_name : null,
+        company_name: body.company_name,
+        pe_domain: peDomain,
+        company_domain: companyDomain,
+      })
+      .select('id')
+      .single();
+
+    if (logInsertError) {
+      console.error(
+        '[find-introduction-contacts] Failed to create log entry:',
+        logInsertError.message,
+      );
+    }
+    logId = logRow?.id;
+  } catch (logErr) {
+    console.error('[find-introduction-contacts] Log entry creation threw:', logErr);
+  }
+
+  /** Helper to finalize the log row */
+  async function finalizeLog(updates: Record<string, unknown>) {
+    if (!logId) return;
+    await supabaseAdmin
+      .from('contact_discovery_log')
+      .update({
+        ...updates,
+        completed_at: new Date().toISOString(),
+        duration_ms: Date.now() - startTime,
+      })
+      .eq('id', logId);
+  }
 
   try {
     // Step A — Check existing contacts to avoid redundant work
@@ -107,6 +146,10 @@ Deno.serve(async (req: Request) => {
     const existingCount = existingContacts?.length || 0;
 
     if (existingCount >= totalTarget) {
+      await finalizeLog({
+        status: 'skipped',
+        existing_contacts_count: existingCount,
+      });
       return new Response(
         JSON.stringify({
           success: true,
@@ -125,9 +168,9 @@ Deno.serve(async (req: Request) => {
 
     // Step B — Call find-contacts for PE firm (if applicable)
     let peContacts: any[] = [];
+    let peSearchError: string | null = null;
     if (hasPEFirm) {
       try {
-        const peDomain = extractDomain(body.pe_firm_website);
         const peResponse = await supabaseAdmin.functions.invoke('find-contacts', {
           body: {
             company_name: body.pe_firm_name,
@@ -139,36 +182,48 @@ Deno.serve(async (req: Request) => {
         });
 
         if (peResponse.error) {
+          peSearchError =
+            typeof peResponse.error === 'string'
+              ? peResponse.error
+              : peResponse.error?.message || JSON.stringify(peResponse.error);
           console.error('[find-introduction-contacts] PE find-contacts error:', peResponse.error);
         } else if (peResponse.data?.contacts) {
           peContacts = peResponse.data.contacts;
         }
       } catch (err) {
+        peSearchError = err instanceof Error ? err.message : String(err);
         console.error('[find-introduction-contacts] PE firm contact search failed:', err);
       }
     }
 
     // Step B2 — Call find-contacts for the company/platform
     let companyContacts: any[] = [];
+    let companySearchError: string | null = null;
     try {
-      const companyDomain =
-        extractDomain(body.company_website) || body.email_domain || undefined;
       const companyResponse = await supabaseAdmin.functions.invoke('find-contacts', {
         body: {
           company_name: body.company_name,
           title_filter: COMPANY_TITLE_FILTER,
           target_count: 5, // Ask for more than 3 to allow for dedup losses
-          company_domain: companyDomain,
+          company_domain: companyDomain || undefined,
         },
         headers: { Authorization: authHeader },
       });
 
       if (companyResponse.error) {
-        console.error('[find-introduction-contacts] Company find-contacts error:', companyResponse.error);
+        companySearchError =
+          typeof companyResponse.error === 'string'
+            ? companyResponse.error
+            : companyResponse.error?.message || JSON.stringify(companyResponse.error);
+        console.error(
+          '[find-introduction-contacts] Company find-contacts error:',
+          companyResponse.error,
+        );
       } else if (companyResponse.data?.contacts) {
         companyContacts = companyResponse.data.contacts;
       }
     } catch (err) {
+      companySearchError = err instanceof Error ? err.message : String(err);
       console.error('[find-introduction-contacts] Company contact search failed:', err);
     }
 
@@ -233,8 +288,25 @@ Deno.serve(async (req: Request) => {
     const peFound = peContacts.length;
     const companyFound = companyContacts.length;
 
+    // Determine final status
+    const bothFailed =
+      (hasPEFirm && peSearchError && companySearchError) || (!hasPEFirm && companySearchError);
+    const anyFailed = peSearchError || companySearchError;
+    const finalStatus = bothFailed ? 'failed' : anyFailed ? 'partial' : 'completed';
+
+    await finalizeLog({
+      status: finalStatus,
+      pe_contacts_found: peFound,
+      company_contacts_found: companyFound,
+      total_saved: totalSaved,
+      skipped_duplicates: skippedDuplicates,
+      existing_contacts_count: existingCount,
+      pe_search_error: peSearchError,
+      company_search_error: companySearchError,
+    });
+
     console.log(
-      `[find-introduction-contacts] buyer=${body.buyer_id} pe=${peFound} company=${companyFound} saved=${totalSaved} dupes=${skippedDuplicates}`,
+      `[find-introduction-contacts] buyer=${body.buyer_id} status=${finalStatus} pe=${peFound} company=${companyFound} saved=${totalSaved} dupes=${skippedDuplicates}`,
     );
 
     return new Response(
@@ -249,6 +321,10 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error: unknown) {
     console.error('[find-introduction-contacts] Error:', error);
+    await finalizeLog({
+      status: 'failed',
+      error_message: error instanceof Error ? error.message : 'Unknown error',
+    });
     return new Response(
       JSON.stringify({
         success: false,

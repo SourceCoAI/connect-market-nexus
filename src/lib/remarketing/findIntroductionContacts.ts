@@ -25,6 +25,7 @@ interface ContactSearchResult {
  */
 export async function findIntroductionContacts(
   buyerId: string,
+  triggerSource: 'approval' | 'bulk_approval' | 'manual' | 'retry' = 'approval',
 ): Promise<ContactSearchResult | null> {
   try {
     // Fetch buyer details
@@ -54,6 +55,7 @@ export async function findIntroductionContacts(
         company_name: buyer.company_name,
         company_website: website || undefined,
         email_domain: emailDomain || undefined,
+        trigger_source: triggerSource,
       },
     });
 
