@@ -214,6 +214,9 @@ const DailyTaskDashboard = lazyWithRetry(
 const DailyTaskAnalytics = lazyWithRetry(
   () => import('@/pages/admin/remarketing/DailyTaskAnalytics'),
 );
+const StandupTracker = lazyWithRetry(
+  () => import('@/pages/admin/remarketing/StandupTracker'),
+);
 
 // Helper: redirect with params interpolation
 function RedirectWithId({ to }: { to: string }) {
@@ -318,6 +321,7 @@ function App() {
               {/* Daily Tasks */}
               <Route path="daily-tasks" element={<DailyTaskDashboard />} />
               <Route path="daily-tasks/analytics" element={<DailyTaskAnalytics />} />
+              <Route path="daily-tasks/standups" element={<StandupTracker />} />
 
               {/* DEALS */}
               <Route path="deals" element={<ReMarketingDeals />} />
