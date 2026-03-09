@@ -351,7 +351,7 @@ const ContactListDetailPage = () => {
             <TableBody>
               {filteredMembers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                     <ListChecks className="h-8 w-8 mx-auto mb-3 opacity-50" />
                     <p className="text-sm">No members match your search</p>
                   </TableCell>
