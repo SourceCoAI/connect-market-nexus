@@ -203,12 +203,14 @@ Deno.serve(async (req: Request) => {
     // Extract the auth header to pass to sub-function calls
     const authHeader = req.headers.get('Authorization') || '';
 
-    // Step B — Call find-contacts for PE firm (if applicable)
+    // Step B — Call find-contacts for PE firm + company IN PARALLEL
     let peContacts: any[] = [];
     let peSearchError: string | null = null;
-    if (hasPEFirm) {
-      try {
-        const peResponse = await supabaseAdmin.functions.invoke('find-contacts', {
+    let companyContacts: any[] = [];
+    let companySearchError: string | null = null;
+
+    const peSearchPromise = hasPEFirm
+      ? supabaseAdmin.functions.invoke('find-contacts', {
           body: {
             company_name: body.pe_firm_name,
             title_filter: PE_TITLE_FILTER,
@@ -216,8 +218,28 @@ Deno.serve(async (req: Request) => {
             company_domain: peDomain || undefined,
           },
           headers: { Authorization: authHeader },
-        });
+        })
+      : Promise.resolve(null);
 
+    const companySearchPromise = supabaseAdmin.functions.invoke('find-contacts', {
+      body: {
+        company_name: body.company_name,
+        title_filter: COMPANY_TITLE_FILTER,
+        target_count: 5, // Ask for slightly more to allow for dedup losses and enrichment failures
+        company_domain: companyDomain || undefined,
+      },
+      headers: { Authorization: authHeader },
+    });
+
+    const [peResult, companyResult] = await Promise.allSettled([
+      peSearchPromise,
+      companySearchPromise,
+    ]);
+
+    // Extract PE results
+    if (hasPEFirm) {
+      if (peResult.status === 'fulfilled' && peResult.value) {
+        const peResponse = peResult.value;
         if (peResponse.error) {
           peSearchError =
             typeof peResponse.error === 'string'
@@ -227,26 +249,19 @@ Deno.serve(async (req: Request) => {
         } else if (peResponse.data?.contacts) {
           peContacts = peResponse.data.contacts;
         }
-      } catch (err) {
-        peSearchError = err instanceof Error ? err.message : String(err);
-        console.error('[find-introduction-contacts] PE firm contact search failed:', err);
+      } else if (peResult.status === 'rejected') {
+        peSearchError =
+          peResult.reason instanceof Error ? peResult.reason.message : String(peResult.reason);
+        console.error(
+          '[find-introduction-contacts] PE firm contact search failed:',
+          peResult.reason,
+        );
       }
     }
 
-    // Step B2 — Call find-contacts for the company/platform
-    let companyContacts: any[] = [];
-    let companySearchError: string | null = null;
-    try {
-      const companyResponse = await supabaseAdmin.functions.invoke('find-contacts', {
-        body: {
-          company_name: body.company_name,
-          title_filter: COMPANY_TITLE_FILTER,
-          target_count: 5, // Ask for slightly more to allow for dedup losses and enrichment failures
-          company_domain: companyDomain || undefined,
-        },
-        headers: { Authorization: authHeader },
-      });
-
+    // Extract company results
+    if (companyResult.status === 'fulfilled') {
+      const companyResponse = companyResult.value;
       if (companyResponse.error) {
         companySearchError =
           typeof companyResponse.error === 'string'
@@ -259,9 +274,15 @@ Deno.serve(async (req: Request) => {
       } else if (companyResponse.data?.contacts) {
         companyContacts = companyResponse.data.contacts;
       }
-    } catch (err) {
-      companySearchError = err instanceof Error ? err.message : String(err);
-      console.error('[find-introduction-contacts] Company contact search failed:', err);
+    } else {
+      companySearchError =
+        companyResult.reason instanceof Error
+          ? companyResult.reason.message
+          : String(companyResult.reason);
+      console.error(
+        '[find-introduction-contacts] Company contact search failed:',
+        companyResult.reason,
+      );
     }
 
     // Step C — Deduplicate and save

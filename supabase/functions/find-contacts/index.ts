@@ -1,27 +1,24 @@
 /**
  * Find Contacts Edge Function
  *
- * Two-phase contact discovery pipeline:
- *   Phase 1 — Domain Discovery (when no domain provided):
- *     Google the company name to find their real website domain.
- *     Prevents wrong domain guesses from poisoning all contact searches.
+ * Contact discovery pipeline with Blitz API as primary, Serper/Clay/Prospeo as fallbacks:
  *
- *   Phase 2 — Contact Discovery & Enrichment:
- *     1. Check cache for recent results
- *     2. Domain discovery via Google (if no domain provided)
- *     3. Discover employees via multi-layered Serper Google search
- *        - Layer 1: Verified domain + company name + role
- *        - Layer 2: Company name only (domain-free fallback)
- *        - Layer 3: Company name variations (DBA, abbreviations)
- *        - Layer 4: Specific title filter queries
- *        - Layer 5: Broader coverage (team pages, etc.)
- *     4. Filter by title criteria
- *     5. CRM pre-check — skip contacts already known with email
- *     6. PRIMARY: Clay batch email lookup (synchronous poll)
- *     7. FALLBACK: Prospeo enrichment for contacts Clay couldn't find
- *     8. Domain search fallback with multiple domain candidates
- *     9. Save to enriched_contacts table
- *    10. Log the search
+ *   1. Check cache for recent results
+ *   2. Resolve company LinkedIn URL:
+ *      a. Has domain? → Blitz domain-to-linkedin
+ *      b. No domain? → Serper discoverCompanyDomain → Blitz domain-to-linkedin
+ *      c. Blitz fails? → Serper findCompanyLinkedIn (fallback)
+ *   3. PRIMARY: Blitz Waterfall ICP Search for contacts
+ *      - 3-tier cascade: C-suite/Partners → VPs/Directors → Associates/BD
+ *      - Supplement with Employee Finder if needed
+ *      - FALLBACK: Serper Google search if Blitz fails
+ *   4. Filter by title criteria
+ *   5. CRM pre-check — skip contacts already known with email
+ *   6. PRIMARY: Blitz email + phone enrichment
+ *   7. FALLBACK 1: Clay batch email lookup (for contacts Blitz couldn't enrich)
+ *   8. FALLBACK 2: Prospeo enrichment (last resort)
+ *   9. Save to enriched_contacts table
+ *  10. Log the search
  *
  * POST /find-contacts
  * Body: { company_name, title_filter?, target_count?, company_linkedin_url?, company_domain? }
@@ -32,8 +29,21 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import { inferDomain, inferDomainCandidates } from '../_shared/domain-utils.ts';
 import { batchEnrich, domainSearchEnrich } from '../_shared/prospeo-client.ts';
-import { googleSearch, discoverCompanyDomain } from '../_shared/serper-client.ts';
+import {
+  googleSearch,
+  discoverCompanyDomain,
+  findCompanyLinkedIn,
+} from '../_shared/serper-client.ts';
 import { sendToClayLinkedIn, sendToClayNameDomain } from '../_shared/clay-client.ts';
+import {
+  domainToLinkedIn,
+  linkedInToDomain,
+  waterfallIcpSearch,
+  employeeFinder,
+  batchEnrichContacts,
+  type CascadeFilter,
+  type BlitzPerson,
+} from '../_shared/blitz-client.ts';
 
 interface FindContactsRequest {
   company_name: string;
@@ -359,6 +369,289 @@ function getCompanyNameVariations(companyName: string): string[] {
   return [...new Set(variations.filter((v) => v.length > 1))];
 }
 
+// ─── NEW: Blitz-based contact discovery ─────────────────────────────────────
+
+/**
+ * Resolve the company LinkedIn URL using available data.
+ * Waterfall: provided URL → domain → Blitz domain-to-linkedin → Serper fallback
+ */
+async function resolveCompanyLinkedInUrl(
+  companyName: string,
+  providedDomain: string | undefined,
+  providedLinkedInUrl: string | undefined,
+): Promise<{ linkedinUrl: string | null; domain: string | null }> {
+  // 1. If LinkedIn URL was provided directly, use it
+  if (providedLinkedInUrl?.includes('linkedin.com/company/')) {
+    console.log(`[find-contacts] Using provided LinkedIn URL: ${providedLinkedInUrl}`);
+    let domain = providedDomain || null;
+    // If we have LinkedIn URL but no domain, try to get domain from Blitz
+    if (!domain) {
+      try {
+        const domainRes = await linkedInToDomain(providedLinkedInUrl);
+        if (domainRes.ok && domainRes.data?.domain) {
+          domain = domainRes.data.domain;
+          console.log(`[find-contacts] Resolved domain from LinkedIn URL: ${domain}`);
+        }
+      } catch (err) {
+        console.warn(`[find-contacts] linkedInToDomain failed: ${err}`);
+      }
+    }
+    return { linkedinUrl: providedLinkedInUrl, domain };
+  }
+
+  // 2. If domain was provided, use Blitz domain-to-linkedin
+  if (providedDomain) {
+    console.log(`[find-contacts] Resolving LinkedIn URL from provided domain: ${providedDomain}`);
+    try {
+      const res = await domainToLinkedIn(providedDomain);
+      const linkedinUrl = res.data?.linkedin_url || res.data?.company_linkedin_url || null;
+      if (res.ok && linkedinUrl) {
+        console.log(`[find-contacts] Blitz domain-to-linkedin: ${linkedinUrl}`);
+        return { linkedinUrl, domain: providedDomain };
+      }
+    } catch (err) {
+      console.warn(`[find-contacts] Blitz domainToLinkedIn failed: ${err}`);
+    }
+  }
+
+  // 3. No domain provided — discover domain via Serper, then use Blitz
+  if (!providedDomain) {
+    console.log(`[find-contacts] No domain provided, discovering via Serper...`);
+    const inferredCandidates = inferDomainCandidates(companyName);
+    try {
+      const discovered = await discoverCompanyDomain(companyName, inferredCandidates);
+      if (discovered && discovered.confidence !== 'low') {
+        console.log(
+          `[find-contacts] Domain discovered: ${discovered.domain} (${discovered.confidence})`,
+        );
+        // Try Blitz domain-to-linkedin with discovered domain
+        try {
+          const res = await domainToLinkedIn(discovered.domain);
+          const linkedinUrl = res.data?.linkedin_url || res.data?.company_linkedin_url || null;
+          if (res.ok && linkedinUrl) {
+            console.log(`[find-contacts] Blitz domain-to-linkedin: ${linkedinUrl}`);
+            return { linkedinUrl, domain: discovered.domain };
+          }
+        } catch (err) {
+          console.warn(
+            `[find-contacts] Blitz domainToLinkedIn failed for discovered domain: ${err}`,
+          );
+        }
+        // Blitz failed but we have a domain — continue with Serper fallback
+      }
+    } catch (err) {
+      console.warn(`[find-contacts] Serper domain discovery failed: ${err}`);
+    }
+  }
+
+  // 4. Fallback: Serper findCompanyLinkedIn (Google search for LinkedIn company page)
+  console.log(`[find-contacts] Falling back to Serper findCompanyLinkedIn for "${companyName}"`);
+  try {
+    const linkedinUrl = await findCompanyLinkedIn(companyName);
+    if (linkedinUrl) {
+      console.log(`[find-contacts] Serper found LinkedIn URL: ${linkedinUrl}`);
+      // Try to get domain from LinkedIn URL via Blitz
+      let domain = providedDomain || null;
+      if (!domain) {
+        try {
+          const domainRes = await linkedInToDomain(linkedinUrl);
+          if (domainRes.ok && domainRes.data?.domain) {
+            domain = domainRes.data.domain;
+          }
+        } catch {
+          /* non-critical */
+        }
+      }
+      return { linkedinUrl, domain };
+    }
+  } catch (err) {
+    console.warn(`[find-contacts] Serper findCompanyLinkedIn failed: ${err}`);
+  }
+
+  // All methods exhausted
+  console.warn(`[find-contacts] Could not resolve LinkedIn URL for "${companyName}"`);
+  return {
+    linkedinUrl: null,
+    domain: providedDomain || inferDomainCandidates(companyName)[0] || inferDomain(companyName),
+  };
+}
+
+/**
+ * Map a BlitzPerson to our DiscoveredEmployee format.
+ */
+function blitzPersonToEmployee(
+  person: BlitzPerson,
+  companyName: string,
+  tier: number,
+): DiscoveredEmployee {
+  const fullName =
+    person.full_name || `${person.first_name || ''} ${person.last_name || ''}`.trim();
+  const names = fullName.split(/\s+/).filter(Boolean);
+  const firstName = person.first_name || names[0] || '';
+  const lastName = person.last_name || names.slice(1).join(' ') || names[names.length - 1] || '';
+
+  // Extract title from headline (Blitz returns headline like "CEO at Acme Corp")
+  let title = person.title || '';
+  if (!title && person.headline) {
+    const atMatch = person.headline.match(/^(.+?)\s+at\s+/i);
+    title = atMatch ? atMatch[1].trim() : person.headline;
+  }
+
+  // Confidence based on tier (tier 1 = C-suite = highest)
+  const confidence = tier === 1 ? 90 : tier === 2 ? 70 : 50;
+
+  return {
+    fullName,
+    firstName,
+    lastName,
+    title,
+    profileUrl: person.linkedin_url || '',
+    companyName,
+    confidence,
+  };
+}
+
+/**
+ * Discover contacts via Blitz Waterfall ICP Search (primary).
+ * Falls back to Serper discovery if Blitz fails or returns too few results.
+ */
+async function discoverContactsViaBlitz(
+  companyLinkedInUrl: string | null,
+  companyName: string,
+  domain: string,
+  titleFilter: string[],
+  maxResults: number,
+): Promise<DiscoveredEmployee[]> {
+  // If we don't have a LinkedIn URL, go straight to Serper fallback
+  if (!companyLinkedInUrl) {
+    console.log(`[find-contacts] No LinkedIn URL available, using Serper fallback`);
+    return discoverEmployeesViaSerper(companyName, domain, titleFilter, maxResults);
+  }
+
+  // Build 3-tier cascade from title filter
+  const cascade: CascadeFilter[] = [
+    {
+      include_title: [
+        'CEO',
+        'CFO',
+        'COO',
+        'CTO',
+        'President',
+        'Founder',
+        'Owner',
+        'Chairman',
+        'Partner',
+        'Managing Partner',
+        'General Partner',
+        'Senior Partner',
+        'Principal',
+        'Managing Director',
+      ],
+      exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+      location: ['WORLD'],
+      include_headline_search: true,
+    },
+    {
+      include_title: [
+        'VP',
+        'Vice President',
+        'SVP',
+        'EVP',
+        'Director',
+        'Senior Director',
+        'Executive Director',
+        'Head of',
+        'Operating Partner',
+      ],
+      exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+      location: ['WORLD'],
+      include_headline_search: true,
+    },
+    {
+      include_title: [
+        'Senior Associate',
+        'Associate',
+        'Analyst',
+        'Business Development',
+        'Corporate Development',
+        'Acquisitions',
+        'Deal Sourcing',
+        'Investment Origination',
+      ],
+      exclude_title: ['assistant', 'intern', 'junior', 'entry level'],
+      location: ['WORLD'],
+      include_headline_search: true,
+    },
+  ];
+
+  console.log(
+    `[find-contacts] Blitz waterfall ICP search for ${companyLinkedInUrl} (max ${maxResults})`,
+  );
+
+  let blitzContacts: DiscoveredEmployee[] = [];
+
+  try {
+    const res = await waterfallIcpSearch(companyLinkedInUrl, cascade, maxResults);
+
+    if (res.ok && res.data?.results?.length) {
+      blitzContacts = res.data.results
+        .filter((r) => r.person?.linkedin_url && isValidLinkedInProfileUrl(r.person.linkedin_url))
+        .map((r) => blitzPersonToEmployee(r.person, companyName, parseInt(r.icp) || 1));
+
+      console.log(`[find-contacts] Blitz waterfall found ${blitzContacts.length} contacts`);
+    } else {
+      console.warn(
+        `[find-contacts] Blitz waterfall returned no results (ok=${res.ok}, error=${res.error || 'none'})`,
+      );
+    }
+  } catch (err) {
+    console.error(`[find-contacts] Blitz waterfall ICP search failed: ${err}`);
+  }
+
+  // Supplement with Employee Finder if waterfall returned too few
+  if (blitzContacts.length < maxResults / 2) {
+    console.log(`[find-contacts] Supplementing with Blitz Employee Finder...`);
+    try {
+      const efRes = await employeeFinder(
+        companyLinkedInUrl,
+        ['C-Team', 'VP', 'Director', 'Manager'],
+        ['Sales & Business Development', 'Finance'],
+        maxResults - blitzContacts.length,
+      );
+
+      if (efRes.ok && efRes.data?.results?.length) {
+        const existingUrls = new Set(blitzContacts.map((c) => c.profileUrl.toLowerCase()));
+        const supplementContacts = efRes.data.results
+          .filter(
+            (p) =>
+              p.linkedin_url &&
+              isValidLinkedInProfileUrl(p.linkedin_url) &&
+              !existingUrls.has(p.linkedin_url.toLowerCase()),
+          )
+          .map((p) => blitzPersonToEmployee(p, companyName, 2));
+
+        blitzContacts = [...blitzContacts, ...supplementContacts];
+        console.log(
+          `[find-contacts] Employee Finder added ${supplementContacts.length} contacts (total: ${blitzContacts.length})`,
+        );
+      }
+    } catch (err) {
+      console.warn(`[find-contacts] Blitz Employee Finder failed: ${err}`);
+    }
+  }
+
+  // If Blitz found contacts, return them
+  if (blitzContacts.length > 0) {
+    return blitzContacts.slice(0, maxResults);
+  }
+
+  // FALLBACK: Blitz returned nothing — use Serper discovery
+  console.log(`[find-contacts] Blitz returned 0 contacts, falling back to Serper discovery`);
+  return discoverEmployeesViaSerper(companyName, domain, titleFilter, maxResults);
+}
+
+// ─── Serper-based discovery (BACKUP — used when Blitz fails) ────────────────
+
 /**
  * Discover employees at a company via Serper Google search.
  * Uses a multi-layered search strategy:
@@ -380,8 +673,6 @@ async function discoverEmployeesViaSerper(
   const roleQueries: string[] = [];
 
   // ---- Core queries: Company name + role groups (5 queries cover all major titles) ----
-  // Domain is included as a boost signal but not required — Google still finds
-  // results when the domain doesn't match the company.
   const domainHint = companyDomain ? `${companyDomain} ` : '';
   roleQueries.push(
     `${domainHint}"${companyName}" CEO founder president owner site:linkedin.com/in ${excludeNoise}`,
@@ -393,14 +684,12 @@ async function discoverEmployeesViaSerper(
 
   // ---- Layer 3: Company name variations (handles DBA names, abbreviations) ----
   for (const variation of nameVariations.slice(1)) {
-    // skip first (already used above)
     roleQueries.push(
       `"${variation}" CEO partner principal director site:linkedin.com/in ${excludeNoise}`,
     );
   }
 
   // ---- Layer 4: Title filter queries (batched to reduce API calls) ----
-  // Skip titles already well-covered by Layers 1-3 to avoid redundant queries
   const alreadyCovered = new Set([
     'ceo',
     'president',
@@ -422,7 +711,6 @@ async function discoverEmployeesViaSerper(
   ]);
   if (titleFilter.length > 0) {
     const uncovered = titleFilter.filter((tf) => !alreadyCovered.has(tf.toLowerCase()));
-    // Batch uncovered titles into groups of 3-4 per query
     for (let i = 0; i < uncovered.length; i += 3) {
       const batch = uncovered.slice(i, i + 3);
       const terms = batch.map((t) => `"${t}"`).join(' OR ');
@@ -430,20 +718,18 @@ async function discoverEmployeesViaSerper(
     }
   }
 
-  // ---- Layer 5: Broader coverage (team pages, about pages, general search) ----
+  // ---- Layer 5: Broader coverage ----
   roleQueries.push(
     `"${companyName}" team leadership site:linkedin.com/in ${excludeNoise}`,
     `"${companyName}" "works at" OR "working at" site:linkedin.com/in ${excludeNoise}`,
   );
 
-  // Deduplicate queries
   const uniqueQueries = [...new Set(roleQueries)];
 
   console.log(
-    `[find-contacts] Running ${uniqueQueries.length} Serper queries for "${companyName}"`,
+    `[find-contacts] Running ${uniqueQueries.length} Serper queries for "${companyName}" (fallback)`,
   );
 
-  // Run all queries and collect results
   const allResults: Array<{ title: string; url: string; description: string }> = [];
 
   for (const query of uniqueQueries) {
@@ -478,19 +764,15 @@ async function discoverEmployeesViaSerper(
     const parsed = parseLinkedInTitle(result.title);
     if (!parsed) continue;
 
-    // Verify this person is associated with the target company
-    // Use a more lenient check: match against any company name variation words
     const combined = `${result.title} ${result.description}`.toLowerCase();
     const companyWordMatches = [...allCompanyWords].filter((w) => combined.includes(w));
 
-    // Also check if the parsed company from LinkedIn title matches
     const parsedCompanyWords = (parsed.company || '')
       .toLowerCase()
       .split(/\s+/)
       .filter((w) => w.length > 2);
     const parsedCompanyMatches = parsedCompanyWords.filter((w) => allCompanyWords.has(w));
 
-    // Accept if: any company word matches in text, OR parsed company matches, OR domain appears
     const hasCompanyMatch =
       companyWordMatches.length > 0 ||
       parsedCompanyMatches.length > 0 ||
@@ -500,21 +782,18 @@ async function discoverEmployeesViaSerper(
       continue;
     }
 
-    // Clean LinkedIn URL
     let cleanUrl = result.url.split('?')[0];
     if (!cleanUrl.startsWith('https://')) {
       cleanUrl = cleanUrl.replace('http://', 'https://');
     }
 
-    // Dedup key — use LinkedIn URL slug as primary key (more reliable than name)
     const slug = cleanUrl.split('/in/')[1]?.replace(/\/$/, '') || '';
     const dedupKey = slug || `${parsed.firstName.toLowerCase()}:${parsed.lastName.toLowerCase()}`;
 
-    // Score this contact
-    let confidence = 20; // Name found
-    confidence += Math.min(companyWordMatches.length * 10, 30); // Company match (text)
-    if (parsedCompanyMatches.length > 0) confidence += 10; // Parsed company match bonus
-    if (parsed.role) confidence += 20; // Has role
+    let confidence = 20;
+    confidence += Math.min(companyWordMatches.length * 10, 30);
+    if (parsedCompanyMatches.length > 0) confidence += 10;
+    if (parsed.role) confidence += 20;
     if (
       /\b(CEO|CFO|COO|CTO|President|Founder|Owner|Chairman|Partner|Principal|Managing\s*Director)\b/i.test(
         parsed.role,
@@ -542,24 +821,22 @@ async function discoverEmployeesViaSerper(
     }
   }
 
-  // Sort by confidence and limit
   const results = Array.from(contactMap.values()).sort((a, b) => b.confidence - a.confidence);
 
   console.log(
-    `[find-contacts] Discovered ${results.length} unique contacts for "${companyName}" via Serper`,
+    `[find-contacts] Discovered ${results.length} unique contacts for "${companyName}" via Serper (fallback)`,
   );
 
   return results.slice(0, maxResults);
 }
 
-// ---------- Clay batch enrichment (same pattern as AI command center) ----------
+// ---------- Clay batch enrichment (FALLBACK 1 — used when Blitz can't enrich) ----------
 
 const CLAY_POLL_INTERVAL_MS = 3_000;
 const CLAY_MAX_POLL_MS = 60_000;
 
 /**
  * Send contacts to Clay for email lookup (non-blocking sends, returns request IDs).
- * Matches the AI command center's clayBatchSend pattern.
  */
 async function clayBatchSend(
   supabase: ReturnType<typeof createClient>,
@@ -627,7 +904,6 @@ async function clayBatchSend(
 
 /**
  * Poll for batch Clay results — returns map of requestId → email.
- * Matches the AI command center's clayBatchPoll pattern.
  */
 async function clayBatchPoll(
   supabase: ReturnType<typeof createClient>,
@@ -759,80 +1035,46 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 2. PHASE 1: Domain Discovery — find the real company domain before searching contacts
-    //    If a domain was provided (e.g., from buyer's website), use it.
-    //    Otherwise, Google the company to find their actual website domain.
-    const providedDomain = body.company_domain?.trim() || undefined;
-    const inferredCandidates = inferDomainCandidates(companyName);
-    let primaryDomain: string;
-    let domainCandidates: string[];
-
-    if (providedDomain) {
-      // Domain was provided (extracted from buyer record) — trust it as primary
-      primaryDomain = providedDomain;
-      domainCandidates = [
-        providedDomain,
-        ...inferredCandidates.filter((d) => d !== providedDomain),
-      ];
-      console.log(`[find-contacts] Using provided domain: ${primaryDomain}`);
-    } else {
-      // No domain provided — discover it via Google search
-      console.log(
-        `[find-contacts] No domain provided for "${companyName}", running domain discovery...`,
+    // 2. Resolve company LinkedIn URL (NEW — Blitz domain-to-linkedin with Serper fallback)
+    const { linkedinUrl: companyLinkedInUrl, domain: resolvedDomain } =
+      await resolveCompanyLinkedInUrl(
+        companyName,
+        body.company_domain?.trim() || undefined,
+        body.company_linkedin_url?.trim() || undefined,
       );
-      try {
-        const discovered = await discoverCompanyDomain(companyName, inferredCandidates);
-        if (discovered && discovered.confidence !== 'low') {
-          primaryDomain = discovered.domain;
-          domainCandidates = [
-            discovered.domain,
-            ...inferredCandidates.filter((d) => d !== discovered.domain),
-          ];
-          console.log(
-            `[find-contacts] Domain discovered: ${primaryDomain} (${discovered.confidence} confidence via ${discovered.source})`,
-          );
-        } else {
-          // Discovery returned low confidence or nothing — use inferred but don't rely on it
-          primaryDomain = inferredCandidates[0] || inferDomain(companyName);
-          domainCandidates = inferredCandidates;
-          console.log(
-            `[find-contacts] Domain discovery inconclusive, using inferred: ${primaryDomain}`,
-          );
-        }
-      } catch (err) {
-        console.warn(`[find-contacts] Domain discovery failed: ${err}, falling back to inference`);
-        primaryDomain = inferredCandidates[0] || inferDomain(companyName);
-        domainCandidates = inferredCandidates;
-      }
-    }
 
-    // 3. PHASE 2: Discover employees via Serper Google search using the resolved domain
+    const primaryDomain = resolvedDomain || body.company_domain?.trim() || inferDomain(companyName);
+    const domainCandidates = [
+      primaryDomain,
+      ...inferDomainCandidates(companyName).filter((d) => d !== primaryDomain),
+    ];
 
+    // 3. Discover contacts — Blitz primary, Serper fallback
     let discovered: DiscoveredEmployee[] = [];
     try {
-      discovered = await discoverEmployeesViaSerper(
+      discovered = await discoverContactsViaBlitz(
+        companyLinkedInUrl,
         companyName,
         primaryDomain,
         titleFilter,
         Math.max(targetCount * 3, 30),
       );
     } catch (err) {
-      console.error(`[find-contacts] Serper discovery failed: ${err}`);
+      console.error(`[find-contacts] Contact discovery failed: ${err}`);
       errors.push(`Contact discovery failed: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // 4. Apply title filter (Serper discovery already scores by role, but apply explicit filter)
+    // 4. Apply title filter
     let filtered = discovered;
     if (titleFilter.length > 0 && discovered.length > 0) {
       const titleFiltered = discovered.filter((e) => matchesTitle(e.title || '', titleFilter));
-      // If filter produced results, use them; otherwise keep all (filter might be too narrow)
       if (titleFiltered.length > 0) {
         filtered = titleFiltered;
         console.log(`[find-contacts] Title filter: ${discovered.length} → ${filtered.length}`);
       }
     }
 
-    // 5. CRM pre-check — skip contacts we already have email for (same as AI command center)
+    // 5. CRM pre-check — skip contacts we already have email for
     const crmAlreadyKnown = new Set<string>();
     if (filtered.length > 0) {
       const linkedInUrls = filtered.map((d) => d.profileUrl?.toLowerCase()).filter(Boolean);
@@ -907,52 +1149,89 @@ Deno.serve(async (req: Request) => {
 
     const toEnrich = needsEnrichment.slice(0, targetCount);
 
-    // 6. PRIMARY: Clay batch email lookup — send all contacts, poll for results
-    //    (Same approach as AI command center — Clay is primary, Prospeo is fallback)
-    const clayRequestIds = await clayBatchSend(
-      supabaseAdmin,
-      auth.userId!,
-      toEnrich.map((d) => ({
-        linkedinUrl: d.profileUrl || undefined,
-        firstName: d.firstName,
-        lastName: d.lastName,
-        domain: primaryDomain,
-        company: companyName,
-        title: d.title,
-      })),
+    // 6. PRIMARY: Blitz email + phone enrichment
+    const blitzEnriched = new Map<string, { email: string | null; phone: string | null }>();
+    const contactsWithLinkedIn = toEnrich.filter(
+      (d) => d.profileUrl && isValidLinkedInProfileUrl(d.profileUrl),
     );
 
-    // Build mapping from requestId → contact for correlation
-    const requestToContact = new Map<string, DiscoveredEmployee>();
-    for (let i = 0; i < Math.min(clayRequestIds.length, toEnrich.length); i++) {
-      requestToContact.set(clayRequestIds[i], toEnrich[i]);
-    }
-
-    // Poll for Clay results (up to 60s)
-    const clayEmails = await clayBatchPoll(supabaseAdmin, clayRequestIds);
-    console.log(`[find-contacts] Clay returned ${clayEmails.size}/${clayRequestIds.length} emails`);
-
-    // Map Clay results back to contacts by LinkedIn URL
-    const clayEmailByLinkedIn = new Map<string, string>();
-    for (const [reqId, email] of clayEmails) {
-      const contact = requestToContact.get(reqId);
-      if (contact?.profileUrl) {
-        clayEmailByLinkedIn.set(contact.profileUrl.toLowerCase(), email);
+    if (contactsWithLinkedIn.length > 0) {
+      console.log(
+        `[find-contacts] Blitz enriching ${contactsWithLinkedIn.length} contacts (email + phone)...`,
+      );
+      try {
+        const blitzResults = await batchEnrichContacts(
+          contactsWithLinkedIn.map((d) => ({ linkedinUrl: d.profileUrl })),
+          3, // concurrency
+        );
+        for (const [url, data] of blitzResults) {
+          blitzEnriched.set(url, data);
+        }
+        const blitzEmailCount = [...blitzEnriched.values()].filter((v) => v.email).length;
+        console.log(
+          `[find-contacts] Blitz enriched ${blitzEmailCount}/${contactsWithLinkedIn.length} emails`,
+        );
+      } catch (err) {
+        console.error(`[find-contacts] Blitz batch enrichment failed: ${err}`);
+        errors.push(`Blitz enrichment failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
-    // Determine which contacts still need email (Clay didn't find them)
-    const stillNeedsEmail = toEnrich.filter(
+    // Determine which contacts still need email after Blitz
+    const stillNeedsEmailAfterBlitz = toEnrich.filter((d) => {
+      const blitzData = blitzEnriched.get((d.profileUrl || '').toLowerCase());
+      return !blitzData?.email;
+    });
+
+    // 7. FALLBACK 1: Clay batch email lookup for contacts Blitz couldn't enrich
+    const clayEmailByLinkedIn = new Map<string, string>();
+    if (stillNeedsEmailAfterBlitz.length > 0) {
+      console.log(`[find-contacts] Clay fallback for ${stillNeedsEmailAfterBlitz.length} contacts`);
+      const clayRequestIds = await clayBatchSend(
+        supabaseAdmin,
+        auth.userId!,
+        stillNeedsEmailAfterBlitz.map((d) => ({
+          linkedinUrl: d.profileUrl || undefined,
+          firstName: d.firstName,
+          lastName: d.lastName,
+          domain: primaryDomain,
+          company: companyName,
+          title: d.title,
+        })),
+      );
+
+      const requestToContact = new Map<string, DiscoveredEmployee>();
+      for (let i = 0; i < Math.min(clayRequestIds.length, stillNeedsEmailAfterBlitz.length); i++) {
+        requestToContact.set(clayRequestIds[i], stillNeedsEmailAfterBlitz[i]);
+      }
+
+      const clayEmails = await clayBatchPoll(supabaseAdmin, clayRequestIds);
+      console.log(
+        `[find-contacts] Clay returned ${clayEmails.size}/${clayRequestIds.length} emails`,
+      );
+
+      for (const [reqId, email] of clayEmails) {
+        const contact = requestToContact.get(reqId);
+        if (contact?.profileUrl) {
+          clayEmailByLinkedIn.set(contact.profileUrl.toLowerCase(), email);
+        }
+      }
+    }
+
+    // Determine which contacts still need email after Clay
+    const stillNeedsEmailAfterClay = stillNeedsEmailAfterBlitz.filter(
       (d) => !clayEmailByLinkedIn.has((d.profileUrl || '').toLowerCase()),
     );
 
-    // 7. FALLBACK: Prospeo enrichment for contacts Clay couldn't find
+    // 8. FALLBACK 2: Prospeo enrichment (last resort)
     let prospeoEnriched: Record<string, unknown>[] = [];
-    if (stillNeedsEmail.length > 0) {
-      console.log(`[find-contacts] Prospeo fallback for ${stillNeedsEmail.length} contacts`);
+    if (stillNeedsEmailAfterClay.length > 0) {
+      console.log(
+        `[find-contacts] Prospeo fallback (last resort) for ${stillNeedsEmailAfterClay.length} contacts`,
+      );
       try {
         prospeoEnriched = await batchEnrich(
-          stillNeedsEmail.map((e) => ({
+          stillNeedsEmailAfterClay.map((e) => ({
             firstName: e.firstName || e.fullName?.split(' ')[0] || '',
             lastName: e.lastName || e.fullName?.split(' ').slice(1).join(' ') || '',
             linkedinUrl: e.profileUrl || undefined,
@@ -973,14 +1252,14 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // 8. Domain search fallback — try multiple domain candidates (same as AI command center)
-      if (prospeoEnriched.length < stillNeedsEmail.length / 2) {
+      // Domain search fallback — try multiple domain candidates
+      if (prospeoEnriched.length < stillNeedsEmailAfterClay.length / 2) {
         for (const domainCandidate of domainCandidates.slice(0, 3)) {
-          if (prospeoEnriched.length >= stillNeedsEmail.length) break;
+          if (prospeoEnriched.length >= stillNeedsEmailAfterClay.length) break;
           try {
             const domainResults = await domainSearchEnrich(
               domainCandidate,
-              stillNeedsEmail.length - prospeoEnriched.length,
+              stillNeedsEmailAfterClay.length - prospeoEnriched.length,
             );
             const filteredDomain =
               titleFilter.length > 0
@@ -994,25 +1273,52 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Build final contacts — merge Clay results + Prospeo results + unenriched
+    // Build final contacts — merge Blitz + Clay + Prospeo results + unenriched
     const contacts = [
+      // Contacts with Blitz email/phone
+      ...toEnrich
+        .filter((d) => {
+          const blitzData = blitzEnriched.get((d.profileUrl || '').toLowerCase());
+          return blitzData?.email;
+        })
+        .map((d) => {
+          const blitzData = blitzEnriched.get((d.profileUrl || '').toLowerCase())!;
+          return {
+            company_name: companyName,
+            full_name: `${d.firstName} ${d.lastName}`.trim(),
+            first_name: d.firstName,
+            last_name: d.lastName,
+            title: d.title || '',
+            email: blitzData.email,
+            phone: blitzData.phone,
+            linkedin_url: d.profileUrl || '',
+            confidence: 'high' as string,
+            source: 'blitz',
+            enriched_at: new Date().toISOString(),
+            search_query: cacheKey,
+          };
+        }),
       // Contacts with Clay email
       ...toEnrich
         .filter((d) => clayEmailByLinkedIn.has((d.profileUrl || '').toLowerCase()))
-        .map((d) => ({
-          company_name: companyName,
-          full_name: `${d.firstName} ${d.lastName}`.trim(),
-          first_name: d.firstName,
-          last_name: d.lastName,
-          title: d.title || '',
-          email: clayEmailByLinkedIn.get((d.profileUrl || '').toLowerCase()) || null,
-          phone: null as string | null,
-          linkedin_url: d.profileUrl || '',
-          confidence: 'high' as string,
-          source: 'clay',
-          enriched_at: new Date().toISOString(),
-          search_query: cacheKey,
-        })),
+        .map((d) => {
+          // Also check if Blitz found a phone even if it didn't find email
+          const blitzData = blitzEnriched.get((d.profileUrl || '').toLowerCase());
+          return {
+            company_name: companyName,
+            full_name: `${d.firstName} ${d.lastName}`.trim(),
+            first_name: d.firstName,
+            last_name: d.lastName,
+            title: d.title || '',
+            email: clayEmailByLinkedIn.get((d.profileUrl || '').toLowerCase()) || null,
+            phone: blitzData?.phone || null,
+            linkedin_url: d.profileUrl || '',
+            confidence: 'high' as string,
+            source: 'clay',
+            enriched_at: new Date().toISOString(),
+            search_query: cacheKey,
+          };
+        }),
       // Contacts with Prospeo email
       ...prospeoEnriched.map((e: Record<string, unknown>) => ({
         company_name: companyName,
@@ -1030,26 +1336,29 @@ Deno.serve(async (req: Request) => {
       })),
     ];
 
-    // Include unenriched contacts (neither Clay nor Prospeo found email)
+    // Include unenriched contacts (no enrichment source found email)
     const enrichedLinkedIns = new Set(
       contacts.map((c) => c.linkedin_url?.toLowerCase()).filter(Boolean),
     );
     const unenriched = toEnrich
       .filter((d) => !enrichedLinkedIns.has(d.profileUrl?.toLowerCase()))
-      .map((d) => ({
-        company_name: companyName,
-        full_name: `${d.firstName} ${d.lastName}`.trim(),
-        first_name: d.firstName,
-        last_name: d.lastName,
-        title: d.title || '',
-        email: null,
-        phone: null,
-        linkedin_url: d.profileUrl || '',
-        confidence: 'low' as const,
-        source: 'google_discovery',
-        enriched_at: new Date().toISOString(),
-        search_query: cacheKey,
-      }));
+      .map((d) => {
+        const blitzData = blitzEnriched.get((d.profileUrl || '').toLowerCase());
+        return {
+          company_name: companyName,
+          full_name: `${d.firstName} ${d.lastName}`.trim(),
+          first_name: d.firstName,
+          last_name: d.lastName,
+          title: d.title || '',
+          email: null,
+          phone: blitzData?.phone || null,
+          linkedin_url: d.profileUrl || '',
+          confidence: 'low' as const,
+          source: 'blitz_discovery',
+          enriched_at: new Date().toISOString(),
+          search_query: cacheKey,
+        };
+      });
 
     const seenFinal = new Set<string>();
     const allContacts = [...contacts, ...unenriched]
