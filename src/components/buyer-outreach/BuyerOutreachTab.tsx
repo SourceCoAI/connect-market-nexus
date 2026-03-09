@@ -111,9 +111,53 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
 
       const buyerMap = new Map((buyerRows || []).map(b => [b.id, b]));
 
-      // Build contacts from the contacts table
+      // Create contacts for buyer introductions that don't have one yet
       const contactsByBuyer = new Set((contacts || []).map(c => c.remarketing_buyer_id));
-      const result: BuyerContact[] = (contacts || []).map(c => {
+      const missingIntros = typedIntroEntries.filter(
+        intro => !contactsByBuyer.has(intro.remarketing_buyer_id),
+      );
+
+      if (missingIntros.length > 0) {
+        // Insert each missing contact individually — skip on conflict
+        for (const intro of missingIntros) {
+          const nameParts = intro.buyer_name.trim().split(/\s+/);
+          try {
+            await supabase
+              .from('contacts')
+              .insert({
+                first_name: nameParts[0] || '',
+                last_name: nameParts.slice(1).join(' ') || '',
+                email: intro.buyer_email?.toLowerCase().trim() || null,
+                phone: intro.buyer_phone || null,
+                linkedin_url: intro.buyer_linkedin_url || null,
+                company_name: intro.buyer_firm_name,
+                contact_type: 'buyer',
+                source: 'buyer_introduction',
+                remarketing_buyer_id: intro.remarketing_buyer_id,
+              });
+          } catch {
+            // Skip duplicates — contact already exists
+          }
+        }
+
+        // Re-fetch all contacts now that new ones exist
+        const { data: refreshedContacts } = await supabase
+          .from('contacts')
+          .select('id, first_name, last_name, email, phone, linkedin_url, company_name, title, remarketing_buyer_id')
+          .in('remarketing_buyer_id', buyerIds)
+          .eq('archived', false);
+
+        return (refreshedContacts || []).map(c => {
+          const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
+          return {
+            ...c,
+            buyer_type: buyer?.buyer_type || null,
+            buyer_company_name: buyer?.company_name || null,
+          } as BuyerContact;
+        });
+      }
+
+      return (contacts || []).map(c => {
         const buyer = c.remarketing_buyer_id ? buyerMap.get(c.remarketing_buyer_id) : null;
         return {
           ...c,
@@ -121,31 +165,6 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
           buyer_company_name: buyer?.company_name || null,
         } as BuyerContact;
       });
-
-      // For buyer introductions with no contacts row, synthesize from embedded fields
-      for (const intro of typedIntroEntries) {
-        if (!contactsByBuyer.has(intro.remarketing_buyer_id)) {
-          const nameParts = intro.buyer_name.trim().split(/\s+/);
-          const firstName = nameParts[0] || '';
-          const lastName = nameParts.slice(1).join(' ') || '';
-          const buyer = buyerMap.get(intro.remarketing_buyer_id);
-          result.push({
-            id: `intro-${intro.id}`,
-            first_name: firstName,
-            last_name: lastName,
-            email: intro.buyer_email,
-            phone: intro.buyer_phone,
-            linkedin_url: intro.buyer_linkedin_url,
-            company_name: intro.buyer_firm_name,
-            title: null,
-            remarketing_buyer_id: intro.remarketing_buyer_id,
-            buyer_type: buyer?.buyer_type || null,
-            buyer_company_name: buyer?.company_name || null,
-          });
-        }
-      }
-
-      return result;
     },
     enabled: !!dealId,
   });
