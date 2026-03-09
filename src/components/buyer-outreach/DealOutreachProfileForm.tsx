@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,15 +14,7 @@ interface DealOutreachProfileFormProps {
   dealId: string;
 }
 
-interface OutreachProfile {
-  id: string;
-  deal_id: string;
-  deal_descriptor: string;
-  geography: string;
-  ebitda: string;
-  created_at: string;
-  updated_at: string;
-}
+type OutreachProfile = Tables<'deal_outreach_profiles'>;
 
 export function DealOutreachProfileForm({ dealId }: DealOutreachProfileFormProps) {
   const queryClient = useQueryClient();
@@ -34,13 +27,13 @@ export function DealOutreachProfileForm({ dealId }: DealOutreachProfileFormProps
     queryKey: ['deal-outreach-profile', dealId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('deal_outreach_profiles' as any)
+        .from('deal_outreach_profiles')
         .select('*')
         .eq('deal_id', dealId)
         .maybeSingle();
 
       if (error) throw error;
-      return data as OutreachProfile | null;
+      return data;
     },
     enabled: !!dealId,
   });
@@ -60,25 +53,25 @@ export function DealOutreachProfileForm({ dealId }: DealOutreachProfileFormProps
 
       if (profile) {
         const { error } = await supabase
-          .from('deal_outreach_profiles' as any)
+          .from('deal_outreach_profiles')
           .update({
             deal_descriptor: values.deal_descriptor,
             geography: values.geography,
             ebitda: values.ebitda,
             updated_at: new Date().toISOString(),
-          } as any)
+          })
           .eq('id', profile.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from('deal_outreach_profiles' as any)
+          .from('deal_outreach_profiles')
           .insert({
             deal_id: dealId,
             deal_descriptor: values.deal_descriptor,
             geography: values.geography,
             ebitda: values.ebitda,
             created_by: user.id,
-          } as any);
+          });
         if (error) throw error;
       }
     },

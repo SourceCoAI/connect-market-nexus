@@ -1,38 +1,7 @@
 -- Buyer Outreach Integration
--- Creates tables for deal outreach profiles and buyer outreach event tracking
+-- deal_outreach_profiles is created in migration 20260309040228
 
--- 1. Deal Outreach Profiles — stores human-written merge variables per deal
-create table if not exists deal_outreach_profiles (
-  id uuid primary key default gen_random_uuid(),
-  deal_id uuid not null references listings(id) on delete cascade,
-  deal_descriptor text not null,
-  geography text not null,
-  ebitda text not null,
-  created_by uuid references auth.users(id),
-  created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-  unique(deal_id)
-);
-
-alter table deal_outreach_profiles enable row level security;
-
-create policy "Admins can read deal_outreach_profiles"
-  on deal_outreach_profiles for select
-  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
-
-create policy "Admins can insert deal_outreach_profiles"
-  on deal_outreach_profiles for insert
-  with check (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
-
-create policy "Admins can update deal_outreach_profiles"
-  on deal_outreach_profiles for update
-  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
-
-create policy "Admins can delete deal_outreach_profiles"
-  on deal_outreach_profiles for delete
-  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
-
--- 2. Buyer Outreach Events — stores every outreach event per buyer-deal pair
+-- Buyer Outreach Events — stores every outreach event per buyer-deal pair
 create table if not exists buyer_outreach_events (
   id uuid primary key default gen_random_uuid(),
   deal_id uuid not null references listings(id) on delete cascade,
@@ -76,6 +45,3 @@ create policy "Service role can manage buyer_outreach_events"
   on buyer_outreach_events for all
   using (auth.role() = 'service_role');
 
-create policy "Service role can manage deal_outreach_profiles"
-  on deal_outreach_profiles for all
-  using (auth.role() = 'service_role');

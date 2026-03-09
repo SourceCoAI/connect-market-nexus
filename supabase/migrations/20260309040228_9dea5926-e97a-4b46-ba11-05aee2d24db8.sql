@@ -26,6 +26,12 @@ WITH CHECK (
   EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
 );
 
+-- Service role bypass for edge functions (webhooks run without user session)
+CREATE POLICY "Service role can manage deal_outreach_profiles"
+ON public.deal_outreach_profiles
+FOR ALL
+USING (auth.role() = 'service_role');
+
 -- Create trigger for automatic timestamp updates
 CREATE TRIGGER update_deal_outreach_profiles_updated_at
 BEFORE UPDATE ON public.deal_outreach_profiles
