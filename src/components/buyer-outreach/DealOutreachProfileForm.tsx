@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { FileText, Pencil, Save, X } from 'lucide-react';
@@ -177,7 +178,11 @@ export function DealOutreachProfileForm({ dealId }: DealOutreachProfileFormProps
             </div>
             <div>
               <span className="text-xs text-muted-foreground">EBITDA</span>
-              <p className="font-medium">{profile.ebitda}</p>
+              <p className="font-medium">
+                {profile.ebitda
+                  ? `$${Number(profile.ebitda.replace(/,/g, '')).toLocaleString('en-US')}`
+                  : '—'}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -223,11 +228,11 @@ export function DealOutreachProfileForm({ dealId }: DealOutreachProfileFormProps
 
         <div className="space-y-2">
           <Label htmlFor="ebitda">EBITDA</Label>
-          <Input
+          <NumericInput
             id="ebitda"
             value={ebitda}
-            onChange={(e) => setEbitda(e.target.value)}
-            placeholder="e.g. ~$1M of EBITDA"
+            onChange={(value: string) => setEbitda(value)}
+            placeholder="e.g. 1,000,000"
           />
           <p className="text-xs text-muted-foreground">
             e.g. ~$1M of EBITDA, $1.2M of EBITDA, ~$600K of EBITDA
