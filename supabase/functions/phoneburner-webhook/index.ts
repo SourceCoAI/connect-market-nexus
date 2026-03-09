@@ -87,9 +87,9 @@ Deno.serve(async (req) => {
   const contentType = req.headers.get('content-type') || '';
   console.log(
     `[phoneburner-webhook] Incoming POST from ${clientIp || 'unknown'} | ` +
-    `Content-Type: ${contentType} | ` +
-    `Auth header: ${authHeader ? 'present' : 'none'} | ` +
-    `API key header: ${apiKeyHeader ? 'present' : 'none'}`,
+      `Content-Type: ${contentType} | ` +
+      `Auth header: ${authHeader ? 'present' : 'none'} | ` +
+      `API key header: ${apiKeyHeader ? 'present' : 'none'}`,
   );
 
   let rawBody: string;
@@ -246,8 +246,10 @@ type SessionContactLink = {
 };
 
 function isUuid(value: string | null | undefined): value is string {
-  return !!value &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return (
+    !!value &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+  );
 }
 
 function normalizeKey(value: string): string {
@@ -285,16 +287,66 @@ function readFlexibleField(
   return null;
 }
 
-function extractPhoneNumber(contact: Record<string, unknown>, payload: Record<string, unknown>): string | null {
-  const phones = Array.isArray(contact.phones) ? (contact.phones as Array<Record<string, unknown>>) : [];
+function extractPhoneNumber(
+  contact: Record<string, unknown>,
+  payload: Record<string, unknown>,
+): string | null {
+  const phones = Array.isArray(contact.phones)
+    ? (contact.phones as Array<Record<string, unknown>>)
+    : [];
   const firstPhone = phones.find((entry) => entry?.number)?.number as string | undefined;
+  // Try multiple locations — n8n intermediary may restructure the payload
   return normalizePhone(
     (contact.phone as string) ||
+      (contact.phone_number as string) ||
       firstPhone ||
       (payload.phone as string) ||
       (payload.phone_number as string) ||
+      (payload.called_number as string) ||
+      (payload.dialed_number as string) ||
       null,
   );
+}
+
+/**
+ * Extract ALL phone numbers from the webhook contact — used for multi-phone matching.
+ * PhoneBurner contacts often have multiple phones (Work, Mobile, etc.) and the primary
+ * phone returned in webhooks may differ from the one we stored at push time.
+ */
+function extractAllPhoneNumbers(
+  contact: Record<string, unknown>,
+  payload: Record<string, unknown>,
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  const addPhone = (raw: string | null | undefined) => {
+    const normalized = normalizePhone(raw as string);
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  };
+
+  // Primary phone first
+  addPhone(contact.phone as string);
+  addPhone(contact.phone_number as string);
+
+  // All phones from the phones array
+  const phones = Array.isArray(contact.phones)
+    ? (contact.phones as Array<Record<string, unknown>>)
+    : [];
+  for (const entry of phones) {
+    if (entry?.number) addPhone(entry.number as string);
+  }
+
+  // Payload-level phone fields (n8n intermediary may restructure)
+  addPhone(payload.phone as string);
+  addPhone(payload.phone_number as string);
+  addPhone(payload.called_number as string);
+  addPhone(payload.dialed_number as string);
+
+  return result;
 }
 
 function buildContactName(contact: Record<string, unknown>): string | null {
@@ -307,7 +359,10 @@ function buildContactName(contact: Record<string, unknown>): string | null {
 function extractRequestId(payload: Record<string, unknown>): string | null {
   const contact = (payload.contact || {}) as Record<string, unknown>;
   const customData = (payload.custom_data || {}) as Record<string, unknown>;
-  const customFields = (contact.custom_fields || payload.custom_fields || {}) as Record<string, unknown>;
+  const customFields = (contact.custom_fields || payload.custom_fields || {}) as Record<
+    string,
+    unknown
+  >;
   const typedCustomFields = payload.typed_custom_fields || contact.typed_custom_fields;
 
   const requestId =
@@ -364,6 +419,7 @@ async function resolveRequestMapping(
     listingId: string | null;
     buyerId: string | null;
     phone: string | null;
+    allPhones: string[];
     email: string | null;
     name: string | null;
   },
@@ -378,7 +434,9 @@ async function resolveRequestMapping(
 
   if (error || !session) {
     if (error) {
-      console.warn(`[phoneburner-webhook] Failed to resolve request_id ${requestId}: ${error.message}`);
+      console.warn(
+        `[phoneburner-webhook] Failed to resolve request_id ${requestId}: ${error.message}`,
+      );
     }
     return { phoneburnerSessionId: null, matched: null };
   }
@@ -391,6 +449,81 @@ async function resolveRequestMapping(
     return { phoneburnerSessionId: session.id, matched: null };
   }
 
+  // ── PHONE-FIRST matching (multi-phone) ──
+  // PhoneBurner webhooks don't return per-contact custom_fields, so phone
+  // number is our most reliable signal to identify which contact was called.
+  // PhoneBurner contacts often have multiple phones (Work, Mobile, etc.) and
+  // the primary phone may differ from what we stored at push time. We try ALL
+  // phone numbers from the webhook against each session contact.
+  const webhookPhones =
+    context.allPhones.length > 0 ? context.allPhones : context.phone ? [context.phone] : [];
+
+  for (const wp of webhookPhones) {
+    // Build set of all phones for each session contact (stored phone + phones array)
+    const phoneMatch = sessionContacts.find((sc) => {
+      const scPhones: string[] = [];
+      const scNormalized = normalizePhone(sc.phone);
+      if (scNormalized) scPhones.push(scNormalized);
+      // Also check phones array if stored at push time
+      if (Array.isArray((sc as Record<string, unknown>).phones)) {
+        for (const p of (sc as Record<string, unknown>).phones as string[]) {
+          const n = normalizePhone(p);
+          if (n && !scPhones.includes(n)) scPhones.push(n);
+        }
+      }
+      return scPhones.includes(wp);
+    });
+    if (phoneMatch) {
+      console.log(
+        `[phoneburner-webhook] Matched session contact by phone: ${wp} → contact_id=${phoneMatch.contact_id}, listing_id=${phoneMatch.listing_id}`,
+      );
+      return { phoneburnerSessionId: session.id, matched: phoneMatch };
+    }
+  }
+
+  // Try last-10-digit fuzzy match across all webhook phones
+  for (const wp of webhookPhones) {
+    const last10 = wp.slice(-10);
+    if (last10.length === 10) {
+      const fuzzyMatch = sessionContacts.find(
+        (sc) => normalizePhone(sc.phone)?.slice(-10) === last10,
+      );
+      if (fuzzyMatch) {
+        console.log(
+          `[phoneburner-webhook] Matched session contact by last-10 digits: ${wp} → contact_id=${fuzzyMatch.contact_id}, listing_id=${fuzzyMatch.listing_id}`,
+        );
+        return { phoneburnerSessionId: session.id, matched: fuzzyMatch };
+      }
+    }
+  }
+
+  // ── EMAIL matching (secondary) ──
+  if (context.email) {
+    const emailMatch = sessionContacts.find(
+      (sc) => sc.contact_email && sc.contact_email.toLowerCase() === context.email!.toLowerCase(),
+    );
+    if (emailMatch) {
+      console.log(
+        `[phoneburner-webhook] Matched session contact by email: ${context.email} → contact_id=${emailMatch.contact_id}, listing_id=${emailMatch.listing_id}`,
+      );
+      return { phoneburnerSessionId: session.id, matched: emailMatch };
+    }
+  }
+
+  // ── NAME matching (tertiary, only if unique) ──
+  if (context.name) {
+    const nameMatches = sessionContacts.filter(
+      (sc) => sc.name && sc.name.trim().toLowerCase() === context.name!.trim().toLowerCase(),
+    );
+    if (nameMatches.length === 1) {
+      console.log(
+        `[phoneburner-webhook] Matched session contact by unique name: ${context.name} → contact_id=${nameMatches[0].contact_id}, listing_id=${nameMatches[0].listing_id}`,
+      );
+      return { phoneburnerSessionId: session.id, matched: nameMatches[0] };
+    }
+  }
+
+  // ── Score-based matching (legacy fallback for any remaining custom_field data) ──
   const ranked = sessionContacts
     .map((entry) => ({ entry, score: scoreSessionContactMatch(entry, context) }))
     .sort((a, b) => b.score - a.score);
@@ -399,10 +532,14 @@ async function resolveRequestMapping(
     return { phoneburnerSessionId: session.id, matched: ranked[0].entry };
   }
 
+  // Single-contact session: safe to assume it's the only one
   if (sessionContacts.length === 1) {
     return { phoneburnerSessionId: session.id, matched: sessionContacts[0] };
   }
 
+  console.warn(
+    `[phoneburner-webhook] Could not match contact in session ${requestId} (${sessionContacts.length} contacts). Phone: ${context.phone}, Email: ${context.email}, Name: ${context.name}`,
+  );
   return { phoneburnerSessionId: session.id, matched: null };
 }
 
@@ -410,37 +547,50 @@ async function resolvePhoneMapping(
   supabase: ReturnType<typeof createClient>,
   context: {
     phone: string | null;
+    allPhones: string[];
     email: string | null;
     name: string | null;
   },
 ): Promise<SessionContactLink | null> {
-  if (!context.phone) return null;
+  // Try ALL phone numbers until we get a match (primary first, then alternates)
+  const phonesToTry =
+    context.allPhones.length > 0 ? context.allPhones : context.phone ? [context.phone] : [];
 
-  const { data, error } = await supabase.rpc('resolve_phone_activity_link_by_phone', {
-    p_phone: context.phone,
-    p_name: context.name,
-    p_email: context.email,
-  });
+  if (phonesToTry.length === 0) return null;
 
-  if (error) {
-    console.warn(
-      `[phoneburner-webhook] Failed phone-based resolution for ${context.phone}: ${error.message}`,
+  for (const phone of phonesToTry) {
+    const { data, error } = await supabase.rpc('resolve_phone_activity_link_by_phone', {
+      p_phone: phone,
+      p_name: context.name,
+      p_email: context.email,
+    });
+
+    if (error) {
+      console.warn(
+        `[phoneburner-webhook] Failed phone-based resolution for ${phone}: ${error.message}`,
+      );
+      continue;
+    }
+
+    const match = Array.isArray(data) ? data[0] : data;
+    if (!match) continue;
+
+    console.log(
+      `[phoneburner-webhook] Phone DB match on ${phone}: contact_id=${match.contact_id}, listing_id=${match.listing_id}`,
     );
-    return null;
+
+    return {
+      contact_id: match.contact_id ?? null,
+      listing_id: match.listing_id ?? null,
+      remarketing_buyer_id: match.remarketing_buyer_id ?? null,
+      contact_email: match.contact_email ?? null,
+      source_entity: match.match_source ?? 'phone',
+      phone,
+      name: context.name,
+    };
   }
 
-  const match = Array.isArray(data) ? data[0] : data;
-  if (!match) return null;
-
-  return {
-    contact_id: match.contact_id ?? null,
-    listing_id: match.listing_id ?? null,
-    remarketing_buyer_id: match.remarketing_buyer_id ?? null,
-    contact_email: match.contact_email ?? null,
-    source_entity: match.match_source ?? 'phone',
-    phone: context.phone,
-    name: context.name,
-  };
+  return null;
 }
 
 /**
@@ -519,6 +669,9 @@ function extractContactInfo(payload: Record<string, unknown>) {
   // Contact notes
   const contactNotes = (contact.notes || '') as string;
 
+  // All phone numbers for multi-phone matching
+  const allPhones = extractAllPhoneNumbers(contact, payload);
+
   return {
     contactId,
     pbContactId,
@@ -531,6 +684,7 @@ function extractContactInfo(payload: Record<string, unknown>) {
     contactPhone,
     contactName,
     contactNotes,
+    allPhones,
     leadId: rawLeadId,
     listingId,
     remarketingBuyerId: isUuid(rawBuyerId) ? rawBuyerId : null,
@@ -554,39 +708,58 @@ async function processEvent(
     contactPhone,
     contactName,
     contactNotes,
+    allPhones,
     leadId,
     listingId,
     remarketingBuyerId,
   } = extractContactInfo(payload);
 
+  // ── Step 1: Match within session by phone (most reliable) ──
+  // PhoneBurner webhooks don't return per-contact custom_fields, so phone
+  // number is our primary signal. We try ALL phone numbers from the webhook
+  // contact (Work, Mobile, etc.) since the primary may differ from push time.
   const requestMapping = await resolveRequestMapping(supabase, requestId, {
     sourceId: leadId,
     contactId,
     listingId,
     buyerId: remarketingBuyerId,
     phone: contactPhone,
+    allPhones,
     email: contactEmail,
     name: contactName,
   });
 
-  const phoneMapping = await resolvePhoneMapping(supabase, {
-    phone: contactPhone,
-    email: contactEmail,
-    name: contactName,
-  });
+  // ── Step 2: DB phone lookup (fallback when no session or no session match) ──
+  const phoneMapping = !requestMapping.matched
+    ? await resolvePhoneMapping(supabase, {
+        phone: contactPhone,
+        allPhones,
+        email: contactEmail,
+        name: contactName,
+      })
+    : null;
 
+  // ── Resolution priority: session match (phone-matched) > DB phone match > custom_fields ──
+  // Session match is most reliable: it was stored at push time with the
+  // correct per-contact deal/buyer mapping, and matched by phone number.
   const resolvedContactId =
-    contactId || requestMapping.matched?.contact_id || phoneMapping?.contact_id || null;
+    requestMapping.matched?.contact_id || phoneMapping?.contact_id || contactId || null;
   const resolvedListingId =
-    listingId || requestMapping.matched?.listing_id || phoneMapping?.listing_id || null;
+    requestMapping.matched?.listing_id || phoneMapping?.listing_id || listingId || null;
   const resolvedBuyerId =
-    remarketingBuyerId ||
     requestMapping.matched?.remarketing_buyer_id ||
     phoneMapping?.remarketing_buyer_id ||
+    remarketingBuyerId ||
     null;
   const resolvedContactEmail =
-    contactEmail || requestMapping.matched?.contact_email || phoneMapping?.contact_email || null;
+    requestMapping.matched?.contact_email || phoneMapping?.contact_email || contactEmail || null;
   const resolvedSessionId = requestMapping.phoneburnerSessionId;
+
+  console.log(
+    `[phoneburner-webhook] Resolution for phones=[${allPhones.join(',')}]: ` +
+      `session_match=${!!requestMapping.matched}, phone_db_match=${!!phoneMapping}, ` +
+      `contact_id=${resolvedContactId}, listing_id=${resolvedListingId}, buyer_id=${resolvedBuyerId}`,
+  );
 
   switch (eventType) {
     case 'call_begin':
@@ -907,10 +1080,7 @@ async function savePhoneBurnerTranscript(
           },
           body: JSON.stringify({ dealId: opts.listingId }),
         }).catch((err) => {
-          console.warn(
-            `[phoneburner-webhook] Non-blocking enrich-deal call failed:`,
-            err,
-          );
+          console.warn(`[phoneburner-webhook] Non-blocking enrich-deal call failed:`, err);
         });
       }
     } catch (enrichErr) {

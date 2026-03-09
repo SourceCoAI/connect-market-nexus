@@ -658,16 +658,22 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  const sessionContacts = eligible.map((contact) => ({
-    source_id: contact.id,
-    source_entity: contact.source_entity,
-    name: contact.name,
-    phone: normalizePhone(contact.phone),
-    contact_email: contact.email?.toLowerCase() || null,
-    contact_id: contact.contact_id || null,
-    listing_id: contact.listing_id || null,
-    remarketing_buyer_id: contact.remarketing_buyer_id || null,
-  }));
+  const sessionContacts = eligible.map((contact) => {
+    const primaryPhone = normalizePhone(contact.phone);
+    return {
+      source_id: contact.id,
+      source_entity: contact.source_entity,
+      name: contact.name,
+      phone: primaryPhone,
+      // Store all known phones to improve webhook matching when PhoneBurner
+      // returns a different primary phone than the one we pushed.
+      phones: primaryPhone ? [primaryPhone] : [],
+      contact_email: contact.email?.toLowerCase() || null,
+      contact_id: contact.contact_id || null,
+      listing_id: contact.listing_id || null,
+      remarketing_buyer_id: contact.remarketing_buyer_id || null,
+    };
+  });
 
   // Build contacts array for PhoneBurner dial session
   const pbContacts = eligible.map((contact) => {
