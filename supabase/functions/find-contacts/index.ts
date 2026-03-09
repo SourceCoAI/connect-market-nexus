@@ -983,7 +983,7 @@ Deno.serve(async (req: Request) => {
     authUserId = auth.userId;
   }
   // Provide a fallback auth object for downstream references
-  const auth = { userId: authUserId || 'service-role' };
+  const auth = { userId: authUserId || null };
 
   // Parse body
   let body: FindContactsRequest;

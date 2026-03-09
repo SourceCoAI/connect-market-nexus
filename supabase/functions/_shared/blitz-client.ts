@@ -325,14 +325,15 @@ export async function batchEnrichContacts(
       let phone: string | null = null;
 
       try {
-        // Run email + phone lookups in parallel for each contact
-        const [emailRes, phoneRes] = await Promise.allSettled([findWorkEmail(url), findPhone(url)]);
-
-        if (emailRes.status === 'fulfilled' && emailRes.value.ok && emailRes.value.data?.email) {
-          email = emailRes.value.data.email;
+        // Run email + phone lookups sequentially to avoid rate limits
+        const emailRes = await findWorkEmail(url).catch((e: Error) => ({ ok: false, status: 0, data: null, error: e.message } as BlitzResponse<BlitzEmailResponse>));
+        if (emailRes.ok && emailRes.data?.email) {
+          email = emailRes.data.email;
         }
-        if (phoneRes.status === 'fulfilled' && phoneRes.value.ok && phoneRes.value.data?.phone) {
-          phone = phoneRes.value.data.phone;
+
+        const phoneRes = await findPhone(url).catch((e: Error) => ({ ok: false, status: 0, data: null, error: e.message } as BlitzResponse<BlitzPhoneResponse>));
+        if (phoneRes.ok && phoneRes.data?.phone) {
+          phone = phoneRes.data.phone;
         }
       } catch (err) {
         console.warn(`[blitz] Batch enrich failed for ${url}: ${err}`);
