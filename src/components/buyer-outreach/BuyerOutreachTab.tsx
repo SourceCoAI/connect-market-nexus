@@ -269,7 +269,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
           ) : (
             <div className="border rounded-lg overflow-hidden">
               {/* Header row */}
-              <div className="grid grid-cols-[40px_1fr_120px_120px_100px] gap-2 px-3 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+              <div className="grid grid-cols-[40px_1fr_200px_160px_120px_120px_100px] gap-2 px-3 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
                 <div className="flex items-center justify-center">
                   <Checkbox
                     checked={selectedIds.size === buyers.length && buyers.length > 0}
@@ -277,6 +277,8 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
                   />
                 </div>
                 <div>Contact</div>
+                <div>Email</div>
+                <div>Phone</div>
                 <div>Channels</div>
                 <div>Outreach Status</div>
                 <div>Last Contact</div>
