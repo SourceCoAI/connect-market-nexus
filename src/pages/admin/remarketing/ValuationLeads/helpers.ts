@@ -275,6 +275,54 @@ export const QUALITY_ORDER: Record<string, number> = {
   "Needs Work": 1,
 };
 
+/**
+ * Map calculator_type + industry to a standardised category so that
+ * AI buyer search validation passes (it requires `categories` or `category`).
+ */
+const CALCULATOR_TYPE_CATEGORY_MAP: Record<string, string> = {
+  auto_shop: "Automotive",
+  collision: "Automotive",
+  hvac: "Home Services",
+  general: "Other",
+};
+
+const INDUSTRY_CATEGORY_MAP: Record<string, string> = {
+  auto_repair: "Automotive",
+  "auto repair": "Automotive",
+  collision: "Automotive",
+  mechanical: "Automotive",
+  specialty: "Automotive",
+  hvac: "Home Services",
+  plumbing: "Home Services",
+  electrical: "Home Services",
+  roofing: "Construction",
+  landscaping: "Home Services",
+  technology: "Technology & Software",
+  software: "Technology & Software",
+  healthcare: "Healthcare & Medical",
+  manufacturing: "Manufacturing",
+  construction: "Construction",
+  "food & beverage": "Food & Beverage",
+  restaurant: "Food & Beverage",
+  retail: "Retail & E-commerce",
+  "real estate": "Real Estate",
+  logistics: "Transportation & Logistics",
+  transportation: "Transportation & Logistics",
+};
+
+function inferCategoryFromLead(lead: ValuationLead): string | null {
+  // Try industry first (more specific)
+  if (lead.industry) {
+    const key = lead.industry.toLowerCase().trim();
+    if (INDUSTRY_CATEGORY_MAP[key]) return INDUSTRY_CATEGORY_MAP[key];
+  }
+  // Fall back to calculator_type
+  if (lead.calculator_type) {
+    return CALCULATOR_TYPE_CATEGORY_MAP[lead.calculator_type] || null;
+  }
+  return null;
+}
+
 /** Build a full listing insert object from a valuation lead */
 export function buildListingFromLead(lead: ValuationLead, forPush = true) {
   const businessName = extractBusinessName(lead);
@@ -355,6 +403,9 @@ export function buildListingFromLead(lead: ValuationLead, forPush = true) {
   const address_city = locationParts?.[0] || null;
   const address_state = locationParts?.[1]?.length === 2 ? locationParts[1] : null;
 
+  // Derive categories from calculator_type / industry so AI buyer search works
+  const category = inferCategoryFromLead(lead);
+
   return {
     title,
     internal_company_name: title,
@@ -370,6 +421,8 @@ export function buildListingFromLead(lead: ValuationLead, forPush = true) {
     website: cleanDomain ? `https://${cleanDomain}` : null,
     linkedin_url: lead.linkedin_url || null,
     industry: lead.industry || null,
+    category: category || null,
+    categories: category ? [category] : [],
     location: lead.location || null,
     address_city,
     address_state,
