@@ -366,6 +366,11 @@ const ContactListDetailPage = () => {
                       toggleSelect(member.id, !selectedIds.has(member.id), e)
                     }
                     onRemove={() => removeMember.mutate({ memberId: member.id, listId: list.id })}
+                    onNavigateToDeal={() => {
+                      if (member.entity_type === 'deal' || member.entity_type === 'listing') {
+                        navigate(`/admin/pipeline?deal=${member.entity_id}`);
+                      }
+                    }}
                   />
                 ))
               )}
