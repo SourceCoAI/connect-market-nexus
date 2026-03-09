@@ -47,14 +47,15 @@ export const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value;
-      // Only allow digits and commas
-      const cleaned = raw.replace(/[^0-9,]/g, '');
-      setDisplayValue(cleaned);
+      // Strip non-digits
+      const digits = raw.replace(/[^0-9]/g, '');
+      // Format with commas as user types
+      const formatted = digits ? formatWithCommas(digits) : '';
+      setDisplayValue(formatted);
 
-      const numericStr = stripCommas(cleaned);
-      onChange?.(numericStr);
+      onChange?.(digits);
       if (onNumericChange) {
-        onNumericChange(numericStr ? parseInt(numericStr) : undefined);
+        onNumericChange(digits ? parseInt(digits) : undefined);
       }
     };
 
