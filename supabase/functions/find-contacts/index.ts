@@ -19,7 +19,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
-import { inferDomain, inferDomainCandidates } from '../_shared/apify-client.ts';
+import { inferDomain, inferDomainCandidates } from '../_shared/domain-utils.ts';
 import { batchEnrich, domainSearchEnrich } from '../_shared/prospeo-client.ts';
 import { googleSearch } from '../_shared/serper-client.ts';
 import { sendToClayLinkedIn, sendToClayNameDomain } from '../_shared/clay-client.ts';

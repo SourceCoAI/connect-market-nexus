@@ -11,12 +11,12 @@ export type SupabaseClient = ReturnType<typeof createClient>;
 export type { ClaudeTool } from '../../../_shared/claude-client.ts';
 export type { ToolResult } from '../index.ts';
 
-export { inferDomain, inferDomainCandidates } from '../../../_shared/apify-client.ts';
+export { inferDomain, inferDomainCandidates } from '../../../_shared/domain-utils.ts';
 export { batchEnrich, domainSearchEnrich, enrichContact } from '../../../_shared/prospeo-client.ts';
 export { googleSearch } from '../../../_shared/serper-client.ts';
 
 // Re-import locally for use in this file's helper functions
-import { inferDomain } from '../../../_shared/apify-client.ts';
+import { inferDomain } from '../../../_shared/domain-utils.ts';
 import { googleSearch } from '../../../_shared/serper-client.ts';
 
 // ---------- Title matching (shared with find-contacts) ----------
