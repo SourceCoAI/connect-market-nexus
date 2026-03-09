@@ -767,6 +767,8 @@ Deno.serve(async (req: Request) => {
     created_by_user_id: user.id,
     started_at: new Date().toISOString(),
     session_contacts: sessionContacts,
+    source_entity_type: entityType,
+    source_entity_ids: entityIds,
   });
 
   return new Response(
