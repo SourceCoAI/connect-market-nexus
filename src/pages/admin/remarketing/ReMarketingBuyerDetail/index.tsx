@@ -71,6 +71,7 @@ const ReMarketingBuyerDetail = () => {
 
   const {
     enrichMutation,
+    findContactsMutation,
     updateBuyerMutation,
     updateFeeAgreementMutation,
     analyzeNotesMutation,
@@ -383,6 +384,8 @@ const ReMarketingBuyerDetail = () => {
             contacts={contacts}
             onAddContact={() => setIsContactDialogOpen(true)}
             onDeleteContact={(contactId) => deleteContactMutation.mutate(contactId)}
+            onEnrichContacts={() => findContactsMutation.mutate()}
+            isEnrichingContacts={findContactsMutation.isPending}
           />
         </TabsContent>
 

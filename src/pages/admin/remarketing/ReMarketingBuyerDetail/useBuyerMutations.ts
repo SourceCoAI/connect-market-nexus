@@ -128,6 +128,29 @@ export function useBuyerMutations(
     },
   });
 
+  const findContactsMutation = useMutation({
+    mutationFn: async () => {
+      const { findIntroductionContacts } =
+        await import('@/lib/remarketing/findIntroductionContacts');
+      const result = await findIntroductionContacts(id!, 'manual');
+      if (!result) throw new Error('Contact discovery failed');
+      return result;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts', id] });
+      if (result.total_saved > 0) {
+        toast.success(
+          `Found ${result.total_saved} contact${result.total_saved === 1 ? '' : 's'} at ${result.firmName}`,
+        );
+      } else {
+        toast.info('No new contacts found');
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`Contact discovery failed: ${error.message}`);
+    },
+  });
+
   const addContactMutation = useMutation({
     mutationFn: async () => {
       // Split name into first_name / last_name for the unified contacts table
@@ -337,6 +360,7 @@ export function useBuyerMutations(
 
   return {
     enrichMutation,
+    findContactsMutation,
     updateBuyerMutation,
     updateFeeAgreementMutation,
     analyzeNotesMutation,

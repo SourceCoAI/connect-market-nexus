@@ -1,6 +1,6 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -8,17 +8,25 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Plus, Trash2, Users, Mail, Phone, Linkedin } from "lucide-react";
-import { Contact } from "./types";
+} from '@/components/ui/table';
+import { Plus, Trash2, Users, Mail, Phone, Linkedin, Sparkles, Loader2 } from 'lucide-react';
+import { Contact } from './types';
 
 interface ContactsTabProps {
   contacts: Contact[];
   onAddContact: () => void;
   onDeleteContact: (contactId: string) => void;
+  onEnrichContacts?: () => void;
+  isEnrichingContacts?: boolean;
 }
 
-export const ContactsTab = ({ contacts, onAddContact, onDeleteContact }: ContactsTabProps) => {
+export const ContactsTab = ({
+  contacts,
+  onAddContact,
+  onDeleteContact,
+  onEnrichContacts,
+  isEnrichingContacts,
+}: ContactsTabProps) => {
   return (
     <Card>
       <CardHeader>
@@ -27,10 +35,27 @@ export const ContactsTab = ({ contacts, onAddContact, onDeleteContact }: Contact
             <CardTitle>All Contacts</CardTitle>
             <CardDescription>Key contacts at this organization</CardDescription>
           </div>
-          <Button size="sm" onClick={onAddContact}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Contact
-          </Button>
+          <div className="flex items-center gap-2">
+            {onEnrichContacts && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onEnrichContacts}
+                disabled={isEnrichingContacts}
+              >
+                {isEnrichingContacts ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                {isEnrichingContacts ? 'Finding...' : 'Enrich Contacts'}
+              </Button>
+            )}
+            <Button size="sm" onClick={onAddContact}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Contact
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -57,25 +82,37 @@ export const ContactsTab = ({ contacts, onAddContact, onDeleteContact }: Contact
                   <TableCell className="font-medium">
                     {contact.name}
                     {contact.is_primary && (
-                      <Badge variant="secondary" className="ml-2">Primary</Badge>
+                      <Badge variant="secondary" className="ml-2">
+                        Primary
+                      </Badge>
                     )}
                   </TableCell>
                   <TableCell>{contact.role || '\u2014'}</TableCell>
                   <TableCell>
                     {contact.email ? (
-                      <a href={`mailto:${contact.email}`} className="flex items-center gap-1 text-primary hover:underline">
+                      <a
+                        href={`mailto:${contact.email}`}
+                        className="flex items-center gap-1 text-primary hover:underline"
+                      >
                         <Mail className="h-3 w-3" />
                         {contact.email}
                       </a>
-                    ) : '\u2014'}
+                    ) : (
+                      '\u2014'
+                    )}
                   </TableCell>
                   <TableCell>
                     {contact.phone ? (
-                      <a href={`tel:${contact.phone}`} className="flex items-center gap-1 hover:underline">
+                      <a
+                        href={`tel:${contact.phone}`}
+                        className="flex items-center gap-1 hover:underline"
+                      >
                         <Phone className="h-3 w-3" />
                         {contact.phone}
                       </a>
-                    ) : '\u2014'}
+                    ) : (
+                      '\u2014'
+                    )}
                   </TableCell>
                   <TableCell>
                     {contact.linkedin_url ? (
@@ -88,7 +125,9 @@ export const ContactsTab = ({ contacts, onAddContact, onDeleteContact }: Contact
                         <Linkedin className="h-3 w-3" />
                         Profile
                       </a>
-                    ) : '\u2014'}
+                    ) : (
+                      '\u2014'
+                    )}
                   </TableCell>
                   <TableCell>
                     <Button
