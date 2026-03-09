@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Mail, Linkedin, Phone, Send, Users } from 'lucide-react';
+import { Mail, Linkedin, Phone, Send, Users, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { BuyerTypeBadge } from '@/components/admin/deals/buyer-introductions/shared/BuyerTypeBadge';
 import { format } from 'date-fns';
 import { DealOutreachProfileForm } from './DealOutreachProfileForm';
@@ -19,6 +19,7 @@ import { StatusBadge } from './StatusBadge';
 import { OutreachInlineDetail } from './OutreachInlineDetail';
 import { LaunchOutreachPanel } from './LaunchOutreachPanel';
 import { useBuyerOutreachStatus } from './useBuyerOutreachStatus';
+import { cn } from '@/lib/utils';
 
 interface BuyerOutreachTabProps {
   dealId: string;
@@ -40,11 +41,81 @@ interface BuyerContact {
   buyer_company_name: string | null;
 }
 
+type SortField = 'name' | 'company' | 'title' | 'type' | 'email' | 'phone' | 'status' | 'lastContact';
+type SortDir = 'asc' | 'desc';
+
+const DEFAULT_WIDTHS: Record<string, number> = {
+  checkbox: 40,
+  name: 160,
+  company: 160,
+  title: 140,
+  type: 110,
+  email: 200,
+  phone: 160,
+  channels: 120,
+  status: 120,
+  lastContact: 100,
+};
+
+const COLUMNS: { key: string; label: string; sortable: boolean; minWidth: number }[] = [
+  { key: 'checkbox', label: '', sortable: false, minWidth: 36 },
+  { key: 'name', label: 'Name', sortable: true, minWidth: 80 },
+  { key: 'company', label: 'Company', sortable: true, minWidth: 80 },
+  { key: 'title', label: 'Title', sortable: true, minWidth: 60 },
+  { key: 'type', label: 'Type', sortable: true, minWidth: 60 },
+  { key: 'email', label: 'Email', sortable: true, minWidth: 80 },
+  { key: 'phone', label: 'Phone', sortable: true, minWidth: 80 },
+  { key: 'channels', label: 'Channels', sortable: false, minWidth: 60 },
+  { key: 'status', label: 'Outreach Status', sortable: true, minWidth: 80 },
+  { key: 'lastContact', label: 'Last Contact', sortable: true, minWidth: 60 },
+];
+
 export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
   const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [launchPanelOpen, setLaunchPanelOpen] = useState(false);
+  const [colWidths, setColWidths] = useState<Record<string, number>>({ ...DEFAULT_WIDTHS });
+  const [sort, setSort] = useState<{ field: SortField; dir: SortDir } | null>(null);
+
+  // Resize logic
+  const resizingRef = useRef<{ key: string; startX: number; startW: number } | null>(null);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent, key: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = colWidths[key] || DEFAULT_WIDTHS[key];
+    resizingRef.current = { key, startX, startW };
+    const col = COLUMNS.find(c => c.key === key);
+    const minW = col?.minWidth || 40;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const diff = ev.clientX - resizingRef.current.startX;
+      setColWidths(prev => ({ ...prev, [key]: Math.max(minW, resizingRef.current!.startW + diff) }));
+    };
+    const onUp = () => {
+      resizingRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [colWidths]);
+
+  const gridTemplate = COLUMNS.map(c => `${colWidths[c.key] || DEFAULT_WIDTHS[c.key]}px`).join(' ');
+
+  // Sort toggle
+  const toggleSort = (field: SortField) => {
+    setSort(prev => {
+      if (prev?.field === field) {
+        if (prev.dir === 'asc') return { field, dir: 'desc' };
+        return null; // third click clears
+      }
+      return { field, dir: 'asc' };
+    });
+  };
 
   // Fetch outreach profile existence
   const { data: profile } = useQuery({
@@ -61,12 +132,9 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
     enabled: !!dealId,
   });
 
-  // Fetch buyer contacts for this deal
-  // Get buyers via deal_pipeline AND buyer_introductions linked to this listing
   const { data: buyers, isLoading: buyersLoading } = useQuery({
     queryKey: ['deal-buyer-contacts', dealId],
     queryFn: async () => {
-      // Get buyer IDs from deal pipeline
       const { data: pipelineEntries } = await supabase
         .from('deal_pipeline')
         .select('remarketing_buyer_id')
@@ -74,7 +142,6 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
         .is('deleted_at', null)
         .not('remarketing_buyer_id', 'is', null);
 
-      // Also get buyer introductions (includes embedded contact info as fallback)
       const { data: introEntries } = await supabase
         .from('buyer_introductions' as never)
         .select('id, remarketing_buyer_id, buyer_name, buyer_email, buyer_phone, buyer_linkedin_url, buyer_firm_name')
@@ -98,14 +165,12 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
       ].filter(Boolean))] as string[];
       if (!buyerIds.length) return [];
 
-      // Get contacts for these buyers
       const { data: contacts } = await supabase
         .from('contacts')
         .select('id, first_name, last_name, email, phone, linkedin_url, company_name, title, remarketing_buyer_id')
         .in('remarketing_buyer_id', buyerIds)
         .eq('archived', false);
 
-      // Get buyer info
       const { data: buyerRows } = await supabase
         .from('buyers')
         .select('id, company_name, buyer_type, is_pe_backed')
@@ -113,14 +178,12 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
 
       const buyerMap = new Map((buyerRows || []).map(b => [b.id, b]));
 
-      // Create contacts for buyer introductions that don't have one yet
       const contactsByBuyer = new Set((contacts || []).map(c => c.remarketing_buyer_id));
       const missingIntros = typedIntroEntries.filter(
         intro => !contactsByBuyer.has(intro.remarketing_buyer_id),
       );
 
       if (missingIntros.length > 0) {
-        // Insert each missing contact individually — skip on conflict
         for (const intro of missingIntros) {
           const nameParts = intro.buyer_name.trim().split(/\s+/);
           try {
@@ -138,11 +201,10 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
                 remarketing_buyer_id: intro.remarketing_buyer_id,
               });
           } catch {
-            // Skip duplicates — contact already exists
+            // Skip duplicates
           }
         }
 
-        // Re-fetch all contacts now that new ones exist
         const { data: refreshedContacts } = await supabase
           .from('contacts')
           .select('id, first_name, last_name, email, phone, linkedin_url, company_name, title, remarketing_buyer_id')
@@ -175,6 +237,55 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
 
   const buyerIds = useMemo(() => (buyers || []).map(b => b.id), [buyers]);
   const { data: outreachStatusMap } = useBuyerOutreachStatus(dealId, buyerIds);
+
+  // Sort buyers
+  const sortedBuyers = useMemo(() => {
+    if (!buyers) return [];
+    if (!sort) return buyers;
+    const { field, dir } = sort;
+    const mult = dir === 'asc' ? 1 : -1;
+
+    return [...buyers].sort((a, b) => {
+      let av = '', bv = '';
+      switch (field) {
+        case 'name':
+          av = `${a.first_name} ${a.last_name}`.toLowerCase();
+          bv = `${b.first_name} ${b.last_name}`.toLowerCase();
+          break;
+        case 'company':
+          av = (a.buyer_company_name || '').toLowerCase();
+          bv = (b.buyer_company_name || '').toLowerCase();
+          break;
+        case 'title':
+          av = (a.title || '').toLowerCase();
+          bv = (b.title || '').toLowerCase();
+          break;
+        case 'type':
+          av = (a.buyer_type || '').toLowerCase();
+          bv = (b.buyer_type || '').toLowerCase();
+          break;
+        case 'email':
+          av = (a.email || '').toLowerCase();
+          bv = (b.email || '').toLowerCase();
+          break;
+        case 'phone':
+          av = (a.phone || '');
+          bv = (b.phone || '');
+          break;
+        case 'status':
+          av = outreachStatusMap?.get(a.id)?.status || 'not_contacted';
+          bv = outreachStatusMap?.get(b.id)?.status || 'not_contacted';
+          break;
+        case 'lastContact':
+          av = outreachStatusMap?.get(a.id)?.lastEventDate || '';
+          bv = outreachStatusMap?.get(b.id)?.lastEventDate || '';
+          break;
+      }
+      if (av < bv) return -1 * mult;
+      if (av > bv) return 1 * mult;
+      return 0;
+    });
+  }, [buyers, sort, outreachStatusMap]);
 
   const hasProfile = !!profile;
 
@@ -214,12 +325,54 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
     queryClient.invalidateQueries({ queryKey: ['buyer-outreach-events'] });
   };
 
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sort?.field !== field) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sort.dir === 'asc'
+      ? <ArrowUp className="h-3 w-3 text-primary" />
+      : <ArrowDown className="h-3 w-3 text-primary" />;
+  };
+
+  const renderHeaderCell = (col: typeof COLUMNS[number]) => {
+    const sortField = col.key as SortField;
+    return (
+      <div
+        key={col.key}
+        className={cn(
+          "relative flex items-center gap-1 select-none",
+          col.sortable && "cursor-pointer hover:text-foreground"
+        )}
+        style={{ width: colWidths[col.key] || DEFAULT_WIDTHS[col.key], minWidth: col.minWidth }}
+        onClick={col.sortable ? () => toggleSort(sortField) : undefined}
+      >
+        {col.key === 'checkbox' ? (
+          <div className="flex items-center justify-center w-full">
+            <Checkbox
+              checked={selectedIds.size === (buyers?.length || 0) && (buyers?.length || 0) > 0}
+              onCheckedChange={toggleSelectAll}
+            />
+          </div>
+        ) : (
+          <>
+            <span className="truncate">{col.label}</span>
+            {col.sortable && <SortIcon field={sortField} />}
+          </>
+        )}
+        {/* Resize handle */}
+        {col.key !== 'checkbox' && (
+          <div
+            className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-primary/40 transition-colors z-10"
+            onMouseDown={(e) => handleResizeStart(e, col.key)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
-      {/* Outreach Profile */}
       <DealOutreachProfileForm dealId={dealId} />
 
-      {/* Buyer List */}
       <Card>
         <CardHeader className="py-3">
           <div className="flex items-center justify-between">
@@ -271,61 +424,53 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
               No buyer contacts found for this deal. Add buyers to the deal pipeline first.
             </div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              {/* Header row */}
-              <div className="grid grid-cols-[40px_1fr_160px_140px_110px_200px_160px_120px_120px_100px] gap-2 px-3 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
-                <div className="flex items-center justify-center">
-                  <Checkbox
-                    checked={selectedIds.size === buyers.length && buyers.length > 0}
-                    onCheckedChange={toggleSelectAll}
-                  />
-                </div>
-                <div>Name</div>
-                <div>Company</div>
-                <div>Title</div>
-                <div>Type</div>
-                <div>Email</div>
-                <div>Phone</div>
-                <div>Channels</div>
-                <div>Outreach Status</div>
-                <div>Last Contact</div>
+            <div className="border rounded-lg overflow-x-auto">
+              {/* Header */}
+              <div
+                className="flex gap-2 px-3 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b"
+                style={{ minWidth: 'fit-content' }}
+              >
+                {COLUMNS.map(renderHeaderCell)}
               </div>
 
-              {/* Buyer rows */}
-              {buyers.map(buyer => {
+              {/* Rows */}
+              {sortedBuyers.map(buyer => {
                 const summary = outreachStatusMap?.get(buyer.id);
                 const status = summary?.status || 'not_contacted';
                 const isExpanded = expandedId === buyer.id;
 
                 return (
                   <div key={buyer.id}>
-                    <div className="grid grid-cols-[40px_1fr_160px_140px_110px_200px_160px_120px_120px_100px] gap-2 px-3 py-2.5 border-b hover:bg-muted/20 transition-colors items-center">
-                      <div className="flex items-center justify-center">
+                    <div
+                      className="flex gap-2 px-3 py-2.5 border-b hover:bg-muted/20 transition-colors items-center"
+                      style={{ minWidth: 'fit-content' }}
+                    >
+                      <div style={{ width: colWidths.checkbox, minWidth: 36 }} className="flex items-center justify-center shrink-0">
                         <Checkbox
                           checked={selectedIds.has(buyer.id)}
                           onCheckedChange={() => toggleSelect(buyer.id)}
                         />
                       </div>
 
-                      <div className="min-w-0">
+                      <div style={{ width: colWidths.name, minWidth: 80 }} className="min-w-0 shrink-0">
                         <span className="font-medium text-sm truncate block">
                           {buyer.first_name} {buyer.last_name}
                         </span>
                       </div>
 
-                      <div className="min-w-0">
+                      <div style={{ width: colWidths.company, minWidth: 80 }} className="min-w-0 shrink-0">
                         <span className="text-xs text-muted-foreground truncate block">
                           {buyer.buyer_company_name || '—'}
                         </span>
                       </div>
 
-                      <div className="min-w-0">
+                      <div style={{ width: colWidths.title, minWidth: 60 }} className="min-w-0 shrink-0">
                         <span className="text-xs text-muted-foreground truncate block">
                           {buyer.title || '—'}
                         </span>
                       </div>
 
-                      <div className="min-w-0">
+                      <div style={{ width: colWidths.type, minWidth: 60 }} className="min-w-0 shrink-0">
                         {buyer.buyer_type ? (
                           <BuyerTypeBadge buyerType={buyer.buyer_type} isPeBacked={buyer.is_pe_backed ?? false} />
                         ) : (
@@ -333,7 +478,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
                         )}
                       </div>
 
-                      <div className="min-w-0">
+                      <div style={{ width: colWidths.email, minWidth: 80 }} className="min-w-0 shrink-0">
                         {buyer.email ? (
                           <a href={`mailto:${buyer.email}`} className="text-xs text-primary hover:underline truncate block" title={buyer.email}>
                             {buyer.email}
@@ -343,7 +488,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
                         )}
                       </div>
 
-                      <div className="min-w-0">
+                      <div style={{ width: colWidths.phone, minWidth: 80 }} className="min-w-0 shrink-0">
                         {buyer.phone ? (
                           <a href={`tel:${buyer.phone}`} className="text-xs text-foreground hover:underline truncate block" title={buyer.phone}>
                             {buyer.phone}
@@ -353,29 +498,23 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1.5">
-                        {buyer.email && (
-                          <Mail className="h-3.5 w-3.5 text-primary" />
-                        )}
-                        {buyer.linkedin_url && (
-                          <Linkedin className="h-3.5 w-3.5 text-primary" />
-                        )}
-                        {buyer.phone && (
-                          <Phone className="h-3.5 w-3.5 text-primary" />
-                        )}
+                      <div style={{ width: colWidths.channels, minWidth: 60 }} className="flex items-center gap-1.5 shrink-0">
+                        {buyer.email && <Mail className="h-3.5 w-3.5 text-primary" />}
+                        {buyer.linkedin_url && <Linkedin className="h-3.5 w-3.5 text-primary" />}
+                        {buyer.phone && <Phone className="h-3.5 w-3.5 text-primary" />}
                         {!buyer.email && !buyer.linkedin_url && !buyer.phone && (
                           <span className="text-xs text-muted-foreground">None</span>
                         )}
                       </div>
 
-                      <div>
+                      <div style={{ width: colWidths.status, minWidth: 80 }} className="shrink-0">
                         <StatusBadge
                           status={status}
                           onClick={() => setExpandedId(isExpanded ? null : buyer.id)}
                         />
                       </div>
 
-                      <div className="text-xs text-muted-foreground">
+                      <div style={{ width: colWidths.lastContact, minWidth: 60 }} className="text-xs text-muted-foreground shrink-0">
                         {summary?.lastEventDate ? (
                           <div className="flex items-center gap-1">
                             {channelIcon(summary.lastEventChannel)}
@@ -387,7 +526,6 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
                       </div>
                     </div>
 
-                    {/* Expanded inline detail */}
                     {isExpanded && summary && (
                       <OutreachInlineDetail
                         dealId={dealId}
@@ -403,7 +541,6 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
         </CardContent>
       </Card>
 
-      {/* Launch panel */}
       <LaunchOutreachPanel
         open={launchPanelOpen}
         onOpenChange={setLaunchPanelOpen}
