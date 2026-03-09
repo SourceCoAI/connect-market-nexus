@@ -27,6 +27,7 @@ interface DealHeaderProps {
   listedName: string | null;
   dataCompleteness: number;
   tier: string | null;
+  dealOwnerName?: string | null;
   isEditingName: boolean;
   setIsEditingName: (v: boolean) => void;
   editedName: string;
