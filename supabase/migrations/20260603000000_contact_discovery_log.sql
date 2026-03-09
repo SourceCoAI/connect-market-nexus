@@ -4,7 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS contact_discovery_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  buyer_id uuid NOT NULL REFERENCES remarketing_buyers(id) ON DELETE CASCADE,
+  buyer_id uuid NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
   triggered_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   trigger_source text NOT NULL DEFAULT 'approval'
     CHECK (trigger_source IN ('approval', 'bulk_approval', 'manual', 'retry')),
