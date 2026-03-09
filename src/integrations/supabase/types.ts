@@ -2663,6 +2663,93 @@ export type Database = {
           },
         ]
       }
+      contact_discovery_log: {
+        Row: {
+          buyer_id: string
+          company_contacts_found: number
+          company_domain: string | null
+          company_name: string
+          company_search_error: string | null
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          existing_contacts_count: number
+          id: string
+          pe_contacts_found: number
+          pe_domain: string | null
+          pe_firm_name: string | null
+          pe_search_error: string | null
+          skipped_duplicates: number
+          started_at: string
+          status: string
+          total_saved: number
+          trigger_source: string
+          triggered_by: string | null
+        }
+        Insert: {
+          buyer_id: string
+          company_contacts_found?: number
+          company_domain?: string | null
+          company_name: string
+          company_search_error?: string | null
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          existing_contacts_count?: number
+          id?: string
+          pe_contacts_found?: number
+          pe_domain?: string | null
+          pe_firm_name?: string | null
+          pe_search_error?: string | null
+          skipped_duplicates?: number
+          started_at?: string
+          status?: string
+          total_saved?: number
+          trigger_source?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          buyer_id?: string
+          company_contacts_found?: number
+          company_domain?: string | null
+          company_name?: string
+          company_search_error?: string | null
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          existing_contacts_count?: number
+          id?: string
+          pe_contacts_found?: number
+          pe_domain?: string | null
+          pe_firm_name?: string | null
+          pe_search_error?: string | null
+          skipped_duplicates?: number
+          started_at?: string
+          status?: string
+          total_saved?: number
+          trigger_source?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_discovery_log_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_discovery_log_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "remarketing_buyers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_list_members: {
         Row: {
           added_at: string
