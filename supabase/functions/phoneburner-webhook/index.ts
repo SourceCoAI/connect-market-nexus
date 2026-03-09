@@ -543,6 +543,133 @@ async function resolveRequestMapping(
   return { phoneburnerSessionId: session.id, matched: null };
 }
 
+/**
+ * NEW: Multi-source waterfall matching against contact_list_members and listings.
+ * Runs BEFORE the broad phone RPC to get more accurate matches.
+ *
+ * Priority:
+ *   1. Email → contact_list_members.contact_email → entity_id (listing)
+ *   2. Email → listings.main_contact_email → listing id
+ *   3. Phone → contact_list_members.contact_phone → entity_id (listing)
+ *   4. Phone → listings.main_contact_phone → listing id
+ */
+async function resolveWaterfallMapping(
+  supabase: ReturnType<typeof createClient>,
+  context: {
+    phone: string | null;
+    allPhones: string[];
+    email: string | null;
+    name: string | null;
+  },
+): Promise<SessionContactLink | null> {
+  // Step 1: Email match against contact_list_members
+  if (context.email) {
+    const { data: clm } = await supabase
+      .from('contact_list_members')
+      .select('entity_id, contact_name, contact_email, contact_phone')
+      .eq('contact_email', context.email.toLowerCase())
+      .is('removed_at', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (clm?.entity_id) {
+      console.log(
+        `[phoneburner-webhook] Waterfall: email match in contact_list_members → listing=${clm.entity_id}`,
+      );
+      return {
+        listing_id: clm.entity_id,
+        contact_email: clm.contact_email,
+        name: clm.contact_name,
+        phone: clm.contact_phone,
+        contact_id: null,
+        remarketing_buyer_id: null,
+        source_entity: 'waterfall:clm_email',
+      };
+    }
+  }
+
+  // Step 2: Email match against listings.main_contact_email
+  if (context.email) {
+    const { data: listing } = await supabase
+      .from('listings')
+      .select('id, main_contact_email, main_contact_phone, main_contact_name')
+      .eq('main_contact_email', context.email.toLowerCase())
+      .limit(1)
+      .maybeSingle();
+
+    if (listing?.id) {
+      console.log(
+        `[phoneburner-webhook] Waterfall: email match in listings → listing=${listing.id}`,
+      );
+      return {
+        listing_id: listing.id,
+        contact_email: listing.main_contact_email,
+        name: listing.main_contact_name,
+        phone: listing.main_contact_phone,
+        contact_id: null,
+        remarketing_buyer_id: null,
+        source_entity: 'waterfall:listing_email',
+      };
+    }
+  }
+
+  // Step 3: Phone match against contact_list_members
+  const phonesToTry =
+    context.allPhones.length > 0 ? context.allPhones : context.phone ? [context.phone] : [];
+
+  for (const phone of phonesToTry) {
+    const { data: clm } = await supabase
+      .from('contact_list_members')
+      .select('entity_id, contact_name, contact_email, contact_phone')
+      .eq('contact_phone', phone)
+      .is('removed_at', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (clm?.entity_id) {
+      console.log(
+        `[phoneburner-webhook] Waterfall: phone match in contact_list_members → listing=${clm.entity_id}`,
+      );
+      return {
+        listing_id: clm.entity_id,
+        contact_email: clm.contact_email,
+        name: clm.contact_name,
+        phone: clm.contact_phone,
+        contact_id: null,
+        remarketing_buyer_id: null,
+        source_entity: 'waterfall:clm_phone',
+      };
+    }
+  }
+
+  // Step 4: Phone match against listings.main_contact_phone
+  for (const phone of phonesToTry) {
+    const { data: listing } = await supabase
+      .from('listings')
+      .select('id, main_contact_email, main_contact_phone, main_contact_name')
+      .eq('main_contact_phone', phone)
+      .limit(1)
+      .maybeSingle();
+
+    if (listing?.id) {
+      console.log(
+        `[phoneburner-webhook] Waterfall: phone match in listings → listing=${listing.id}`,
+      );
+      return {
+        listing_id: listing.id,
+        contact_email: listing.main_contact_email,
+        name: listing.main_contact_name,
+        phone: listing.main_contact_phone,
+        contact_id: null,
+        remarketing_buyer_id: null,
+        source_entity: 'waterfall:listing_phone',
+      };
+    }
+  }
+
+  return null;
+}
+
 async function resolvePhoneMapping(
   supabase: ReturnType<typeof createClient>,
   context: {
