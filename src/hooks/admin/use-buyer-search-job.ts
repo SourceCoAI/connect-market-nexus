@@ -27,6 +27,7 @@ export function useBuyerSearchJob(listingId: string) {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [job, setJob] = useState<BuyerSearchJob | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountCheckedRef = useRef(false);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -36,16 +37,21 @@ export function useBuyerSearchJob(listingId: string) {
   }, []);
 
   const pollJob = useCallback(async (jobId: string) => {
-    const { data } = await (supabase as any)
+    const { data, error } = await supabase
       .from('buyer_search_jobs')
       .select('*')
       .eq('id', jobId)
-      .single();
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error polling buyer search job:', error);
+      return; // keep polling, don't wipe job state
+    }
+
     if (data) {
       setJob(data as BuyerSearchJob);
       if (data.status === 'completed' || data.status === 'failed') {
         stopPolling();
-        // Auto-clear after 8 seconds on completion
         if (data.status === 'completed') {
           setTimeout(() => {
             setJob(null);
@@ -56,10 +62,37 @@ export function useBuyerSearchJob(listingId: string) {
     }
   }, [stopPolling]);
 
+  // Resume polling for any active job on mount
+  useEffect(() => {
+    if (mountCheckedRef.current || !listingId) return;
+    mountCheckedRef.current = true;
+
+    const resumeActiveJob = async () => {
+      const { data, error } = await supabase
+        .from('buyer_search_jobs')
+        .select('*')
+        .eq('listing_id', listingId)
+        .in('status', ['pending', 'searching', 'scoring'])
+        .order('created_at', { ascending: false })
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error checking for active buyer search job:', error);
+        return;
+      }
+
+      if (data) {
+        setJob(data as BuyerSearchJob);
+        setActiveJobId(data.id);
+      }
+    };
+
+    resumeActiveJob();
+  }, [listingId]);
+
   // Start polling when activeJobId is set
   useEffect(() => {
     if (!activeJobId) return;
-    // Immediate first poll
     pollJob(activeJobId);
     pollRef.current = setInterval(() => pollJob(activeJobId), POLL_INTERVAL);
     return stopPolling;
@@ -68,7 +101,7 @@ export function useBuyerSearchJob(listingId: string) {
   /** Create a new job record and start polling */
   const createJob = useCallback(async (listingName?: string): Promise<string> => {
     const { data: user } = await supabase.auth.getUser();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('buyer_search_jobs')
       .insert({
         listing_id: listingId,
