@@ -20,7 +20,7 @@ const TEMPLATE_VARIABLES = [
   { variable: '{{deal_descriptor}}', description: 'Deal descriptor from outreach profile (e.g. "residential and commercial roof repair company")' },
   { variable: '{{geography}}', description: 'Geography from outreach profile (e.g. "midwest")' },
   { variable: '{{ebitda}}', description: 'Formatted EBITDA from outreach profile (e.g. "$2,000,000")' },
-  { variable: '{{buyer_ref}}', description: 'Buyer company name, derived per buyer type' },
+  { variable: '{{buyer_ref}}', description: 'Derived per buyer type (e.g. "your Acme Corp platform" for PE, "your portfolio" for PE without platform, "your deal pipeline" for independent sponsors)' },
 ];
 
 export default function OutreachSettingsPage() {
@@ -94,7 +94,7 @@ export default function OutreachSettingsPage() {
     .replace(/\{\{deal_descriptor\}\}/g, 'residential and commercial roof repair company')
     .replace(/\{\{geography\}\}/g, 'midwest')
     .replace(/\{\{ebitda\}\}/g, '$2,000,000')
-    .replace(/\{\{buyer_ref\}\}/g, 'Greenrise Technologies');
+    .replace(/\{\{buyer_ref\}\}/g, 'your Greenrise Technologies platform');
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -183,7 +183,7 @@ export default function OutreachSettingsPage() {
               </pre>
             </div>
             <p className="text-xs text-muted-foreground mt-3">
-              This is how the message will appear for a buyer named "John" at "Greenrise Technologies" on a deal described as "residential and commercial roof repair company" in "midwest" generating "$2,000,000" EBITDA.
+              Sample for a PE buyer named "John" at "Greenrise Technologies" on a deal described as "residential and commercial roof repair company" in "midwest" generating "$2,000,000" EBITDA. The buyer_ref variable adapts per buyer type.
             </p>
           </CardContent>
         </Card>

@@ -32,6 +32,7 @@ interface SelectedBuyer {
   remarketing_buyer_id: string | null;
   buyer_company_name?: string | null;
   buyer_type?: string | null;
+  pe_firm_name?: string | null;
 }
 
 interface LaunchOutreachPanelProps {
@@ -48,6 +49,25 @@ interface Campaign {
   name: string;
 }
 
+/**
+ * Derives the {{buyer_ref}} variable to match the edge function logic
+ * in supabase/functions/_shared/derive-buyer-ref.ts
+ */
+function deriveBuyerRef(buyerType: string | null, peFirmName: string | null): string {
+  const normalized = buyerType?.toLowerCase().trim() || '';
+  if (normalized === 'private_equity' || normalized === 'pe_firm') {
+    if (peFirmName && peFirmName.trim().length > 0) {
+      return `your ${peFirmName.trim()} platform`;
+    }
+    return 'your portfolio';
+  }
+  if (normalized === 'independent_sponsor') return 'your deal pipeline';
+  if (normalized === 'family_office') return 'your acquisition criteria';
+  if (normalized === 'individual_buyer') return 'your search';
+  if (normalized === 'corporate' || normalized === 'strategic') return 'your growth strategy';
+  return 'your investment criteria';
+}
+
 function renderMessagePreview(
   template: string,
   profile: { deal_descriptor: string; geography: string; ebitda: string } | null,
@@ -57,8 +77,7 @@ function renderMessagePreview(
   const ebitdaFormatted = profile.ebitda
     ? `$${Number(profile.ebitda.replace(/,/g, '')).toLocaleString('en-US')}`
     : '';
-  // Derive buyer_ref based on buyer type
-  const buyerRef = buyer.buyer_company_name || 'your firm';
+  const buyerRef = deriveBuyerRef(buyer.buyer_type || null, buyer.pe_firm_name || null);
   return template
     .replace(/\{\{first_name\}\}/g, buyer.first_name || '')
     .replace(/\{\{deal_descriptor\}\}/g, profile.deal_descriptor || '')
