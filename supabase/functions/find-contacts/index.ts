@@ -971,6 +971,7 @@ Deno.serve(async (req: Request) => {
   const internalSecret = req.headers.get('x-internal-secret');
   const isServiceCall = internalSecret === supabaseServiceKey;
 
+  let authUserId: string | undefined;
   if (!isServiceCall) {
     const auth = await requireAdmin(req, supabaseAdmin);
     if (!auth.authenticated || !auth.isAdmin) {
@@ -979,7 +980,10 @@ Deno.serve(async (req: Request) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    authUserId = auth.userId;
   }
+  // Provide a fallback auth object for downstream references
+  const auth = { userId: authUserId || 'service-role' };
 
   // Parse body
   let body: FindContactsRequest;
