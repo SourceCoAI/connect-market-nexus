@@ -165,6 +165,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
         return {
           ...c,
           buyer_type: buyer?.buyer_type || null,
+          is_pe_backed: buyer?.is_pe_backed || null,
           buyer_company_name: buyer?.company_name || null,
         } as BuyerContact;
       });
