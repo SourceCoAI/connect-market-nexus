@@ -420,7 +420,8 @@ function MemberRow({
   onRemove: () => void;
   onNavigateToDeal: () => void;
 }) {
-  const isDealType = member.entity_type === 'deal' || member.entity_type === 'listing';
+  const DEAL_ENTITY_TYPES = ['deal', 'listing', 'sourceco_deal', 'gp_partner_deal', 'referral_deal'];
+  const isDealType = DEAL_ENTITY_TYPES.includes(member.entity_type);
 
   return (
     <TableRow
