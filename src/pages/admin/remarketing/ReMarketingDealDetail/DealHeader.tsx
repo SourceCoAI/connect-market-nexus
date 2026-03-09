@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Ban, Check, MapPin, Pencil, X } from 'lucide-react';
+import { ArrowLeft, Ban, Check, MapPin, Pencil, User, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Link } from 'react-router-dom';
 import { ScoreBadge } from '@/components/shared/ScoreBadge';
@@ -27,6 +27,7 @@ interface DealHeaderProps {
   listedName: string | null;
   dataCompleteness: number;
   tier: string | null;
+  dealOwnerName?: string | null;
   isEditingName: boolean;
   setIsEditingName: (v: boolean) => void;
   editedName: string;
@@ -45,6 +46,7 @@ export function DealHeader({
   listedName,
   dataCompleteness,
   tier,
+  dealOwnerName,
   isEditingName,
   setIsEditingName,
   editedName,
@@ -169,6 +171,12 @@ export function DealHeader({
         </div>
         {listedName && (
           <p className="text-sm text-muted-foreground mt-0.5">Listed as: {listedName}</p>
+        )}
+        {dealOwnerName && (
+          <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1">
+            <User className="h-3.5 w-3.5" />
+            Deal Owner: <span className="font-medium text-foreground">{dealOwnerName}</span>
+          </p>
         )}
         {(() => {
           const loc = getDisplayLocation(deal);

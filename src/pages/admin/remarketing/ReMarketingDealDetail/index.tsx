@@ -39,6 +39,7 @@ const ReMarketingDealDetail = () => {
     pipelineStats,
     transcripts,
     transcriptsLoading,
+    dealOwnerName,
     updateDealMutation,
     toggleUniverseFlagMutation,
     toggleContactOwnerMutation,
@@ -112,6 +113,7 @@ const ReMarketingDealDetail = () => {
             listedName={listedName}
             dataCompleteness={dataCompleteness}
             tier={tier}
+            dealOwnerName={dealOwnerName}
             isEditingName={isEditingName}
             setIsEditingName={setIsEditingName}
             editedName={editedName}

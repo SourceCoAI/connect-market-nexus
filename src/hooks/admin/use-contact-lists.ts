@@ -152,12 +152,13 @@ export function useContactList(listId: string | undefined) {
         if (listingDealIds.length > 0) {
           const { data: listingRows } = await supabase
             .from('listings')
-            .select('id, deal_owner_id')
+            .select('id, deal_owner_id, primary_owner_id')
             .in('id', listingDealIds);
           for (const l of listingRows ?? []) {
-            if (l.deal_owner_id) {
-              allOwnerIds.add(l.deal_owner_id);
-              dealOwnerMap[l.id] = { name: '', id: l.deal_owner_id };
+            const ownerId = l.deal_owner_id || l.primary_owner_id;
+            if (ownerId) {
+              allOwnerIds.add(ownerId);
+              dealOwnerMap[l.id] = { name: '', id: ownerId };
             }
           }
         }
