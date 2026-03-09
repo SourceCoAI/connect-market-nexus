@@ -341,6 +341,7 @@ const ContactListDetailPage = () => {
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Company</TableHead>
+                <TableHead>Deal Owner</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Call Activity</TableHead>
                 <TableHead>Added</TableHead>
