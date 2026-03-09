@@ -65,9 +65,34 @@ export function useBuyerIntroductions(listingId: string | undefined) {
     },
     onSuccess: (_data, input) => {
       queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['deal-buyer-contacts'] });
       toast.success('Buyer added to introduction pipeline');
 
-      // Fire-and-forget: auto-discover contacts for this buyer
+      // Ensure a contacts row exists for this buyer so Buyer Outreach works immediately
+      if (input.remarketing_buyer_id && input.buyer_name) {
+        const nameParts = input.buyer_name.trim().split(/\s+/);
+        supabase
+          .from('contacts')
+          .insert({
+            first_name: nameParts[0] || '',
+            last_name: nameParts.slice(1).join(' ') || '',
+            email: input.buyer_email?.toLowerCase().trim() || null,
+            phone: input.buyer_phone || null,
+            linkedin_url: input.buyer_linkedin_url || null,
+            company_name: input.buyer_firm_name,
+            contact_type: 'buyer',
+            source: 'buyer_introduction',
+            remarketing_buyer_id: input.remarketing_buyer_id,
+          })
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ['deal-buyer-contacts'] });
+          })
+          .catch(() => {
+            // Contact may already exist — that's fine
+          });
+      }
+
+      // Fire-and-forget: auto-discover additional contacts for this buyer
       if (input.remarketing_buyer_id) {
         findIntroductionContacts(input.remarketing_buyer_id)
           .then((result) => {
