@@ -104,7 +104,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
     document.addEventListener('mouseup', onUp);
   }, [colWidths]);
 
-  const gridTemplate = COLUMNS.map(c => `${colWidths[c.key] || DEFAULT_WIDTHS[c.key]}px`).join(' ');
+  
 
   // Sort toggle
   const toggleSort = (field: SortField) => {
