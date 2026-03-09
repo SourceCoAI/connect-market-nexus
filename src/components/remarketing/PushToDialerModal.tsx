@@ -87,17 +87,45 @@ export function PushToDialerModal({
       }> = [];
 
       for (const targetUserId of targetUsers) {
-        const { data, error } = await supabase.functions.invoke('phoneburner-push-contacts', {
-          body: {
-            entity_type: entityType,
-            entity_ids: contactIds,
-            session_name: sessionName,
-            skip_recent_days: skipRecent ? skipRecentDays : 0,
-            ...(targetUserId ? { target_user_id: targetUserId } : {}),
-          },
-        });
+        try {
+          const { data, error } = await supabase.functions.invoke('phoneburner-push-contacts', {
+            body: {
+              entity_type: entityType,
+              entity_ids: contactIds,
+              session_name: sessionName,
+              skip_recent_days: skipRecent ? skipRecentDays : 0,
+              ...(targetUserId ? { target_user_id: targetUserId } : {}),
+            },
+          });
 
-        if (error) {
+          if (error) {
+            // Try to extract the actual error message from the response context
+            let errorMsg = error instanceof Error ? error.message : String(error);
+            try {
+              if ('context' in error && error.context instanceof Response) {
+                const body = await error.context.json();
+                if (body?.error) errorMsg = body.error;
+              }
+            } catch {
+              // ignore parse errors
+            }
+            results.push({
+              user: connectedUsers.find((u) => u.user_id === targetUserId) || null,
+              result: {
+                success: false,
+                contacts_added: 0,
+                contacts_failed: 0,
+                contacts_excluded: 0,
+                error: errorMsg,
+              },
+            });
+          } else {
+            results.push({
+              user: connectedUsers.find((u) => u.user_id === targetUserId) || null,
+              result: data as PushResult,
+            });
+          }
+        } catch (err) {
           results.push({
             user: connectedUsers.find((u) => u.user_id === targetUserId) || null,
             result: {
@@ -105,13 +133,8 @@ export function PushToDialerModal({
               contacts_added: 0,
               contacts_failed: 0,
               contacts_excluded: 0,
-              error: error instanceof Error ? error.message : String(error),
+              error: err instanceof Error ? err.message : String(err),
             },
-          });
-        } else {
-          results.push({
-            user: connectedUsers.find((u) => u.user_id === targetUserId) || null,
-            result: data as PushResult,
           });
         }
       }
