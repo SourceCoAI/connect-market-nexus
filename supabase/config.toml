@@ -262,3 +262,9 @@ verify_jwt = false
 verify_jwt = false
 [functions.auto-pair-all-fireflies]
 verify_jwt = false
+[functions.find-contacts]
+verify_jwt = false
+[functions.find-introduction-contacts]
+verify_jwt = false
+[functions.trigger-contact-discovery]
+verify_jwt = false

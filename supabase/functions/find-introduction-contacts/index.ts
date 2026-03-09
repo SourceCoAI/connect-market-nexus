@@ -86,12 +86,20 @@ Deno.serve(async (req: Request) => {
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-  const auth = await requireAdmin(req, supabaseAdmin);
-  if (!auth.authenticated || !auth.isAdmin) {
-    return new Response(JSON.stringify({ error: auth.error || 'Unauthorized' }), {
-      status: auth.authenticated ? 403 : 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  // Allow service-role calls (internal / tooling) via x-internal-secret header
+  const internalSecret = req.headers.get('x-internal-secret');
+  const isServiceCall = internalSecret === supabaseServiceKey;
+
+  let authUserId: string | undefined;
+  if (!isServiceCall) {
+    const auth = await requireAdmin(req, supabaseAdmin);
+    if (!auth.authenticated || !auth.isAdmin) {
+      return new Response(JSON.stringify({ error: auth.error || 'Unauthorized' }), {
+        status: auth.authenticated ? 403 : 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    authUserId = auth.userId;
   }
 
   let body: FindIntroductionContactsRequest;
@@ -136,7 +144,7 @@ Deno.serve(async (req: Request) => {
       .from('contact_discovery_log')
       .insert({
         buyer_id: body.buyer_id,
-        triggered_by: auth.userId || null,
+        triggered_by: authUserId || null,
         trigger_source: (body as any).trigger_source || 'approval',
         status: 'started',
         pe_firm_name: hasPEFirm ? body.pe_firm_name : null,
@@ -201,7 +209,14 @@ Deno.serve(async (req: Request) => {
     }
 
     // Extract the auth header to pass to sub-function calls
+    // For service-role calls, forward the internal secret so sub-functions also accept
     const authHeader = req.headers.get('Authorization') || '';
+    const subHeaders: Record<string, string> = authHeader
+      ? { Authorization: authHeader }
+      : {};
+    if (isServiceCall) {
+      subHeaders['x-internal-secret'] = supabaseServiceKey;
+    }
 
     // Step B — Call find-contacts for PE firm + company IN PARALLEL
     let peContacts: any[] = [];
@@ -217,7 +232,7 @@ Deno.serve(async (req: Request) => {
             target_count: 6, // Ask for slightly more to allow for dedup losses and enrichment failures
             company_domain: peDomain || undefined,
           },
-          headers: { Authorization: authHeader },
+          headers: subHeaders,
         })
       : Promise.resolve(null);
 
@@ -228,7 +243,7 @@ Deno.serve(async (req: Request) => {
         target_count: 5, // Ask for slightly more to allow for dedup losses and enrichment failures
         company_domain: companyDomain || undefined,
       },
-      headers: { Authorization: authHeader },
+      headers: subHeaders,
     });
 
     const [peResult, companyResult] = await Promise.allSettled([
