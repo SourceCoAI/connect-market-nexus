@@ -68,6 +68,9 @@ export function useDailyTasks(options: UseDailyTasksOptions) {
           query = query.eq('assignee_id', user.id);
         }
 
+        // Only show deal-related tasks (filter out platform/operations tasks)
+        query = query.eq('task_category', 'deal_task');
+
         if (!options.includeCompleted) {
           query = query.in('status', ['pending_approval', 'pending', 'in_progress', 'overdue', 'snoozed']);
         }

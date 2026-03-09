@@ -48,7 +48,6 @@ const TASK_TYPES = [
   'build_buyer_universe',
   'follow_up_with_buyer',
   'send_materials',
-  'update_pipeline',
   'schedule_call',
   'nda_execution',
   'ioi_loi_process',
@@ -56,12 +55,13 @@ const TASK_TYPES = [
   'buyer_qualification',
   'seller_relationship',
   'buyer_ic_followup',
-  'other',
-  // Deal-specific types (added in migration 20260508000000)
-  'call',
-  'email',
   'find_buyers',
   'contact_buyers',
+  // Legacy types kept for DB compatibility but no longer extracted
+  'update_pipeline',
+  'call',
+  'email',
+  'other',
 ];
 
 const DEAL_STAGE_SCORES: Record<string, number> = {
@@ -334,14 +334,18 @@ function inferTaskType(text: string): string {
     return 'seller_relationship';
   }
 
-  // Email-specific
+  // Email about a deal → send_materials; about a buyer → follow_up_with_buyer
   if (/\b(email|send.*email|write.*email)\b/.test(lower)) {
-    return 'email';
+    if (/\b(buyer|firm|capital|group|partner|fund)\b/.test(lower)) return 'follow_up_with_buyer';
+    if (/\b(teaser|cim|memo|nda|materials|data room)\b/.test(lower)) return 'send_materials';
+    return 'send_materials';
   }
 
-  // Generic call
+  // Call about owner → contact_owner; about buyer → follow_up_with_buyer; else schedule_call
   if (/\b(call|phone|dial)\b/.test(lower)) {
-    return 'call';
+    if (/\b(owner|seller)\b/.test(lower)) return 'contact_owner';
+    if (/\b(buyer|firm|capital|group|partner|fund)\b/.test(lower)) return 'follow_up_with_buyer';
+    return 'schedule_call';
   }
 
   return 'other';
@@ -614,60 +618,71 @@ function buildExtractionPrompt(
     )
     .join('\n');
 
-  return `You are a task extraction engine for a business development team's daily standup meeting.
+  return `You are a task extraction engine for an M&A advisory firm's daily standup meeting.
 
-Your job is to parse the meeting transcript and extract concrete, actionable tasks that specific team members are expected to perform.
+Your job is to parse the meeting transcript and extract ONLY tasks directly related to deals, sellers/owners, and buyers. Ignore everything else.
+
+## CRITICAL: Extract Only Deal & Buyer Tasks
+ONLY extract tasks that involve one or more of:
+- A specific deal, listing, or company being sold
+- A specific buyer, buyer group, PE firm, or acquirer
+- A specific seller, owner, or business owner
+- Deal process steps (NDAs, IOIs, LOIs, due diligence, teasers, CIMs)
+
+DO NOT extract tasks related to:
+- Platform/dev work (bugs, deployments, code, APIs, integrations, data migrations, enrichment)
+- Operations/admin (invoices, billing, HR, onboarding, compliance, office tasks)
+- Internal tools or CRM system updates (unless updating a specific deal's status)
+- General team coordination, meetings, or scheduling that isn't deal-specific
+- Marketing, social media, or general business development without a specific deal/buyer
 
 ## Team Members
 ${memberList}
 
-## Task Types
+## Task Types (use ONLY these)
 - contact_owner: Reach out to a business owner about a deal
 - build_buyer_universe: Research and compile potential buyers for a deal
 - follow_up_with_buyer: Follow up on an existing buyer conversation
-- send_materials: Send teasers, CIMs, or other deal documents
-- update_pipeline: Update CRM records, deal status, or notes
-- schedule_call: Arrange a call with an owner, buyer, or internal team
+- send_materials: Send teasers, CIMs, or other deal documents to a buyer
+- schedule_call: Arrange a call with an owner, buyer, or deal party
 - nda_execution: Send, follow up on, or finalize an NDA
 - ioi_loi_process: Manage IOI or LOI submission, review, or negotiation
 - due_diligence: Coordinate or follow up on due diligence activities
 - buyer_qualification: Qualify or vet a potential buyer
 - seller_relationship: Maintain or strengthen the relationship with a seller/owner
 - buyer_ic_followup: Follow up with a buyer's investment committee or decision-makers
-- call: Make a phone call (general, not owner-specific)
-- email: Send an email (general, not materials-specific)
-- find_buyers: Research and find potential buyers
-- contact_buyers: Reach out to specific buyers
-- other: Tasks that don't fit above categories
+- find_buyers: Research and find potential buyers for a deal
+- contact_buyers: Reach out to specific buyers about a deal
 
 ## Title Formatting Rules
 Use professional, standardized title case. Follow these patterns:
 - Finding buyers → "Find Buyers for [Company]"
 - Building buyer universe → "Build Buyer Universe for [Company]"
 - Calling/contacting owner → "Call Owner of [Company]"
-- Following up → "Follow Up with [Person/Company]"
-- Sending materials → "Send [Document Type] to [Person/Company]"
-- Emailing → "Email [Person] re: [Topic]"
+- Following up with buyer → "Follow Up with [Buyer] re: [Deal]"
+- Sending materials → "Send [Document Type] to [Buyer/Person]"
+- Scheduling → "Schedule Call with [Person] re: [Deal]"
+- NDA → "Send NDA to [Buyer]" or "Follow Up on NDA with [Buyer]"
 - Reconnecting → "Reconnect with [Company/Person]"
-- Scheduling → "Schedule Call with [Person/Company]"
 Always capitalize company names. Use title case (capitalize major words, lowercase prepositions like "for", "of", "to", "with").
 
 ## Extraction Rules
-1. A task is any specific action a named person is expected to perform
-2. Each task must have: title, description, assignee_name, task_type, due_date, confidence
+1. A task MUST reference a specific deal, company, buyer, or seller — no generic tasks
+2. Each task must have: title, description, assignee_name, task_type, due_date, confidence, deal_reference
 3. If no specific person is named for a task, set assignee_name to "Unassigned"
 4. Default due_date is "${today}" unless context implies multi-day (e.g., "this week" = end of week)
 5. Include source_timestamp (approximate time in meeting like "2:30") if discernible
-6. Include deal_reference if a specific deal/company is mentioned
+6. deal_reference is REQUIRED — set it to the company/deal name mentioned. If no deal is mentioned, do NOT extract the task
 7. Ignore general discussion, opinions, and status updates that don't create new actions
 8. Do NOT extract duplicate tasks — if the same action is discussed multiple times, only extract it once
 9. Set confidence to "high" if the task and assignee are explicitly stated, "medium" if inferred from context, "low" if ambiguous
+10. When someone says "call" or "email" about a deal, classify it as the most specific type (contact_owner, follow_up_with_buyer, send_materials, etc.) — NOT as a generic action
 
 ## Output Format
 Return a JSON array of task objects. Example:
 [
   {
-    "title": "Call the owner of Smith Manufacturing",
+    "title": "Call Owner of Smith Manufacturing",
     "description": "Owner hasn't responded to last email. Try calling directly.",
     "assignee_name": "Tom",
     "task_type": "contact_owner",
@@ -678,7 +693,7 @@ Return a JSON array of task objects. Example:
   }
 ]
 
-Return ONLY the JSON array, no other text.`;
+Return ONLY the JSON array, no other text. If there are NO deal/buyer-related tasks, return an empty array: []`;
 }
 
 async function extractTasksWithAI(
@@ -1156,6 +1171,24 @@ async function processSingleMeeting(
   // Standardize task titles before saving
   for (const task of extractedTasks) {
     task.title = standardizeTaskTitle(task.title, task.deal_reference);
+  }
+
+  // Filter: only keep deal/buyer-related tasks
+  const preFilterCount = extractedTasks.length;
+  extractedTasks = extractedTasks.filter((task) => {
+    // Drop non-deal categories
+    if (task.task_category === 'platform_task' || task.task_category === 'operations_task') {
+      return false;
+    }
+    // Drop tasks with no deal reference and generic type
+    if (!task.deal_reference && task.task_type === 'other') {
+      return false;
+    }
+    return true;
+  });
+  const droppedCount = preFilterCount - extractedTasks.length;
+  if (droppedCount > 0) {
+    console.log(`[filter] Dropped ${droppedCount} non-deal tasks (kept ${extractedTasks.length})`);
   }
 
   // Create standup meeting record
