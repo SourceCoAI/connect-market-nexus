@@ -238,6 +238,19 @@ Deno.serve(async (req: Request) => {
     let totalSaved = 0;
     let skippedDuplicates = 0;
 
+    // Look up firm_id from the remarketing_buyers record
+    let firmId: string | null = null;
+    try {
+      const { data: buyerRow } = await supabaseAdmin
+        .from('remarketing_buyers')
+        .select('marketplace_firm_id')
+        .eq('id', body.buyer_id)
+        .single();
+      firmId = buyerRow?.marketplace_firm_id || null;
+    } catch {
+      console.warn('[find-introduction-contacts] Could not look up firm_id for buyer', body.buyer_id);
+    }
+
     // Merge PE and company results for dedup + save
     const allContacts = [...peContacts, ...companyContacts];
 
@@ -263,30 +276,37 @@ Deno.serve(async (req: Request) => {
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      const { error: upsertError } = await supabaseAdmin.from('contacts').upsert(
-        {
-          remarketing_buyer_id: body.buyer_id,
-          first_name: firstName,
-          last_name: lastName,
-          title: contact.title || null,
-          email: contact.email || null,
-          linkedin_url: contact.linkedin_url || null,
-          phone: contact.phone || null,
-          contact_type: 'buyer',
-          source: 'auto_introduction_approval',
-        },
-        {
-          onConflict: 'remarketing_buyer_id,first_name,last_name',
-          ignoreDuplicates: false,
-        },
-      );
+      // Normalize email to lowercase to match unique index expressions
+      const normalizedEmail = contact.email ? contact.email.trim().toLowerCase() : null;
 
-      if (upsertError) {
-        console.error(
-          `[find-introduction-contacts] Failed to save contact ${fullName}:`,
-          upsertError.message,
-        );
-        skippedDuplicates++;
+      // Use .insert() instead of .upsert() because the contacts table uses
+      // expression-based partial unique indexes (e.g. lower(email), lower(trim(name)))
+      // that Supabase JS .upsert() cannot reference via onConflict.
+      // Unique constraint violations (23505) are treated as expected duplicates.
+      const { error: insertError } = await supabaseAdmin.from('contacts').insert({
+        remarketing_buyer_id: body.buyer_id,
+        firm_id: firmId,
+        first_name: firstName,
+        last_name: lastName,
+        title: contact.title || null,
+        email: normalizedEmail || null,
+        linkedin_url: contact.linkedin_url || null,
+        phone: contact.phone || null,
+        contact_type: 'buyer',
+        source: 'auto_introduction_approval',
+      });
+
+      if (insertError) {
+        if (insertError.code === '23505') {
+          // Unique constraint violation — contact already exists, skip it
+          skippedDuplicates++;
+        } else {
+          console.error(
+            `[find-introduction-contacts] Failed to save contact ${fullName}:`,
+            insertError.message,
+          );
+          skippedDuplicates++;
+        }
       } else {
         totalSaved++;
       }
