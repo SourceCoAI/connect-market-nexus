@@ -3952,6 +3952,61 @@ export type Database = {
           },
         ]
       }
+      deal_outreach_profiles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deal_descriptor: string
+          deal_id: string
+          ebitda: string
+          geography: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deal_descriptor: string
+          deal_id: string
+          ebitda: string
+          geography: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deal_descriptor?: string
+          deal_id?: string
+          ebitda?: string
+          geography?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_outreach_profiles_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "buyer_introduction_summary"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "deal_outreach_profiles_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_outreach_profiles_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_pipeline: {
         Row: {
           assigned_to: string | null
