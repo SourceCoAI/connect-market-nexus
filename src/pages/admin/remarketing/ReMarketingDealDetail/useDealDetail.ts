@@ -39,6 +39,26 @@ export function useDealDetail() {
     refetchInterval: enrichStartedAt ? 10_000 : false,
   });
 
+  // Resolve deal owner name from deal_owner_id or primary_owner_id
+  const dealOwnerId = deal?.deal_owner_id || deal?.primary_owner_id || null;
+  const { data: dealOwnerProfile } = useQuery({
+    queryKey: ['profile', dealOwnerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .eq('id', dealOwnerId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!dealOwnerId,
+    staleTime: 60_000,
+  });
+  const dealOwnerName = dealOwnerProfile
+    ? `${dealOwnerProfile.first_name ?? ''} ${dealOwnerProfile.last_name ?? ''}`.trim()
+    : null;
+
   // Stop polling once enriched_at has advanced past when we started enrichment
   useEffect(() => {
     if (enrichStartedAt && deal?.enriched_at && deal.enriched_at > enrichStartedAt) {
