@@ -1008,21 +1008,14 @@ describe('Search query generation', () => {
     const nameVariations = getCompanyNameVariations(companyName);
     const roleQueries: string[] = [];
 
-    // Layer 1: Domain + company + role
+    // Core queries: Company name + role groups (consolidated layers 1+2)
+    const domainHint = domain ? `${domain} ` : '';
     roleQueries.push(
-      `${domain} "${companyName}" CEO owner founder site:linkedin.com/in ${excludeNoise}`,
-      `${domain} "${companyName}" president chairman site:linkedin.com/in ${excludeNoise}`,
-      `${domain} "${companyName}" partner principal "managing director" site:linkedin.com/in ${excludeNoise}`,
-      `${domain} "${companyName}" VP director site:linkedin.com/in ${excludeNoise}`,
-    );
-
-    // Layer 2: Company name only (no domain)
-    roleQueries.push(
-      `"${companyName}" CEO founder president site:linkedin.com/in ${excludeNoise}`,
-      `"${companyName}" partner principal "managing director" site:linkedin.com/in ${excludeNoise}`,
+      `${domainHint}"${companyName}" CEO founder president owner site:linkedin.com/in ${excludeNoise}`,
+      `${domainHint}"${companyName}" partner principal "managing director" chairman site:linkedin.com/in ${excludeNoise}`,
       `"${companyName}" VP director "head of" site:linkedin.com/in ${excludeNoise}`,
-      `"${companyName}" "business development" acquisitions site:linkedin.com/in ${excludeNoise}`,
-      `"${companyName}" CFO COO "operating partner" site:linkedin.com/in ${excludeNoise}`,
+      `"${companyName}" "business development" acquisitions CFO COO site:linkedin.com/in ${excludeNoise}`,
+      `"${companyName}" "operating partner" "senior associate" analyst site:linkedin.com/in ${excludeNoise}`,
     );
 
     // Layer 3: Name variations
@@ -1032,11 +1025,32 @@ describe('Search query generation', () => {
       );
     }
 
-    // Layer 4: Title filter queries
+    // Layer 4: Title filter queries (batched, skip already-covered titles)
+    const alreadyCovered = new Set([
+      'ceo',
+      'president',
+      'founder',
+      'owner',
+      'partner',
+      'principal',
+      'managing director',
+      'vp',
+      'vice president',
+      'director',
+      'chairman',
+      'business development',
+      'acquisitions',
+      'cfo',
+      'coo',
+      'operating partner',
+      'head of',
+    ]);
     if (titleFilter.length > 0) {
-      for (const tf of titleFilter) {
-        roleQueries.push(`${domain} "${companyName}" ${tf} site:linkedin.com/in ${excludeNoise}`);
-        roleQueries.push(`"${companyName}" "${tf}" site:linkedin.com/in ${excludeNoise}`);
+      const uncovered = titleFilter.filter((tf) => !alreadyCovered.has(tf.toLowerCase()));
+      for (let i = 0; i < uncovered.length; i += 3) {
+        const batch = uncovered.slice(i, i + 3);
+        const terms = batch.map((t) => `"${t}"`).join(' OR ');
+        roleQueries.push(`"${companyName}" ${terms} site:linkedin.com/in ${excludeNoise}`);
       }
     }
 
@@ -1056,14 +1070,14 @@ describe('Search query generation', () => {
     const domainQueries = queries.filter((q) => q.includes('gridironcap.com'));
     expect(domainQueries.length).toBeGreaterThan(0);
 
-    // Should also have domain-free queries (Layer 2)
+    // Should also have domain-free queries (queries without domain hint)
     const domainFreeQueries = queries.filter(
       (q) => q.includes('"Gridiron Capital"') && !q.includes('gridironcap.com'),
     );
-    expect(domainFreeQueries.length).toBeGreaterThanOrEqual(5);
+    expect(domainFreeQueries.length).toBeGreaterThanOrEqual(3);
 
-    // Total queries should be substantial
-    expect(queries.length).toBeGreaterThan(20);
+    // Total queries should be substantial but optimized (batched + consolidated)
+    expect(queries.length).toBeGreaterThanOrEqual(8);
   });
 
   it('Osceola Capital Management generates variation queries', () => {
@@ -1078,10 +1092,10 @@ describe('Search query generation', () => {
     expect(variationQueries.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('every company gets CFO/COO queries in domain-free layer', () => {
+  it('every company gets CFO/COO queries in core queries', () => {
     for (const tc of TEST_COMPANIES) {
       const queries = buildSearchQueries(tc.peFirm, 'test.com', PE_TITLE_FILTER);
-      const cfoCooQuery = queries.find((q) => q.includes('CFO COO') && !q.includes('test.com'));
+      const cfoCooQuery = queries.find((q) => q.includes('CFO COO'));
       expect(cfoCooQuery).toBeDefined();
     }
   });
@@ -1100,8 +1114,9 @@ describe('Search query generation', () => {
 // ============================================================================
 
 describe('Query count comparison: old vs new', () => {
-  // Old system generated: 4 domain-based + 1 generic + N title-filter + 1 leadership = ~12 queries
-  // New system generates: 4 domain + 5 domain-free + N variations + 2N title-filter + 2 broad = ~30+ queries
+  // Old system generated: 4 domain-based + 1 generic + N title-filter + 1 leadership = ~23 queries
+  // New system: 4 domain + 5 domain-free + variations + batched uncovered titles + 2 broad = ~14 queries
+  // Fewer queries but better coverage (Layers 1-3 already cover most important titles)
 
   function countOldQueries(titleFilter: string[]): number {
     // Old: 4 domain role queries + 1 "contact email" + titleFilter.length + 1 leadership
@@ -1110,22 +1125,45 @@ describe('Query count comparison: old vs new', () => {
 
   function countNewQueries(companyName: string, titleFilter: string[]): number {
     const nameVars = getCompanyNameVariations(companyName);
-    const layer1 = 4; // domain + company + roles
-    const layer2 = 5; // domain-free
+    const coreQueries = 5; // consolidated role group queries
     const layer3 = nameVars.length - 1; // variations (skip first)
-    const layer4 = titleFilter.length * 2; // with + without domain
+    // Layer 4: only uncovered titles, batched in groups of 3
+    const alreadyCovered = new Set([
+      'ceo',
+      'president',
+      'founder',
+      'owner',
+      'partner',
+      'principal',
+      'managing director',
+      'vp',
+      'vice president',
+      'director',
+      'chairman',
+      'business development',
+      'acquisitions',
+      'cfo',
+      'coo',
+      'operating partner',
+      'head of',
+    ]);
+    const uncovered = titleFilter.filter((tf) => !alreadyCovered.has(tf.toLowerCase()));
+    const layer4 = Math.ceil(uncovered.length / 3); // batched queries
     const layer5 = 2; // broader
 
     // Approximate (before dedup)
-    return layer1 + layer2 + layer3 + layer4 + layer5;
+    return coreQueries + layer3 + layer4 + layer5;
   }
 
   for (const tc of TEST_COMPANIES) {
-    it(`${tc.peFirm}: new generates more queries than old`, () => {
+    it(`${tc.peFirm}: new generates fewer but more targeted queries than old`, () => {
       const oldCount = countOldQueries(PE_TITLE_FILTER);
       const newCount = countNewQueries(tc.peFirm, PE_TITLE_FILTER);
 
-      expect(newCount).toBeGreaterThan(oldCount);
+      // New approach uses fewer queries (batched + deduped) but better coverage
+      // Layers 1-3 cover all major titles; Layer 4 only adds truly uncovered ones
+      expect(newCount).toBeLessThanOrEqual(oldCount);
+      expect(newCount).toBeGreaterThanOrEqual(10); // still substantial
     });
   }
 });

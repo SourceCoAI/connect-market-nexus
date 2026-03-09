@@ -379,21 +379,16 @@ async function discoverEmployeesViaSerper(
 
   const roleQueries: string[] = [];
 
-  // ---- Layer 1: Domain + quoted company + role (most precise) ----
+  // ---- Core queries: Company name + role groups (5 queries cover all major titles) ----
+  // Domain is included as a boost signal but not required — Google still finds
+  // results when the domain doesn't match the company.
+  const domainHint = companyDomain ? `${companyDomain} ` : '';
   roleQueries.push(
-    `${companyDomain} "${companyName}" CEO owner founder site:linkedin.com/in ${excludeNoise}`,
-    `${companyDomain} "${companyName}" president chairman site:linkedin.com/in ${excludeNoise}`,
-    `${companyDomain} "${companyName}" partner principal "managing director" site:linkedin.com/in ${excludeNoise}`,
-    `${companyDomain} "${companyName}" VP director site:linkedin.com/in ${excludeNoise}`,
-  );
-
-  // ---- Layer 2: Quoted company only (no domain — critical when domain guess is wrong) ----
-  roleQueries.push(
-    `"${companyName}" CEO founder president site:linkedin.com/in ${excludeNoise}`,
-    `"${companyName}" partner principal "managing director" site:linkedin.com/in ${excludeNoise}`,
+    `${domainHint}"${companyName}" CEO founder president owner site:linkedin.com/in ${excludeNoise}`,
+    `${domainHint}"${companyName}" partner principal "managing director" chairman site:linkedin.com/in ${excludeNoise}`,
     `"${companyName}" VP director "head of" site:linkedin.com/in ${excludeNoise}`,
-    `"${companyName}" "business development" acquisitions site:linkedin.com/in ${excludeNoise}`,
-    `"${companyName}" CFO COO "operating partner" site:linkedin.com/in ${excludeNoise}`,
+    `"${companyName}" "business development" acquisitions CFO COO site:linkedin.com/in ${excludeNoise}`,
+    `"${companyName}" "operating partner" "senior associate" analyst site:linkedin.com/in ${excludeNoise}`,
   );
 
   // ---- Layer 3: Company name variations (handles DBA names, abbreviations) ----
@@ -404,15 +399,34 @@ async function discoverEmployeesViaSerper(
     );
   }
 
-  // ---- Layer 4: Specific title filter queries ----
+  // ---- Layer 4: Title filter queries (batched to reduce API calls) ----
+  // Skip titles already well-covered by Layers 1-3 to avoid redundant queries
+  const alreadyCovered = new Set([
+    'ceo',
+    'president',
+    'founder',
+    'owner',
+    'partner',
+    'principal',
+    'managing director',
+    'vp',
+    'vice president',
+    'director',
+    'chairman',
+    'business development',
+    'acquisitions',
+    'cfo',
+    'coo',
+    'operating partner',
+    'head of',
+  ]);
   if (titleFilter.length > 0) {
-    for (const tf of titleFilter) {
-      // With domain
-      roleQueries.push(
-        `${companyDomain} "${companyName}" ${tf} site:linkedin.com/in ${excludeNoise}`,
-      );
-      // Without domain (fallback)
-      roleQueries.push(`"${companyName}" "${tf}" site:linkedin.com/in ${excludeNoise}`);
+    const uncovered = titleFilter.filter((tf) => !alreadyCovered.has(tf.toLowerCase()));
+    // Batch uncovered titles into groups of 3-4 per query
+    for (let i = 0; i < uncovered.length; i += 3) {
+      const batch = uncovered.slice(i, i + 3);
+      const terms = batch.map((t) => `"${t}"`).join(' OR ');
+      roleQueries.push(`"${companyName}" ${terms} site:linkedin.com/in ${excludeNoise}`);
     }
   }
 
