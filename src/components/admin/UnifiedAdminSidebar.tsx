@@ -57,7 +57,6 @@ import {
   Lightbulb,
   LogOut,
   User,
-  Mic,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -506,14 +505,7 @@ export function UnifiedAdminSidebar({
             href="/admin/daily-tasks"
             icon={<ListChecks className="h-4 w-4" />}
             label="Daily Tasks"
-            isActive={location.pathname === '/admin/daily-tasks' || location.pathname === '/admin/daily-tasks/analytics'}
-            collapsed={collapsed}
-          />
-          <SidebarLink
-            href="/admin/daily-tasks/standups"
-            icon={<Mic className="h-4 w-4" />}
-            label="Standup Tracker"
-            isActive={location.pathname === '/admin/daily-tasks/standups'}
+            isActive={location.pathname.startsWith('/admin/daily-tasks')}
             collapsed={collapsed}
           />
         </div>
