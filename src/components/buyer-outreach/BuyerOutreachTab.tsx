@@ -60,7 +60,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
   });
 
   // Fetch buyer contacts for this deal
-  // Get buyers via deal_pipeline entries linked to this listing
+  // Get buyers via deal_pipeline AND buyer_introductions linked to this listing
   const { data: buyers, isLoading: buyersLoading } = useQuery({
     queryKey: ['deal-buyer-contacts', dealId],
     queryFn: async () => {
@@ -72,7 +72,18 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
         .is('deleted_at', null)
         .not('remarketing_buyer_id', 'is', null);
 
-      const buyerIds = [...new Set((pipelineEntries || []).map(e => e.remarketing_buyer_id).filter(Boolean))] as string[];
+      // Also get buyer IDs from buyer introductions
+      const { data: introEntries } = await supabase
+        .from('buyer_introductions' as never)
+        .select('remarketing_buyer_id')
+        .eq('listing_id', dealId)
+        .is('archived_at', null)
+        .not('remarketing_buyer_id', 'is', null);
+
+      const buyerIds = [...new Set([
+        ...(pipelineEntries || []).map(e => e.remarketing_buyer_id),
+        ...((introEntries || []) as Array<{ remarketing_buyer_id: string }>).map(e => e.remarketing_buyer_id),
+      ].filter(Boolean))] as string[];
       if (!buyerIds.length) return [];
 
       // Get contacts for these buyers
