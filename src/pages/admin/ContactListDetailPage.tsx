@@ -409,14 +409,29 @@ function MemberRow({
   isSelected,
   onToggle,
   onRemove,
+  onNavigateToDeal,
 }: {
   member: ContactListMember;
   isSelected: boolean;
   onToggle: (e?: React.MouseEvent) => void;
   onRemove: () => void;
+  onNavigateToDeal: () => void;
 }) {
+  const isDealType = member.entity_type === 'deal' || member.entity_type === 'listing';
+
   return (
-    <TableRow className={isSelected ? 'bg-primary/5' : ''}>
+    <TableRow
+      className={cn(
+        isSelected ? 'bg-primary/5' : '',
+        isDealType && 'cursor-pointer hover:bg-muted/50',
+      )}
+      onClick={(e) => {
+        // Don't navigate if clicking checkbox or remove button
+        const target = e.target as HTMLElement;
+        if (target.closest('button') || target.closest('[role="checkbox"]')) return;
+        if (isDealType) onNavigateToDeal();
+      }}
+    >
       <TableCell
         onClick={(e) => {
           e.stopPropagation();
@@ -446,6 +461,13 @@ function MemberRow({
       </TableCell>
       <TableCell>
         <span className="text-sm">{member.contact_company || '--'}</span>
+      </TableCell>
+      <TableCell>
+        {member.deal_owner_name ? (
+          <span className="text-sm font-medium text-foreground">{member.deal_owner_name}</span>
+        ) : (
+          <span className="text-sm text-muted-foreground/50">{isDealType ? 'Unassigned' : '--'}</span>
+        )}
       </TableCell>
       <TableCell>
         <Badge variant="outline" className="text-[11px] font-normal capitalize">
@@ -482,7 +504,10 @@ function MemberRow({
           variant="ghost"
           size="icon"
           className="h-7 w-7 text-muted-foreground hover:text-destructive"
-          onClick={onRemove}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
           title="Remove from list"
         >
           <UserMinus className="h-3.5 w-3.5" />
