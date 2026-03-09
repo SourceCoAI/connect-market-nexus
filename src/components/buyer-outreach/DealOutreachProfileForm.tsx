@@ -8,19 +8,12 @@ import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { FileText, Pencil, Save, X } from 'lucide-react';
+import type { Tables } from '@/integrations/supabase/types';
+
+type OutreachProfile = Tables<'deal_outreach_profiles'>;
 
 interface DealOutreachProfileFormProps {
   dealId: string;
-}
-
-interface OutreachProfile {
-  id: string;
-  deal_id: string;
-  deal_descriptor: string;
-  geography: string;
-  ebitda: string;
-  created_at: string;
-  updated_at: string;
 }
 
 export function DealOutreachProfileForm({ dealId }: DealOutreachProfileFormProps) {
@@ -34,13 +27,13 @@ export function DealOutreachProfileForm({ dealId }: DealOutreachProfileFormProps
     queryKey: ['deal-outreach-profile', dealId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('deal_outreach_profiles' as any)
+        .from('deal_outreach_profiles')
         .select('*')
         .eq('deal_id', dealId)
         .maybeSingle();
 
       if (error) throw error;
-      return data as OutreachProfile | null;
+      return data;
     },
     enabled: !!dealId,
   });
@@ -60,25 +53,25 @@ export function DealOutreachProfileForm({ dealId }: DealOutreachProfileFormProps
 
       if (profile) {
         const { error } = await supabase
-          .from('deal_outreach_profiles' as any)
+          .from('deal_outreach_profiles')
           .update({
             deal_descriptor: values.deal_descriptor,
             geography: values.geography,
             ebitda: values.ebitda,
             updated_at: new Date().toISOString(),
-          } as any)
+          })
           .eq('id', profile.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from('deal_outreach_profiles' as any)
+          .from('deal_outreach_profiles')
           .insert({
             deal_id: dealId,
             deal_descriptor: values.deal_descriptor,
             geography: values.geography,
             ebitda: values.ebitda,
             created_by: user.id,
-          } as any);
+          });
         if (error) throw error;
       }
     },

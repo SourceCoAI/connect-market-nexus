@@ -49,7 +49,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
     queryKey: ['deal-outreach-profile', dealId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('deal_outreach_profiles' as any)
+        .from('deal_outreach_profiles')
         .select('id')
         .eq('deal_id', dealId)
         .maybeSingle();

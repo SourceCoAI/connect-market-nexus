@@ -15,12 +15,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { Mail, Linkedin, Phone, AlertTriangle, Loader2, FileText } from 'lucide-react';
 
-interface OutreachProfile {
-  deal_descriptor: string;
-  geography: string;
-  ebitda: string;
-}
-
 interface SelectedBuyer {
   id: string;
   first_name: string;
@@ -65,12 +59,12 @@ export function LaunchOutreachPanel({
     queryKey: ['deal-outreach-profile', dealId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('deal_outreach_profiles' as any)
+        .from('deal_outreach_profiles')
         .select('deal_descriptor, geography, ebitda')
         .eq('deal_id', dealId)
         .single();
       if (error) throw error;
-      return data as unknown as OutreachProfile | null;
+      return data;
     },
     enabled: !!dealId && open,
   });

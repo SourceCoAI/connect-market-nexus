@@ -22,7 +22,7 @@ export function OutreachInlineDetail({ dealId, buyerId, summary }: OutreachInlin
       const tool = channel === 'email' ? 'smartlead' : channel === 'linkedin' ? 'heyreach' : 'phoneburner';
 
       const { error } = await supabase
-        .from('buyer_outreach_events' as any)
+        .from('buyer_outreach_events')
         .insert({
           deal_id: dealId,
           buyer_id: buyerId,
@@ -31,7 +31,7 @@ export function OutreachInlineDetail({ dealId, buyerId, summary }: OutreachInlin
           event_type: eventType,
           event_timestamp: new Date().toISOString(),
           notes: `Manually marked as ${eventType.replace('_', ' ')}`,
-        } as any);
+        });
 
       if (error) throw error;
     },

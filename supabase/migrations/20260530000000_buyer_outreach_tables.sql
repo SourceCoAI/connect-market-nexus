@@ -79,3 +79,8 @@ create policy "Service role can manage buyer_outreach_events"
 create policy "Service role can manage deal_outreach_profiles"
   on deal_outreach_profiles for all
   using (auth.role() = 'service_role');
+
+-- Auto-update updated_at on deal_outreach_profiles
+create trigger update_deal_outreach_profiles_updated_at
+  before update on deal_outreach_profiles
+  for each row execute function public.update_updated_at_column();
