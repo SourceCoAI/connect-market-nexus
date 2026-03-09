@@ -86,12 +86,20 @@ Deno.serve(async (req: Request) => {
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-  const auth = await requireAdmin(req, supabaseAdmin);
-  if (!auth.authenticated || !auth.isAdmin) {
-    return new Response(JSON.stringify({ error: auth.error || 'Unauthorized' }), {
-      status: auth.authenticated ? 403 : 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  // Allow service-role calls (internal / tooling) via x-internal-secret header
+  const internalSecret = req.headers.get('x-internal-secret');
+  const isServiceCall = internalSecret === supabaseServiceKey;
+
+  let authUserId: string | undefined;
+  if (!isServiceCall) {
+    const auth = await requireAdmin(req, supabaseAdmin);
+    if (!auth.authenticated || !auth.isAdmin) {
+      return new Response(JSON.stringify({ error: auth.error || 'Unauthorized' }), {
+        status: auth.authenticated ? 403 : 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    authUserId = auth.userId;
   }
 
   let body: FindIntroductionContactsRequest;
