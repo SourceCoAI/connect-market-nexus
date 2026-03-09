@@ -944,6 +944,7 @@ async function processEvent(
       const dispositionLabel = (disposition.label ||
         payload.disposition_name ||
         payload.disposition_label ||
+        (payload.status as string) ||
         topLevelStatus ||
         '') as string;
 
