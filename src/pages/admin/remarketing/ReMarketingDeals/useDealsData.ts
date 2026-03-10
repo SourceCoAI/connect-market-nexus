@@ -96,7 +96,7 @@ export function useDealsData() {
           .or('status.eq.active,status.is.null')
           .or(
             'deal_source.in.(marketplace,manual,referral,remarketing,salesforce_remarketing),' +
-              'and(deal_source.in.(captarget,valuation_calculator,valuation_lead,gp_partners),pushed_to_all_deals.eq.true)',
+              'and(deal_source.in.(captarget,valuation_calculator,valuation_lead,gp_partners,sourceco),pushed_to_all_deals.eq.true)',
           )
           .order('manual_rank_override', { ascending: true, nullsFirst: false })
           .order('deal_total_score', { ascending: false, nullsFirst: true })

@@ -32,16 +32,12 @@ export function AgreementPanel({ firm, buyerEmail, buyerName }: AgreementPanelPr
   };
 
   // Resolve NDA signed document URL — prefer pandadoc, fallback to legacy
-  const ndaSignedUrl = (firm as Record<string, unknown>).nda_pandadoc_signed_url as string | null
-    || (firm as Record<string, unknown>).nda_signed_document_url as string | null
-    || firm.nda_document_url;
-  const feeSignedUrl = (firm as Record<string, unknown>).fee_pandadoc_signed_url as string | null
-    || (firm as Record<string, unknown>).fee_signed_document_url as string | null
-    || firm.fee_agreement_document_url;
+  const ndaSignedUrl = firm.nda_pandadoc_signed_url || firm.nda_document_url;
+  const feeSignedUrl = firm.fee_pandadoc_signed_url || firm.fee_agreement_document_url;
 
   // Resolve status — prefer pandadoc, fallback to legacy
-  const ndaPandadocStatus = (firm as Record<string, unknown>).nda_pandadoc_status as string | null;
-  const feePandadocStatus = (firm as Record<string, unknown>).fee_pandadoc_status as string | null;
+  const ndaPandadocStatus = firm.nda_pandadoc_status ?? null;
+  const feePandadocStatus = firm.fee_pandadoc_status ?? null;
   const resolveStatus = (pandadocStatus: string | null, signed: boolean | null): PandaDocStatus => {
     if (signed) return 'signed';
     const raw = pandadocStatus || '';

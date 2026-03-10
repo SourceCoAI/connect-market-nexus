@@ -113,7 +113,7 @@ export function useBuyerNdaStatus(userId: string | undefined) {
       return {
         hasFirm: true,
         ndaSigned: row.nda_signed ?? false,
-        pandadocStatus: row.nda_pandadoc_status,
+        pandadocStatus: (row as Record<string, unknown>).nda_pandadoc_status as string | null ?? null,
         hasDocument: true,
         firmId: row.firm_id,
         embedUrl: null as string | null,

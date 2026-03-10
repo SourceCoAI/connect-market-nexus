@@ -116,12 +116,12 @@ function useInboxThreads() {
         if (firmIds.length > 0) {
           const { data: firms } = await supabase
             .from('firm_agreements')
-            .select('id, primary_company_name, nda_signed, nda_pandadoc_status, fee_agreement_signed, fee_pandadoc_status')
+            .select('id, primary_company_name, nda_signed, nda_status, fee_agreement_signed, fee_agreement_status')
             .in('id', firmIds);
 
           const firmDataMap: Record<string, Record<string, unknown>> = {};
-          (firms || []).forEach((f: Record<string, unknown>) => {
-            firmDataMap[f.id as string] = f;
+          (firms || []).forEach((f) => {
+            firmDataMap[(f as Record<string, unknown>).id as string] = f as unknown as Record<string, unknown>;
           });
 
           // Map user IDs to their firm status
@@ -129,8 +129,8 @@ function useInboxThreads() {
             const firm = firmDataMap[firmId];
             if (firm) {
               firmStatusMap[userId] = {
-                nda_status: resolveAgreementStatus(!!firm.nda_signed, firm.nda_pandadoc_status as string | null),
-                fee_status: resolveAgreementStatus(!!firm.fee_agreement_signed, firm.fee_pandadoc_status as string | null),
+                nda_status: resolveAgreementStatus(!!firm.nda_signed, firm.nda_status as string | null),
+                fee_status: resolveAgreementStatus(!!firm.fee_agreement_signed, firm.fee_agreement_status as string | null),
                 firm_name: (firm.primary_company_name as string) || null,
               };
             }

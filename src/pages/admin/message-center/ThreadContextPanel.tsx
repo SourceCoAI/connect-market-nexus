@@ -70,7 +70,7 @@ function useThreadBuyerFirm(userId: string | null) {
       const { data: firm } = await supabase
         .from('firm_agreements')
         .select(
-          'id, primary_company_name, nda_signed, nda_signed_at, nda_pandadoc_status, nda_signed_document_url, nda_document_url, fee_agreement_signed, fee_agreement_signed_at, fee_pandadoc_status, fee_signed_document_url, fee_agreement_document_url',
+          'id, primary_company_name, nda_signed, nda_signed_at, nda_status, nda_document_url, fee_agreement_signed, fee_agreement_signed_at, fee_agreement_status, fee_agreement_document_url',
         )
         .eq('id', firmId)
         .maybeSingle();
@@ -256,8 +256,8 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
   const { data: timeline = [], isLoading: timelineLoading } = useUserActivityTimeline(userId);
   const navigate = useNavigate();
 
-  const ndaStatus = firm ? resolveAgreementStatus(!!firm.nda_signed, firm.nda_pandadoc_status) : null;
-  const feeStatus = firm ? resolveAgreementStatus(!!firm.fee_agreement_signed, firm.fee_pandadoc_status) : null;
+  const ndaStatus = firm ? resolveAgreementStatus(!!firm.nda_signed, firm.nda_status) : null;
+  const feeStatus = firm ? resolveAgreementStatus(!!firm.fee_agreement_signed, firm.fee_agreement_status) : null;
 
   return (
     <div className="w-[280px] flex-shrink-0 flex flex-col min-h-0" style={{ borderLeft: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}>
@@ -314,16 +314,10 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
                       Signed {format(new Date(firm.nda_signed_at), 'MMM d, yyyy')}
                     </p>
                   )}
-                  {ndaStatus === 'signed' && firm.nda_signed_document_url && (
-                    <a href={firm.nda_signed_document_url} target="_blank" rel="noopener noreferrer"
-                      className="text-[10px] underline flex items-center gap-1 mt-1" style={{ color: '#5A5A5A' }}>
-                      Download signed NDA <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  )}
-                  {ndaStatus !== 'signed' && firm.nda_document_url && (
+                  {firm.nda_document_url && (
                     <a href={firm.nda_document_url} target="_blank" rel="noopener noreferrer"
                       className="text-[10px] underline flex items-center gap-1 mt-1" style={{ color: '#5A5A5A' }}>
-                      View draft <ExternalLink className="h-2.5 w-2.5" />
+                      {ndaStatus === 'signed' ? 'Download signed NDA' : 'View draft'} <ExternalLink className="h-2.5 w-2.5" />
                     </a>
                   )}
                 </div>
@@ -342,16 +336,10 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
                       Signed {format(new Date(firm.fee_agreement_signed_at), 'MMM d, yyyy')}
                     </p>
                   )}
-                  {feeStatus === 'signed' && firm.fee_signed_document_url && (
-                    <a href={firm.fee_signed_document_url} target="_blank" rel="noopener noreferrer"
-                      className="text-[10px] underline flex items-center gap-1 mt-1" style={{ color: '#5A5A5A' }}>
-                      Download signed Fee Agmt <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  )}
-                  {feeStatus !== 'signed' && firm.fee_agreement_document_url && (
+                  {firm.fee_agreement_document_url && (
                     <a href={firm.fee_agreement_document_url} target="_blank" rel="noopener noreferrer"
                       className="text-[10px] underline flex items-center gap-1 mt-1" style={{ color: '#5A5A5A' }}>
-                      View draft <ExternalLink className="h-2.5 w-2.5" />
+                      {feeStatus === 'signed' ? 'Download signed Fee Agmt' : 'View draft'} <ExternalLink className="h-2.5 w-2.5" />
                     </a>
                   )}
                 </div>
