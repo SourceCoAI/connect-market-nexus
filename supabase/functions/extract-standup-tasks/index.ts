@@ -351,6 +351,18 @@ function inferTaskType(text: string): string {
   return 'other';
 }
 
+/** Check if a name is a team member (should not be treated as a deal) */
+function isTeamMemberName(name: string): boolean {
+  const lower = name.toLowerCase().trim();
+  // Check against dynamically loaded team member names
+  if (_teamMemberNames.has(lower)) return true;
+  // Check against static NON_DEAL_TERMS
+  for (const term of NON_DEAL_TERMS) {
+    if (term.toLowerCase() === lower) return true;
+  }
+  return false;
+}
+
 /** Try to extract a deal/company reference from action item text */
 function extractDealReference(text: string): string {
   // First: check against known deal names from DB (supports single-word names like "Supernova")
@@ -359,31 +371,43 @@ function extractDealReference(text: string): string {
     const textLower = text.toLowerCase();
     for (const name of _knownDealNames) {
       if (name.length < 3) continue; // skip very short names
-      if (textLower.includes(name.toLowerCase())) {
+      // Skip if the "deal name" is actually a team member name
+      if (isTeamMemberName(name)) continue;
+      const nameLower = name.toLowerCase();
+      // For short names (≤4 chars like "CES"), require word boundary to avoid
+      // substring false positives (e.g. "sequences" containing "ces")
+      if (name.length <= 4) {
+        const wordBoundaryRegex = new RegExp(`\\b${nameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        if (wordBoundaryRegex.test(text)) {
+          return name;
+        }
+      } else if (textLower.includes(nameLower)) {
         return name;
       }
     }
   }
 
   // Fallback: regex patterns for capitalized multi-word names
+  // Only match after prepositions that strongly indicate a company name follows
   const patterns = [
-    /(?:owner of|for|regarding|about|on)\s+([A-Z][A-Za-z'']+(?:\s+[A-Z&][A-Za-z'']*)*)/,
+    /(?:owner of|regarding)\s+([A-Z][A-Za-z'']+(?:\s+[A-Z&][A-Za-z'']*)*)/,
     /([A-Z][A-Za-z'']+(?:\s+[A-Z&][A-Za-z'']*){1,4})\s+(?:deal|listing|company|business)/i,
   ];
-
-  const commonWords = new Set([
-    'The', 'This', 'That', 'These', 'Those', 'Team',
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
-    'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
-  ]);
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) {
       const ref = match[1]?.trim();
-      if (ref && !commonWords.has(ref)) {
-        return ref;
-      }
+      if (!ref) continue;
+      // Reject if it matches a non-deal term or team member name
+      if (isTeamMemberName(ref)) continue;
+      if (NON_DEAL_TERMS.has(ref)) continue;
+      // Also reject each word individually for multi-word matches
+      const words = ref.split(/\s+/);
+      if (words.some(w => NON_DEAL_TERMS.has(w) || isTeamMemberName(w))) continue;
+      // Reject generic verbs/adjectives that got captured
+      if (/^(Enrich|Follow|Start|Build|Create|Update|Check|Get|Go|Meet|Show)\b/i.test(ref)) continue;
+      return ref;
     }
   }
 
@@ -510,6 +534,29 @@ function parseTimestampToSeconds(ts: string): number | null {
 /** Known deal names loaded from DB for single-word matching */
 let _knownDealNames: string[] = [];
 
+/** Team member names to exclude from deal reference matching */
+let _teamMemberNames: Set<string> = new Set();
+
+/** Common non-deal terms to exclude from deal reference regex fallback */
+const NON_DEAL_TERMS = new Set([
+  // People / roles
+  'Alia', 'Ali', 'Bill', 'Brandon', 'Oz', 'Tomos', 'Tom', 'Sean', 'Kyle', 'Mile', 'Patrick',
+  'Unassigned', 'Speaker',
+  // Geographic
+  'California', 'Louisiana', 'Missouri', 'New Mexico', 'Texas', 'Florida', 'Oregon',
+  'Northeast', 'Southeast', 'Midwest', 'Southwest', 'Pacific Northwest',
+  'Orlando', 'Seattle', 'Modesto',
+  // Lead sources / platforms (not deals)
+  'GP Partners', 'Giuseppe', 'Fireflies', 'SmartLead', 'Smart Lead', 'Salesforce',
+  'LinkedIn', 'Source Co', 'SourceCo', 'Valuation Leads',
+  // Generic terms the regex catches
+  'Team', 'Today', 'Everyone', 'Guys',
+  // Days / months (expanded)
+  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]);
+
 async function loadActiveDealNames(supabase: ReturnType<typeof createClient>): Promise<string[]> {
   const { data } = await supabase
     .from('deal_pipeline')
@@ -620,14 +667,13 @@ function buildExtractionPrompt(
 
   return `You are a task extraction engine for an M&A advisory firm's daily standup meeting.
 
-Your job is to parse the meeting transcript and extract ONLY tasks directly related to deals, sellers/owners, and buyers. Ignore everything else.
+Your job is to parse the meeting transcript and extract ONLY tasks directly related to specific deals, sellers/owners, and buyers. Ignore everything else.
 
 ## CRITICAL: Extract Only Deal & Buyer Tasks
-ONLY extract tasks that involve one or more of:
-- A specific deal, listing, or company being sold
-- A specific buyer, buyer group, PE firm, or acquirer
-- A specific seller, owner, or business owner
-- Deal process steps (NDAs, IOIs, LOIs, due diligence, teasers, CIMs)
+ONLY extract tasks that involve ALL of:
+- A specific deal, listing, or company being sold (you MUST be able to name it)
+- OR a specific buyer, buyer group, PE firm, or acquirer (you MUST be able to name it)
+- AND a clear action someone needs to take
 
 DO NOT extract tasks related to:
 - Platform/dev work (bugs, deployments, code, APIs, integrations, data migrations, enrichment)
@@ -635,9 +681,20 @@ DO NOT extract tasks related to:
 - Internal tools or CRM system updates (unless updating a specific deal's status)
 - General team coordination, meetings, or scheduling that isn't deal-specific
 - Marketing, social media, or general business development without a specific deal/buyer
+- Building call lists, enriching data, or process improvements (these are operational, not deal tasks)
+- Discussions about how to use the platform or system training
 
 ## Team Members
 ${memberList}
+
+## CRITICAL: Task Assignment Rules
+Every task MUST be assigned to the correct team member. Listen carefully to WHO commits to doing something:
+- If someone says "I'll do X" or "I'll call X" → assign to THAT SPEAKER
+- If someone says "[Name], can you do X" or "[Name] should do X" → assign to the NAMED person
+- If the group agrees someone should do something → assign to that person
+- NEVER set assignee_name to "Unassigned" if you can determine who should do it from context
+- Use the EXACT team member name from the list above (not nicknames or shortened names)
+- If someone delegates to another person, the assignee is the DELEGATEE, not the delegator
 
 ## Task Types (use ONLY these)
 - contact_owner: Reach out to a business owner about a deal
@@ -666,17 +723,21 @@ Use professional, standardized title case. Follow these patterns:
 - Reconnecting → "Reconnect with [Company/Person]"
 Always capitalize company names. Use title case (capitalize major words, lowercase prepositions like "for", "of", "to", "with").
 
+## CRITICAL: One Task Per Deal
+If someone mentions multiple deals in one sentence (e.g., "work on CES, then Rejuve, then Legacy Corp"), create SEPARATE tasks for EACH deal. Never bundle multiple deals into one task.
+
 ## Extraction Rules
-1. A task MUST reference a specific deal, company, buyer, or seller — no generic tasks
+1. A task MUST reference a specific deal, company, buyer, or seller BY NAME — no generic tasks
 2. Each task must have: title, description, assignee_name, task_type, due_date, confidence, deal_reference
-3. If no specific person is named for a task, set assignee_name to "Unassigned"
+3. deal_reference is REQUIRED — set it to the specific company/deal/buyer name mentioned. If no specific entity is named, do NOT extract the task
 4. Default due_date is "${today}" unless context implies multi-day (e.g., "this week" = end of week)
 5. Include source_timestamp (approximate time in meeting like "2:30") if discernible
-6. deal_reference is REQUIRED — set it to the company/deal name mentioned. If no deal is mentioned, do NOT extract the task
-7. Ignore general discussion, opinions, and status updates that don't create new actions
-8. Do NOT extract duplicate tasks — if the same action is discussed multiple times, only extract it once
-9. Set confidence to "high" if the task and assignee are explicitly stated, "medium" if inferred from context, "low" if ambiguous
-10. When someone says "call" or "email" about a deal, classify it as the most specific type (contact_owner, follow_up_with_buyer, send_materials, etc.) — NOT as a generic action
+6. Ignore general discussion, opinions, and status updates that don't create new actions
+7. Do NOT extract duplicate tasks — if the same action is discussed multiple times, only extract it once
+8. Set confidence to "high" if the task and assignee are explicitly stated, "medium" if inferred from context, "low" if ambiguous
+9. When someone says "call" or "email" about a deal, classify it as the most specific type (contact_owner, follow_up_with_buyer, send_materials, etc.) — NOT as a generic action
+10. Do NOT confuse people's names with deal/company names. Team member names are NEVER deal references
+11. Lead sources like "GP Partners", "valuation leads", "referral leads" are NOT deal names — only use the actual company/business name
 
 ## Output Format
 Return a JSON array of task objects. Example:
@@ -684,7 +745,7 @@ Return a JSON array of task objects. Example:
   {
     "title": "Call Owner of Smith Manufacturing",
     "description": "Owner hasn't responded to last email. Try calling directly.",
-    "assignee_name": "Tom",
+    "assignee_name": "Bill Martin",
     "task_type": "contact_owner",
     "due_date": "${today}",
     "source_timestamp": "3:45",
@@ -887,15 +948,14 @@ function matchAssignee(name: string, teamMembers: TeamMember[]): string | null {
     }
   }
 
-  // Pass 4: fuzzy containment — require minimum 3 characters to avoid false positives
-  if (lower.length >= 3) {
-    for (const m of teamMembers) {
-      if (
-        m.name.toLowerCase().includes(lower) ||
-        lower.includes(m.name.toLowerCase()) ||
-        (m.first_name.length >= 3 && lower.includes(m.first_name.toLowerCase())) ||
-        (m.last_name.length >= 3 && lower.includes(m.last_name.toLowerCase()))
-      ) {
+  // Pass 4: first-name-in-full-speaker-name — handles "Oz De La Luna" matching "Oz"
+  // Only match if the speaker name STARTS with the team member's first name
+  // (avoids false positives from substring containment)
+  for (const m of teamMembers) {
+    if (m.first_name.length >= 2) {
+      const firstLower = m.first_name.toLowerCase();
+      // Speaker name starts with first name + space or end of string
+      if (lower === firstLower || lower.startsWith(firstLower + ' ')) {
         return m.id;
       }
     }
@@ -1173,15 +1233,15 @@ async function processSingleMeeting(
     task.title = standardizeTaskTitle(task.title, task.deal_reference);
   }
 
-  // Filter: only keep deal/buyer-related tasks
+  // Filter: only keep deal/buyer-related tasks with a real deal reference
   const preFilterCount = extractedTasks.length;
   extractedTasks = extractedTasks.filter((task) => {
     // Drop non-deal categories
     if (task.task_category === 'platform_task' || task.task_category === 'operations_task') {
       return false;
     }
-    // Drop tasks with no deal reference and generic type
-    if (!task.deal_reference && task.task_type === 'other') {
+    // Require a deal_reference for ALL tasks — no generic tasks without a deal/company
+    if (!task.deal_reference) {
       return false;
     }
     return true;
@@ -1222,6 +1282,30 @@ async function processSingleMeeting(
   let dedupCount = 0;
   for (const task of extractedTasks) {
     const assigneeId = matchAssignee(task.assignee_name, teamMembers);
+
+    // Auto-create alias if speaker name matched but isn't already a known alias
+    if (assigneeId && task.assignee_name && task.assignee_name !== 'Unassigned') {
+      const speakerLower = task.assignee_name.toLowerCase().trim();
+      const matchedMember = teamMembers.find(m => m.id === assigneeId);
+      if (matchedMember) {
+        const existingAliases = new Set([
+          matchedMember.name.toLowerCase(),
+          matchedMember.first_name.toLowerCase(),
+          matchedMember.last_name.toLowerCase(),
+          ...matchedMember.aliases.map(a => a.toLowerCase()),
+        ]);
+        if (!existingAliases.has(speakerLower)) {
+          // Save new alias for future matching (fire-and-forget)
+          supabase.from('team_member_aliases').upsert(
+            { profile_id: assigneeId, alias: task.assignee_name.trim() },
+            { onConflict: 'profile_id,alias' },
+          ).then(({ error }) => {
+            if (error) console.warn(`[alias] Failed to save alias "${task.assignee_name}" for ${matchedMember.name}: ${error.message}`);
+            else console.log(`[alias] Auto-saved alias "${task.assignee_name}" → ${matchedMember.name}`);
+          });
+        }
+      }
+    }
 
     // Recurring task dedup: skip if same task already open for this assignee
     if (await findRecurringTask(supabase, assigneeId, task.title)) {
@@ -1363,6 +1447,17 @@ serve(async (req) => {
     // Load known deal names for single-word deal matching
     _knownDealNames = await loadActiveDealNames(supabase);
     console.log(`Loaded ${_knownDealNames.length} known deal names`);
+
+    // Build team member name exclusion set for deal reference matching
+    _teamMemberNames = new Set<string>();
+    for (const m of teamMembers) {
+      if (m.name) _teamMemberNames.add(m.name.toLowerCase());
+      if (m.first_name) _teamMemberNames.add(m.first_name.toLowerCase());
+      if (m.last_name) _teamMemberNames.add(m.last_name.toLowerCase());
+      for (const alias of m.aliases) {
+        _teamMemberNames.add(alias.toLowerCase());
+      }
+    }
 
     // Check auto-approve setting from app_settings table
     let autoApproveEnabled = true;
