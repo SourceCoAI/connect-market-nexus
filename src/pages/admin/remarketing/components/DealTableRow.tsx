@@ -63,6 +63,7 @@ export const DealTableRow = ({
   onToggleBuyerSearch,
   onUpdateRank,
   onMarkNotAFit,
+  onRemoveNotAFit,
   adminProfiles,
   onAssignOwner,
   universesByListing,
