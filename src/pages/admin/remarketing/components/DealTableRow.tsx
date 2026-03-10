@@ -91,6 +91,7 @@ export const DealTableRow = ({
   onToggleBuyerSearch: (dealId: string, currentStatus: boolean) => void;
   onUpdateRank: (dealId: string, newRank: number) => Promise<void> | void;
   onMarkNotAFit?: (dealId: string, dealName: string) => void;
+  onRemoveNotAFit?: (dealId: string) => void;
   adminProfiles?: Record<
     string,
     { id: string; email: string; first_name: string; last_name: string; displayName: string }
