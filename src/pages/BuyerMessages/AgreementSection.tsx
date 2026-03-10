@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { CheckCircle, Download, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
+import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
 import { useAuth } from '@/context/AuthContext';
 import { resolveAgreementStatus, type AgreementDisplayStatus } from '@/lib/agreement-status';
 
@@ -20,12 +20,12 @@ function buildDocItem(
   label: string,
   signed: boolean | null,
   signedAt: string | null,
-  docusealStatus: string | null,
+  pandadocStatus: string | null,
   signedDocUrl: string | null,
   draftUrl: string | null,
   _pendingNotifications: Record<string, unknown>[],
 ): DocItem {
-  const status = resolveAgreementStatus(!!signed, docusealStatus);
+  const status = resolveAgreementStatus(!!signed, pandadocStatus);
 
   const descriptions: Record<AgreementDisplayStatus, string> = {
     signed: signedAt ? `Signed ${formatDistanceToNow(new Date(signedAt), { addSuffix: true })}` : 'Signed',
@@ -72,16 +72,16 @@ export function PendingAgreementBanner() {
     buildDocItem(
       'nda', 'NDA',
       fs.nda_signed as boolean | null, fs.nda_signed_at as string | null,
-      (fs.nda_docuseal_status ?? fs.nda_status) as string | null,
-      (fs.nda_signed_document_url ?? null) as string | null,
+      (fs.nda_pandadoc_status ?? fs.nda_status) as string | null,
+      (fs.nda_pandadoc_signed_url ?? null) as string | null,
       (fs.nda_document_url ?? null) as string | null,
       pendingNotifications as Record<string, unknown>[],
     ),
     buildDocItem(
       'fee_agreement', 'Fee Agreement',
       fs.fee_agreement_signed as boolean | null, fs.fee_agreement_signed_at as string | null,
-      (fs.fee_docuseal_status ?? fs.fee_agreement_status) as string | null,
-      (fs.fee_signed_document_url ?? fs.fee_agreement_signed_document_url ?? null) as string | null,
+      (fs.fee_pandadoc_status ?? fs.fee_agreement_status) as string | null,
+      (fs.fee_pandadoc_signed_url ?? fs.fee_agreement_signed_document_url ?? null) as string | null,
       (fs.fee_agreement_document_url ?? null) as string | null,
       pendingNotifications as Record<string, unknown>[],
     ),

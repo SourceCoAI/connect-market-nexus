@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import ConnectionRequestDialog from '@/components/connection/ConnectionRequestDialog';
-import { FeeAgreementGate } from '@/components/docuseal/FeeAgreementGate';
+import { FeeAgreementGate } from '@/components/pandadoc/FeeAgreementGate';
 import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useAuth } from '@/context/AuthContext';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
+import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
 import { useRealtime } from '@/components/realtime/RealtimeProvider';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { Send, XCircle, AlertCircle } from 'lucide-react';

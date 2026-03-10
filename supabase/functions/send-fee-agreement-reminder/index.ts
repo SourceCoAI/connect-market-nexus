@@ -42,10 +42,10 @@ serve(async (req: Request) => {
       .select(
         `
         id, primary_company_name, email_domain,
-        fee_docuseal_status, fee_agreement_email_sent_at
+        fee_pandadoc_status, fee_agreement_email_sent_at
       `,
       )
-      .eq('fee_docuseal_status', 'pending')
+      .eq('fee_pandadoc_status', 'pending')
       .eq('fee_agreement_email_sent', true)
       .not('fee_agreement_email_sent_at', 'is', null)
       .eq('fee_agreement_signed', false);
@@ -77,7 +77,7 @@ serve(async (req: Request) => {
 
       // Dedup check
       const { data: existingLog } = await supabase
-        .from('docuseal_webhook_log')
+        .from('pandadoc_webhook_log')
         .select('id')
         .eq('external_id', firm.id)
         .eq('event_type', `fee_reminder_${reminderType}`)
@@ -160,11 +160,11 @@ serve(async (req: Request) => {
 
         if (brevoResponse.ok) {
           remindersSent++;
-          await supabase.from('docuseal_webhook_log').insert({
+          await supabase.from('pandadoc_webhook_log').insert({
             event_type: `fee_reminder_${reminderType}`,
             external_id: firm.id,
             document_type: 'fee_agreement',
-            submission_id: 'reminder',
+            document_id: 'reminder',
             raw_payload: { reminder_type: reminderType },
             processed_at: new Date().toISOString(),
           });

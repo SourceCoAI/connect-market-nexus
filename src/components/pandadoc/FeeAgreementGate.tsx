@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-import { DocuSealSigningPanel } from './DocuSealSigningPanel';
+import { PandaDocSigningPanel } from './PandaDocSigningPanel';
 import { Button } from '@/components/ui/button';
 import { FileText, ArrowLeft, Loader2, ArrowRight, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,13 +19,12 @@ interface FeeAgreementGateProps {
 /**
  * Full-screen modal overlay that intercepts connection request flow
  * when the buyer's firm hasn't signed a fee agreement.
- * Modeled on NdaGateModal but with fee agreement education copy.
  */
 export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, onSigned, onDismiss }: FeeAgreementGateProps) {
   void _listingTitle; // reserved for future use
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [embedSrc, setEmbedSrc] = useState<string | null>(null);
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [signed, setSigned] = useState(false);
@@ -34,7 +33,7 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
   useEffect(() => {
     let cancelled = false;
 
-    const fetchEmbedSrc = async () => {
+    const fetchEmbedUrl = async () => {
       try {
         const { data, error: fnError } = await supabase.functions.invoke('get-buyer-fee-embed');
 
@@ -43,10 +42,9 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
         if (fnError) {
           setError('Failed to prepare fee agreement signing form');
         } else if (data?.feeSigned) {
-          // Already signed, proceed directly
           onSigned();
-        } else if (data?.embedSrc) {
-          setEmbedSrc(data.embedSrc);
+        } else if (data?.embedUrl) {
+          setEmbedUrl(data.embedUrl);
         } else {
           setError('Fee agreement signing form not available. Please contact support.');
         }
@@ -61,7 +59,7 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
       }
     };
 
-    fetchEmbedSrc();
+    fetchEmbedUrl();
     return () => { cancelled = true; };
   }, [userId, firmId, onSigned]);
 
@@ -75,15 +73,6 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
   }, [queryClient]);
 
   const handleSigned = async () => {
-    // Immediately confirm with backend — updates DB, creates notifications & messages
-    try {
-      await supabase.functions.invoke('confirm-agreement-signed', {
-        body: { documentType: 'fee_agreement' },
-      });
-    } catch (err) {
-      console.error('Failed to confirm signing:', err);
-    }
-
     invalidateAllCaches();
     setSigned(true);
   };
@@ -137,7 +126,6 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="fee-gate-title">
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-2xl space-y-6">
-          {/* Header */}
           <div className="text-center space-y-3">
             <div className="inline-flex p-3 rounded-full bg-primary/10">
               <FileText className="h-8 w-8 text-primary" />
@@ -148,7 +136,6 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
             </p>
           </div>
 
-          {/* Education Cards */}
           <div className="space-y-3">
             <div className="bg-muted/50 border border-border rounded-lg p-4">
               <h4 className="text-sm font-semibold mb-1">What is a fee agreement?</h4>
@@ -156,7 +143,6 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
                 A fee agreement is a standard document that confirms our working relationship as your deal source for this and future transactions. It covers the success fee SourceCo earns if and when a deal closes — nothing more.
               </p>
             </div>
-
             <div className="bg-muted/50 border border-border rounded-lg p-4">
               <h4 className="text-sm font-semibold mb-1">What you're agreeing to</h4>
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -166,7 +152,6 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
                 The agreement covers all deals you close through SourceCo.
               </p>
             </div>
-
             <div className="bg-muted/50 border border-border rounded-lg p-4">
               <h4 className="text-sm font-semibold mb-1">Why we ask for this before your first request</h4>
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -178,7 +163,6 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
             </div>
           </div>
 
-          {/* Signing Form */}
           {isLoading && (
             <div className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-3">
@@ -197,10 +181,10 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
             </div>
           )}
 
-          {embedSrc && (
+          {embedUrl && (
             <>
-              <DocuSealSigningPanel
-                embedSrc={embedSrc}
+              <PandaDocSigningPanel
+                embedUrl={embedUrl}
                 onCompleted={handleSigned}
                 successMessage="Fee Agreement signed successfully."
                 successDescription="You're all set. Continue to submit your connection request."
@@ -208,7 +192,6 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
                 description="Standard success-fee agreement — review and sign below to continue."
               />
 
-              {/* Download draft + contact */}
               <div className="flex items-center justify-between">
                 <Button
                   variant="ghost"
@@ -234,7 +217,7 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
             </>
           )}
 
-          {!embedSrc && !isLoading && !error && (
+          {!embedUrl && !isLoading && !error && (
             <p className="text-xs text-muted-foreground text-center">
               Questions about the fee agreement? Email{' '}
               <a href={`mailto:${APP_CONFIG.adminEmail}`} className="text-primary hover:underline">{APP_CONFIG.adminEmail}</a>
@@ -242,7 +225,6 @@ export function FeeAgreementGate({ userId, firmId, listingTitle: _listingTitle, 
             </p>
           )}
 
-          {/* Navigation */}
           <div className="text-center">
             <Button
               variant="ghost"

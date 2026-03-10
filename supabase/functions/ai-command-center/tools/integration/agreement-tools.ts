@@ -1,6 +1,6 @@
 /**
  * Integration Agreement Tools
- * Send NDAs and Fee Agreements for signing via DocuSeal.
+ * Send NDAs and Fee Agreements for signing via PandaDoc.
  */
 
 import type { SupabaseClient, ClaudeTool, ToolResult } from './common.ts';
@@ -11,7 +11,7 @@ export const agreementToolDefinitions: ClaudeTool[] = [
   {
     name: 'send_document',
     description:
-      'Send an NDA or Fee Agreement for signing via DocuSeal. Creates a signing submission and notifies the buyer. REQUIRES CONFIRMATION. Use when the user says "send the NDA to [name]" or "send the fee agreement to [firm]".',
+      'Send an NDA or Fee Agreement for signing via PandaDoc. Creates a signing document and notifies the buyer. REQUIRES CONFIRMATION. Use when the user says "send the NDA to [name]" or "send the fee agreement to [firm]".',
     input_schema: {
       type: 'object',
       properties: {
@@ -71,18 +71,18 @@ export async function sendDocument(
     return { error: "Invalid document_type. Must be 'nda' or 'fee_agreement'" };
   }
 
-  // Get DocuSeal config
-  const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
-  if (!docusealApiKey) {
-    return { error: 'DocuSeal is not configured. Contact your administrator.' };
+  // Get PandaDoc config
+  const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
+  if (!pandadocApiKey) {
+    return { error: 'PandaDoc is not configured. Contact your administrator.' };
   }
 
-  const templateId =
+  const templateUuid =
     documentType === 'nda'
-      ? Deno.env.get('DOCUSEAL_NDA_TEMPLATE_ID')
-      : Deno.env.get('DOCUSEAL_FEE_TEMPLATE_ID');
+      ? Deno.env.get('PANDADOC_NDA_TEMPLATE_UUID')
+      : Deno.env.get('PANDADOC_FEE_TEMPLATE_UUID');
 
-  if (!templateId) {
+  if (!templateUuid) {
     return { error: `Template not configured for ${documentType}` };
   }
 
@@ -97,29 +97,38 @@ export async function sendDocument(
     return { error: `Firm not found with ID: ${firmId}` };
   }
 
-  // Call DocuSeal API
+  // Call PandaDoc API — Step 1: Create document
+  const nameParts = signerName.split(/\s+/);
+  const firstName = nameParts[0] || signerName;
+  const lastName = nameParts.slice(1).join(' ') || '';
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
 
-  let docusealResponse: Response;
+  let pandadocResponse: Response;
   try {
-    docusealResponse = await fetch('https://api.docuseal.com/submissions', {
+    pandadocResponse = await fetch('https://api.pandadoc.com/public/v1/documents', {
       method: 'POST',
       headers: {
-        'X-Auth-Token': docusealApiKey,
+        'Authorization': `API-Key ${pandadocApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        template_id: parseInt(templateId),
-        send_email: deliveryMode === 'email',
-        submitters: [
+        name: `${documentType === 'nda' ? 'NDA' : 'Fee Agreement'} — ${signerName}`,
+        template_uuid: templateUuid,
+        recipients: [
           {
-            role: 'First Party',
             email: signerEmail,
-            name: signerName,
-            external_id: firmId,
+            first_name: firstName,
+            last_name: lastName,
+            role: 'Signer',
           },
         ],
+        metadata: {
+          firm_id: firmId,
+          document_type: documentType,
+        },
+        tags: [documentType, `firm:${firmId}`],
       }),
       signal: controller.signal,
     });
@@ -127,21 +136,35 @@ export async function sendDocument(
     clearTimeout(timeout);
     const fetchError = err as { name?: string };
     if (fetchError.name === 'AbortError') {
-      return { error: 'DocuSeal API timeout. Please try again.' };
+      return { error: 'PandaDoc API timeout. Please try again.' };
     }
     throw err;
   } finally {
     clearTimeout(timeout);
   }
 
-  if (!docusealResponse.ok) {
-    console.error('DocuSeal API error:', await docusealResponse.text());
-    return { error: 'Failed to create signing submission. Please try again.' };
+  if (!pandadocResponse.ok) {
+    console.error('PandaDoc API error:', await pandadocResponse.text());
+    return { error: 'Failed to create signing document. Please try again.' };
   }
 
-  const docusealResult = await docusealResponse.json();
-  const submitter = Array.isArray(docusealResult) ? docusealResult[0] : docusealResult;
-  const submissionId = String(submitter.submission_id || submitter.id);
+  const pandadocResult = await pandadocResponse.json();
+  const documentId = pandadocResult.id;
+
+  // Step 2: Send the document
+  await new Promise((r) => setTimeout(r, 2000));
+  const sendSilent = deliveryMode !== 'email';
+  await fetch(`https://api.pandadoc.com/public/v1/documents/${documentId}/send`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `API-Key ${pandadocApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      message: `Please review and sign the ${documentType === 'nda' ? 'NDA' : 'Fee Agreement'} to proceed.`,
+      silent: sendSilent,
+    }),
+  });
 
   // Update firm_agreements
   const columnPrefix = documentType === 'nda' ? 'nda' : 'fee';
@@ -152,8 +175,8 @@ export async function sendDocument(
   await supabase
     .from('firm_agreements')
     .update({
-      [`${columnPrefix}_docuseal_submission_id`]: submissionId,
-      [`${columnPrefix}_docuseal_status`]: 'pending',
+      [`${columnPrefix}_pandadoc_document_id`]: documentId,
+      [`${columnPrefix}_pandadoc_status`]: 'pending',
       [statusColumn]: 'sent',
       [sentAtColumn]: now,
       updated_at: now,
@@ -161,9 +184,9 @@ export async function sendDocument(
     .eq('id', firmId);
 
   // Log the event
-  await supabase.from('docuseal_webhook_log').insert({
-    event_type: 'submission_created',
-    submission_id: submissionId,
+  await supabase.from('pandadoc_webhook_log').insert({
+    event_type: 'document_created',
+    document_id: documentId,
     document_type: documentType,
     external_id: firmId,
     raw_payload: { created_by: userId, source: 'ai_command_center' },
@@ -191,7 +214,7 @@ export async function sendDocument(
       metadata: {
         document_type: documentType,
         firm_id: firmId,
-        submission_id: submissionId,
+        document_id: documentId,
         delivery_mode: deliveryMode,
         source: 'ai_command_center',
       },
@@ -202,12 +225,12 @@ export async function sendDocument(
   return {
     data: {
       success: true,
-      submission_id: submissionId,
+      document_id: documentId,
       document_type: documentType,
       delivery_mode: deliveryMode,
       firm_name: firm.primary_company_name,
       signer: signerName,
-      message: `${docLabel} sent to ${signerName} (${signerEmail}) for ${firm.primary_company_name} via ${deliveryMode}. Submission ID: ${submissionId}`,
+      message: `${docLabel} sent to ${signerName} (${signerEmail}) for ${firm.primary_company_name} via ${deliveryMode}. Document ID: ${documentId}`,
     },
   };
 }

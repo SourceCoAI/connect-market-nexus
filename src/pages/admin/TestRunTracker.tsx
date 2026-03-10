@@ -31,7 +31,7 @@ import type { TestRunRow, TestResultRow } from '@/hooks/useTestRunTracking';
 const RUN_TYPE_LABELS: Record<string, string> = {
   run_all: 'Run All Suites',
   system: 'System Tests',
-  docuseal: 'DocuSeal Health',
+  pandadoc: 'PandaDoc Health',
   chatbot_infra: 'Chatbot Infra',
   chatbot_scenarios: 'Chatbot Scenarios',
   '30q': '30-Question QA',

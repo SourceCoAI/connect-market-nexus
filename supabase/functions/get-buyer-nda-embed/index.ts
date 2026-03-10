@@ -5,10 +5,17 @@ import { requireAuth } from '../_shared/auth.ts';
 
 /**
  * get-buyer-nda-embed
- * Buyer-facing endpoint: returns the DocuSeal embed_src for the buyer's NDA.
+ * Buyer-facing endpoint: returns the PandaDoc embedded signing session URL for the buyer's NDA.
  * Uses deterministic firm resolution: active connection_request.firm_id first,
  * then fallback to latest firm_members by added_at.
+ *
+ * PandaDoc flow:
+ *   - If document exists: POST /public/v1/documents/{id}/session for fresh session token
+ *   - If no document: create one via PandaDoc API, then get session
+ *   - Returns embedUrl: https://app.pandadoc.com/s/{token}?embedded=1
  */
+
+const PANDADOC_API_BASE = 'https://api.pandadoc.com/public/v1';
 
 async function resolveFirmId(supabaseAdmin: ReturnType<typeof createClient>, userId: string): Promise<string | null> {
   // Priority 1: Most recent active connection_request with non-null firm_id
@@ -34,6 +41,34 @@ async function resolveFirmId(supabaseAdmin: ReturnType<typeof createClient>, use
     .maybeSingle();
 
   return membership?.firm_id || null;
+}
+
+async function createPandaDocSession(
+  pandadocApiKey: string,
+  documentId: string,
+  recipientEmail: string,
+): Promise<string | null> {
+  const sessionResponse = await fetch(
+    `${PANDADOC_API_BASE}/documents/${documentId}/session`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `API-Key ${pandadocApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipient: recipientEmail,
+        lifetime: 3600,
+      }),
+    },
+  );
+
+  if (sessionResponse.ok) {
+    const result = await sessionResponse.json();
+    return result.id || null;
+  }
+  console.warn(`⚠️ Failed to create PandaDoc session: HTTP ${sessionResponse.status}`);
+  return null;
 }
 
 serve(async (req: Request) => {
@@ -73,7 +108,7 @@ serve(async (req: Request) => {
     // Get firm agreement
     const { data: firm } = await supabaseAdmin
       .from('firm_agreements')
-      .select('id, nda_signed, nda_docuseal_submission_id, nda_docuseal_status')
+      .select('id, nda_signed, nda_pandadoc_document_id, nda_pandadoc_status')
       .eq('id', firmId)
       .single();
 
@@ -86,7 +121,7 @@ serve(async (req: Request) => {
 
     // If already signed, no embed needed
     if (firm.nda_signed) {
-      return new Response(JSON.stringify({ ndaSigned: true, embedSrc: null, resolvedFirmId: firmId }), {
+      return new Response(JSON.stringify({ ndaSigned: true, embedUrl: null, resolvedFirmId: firmId }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
@@ -109,192 +144,194 @@ serve(async (req: Request) => {
     const buyerName =
       `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email;
 
-    const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
-    if (!docusealApiKey) {
-      return new Response(JSON.stringify({ error: 'DocuSeal not configured' }), {
+    const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
+    if (!pandadocApiKey) {
+      return new Response(JSON.stringify({ error: 'PandaDoc not configured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    if (firm.nda_docuseal_submission_id) {
+    // If we have an existing PandaDoc document, get a fresh session
+    if (firm.nda_pandadoc_document_id) {
+      // Check document status via PandaDoc API for self-healing
       const fetchController = new AbortController();
       const fetchTimeout = setTimeout(() => fetchController.abort(), 15000);
-      let submitterRes: Response;
       try {
-        submitterRes = await fetch(
-          `https://api.docuseal.com/submitters?submission_id=${firm.nda_docuseal_submission_id}`,
+        const statusRes = await fetch(
+          `${PANDADOC_API_BASE}/documents/${firm.nda_pandadoc_document_id}`,
           {
-            headers: { 'X-Auth-Token': docusealApiKey },
+            headers: { 'Authorization': `API-Key ${pandadocApiKey}` },
             signal: fetchController.signal,
           },
         );
+
+        if (statusRes.ok) {
+          const docData = await statusRes.json();
+
+          // Self-heal: if PandaDoc says completed but our DB doesn't reflect it
+          if (docData.status === 'document.completed') {
+            const now = new Date().toISOString();
+            await supabaseAdmin
+              .from('firm_agreements')
+              .update({
+                nda_signed: true,
+                nda_signed_at: now,
+                nda_pandadoc_status: 'completed',
+                nda_status: 'signed',
+                updated_at: now,
+              })
+              .eq('id', firmId);
+
+            const { data: members } = await supabaseAdmin
+              .from('firm_members')
+              .select('user_id')
+              .eq('firm_id', firmId);
+            if (members?.length) {
+              for (const member of members) {
+                await supabaseAdmin
+                  .from('profiles')
+                  .update({ nda_signed: true, nda_signed_at: now, updated_at: now })
+                  .eq('id', member.user_id);
+              }
+            }
+
+            console.log(`🔧 Self-healed: NDA for firm ${firmId} marked as signed`);
+            return new Response(JSON.stringify({ ndaSigned: true, embedUrl: null, resolvedFirmId: firmId }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+          }
+
+          // Document exists and is not completed — create a fresh session
+          const sessionToken = await createPandaDocSession(
+            pandadocApiKey,
+            firm.nda_pandadoc_document_id,
+            profile.email,
+          );
+
+          if (sessionToken) {
+            const embedUrl = `https://app.pandadoc.com/s/${sessionToken}?embedded=1`;
+            return new Response(JSON.stringify({ ndaSigned: false, embedUrl, resolvedFirmId: firmId }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+          }
+        }
       } finally {
         clearTimeout(fetchTimeout);
       }
-
-      if (submitterRes.ok) {
-        const submitters = await submitterRes.json();
-        const data = Array.isArray(submitters?.data)
-          ? submitters.data
-          : Array.isArray(submitters)
-            ? submitters
-            : [];
-        const submitter =
-          data.find(
-            (s: { email?: string; embed_src?: string; status?: string }) =>
-              s.email === profile.email,
-          ) || data[0];
-
-        // Self-heal: if DocuSeal says completed but our DB doesn't reflect it
-        if (submitter?.status === 'completed') {
-          const now = new Date().toISOString();
-          const docUrl = submitter.documents?.[0]?.url || null;
-          await supabaseAdmin
-            .from('firm_agreements')
-            .update({
-              nda_signed: true,
-              nda_signed_at: now,
-              nda_docuseal_status: 'completed',
-              nda_status: 'signed',
-              ...(docUrl ? { nda_signed_document_url: docUrl, nda_document_url: docUrl } : {}),
-              updated_at: now,
-            })
-            .eq('id', firmId);
-
-          const { data: members } = await supabaseAdmin
-            .from('firm_members')
-            .select('user_id')
-            .eq('firm_id', firmId);
-          if (members?.length) {
-            for (const member of members) {
-              await supabaseAdmin
-                .from('profiles')
-                .update({ nda_signed: true, nda_signed_at: now, updated_at: now })
-                .eq('id', member.user_id);
-            }
-          }
-
-          console.log(`🔧 Self-healed: NDA for firm ${firmId} marked as signed`);
-          return new Response(JSON.stringify({ ndaSigned: true, embedSrc: null, resolvedFirmId: firmId }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          });
-        }
-
-        if (submitter?.embed_src) {
-          return new Response(JSON.stringify({ ndaSigned: false, embedSrc: submitter.embed_src, resolvedFirmId: firmId }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          });
-        }
-
-        // Try individual submitter endpoint for embed_src
-        if (submitter?.id) {
-          const individualRes = await fetch(`https://api.docuseal.com/submitters/${submitter.id}`, {
-            headers: { 'X-Auth-Token': docusealApiKey },
-          });
-          if (individualRes.ok) {
-            const ind = await individualRes.json();
-            if (ind?.embed_src) {
-              return new Response(JSON.stringify({ ndaSigned: false, embedSrc: ind.embed_src, resolvedFirmId: firmId }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json', ...corsHeaders },
-              });
-            }
-            if (ind?.slug) {
-              return new Response(
-                JSON.stringify({ ndaSigned: false, embedSrc: `https://docuseal.com/s/${ind.slug}`, resolvedFirmId: firmId }),
-                { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-              );
-            }
-          }
-        }
-        if (submitter?.slug) {
-          return new Response(
-            JSON.stringify({ ndaSigned: false, embedSrc: `https://docuseal.com/s/${submitter.slug}`, resolvedFirmId: firmId }),
-            { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-          );
-        }
-      }
     }
 
-    // No existing submission — create new
-    const ndaTemplateId = Deno.env.get('DOCUSEAL_NDA_TEMPLATE_ID');
-    if (!ndaTemplateId) {
+    // No existing document — create new
+    const ndaTemplateUuid = Deno.env.get('PANDADOC_NDA_TEMPLATE_UUID');
+    if (!ndaTemplateUuid) {
       return new Response(JSON.stringify({ error: 'NDA template not configured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    const submissionPayload = {
-      template_id: Number(ndaTemplateId),
-      send_email: false,
-      submitters: [
-        {
-          role: 'First Party',
-          email: profile.email,
-          name: buyerName,
-          external_id: firmId,
-        },
-      ],
-    };
+    const nameParts = buyerName.split(/\s+/);
+    const firstName = nameParts[0] || buyerName;
+    const lastName = nameParts.slice(1).join(' ') || '';
 
+    // Step 1: Create document from template
     const createController = new AbortController();
     const createTimeout = setTimeout(() => createController.abort(), 15000);
-    let docusealResponse: Response;
+    let createResponse: Response;
     try {
-      docusealResponse = await fetch('https://api.docuseal.com/submissions', {
+      createResponse = await fetch(`${PANDADOC_API_BASE}/documents`, {
         method: 'POST',
         headers: {
-          'X-Auth-Token': docusealApiKey,
+          'Authorization': `API-Key ${pandadocApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(submissionPayload),
+        body: JSON.stringify({
+          name: `NDA — ${buyerName}`,
+          template_uuid: ndaTemplateUuid,
+          recipients: [
+            {
+              email: profile.email,
+              first_name: firstName,
+              last_name: lastName,
+              role: 'Signer',
+            },
+          ],
+          metadata: {
+            firm_id: firmId,
+            document_type: 'nda',
+          },
+          tags: ['nda', `firm:${firmId}`],
+        }),
         signal: createController.signal,
       });
     } finally {
       clearTimeout(createTimeout);
     }
 
-    if (!docusealResponse.ok) {
-      const errorText = await docusealResponse.text();
-      console.error('❌ DocuSeal API error:', errorText);
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error('❌ PandaDoc API error (create):', errorText);
       return new Response(JSON.stringify({ error: 'Failed to create signing form' }), {
         status: 502,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    const result = await docusealResponse.json();
-    const submitter = Array.isArray(result) ? result[0] : result;
-    const submissionId = String(submitter.submission_id || submitter.id);
-    const embedSrc = submitter.embed_src || null;
+    const createResult = await createResponse.json();
+    const documentId = createResult.id;
 
+    // Step 2: Send the document (silent — no email from PandaDoc)
+    await new Promise((r) => setTimeout(r, 2000));
+
+    const sendResponse = await fetch(`${PANDADOC_API_BASE}/documents/${documentId}/send`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `API-Key ${pandadocApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: 'Please review and sign the NDA to proceed.',
+        silent: true,
+      }),
+    });
+
+    if (!sendResponse.ok) {
+      console.error('❌ PandaDoc send failed:', await sendResponse.text());
+    }
+
+    // Step 3: Create signing session
+    const sessionToken = await createPandaDocSession(pandadocApiKey, documentId, profile.email);
+    const embedUrl = sessionToken
+      ? `https://app.pandadoc.com/s/${sessionToken}?embedded=1`
+      : null;
+
+    // Update DB
     const now = new Date().toISOString();
     await supabaseAdmin
       .from('firm_agreements')
       .update({
-        nda_docuseal_submission_id: submissionId,
-        nda_docuseal_status: 'pending',
+        nda_pandadoc_document_id: documentId,
+        nda_pandadoc_status: 'sent',
         nda_status: 'sent',
         nda_sent_at: now,
         updated_at: now,
       })
       .eq('id', firmId);
 
-    await supabaseAdmin.from('docuseal_webhook_log').insert({
-      event_type: 'submission_created',
-      submission_id: submissionId,
+    await supabaseAdmin.from('pandadoc_webhook_log').insert({
+      event_type: 'document_created',
+      document_id: documentId,
       document_type: 'nda',
       external_id: firmId,
+      signer_email: profile.email,
       raw_payload: { created_by_buyer: userId },
     });
 
-    console.log(`✅ Created NDA submission ${submissionId} for buyer ${userId} (firm ${firmId})`);
+    console.log(`✅ Created NDA document ${documentId} for buyer ${userId} (firm ${firmId})`);
 
-    return new Response(JSON.stringify({ ndaSigned: false, embedSrc, resolvedFirmId: firmId }), {
+    return new Response(JSON.stringify({ ndaSigned: false, embedUrl, resolvedFirmId: firmId }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });

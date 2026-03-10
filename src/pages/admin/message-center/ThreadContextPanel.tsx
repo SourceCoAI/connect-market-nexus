@@ -70,7 +70,7 @@ function useThreadBuyerFirm(userId: string | null) {
       const { data: firm } = await supabase
         .from('firm_agreements')
         .select(
-          'id, primary_company_name, nda_signed, nda_signed_at, nda_docuseal_status, nda_signed_document_url, nda_document_url, fee_agreement_signed, fee_agreement_signed_at, fee_docuseal_status, fee_signed_document_url, fee_agreement_document_url',
+          'id, primary_company_name, nda_signed, nda_signed_at, nda_pandadoc_status, nda_signed_document_url, nda_document_url, fee_agreement_signed, fee_agreement_signed_at, fee_pandadoc_status, fee_signed_document_url, fee_agreement_document_url',
         )
         .eq('id', firmId)
         .maybeSingle();
@@ -256,8 +256,8 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
   const { data: timeline = [], isLoading: timelineLoading } = useUserActivityTimeline(userId);
   const navigate = useNavigate();
 
-  const ndaStatus = firm ? resolveAgreementStatus(!!firm.nda_signed, firm.nda_docuseal_status) : null;
-  const feeStatus = firm ? resolveAgreementStatus(!!firm.fee_agreement_signed, firm.fee_docuseal_status) : null;
+  const ndaStatus = firm ? resolveAgreementStatus(!!firm.nda_signed, firm.nda_pandadoc_status) : null;
+  const feeStatus = firm ? resolveAgreementStatus(!!firm.fee_agreement_signed, firm.fee_pandadoc_status) : null;
 
   return (
     <div className="w-[280px] flex-shrink-0 flex flex-col min-h-0" style={{ borderLeft: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}>

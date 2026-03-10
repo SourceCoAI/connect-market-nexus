@@ -71,7 +71,7 @@ Following the February 20 audit that identified 15 critical action items across 
 
 **Improved:** RLS hardening across 10 migrations, USING(true) policies removed, saved_listings + connection_requests got RLS (had NONE), is_internal_deal=false enforced, all 6 SECURITY DEFINER RPCs got auth guards, CORS fixed on all 118 functions, comprehensive sanitization, CSP headers, MFA enforcement.
 
-**Still needs work:** Rate limiting primarily client-side, Lovable CORS patterns broad, DocuSeal trusted domains too permissive.
+**Still needs work:** Rate limiting primarily client-side, Lovable CORS patterns broad, PandaDoc trusted domains too permissive.
 
 ### 7. Performance — 6.5/10 (was 5.0)
 

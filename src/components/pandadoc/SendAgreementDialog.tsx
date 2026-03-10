@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2, Send, Monitor, Mail, Link2, Copy, Check } from 'lucide-react';
-import { useCreateDocuSealSubmission } from '@/hooks/admin/use-docuseal';
+import { useCreatePandaDocDocument } from '@/hooks/admin/use-pandadoc';
 import { useToast } from '@/hooks/use-toast';
 
 interface SendAgreementDialogProps {
@@ -26,7 +26,7 @@ interface SendAgreementDialogProps {
 }
 
 /**
- * Dialog for sending NDA or Fee Agreement via DocuSeal.
+ * Dialog for sending NDA or Fee Agreement via PandaDoc.
  * Admin can choose between embedded (in-app), email, or generate a copyable link.
  */
 export function SendAgreementDialog({
@@ -42,10 +42,9 @@ export function SendAgreementDialog({
   const [flow, setFlow] = useState<'embedded' | 'email' | 'link'>('email');
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const createSubmission = useCreateDocuSealSubmission();
+  const createDocument = useCreatePandaDocDocument();
   const { toast } = useToast();
 
-  // Sync email state when dialog opens or buyer changes
   useEffect(() => {
     if (open) {
       setEmail(buyerEmail);
@@ -61,7 +60,7 @@ export function SendAgreementDialog({
   const handleSend = async () => {
     if (!isValidEmail) return;
     try {
-      const result = await createSubmission.mutateAsync({
+      const result = await createDocument.mutateAsync({
         firmId,
         documentType,
         buyerEmail: email,
@@ -70,9 +69,8 @@ export function SendAgreementDialog({
       });
 
       // If "link" flow, show the signing URL instead of closing
-      if (flow === 'link' && result?.slug) {
-        const signingUrl = `https://docuseal.com/s/${result.slug}`;
-        setGeneratedLink(signingUrl);
+      if (flow === 'link' && result?.embedUrl) {
+        setGeneratedLink(result.embedUrl);
       } else {
         onOpenChange(false);
       }
@@ -104,7 +102,6 @@ export function SendAgreementDialog({
         </DialogHeader>
 
         {generatedLink ? (
-          /* ── Link Generated View ── */
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Signing Link</Label>
@@ -138,10 +135,8 @@ export function SendAgreementDialog({
             </DialogFooter>
           </div>
         ) : (
-          /* ── Send Form View ── */
           <>
             <div className="space-y-4">
-              {/* Email */}
               <div className="space-y-2">
                 <Label htmlFor="buyer-email">Buyer Email</Label>
                 <Input
@@ -152,7 +147,6 @@ export function SendAgreementDialog({
                 />
               </div>
 
-              {/* Flow Selection */}
               <div className="space-y-2">
                 <Label>Signing Method</Label>
                 <RadioGroup
@@ -168,7 +162,7 @@ export function SendAgreementDialog({
                         <span className="text-sm font-medium">Email Link</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Buyer receives email with signing link from DocuSeal.
+                        Buyer receives email with signing link from PandaDoc.
                       </p>
                     </label>
                   </div>
@@ -180,7 +174,7 @@ export function SendAgreementDialog({
                         <span className="text-sm font-medium">Generate Link</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Get a shareable signing URL to paste into your own email or message. Tracked via DocuSeal.
+                        Get a shareable signing URL to paste into your own email or message.
                       </p>
                     </label>
                   </div>
@@ -206,9 +200,9 @@ export function SendAgreementDialog({
               </Button>
               <Button
                 onClick={handleSend}
-                disabled={!isValidEmail || createSubmission.isPending}
+                disabled={!isValidEmail || createDocument.isPending}
               >
-                {createSubmission.isPending ? (
+                {createDocument.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     {flow === 'link' ? 'Generating...' : 'Sending...'}

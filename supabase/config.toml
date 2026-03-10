@@ -192,10 +192,12 @@ verify_jwt = false
 verify_jwt = false
 [functions.draft-outreach-email]
 verify_jwt = false
-[functions.create-docuseal-submission]
+[functions.create-pandadoc-document]
 verify_jwt = true
-[functions.docuseal-webhook-handler]
+[functions.pandadoc-webhook-handler]
 verify_jwt = false
+[functions.pandadoc-integration-test]
+verify_jwt = true
 [functions.auto-create-firm-on-approval]
 verify_jwt = true
 [functions.send-nda-reminder]

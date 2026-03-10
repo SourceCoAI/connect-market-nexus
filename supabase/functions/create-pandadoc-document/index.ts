@@ -5,16 +5,22 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin, escapeHtml } from '../_shared/auth.ts';
 
 /**
- * create-docuseal-submission
- * Creates a DocuSeal submission for NDA or Fee Agreement signing.
+ * create-pandadoc-document
+ * Creates a PandaDoc document for NDA or Fee Agreement signing.
  * Supports both embedded (iframe) and email delivery modes.
+ *
+ * PandaDoc flow:
+ *   1. POST /public/v1/documents — create document from template (status: document.draft)
+ *   2. POST /public/v1/documents/{id}/send — move to sent status
+ *   3. POST /public/v1/documents/{id}/session — get embedded signing session token
  */
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_DOC_TYPES = ['nda', 'fee_agreement'] as const;
+const PANDADOC_API_BASE = 'https://api.pandadoc.com/public/v1';
 
-interface CreateSubmissionRequest {
+interface CreateDocumentRequest {
   firmId: string;
   documentType: 'nda' | 'fee_agreement';
   signerEmail: string;
@@ -51,9 +57,9 @@ serve(async (req: Request) => {
       signerName,
       deliveryMode = 'embedded',
       metadata = {},
-    }: CreateSubmissionRequest = await req.json();
+    }: CreateDocumentRequest = await req.json();
 
-    // H1: Input validation
+    // Input validation
     if (!firmId || !documentType || !signerEmail || !signerName) {
       return new Response(
         JSON.stringify({
@@ -91,32 +97,32 @@ serve(async (req: Request) => {
       );
     }
 
-    // Resolve template ID
-    const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
-    if (!docusealApiKey) {
-      return new Response(JSON.stringify({ error: 'DocuSeal not configured' }), {
+    // Resolve template UUID
+    const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
+    if (!pandadocApiKey) {
+      return new Response(JSON.stringify({ error: 'PandaDoc not configured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    const templateId =
+    const templateUuid =
       documentType === 'nda'
-        ? Deno.env.get('DOCUSEAL_NDA_TEMPLATE_ID')
-        : Deno.env.get('DOCUSEAL_FEE_TEMPLATE_ID');
+        ? Deno.env.get('PANDADOC_NDA_TEMPLATE_UUID')
+        : Deno.env.get('PANDADOC_FEE_TEMPLATE_UUID');
 
-    if (!templateId) {
+    if (!templateUuid) {
       return new Response(
         JSON.stringify({ error: `Template not configured for ${documentType}` }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    console.log(`📝 Creating DocuSeal submission`, {
+    console.log(`📝 Creating PandaDoc document`, {
       firmId,
       documentType,
       deliveryMode,
-      templateId,
+      templateUuid,
     });
 
     // Look up firm info for prefill
@@ -126,7 +132,7 @@ serve(async (req: Request) => {
       .eq('id', firmId)
       .single();
 
-    // Allowed metadata field names — prevent injection of arbitrary DocuSeal template fields
+    // Allowed metadata field names — prevent injection of arbitrary template fields
     const ALLOWED_METADATA_FIELDS = new Set([
       'company_name',
       'signer_title',
@@ -144,63 +150,65 @@ serve(async (req: Request) => {
       'website',
     ]);
 
-    // Sanitize metadata values using proper HTML entity encoding (not regex stripping)
-    // and validate field names against allowlist
+    // Sanitize metadata values
     const sanitizedMetadata: Record<string, string> = {};
     for (const [key, value] of Object.entries(metadata)) {
-      // Only allow known field names (alphanumeric + underscores, max 50 chars)
       const sanitizedKey = key.replace(/[^a-zA-Z0-9_]/g, '').substring(0, 50);
       if (!sanitizedKey || !ALLOWED_METADATA_FIELDS.has(sanitizedKey)) {
-        console.warn(`[docuseal] Rejected unknown metadata field: ${key}`);
+        console.warn(`[pandadoc] Rejected unknown metadata field: ${key}`);
         continue;
       }
       if (typeof value === 'string') {
-        // Use proper HTML entity encoding instead of regex stripping
         sanitizedMetadata[sanitizedKey] = escapeHtml(value.substring(0, 1000));
       }
     }
 
-    // Build DocuSeal submission payload (use sanitizedMetadata to prevent XSS)
-    const submissionPayload: Record<string, unknown> = {
-      template_id: parseInt(templateId),
-      send_email: deliveryMode === 'email',
-      submitters: [
+    // Parse signer name into first/last
+    const nameParts = signerName.trim().split(/\s+/);
+    const firstName = nameParts[0] || signerName;
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    // Step 1: Create document from template
+    const documentPayload = {
+      name: `${documentType === 'nda' ? 'NDA' : 'Fee Agreement'} — ${signerName}`,
+      template_uuid: templateUuid,
+      recipients: [
         {
-          role: 'First Party',
           email: signerEmail,
-          name: signerName,
-          external_id: firmId,
-          ...(Object.keys(sanitizedMetadata).length > 0
-            ? {
-                fields: Object.entries(sanitizedMetadata).map(([name, value]) => ({
-                  name,
-                  default_value: value,
-                })),
-              }
-            : {}),
+          first_name: firstName,
+          last_name: lastName,
+          role: 'Signer',
         },
       ],
+      fields: Object.entries(sanitizedMetadata).map(([name, value]) => ({
+        name,
+        value,
+      })),
+      metadata: {
+        firm_id: firmId,
+        document_type: documentType,
+      },
+      tags: [documentType, `firm:${firmId}`],
     };
 
-    // M1: Call DocuSeal API with timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
-    let docusealResponse: Response;
+    let createResponse: Response;
     try {
-      docusealResponse = await fetch('https://api.docuseal.com/submissions', {
+      createResponse = await fetch(`${PANDADOC_API_BASE}/documents`, {
         method: 'POST',
         headers: {
-          'X-Auth-Token': docusealApiKey,
+          'Authorization': `API-Key ${pandadocApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(submissionPayload),
+        body: JSON.stringify(documentPayload),
         signal: controller.signal,
       });
     } catch (fetchError: unknown) {
       clearTimeout(timeout);
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        return new Response(JSON.stringify({ error: 'DocuSeal API timeout' }), {
+        return new Response(JSON.stringify({ error: 'PandaDoc API timeout' }), {
           status: 504,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
@@ -210,26 +218,81 @@ serve(async (req: Request) => {
       clearTimeout(timeout);
     }
 
-    if (!docusealResponse.ok) {
-      const errorText = await docusealResponse.text();
-      console.error('❌ DocuSeal API error:', errorText);
-      // H2: Don't leak external API details
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error('❌ PandaDoc API error (create):', errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to create signing submission. Please try again.' }),
+        JSON.stringify({ error: 'Failed to create signing document. Please try again.' }),
         { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    const docusealResult = await docusealResponse.json();
+    const createResult = await createResponse.json();
+    const documentId = createResult.id;
 
-    // The API returns an array of submitters; get the first one
-    const submitter = Array.isArray(docusealResult) ? docusealResult[0] : docusealResult;
+    console.log(`📄 PandaDoc document created: ${documentId}, status: ${createResult.status}`);
 
-    const submissionId = String(submitter.submission_id || submitter.id);
-    const embedSrc = submitter.embed_src || null;
-    const slug = submitter.slug || null;
+    // Step 2: Send the document (moves from draft to sent)
+    // PandaDoc needs a brief delay for document processing before sending
+    await new Promise((r) => setTimeout(r, 2000));
 
-    // Update firm_agreements with submission info AND expanded status
+    const sendResponse = await fetch(`${PANDADOC_API_BASE}/documents/${documentId}/send`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `API-Key ${pandadocApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: documentType === 'nda'
+          ? 'Please review and sign the NDA to proceed with deal access.'
+          : 'Please review and sign the Fee Agreement to continue.',
+        silent: deliveryMode !== 'email', // silent=true means no email from PandaDoc
+      }),
+    });
+
+    if (!sendResponse.ok) {
+      const errorText = await sendResponse.text();
+      console.error('❌ PandaDoc API error (send):', errorText);
+      // Document was created but not sent — still report the document ID
+      return new Response(
+        JSON.stringify({ error: 'Document created but failed to send. Please retry.' }),
+        { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      );
+    }
+
+    console.log(`📨 PandaDoc document sent: ${documentId}`);
+
+    // Step 3: For embedded mode, create a signing session
+    let sessionToken: string | null = null;
+    let embedUrl: string | null = null;
+
+    if (deliveryMode === 'embedded') {
+      const sessionResponse = await fetch(
+        `${PANDADOC_API_BASE}/documents/${documentId}/session`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `API-Key ${pandadocApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            recipient: signerEmail,
+            lifetime: 3600, // 1 hour session
+          }),
+        },
+      );
+
+      if (sessionResponse.ok) {
+        const sessionResult = await sessionResponse.json();
+        sessionToken = sessionResult.id;
+        embedUrl = `https://app.pandadoc.com/s/${sessionToken}`;
+        console.log(`🔗 PandaDoc session created: ${sessionToken}`);
+      } else {
+        console.warn('⚠️ Failed to create PandaDoc session — document still sent via email');
+      }
+    }
+
+    // Update firm_agreements with document info
     const columnPrefix = documentType === 'nda' ? 'nda' : 'fee';
     const statusColumn = documentType === 'nda' ? 'nda_status' : 'fee_agreement_status';
     const sentAtColumn = documentType === 'nda' ? 'nda_sent_at' : 'fee_agreement_sent_at';
@@ -237,8 +300,8 @@ serve(async (req: Request) => {
     const { error: updateError } = await supabaseAdmin
       .from('firm_agreements')
       .update({
-        [`${columnPrefix}_docuseal_submission_id`]: submissionId,
-        [`${columnPrefix}_docuseal_status`]: 'pending',
+        [`${columnPrefix}_pandadoc_document_id`]: documentId,
+        [`${columnPrefix}_pandadoc_status`]: 'document.sent',
         [statusColumn]: 'sent',
         [sentAtColumn]: now,
         updated_at: now,
@@ -250,12 +313,13 @@ serve(async (req: Request) => {
     }
 
     // Log the event
-    await supabaseAdmin.from('docuseal_webhook_log').insert({
-      event_type: 'submission_created',
-      submission_id: submissionId,
+    await supabaseAdmin.from('pandadoc_webhook_log').insert({
+      event_type: 'document_created',
+      document_id: documentId,
       document_type: documentType,
       external_id: firmId,
-      raw_payload: { created_by: auth.userId },
+      signer_email: signerEmail,
+      raw_payload: { created_by: auth.userId, delivery_mode: deliveryMode },
     });
 
     // Create buyer notification and system message (all delivery modes)
@@ -282,7 +346,7 @@ serve(async (req: Request) => {
           metadata: {
             document_type: documentType,
             firm_id: firmId,
-            submission_id: submissionId,
+            pandadoc_document_id: documentId,
             delivery_mode: deliveryMode,
           },
         });
@@ -290,7 +354,7 @@ serve(async (req: Request) => {
           `🔔 Created notification for buyer ${buyerProfile.id} — ${docLabel} pending (${deliveryMode})`,
         );
 
-        // Send a system message to the buyer's FIRST active connection request (General Inquiry only)
+        // Send a system message to the buyer's FIRST active connection request
         const { data: generalRequest } = await supabaseAdmin
           .from('connection_requests')
           .select('id')
@@ -328,17 +392,16 @@ serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true,
-        submissionId,
-        embedSrc,
-        slug,
+        documentId,
+        sessionToken,
+        embedUrl,
         documentType,
         deliveryMode,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   } catch (error: unknown) {
-    console.error('❌ Error in create-docuseal-submission:', error);
-    // H2: Don't leak internal error details
+    console.error('❌ Error in create-pandadoc-document:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },

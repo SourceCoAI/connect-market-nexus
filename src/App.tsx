@@ -618,8 +618,8 @@ function App() {
                 element={<Navigate to="/admin/testing?tab=system" replace />}
               />
               <Route
-                path="docuseal-health"
-                element={<Navigate to="/admin/testing?tab=docuseal" replace />}
+                path="pandadoc-health"
+                element={<Navigate to="/admin/testing?tab=pandadoc" replace />}
               />
               <Route
                 path="listings"

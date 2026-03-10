@@ -6,10 +6,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Check, Eye, Send, Clock, FileDown, MoreHorizontal, AlertCircle } from 'lucide-react';
-import type { DocuSealStatus } from '@/hooks/admin/use-docuseal';
+import type { PandaDocStatus } from '@/hooks/admin/use-pandadoc';
 
-interface DocuSealStatusBadgeProps {
-  status: DocuSealStatus;
+interface AgreementStatusBadgeProps {
+  status: PandaDocStatus;
   signedDocumentUrl?: string | null;
   onSend?: () => void;
   onResend?: () => void;
@@ -17,7 +17,7 @@ interface DocuSealStatusBadgeProps {
   label?: string;
 }
 
-const STATUS_CONFIG: Record<DocuSealStatus, {
+const STATUS_CONFIG: Record<PandaDocStatus, {
   label: string;
   variant: string;
   className: string;
@@ -56,18 +56,18 @@ const STATUS_CONFIG: Record<DocuSealStatus, {
 };
 
 /**
- * Color-coded badge showing DocuSeal signing status.
- * Replaces manual toggle switches on All Buyers page.
+ * Color-coded badge showing agreement signing status.
+ * Replaces DocuSealStatusBadge — maps PandaDoc statuses.
  * Clicking opens action menu (Send/Resend, View Signed Doc, Manual Override).
  */
-export function DocuSealStatusBadge({
+export function AgreementStatusBadge({
   status,
   signedDocumentUrl,
   onSend,
   onResend,
   onManualOverride,
   label,
-}: DocuSealStatusBadgeProps) {
+}: AgreementStatusBadgeProps) {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.not_sent;
   const Icon = config.icon;
 

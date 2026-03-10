@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useState } from 'react';
-import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
+import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 
 interface DocumentItem {
@@ -68,7 +68,7 @@ function useAllDocuments() {
         supabase.from('firm_agreements' as never) as unknown as ReturnType<typeof supabase.from>
       )
         .select(
-          'nda_signed, nda_signed_at, nda_signed_document_url, nda_document_url, nda_docuseal_submission_id, nda_docuseal_status, fee_agreement_signed, fee_agreement_signed_at, fee_signed_document_url, fee_agreement_document_url, fee_docuseal_submission_id, fee_docuseal_status',
+          'nda_signed, nda_signed_at, nda_pandadoc_signed_url, nda_document_url, nda_pandadoc_document_id, nda_pandadoc_status, fee_agreement_signed, fee_agreement_signed_at, fee_pandadoc_signed_url, fee_agreement_document_url, fee_pandadoc_document_id, fee_pandadoc_status',
         )
         .eq('id', firmId)
         .maybeSingle();
@@ -77,16 +77,16 @@ function useAllDocuments() {
       const firm = firmRaw as unknown as {
         nda_signed: boolean | null;
         nda_signed_at: string | null;
-        nda_signed_document_url: string | null;
+        nda_pandadoc_signed_url: string | null;
         nda_document_url: string | null;
-        nda_docuseal_submission_id: string | null;
-        nda_docuseal_status: string | null;
+        nda_pandadoc_document_id: string | null;
+        nda_pandadoc_status: string | null;
         fee_agreement_signed: boolean | null;
         fee_agreement_signed_at: string | null;
-        fee_signed_document_url: string | null;
+        fee_pandadoc_signed_url: string | null;
         fee_agreement_document_url: string | null;
-        fee_docuseal_submission_id: string | null;
-        fee_docuseal_status: string | null;
+        fee_pandadoc_document_id: string | null;
+        fee_pandadoc_status: string | null;
       };
 
       const docs: DocumentItem[] = [];
@@ -97,9 +97,9 @@ function useAllDocuments() {
         label: 'Non-Disclosure Agreement (NDA)',
         signed: !!firm.nda_signed,
         signedAt: firm.nda_signed_at,
-        documentUrl: firm.nda_signed_document_url || firm.nda_document_url || null,
-        hasSubmission: !!firm.nda_docuseal_submission_id,
-        status: firm.nda_docuseal_status,
+        documentUrl: firm.nda_pandadoc_signed_url || firm.nda_document_url || null,
+        hasSubmission: !!firm.nda_pandadoc_document_id,
+        status: firm.nda_pandadoc_status,
       });
 
       // Always show Fee Agreement row if firm exists
@@ -108,9 +108,9 @@ function useAllDocuments() {
         label: 'Fee Agreement',
         signed: !!firm.fee_agreement_signed,
         signedAt: firm.fee_agreement_signed_at,
-        documentUrl: firm.fee_signed_document_url || firm.fee_agreement_document_url || null,
-        hasSubmission: !!firm.fee_docuseal_submission_id,
-        status: firm.fee_docuseal_status,
+        documentUrl: firm.fee_pandadoc_signed_url || firm.fee_agreement_document_url || null,
+        hasSubmission: !!firm.fee_pandadoc_document_id,
+        status: firm.fee_pandadoc_status,
       });
 
       return docs;

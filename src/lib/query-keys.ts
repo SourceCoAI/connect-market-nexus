@@ -35,7 +35,7 @@ export const QUERY_KEYS = {
   firmAgreements: ['firm-agreements'] as const,
   firmMembers: (firmId?: string) => ['firm-members', firmId] as const,
 
-  // DocuSeal / Agreement signing
+  // PandaDoc / Agreement signing
   buyerNdaStatus: (userId?: string) => ['buyer-nda-status', userId] as const,
   myAgreementStatus: ['my-agreement-status'] as const,
   buyerFirmAgreementStatus: (userId?: string) => ['buyer-firm-agreement-status', userId] as const,
@@ -92,7 +92,7 @@ export const INVALIDATION_PATTERNS = {
     { queryKey: ['firm-agreements'] }, // Legacy support
   ],
 
-  // Invalidate all DocuSeal / agreement-related queries
+  // Invalidate all PandaDoc / agreement-related queries
   agreements: (userId?: string) => [
     { queryKey: QUERY_KEYS.myAgreementStatus },
     { queryKey: QUERY_KEYS.firmAgreements },

@@ -245,7 +245,7 @@ modules, each handling a specific domain (deals, buyers, transcripts, etc.).
 | `google_search_companies` | Web search for company intelligence             | integration-action-tools.ts | No                    |
 | `push_to_phoneburner`     | Push contact to PhoneBurner dialer              | integration-action-tools.ts | Yes                   |
 | `push_to_smartlead`       | Push to Smartlead email campaigns               | smartlead-tools.ts          | Yes                   |
-| `send_document`           | Send NDA/fee agreement via DocuSeal             | action-tools.ts             | Yes                   |
+| `send_document`           | Send NDA/fee agreement via PandaDoc             | action-tools.ts             | Yes                   |
 | `save_contacts_to_crm`    | Batch save contacts                             | integration-action-tools.ts | Yes                   |
 
 ---

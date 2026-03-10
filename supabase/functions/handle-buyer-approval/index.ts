@@ -13,7 +13,7 @@
  *   8. Create/update contacts
  *   9. Enqueue PE link check for corporate buyers
  *  10. Resolve agreements (NDA + fee_agreement)
- *  11. Send DocuSeal NDA if not already covered
+ *  11. Send PandaDoc NDA if not already covered
  *
  * POST body:
  *   - profile_id: UUID of the profiles row
@@ -418,11 +418,11 @@ Deno.serve(async (req: Request) => {
       console.error('Failed to resolve fee agreement:', err);
     }
 
-    // ── Step 12: Send DocuSeal NDA if not covered ──
+    // ── Step 12: Send PandaDoc NDA if not covered ──
     let ndaSent = false;
     if (!ndaCovered && contactEmail) {
       try {
-        const docuSealRes = await fetch(`${supabaseUrl}/functions/v1/create-docuseal-submission`, {
+        const pandaDocRes = await fetch(`${supabaseUrl}/functions/v1/create-pandadoc-document`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -437,7 +437,7 @@ Deno.serve(async (req: Request) => {
           }),
         });
 
-        if (docuSealRes.ok) {
+        if (pandaDocRes.ok) {
           ndaSent = true;
           // Update NDA status on firm_agreements
           await supabase
@@ -446,10 +446,10 @@ Deno.serve(async (req: Request) => {
             .eq('id', firmId);
         }
       } catch (err) {
-        console.error('Failed to send DocuSeal NDA:', err);
+        console.error('Failed to send PandaDoc NDA:', err);
       }
     } else if (ndaCovered && parentName) {
-      console.log(`NDA covered by parent: ${parentName}. Skipping DocuSeal send.`);
+      console.log(`NDA covered by parent: ${parentName}. Skipping PandaDoc send.`);
     }
 
     return new Response(

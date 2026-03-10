@@ -41,7 +41,7 @@ src/components/
 ├── daily-tasks/              # Daily task management
 ├── deal-alerts/              # Deal alert components
 ├── deals/                    # Deal components
-├── docuseal/                 # DocuSeal e-signature components
+├── pandadoc/                 # PandaDoc e-signature components
 ├── filters/                  # Filter components
 │   ├── filter-definitions/   # Filter type definitions
 │   └── value-inputs/         # Filter value input components
@@ -82,5 +82,5 @@ src/components/
 - `filters/` — Complex filter engine
 
 ### Integration Components
-- `docuseal/` — E-signature integration
+- `pandadoc/` — E-signature integration
 - `transcripts/` — Fireflies transcript integration

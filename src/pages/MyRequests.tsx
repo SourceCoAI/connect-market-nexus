@@ -43,7 +43,7 @@ import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
+import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
 
 /* ═══════════════════════════════════════════════════════════════════════
    Main Page Component

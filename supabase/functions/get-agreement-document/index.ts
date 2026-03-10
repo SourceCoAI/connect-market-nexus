@@ -56,14 +56,14 @@ serve(async (req: Request) => {
       );
     }
 
-    // Get submission ID and signed status
-    const submissionCol = isNda ? 'nda_docuseal_submission_id' : 'fee_docuseal_submission_id';
+    // Get document ID and signed status
+    const documentCol = isNda ? 'nda_pandadoc_document_id' : 'fee_pandadoc_document_id';
     const signedCol = isNda ? 'nda_signed' : 'fee_agreement_signed';
     const signedUrlCol = isNda ? 'nda_signed_document_url' : 'fee_signed_document_url';
 
     const { data: firm } = await supabaseAdmin
       .from('firm_agreements')
-      .select(`${submissionCol}, ${signedCol}, ${signedUrlCol}`)
+      .select(`${documentCol}, ${signedCol}, ${signedUrlCol}`)
       .eq('id', firmId)
       .single();
 
@@ -85,19 +85,19 @@ serve(async (req: Request) => {
       );
     }
 
-    const submissionId = firmRecord[submissionCol];
-    if (!submissionId) {
+    const documentId = firmRecord[documentCol];
+    if (!documentId) {
       return new Response(
-        JSON.stringify({ error: 'No submission exists for this document' }),
+        JSON.stringify({ error: 'No document exists for this agreement' }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    // Fetch document from DocuSeal API
-    const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
-    if (!docusealApiKey) {
+    // Fetch document from PandaDoc API
+    const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
+    if (!pandadocApiKey) {
       return new Response(
-        JSON.stringify({ error: 'DocuSeal not configured' }),
+        JSON.stringify({ error: 'PandaDoc not configured' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
@@ -107,9 +107,9 @@ serve(async (req: Request) => {
     let docRes: Response;
     try {
       docRes = await fetch(
-        `https://api.docuseal.com/submissions/${submissionId}/documents`,
+        `https://api.pandadoc.com/public/v1/documents/${documentId}/download`,
         {
-          headers: { 'X-Auth-Token': docusealApiKey },
+          headers: { 'Authorization': `API-Key ${pandadocApiKey}` },
           signal: fetchController.signal,
         },
       );
@@ -119,18 +119,17 @@ serve(async (req: Request) => {
 
     if (!docRes.ok) {
       const errText = await docRes.text();
-      console.error('DocuSeal documents API error:', docRes.status, errText);
+      console.error('PandaDoc download API error:', docRes.status, errText);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch document' }),
         { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    const documents = await docRes.json();
-    const docList = Array.isArray(documents) ? documents : [];
-    const firstDoc = docList[0];
+    // PandaDoc download returns the PDF directly; use the redirect URL as the document URL
+    const docUrl = docRes.url || `https://api.pandadoc.com/public/v1/documents/${documentId}/download`;
 
-    if (!firstDoc?.url) {
+    if (!docUrl) {
       return new Response(
         JSON.stringify({ error: 'Document not available' }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
@@ -138,14 +137,14 @@ serve(async (req: Request) => {
     }
 
     // Cache the URL in firm_agreements if signed
-    if (isSigned && firstDoc.url) {
+    if (isSigned && docUrl) {
       const cacheUpdate: Record<string, string> = {};
       if (isNda) {
-        cacheUpdate.nda_signed_document_url = firstDoc.url;
-        cacheUpdate.nda_document_url = firstDoc.url;
+        cacheUpdate.nda_signed_document_url = docUrl;
+        cacheUpdate.nda_document_url = docUrl;
       } else {
-        cacheUpdate.fee_signed_document_url = firstDoc.url;
-        cacheUpdate.fee_agreement_document_url = firstDoc.url;
+        cacheUpdate.fee_signed_document_url = docUrl;
+        cacheUpdate.fee_agreement_document_url = docUrl;
       }
       await supabaseAdmin
         .from('firm_agreements')
@@ -155,8 +154,8 @@ serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify({
-        documentUrl: firstDoc.url,
-        documentName: firstDoc.name || (isNda ? 'NDA' : 'Fee Agreement'),
+        documentUrl: docUrl,
+        documentName: isNda ? 'NDA' : 'Fee Agreement',
         isSigned,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },

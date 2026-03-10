@@ -7,7 +7,7 @@ import { logEmailDelivery } from '../_shared/email-logger.ts';
  * Daily cron job that sends NDA signing reminders via Brevo.
  * - 3-day reminder: first nudge after NDA was sent
  * - 7-day reminder: second nudge with escalation tone
- * Only targets firms with pending DocuSeal NDA status.
+ * Only targets firms with pending PandaDoc NDA status.
  */
 
 serve(async (req: Request) => {
@@ -47,10 +47,10 @@ serve(async (req: Request) => {
       .select(
         `
         id, primary_company_name, email_domain,
-        nda_docuseal_status, nda_email_sent_at
+        nda_pandadoc_status, nda_email_sent_at
       `,
       )
-      .eq('nda_docuseal_status', 'pending')
+      .eq('nda_pandadoc_status', 'pending')
       .eq('nda_email_sent', true)
       .not('nda_email_sent_at', 'is', null)
       .eq('nda_signed', false);
@@ -83,7 +83,7 @@ serve(async (req: Request) => {
 
       // M3: Check if we already sent this reminder (dedup)
       const { data: existingLog } = await supabase
-        .from('docuseal_webhook_log')
+        .from('pandadoc_webhook_log')
         .select('id')
         .eq('external_id', firm.id)
         .eq('event_type', `nda_reminder_${reminderType}`)
@@ -180,11 +180,11 @@ serve(async (req: Request) => {
           remindersSent++;
 
           // Log the reminder (dedup key for future checks)
-          await supabase.from('docuseal_webhook_log').insert({
+          await supabase.from('pandadoc_webhook_log').insert({
             event_type: `nda_reminder_${reminderType}`,
             external_id: firm.id,
             document_type: 'nda',
-            submission_id: 'reminder',
+            document_id: 'reminder',
             raw_payload: { reminder_type: reminderType },
             processed_at: new Date().toISOString(),
           });

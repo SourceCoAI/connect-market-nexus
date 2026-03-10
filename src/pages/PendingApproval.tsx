@@ -25,8 +25,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { cleanupAuthState } from '@/lib/auth-helpers';
 import { APP_CONFIG } from '@/config/app';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
-import { DocuSealSigningPanel } from '@/components/docuseal/DocuSealSigningPanel';
+import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
+import { PandaDocSigningPanel } from '@/components/pandadoc/PandaDocSigningPanel';
 
 const PendingApproval = () => {
   const navigate = useNavigate();
@@ -84,9 +84,9 @@ const PendingApproval = () => {
 
         if (fnError) {
           setNdaError('Failed to prepare NDA signing form');
-          console.error('DocuSeal error:', fnError);
-        } else if (data?.embedSrc) {
-          setNdaEmbedSrc(data.embedSrc);
+          console.error('PandaDoc error:', fnError);
+        } else if (data?.embedUrl) {
+          setNdaEmbedSrc(data.embedUrl);
         } else if (data?.ndaSigned) {
           setNdaSigned(true);
         }
@@ -477,8 +477,8 @@ const PendingApproval = () => {
                       </div>
                     )}
                     {ndaEmbedSrc && (
-                      <DocuSealSigningPanel
-                        embedSrc={ndaEmbedSrc}
+                      <PandaDocSigningPanel
+                        embedUrl={ndaEmbedSrc}
                         onCompleted={() => setNdaSigned(true)}
                         title=""
                         description=""

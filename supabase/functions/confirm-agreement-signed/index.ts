@@ -7,8 +7,8 @@ import { sendViaBervo } from '../_shared/brevo-sender.ts';
 /**
  * confirm-agreement-signed
  *
- * Called by the frontend after DocuSeal onCompleted fires.
- * Uses deterministic firm resolution and retry polling for DocuSeal status.
+ * Called by the frontend after PandaDoc signing completes.
+ * Uses deterministic firm resolution and retry polling for PandaDoc status.
  * Sends confirmation emails to buyer and admins.
  */
 
@@ -97,10 +97,10 @@ serve(async (req: Request) => {
     console.log(`🔍 Resolved firm ${firmId} for user ${userId} (${docLabel})`);
 
     const signedCol = isNda ? 'nda_signed' : 'fee_agreement_signed';
-    const submissionCol = isNda ? 'nda_docuseal_submission_id' : 'fee_docuseal_submission_id';
+    const documentCol = isNda ? 'nda_pandadoc_document_id' : 'fee_pandadoc_document_id';
     const { data: firm } = await supabaseAdmin
       .from('firm_agreements')
-      .select(`id, primary_company_name, ${signedCol}, ${submissionCol}`)
+      .select(`id, primary_company_name, ${signedCol}, ${documentCol}`)
       .eq('id', firmId)
       .single();
 
@@ -134,17 +134,17 @@ serve(async (req: Request) => {
       );
     }
 
-    const submissionId = (firm as any)[submissionCol];
-    if (!submissionId) {
+    const documentId = (firm as any)[documentCol];
+    if (!documentId) {
       return new Response(
-        JSON.stringify({ confirmed: false, error: 'No submission found', resolvedFirmId: firmId }),
+        JSON.stringify({ confirmed: false, error: 'No document found', resolvedFirmId: firmId }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
-    if (!docusealApiKey) {
-      return new Response(JSON.stringify({ error: 'DocuSeal not configured' }), {
+    const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
+    if (!pandadocApiKey) {
+      return new Response(JSON.stringify({ error: 'PandaDoc not configured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
@@ -160,10 +160,9 @@ serve(async (req: Request) => {
     const signerName =
       `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Unknown';
 
-    // Retry polling: check DocuSeal status with retries (0s, 1.5s, 3s)
+    // Retry polling: check PandaDoc document status with retries (0s, 1.5s, 3s)
     const retryDelays = [0, 1500, 3000];
-    let submitter: { status?: string; documents?: { url?: string }[]; email?: string } | null =
-      null;
+    let docStatus: string | null = null;
 
     for (const delay of retryDelays) {
       if (delay > 0) await sleep(delay);
@@ -171,62 +170,56 @@ serve(async (req: Request) => {
       const fetchController = new AbortController();
       const fetchTimeout = setTimeout(() => fetchController.abort(), 10000);
       try {
-        const submitterRes = await fetch(
-          `https://api.docuseal.com/submitters?submission_id=${submissionId}`,
+        const statusRes = await fetch(
+          `https://api.pandadoc.com/public/v1/documents/${documentId}`,
           {
-            headers: { 'X-Auth-Token': docusealApiKey },
+            headers: { 'Authorization': `API-Key ${pandadocApiKey}` },
             signal: fetchController.signal,
           },
         );
 
-        if (submitterRes.ok) {
-          const submitters = await submitterRes.json();
-          const data = Array.isArray(submitters?.data)
-            ? submitters.data
-            : Array.isArray(submitters)
-              ? submitters
-              : [];
-          submitter = data.find((s: { email?: string }) => s.email === profile?.email) || data[0];
+        if (statusRes.ok) {
+          const docData = await statusRes.json();
+          docStatus = docData.status;
 
-          if (submitter?.status === 'completed') {
+          if (docStatus === 'document.completed') {
             console.log(
-              `✅ DocuSeal confirmed completed on attempt ${retryDelays.indexOf(delay) + 1}`,
+              `✅ PandaDoc confirmed completed on attempt ${retryDelays.indexOf(delay) + 1}`,
             );
             break;
           }
         }
       } catch (e) {
-        console.warn(`DocuSeal check attempt failed:`, e);
+        console.warn(`PandaDoc check attempt failed:`, e);
       } finally {
         clearTimeout(fetchTimeout);
       }
     }
 
-    if (!submitter || submitter.status !== 'completed') {
+    if (docStatus !== 'document.completed') {
       return new Response(
         JSON.stringify({
           confirmed: false,
-          status: submitter?.status || 'unknown',
+          status: docStatus || 'unknown',
           resolvedFirmId: firmId,
-          reason: 'DocuSeal not yet confirmed',
+          reason: 'PandaDoc not yet confirmed',
         }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    // ─── DocuSeal confirmed completed — update everything ───
+    // ─── PandaDoc confirmed completed — update everything ───
 
     const now = new Date().toISOString();
-    const rawSignedDocUrl = submitter.documents?.[0]?.url || null;
-    const signedDocUrl =
-      rawSignedDocUrl && rawSignedDocUrl.startsWith('https://') ? rawSignedDocUrl : null;
+    // Build download URL for the signed document
+    const signedDocUrl = `https://api.pandadoc.com/public/v1/documents/${documentId}/download`;
     const firmName = firm.primary_company_name || 'Unknown Firm';
 
     const updates: Record<string, unknown> = { updated_at: now };
     if (isNda) {
       updates.nda_signed = true;
       updates.nda_signed_at = now;
-      updates.nda_docuseal_status = 'completed';
+      updates.nda_pandadoc_status = 'completed';
       updates.nda_status = 'signed';
       updates.nda_signed_by_name = signerName;
       if (signedDocUrl) {
@@ -236,7 +229,7 @@ serve(async (req: Request) => {
     } else {
       updates.fee_agreement_signed = true;
       updates.fee_agreement_signed_at = now;
-      updates.fee_docuseal_status = 'completed';
+      updates.fee_pandadoc_status = 'completed';
       updates.fee_agreement_status = 'signed';
       updates.fee_agreement_signed_by_name = signerName;
       if (signedDocUrl) {
@@ -249,10 +242,10 @@ serve(async (req: Request) => {
 
     // Dedup log
     await supabaseAdmin
-      .from('docuseal_webhook_log')
+      .from('pandadoc_webhook_log')
       .insert({
-        event_type: 'form.completed',
-        submission_id: String(submissionId),
+        event_type: 'document.completed',
+        document_id: String(documentId),
         external_id: firmId,
         raw_payload: { confirmed_by_frontend: userId, document_type: documentType },
         processed_at: now,
@@ -528,7 +521,7 @@ async function createAdminNotification(
       metadata: {
         firm_id: firmId,
         document_type: docLabel.toLowerCase().replace(/ /g, '_'),
-        docuseal_status: 'completed',
+        pandadoc_status: 'completed',
       },
       is_read: false,
     }));

@@ -34,10 +34,13 @@ const STATUS_MAP: Record<AgreementDisplayStatus, AgreementDisplayInfo> = {
 /**
  * Resolve display status from DB fields.
  * Priority: signed > declined > expired > viewed > sent/pending > not_sent
+ *
+ * Supports both PandaDoc status strings (document.completed, document.viewed, etc.)
+ * and legacy status strings (completed, viewed, etc.) for backwards compatibility.
  */
 export function resolveAgreementStatus(
   signed: boolean | null,
-  docusealStatus: string | null,
+  pandadocStatus: string | null,
   expiresAt?: string | null,
 ): AgreementDisplayStatus {
   if (signed) return 'signed';
@@ -45,13 +48,15 @@ export function resolveAgreementStatus(
   // Check expiry
   if (expiresAt && new Date(expiresAt) < new Date()) return 'expired';
 
-  // Map docuseal statuses
-  const normalized = (docusealStatus || '').toLowerCase().trim();
+  // Map PandaDoc / legacy statuses — strip "document." prefix if present
+  const raw = (pandadocStatus || '').toLowerCase().trim();
+  const normalized = raw.replace(/^document\./, '');
   if (normalized === 'completed' || normalized === 'signed') return 'signed';
-  if (normalized === 'declined') return 'declined';
+  if (normalized === 'declined' || normalized === 'voided') return 'declined';
+  if (normalized === 'expired') return 'expired';
   if (normalized === 'viewed' || normalized === 'opened') return 'viewed';
   if (normalized === 'sent' || normalized === 'awaiting') return 'sent';
-  if (normalized === 'pending' || normalized === 'started' || normalized === 'created') return 'pending';
+  if (normalized === 'pending' || normalized === 'started' || normalized === 'created' || normalized === 'draft') return 'pending';
 
   return 'not_sent';
 }

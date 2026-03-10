@@ -27,7 +27,7 @@ import type { ChatbotTestContext } from './chatbot-test-runner/chatbotInfraTests
 
 // Lazy-loaded tab components
 const SystemTestRunner = lazy(() => import('@/pages/admin/SystemTestRunner'));
-const DocuSealHealthCheck = lazy(() => import('@/pages/admin/DocuSealHealthCheck'));
+const PandaDocHealthCheck = lazy(() => import('@/pages/admin/PandaDocHealthCheck'));
 const ChatbotTestRunner = lazy(() => import('@/pages/admin/ChatbotTestRunner'));
 const SmartleadTestPage = lazy(() => import('@/pages/admin/SmartleadTestPage'));
 const ThirtyQuestionTest = lazy(() => import('@/pages/admin/ThirtyQuestionTest'));
@@ -40,7 +40,7 @@ const ContactLookupTestPanel = lazy(() => import('@/pages/admin/ContactLookupTes
 
 // Storage keys — must match individual tab components exactly
 const SYSTEM_TEST_KEY = 'sourceco-system-test-results';
-const DOCUSEAL_KEY = 'sourceco-docuseal-test-results';
+const PANDADOC_KEY = 'sourceco-pandadoc-test-results';
 const CHATBOT_INFRA_KEY = 'sourceco-chatbot-infra-test-results';
 const SCENARIO_KEY = 'sourceco-chatbot-scenario-results';
 const THIRTY_Q_KEY = 'sourceco-30q-test-results';
@@ -143,7 +143,7 @@ async function runTestLoop<Ctx>(
 }
 
 // ── Suite count ──
-const SUITE_COUNT = 5; // System Tests, DocuSeal, Chatbot Infra, Chatbot Scenarios, 30-Question QA
+const SUITE_COUNT = 5; // System Tests, PandaDoc, Chatbot Infra, Chatbot Scenarios, 30-Question QA
 
 const Loading = () => (
   <div className="flex items-center justify-center py-20">
@@ -263,62 +263,62 @@ export default function TestingHub() {
       if (trackingRunId) await tracking.updateProgress(trackingRunId, suitesCompleted);
       if (abortRef.current) throw new Error('aborted');
 
-      // --- Suite 2: DocuSeal Health Check ---
-      updateProgress('DocuSeal Health Check', 0, 1);
+      // --- Suite 2: PandaDoc Health Check ---
+      updateProgress('PandaDoc Health Check', 0, 1);
       const { supabase } = await import('@/integrations/supabase/client');
 
-      let docuSealStatus: 'pass' | 'fail' = 'pass';
-      let docuSealError: string | undefined;
-      const docuSealStart = performance.now();
+      let pandaDocStatus: 'pass' | 'fail' = 'pass';
+      let pandaDocError: string | undefined;
+      const pandaDocStart = performance.now();
 
       try {
-        const { data, error } = await supabase.functions.invoke('docuseal-integration-test');
+        const { data, error } = await supabase.functions.invoke('pandadoc-integration-test');
         if (error) {
-          docuSealStatus = 'fail';
-          docuSealError = error.message || 'Edge function invocation failed';
-          localStorage.setItem(DOCUSEAL_KEY, JSON.stringify({ error: docuSealError, results: [] }));
+          pandaDocStatus = 'fail';
+          pandaDocError = error.message || 'Edge function invocation failed';
+          localStorage.setItem(PANDADOC_KEY, JSON.stringify({ error: pandaDocError, results: [] }));
         } else if (data?.error) {
-          docuSealStatus = 'fail';
-          docuSealError = data.error;
-          localStorage.setItem(DOCUSEAL_KEY, JSON.stringify({ error: data.error, results: [] }));
+          pandaDocStatus = 'fail';
+          pandaDocError = data.error;
+          localStorage.setItem(PANDADOC_KEY, JSON.stringify({ error: data.error, results: [] }));
         } else {
-          localStorage.setItem(DOCUSEAL_KEY, JSON.stringify(data));
+          localStorage.setItem(PANDADOC_KEY, JSON.stringify(data));
         }
       } catch (e: unknown) {
-        docuSealStatus = 'fail';
-        docuSealError = e instanceof Error ? e.message : 'Unexpected error';
-        localStorage.setItem(DOCUSEAL_KEY, JSON.stringify({ error: docuSealError, results: [] }));
+        pandaDocStatus = 'fail';
+        pandaDocError = e instanceof Error ? e.message : 'Unexpected error';
+        localStorage.setItem(PANDADOC_KEY, JSON.stringify({ error: pandaDocError, results: [] }));
       }
 
-      const docuSealDuration = Math.round(performance.now() - docuSealStart);
+      const pandaDocDuration = Math.round(performance.now() - pandaDocStart);
       if (trackingRunId) {
-        await tracking.saveResults(trackingRunId, 'docuseal', [
+        await tracking.saveResults(trackingRunId, 'pandadoc', [
           {
-            id: 'docuseal-health',
-            name: 'DocuSeal Health Check',
+            id: 'pandadoc-health',
+            name: 'PandaDoc Health Check',
             category: 'Integration',
-            status: docuSealStatus,
-            error: docuSealError,
-            durationMs: docuSealDuration,
+            status: pandaDocStatus,
+            error: pandaDocError,
+            durationMs: pandaDocDuration,
           },
         ]);
       }
-      if (docuSealStatus === 'pass') totalPassed++;
+      if (pandaDocStatus === 'pass') totalPassed++;
       else {
         totalFailed++;
-        if (docuSealError)
+        if (pandaDocError)
           errorEntries.push({
-            testId: 'docuseal-health',
-            testName: 'DocuSeal Health Check',
-            suite: 'docuseal',
-            error: docuSealError,
+            testId: 'pandadoc-health',
+            testName: 'PandaDoc Health Check',
+            suite: 'pandadoc',
+            error: pandaDocError,
           });
       }
 
       totalRun += 1;
       suitesCompleted = 2;
       if (trackingRunId) await tracking.updateProgress(trackingRunId, suitesCompleted);
-      updateProgress('DocuSeal Health Check', 1, 1);
+      updateProgress('PandaDoc Health Check', 1, 1);
       if (abortRef.current) throw new Error('aborted');
 
       // --- Suite 3: Chatbot Infra Tests ---
@@ -659,20 +659,20 @@ export default function TestingHub() {
       /* skip */
     }
 
-    // 2. DocuSeal
+    // 2. PandaDoc
     try {
-      const raw = localStorage.getItem(DOCUSEAL_KEY);
+      const raw = localStorage.getItem(PANDADOC_KEY);
       if (raw) {
         const data = JSON.parse(raw);
         if (data.error) {
-          suites['docuseal'] = { error: data.error };
+          suites['pandadoc'] = { error: data.error };
         } else {
           const results = data.results || [];
           const pass = results.filter((r: { status: string }) => r.status === 'pass').length;
           const fail = results.filter((r: { status: string }) => r.status === 'fail').length;
           const warn = results.filter((r: { status: string }) => r.status === 'warn').length;
           const skip = results.filter((r: { status: string }) => r.status === 'skip').length;
-          suites['docuseal'] = {
+          suites['pandadoc'] = {
             ranAt: data.ranAt || null,
             summary: { total: results.length, pass, fail, warn, skip },
             results,
@@ -783,7 +783,7 @@ export default function TestingHub() {
             <div className="space-y-1 min-w-0">
               <h1 className="text-2xl font-semibold tracking-tight">Testing & Diagnostics</h1>
               <p className="text-sm text-muted-foreground">
-                Enrichment tests, system integration tests, DocuSeal health checks, Smartlead
+                Enrichment tests, system integration tests, PandaDoc health checks, Smartlead
                 integration, and AI chatbot QA.
               </p>
             </div>
@@ -858,9 +858,9 @@ export default function TestingHub() {
               <FlaskConical className="h-4 w-4" />
               System Tests
             </TabsTrigger>
-            <TabsTrigger value="docuseal" className="gap-2">
+            <TabsTrigger value="pandadoc" className="gap-2">
               <Activity className="h-4 w-4" />
-              DocuSeal Health
+              PandaDoc Health
             </TabsTrigger>
             <TabsTrigger value="smartlead" className="gap-2">
               <Mail className="h-4 w-4" />
@@ -902,9 +902,9 @@ export default function TestingHub() {
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="docuseal">
+          <TabsContent value="pandadoc">
             <Suspense fallback={<Loading />}>
-              <DocuSealHealthCheck />
+              <PandaDocHealthCheck />
             </Suspense>
           </TabsContent>
 

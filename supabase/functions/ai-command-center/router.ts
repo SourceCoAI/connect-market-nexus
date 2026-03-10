@@ -946,7 +946,7 @@ const BYPASS_RULES: Array<{
       confidence: 0.9,
     },
   },
-  // Send NDA / fee agreement / DocuSeal
+  // Send NDA / fee agreement / PandaDoc
   {
     test: (q) =>
       /\b(send.*(nda|fee agreement|fee.?agree|non.?disclosure)|nda.*(send|deliver|email)|fee agreement.*(send|deliver|email))\b/i.test(

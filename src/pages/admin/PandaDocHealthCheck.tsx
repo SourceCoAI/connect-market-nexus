@@ -49,8 +49,8 @@ const TEST_META: Record<string, { icon: typeof Shield; group: string }> = {
   env_config: { icon: Shield, group: 'Configuration' },
   api_auth: { icon: Shield, group: 'Configuration' },
   templates: { icon: FileText, group: 'Templates' },
-  create_submission: { icon: Send, group: 'Submission Pipeline' },
-  get_submission: { icon: Search, group: 'Submission Pipeline' },
+  create_document: { icon: Send, group: 'Document Pipeline' },
+  session_token: { icon: Search, group: 'Document Pipeline' },
   webhook_handler: { icon: Webhook, group: 'Webhook Pipeline' },
   db_verification: { icon: Database, group: 'Webhook Pipeline' },
   idempotency: { icon: Copy, group: 'Webhook Pipeline' },
@@ -77,11 +77,11 @@ const STATUS_BG = {
   skip: 'bg-zinc-500/10 border-zinc-500/20',
 };
 
-const DOCUSEAL_STORAGE_KEY = 'sourceco-docuseal-test-results';
+const PANDADOC_STORAGE_KEY = 'sourceco-pandadoc-test-results';
 
 // ── Component ──────────────────────────────────────
 
-export default function DocuSealHealthCheck() {
+export default function PandaDocHealthCheck() {
   const [runState, setRunState] = useState<RunState>('idle');
   const [response, setResponse] = useState<TestResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -103,7 +103,7 @@ export default function DocuSealHealthCheck() {
     setResponse(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('docuseal-integration-test');
+      const { data, error } = await supabase.functions.invoke('pandadoc-integration-test');
 
       if (error) {
         setRunState('error');
@@ -116,7 +116,7 @@ export default function DocuSealHealthCheck() {
         setErrorMsg(data.error);
         try {
           localStorage.setItem(
-            DOCUSEAL_STORAGE_KEY,
+            PANDADOC_STORAGE_KEY,
             JSON.stringify({ error: data.error, results: [] }),
           );
         } catch {
@@ -160,7 +160,7 @@ export default function DocuSealHealthCheck() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">DocuSeal Health Check</h1>
+          <h1 className="text-2xl font-bold tracking-tight">PandaDoc Health Check</h1>
           <p className="text-muted-foreground text-sm mt-1">
             End-to-end integration test for the NDA & Fee Agreement signing pipeline. Tests run
             server-side through your actual edge functions.
@@ -189,24 +189,24 @@ export default function DocuSealHealthCheck() {
             <div>
               <p className="font-medium text-foreground mb-1">Configuration</p>
               <ul className="space-y-1 list-disc list-inside">
-                <li>All 4 env vars set (API key, webhook secret, template IDs)</li>
-                <li>DocuSeal API key authenticates</li>
+                <li>All 4 env vars set (API key, webhook key, template UUIDs)</li>
+                <li>PandaDoc API key authenticates</li>
               </ul>
             </div>
             <div>
-              <p className="font-medium text-foreground mb-1">Submission Pipeline</p>
+              <p className="font-medium text-foreground mb-1">Document Pipeline</p>
               <ul className="space-y-1 list-disc list-inside">
                 <li>NDA & Fee Agreement templates resolve</li>
-                <li>Test submission creates (no email sent)</li>
-                <li>Submission retrieves by ID</li>
+                <li>Test document creates from template</li>
+                <li>Embedded session token generates</li>
               </ul>
             </div>
             <div>
               <p className="font-medium text-foreground mb-1">Webhook Pipeline</p>
               <ul className="space-y-1 list-disc list-inside">
+                <li>HMAC-SHA256 signature verified</li>
                 <li>Simulated webhook accepted by handler</li>
                 <li>firm_agreements DB updated correctly</li>
-                <li>Duplicate events rejected (idempotency)</li>
               </ul>
             </div>
           </div>

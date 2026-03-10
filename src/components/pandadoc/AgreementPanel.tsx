@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DocuSealStatusBadge } from './DocuSealStatusBadge';
+import { AgreementStatusBadge } from './AgreementStatusBadge';
 import { SendAgreementDialog } from './SendAgreementDialog';
 import { Shield, Send, FileDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { FirmAgreement } from '@/hooks/admin/use-firm-agreements';
-import type { DocuSealStatus } from '@/hooks/admin/use-docuseal';
+import type { PandaDocStatus } from '@/hooks/admin/use-pandadoc';
 
 interface AgreementPanelProps {
   firm: FirmAgreement;
@@ -15,7 +15,7 @@ interface AgreementPanelProps {
 }
 
 /**
- * Panel showing NDA + Fee Agreement status with DocuSeal badges,
+ * Panel showing NDA + Fee Agreement status with PandaDoc badges,
  * send buttons, and signed document download links.
  * Used on Buyer Detail page.
  */
@@ -29,6 +29,28 @@ export function AgreementPanel({ firm, buyerEmail, buyerName }: AgreementPanelPr
   const openSendDialog = (type: 'nda' | 'fee_agreement') => {
     setSendDocumentType(type);
     setSendDialogOpen(true);
+  };
+
+  // Resolve NDA signed document URL — prefer pandadoc, fallback to legacy
+  const ndaSignedUrl = (firm as Record<string, unknown>).nda_pandadoc_signed_url as string | null
+    || (firm as Record<string, unknown>).nda_signed_document_url as string | null
+    || firm.nda_document_url;
+  const feeSignedUrl = (firm as Record<string, unknown>).fee_pandadoc_signed_url as string | null
+    || (firm as Record<string, unknown>).fee_signed_document_url as string | null
+    || firm.fee_agreement_document_url;
+
+  // Resolve status — prefer pandadoc, fallback to legacy
+  const ndaPandadocStatus = (firm as Record<string, unknown>).nda_pandadoc_status as string | null;
+  const feePandadocStatus = (firm as Record<string, unknown>).fee_pandadoc_status as string | null;
+  const resolveStatus = (pandadocStatus: string | null, signed: boolean | null): PandaDocStatus => {
+    if (signed) return 'signed';
+    const raw = pandadocStatus || '';
+    const normalized = raw.toLowerCase().replace('document.', '');
+    if (normalized === 'completed' || normalized === 'signed') return 'signed';
+    if (normalized === 'declined' || normalized === 'voided') return 'declined';
+    if (normalized === 'viewed') return 'viewed';
+    if (normalized === 'sent') return 'sent';
+    return 'not_sent';
   };
 
   return (
@@ -46,9 +68,9 @@ export function AgreementPanel({ firm, buyerEmail, buyerName }: AgreementPanelPr
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">NDA</span>
-                <DocuSealStatusBadge
-                  status={(firm.nda_docuseal_status || (firm.nda_signed ? 'signed' : 'not_sent')) as DocuSealStatus}
-                  signedDocumentUrl={firm.nda_signed_document_url}
+                <AgreementStatusBadge
+                  status={resolveStatus(ndaPandadocStatus, firm.nda_signed)}
+                  signedDocumentUrl={ndaSignedUrl}
                   onSend={!firm.nda_signed ? () => openSendDialog('nda') : undefined}
                   onResend={!firm.nda_signed ? () => openSendDialog('nda') : undefined}
                 />
@@ -72,12 +94,12 @@ export function AgreementPanel({ firm, buyerEmail, buyerName }: AgreementPanelPr
                   Send NDA
                 </Button>
               )}
-              {firm.nda_signed_document_url && firm.nda_signed_document_url.startsWith('https://') && (
+              {ndaSignedUrl && typeof ndaSignedUrl === 'string' && ndaSignedUrl.startsWith('https://') && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => window.open(firm.nda_signed_document_url!, '_blank', 'noopener,noreferrer')}
+                  onClick={() => window.open(ndaSignedUrl, '_blank', 'noopener,noreferrer')}
                 >
                   <FileDown className="h-3 w-3 mr-1" />
                   Download
@@ -91,9 +113,9 @@ export function AgreementPanel({ firm, buyerEmail, buyerName }: AgreementPanelPr
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">Fee Agreement</span>
-                <DocuSealStatusBadge
-                  status={(firm.fee_docuseal_status || (firm.fee_agreement_signed ? 'signed' : 'not_sent')) as DocuSealStatus}
-                  signedDocumentUrl={firm.fee_signed_document_url}
+                <AgreementStatusBadge
+                  status={resolveStatus(feePandadocStatus, firm.fee_agreement_signed)}
+                  signedDocumentUrl={feeSignedUrl}
                   onSend={!firm.fee_agreement_signed ? () => openSendDialog('fee_agreement') : undefined}
                   onResend={!firm.fee_agreement_signed ? () => openSendDialog('fee_agreement') : undefined}
                 />
@@ -117,12 +139,12 @@ export function AgreementPanel({ firm, buyerEmail, buyerName }: AgreementPanelPr
                   Send Fee Agreement
                 </Button>
               )}
-              {firm.fee_signed_document_url && firm.fee_signed_document_url.startsWith('https://') && (
+              {feeSignedUrl && typeof feeSignedUrl === 'string' && feeSignedUrl.startsWith('https://') && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => window.open(firm.fee_signed_document_url!, '_blank', 'noopener,noreferrer')}
+                  onClick={() => window.open(feeSignedUrl, '_blank', 'noopener,noreferrer')}
                 >
                   <FileDown className="h-3 w-3 mr-1" />
                   Download

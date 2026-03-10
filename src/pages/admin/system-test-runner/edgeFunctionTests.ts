@@ -2,7 +2,7 @@
  * Edge function and AI engine tests for the SystemTestRunner.
  *
  * Categories 14-16:
- *  14. DocuSeal Integration
+ *  14. PandaDoc Integration
  *  15. External API Health
  *  16. AI Buyer Recommendation Engine
  */
@@ -16,16 +16,16 @@ export function buildEdgeFunctionTests(): TestDef[] {
     tests.push({ id: `${category}::${name}`, name, category, fn });
 
   // ═══════════════════════════════════════════════════
-  // 14. DocuSeal Integration Tests
+  // 14. PandaDoc Integration Tests
   // ═══════════════════════════════════════════════════
-  const C14 = '14. DocuSeal Integration';
+  const C14 = '14. PandaDoc Integration';
 
-  add(C14, 'DocuSeal integration test edge function invocable', async () => {
-    const { data, error } = await supabase.functions.invoke('docuseal-integration-test');
+  add(C14, 'PandaDoc integration test edge function invocable', async () => {
+    const { data, error } = await supabase.functions.invoke('pandadoc-integration-test');
     if (error) throw new Error(`Edge function invocation failed: ${error.message}`);
     if (data?.error) throw new Error(`Test suite error: ${data.error}`);
     if (!data?.results || !Array.isArray(data.results)) {
-      throw new Error('Unexpected response format from docuseal-integration-test');
+      throw new Error('Unexpected response format from pandadoc-integration-test');
     }
 
     const failed = data.results.filter(

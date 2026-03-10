@@ -27,8 +27,8 @@ import { InvestmentFitScore } from '@/components/listing-detail/InvestmentFitSco
 import { InternalCompanyInfoDisplay } from '@/components/admin/InternalCompanyInfoDisplay';
 import { BuyerDataRoom } from '@/components/marketplace/BuyerDataRoom';
 import { MFAGate } from '@/components/auth/MFAGate';
-import { NdaGateModal } from '@/components/docuseal/NdaGateModal';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
+import { NdaGateModal } from '@/components/pandadoc/NdaGateModal';
+import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
 import { AgreementStatusBanner } from '@/components/marketplace/AgreementStatusBanner';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 

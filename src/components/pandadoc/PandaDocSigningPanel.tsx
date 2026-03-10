@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
-import { DocusealForm } from '@docuseal/react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 
-interface DocuSealSigningPanelProps {
-  embedSrc: string;
+interface PandaDocSigningPanelProps {
+  embedUrl: string;
   onCompleted?: (data: Record<string, unknown>) => void;
   onDeclined?: () => void;
   onError?: (error: unknown) => void;
@@ -15,12 +14,17 @@ interface DocuSealSigningPanelProps {
 }
 
 /**
- * Reusable wrapper around DocuSeal's embedded signing form.
+ * Reusable wrapper around PandaDoc's embedded signing iframe.
  * Shows loading, success, and error states.
- * Used on Pending Approval page, NDA Gate Modal, and Fee Agreement Gate.
+ * Listens for PandaDoc postMessage events for completion/errors.
+ *
+ * PandaDoc iframe embed URL: https://app.pandadoc.com/s/{session_token}?embedded=1
+ * PandaDoc fires window.message events:
+ *   - { type: "session_view.document.completed" }
+ *   - { type: "session_view.document.exception" }
  */
-export function DocuSealSigningPanel({
-  embedSrc,
+export function PandaDocSigningPanel({
+  embedUrl,
   onCompleted,
   onDeclined,
   onError: _onError,
@@ -28,10 +32,41 @@ export function DocuSealSigningPanel({
   description = 'Please review and sign the document below.',
   successMessage = 'Document signed successfully.',
   successDescription = 'Your access has been updated.',
-}: DocuSealSigningPanelProps) {
+}: PandaDocSigningPanelProps) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'signed' | 'declined' | 'error'>(
     'loading',
   );
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Listen for PandaDoc postMessage events
+  const handleMessage = useCallback(
+    (event: MessageEvent) => {
+      // Only accept messages from PandaDoc
+      if (!event.origin.includes('pandadoc.com')) return;
+
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+
+      if (data.type === 'session_view.document.completed') {
+        setStatus('signed');
+        onCompleted?.(data);
+      } else if (data.type === 'session_view.document.declined') {
+        setStatus('declined');
+        onDeclined?.();
+      } else if (data.type === 'session_view.document.exception') {
+        setStatus('error');
+        _onError?.(data);
+      } else if (data.type === 'session_view.document.loaded') {
+        setStatus('ready');
+      }
+    },
+    [onCompleted, onDeclined, _onError],
+  );
+
+  useEffect(() => {
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [handleMessage]);
 
   // Warn user before navigating away while signing form is loaded but not yet signed
   useEffect(() => {
@@ -45,14 +80,11 @@ export function DocuSealSigningPanel({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [status]);
 
-  const handleCompleted = (data: Record<string, unknown>) => {
-    setStatus('signed');
-    onCompleted?.(data);
-  };
-
-  const handleDeclined = () => {
-    setStatus('declined');
-    onDeclined?.();
+  // Fallback: mark as ready after iframe loads (PandaDoc may not always send loaded event)
+  const handleIframeLoad = () => {
+    if (status === 'loading') {
+      setStatus('ready');
+    }
   };
 
   if (status === 'signed') {
@@ -112,12 +144,14 @@ export function DocuSealSigningPanel({
           </div>
         )}
 
-        <DocusealForm
-          src={embedSrc}
-          onComplete={handleCompleted}
-          onDecline={handleDeclined}
-          onLoad={() => setStatus('ready')}
-          withTitle={false}
+        <iframe
+          ref={iframeRef}
+          src={embedUrl}
+          onLoad={handleIframeLoad}
+          className="w-full min-h-[600px] border-0 rounded-lg"
+          title="Document Signing"
+          allow="camera"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"
         />
       </div>
     </div>

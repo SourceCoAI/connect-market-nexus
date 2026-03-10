@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { DocuSealSigningPanel } from './DocuSealSigningPanel';
+import { PandaDocSigningPanel } from './PandaDocSigningPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -30,7 +30,7 @@ export function AgreementSigningModal({
   onOpenChange,
   documentType,
 }: AgreementSigningModalProps) {
-  const [embedSrc, setEmbedSrc] = useState<string | null>(null);
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDownloadingDraft, setIsDownloadingDraft] = useState(false);
@@ -54,7 +54,7 @@ export function AgreementSigningModal({
 
   useEffect(() => {
     if (!open) {
-      setEmbedSrc(null);
+      setEmbedUrl(null);
       setError(null);
       setBannerDismissed(false);
       setZoomLevel(1);
@@ -82,8 +82,8 @@ export function AgreementSigningModal({
           toast({ title: 'Already Signed', description: `Your ${docLabel} has already been signed.` });
           invalidateAgreementQueries(queryClient, user?.id);
           onOpenChange(false);
-        } else if (data?.embedSrc) {
-          setEmbedSrc(data.embedSrc);
+        } else if (data?.embedUrl) {
+          setEmbedUrl(data.embedUrl);
         } else {
           setError('Signing form not available. Please contact support.');
         }
@@ -101,31 +101,10 @@ export function AgreementSigningModal({
   }, [open, documentType]);
 
   const handleSigned = async () => {
-    // Call confirm-agreement-signed and evaluate response
-    try {
-      const { data } = await supabase.functions.invoke('confirm-agreement-signed', {
-        body: { documentType },
-      });
-
-      if (data?.confirmed || data?.alreadySigned) {
-        toast({
-          title: `${docLabel} Signed!`,
-          description: 'Thank you for signing. Your access has been updated.',
-        });
-      } else {
-        // Not yet confirmed — show processing toast, staggered invalidation will catch up
-        toast({
-          title: 'Processing Signature…',
-          description: 'Your signature is being processed. Status will update shortly.',
-        });
-      }
-    } catch (err) {
-      console.warn('confirm-agreement-signed call failed (webhook will handle):', err);
-      toast({
-        title: `${docLabel} Signed!`,
-        description: 'Thank you for signing. Your access will update shortly.',
-      });
-    }
+    toast({
+      title: `${docLabel} Signed!`,
+      description: 'Thank you for signing. Your access has been updated.',
+    });
 
     // Staggered invalidation of all agreement-related queries
     invalidateAgreementQueries(queryClient, user?.id);
@@ -197,7 +176,7 @@ export function AgreementSigningModal({
           </div>
         )}
 
-        {embedSrc && (
+        {embedUrl && (
           <>
             {!bannerDismissed && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-start gap-3 shrink-0">
@@ -304,8 +283,8 @@ export function AgreementSigningModal({
                   width: `${100 / zoomLevel}%`,
                 }}
               >
-                <DocuSealSigningPanel
-                  embedSrc={embedSrc}
+                <PandaDocSigningPanel
+                  embedUrl={embedUrl}
                   onCompleted={handleSigned}
                   successMessage={`${docLabel} signed successfully.`}
                   successDescription="Your access has been updated. You can close this dialog."

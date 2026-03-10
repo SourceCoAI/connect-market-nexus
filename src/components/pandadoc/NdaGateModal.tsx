@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DocuSealSigningPanel } from './DocuSealSigningPanel';
+import { PandaDocSigningPanel } from './PandaDocSigningPanel';
 import { Button } from '@/components/ui/button';
 import { Shield, ArrowLeft, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,20 +15,20 @@ interface NdaGateModalProps {
 
 /**
  * Full-screen modal overlay that blocks deal detail access for unsigned buyers.
- * Contains DocuSealSigningPanel inline.
+ * Contains PandaDocSigningPanel inline.
  * Cannot be dismissed without signing or navigating away.
  */
 export function NdaGateModal({ userId, firmId, onSigned }: NdaGateModalProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [embedSrc, setEmbedSrc] = useState<string | null>(null);
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    const fetchEmbedSrc = async () => {
+    const fetchEmbedUrl = async () => {
       try {
         const { data, error: fnError } = await supabase.functions.invoke('get-buyer-nda-embed');
 
@@ -38,8 +38,8 @@ export function NdaGateModal({ userId, firmId, onSigned }: NdaGateModalProps) {
           setError('Failed to prepare NDA signing form');
         } else if (data?.ndaSigned) {
           onSigned?.();
-        } else if (data?.embedSrc) {
-          setEmbedSrc(data.embedSrc);
+        } else if (data?.embedUrl) {
+          setEmbedUrl(data.embedUrl);
         } else {
           setError('NDA signing form not available. Please contact support.');
         }
@@ -54,18 +54,11 @@ export function NdaGateModal({ userId, firmId, onSigned }: NdaGateModalProps) {
       }
     };
 
-    fetchEmbedSrc();
+    fetchEmbedUrl();
     return () => { cancelled = true; };
   }, [userId, firmId]);
 
   const handleSigned = async () => {
-    try {
-      await supabase.functions.invoke('confirm-agreement-signed', {
-        body: { documentType: 'nda' },
-      });
-    } catch (err) {
-      console.warn('confirm-agreement-signed call failed (webhook will handle):', err);
-    }
     queryClient.invalidateQueries({ queryKey: ['buyer-nda-status'] });
     queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
     onSigned?.();
@@ -103,9 +96,9 @@ export function NdaGateModal({ userId, firmId, onSigned }: NdaGateModalProps) {
             </div>
           )}
 
-          {embedSrc && (
-            <DocuSealSigningPanel
-              embedSrc={embedSrc}
+          {embedUrl && (
+            <PandaDocSigningPanel
+              embedUrl={embedUrl}
               onCompleted={handleSigned}
               title="Review and sign your NDA"
               description="Standard confidentiality agreement — review and sign below to unlock full access."

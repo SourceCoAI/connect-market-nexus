@@ -294,7 +294,7 @@ General:
     title: 'Buyer Onboarding Process',
     content: `Step 1: Buyer submits connection request expressing interest in a deal or platform.
 Step 2: SourceCo reviews credentials: firm type, investment thesis, deal history, AUM/funding, geographic/industry focus.
-Step 3: NDA execution via DocuSeal before accessing confidential deal information.
+Step 3: NDA execution via PandaDoc before accessing confidential deal information.
 Step 4: Fee agreement — buyer acknowledges SourceCo's fee structure.
 Step 5: Profile activation — buyer profile created in remarketing system with initial scoring.
 Step 6: Deal matching — buyer scored against active deals by service/industry fit, geography, and readiness signals (fee agreements, acquisition appetite).

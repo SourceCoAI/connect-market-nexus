@@ -8,7 +8,7 @@ import { requireAdmin } from '../_shared/auth.ts';
  * When a connection request is approved, this function:
  * 1. Creates (or finds) a firm_agreement for the buyer's company
  * 2. Creates a firm_member linking the user to the firm
- * 3. Creates a DocuSeal NDA submission for e-signing
+ * 3. Creates a PandaDoc NDA document for e-signing
  */
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -206,57 +206,80 @@ serve(async (req: Request) => {
       }
     }
 
-    // Step 3: Create DocuSeal NDA submission
-    let ndaSubmission = null;
-    const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
-    const ndaTemplateId = Deno.env.get('DOCUSEAL_NDA_TEMPLATE_ID');
+    // Step 3: Create PandaDoc NDA document
+    let ndaDocument = null;
+    const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
+    const ndaTemplateUuid = Deno.env.get('PANDADOC_NDA_TEMPLATE_UUID');
 
-    if (docusealApiKey && ndaTemplateId && cr.lead_email) {
+    if (pandadocApiKey && ndaTemplateUuid && cr.lead_email) {
       try {
-        const submissionPayload = {
-          template_id: parseInt(ndaTemplateId),
-          send_email: true,
-          submitters: [
+        const signerName = cr.lead_name || cr.lead_email.split('@')[0];
+        const nameParts = signerName.split(/\s+/);
+        const firstName = nameParts[0] || signerName;
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        const documentPayload = {
+          name: `NDA — ${signerName}`,
+          template_uuid: ndaTemplateUuid,
+          recipients: [
             {
-              role: 'First Party',
               email: cr.lead_email,
-              name: cr.lead_name || cr.lead_email.split('@')[0],
-              external_id: firmId,
+              first_name: firstName,
+              last_name: lastName,
+              role: 'Signer',
             },
           ],
+          metadata: {
+            firm_id: firmId,
+            document_type: 'nda',
+          },
+          tags: ['nda', `firm:${firmId}`],
         };
 
         // M1: Timeout on external API call
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 15000);
 
-        let docusealResponse: Response;
+        let pandadocResponse: Response;
         try {
-          docusealResponse = await fetch('https://api.docuseal.com/submissions', {
+          pandadocResponse = await fetch('https://api.pandadoc.com/public/v1/documents', {
             method: 'POST',
             headers: {
-              'X-Auth-Token': docusealApiKey,
+              'Authorization': `API-Key ${pandadocApiKey}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(submissionPayload),
+            body: JSON.stringify(documentPayload),
             signal: controller.signal,
           });
         } finally {
           clearTimeout(timeout);
         }
 
-        if (docusealResponse.ok) {
-          const result = await docusealResponse.json();
-          const submitter = Array.isArray(result) ? result[0] : result;
-          const submissionId = String(submitter.submission_id || submitter.id);
+        if (pandadocResponse.ok) {
+          const result = await pandadocResponse.json();
+          const documentId = result.id;
 
-          ndaSubmission = { submissionId, slug: submitter.slug };
+          ndaDocument = { documentId };
+
+          // Send the document via email
+          await new Promise((r) => setTimeout(r, 2000));
+          await fetch(`https://api.pandadoc.com/public/v1/documents/${documentId}/send`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `API-Key ${pandadocApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              message: 'Please review and sign the NDA to proceed.',
+              silent: false,
+            }),
+          });
 
           await supabaseAdmin
             .from('firm_agreements')
             .update({
-              nda_docuseal_submission_id: submissionId,
-              nda_docuseal_status: 'pending',
+              nda_pandadoc_document_id: documentId,
+              nda_pandadoc_status: 'pending',
               nda_email_sent: true,
               nda_email_sent_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
@@ -273,26 +296,26 @@ serve(async (req: Request) => {
             })
             .eq('id', connectionRequestId);
 
-          await supabaseAdmin.from('docuseal_webhook_log').insert({
+          await supabaseAdmin.from('pandadoc_webhook_log').insert({
             event_type: 'nda_auto_created_on_approval',
-            submission_id: submissionId,
+            document_id: documentId,
             document_type: 'nda',
             external_id: firmId,
             raw_payload: { connection_request_id: connectionRequestId, created_by: auth.userId },
           });
         } else {
-          const errorText = await docusealResponse.text();
-          console.error('❌ DocuSeal NDA creation failed:', errorText);
+          const errorText = await pandadocResponse.text();
+          console.error('❌ PandaDoc NDA creation failed:', errorText);
         }
       } catch (docuError: unknown) {
         if (docuError instanceof Error && docuError.name === 'AbortError') {
-          console.error('⚠️ DocuSeal NDA creation timed out');
+          console.error('⚠️ PandaDoc NDA creation timed out');
         } else {
-          console.error('⚠️ DocuSeal NDA creation error:', docuError);
+          console.error('⚠️ PandaDoc NDA creation error:', docuError);
         }
       }
     } else {
-      console.log('ℹ️ Skipping DocuSeal NDA — missing API key, template, or email');
+      console.log('ℹ️ Skipping PandaDoc NDA — missing API key, template, or email');
     }
 
     return new Response(
@@ -300,7 +323,7 @@ serve(async (req: Request) => {
         success: true,
         firmId,
         firmCreated: !cr.firm_id,
-        ndaSubmission,
+        ndaDocument,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );

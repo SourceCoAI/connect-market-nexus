@@ -2,12 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export type DocuSealStatus = 'not_sent' | 'sent' | 'viewed' | 'signed' | 'declined';
+export type PandaDocStatus = 'not_sent' | 'sent' | 'viewed' | 'signed' | 'declined';
 
 /**
- * Hook to create a DocuSeal signing submission (NDA or Fee Agreement).
+ * Hook to create a PandaDoc signing document (NDA or Fee Agreement).
  */
-export function useCreateDocuSealSubmission() {
+export function useCreatePandaDocDocument() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -25,7 +25,7 @@ export function useCreateDocuSealSubmission() {
       buyerName: string;
       sendEmail: boolean;
     }) => {
-      const { data, error } = await supabase.functions.invoke('create-docuseal-submission', {
+      const { data, error } = await supabase.functions.invoke('create-pandadoc-document', {
         body: {
           firmId,
           documentType,
@@ -36,7 +36,7 @@ export function useCreateDocuSealSubmission() {
       });
 
       if (error) throw error;
-      return data as { success: boolean; submissionId: string; embedSrc: string | null; slug: string | null; documentType: string; deliveryMode: string };
+      return data as { success: boolean; documentId: string; sessionToken: string | null; embedUrl: string | null; documentType: string; deliveryMode: string };
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
@@ -76,8 +76,8 @@ export function useAutoCreateFirmOnApproval() {
         firm_id: string;
         firm_created: boolean;
         member_linked: boolean;
-        nda_submission_prepared: boolean;
-        embed_src: string | null;
+        nda_document_prepared: boolean;
+        embed_url: string | null;
       };
     },
     onSuccess: () => {
@@ -107,16 +107,16 @@ export function useBuyerNdaStatus(userId: string | undefined) {
 
       const row = Array.isArray(data) ? data[0] : data;
       if (!row || !row.firm_id) {
-        return { hasFirm: false, ndaSigned: false, embedSrc: null, firmId: null };
+        return { hasFirm: false, ndaSigned: false, embedUrl: null, firmId: null };
       }
 
       return {
         hasFirm: true,
         ndaSigned: row.nda_signed ?? false,
-        docusealStatus: row.nda_docuseal_status,
-        hasSubmission: true, // if firm exists, submission may exist
+        pandadocStatus: row.nda_pandadoc_status,
+        hasDocument: true,
         firmId: row.firm_id,
-        embedSrc: null as string | null,
+        embedUrl: null as string | null,
       };
     },
     enabled: !!userId,

@@ -3,19 +3,19 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 
 /**
- * docuseal-webhook-handler
- * Processes DocuSeal webhook events (form.completed, form.viewed, form.started, form.declined, form.expired)
- * Updates DocuSeal-specific fields, legacy booleans, AND expanded status fields on firm_agreements.
+ * pandadoc-webhook-handler
+ * Processes PandaDoc webhook events (document.completed, document.viewed,
+ * document.declined, document.expired, document.state_changed, recipient.completed).
+ * Updates PandaDoc-specific fields, legacy booleans, AND expanded status fields on firm_agreements.
  * Creates admin_notifications on key events.
- * Includes idempotency checks via docuseal_webhook_log.
+ * Includes idempotency checks via pandadoc_webhook_log.
  *
- * DocuSeal sends a custom secret header (not HMAC). The header name is
- * configured in DocuSeal's dashboard (Key) and the value must match
- * DOCUSEAL_WEBHOOK_SECRET. Default header name: "onboarding-secret".
- * Override via DOCUSEAL_WEBHOOK_SECRET_HEADER env var if needed.
+ * PandaDoc uses HMAC-SHA256 signature verification via X-PandaDoc-Signature header.
  */
 
-// Timing-safe string comparison to prevent timing attacks on secret verification.
+const PANDADOC_API_BASE = 'https://api.pandadoc.com/public/v1';
+
+// Timing-safe string comparison to prevent timing attacks on signature verification.
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let result = 0;
@@ -25,34 +25,36 @@ function timingSafeEqual(a: string, b: string): boolean {
   return result === 0;
 }
 
-// DocuSeal webhook verification — checks the specific secret header configured
-// in DocuSeal's dashboard. Default header name: "onboarding-secret".
-// Override via DOCUSEAL_WEBHOOK_SECRET_HEADER env var if needed.
-function verifyDocuSealWebhook(req: Request, secret: string): boolean {
-  const headerName = (
-    Deno.env.get('DOCUSEAL_WEBHOOK_SECRET_HEADER') || 'onboarding-secret'
-  ).toLowerCase();
-  const headerValue = req.headers.get(headerName);
-  if (!headerValue) return false;
-  return timingSafeEqual(headerValue, secret);
+// PandaDoc HMAC-SHA256 webhook verification
+async function verifyPandaDocWebhook(rawBody: string, signature: string, secret: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(rawBody));
+  const computed = Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  return timingSafeEqual(computed, signature);
 }
 
 // Validate that a URL is HTTPS and from a trusted domain.
-// Uses specific subdomain patterns instead of broad domain wildcards.
 function isValidDocumentUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') return false;
     const hostname = parsed.hostname.toLowerCase();
 
-    // Exact or specific subdomain matches for trusted providers
     const trustedPatterns = [
-      // DocuSeal domains
-      (h: string) => h === 'docuseal.com' || h.endsWith('.docuseal.com'),
-      (h: string) => h === 'docuseal.co' || h.endsWith('.docuseal.co'),
-      // S3 — only specific bucket patterns, not all of amazonaws.com
+      // PandaDoc domains
+      (h: string) => h === 'pandadoc.com' || h.endsWith('.pandadoc.com'),
+      // S3 — only specific bucket patterns
       (h: string) => h.endsWith('.s3.amazonaws.com') || /^s3\.[a-z0-9-]+\.amazonaws\.com$/.test(h),
-      // GCS — only the storage API host
+      // GCS
       (h: string) => h === 'storage.googleapis.com',
       // Supabase storage
       (h: string) => h.endsWith('.supabase.co'),
@@ -64,17 +66,6 @@ function isValidDocumentUrl(url: string): boolean {
   }
 }
 
-// Basic payload structure validation to ensure this is a real DocuSeal webhook
-function isValidDocuSealPayload(payload: Record<string, unknown>): boolean {
-  const eventType = payload?.event_type || payload?.type;
-  if (!eventType || typeof eventType !== 'string') return false;
-  const raw = payload?.data || payload;
-  if (!raw || typeof raw !== 'object') return false;
-  const data = raw as Record<string, unknown>;
-  if (!data.submission_id && !data.id) return false;
-  return true;
-}
-
 serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
@@ -83,22 +74,29 @@ serve(async (req: Request) => {
   try {
     const rawBody = await req.text();
 
-    const webhookSecret = Deno.env.get('DOCUSEAL_WEBHOOK_SECRET');
+    const webhookKey = Deno.env.get('PANDADOC_WEBHOOK_KEY');
 
-    // SECURITY: Fail closed — reject all requests when secret is not configured
-    if (!webhookSecret) {
-      console.error('❌ DOCUSEAL_WEBHOOK_SECRET not configured — rejecting request (fail-closed)');
-      return new Response(JSON.stringify({ error: 'Webhook secret not configured' }), { status: 500 });
+    // SECURITY: Fail closed — reject all requests when key is not configured
+    if (!webhookKey) {
+      console.error('❌ PANDADOC_WEBHOOK_KEY not configured — rejecting request (fail-closed)');
+      return new Response(JSON.stringify({ error: 'Webhook key not configured' }), { status: 500 });
     }
 
-    const valid = verifyDocuSealWebhook(req, webhookSecret);
-    if (!valid) {
-      console.warn('⚠️ Webhook secret verification failed — rejecting request');
+    // Verify HMAC-SHA256 signature
+    const signature = req.headers.get('x-pandadoc-signature');
+    if (!signature) {
+      console.warn('⚠️ Missing X-PandaDoc-Signature header — rejecting request');
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
-    console.log('✅ Webhook secret verified');
 
-    // Parse and validate payload structure
+    const valid = await verifyPandaDocWebhook(rawBody, signature, webhookKey);
+    if (!valid) {
+      console.warn('⚠️ Webhook HMAC signature verification failed — rejecting request');
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
+    console.log('✅ Webhook HMAC signature verified');
+
+    // Parse and validate payload
     let payload: Record<string, unknown>;
     try {
       payload = JSON.parse(rawBody);
@@ -107,69 +105,94 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
     }
 
-    if (!isValidDocuSealPayload(payload)) {
-      console.error('❌ Invalid payload structure — rejecting');
+    // PandaDoc webhook payload structure:
+    // [{ event: "document_state_change", data: { id: "...", status: "...", ... } }]
+    // or { event: "...", data: { ... } }
+    const events = Array.isArray(payload) ? payload : [payload];
+    const event = events[0] as Record<string, unknown>;
+
+    if (!event || !event.event) {
+      console.error('❌ Invalid payload structure — no event field');
       return new Response(JSON.stringify({ error: 'Invalid payload' }), { status: 400 });
     }
 
-    const rawEventType = String(payload.event_type || payload.type);
-    const submissionData = (payload.data || payload) as Record<string, unknown>;
+    const rawEventType = String(event.event);
+    const eventData = (event.data || {}) as Record<string, unknown>;
+    const documentId = String(eventData.id || '');
 
-    // Validate event_type format (only allow known patterns).
-    // Reject unrecognized event types to prevent arbitrary data in the database.
-    const VALID_EVENT_PATTERN =
-      /^(form|submission)\.(completed|viewed|started|declined|expired|created|archived)$/;
-    if (!VALID_EVENT_PATTERN.test(rawEventType)) {
-      console.warn(`⚠️ Unknown DocuSeal event type rejected: ${rawEventType.substring(0, 50)}`);
+    if (!documentId) {
+      console.error('❌ No document ID in webhook payload');
+      return new Response(JSON.stringify({ error: 'Missing document ID' }), { status: 400 });
+    }
+
+    // Validate event type
+    const VALID_EVENTS = new Set([
+      'document_state_change',
+      'document_completed',
+      'document_viewed',
+      'document_declined',
+      'document_expired',
+      'recipient_completed',
+      'document_updated',
+      'document_deleted',
+      'document_creation',
+    ]);
+
+    if (!VALID_EVENTS.has(rawEventType)) {
+      console.warn(`⚠️ Unknown PandaDoc event type: ${rawEventType.substring(0, 50)}`);
       return new Response(JSON.stringify({ received: true, skipped: 'unknown_event_type' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    const eventType = rawEventType;
 
-    console.log(`📩 DocuSeal webhook: ${eventType}`, {
-      submission_id: submissionData.submission_id || submissionData.id,
+    // Map PandaDoc event to a normalized status
+    const documentStatus = String(eventData.status || '');
+    const normalizedEventType = mapEventType(rawEventType, documentStatus);
+
+    console.log(`📩 PandaDoc webhook: ${rawEventType} (${documentStatus})`, {
+      document_id: documentId,
+      normalized: normalizedEventType,
     });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Validate submission_id format (should be numeric string)
-    const rawSubmissionId = submissionData.submission_id || submissionData.id;
-    const submissionId = String(rawSubmissionId)
-      .replace(/[^a-zA-Z0-9_-]/g, '')
-      .substring(0, 100);
+    // Sanitize document ID
+    const sanitizedDocId = documentId.replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 100);
 
-    // ── Idempotency check: skip if we already processed this exact event ──
+    // Idempotency check
     const { data: existingLog } = await supabase
-      .from('docuseal_webhook_log')
+      .from('pandadoc_webhook_log')
       .select('id')
-      .eq('submission_id', submissionId)
-      .eq('event_type', eventType)
+      .eq('document_id', sanitizedDocId)
+      .eq('event_type', normalizedEventType)
       .maybeSingle();
 
     if (existingLog) {
-      console.log(`⏩ Duplicate event skipped: ${eventType} for submission ${submissionId}`);
+      console.log(`⏩ Duplicate event skipped: ${normalizedEventType} for document ${sanitizedDocId}`);
       return new Response(JSON.stringify({ success: true, note: 'Duplicate event' }), {
         status: 200,
       });
     }
 
-    // Log the raw webhook (unique constraint on submission_id + event_type catches races)
-    const { error: logError } = await supabase.from('docuseal_webhook_log').insert({
-      event_type: eventType,
-      submission_id: submissionId,
-      submitter_id: submissionData.submitter_id ? String(submissionData.submitter_id) : null,
-      external_id: submissionData.external_id || null,
+    // Extract signer email from event data
+    const signerEmail = extractSignerEmail(eventData);
+
+    // Log the raw webhook
+    const { error: logError } = await supabase.from('pandadoc_webhook_log').insert({
+      event_type: normalizedEventType,
+      document_id: sanitizedDocId,
+      recipient_id: eventData.recipient_id ? String(eventData.recipient_id) : null,
+      external_id: eventData.metadata?.firm_id ? String((eventData.metadata as Record<string, unknown>).firm_id) : null,
+      signer_email: signerEmail,
       raw_payload: payload,
       processed_at: new Date().toISOString(),
     });
     if (logError) {
-      // Unique constraint violation (23505) = concurrent duplicate; treat as idempotent skip
       if (logError.code === '23505') {
-        console.log(`⏩ Concurrent duplicate skipped: ${eventType} for submission ${submissionId}`);
+        console.log(`⏩ Concurrent duplicate skipped: ${normalizedEventType} for document ${sanitizedDocId}`);
         return new Response(JSON.stringify({ success: true, note: 'Concurrent duplicate' }), {
           status: 200,
         });
@@ -177,40 +200,39 @@ serve(async (req: Request) => {
       console.error('Failed to log webhook:', logError);
     }
 
-    // Find the firm that matches this submission
+    // Find the firm that matches this document
     const { data: ndaFirm } = await supabase
       .from('firm_agreements')
       .select('id, primary_company_name')
-      .eq('nda_docuseal_submission_id', submissionId)
+      .eq('nda_pandadoc_document_id', sanitizedDocId)
       .maybeSingle();
 
     const { data: feeFirm } = await supabase
       .from('firm_agreements')
       .select('id, primary_company_name')
-      .eq('fee_docuseal_submission_id', submissionId)
+      .eq('fee_pandadoc_document_id', sanitizedDocId)
       .maybeSingle();
 
     let firmId = ndaFirm?.id || feeFirm?.id;
     let firmName = ndaFirm?.primary_company_name || feeFirm?.primary_company_name || 'Unknown';
     let documentType = ndaFirm ? 'nda' : feeFirm ? 'fee_agreement' : null;
 
-    // Fallback to external_id
+    // Fallback to metadata.firm_id
     if (!firmId || !documentType) {
-      if (submissionData.external_id) {
+      const metadataFirmId = (eventData.metadata as Record<string, unknown>)?.firm_id;
+      if (metadataFirmId) {
         const { data: extFirm } = await supabase
           .from('firm_agreements')
-          .select(
-            'id, primary_company_name, nda_docuseal_submission_id, fee_docuseal_submission_id',
-          )
-          .eq('id', submissionData.external_id)
+          .select('id, primary_company_name, nda_pandadoc_document_id, fee_pandadoc_document_id')
+          .eq('id', String(metadataFirmId))
           .maybeSingle();
 
         if (extFirm) {
-          if (extFirm.nda_docuseal_submission_id === submissionId) {
+          if (extFirm.nda_pandadoc_document_id === sanitizedDocId) {
             firmId = extFirm.id;
             firmName = extFirm.primary_company_name || 'Unknown';
             documentType = 'nda';
-          } else if (extFirm.fee_docuseal_submission_id === submissionId) {
+          } else if (extFirm.fee_pandadoc_document_id === sanitizedDocId) {
             firmId = extFirm.id;
             firmName = extFirm.primary_company_name || 'Unknown';
             documentType = 'fee_agreement';
@@ -219,20 +241,19 @@ serve(async (req: Request) => {
       }
 
       if (!firmId || !documentType) {
-        console.warn('⚠️ No matching firm found for submission:', submissionId);
+        console.warn('⚠️ No matching firm found for document:', sanitizedDocId);
         return new Response(JSON.stringify({ success: true, note: 'No matching firm' }), {
           status: 200,
         });
       }
     }
 
-    // Lifecycle events (submission.created, submission.archived) are logged but should
-    // NOT update firm signing status — they'd overwrite meaningful statuses like "viewed"
-    // or "completed" due to race conditions with DocuSeal's real-time webhooks.
-    const lifecycleEvents = new Set(['submission.created', 'submission.archived']);
-    if (lifecycleEvents.has(eventType)) {
+    // Lifecycle events (document_creation, document_updated, document_deleted) are logged
+    // but should NOT update firm signing status
+    const lifecycleEvents = new Set(['document_creation', 'document_updated', 'document_deleted']);
+    if (lifecycleEvents.has(rawEventType) && normalizedEventType !== 'document.completed') {
       console.log(
-        `ℹ️ Lifecycle event ${eventType} logged for submission ${submissionId} — skipping status update`,
+        `ℹ️ Lifecycle event ${rawEventType} logged for document ${sanitizedDocId} — skipping status update`,
       );
       return new Response(JSON.stringify({ success: true, note: 'Lifecycle event logged' }), {
         status: 200,
@@ -241,12 +262,12 @@ serve(async (req: Request) => {
 
     await processEvent(
       supabase,
-      eventType,
+      normalizedEventType,
       firmId,
       firmName,
       documentType,
-      submissionData,
-      submissionId,
+      sanitizedDocId,
+      signerEmail,
     );
 
     return new Response(JSON.stringify({ success: true }), { status: 200 });
@@ -256,108 +277,144 @@ serve(async (req: Request) => {
   }
 });
 
+function mapEventType(rawEvent: string, status: string): string {
+  // PandaDoc uses document_state_change with a status field
+  if (rawEvent === 'document_state_change') {
+    switch (status) {
+      case 'document.completed': return 'document.completed';
+      case 'document.viewed': return 'document.viewed';
+      case 'document.sent': return 'document.sent';
+      case 'document.draft': return 'document.draft';
+      case 'document.declined': return 'document.declined';
+      case 'document.voided': return 'document.voided';
+      case 'document.expired': return 'document.expired';
+      default: return `document.${status}`;
+    }
+  }
+  // Direct event types
+  switch (rawEvent) {
+    case 'document_completed': return 'document.completed';
+    case 'document_viewed': return 'document.viewed';
+    case 'document_declined': return 'document.declined';
+    case 'document_expired': return 'document.expired';
+    case 'recipient_completed': return 'recipient.completed';
+    default: return rawEvent;
+  }
+}
+
+function extractSignerEmail(eventData: Record<string, unknown>): string | null {
+  // Try different payload locations
+  if (typeof eventData.email === 'string') return eventData.email;
+  if (Array.isArray(eventData.recipients)) {
+    const first = eventData.recipients[0] as Record<string, unknown> | undefined;
+    if (first && typeof first.email === 'string') return first.email;
+  }
+  return null;
+}
+
 async function processEvent(
   supabase: SupabaseClient,
   eventType: string,
   firmId: string,
   firmName: string,
   documentType: string,
-  submissionData: Record<string, unknown>,
-  _submissionId: string,
+  documentId: string,
+  signerEmail: string | null,
 ) {
   const isNda = documentType === 'nda';
   const now = new Date().toISOString();
   const docLabel = isNda ? 'NDA' : 'Fee Agreement';
-  const documents = Array.isArray(submissionData.documents) ? submissionData.documents as Array<{ url?: string }> : [];
 
-  // Map DocuSeal event to status
-  let docusealStatus: string;
-  let expandedStatus: string | null = null; // for nda_status / fee_agreement_status sync
+  // Map PandaDoc event to status
+  let pandadocStatus: string;
+  let expandedStatus: string | null = null;
   switch (eventType) {
-    case 'form.completed':
-    case 'submission.completed':
-      docusealStatus = 'completed';
+    case 'document.completed':
+    case 'recipient.completed':
+      pandadocStatus = 'completed';
       expandedStatus = 'signed';
       break;
-    case 'form.viewed':
-    case 'submission.viewed':
-      docusealStatus = 'viewed';
+    case 'document.viewed':
+      pandadocStatus = 'viewed';
       break;
-    case 'form.started':
-    case 'submission.started':
-      docusealStatus = 'started';
+    case 'document.sent':
+      pandadocStatus = 'sent';
       break;
-    case 'form.declined':
-    case 'submission.declined':
-      docusealStatus = 'declined';
+    case 'document.declined':
+      pandadocStatus = 'declined';
       expandedStatus = 'declined';
       break;
-    case 'form.expired':
-    case 'submission.expired':
-      docusealStatus = 'expired';
+    case 'document.voided':
+      pandadocStatus = 'voided';
+      expandedStatus = 'declined';
+      break;
+    case 'document.expired':
+      pandadocStatus = 'expired';
       expandedStatus = 'expired';
       break;
     default:
-      // Should not be reached since unknown event types are rejected upstream
-      docusealStatus = eventType;
+      pandadocStatus = eventType;
   }
 
   console.log(`📝 Processing ${eventType} for ${documentType} on firm ${firmId}`);
 
-  // Prevent backward state transitions (e.g., "viewed" overwriting "completed")
-  const TERMINAL_STATUSES = new Set(['completed', 'declined', 'expired']);
-  const statusCol = isNda ? 'nda_docuseal_status' : 'fee_docuseal_status';
+  // Prevent backward state transitions
+  const TERMINAL_STATUSES = new Set(['completed', 'declined', 'expired', 'voided']);
+  const statusCol = isNda ? 'nda_pandadoc_status' : 'fee_pandadoc_status';
   const { data: currentFirm } = await supabase
     .from('firm_agreements')
     .select(statusCol)
     .eq('id', firmId)
     .single();
 
-  const currentStatus = (currentFirm as any)?.[statusCol];
+  const currentStatus = (currentFirm as Record<string, unknown>)?.[statusCol] as string | undefined;
   if (
     currentStatus &&
     TERMINAL_STATUSES.has(currentStatus) &&
-    !TERMINAL_STATUSES.has(docusealStatus)
+    !TERMINAL_STATUSES.has(pandadocStatus)
   ) {
     console.log(
-      `⏩ Skipping non-terminal update: current=${currentStatus}, incoming=${docusealStatus}`,
+      `⏩ Skipping non-terminal update: current=${currentStatus}, incoming=${pandadocStatus}`,
     );
     return;
   }
 
-  // Build update payload — update BOTH docuseal status AND expanded status
+  // Build update payload
   const updates: Record<string, unknown> = {
     updated_at: now,
   };
 
   if (isNda) {
-    updates.nda_docuseal_status = docusealStatus;
+    updates.nda_pandadoc_status = pandadocStatus;
     if (expandedStatus) updates.nda_status = expandedStatus;
 
-    if (docusealStatus === 'completed') {
+    if (pandadocStatus === 'completed') {
       updates.nda_signed = true;
       updates.nda_signed_at = now;
-      const docUrl = documents[0]?.url;
-      if (docUrl && isValidDocumentUrl(docUrl)) {
-        updates.nda_signed_document_url = docUrl;
-        updates.nda_document_url = docUrl; // sync to expanded field too
+      if (signerEmail) updates.nda_signed_by_name = signerEmail;
+      // Download PDF URL via PandaDoc API
+      const pdfUrl = await downloadDocument(documentId);
+      if (pdfUrl) {
+        updates.nda_pandadoc_signed_url = pdfUrl;
+        updates.nda_document_url = pdfUrl;
       }
-    } else if (docusealStatus === 'declined' || docusealStatus === 'expired') {
+    } else if (pandadocStatus === 'declined' || pandadocStatus === 'expired' || pandadocStatus === 'voided') {
       updates.nda_signed = false;
     }
   } else {
-    updates.fee_docuseal_status = docusealStatus;
+    updates.fee_pandadoc_status = pandadocStatus;
     if (expandedStatus) updates.fee_agreement_status = expandedStatus;
 
-    if (docusealStatus === 'completed') {
+    if (pandadocStatus === 'completed') {
       updates.fee_agreement_signed = true;
       updates.fee_agreement_signed_at = now;
-      const docUrl = documents[0]?.url;
-      if (docUrl && isValidDocumentUrl(docUrl)) {
-        updates.fee_signed_document_url = docUrl;
-        updates.fee_agreement_document_url = docUrl; // sync to expanded field too
+      if (signerEmail) updates.fee_agreement_signed_by_name = signerEmail;
+      const pdfUrl = await downloadDocument(documentId);
+      if (pdfUrl) {
+        updates.fee_pandadoc_signed_url = pdfUrl;
+        updates.fee_agreement_document_url = pdfUrl;
       }
-    } else if (docusealStatus === 'declined' || docusealStatus === 'expired') {
+    } else if (pandadocStatus === 'declined' || pandadocStatus === 'expired' || pandadocStatus === 'voided') {
       updates.fee_agreement_signed = false;
     }
   }
@@ -368,14 +425,14 @@ async function processEvent(
     console.error('❌ Failed to update firm_agreements:', error);
   }
 
-  // ── Create admin notifications for key events ──
-  const notifiableEvents = ['completed', 'declined', 'expired'];
-  if (notifiableEvents.includes(docusealStatus)) {
-    await createAdminNotification(supabase, firmId, firmName, docLabel, docusealStatus);
+  // Create admin notifications for key events
+  const notifiableEvents = ['completed', 'declined', 'expired', 'voided'];
+  if (notifiableEvents.includes(pandadocStatus)) {
+    await createAdminNotification(supabase, firmId, firmName, docLabel, pandadocStatus);
   }
 
-  // If completed, sync to profiles AND send buyer notification with signed doc link
-  if (docusealStatus === 'completed') {
+  // If completed, sync to profiles AND send buyer notification
+  if (pandadocStatus === 'completed') {
     try {
       const { data: members } = await supabase
         .from('firm_members')
@@ -394,9 +451,9 @@ async function processEvent(
             .eq('id', member.user_id);
         }
 
-        // Send buyer notification with signed document download link
-        const signedDocUrl = documents[0]?.url || null;
-        await sendBuyerSignedDocNotification(supabase, members, firmId, docLabel, signedDocUrl);
+        // Send buyer notification
+        const signedDocUrl = updates[isNda ? 'nda_pandadoc_signed_url' : 'fee_pandadoc_signed_url'] as string | null;
+        await sendBuyerSignedDocNotification(supabase, members, firmId, docLabel, signedDocUrl || null);
       }
     } catch (syncError) {
       console.error('⚠️ Profile sync error:', syncError);
@@ -404,9 +461,38 @@ async function processEvent(
   }
 }
 
-/**
- * Create admin_notifications for all admins when a document event occurs.
- */
+async function downloadDocument(documentId: string): Promise<string | null> {
+  try {
+    const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
+    if (!pandadocApiKey) return null;
+
+    const resp = await fetch(`${PANDADOC_API_BASE}/documents/${documentId}/download`, {
+      headers: { 'Authorization': `API-Key ${pandadocApiKey}` },
+      redirect: 'manual',
+    });
+
+    // PandaDoc returns a redirect to the actual PDF URL
+    if (resp.status === 302 || resp.status === 301) {
+      const location = resp.headers.get('location');
+      if (location && isValidDocumentUrl(location)) {
+        return location;
+      }
+    }
+
+    // If it returns the PDF directly, we can't store a URL — log for debugging
+    if (resp.ok) {
+      console.log('📄 PandaDoc download returned direct content (no redirect URL to store)');
+    } else {
+      console.warn(`⚠️ PandaDoc download failed: HTTP ${resp.status}`);
+    }
+
+    return null;
+  } catch (err) {
+    console.error('⚠️ Document download error:', err);
+    return null;
+  }
+}
+
 async function createAdminNotification(
   supabase: SupabaseClient,
   firmId: string,
@@ -415,7 +501,6 @@ async function createAdminNotification(
   status: string,
 ) {
   try {
-    // Get all admin user IDs from user_roles table (RBAC source of truth)
     const { data: adminRoles } = await supabase
       .from('user_roles')
       .select('user_id')
@@ -437,6 +522,10 @@ async function createAdminNotification(
         title: `${docLabel} Expired`,
         message: `${docLabel} for ${firmName} has expired and needs to be resent.`,
       },
+      voided: {
+        title: `${docLabel} Voided`,
+        message: `${docLabel} for ${firmName} has been voided.`,
+      },
     };
 
     const notif = statusMessages[status];
@@ -450,7 +539,7 @@ async function createAdminNotification(
       metadata: {
         firm_id: firmId,
         document_type: docLabel.toLowerCase().replace(/ /g, '_'),
-        docuseal_status: status,
+        pandadoc_status: status,
       },
       is_read: false,
     }));
@@ -466,9 +555,6 @@ async function createAdminNotification(
   }
 }
 
-/**
- * Send a notification + system message to all firm members with a link to download their signed document.
- */
 async function sendBuyerSignedDocNotification(
   supabase: SupabaseClient,
   members: { user_id: string }[],
@@ -478,13 +564,13 @@ async function sendBuyerSignedDocNotification(
 ) {
   try {
     const downloadNote = signedDocUrl
-      ? `You can download your signed copy from your Profile → Documents tab, or use this link: ${signedDocUrl}`
+      ? `You can download your signed copy from your Profile → Documents tab.`
       : `You can view your signed documents in your Profile → Documents tab.`;
 
     const docType = docLabel.toLowerCase().replace(/ /g, '_');
 
     for (const member of members) {
-      // Deduplicate: check if confirm-agreement-signed already created this notification
+      // Deduplicate
       const { data: existing } = await supabase
         .from('user_notifications')
         .select('id')
@@ -514,7 +600,7 @@ async function sendBuyerSignedDocNotification(
         },
       });
 
-      // Insert a system message into General Inquiry only (first active connection request)
+      // Insert a system message into General Inquiry
       const { data: generalRequest } = await supabase
         .from('connection_requests')
         .select('id')

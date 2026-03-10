@@ -10,8 +10,8 @@ export interface ConnectionRequestFirmInfo {
   nda_signed: boolean;
   nda_status: string | null;
   fee_agreement_status: string | null;
-  nda_docuseal_status: string | null;
-  fee_docuseal_status: string | null;
+  nda_pandadoc_status: string | null;
+  fee_pandadoc_status: string | null;
   firmAgreement: FirmAgreement | null;
   firmMembers: FirmMember[];
 }
@@ -73,8 +73,8 @@ export function useConnectionRequestFirm(requestId: string | null) {
         nda_signed: firm.nda_signed,
         nda_status: firm.nda_status,
         fee_agreement_status: firm.fee_agreement_status,
-        nda_docuseal_status: firm.nda_docuseal_status,
-        fee_docuseal_status: firm.fee_docuseal_status,
+        nda_pandadoc_status: firm.nda_pandadoc_status,
+        fee_pandadoc_status: firm.fee_pandadoc_status,
         firmAgreement: firm as unknown as FirmAgreement,
         firmMembers: members,
       } as ConnectionRequestFirmInfo;

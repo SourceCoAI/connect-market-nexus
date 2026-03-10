@@ -75,13 +75,13 @@
 | `grant-data-room-access/` | Grant data room access |
 | `record-data-room-view/` | Record data room views |
 
-## Agreements & Signatures (DocuSeal)
+## Agreements & Signatures (PandaDoc)
 | Function | Purpose |
 |----------|---------|
 | `confirm-agreement-signed/` | Confirm agreement signature |
-| `create-docuseal-submission/` | Create DocuSeal submission |
-| `docuseal-integration-test/` | Test DocuSeal integration |
-| `docuseal-webhook-handler/` | Handle DocuSeal webhooks |
+| `create-pandadoc-document/` | Create PandaDoc document |
+| `pandadoc-integration-test/` | Test PandaDoc integration |
+| `pandadoc-webhook-handler/` | Handle PandaDoc webhooks |
 | `get-agreement-document/` | Get agreement document |
 | `get-buyer-fee-embed/` | Get buyer fee agreement embed URL |
 | `get-buyer-nda-embed/` | Get buyer NDA embed URL |
