@@ -70,7 +70,7 @@ function useThreadBuyerFirm(userId: string | null) {
       const { data: firm } = await supabase
         .from('firm_agreements')
         .select(
-          'id, primary_company_name, nda_signed, nda_signed_at, nda_pandadoc_status, nda_signed_document_url, nda_document_url, fee_agreement_signed, fee_agreement_signed_at, fee_pandadoc_status, fee_signed_document_url, fee_agreement_document_url',
+          'id, primary_company_name, nda_signed, nda_signed_at, nda_status, nda_document_url, fee_agreement_signed, fee_agreement_signed_at, fee_agreement_status, fee_agreement_document_url',
         )
         .eq('id', firmId)
         .maybeSingle();
