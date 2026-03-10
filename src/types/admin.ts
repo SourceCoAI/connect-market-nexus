@@ -93,6 +93,9 @@ export interface AdminListing {
   // Source deal linkage (marketplace listing created from a deal)
   source_deal_id?: string | null;
 
+  // Featured deals shown on landing page (if null, random/recent deals are shown)
+  featured_deal_ids?: string[] | null;
+
   // Content sections (populated by lead memo generator)
   custom_sections?: Array<{ title: string; description: string }> | null;
 

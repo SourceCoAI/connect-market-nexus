@@ -24,7 +24,7 @@ function MobileStickyBar({ dealId }: { dealId: string }) {
         // Hide once the form is in or past view
         setHidden(entry.isIntersecting);
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
     observer.observe(formEl);
     return () => observer.disconnect();
@@ -153,7 +153,7 @@ function Footer() {
 export default function DealLandingPage() {
   const { id } = useParams<{ id: string }>();
   const { data: deal, isLoading, error } = useDealLandingPage(id);
-  const { data: relatedDeals } = useRelatedDeals(id);
+  const { data: relatedDeals } = useRelatedDeals(id, deal?.featured_deal_ids);
   const hasTrackedView = useRef(false);
 
   // GAP 9: Track anonymous landing page views per listing

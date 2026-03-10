@@ -40,6 +40,7 @@ export interface LandingPageDeal {
   revenue_model: string | null;
   business_model: string | null;
   growth_trajectory: string | null;
+  featured_deal_ids: string[] | null;
 }
 
 export interface RelatedDeal {
@@ -63,7 +64,8 @@ const LANDING_PAGE_FIELDS = `
   executive_summary, full_time_employees, part_time_employees,
   status, presented_by_admin_id, is_internal_deal, acquisition_type,
   geographic_states, services, number_of_locations, customer_types,
-  revenue_model, business_model, growth_trajectory
+  revenue_model, business_model, growth_trajectory,
+  featured_deal_ids
 `;
 
 export function useDealLandingPage(dealId: string | undefined) {
@@ -93,15 +95,51 @@ export function useDealLandingPage(dealId: string | undefined) {
   });
 }
 
-export function useRelatedDeals(currentDealId: string | undefined) {
+export function useRelatedDeals(
+  currentDealId: string | undefined,
+  featuredDealIds?: string[] | null,
+) {
   return useQuery({
-    queryKey: ['related-deals', currentDealId],
+    queryKey: ['related-deals', currentDealId, featuredDealIds],
     queryFn: async (): Promise<RelatedDeal[]> => {
+      const selectFields =
+        'id, title, location, revenue, ebitda, ebitda_margin, categories, description, hero_description, image_url';
+
+      // If hand-picked featured deals are set, fetch those specifically
+      if (featuredDealIds && featuredDealIds.length > 0) {
+        const { data, error } = await supabase
+          .from('listings')
+          .select(selectFields)
+          .in('id', featuredDealIds)
+          .eq('status', 'active')
+          .eq('is_internal_deal', false);
+
+        if (error) throw error;
+
+        const featured = (data ?? []) as RelatedDeal[];
+
+        // If we got fewer than expected (e.g. a deal was deactivated), backfill with recent
+        if (featured.length < 2) {
+          const excludeIds = [currentDealId!, ...featured.map((d) => d.id)];
+          const { data: backfill } = await supabase
+            .from('listings')
+            .select(selectFields)
+            .eq('status', 'active')
+            .eq('is_internal_deal', false)
+            .not('id', 'in', `(${excludeIds.join(',')})`)
+            .order('created_at', { ascending: false })
+            .limit(3 - featured.length);
+
+          return [...featured, ...((backfill ?? []) as RelatedDeal[])];
+        }
+
+        return featured;
+      }
+
+      // Default: most recent active marketplace listings
       const { data, error } = await supabase
         .from('listings')
-        .select(
-          'id, title, location, revenue, ebitda, ebitda_margin, categories, description, hero_description, image_url',
-        )
+        .select(selectFields)
         .eq('status', 'active')
         .eq('is_internal_deal', false)
         .neq('id', currentDealId!)

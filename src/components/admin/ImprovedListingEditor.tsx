@@ -16,6 +16,7 @@ import { EditorHeroDescriptionSection } from './editor-sections/EditorHeroDescri
 import { EditorVisualsSection } from './editor-sections/EditorVisualsSection';
 import { EditorInternalCard } from './editor-sections/EditorInternalCard';
 import { EditorLivePreview } from './editor-sections/EditorLivePreview';
+import { EditorFeaturedDealsSection } from './editor-sections/EditorFeaturedDealsSection';
 
 // Form schema - location accepts array from select component and transforms to string
 const listingFormSchema = z.object({
@@ -222,6 +223,9 @@ export function ImprovedListingEditor({
   const [imagePreview, setImagePreview] = useState<string | null>(listing?.image_url || null);
   const [isImageChanged, setIsImageChanged] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [featuredDealIds, setFeaturedDealIds] = useState<string[] | null>(
+    listing?.featured_deal_ids ?? null,
+  );
 
   const isGenerating = false;
   const generatingField: string | null = null;
@@ -392,6 +396,8 @@ export function ImprovedListingEditor({
         main_contact_linkedin: formData.main_contact_linkedin || null,
         // Content sections (populated by lead memo generator)
         custom_sections: formData.custom_sections || null,
+        // Featured deals for landing page
+        featured_deal_ids: featuredDealIds,
       };
 
       await onSubmit(transformedData, isImageChanged ? selectedImage : undefined);
@@ -479,6 +485,15 @@ export function ImprovedListingEditor({
                 generatingField={generatingField}
                 dealId={effectiveDealId}
                 listingId={listing?.id || null}
+              />
+            </div>
+
+            {/* Featured Deals (for landing page related-deals section) */}
+            <div className="mb-6">
+              <EditorFeaturedDealsSection
+                featuredDealIds={featuredDealIds}
+                onChange={setFeaturedDealIds}
+                currentListingId={listing?.id}
               />
             </div>
 
