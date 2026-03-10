@@ -1,43 +1,33 @@
 
 
-# Plan: Fix Edge Function Build Errors & Deploy All
+## Fix: Add "Remove Not a Fit" toggle for deals already marked
 
-The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
+### Problem
+Across multiple deal tables (Referral Partner Detail, GP Partners, SourceCo, CapTarget), the action menu always shows "Mark as Not a Fit" even when a deal is already marked. There is no way to undo the status.
 
-## Errors & Fixes
+### Fix
+In each table's action menu, check `deal.remarketing_status === 'not_a_fit'` (or `listing.not_a_fit`). If already marked:
+- Show **"Remove Not a Fit"** with a green undo icon instead
+- On click, set `remarketing_status` back to `null` (or `not_a_fit = false`)
 
-### 1. `auto-create-firm-on-approval/index.ts` (1 error)
-**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
-**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
+### Files to change
 
-### 2. `bulk-import-remarketing/index.ts` (2 errors)
-**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
-**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
+1. **`src/pages/admin/remarketing/ReMarketingReferralPartnerDetail/DealsTable.tsx`** (lines 428-444)
+   - Check `deal.remarketing_status === 'not_a_fit'`
+   - If true: show "Remove Not a Fit", update to `remarketing_status: null`
+   - If false: keep current "Mark as Not a Fit" behavior
 
-### 3. `calculate-deal-quality/index.ts` (24 errors)
-**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
-**Fix:**
-- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
-- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
+2. **`src/pages/admin/remarketing/GPPartnerDeals/GPPartnerTable.tsx`** (lines 509-516)
+   - Replace "Already Not a Fit" (disabled text) with clickable "Remove Not a Fit" that clears the status
 
-### 4. `clarify-industry/index.ts` (1 error)
-**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
-**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
+3. **`src/pages/admin/remarketing/SourceCoDeals/SourceCoTable.tsx`** (lines ~509-512)
+   - Same pattern as GP Partners
 
-### 5. `confirm-agreement-signed/index.ts` (3 errors)
-**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
-**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
+4. **`src/pages/admin/remarketing/components/CapTargetTableRow.tsx`** (lines ~414-417)
+   - Same pattern
 
-## After Fixes
-Deploy all edge functions using the deployment tool.
+5. **`src/pages/admin/remarketing/components/DealTableRow.tsx`** (lines ~602-605)
+   - Same pattern — toggle between set/clear `not_a_fit`
 
-## Summary of Changes
-| File | Change |
-|------|--------|
-| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
-| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
-| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
-| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
-| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
-| Deploy all ~148 functions | After fixes pass |
+Each change is small: swap the label, icon, and update payload based on current status.
 
