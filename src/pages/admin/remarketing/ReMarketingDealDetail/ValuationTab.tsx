@@ -271,11 +271,81 @@ export function ValuationTab({ dealId }: ValuationTabProps) {
               </div>
             )}
           </section>
+          <Separator />
+
+          {/* Financial & Business Details (from direct columns) */}
+          {(lead.revenue != null || lead.ebitda != null || lead.valuation_mid != null || lead.industry || lead.locations_count != null || lead.revenue_model) && (
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+                Financial & Business Details
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {lead.revenue != null && (
+                  <div className="bg-muted/30 rounded-lg p-3 text-center">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Revenue</p>
+                    <p className="text-lg font-bold tabular-nums">{formatCompactCurrency(lead.revenue as number)}</p>
+                  </div>
+                )}
+                {lead.ebitda != null && (
+                  <div className="bg-muted/30 rounded-lg p-3 text-center">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">EBITDA</p>
+                    <p className="text-lg font-bold tabular-nums">{formatCompactCurrency(lead.ebitda as number)}</p>
+                  </div>
+                )}
+                {lead.valuation_mid != null && (
+                  <div className="bg-muted/30 rounded-lg p-3 text-center">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Valuation (Est.)</p>
+                    <p className="text-lg font-bold tabular-nums">{formatCompactCurrency(lead.valuation_mid as number)}</p>
+                    {(lead.valuation_low != null || lead.valuation_high != null) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {lead.valuation_low != null ? formatCompactCurrency(lead.valuation_low as number) : '?'} –{' '}
+                        {lead.valuation_high != null ? formatCompactCurrency(lead.valuation_high as number) : '?'}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {lead.industry && (
+                  <div>
+                    <span className="text-muted-foreground">Industry:</span>{' '}
+                    <span className="capitalize">{(lead.industry as string).replace(/[-_]/g, ' ')}</span>
+                  </div>
+                )}
+                {lead.revenue_model && (
+                  <div>
+                    <span className="text-muted-foreground">Revenue Model:</span>{' '}
+                    <span className="capitalize">{(lead.revenue_model as string).replace(/[-_]/g, ' ')}</span>
+                  </div>
+                )}
+                {lead.locations_count != null && (
+                  <div>
+                    <span className="text-muted-foreground">Locations:</span>{' '}
+                    <span>{lead.locations_count as number}</span>
+                  </div>
+                )}
+                {lead.cta_clicked != null && (
+                  <div>
+                    <span className="text-muted-foreground">Interested in Speaking:</span>{' '}
+                    <span className={cn(lead.cta_clicked ? 'text-emerald-600 font-medium' : 'text-muted-foreground')}>
+                      {lead.cta_clicked ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                )}
+              </div>
+              {lead.scoring_notes && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Scoring Notes:</span>{' '}
+                  <span>{lead.scoring_notes as string}</span>
+                </div>
+              )}
+            </section>
+          )}
         </CardContent>
       </Card>
 
-      {/* Valuation Results */}
-      {results && (
+      {/* Valuation Results (from JSONB raw_valuation_results) */}
+      {results && (results.businessValue || results.propertyValue || results.qualityLabel || results.buyerLane || results.narrative || results.positiveFactors.length > 0 || results.negativeFactors.length > 0 || results.scoreBreakdown.length > 0 || results.tier) && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Valuation Results</CardTitle>
