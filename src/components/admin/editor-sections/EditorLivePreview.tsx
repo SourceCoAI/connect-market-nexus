@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { CheckCircle2, AlertCircle, Shield, MapPin, ImageIcon, ExternalLink } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -9,6 +10,15 @@ import ListingCardFinancials from '@/components/listing/ListingCardFinancials';
 import { RichTextDisplay } from '@/components/ui/rich-text-display';
 import { formatCurrency } from '@/lib/currency-utils';
 import { Card, CardContent } from '@/components/ui/card';
+import { useRelatedDeals } from '@/hooks/useDealLandingPage';
+import type { LandingPageDeal } from '@/hooks/useDealLandingPage';
+import LandingHeader from '@/pages/DealLandingPage/components/LandingHeader';
+import DealHero from '@/pages/DealLandingPage/components/DealHero';
+import MetricsStrip from '@/pages/DealLandingPage/components/MetricsStrip';
+import ContentSections from '@/pages/DealLandingPage/components/ContentSections';
+import DealRequestForm from '@/pages/DealLandingPage/components/DealRequestForm';
+import DealSidebar from '@/pages/DealLandingPage/components/DealSidebar';
+import RelatedDeals from '@/pages/DealLandingPage/components/RelatedDeals';
 
 export interface EditorPreviewFormValues {
   title?: string;
@@ -25,6 +35,22 @@ export interface EditorPreviewFormValues {
   part_time_employees?: number;
   custom_sections?: Array<{ title: string; description: string }> | unknown;
   internal_company_name?: string;
+  // Additional fields for full-fidelity landing page preview
+  metric_3_type?: string;
+  metric_3_custom_label?: string | null;
+  metric_3_custom_value?: string | null;
+  metric_3_custom_subtitle?: string | null;
+  metric_4_type?: string;
+  metric_4_custom_label?: string | null;
+  metric_4_custom_value?: string | null;
+  metric_4_custom_subtitle?: string | null;
+  revenue_metric_subtitle?: string | null;
+  ebitda_metric_subtitle?: string | null;
+  geographic_states?: string[];
+  services?: string[];
+  number_of_locations?: number;
+  presented_by_admin_id?: string | null;
+  deal_identifier?: string | null;
 }
 
 interface EditorLivePreviewProps {
@@ -252,15 +278,19 @@ function FullListingPreview({ formValues, imagePreview }: EditorLivePreviewProps
             </div>
           )}
           {formValues.categories
-            ?.filter((cat) => cat.length <= 60 && !/\b(is|are|was|were|the|that|this|their|which|also|primarily)\b/i.test(cat))
+            ?.filter(
+              (cat) =>
+                cat.length <= 60 &&
+                !/\b(is|are|was|were|the|that|this|their|which|also|primarily)\b/i.test(cat),
+            )
             .map((cat) => (
-            <span
-              key={cat}
-              className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-medium text-slate-600"
-            >
-              {cat}
-            </span>
-          ))}
+              <span
+                key={cat}
+                className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-medium text-slate-600"
+              >
+                {cat}
+              </span>
+            ))}
         </div>
 
         {/* Hero description */}
@@ -360,164 +390,147 @@ function FullListingPreview({ formValues, imagePreview }: EditorLivePreviewProps
   );
 }
 
-// ─── Preview 3: Anonymous Landing Page Preview ───────────────────────────────
+// ─── Preview 3: Full-Fidelity Landing Page Preview ───────────────────────────
+// Renders the actual DealLandingPage components with real related deals,
+// giving admins a pixel-accurate preview of the public deal page.
 
-function AnonymousLandingPreview({ formValues }: EditorLivePreviewProps) {
+function formValuesToLandingPageDeal(
+  formValues: EditorPreviewFormValues,
+  imagePreview: string | null,
+): LandingPageDeal {
   const revenue = parseNum(formValues.revenue);
   const ebitda = parseNum(formValues.ebitda);
-  const marginPct = revenue > 0 ? ((ebitda / revenue) * 100).toFixed(1) : '0';
-  // Simulate anonymization: strip company name from title if present
-  const companyName = formValues.internal_company_name?.trim();
-  const anonymizeText = (text: string): string => {
-    if (!text || !companyName || companyName.length < 3) return text;
-    const escaped = companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return text.replace(new RegExp(escaped, 'gi'), 'the Company');
+  return {
+    id: 'preview',
+    title: formValues.title || 'Untitled Listing',
+    deal_identifier: formValues.deal_identifier || null,
+    hero_description: formValues.hero_description || null,
+    description: formValues.description || null,
+    description_html: formValues.description_html || null,
+    location: formValues.location?.[0] || null,
+    revenue,
+    ebitda,
+    categories: formValues.categories || null,
+    category: formValues.categories?.[0] || null,
+    custom_sections: Array.isArray(formValues.custom_sections)
+      ? (formValues.custom_sections as Array<{ title: string; description: string }>)
+      : null,
+    image_url: imagePreview,
+    revenue_metric_subtitle: formValues.revenue_metric_subtitle || null,
+    ebitda_metric_subtitle: formValues.ebitda_metric_subtitle || null,
+    metric_3_type: formValues.metric_3_type || null,
+    metric_3_custom_label: formValues.metric_3_custom_label || null,
+    metric_3_custom_value: formValues.metric_3_custom_value || null,
+    metric_3_custom_subtitle: formValues.metric_3_custom_subtitle || null,
+    metric_4_type: formValues.metric_4_type || null,
+    metric_4_custom_label: formValues.metric_4_custom_label || null,
+    metric_4_custom_value: formValues.metric_4_custom_value || null,
+    metric_4_custom_subtitle: formValues.metric_4_custom_subtitle || null,
+    executive_summary: null,
+    full_time_employees: formValues.full_time_employees || null,
+    part_time_employees: formValues.part_time_employees || null,
+    status: 'active',
+    presented_by_admin_id: formValues.presented_by_admin_id || null,
+    is_internal_deal: false,
+    acquisition_type: formValues.acquisition_type || null,
+    geographic_states: formValues.geographic_states || null,
+    services: formValues.services || null,
+    number_of_locations: formValues.number_of_locations || null,
+    customer_types: null,
+    revenue_model: null,
+    business_model: null,
+    growth_trajectory: null,
   };
+}
 
-  const anonTitle = anonymizeText(formValues.title || 'Untitled Listing');
-  const anonHero = formValues.hero_description ? anonymizeText(formValues.hero_description) : null;
-
-  const metrics = [
-    {
-      label: `${new Date().getFullYear() - 1} Revenue`,
-      value: revenue > 0 ? formatCurrency(revenue) : '—',
-      subtitle: formValues.categories?.[0] || '',
-    },
-    {
-      label: 'EBITDA',
-      value: ebitda > 0 ? formatCurrency(ebitda) : '—',
-      subtitle: `~${marginPct}% margin profile`,
-    },
-    {
-      label: 'EBITDA Margin',
-      value: `${marginPct}%`,
-      subtitle: 'Profitability metric',
-    },
-  ];
-
-  const customSections = Array.isArray(formValues.custom_sections)
-    ? (formValues.custom_sections as Array<{ title: string; description: string }>)
-    : [];
-
+function LandingPageFooter() {
   return (
-    <div className="bg-[#F7F5F0] rounded-lg border border-border overflow-hidden max-w-[720px]">
-      {/* Landing header mock */}
-      <div className="bg-white border-b border-[#E5E7EB] px-6 py-3">
-        <span className="text-sm font-semibold text-[#1A1A1A] tracking-tight font-['Inter',system-ui,sans-serif]">
-          SourceCo
+    <footer
+      style={{
+        borderTop: '1px solid #DDD8D0',
+        background: '#FDFCFA',
+        padding: '28px 24px',
+        fontFamily: "'DM Sans', sans-serif",
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "'DM Serif Display', serif",
+            fontSize: 16,
+            color: '#1A1714',
+          }}
+        >
+          Source<span style={{ color: '#B8933A' }}>Co</span>
         </span>
-      </div>
-
-      <div className="px-6 py-8 space-y-6">
-        {/* Deal identifier & confidential badge */}
-        <div className="flex items-center gap-4">
-          <span className="text-[11px] font-medium text-[#6B7280] uppercase tracking-[0.08em] font-['Inter',system-ui,sans-serif]">
-            CONFIDENTIAL
-          </span>
-        </div>
-
-        {/* Anonymous title */}
-        <h1 className="text-[28px] sm:text-[32px] font-bold text-[#1A1A1A] leading-tight font-['Inter',system-ui,sans-serif]">
-          {anonTitle}
-        </h1>
-
-        {/* Location */}
-        {formValues.location?.[0] && (
-          <div className="flex items-center gap-1.5 text-[#6B7280]">
-            <MapPin className="w-4 h-4 flex-shrink-0" />
-            <span className="text-sm font-['Inter',system-ui,sans-serif]">
-              {formValues.location[0]}
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          {['Marketplace', 'For Buyers', 'For Sellers', 'Blog', 'Contact'].map((label) => (
+            <span key={label} style={{ fontSize: 12, color: '#6B6560', cursor: 'default' }}>
+              {label}
             </span>
-          </div>
-        )}
-
-        {/* Hero description (anonymized) */}
-        {anonHero && (
-          <p className="text-[15px] leading-[1.6] text-[#374151] max-w-2xl font-['Inter',system-ui,sans-serif]">
-            {anonHero}
-          </p>
-        )}
-
-        {/* Confidential banner */}
-        <div className="flex items-start gap-3 bg-[#F8F9FA] border border-[#E5E7EB] rounded-lg px-4 py-3">
-          <Shield className="h-4 w-4 text-[#9CA3AF] mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-[#6B7280] leading-relaxed font-['Inter',system-ui,sans-serif]">
-            Business identity is confidential. Request access to receive full deal materials
-            including the company name.
-          </p>
-        </div>
-
-        {/* Metrics strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 border-b border-[#E5E7EB] pb-6">
-          {metrics.map((metric, i) => (
-            <div key={i} className="space-y-1">
-              <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wider font-['Inter',system-ui,sans-serif]">
-                {metric.label}
-              </p>
-              <p className="text-2xl font-light text-[#1A1A1A] font-['Inter',system-ui,sans-serif]">
-                {metric.value}
-              </p>
-              {metric.subtitle && (
-                <p className="text-xs text-[#6B7280] font-['Inter',system-ui,sans-serif]">
-                  {metric.subtitle}
-                </p>
-              )}
-            </div>
           ))}
         </div>
+        <div style={{ fontSize: 11, color: '#6B6560' }}>
+          &copy; SourceCo {new Date().getFullYear()}. All rights reserved.
+        </div>
+      </div>
+    </footer>
+  );
+}
 
-        {/* Content: Business Overview (anonymized) */}
-        {(formValues.description_html || formValues.description) && (
-          <div className="border-b border-[#E5E7EB] pb-6">
-            <h2 className="text-sm font-medium text-[#1A1A1A] leading-5 py-4 font-['Inter',system-ui,sans-serif]">
-              Business Overview
-            </h2>
-            <div className="prose prose-slate max-w-none text-sm [&_p]:text-sm [&_div]:text-sm [&_span]:text-sm">
-              {formValues.description_html ? (
-                <RichTextDisplay content={anonymizeText(formValues.description_html)} />
-              ) : (
-                <p className="text-sm leading-relaxed text-[#374151] font-['Inter',system-ui,sans-serif]">
-                  {anonymizeText(formValues.description || '')}
-                </p>
-              )}
-            </div>
+function FullFidelityLandingPreview({ formValues, imagePreview }: EditorLivePreviewProps) {
+  const deal = useMemo(
+    () => formValuesToLandingPageDeal(formValues, imagePreview),
+    [formValues, imagePreview],
+  );
+
+  // Fetch real related deals from the database (excluding the current listing if it has an ID)
+  const { data: relatedDeals } = useRelatedDeals('preview');
+
+  return (
+    <div
+      className="rounded-lg border border-border overflow-hidden"
+      style={{ background: '#F5F2ED', maxHeight: '80vh', overflowY: 'auto' }}
+    >
+      {/* Real LandingHeader component */}
+      <div style={{ position: 'relative', zIndex: 10 }}>
+        <LandingHeader />
+      </div>
+
+      <main style={{ maxWidth: 1180, margin: '0 auto' }} className="px-4 sm:px-6">
+        <DealHero deal={deal} />
+        <MetricsStrip deal={deal} />
+
+        <div
+          style={{ display: 'grid', gap: 24, marginBottom: 48 }}
+          className="grid-cols-1 lg:grid-cols-[1fr_300px]"
+        >
+          {/* Left column — content + form */}
+          <div>
+            <ContentSections deal={deal} />
+            <DealRequestForm listingId="preview" dealTitle={deal.title} />
           </div>
-        )}
 
-        {/* Custom Sections (anonymized) */}
-        {customSections.map((section, i) => (
-          <div key={i} className="border-b border-[#E5E7EB] pb-6">
-            <h2 className="text-sm font-medium text-[#1A1A1A] leading-5 py-4 font-['Inter',system-ui,sans-serif]">
-              {anonymizeText(section.title)}
-            </h2>
-            <p className="text-sm leading-relaxed text-[#374151] font-['Inter',system-ui,sans-serif]">
-              {anonymizeText(section.description)}
-            </p>
-          </div>
-        ))}
-
-        {/* Request form mockup */}
-        <div className="bg-white rounded-lg border border-[#E5E7EB] p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2 font-['Inter',system-ui,sans-serif]">
-            Request Full Details
-          </h3>
-          <p className="text-sm text-[#6B7280] mb-4 font-['Inter',system-ui,sans-serif]">
-            Submit your information to access the complete deal package including financials,
-            company identity, and management team details.
-          </p>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="h-10 rounded-md border border-[#D1D5DB] bg-[#F9FAFB]" />
-              <div className="h-10 rounded-md border border-[#D1D5DB] bg-[#F9FAFB]" />
-            </div>
-            <div className="h-10 rounded-md border border-[#D1D5DB] bg-[#F9FAFB]" />
-            <div className="h-20 rounded-md border border-[#D1D5DB] bg-[#F9FAFB]" />
-            <div className="bg-[#C9A84C] text-white rounded-md py-2.5 text-center text-sm font-medium">
-              Request Access
+          {/* Right column — sticky sidebar */}
+          <div className="hidden lg:block">
+            <div style={{ position: 'sticky', top: 60 }}>
+              <DealSidebar listingId="preview" presentedByAdminId={deal.presented_by_admin_id} />
             </div>
           </div>
         </div>
-      </div>
+
+        {relatedDeals && relatedDeals.length > 0 && <RelatedDeals deals={relatedDeals} />}
+      </main>
+
+      <LandingPageFooter />
     </div>
   );
 }
@@ -561,7 +574,7 @@ export function EditorLivePreview({ formValues, imagePreview, listingId }: Edito
                     Full Listing
                   </TabsTrigger>
                   <TabsTrigger value="anonymous" className="text-xs h-7 px-3">
-                    Anonymous Page
+                    Landing Page
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -592,11 +605,11 @@ export function EditorLivePreview({ formValues, imagePreview, listingId }: Edito
               <p className="text-xs text-muted-foreground mb-3 flex items-center gap-2">
                 <Shield className="h-3.5 w-3.5" />
                 <span>
-                  Anonymous View — buyer sees this before NDA. No company name, contact info, or
-                  identifying details are revealed.
+                  Full landing page preview — exactly how anonymous visitors see this deal at
+                  /deals/:id, including sidebar, request form, and related deals funnel.
                 </span>
               </p>
-              <AnonymousLandingPreview formValues={formValues} imagePreview={imagePreview} />
+              <FullFidelityLandingPreview formValues={formValues} imagePreview={imagePreview} />
             </div>
           </TabsContent>
         </Tabs>
