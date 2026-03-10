@@ -502,15 +502,34 @@ function DealRowActions({
           <CheckCircle2 className="h-4 w-4 mr-2" />
           Approve to Active Deals
         </DropdownMenuItem>
-        {onMarkNotFit && (
+        {deal.remarketing_status === 'not_a_fit' ? (
+          <DropdownMenuItem
+            className="text-green-600 focus:text-green-600"
+            onClick={async () => {
+              const { error } = await supabase
+                .from('listings')
+                .update({ remarketing_status: null } as never)
+                .eq('id', deal.id);
+              if (error) {
+                toast({ title: 'Error', description: error.message, variant: 'destructive' });
+              } else {
+                toast({ title: 'Removed Not a Fit status' });
+                queryClient.invalidateQueries({ queryKey: ['remarketing', 'sourceco-deals'] });
+              }
+            }}
+          >
+            <Undo2 className="h-4 w-4 mr-2" />
+            Remove Not a Fit
+          </DropdownMenuItem>
+        ) : onMarkNotFit ? (
           <DropdownMenuItem
             className="text-orange-600 focus:text-orange-600"
             onClick={() => onMarkNotFit(deal.id)}
           >
             <ThumbsDown className="h-4 w-4 mr-2" />
-            {deal.remarketing_status === 'not_a_fit' ? 'Already Not a Fit' : 'Mark as Not a Fit'}
+            Mark as Not a Fit
           </DropdownMenuItem>
-        )}
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="text-amber-600 focus:text-amber-600"

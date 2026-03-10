@@ -424,23 +424,27 @@ export function DealsTable({
                         : 'Flag: Need to Contact Owner'}
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      className="text-orange-600 focus:text-orange-600"
+                      className={deal.remarketing_status === 'not_a_fit' ? 'text-green-600 focus:text-green-600' : 'text-orange-600 focus:text-orange-600'}
                       onClick={async () => {
+                        const isAlreadyNotFit = deal.remarketing_status === 'not_a_fit';
                         const { error } = await supabase
                           .from('listings')
-                          .update({ remarketing_status: 'not_a_fit' } as never)
+                          .update({ remarketing_status: isAlreadyNotFit ? null : 'not_a_fit' } as never)
                           .eq('id', deal.id);
                         if (error) toast.error(error.message);
                         else {
-                          toast.success('Marked as not a fit');
+                          toast.success(isAlreadyNotFit ? 'Removed Not a Fit status' : 'Marked as not a fit');
                           queryClient.invalidateQueries({
                             queryKey: ['referral-partners', partnerId, 'deals'],
                           });
                         }
                       }}
                     >
-                      <ThumbsDown className="h-3 w-3 mr-2" />
-                      Mark as Not a Fit
+                      {deal.remarketing_status === 'not_a_fit' ? (
+                        <><Undo2 className="h-3 w-3 mr-2" />Remove Not a Fit</>
+                      ) : (
+                        <><ThumbsDown className="h-3 w-3 mr-2" />Mark as Not a Fit</>
+                      )}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
