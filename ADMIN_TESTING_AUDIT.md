@@ -11,7 +11,7 @@ The SourceCo Connect Market Nexus platform is an M&A deal management system with
 
 - **~90+ database tables** across deals, buyers, contacts, transcripts, enrichment, remarketing, and admin domains
 - **60+ AI tools** organized into 18 tool files and 22 intent categories
-- **6 external integrations** (Fireflies.ai, Apify, Prospeo, DocuSeal, PhoneBurner, SmartLead)
+- **6 external integrations** (Fireflies.ai, Apify, Prospeo, PandaDoc, PhoneBurner, SmartLead)
 - **Two-stage router** (regex bypass → Haiku LLM fallback) classifying queries into tool subsets
 - **SSE-streaming orchestrator** with 5-round tool-calling loop and 15s per-tool timeouts
 
@@ -25,7 +25,7 @@ The SourceCo Connect Market Nexus platform is an M&A deal management system with
 | Tool category restrictions can block needed tools     | Risk    | High     |
 | Client-side array filtering fragile on mixed types    | Fixed   | —        |
 | PhoneBurner call history tool (get_call_history)      | Fixed   | —        |
-| No AI tool for DocuSeal NDA sending                   | Gap     | Low      |
+| No AI tool for PandaDoc NDA sending                   | Gap     | Low      |
 | SmartLead has zero implementation                     | Gap     | Info     |
 | Enrichment pipeline (Apify+Prospeo) not exposed to AI | Gap     | Medium   |
 | Semantic search via pgvector is functional            | Working | —        |
@@ -155,13 +155,13 @@ User Query (from chat widget)
 
 | Table                  | Purpose                                                                          |
 | ---------------------- | -------------------------------------------------------------------------------- |
-| `firm_agreements`      | NDA & fee agreement status (nda_signed, fee_agreement_signed, docuseal statuses) |
+| `firm_agreements`      | NDA & fee agreement status (nda_signed, fee_agreement_signed, pandadoc statuses) |
 | `firm_members`         | Firm↔user links                                                                  |
 | `firm_domain_aliases`  | Domain mapping                                                                   |
 | `agreement_audit_log`  | Change log                                                                       |
 | `nda_logs`             | NDA events                                                                       |
 | `fee_agreement_logs`   | Fee events                                                                       |
-| `docuseal_webhook_log` | Webhook events (submission_id, event_type, raw_payload)                          |
+| `pandadoc_webhook_log` | Webhook events (submission_id, event_type, raw_payload)                          |
 
 ### 3.6 Transcripts & Chat
 
@@ -389,7 +389,7 @@ Key patterns with their target categories:
 | **Fireflies.ai** | Working         | Yes (search_fireflies, semantic_transcript_search) | No             |
 | **Apify**        | Working         | No (admin-only)                                    | No             |
 | **Prospeo**      | Working         | No (admin-only)                                    | No             |
-| **DocuSeal**     | Working         | No (UI-only)                                       | Yes (incoming) |
+| **PandaDoc**     | Working         | No (UI-only)                                       | Yes (incoming) |
 | **PhoneBurner**  | Working         | No (logging only)                                  | Yes (incoming) |
 | **SmartLead**    | Not Implemented | —                                                  | —              |
 
@@ -408,9 +408,9 @@ Key patterns with their target categories:
 - **Flow**: Company → Firecrawl → LinkedIn URL → Apify scrape → employee list → Prospeo emails → `enriched_contacts`
 - **AI Access**: Not exposed — admin-only endpoint
 
-### 6.4 DocuSeal (E-Signatures)
+### 6.4 PandaDoc (E-Signatures)
 
-- **Functions**: `docuseal-webhook-handler`, `create-docuseal-submission`, `get-buyer-nda-embed`, `get-buyer-fee-embed`
+- **Functions**: `pandadoc-webhook-handler`, `create-pandadoc-submission`, `get-buyer-nda-embed`, `get-buyer-fee-embed`
 - **Events**: form.completed, form.viewed, form.started, form.declined, form.expired
 - **Security**: HMAC timing-safe, configurable header
 - **State Machine**: not_sent → viewed → started → completed/declined/expired (no backward)
@@ -470,7 +470,7 @@ Haiku timeout/failure → GENERAL category with confidence 0.3. During LLM outag
 
 No email campaign capability exists.
 
-### 7.8 LOW: DocuSeal Not Exposed to AI
+### 7.8 LOW: PandaDoc Not Exposed to AI
 
 NDA sending is UI-only. AI cannot trigger document signing.
 
@@ -497,7 +497,7 @@ NDA sending is UI-only. AI cannot trigger document signing.
 ### Priority 4 — Future
 
 8. Implement SmartLead if email campaigns needed
-9. Expose DocuSeal to AI if automated NDA sending desired
+9. Expose PandaDoc to AI if automated NDA sending desired
 10. Add PhoneBurner push capability for AI-queued dialing
 
 ---
