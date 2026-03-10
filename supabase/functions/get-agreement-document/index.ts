@@ -56,14 +56,13 @@ serve(async (req: Request) => {
       );
     }
 
-    // Get document ID and signed status
+    // Get document ID and signed status — use canonical nda_status / fee_agreement_status
     const documentCol = isNda ? 'nda_pandadoc_document_id' : 'fee_pandadoc_document_id';
-    const signedCol = isNda ? 'nda_signed' : 'fee_agreement_signed';
-    const signedUrlCol = isNda ? 'nda_signed_document_url' : 'fee_signed_document_url';
+    const statusCol = isNda ? 'nda_status' : 'fee_agreement_status';
 
     const { data: firm } = await supabaseAdmin
       .from('firm_agreements')
-      .select(`${documentCol}, ${signedCol}, ${signedUrlCol}`)
+      .select(`${documentCol}, ${statusCol}`)
       .eq('id', firmId)
       .single();
 
@@ -75,16 +74,9 @@ serve(async (req: Request) => {
     }
 
     const firmRecord = firm as Record<string, unknown>;
-    const isSigned = !!firmRecord[signedCol];
+    const isSigned = firmRecord[statusCol] === 'signed';
 
-    // If signed and we already have the URL cached, return it directly
-    if (isSigned && firmRecord[signedUrlCol]) {
-      return new Response(
-        JSON.stringify({ documentUrl: firmRecord[signedUrlCol], isSigned: true }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
-    }
-
+    // Always fetch fresh from PandaDoc — cached PDF URLs can expire
     const documentId = firmRecord[documentCol];
     if (!documentId) {
       return new Response(
@@ -134,22 +126,6 @@ serve(async (req: Request) => {
         JSON.stringify({ error: 'Document not available' }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
-    }
-
-    // Cache the URL in firm_agreements if signed
-    if (isSigned && docUrl) {
-      const cacheUpdate: Record<string, string> = {};
-      if (isNda) {
-        cacheUpdate.nda_signed_document_url = docUrl;
-        cacheUpdate.nda_document_url = docUrl;
-      } else {
-        cacheUpdate.fee_signed_document_url = docUrl;
-        cacheUpdate.fee_agreement_document_url = docUrl;
-      }
-      await supabaseAdmin
-        .from('firm_agreements')
-        .update(cacheUpdate)
-        .eq('id', firmId);
     }
 
     return new Response(

@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { errorResponse } from '../_shared/error-response.ts';
+import { GENERIC_EMAIL_DOMAINS } from '../_shared/generic-email-domains.ts';
 
 // ============================================================================
 // TYPES
@@ -55,16 +56,8 @@ const PLATFORM_ADDON_KEYWORDS = [
   'building a platform in',
 ];
 
-// Free / consumer email domains that score 0 for professional-email check
-const CONSUMER_EMAIL_DOMAINS = [
-  'gmail.com',
-  'yahoo.com',
-  'hotmail.com',
-  'outlook.com',
-  'icloud.com',
-  'me.com',
-  'aol.com',
-];
+// Re-use the canonical generic email domain set for professional-email scoring
+const CONSUMER_EMAIL_DOMAINS = GENERIC_EMAIL_DOMAINS;
 
 // Buyer-type to Component 1 points map
 // Supports canonical remarketing values, marketplace camelCase, and display labels
@@ -172,7 +165,7 @@ function calcCapitalCredibility(profile: Record<string, unknown>): number {
   // 1. Professional email domain (+5)
   const email = (profile.email as string) || '';
   const domain = email.split('@')[1]?.toLowerCase() || '';
-  if (domain && !CONSUMER_EMAIL_DOMAINS.includes(domain)) {
+  if (domain && !CONSUMER_EMAIL_DOMAINS.has(domain)) {
     points += 5;
   }
 

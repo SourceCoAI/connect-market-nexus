@@ -68,20 +68,20 @@ function useAllDocuments() {
         supabase.from('firm_agreements' as never) as unknown as ReturnType<typeof supabase.from>
       )
         .select(
-          'nda_signed, nda_signed_at, nda_pandadoc_signed_url, nda_document_url, nda_pandadoc_document_id, nda_pandadoc_status, fee_agreement_signed, fee_agreement_signed_at, fee_pandadoc_signed_url, fee_agreement_document_url, fee_pandadoc_document_id, fee_pandadoc_status',
+          'nda_status, nda_signed_at, nda_pandadoc_signed_url, nda_document_url, nda_pandadoc_document_id, nda_pandadoc_status, fee_agreement_status, fee_agreement_signed_at, fee_pandadoc_signed_url, fee_agreement_document_url, fee_pandadoc_document_id, fee_pandadoc_status',
         )
         .eq('id', firmId)
         .maybeSingle();
 
       if (!firmRaw) return [];
       const firm = firmRaw as unknown as {
-        nda_signed: boolean | null;
+        nda_status: string | null;
         nda_signed_at: string | null;
         nda_pandadoc_signed_url: string | null;
         nda_document_url: string | null;
         nda_pandadoc_document_id: string | null;
         nda_pandadoc_status: string | null;
-        fee_agreement_signed: boolean | null;
+        fee_agreement_status: string | null;
         fee_agreement_signed_at: string | null;
         fee_pandadoc_signed_url: string | null;
         fee_agreement_document_url: string | null;
@@ -95,7 +95,7 @@ function useAllDocuments() {
       docs.push({
         type: 'nda',
         label: 'Non-Disclosure Agreement (NDA)',
-        signed: !!firm.nda_signed,
+        signed: firm.nda_status === 'signed',
         signedAt: firm.nda_signed_at,
         documentUrl: firm.nda_pandadoc_signed_url || firm.nda_document_url || null,
         hasSubmission: !!firm.nda_pandadoc_document_id,
@@ -106,7 +106,7 @@ function useAllDocuments() {
       docs.push({
         type: 'fee_agreement',
         label: 'Fee Agreement',
-        signed: !!firm.fee_agreement_signed,
+        signed: firm.fee_agreement_status === 'signed',
         signedAt: firm.fee_agreement_signed_at,
         documentUrl: firm.fee_pandadoc_signed_url || firm.fee_agreement_document_url || null,
         hasSubmission: !!firm.fee_pandadoc_document_id,

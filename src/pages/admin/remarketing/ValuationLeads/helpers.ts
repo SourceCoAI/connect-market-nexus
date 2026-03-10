@@ -1,14 +1,8 @@
 import { format } from "date-fns";
 import type { ValuationLead } from "./types";
+import { GENERIC_EMAIL_DOMAINS } from "@/lib/generic-email-domains";
 
 // ─── Constants ───
-
-export const GENERIC_EMAIL_DOMAINS = new Set([
-  "gmail.com", "yahoo.com", "hotmail.com", "aol.com", "outlook.com",
-  "proton.me", "icloud.com", "live.com", "yahoo.com.au", "hotmail.se",
-  "bellsouth.net", "mac.com", "webxio.pro", "leabro.com", "coursora.com",
-  "mail.com", "zoho.com", "yandex.com", "protonmail.com",
-]);
 
 export const TLD_REGEX = /\.(com|net|org|io|co|ai|us|uk|ca|au|nz|ae|za|se|nl|br|fj|in|de|fr|es|it|jp|kr|mx|school|pro|app|dev|vc)(\.[a-z]{2})?$/i;
 

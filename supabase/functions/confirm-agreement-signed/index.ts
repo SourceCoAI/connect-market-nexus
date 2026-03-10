@@ -211,10 +211,9 @@ serve(async (req: Request) => {
     // ─── PandaDoc confirmed completed — update everything ───
 
     const now = new Date().toISOString();
-    // Build download URL for the signed document
-    const signedDocUrl = `https://api.pandadoc.com/public/v1/documents/${documentId}/download`;
     const firmName = firm.primary_company_name || 'Unknown Firm';
 
+    // PDF URLs are fetched fresh on demand via get-agreement-document — no caching here
     const updates: Record<string, unknown> = { updated_at: now };
     if (isNda) {
       updates.nda_signed = true;
@@ -222,20 +221,12 @@ serve(async (req: Request) => {
       updates.nda_pandadoc_status = 'completed';
       updates.nda_status = 'signed';
       updates.nda_signed_by_name = signerName;
-      if (signedDocUrl) {
-        updates.nda_signed_document_url = signedDocUrl;
-        updates.nda_document_url = signedDocUrl;
-      }
     } else {
       updates.fee_agreement_signed = true;
       updates.fee_agreement_signed_at = now;
       updates.fee_pandadoc_status = 'completed';
       updates.fee_agreement_status = 'signed';
       updates.fee_agreement_signed_by_name = signerName;
-      if (signedDocUrl) {
-        updates.fee_signed_document_url = signedDocUrl;
-        updates.fee_agreement_document_url = signedDocUrl;
-      }
     }
 
     await supabaseAdmin.from('firm_agreements').update(updates).eq('id', firmId);

@@ -13,8 +13,6 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
  * PandaDoc uses HMAC-SHA256 signature verification via X-PandaDoc-Signature header.
  */
 
-const PANDADOC_API_BASE = 'https://api.pandadoc.com/public/v1';
-
 // Timing-safe string comparison to prevent timing attacks on signature verification.
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -40,30 +38,6 @@ async function verifyPandaDocWebhook(rawBody: string, signature: string, secret:
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
   return timingSafeEqual(computed, signature);
-}
-
-// Validate that a URL is HTTPS and from a trusted domain.
-function isValidDocumentUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'https:') return false;
-    const hostname = parsed.hostname.toLowerCase();
-
-    const trustedPatterns = [
-      // PandaDoc domains
-      (h: string) => h === 'pandadoc.com' || h.endsWith('.pandadoc.com'),
-      // S3 — only specific bucket patterns
-      (h: string) => h.endsWith('.s3.amazonaws.com') || /^s3\.[a-z0-9-]+\.amazonaws\.com$/.test(h),
-      // GCS
-      (h: string) => h === 'storage.googleapis.com',
-      // Supabase storage
-      (h: string) => h.endsWith('.supabase.co'),
-    ];
-
-    return trustedPatterns.some((check) => check(hostname));
-  } catch {
-    return false;
-  }
 }
 
 serve(async (req: Request) => {
@@ -178,7 +152,7 @@ serve(async (req: Request) => {
     }
 
     // Extract signer email from event data
-    const signerEmail = extractSignerEmail(eventData);
+    const signerEmail = extractSignerEmail(eventData, normalizedEventType);
 
     // Log the raw webhook
     const { error: logError } = await supabase.from('pandadoc_webhook_log').insert({
@@ -302,12 +276,22 @@ function mapEventType(rawEvent: string, status: string): string {
   }
 }
 
-function extractSignerEmail(eventData: Record<string, unknown>): string | null {
-  // Try different payload locations
+function extractSignerEmail(eventData: Record<string, unknown>, eventType: string): string | null {
+  // Try different payload locations (PandaDoc sends signer info in various places)
   if (typeof eventData.email === 'string') return eventData.email;
   if (Array.isArray(eventData.recipients)) {
     const first = eventData.recipients[0] as Record<string, unknown> | undefined;
     if (first && typeof first.email === 'string') return first.email;
+  }
+  // Try sender / action_by fields
+  const sender = eventData.sender as Record<string, unknown> | undefined;
+  if (sender && typeof sender.email === 'string') return sender.email;
+  const actionBy = eventData.action_by as Record<string, unknown> | undefined;
+  if (actionBy && typeof actionBy.email === 'string') return actionBy.email;
+
+  // Warn on completion events — we really want to know who signed
+  if (eventType === 'document.completed' || eventType === 'recipient.completed') {
+    console.warn('⚠️ Could not extract signer email from completed event payload');
   }
   return null;
 }
@@ -392,12 +376,7 @@ async function processEvent(
       updates.nda_signed = true;
       updates.nda_signed_at = now;
       if (signerEmail) updates.nda_signed_by_name = signerEmail;
-      // Download PDF URL via PandaDoc API
-      const pdfUrl = await downloadDocument(documentId);
-      if (pdfUrl) {
-        updates.nda_pandadoc_signed_url = pdfUrl;
-        updates.nda_document_url = pdfUrl;
-      }
+      // PDF URLs are fetched fresh on demand via get-agreement-document — no caching here
     } else if (pandadocStatus === 'declined' || pandadocStatus === 'expired' || pandadocStatus === 'voided') {
       updates.nda_signed = false;
     }
@@ -409,11 +388,6 @@ async function processEvent(
       updates.fee_agreement_signed = true;
       updates.fee_agreement_signed_at = now;
       if (signerEmail) updates.fee_agreement_signed_by_name = signerEmail;
-      const pdfUrl = await downloadDocument(documentId);
-      if (pdfUrl) {
-        updates.fee_pandadoc_signed_url = pdfUrl;
-        updates.fee_agreement_document_url = pdfUrl;
-      }
     } else if (pandadocStatus === 'declined' || pandadocStatus === 'expired' || pandadocStatus === 'voided') {
       updates.fee_agreement_signed = false;
     }
@@ -451,45 +425,12 @@ async function processEvent(
             .eq('id', member.user_id);
         }
 
-        // Send buyer notification
-        const signedDocUrl = updates[isNda ? 'nda_pandadoc_signed_url' : 'fee_pandadoc_signed_url'] as string | null;
-        await sendBuyerSignedDocNotification(supabase, members, firmId, docLabel, signedDocUrl || null);
+        // Send buyer notification (PDF URL fetched on-demand, not cached)
+        await sendBuyerSignedDocNotification(supabase, members, firmId, docLabel, null);
       }
     } catch (syncError) {
       console.error('⚠️ Profile sync error:', syncError);
     }
-  }
-}
-
-async function downloadDocument(documentId: string): Promise<string | null> {
-  try {
-    const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
-    if (!pandadocApiKey) return null;
-
-    const resp = await fetch(`${PANDADOC_API_BASE}/documents/${documentId}/download`, {
-      headers: { 'Authorization': `API-Key ${pandadocApiKey}` },
-      redirect: 'manual',
-    });
-
-    // PandaDoc returns a redirect to the actual PDF URL
-    if (resp.status === 302 || resp.status === 301) {
-      const location = resp.headers.get('location');
-      if (location && isValidDocumentUrl(location)) {
-        return location;
-      }
-    }
-
-    // If it returns the PDF directly, we can't store a URL — log for debugging
-    if (resp.ok) {
-      console.log('📄 PandaDoc download returned direct content (no redirect URL to store)');
-    } else {
-      console.warn(`⚠️ PandaDoc download failed: HTTP ${resp.status}`);
-    }
-
-    return null;
-  } catch (err) {
-    console.error('⚠️ Document download error:', err);
-    return null;
   }
 }
 

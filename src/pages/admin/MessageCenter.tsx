@@ -129,8 +129,8 @@ function useInboxThreads() {
             const firm = firmDataMap[firmId];
             if (firm) {
               firmStatusMap[userId] = {
-                nda_status: resolveAgreementStatus(!!firm.nda_signed, firm.nda_pandadoc_status as string | null),
-                fee_status: resolveAgreementStatus(!!firm.fee_agreement_signed, firm.fee_pandadoc_status as string | null),
+                nda_status: resolveAgreementStatus((firm.nda_status as string) ?? null, firm.nda_pandadoc_status as string | null),
+                fee_status: resolveAgreementStatus((firm.fee_agreement_status as string) ?? null, firm.fee_pandadoc_status as string | null),
                 firm_name: (firm.primary_company_name as string) || null,
               };
             }

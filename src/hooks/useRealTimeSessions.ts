@@ -49,6 +49,8 @@ export interface ProfileRow {
   company_name: string | null;
   buyer_type: string | null;
   job_title: string | null;
+  // NOTE: These are synced from firm_agreements via webhook cascade.
+  // Canonical source of truth is firm_agreements.nda_status / fee_agreement_status.
   fee_agreement_signed: boolean | null;
   nda_signed: boolean | null;
 }

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeWithTimeout } from "@/lib/invoke-with-timeout";
 import { toast } from "sonner";
+import { GENERIC_EMAIL_DOMAINS } from "@/lib/generic-email-domains";
 import { v4 as uuidv4 } from "uuid";
 import type { DealTranscript, SingleDealEnrichmentResult } from "./types";
 import { processFileText, yieldToUI, mergeArrays, stateNameToCode } from "./helpers";
@@ -380,8 +381,7 @@ export function useTranscriptActions({ dealId, transcripts, dealInfo }: UseTrans
     try {
       const input = firefliesEmail.trim();
       const domain = input.includes('@') ? input.split('@')[1].toLowerCase() : input.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
-      const genericDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com'];
-      const isCompanyDomain = domain && !genericDomains.includes(domain);
+      const isCompanyDomain = domain && !GENERIC_EMAIL_DOMAINS.has(domain);
       const allResults: FirefliesSearchResult[] = [];
 
       if (isCompanyDomain) {
