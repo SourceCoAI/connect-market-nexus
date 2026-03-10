@@ -165,6 +165,32 @@ export function AddBuyerIntroductionDialog({
         targeting_reason: targetingReason.trim() || undefined,
         listing_id: listingId,
         company_name: listingTitle,
+        ...(isExisting && selectedBuyerId ? { remarketing_buyer_id: selectedBuyerId } : {}),
+        ...(!isExisting && newBuyerType
+          ? {
+              score_snapshot: {
+                composite_score: 0,
+                service_score: 0,
+                geography_score: 0,
+                size_score: 0,
+                bonus_score: 0,
+                fit_signals: [],
+                fit_reason: 'Manually added',
+                tier: 'speculative' as const,
+                source: 'marketplace' as const,
+                buyer_type: newBuyerType,
+                hq_city: null,
+                hq_state: null,
+                has_fee_agreement: false,
+                pe_firm_name: null,
+                pe_firm_id: null,
+                acquisition_appetite: null,
+                company_website: newCompanyWebsite.trim() || null,
+                is_publicly_traded: null,
+                is_pe_backed: false,
+              },
+            }
+          : {}),
       },
       {
         onSuccess: () => {
