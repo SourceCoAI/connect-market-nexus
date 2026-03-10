@@ -314,16 +314,10 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
                       Signed {format(new Date(firm.nda_signed_at), 'MMM d, yyyy')}
                     </p>
                   )}
-                  {ndaStatus === 'signed' && firm.nda_signed_document_url && (
-                    <a href={firm.nda_signed_document_url} target="_blank" rel="noopener noreferrer"
-                      className="text-[10px] underline flex items-center gap-1 mt-1" style={{ color: '#5A5A5A' }}>
-                      Download signed NDA <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  )}
-                  {ndaStatus !== 'signed' && firm.nda_document_url && (
+                  {firm.nda_document_url && (
                     <a href={firm.nda_document_url} target="_blank" rel="noopener noreferrer"
                       className="text-[10px] underline flex items-center gap-1 mt-1" style={{ color: '#5A5A5A' }}>
-                      View draft <ExternalLink className="h-2.5 w-2.5" />
+                      {ndaStatus === 'signed' ? 'Download signed NDA' : 'View draft'} <ExternalLink className="h-2.5 w-2.5" />
                     </a>
                   )}
                 </div>
