@@ -212,7 +212,7 @@ These component files exist but are never imported or rendered anywhere:
 
 #### 4D. Functions Not Called from Frontend (39 functions)
 
-**Webhooks (legitimate — keep):** `docuseal-webhook-handler`, `phoneburner-webhook`, `heyreach-webhook`, `smartlead-webhook`, `salesforce-remarketing-webhook`, `process-standup-webhook`
+**Webhooks (legitimate — keep):** `pandadoc-webhook-handler`, `phoneburner-webhook`, `heyreach-webhook`, `smartlead-webhook`, `salesforce-remarketing-webhook`, `process-standup-webhook`
 
 **Background Queue Processors (legitimate — keep):** `process-buyer-universe-queue`, `process-ma-guide-queue`, `extract-buyer-criteria-background`, `generate-ma-guide-background`
 
