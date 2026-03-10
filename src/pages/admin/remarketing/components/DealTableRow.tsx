@@ -595,18 +595,11 @@ export const DealTableRow = ({
               />
               {listing.needs_buyer_search ? 'Remove Find Buyer Flag' : 'Flag: Find Buyer'}
             </DropdownMenuItem>
-            {listing.not_a_fit ? (
+            {listing.not_a_fit && onRemoveNotAFit ? (
               <DropdownMenuItem
-                onClick={async (e) => {
+                onClick={(e) => {
                   e.stopPropagation();
-                  const { error } = await supabase
-                    .from('listings')
-                    .update({ not_a_fit: false, not_a_fit_reason: null } as never)
-                    .eq('id', listing.id);
-                  if (!error) {
-                    toast.success('Removed Not a Fit status');
-                    queryClient.invalidateQueries({ queryKey: ['remarketing'] });
-                  }
+                  onRemoveNotAFit(listing.id);
                 }}
                 className="text-green-600"
               >
