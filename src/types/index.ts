@@ -26,6 +26,7 @@ export type SignupBuyerType =
 export type BuyerType = SignupBuyerType;
 
 /** @deprecated Import ApprovalStatus from '@/types/status-enums' instead. */
+import type { ApprovalStatus } from './status-enums';
 export type { ApprovalStatus } from './status-enums';
 
 export type ListingStatus = 'active' | 'inactive';
