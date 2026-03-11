@@ -270,6 +270,14 @@ export default function MasterLeads() {
                 LI Emp
               </SortableHeader>
               <SortableHeader
+                column="linkedinEmployeeRange"
+                currentSort={hook.sortColumn}
+                currentDir={hook.sortDirection}
+                onSort={hook.handleSort}
+              >
+                LI Range
+              </SortableHeader>
+              <SortableHeader
                 column="googleReviewCount"
                 currentSort={hook.sortColumn}
                 currentDir={hook.sortDirection}
@@ -300,7 +308,7 @@ export default function MasterLeads() {
           <TableBody>
             {hook.paginatedLeads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={13} className="text-center py-12 text-muted-foreground">
                   <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">No leads found</p>
                 </TableCell>
@@ -385,6 +393,11 @@ export default function MasterLeads() {
                     {/* LI Employees */}
                     <TableCell className="text-right text-sm text-muted-foreground">
                       {lead.linkedinEmployeeCount != null ? lead.linkedinEmployeeCount.toLocaleString() : '-'}
+                    </TableCell>
+
+                    {/* LI Range */}
+                    <TableCell className="text-sm text-muted-foreground">
+                      {lead.linkedinEmployeeRange || '-'}
                     </TableCell>
 
                     {/* Google Reviews */}

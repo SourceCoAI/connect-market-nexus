@@ -20,6 +20,7 @@ export interface MasterLead {
   valuationEstimate: number | null;
   score: number | null;
   linkedinEmployeeCount: number | null;
+  linkedinEmployeeRange: string | null;
   googleReviewCount: number | null;
   pushedToActiveDeals: boolean;
   dateAdded: string | null;
@@ -37,6 +38,7 @@ export type SortColumn =
   | 'ebitda'
   | 'score'
   | 'linkedinEmployeeCount'
+  | 'linkedinEmployeeRange'
   | 'googleReviewCount'
   | 'pushedToActiveDeals'
   | 'dateAdded';
@@ -118,7 +120,7 @@ export function useMasterLeads() {
           .select(
             `id, title, internal_company_name, website, main_contact_name, main_contact_email,
              industry, category, location, revenue, ebitda, deal_total_score,
-             linkedin_employee_count, google_review_count,
+             linkedin_employee_count, linkedin_employee_range, google_review_count,
              pushed_to_all_deals, deal_source, created_at`,
           )
           .in('deal_source', ['captarget', 'gp_partner', 'sourceco'])
@@ -149,6 +151,7 @@ export function useMasterLeads() {
               valuationEstimate: null,
               score: row.deal_total_score != null ? Number(row.deal_total_score) : null,
               linkedinEmployeeCount: row.linkedin_employee_count != null ? Number(row.linkedin_employee_count) : null,
+              linkedinEmployeeRange: row.linkedin_employee_range || null,
               googleReviewCount: row.google_review_count != null ? Number(row.google_review_count) : null,
               pushedToActiveDeals: !!row.pushed_to_all_deals,
               dateAdded: row.created_at,
@@ -205,6 +208,7 @@ export function useMasterLeads() {
               valuationEstimate: row.valuation_mid != null ? Number(row.valuation_mid) : null,
               score: row.lead_score != null ? Number(row.lead_score) : null,
               linkedinEmployeeCount: null,
+              linkedinEmployeeRange: null,
               googleReviewCount: null,
               pushedToActiveDeals: !!row.pushed_to_all_deals,
               dateAdded: row.created_at,
@@ -248,6 +252,7 @@ export function useMasterLeads() {
           valuationEstimate: null,
           score: null,
           linkedinEmployeeCount: null,
+          linkedinEmployeeRange: null,
           googleReviewCount: null,
           pushedToActiveDeals: false,
           dateAdded: row.created_at,
@@ -352,6 +357,10 @@ export function useMasterLeads() {
         case 'linkedinEmployeeCount':
           valA = a.linkedinEmployeeCount ?? -1;
           valB = b.linkedinEmployeeCount ?? -1;
+          break;
+        case 'linkedinEmployeeRange':
+          valA = (a.linkedinEmployeeRange || '').toLowerCase();
+          valB = (b.linkedinEmployeeRange || '').toLowerCase();
           break;
         case 'googleReviewCount':
           valA = a.googleReviewCount ?? -1;
