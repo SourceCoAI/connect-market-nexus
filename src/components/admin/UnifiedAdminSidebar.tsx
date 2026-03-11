@@ -225,7 +225,7 @@ export function UnifiedAdminSidebar({
             exact: true,
           },
           {
-            label: 'Master Leads',
+            label: 'All Leads',
             href: '/admin/remarketing/leads',
             icon: <Layers className="h-4 w-4" />,
             exact: true,
