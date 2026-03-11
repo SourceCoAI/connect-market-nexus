@@ -13,8 +13,6 @@ interface RelatedDealsProps {
 }
 
 export default function RelatedDeals({ deals }: RelatedDealsProps) {
-  if (deals.length === 0) return null;
-
   return (
     <section
       style={{ padding: '48px 0', fontFamily: "'DM Sans', sans-serif" }}
@@ -45,14 +43,13 @@ export default function RelatedDeals({ deals }: RelatedDealsProps) {
         industrials, SaaS, healthcare and more on the SourceCo Marketplace.
       </div>
 
-      <div
-        style={{ display: 'grid', gap: 16 }}
-        className="grid-cols-1 md:grid-cols-3"
-      >
-        {deals.map((deal) => (
-          <DealCard key={deal.id} deal={deal} />
-        ))}
-      </div>
+      {deals.length > 0 && (
+        <div style={{ display: 'grid', gap: 16 }} className="grid-cols-1 md:grid-cols-3">
+          {deals.map((deal) => (
+            <DealCard key={deal.id} deal={deal} />
+          ))}
+        </div>
+      )}
 
       {/* Marketplace CTA Block */}
       <div
