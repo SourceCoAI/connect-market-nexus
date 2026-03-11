@@ -2,18 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 // Export these for use in direct API calls (e.g., edge function calls)
-// SECURITY: Require environment variables — no hardcoded credentials
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.',
-  );
-}
-
-export const SUPABASE_URL: string = supabaseUrl;
-export const SUPABASE_PUBLISHABLE_KEY: string = supabaseAnonKey;
+// Use environment variables with hardcoded fallbacks for backwards compatibility
+// NOTE: The anon key is a *public* key (embedded in client JS) — it is NOT a secret.
+export const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL || 'https://vhzipqarkmmfuqadefep.supabase.co';
+export const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZoemlwcWFya21tZnVxYWRlZmVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTcxMTMsImV4cCI6MjA2MjE5MzExM30.M653TuQcthJx8vZW4jPkUTdB67D_Dm48ItLcu_XBh2g';
 
 // Supabase client
 // IMPORTANT: do not override storageKey/storage; letting supabase-js manage this

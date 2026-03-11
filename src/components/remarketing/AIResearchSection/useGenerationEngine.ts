@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/client';
 import { invokeWithTimeout } from '@/lib/invoke-with-timeout';
 import { useGuideGenerationState } from '@/hooks/remarketing/useGuideGenerationState';
 import type { ErrorDetails } from '../GuideGenerationErrorPanel';
@@ -333,8 +333,8 @@ export const useGenerationEngine = ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${token || SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({ universe_id: universeId }),
         },
