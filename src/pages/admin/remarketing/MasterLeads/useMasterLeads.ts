@@ -36,6 +36,8 @@ export type SortColumn =
   | 'revenue'
   | 'ebitda'
   | 'score'
+  | 'linkedinEmployeeCount'
+  | 'googleReviewCount'
   | 'pushedToActiveDeals'
   | 'dateAdded';
 
