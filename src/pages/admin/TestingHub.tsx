@@ -37,6 +37,7 @@ const BuyerClassificationTest = lazy(() => import('@/pages/admin/BuyerClassifica
 const PromptTestRunner = lazy(() => import('@/pages/admin/PromptTestRunner'));
 const TestRunTracker = lazy(() => import('@/pages/admin/TestRunTracker'));
 const ContactLookupTestPanel = lazy(() => import('@/pages/admin/ContactLookupTestPanel'));
+const EmailTestCentre = lazy(() => import('@/pages/admin/EmailTestCentre'));
 
 // Storage keys — must match individual tab components exactly
 const SYSTEM_TEST_KEY = 'sourceco-system-test-results';
@@ -894,6 +895,10 @@ export default function TestingHub() {
               <Users className="h-4 w-4" />
               Contact Lookup
             </TabsTrigger>
+            <TabsTrigger value="email-centre" className="gap-2">
+              <Mail className="h-4 w-4" />
+              Email Centre
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="system">
@@ -953,6 +958,12 @@ export default function TestingHub() {
           <TabsContent value="contact-lookup">
             <Suspense fallback={<Loading />}>
               <ContactLookupTestPanel />
+            </Suspense>
+          </TabsContent>
+
+          <TabsContent value="email-centre">
+            <Suspense fallback={<Loading />}>
+              <EmailTestCentre />
             </Suspense>
           </TabsContent>
         </Tabs>
