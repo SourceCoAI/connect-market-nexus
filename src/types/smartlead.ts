@@ -24,23 +24,6 @@ export interface SmartleadCampaign {
 
 export type SmartleadCampaignStatus = 'DRAFTED' | 'ACTIVE' | 'COMPLETED' | 'STOPPED' | 'PAUSED';
 
-// ─── Local campaign tracking ────────────────────────────────────────────────
-
-export interface LocalSmartleadCampaign {
-  id: string;
-  smartlead_campaign_id: number;
-  name: string;
-  status: string;
-  deal_id: string | null;
-  universe_id: string | null;
-  created_by: string | null;
-  settings: Record<string, unknown>;
-  lead_count: number;
-  last_synced_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 // ─── Lead types ─────────────────────────────────────────────────────────────
 
 export interface SmartleadLead {
@@ -93,14 +76,6 @@ export interface SmartleadCampaignStats {
 
 // ─── Sequence types ─────────────────────────────────────────────────────────
 
-export interface SmartleadSequenceVariant {
-  id: number;
-  subject?: string;
-  email_body?: string;
-  variant_label?: string;
-  is_deleted?: boolean;
-}
-
 export interface SmartleadSequence {
   seq_number: number;
   seq_delay_details?: {
@@ -110,7 +85,15 @@ export interface SmartleadSequence {
   subject?: string;
   email_body?: string;
   variant_distribution?: Record<string, number>;
-  sequence_variants?: SmartleadSequenceVariant[] | null;
+  sequence_variants?:
+    | {
+        id: number;
+        subject?: string;
+        email_body?: string;
+        variant_label?: string;
+        is_deleted?: boolean;
+      }[]
+    | null;
 }
 
 // ─── Webhook event types ────────────────────────────────────────────────────
@@ -125,21 +108,6 @@ export interface SmartleadWebhookEvent {
   processed_at: string | null;
   created_at: string;
 }
-
-export type SmartleadEventType =
-  | 'EMAIL_REPLIED'
-  | 'REPLIED'
-  | 'EMAIL_BOUNCED'
-  | 'BOUNCED'
-  | 'UNSUBSCRIBED'
-  | 'EMAIL_OPENED'
-  | 'OPENED'
-  | 'LINK_CLICKED'
-  | 'CLICKED'
-  | 'INTERESTED'
-  | 'NOT_INTERESTED'
-  | 'CAMPAIGN_STATUS_CHANGE'
-  | 'MANUAL_STEP_REACHED';
 
 // ─── API request/response types ─────────────────────────────────────────────
 
@@ -167,7 +135,18 @@ export interface CreateCampaignRequest {
 
 export interface ListCampaignsResponse {
   campaigns: SmartleadCampaign[];
-  local_campaigns: LocalSmartleadCampaign[];
+  local_campaigns: {
+    id: string;
+    smartlead_campaign_id: number;
+    name: string;
+    status: string;
+    deal_id: string | null;
+    universe_id: string | null;
+    lead_count: number;
+    last_synced_at: string | null;
+    created_at: string;
+    updated_at: string;
+  }[];
 }
 
 export interface CampaignStatsResponse {

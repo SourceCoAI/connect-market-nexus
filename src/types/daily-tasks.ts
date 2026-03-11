@@ -146,24 +146,6 @@ export interface DailyStandupTaskWithRelations extends DailyStandupTask {
   source_meeting?: StandupMeeting | null;
 }
 
-export interface TeamMemberAlias {
-  id: string;
-  profile_id: string;
-  alias: string;
-  created_at: string;
-  created_by: string | null;
-}
-
-export interface TaskPinLog {
-  id: string;
-  task_id: string;
-  action: 'pinned' | 'unpinned';
-  pinned_rank: number | null;
-  reason: string | null;
-  performed_by: string;
-  performed_at: string;
-}
-
 // ─── Task Type Metadata ───
 
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
@@ -325,16 +307,6 @@ export interface TeamMemberScorecard extends TaskAnalyticsSummary {
   member_name: string;
   priority_discipline_score: number;
   completion_trend: { date: string; rate: number }[];
-}
-
-export interface MeetingQualityMetrics {
-  meeting_id: string;
-  meeting_date: string;
-  extraction_confidence_rate: number;
-  needs_review_rate: number;
-  tasks_per_meeting: number;
-  assignee_match_rate: number;
-  meeting_duration_minutes: number | null;
 }
 
 // ─── v3.1 — New Entity Types ───
@@ -571,7 +543,11 @@ export const BUYER_ENGAGEMENT_TEMPLATES: TaskTemplateStage[] = [
     description: 'First contact and introduction with buyer',
     tasks: [
       { title: 'Send teaser to buyer', task_type: 'send_materials', due_offset_days: 1 },
-      { title: 'Follow up on teaser review', task_type: 'follow_up_with_buyer', due_offset_days: 5 },
+      {
+        title: 'Follow up on teaser review',
+        task_type: 'follow_up_with_buyer',
+        due_offset_days: 5,
+      },
       { title: 'Schedule intro call with buyer', task_type: 'schedule_call', due_offset_days: 7 },
     ],
   },
