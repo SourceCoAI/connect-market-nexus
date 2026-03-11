@@ -1,19 +1,39 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
+import { useSmartleadCampaigns, useSmartleadSequences } from '@/hooks/smartlead';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  extractTagsFromSequences,
+  classifyTags,
+  AVAILABLE_DATA_SOURCES,
+  type ClassifiedTag,
+} from '@/lib/merge-field-map';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { Mail, Linkedin, AlertTriangle, Loader2, FileText, Eye, EyeOff } from 'lucide-react';
+import {
+  Mail,
+  Linkedin,
+  AlertTriangle,
+  Loader2,
+  FileText,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  Info,
+  CircleAlert,
+} from 'lucide-react';
 
 const DEFAULT_OUTREACH_TEMPLATE = `Hi {{first_name}},
 We have an off-market {{deal_descriptor}} {{geography}} generating {{ebitda}} that could be a fit for {{buyer_ref}}.
@@ -33,6 +53,8 @@ interface SelectedBuyer {
   buyer_company_name?: string | null;
   buyer_type?: string | null;
   pe_firm_name?: string | null;
+  company_name?: string | null;
+  title?: string | null;
 }
 
 interface LaunchOutreachPanelProps {
@@ -44,7 +66,7 @@ interface LaunchOutreachPanelProps {
   onSuccess: () => void;
 }
 
-interface Campaign {
+interface HeyReachCampaign {
   id: number;
   name: string;
 }
@@ -68,22 +90,124 @@ function deriveBuyerRef(buyerType: string | null, peFirmName: string | null): st
   return 'your investment criteria';
 }
 
-function renderMessagePreview(
-  template: string,
+/**
+ * Builds a full replacement map from all available data sources.
+ */
+function buildReplacementMap(
   profile: { deal_descriptor: string; geography: string; ebitda: string } | null,
   buyer: SelectedBuyer | null,
-): string {
-  if (!profile || !buyer) return template;
-  const ebitdaFormatted = profile.ebitda
+  customMappings: Record<string, string>,
+): Record<string, string> {
+  const ebitdaFormatted = profile?.ebitda
     ? `$${Number(profile.ebitda.replace(/,/g, '')).toLocaleString('en-US')}`
     : '';
-  const buyerRef = deriveBuyerRef(buyer.buyer_type || null, buyer.pe_firm_name || null);
-  return template
-    .replace(/\{\{first_name\}\}/g, buyer.first_name || '')
-    .replace(/\{\{deal_descriptor\}\}/g, profile.deal_descriptor || '')
-    .replace(/\{\{geography\}\}/g, profile.geography || '')
-    .replace(/\{\{ebitda\}\}/g, ebitdaFormatted)
-    .replace(/\{\{buyer_ref\}\}/g, buyerRef);
+  const buyerRef = deriveBuyerRef(buyer?.buyer_type || null, buyer?.pe_firm_name || null);
+
+  // All available field values keyed by field name
+  const fieldValues: Record<string, string> = {
+    first_name: buyer?.first_name || '',
+    last_name: buyer?.last_name || '',
+    email: buyer?.email || '',
+    phone: buyer?.phone || '',
+    company_name: buyer?.company_name || buyer?.buyer_company_name || '',
+    title: buyer?.title || '',
+    deal_descriptor: profile?.deal_descriptor || '',
+    geography: profile?.geography || '',
+    ebitda: ebitdaFormatted,
+    buyer_ref: buyerRef,
+    sourceco_deal_id: '',
+    sourceco_buyer_id: buyer?.id || '',
+    buyer_type: buyer?.buyer_type || '',
+    buyer_company_name: buyer?.buyer_company_name || '',
+    pe_firm_name: buyer?.pe_firm_name || '',
+  };
+
+  // Build the replacement map: tag → resolved value
+  const map: Record<string, string> = { ...fieldValues };
+
+  // Add custom mappings: unknown tag → value from mapped source field
+  for (const [tag, sourceField] of Object.entries(customMappings)) {
+    map[tag] = fieldValues[sourceField] || '';
+  }
+
+  return map;
+}
+
+/**
+ * Replaces all {{tag}} occurrences and Handlebars {{#if tag}} blocks in template text.
+ */
+function renderWithReplacements(text: string, map: Record<string, string>): string {
+  if (!text) return text;
+
+  // First handle Handlebars {{#if tag}}...{{else}}...{{/if}} blocks
+  let result = text.replace(
+    /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{(?:else)\}\}([\s\S]*?)\{\{\/if\}\}/g,
+    (_match, tag, ifContent, elseContent) => {
+      const value = map[tag];
+      if (value && value.trim()) {
+        // Recursively replace tags within the if-content
+        return renderWithReplacements(ifContent, map);
+      }
+      return renderWithReplacements(elseContent, map);
+    },
+  );
+
+  // Handle {{#if tag}}...{{/if}} without else
+  result = result.replace(
+    /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g,
+    (_match, tag, ifContent) => {
+      const value = map[tag];
+      if (value && value.trim()) {
+        return renderWithReplacements(ifContent, map);
+      }
+      return '';
+    },
+  );
+
+  // Replace simple {{tag}} tokens
+  result = result.replace(/\{\{(\w+)\}\}/g, (_match, tag) => {
+    return map[tag] ?? `{{${tag}}}`;
+  });
+
+  return result;
+}
+
+/**
+ * Gets the first non-deleted sequence step content (checking variants first).
+ */
+function getFirstStepContent(
+  sequences: {
+    seq_number: number;
+    subject?: string;
+    email_body?: string;
+    sequence_variants?: Array<{
+      subject?: string;
+      email_body?: string;
+      is_deleted?: boolean;
+      variant_label?: string;
+    }> | null;
+  }[],
+): { subject: string; body: string } | null {
+  if (!sequences?.length) return null;
+
+  const sorted = [...sequences].sort((a, b) => a.seq_number - b.seq_number);
+  for (const seq of sorted) {
+    // Check non-deleted variants first (SmartLead uses variants for A/B testing)
+    if (seq.sequence_variants?.length) {
+      const activeVariant = seq.sequence_variants.find((v) => !v.is_deleted);
+      if (activeVariant && (activeVariant.subject || activeVariant.email_body)) {
+        return {
+          subject: activeVariant.subject || '',
+          body: activeVariant.email_body || '',
+        };
+      }
+    }
+    // Fall back to parent-level content
+    if (seq.subject || seq.email_body) {
+      return { subject: seq.subject || '', body: seq.email_body || '' };
+    }
+  }
+  return null;
 }
 
 export function LaunchOutreachPanel({
@@ -100,6 +224,7 @@ export function LaunchOutreachPanel({
   const [heyreachCampaignId, setHeyreachCampaignId] = useState<string>('');
   const [isLaunching, setIsLaunching] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
+  const [customMappings, setCustomMappings] = useState<Record<string, string>>({});
 
   // Reset state when panel opens with new buyers
   useEffect(() => {
@@ -110,8 +235,14 @@ export function LaunchOutreachPanel({
       setHeyreachCampaignId('');
       setIsLaunching(false);
       setShowPreview(true);
+      setCustomMappings({});
     }
   }, [open]);
+
+  // Reset custom mappings when campaign changes
+  useEffect(() => {
+    setCustomMappings({});
+  }, [smartleadCampaignId]);
 
   // Fetch deal outreach profile
   const { data: profile } = useQuery({
@@ -128,7 +259,7 @@ export function LaunchOutreachPanel({
     enabled: !!dealId && open,
   });
 
-  // Fetch outreach message template from app_settings
+  // Fetch outreach message template from app_settings (fallback only)
   const { data: messageTemplate } = useQuery({
     queryKey: ['outreach-message-template'],
     queryFn: async () => {
@@ -143,41 +274,55 @@ export function LaunchOutreachPanel({
     enabled: open,
   });
 
-  const template = messageTemplate || DEFAULT_OUTREACH_TEMPLATE;
+  const fallbackTemplate = messageTemplate || DEFAULT_OUTREACH_TEMPLATE;
 
-  // Fetch Smartlead campaigns
-  const { data: smartleadCampaigns } = useQuery({
-    queryKey: ['smartlead-campaigns-active'],
-    queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return [];
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/smartlead-campaigns`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'list' }),
-      });
-      if (!res.ok) return [];
-      const { campaigns } = await res.json();
-      return (campaigns || [])
-        .filter((c: any) => c.status === 'ACTIVE' || c.status === 'active')
-        .map((c: any) => ({ id: c.id, name: c.name })) as Campaign[];
-    },
-    enabled: open && emailEnabled,
-  });
+  // ─── Smartlead campaigns (reuse existing hook) ────────────────────────
+  const { data: campaignsData, isLoading: campaignsLoading } = useSmartleadCampaigns();
 
-  // Fetch HeyReach campaigns
+  const smartleadCampaigns = useMemo(() => {
+    const campaigns = campaignsData?.campaigns ?? [];
+    return campaigns.filter(
+      (c) => c.status === 'ACTIVE' || c.status === 'DRAFTED' || c.status === 'PAUSED',
+    );
+  }, [campaignsData]);
+
+  // ─── Fetch sequences for selected campaign ───────────────────────────
+  const campaignIdNum = smartleadCampaignId ? Number(smartleadCampaignId) : null;
+  const { data: sequencesData, isLoading: sequencesLoading } = useSmartleadSequences(
+    emailEnabled ? campaignIdNum : null,
+  );
+
+  const sequences = useMemo(() => sequencesData?.sequences ?? [], [sequencesData]);
+
+  // ─── Extract and classify merge tags ──────────────────────────────────
+  const mergeFieldAudit = useMemo(() => {
+    if (!sequences.length) return null;
+
+    const tags = extractTagsFromSequences(sequences);
+    const classified = classifyTags(tags);
+    const needsMapping = classified.filter(
+      (t) => t.status === 'needs-mapping' && !customMappings[t.tag],
+    );
+
+    return {
+      tags: classified,
+      hasUnmapped: needsMapping.length > 0,
+      unmappedTags: needsMapping.map((t) => t.tag),
+    };
+  }, [sequences, customMappings]);
+
+  // ─── Fetch HeyReach campaigns ─────────────────────────────────────────
   const { data: heyreachCampaigns } = useQuery({
     queryKey: ['heyreach-campaigns-active'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return [];
       const res = await fetch(`${SUPABASE_URL}/functions/v1/heyreach-campaigns`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ action: 'list' }),
@@ -185,8 +330,14 @@ export function LaunchOutreachPanel({
       if (!res.ok) return [];
       const { campaigns } = await res.json();
       return (campaigns || [])
-        .filter((c: any) => c.status === 'ACTIVE' || c.status === 'active' || !c.status)
-        .map((c: any) => ({ id: c.id || c.campaignId, name: c.name })) as Campaign[];
+        .filter(
+          (c: Record<string, unknown>) =>
+            c.status === 'ACTIVE' || c.status === 'active' || !c.status,
+        )
+        .map((c: Record<string, unknown>) => ({
+          id: c.id || c.campaignId,
+          name: c.name,
+        })) as HeyReachCampaign[];
     },
     enabled: open && linkedinEnabled,
   });
@@ -195,13 +346,15 @@ export function LaunchOutreachPanel({
   const warnings = useMemo(() => {
     const result: { channel: string; field: string; count: number }[] = [];
     if (emailEnabled) {
-      const missing = selectedBuyers.filter(b => !b.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email));
+      const missing = selectedBuyers.filter(
+        (b) => !b.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email),
+      );
       if (missing.length > 0) {
         result.push({ channel: 'Email', field: 'email', count: missing.length });
       }
     }
     if (linkedinEnabled) {
-      const missing = selectedBuyers.filter(b => !b.linkedin_url);
+      const missing = selectedBuyers.filter((b) => !b.linkedin_url);
       if (missing.length > 0) {
         result.push({ channel: 'LinkedIn', field: 'LinkedIn URL', count: missing.length });
       }
@@ -209,24 +362,44 @@ export function LaunchOutreachPanel({
     return result;
   }, [selectedBuyers, emailEnabled, linkedinEnabled]);
 
-  const activeChannels = [
-    emailEnabled && 'Email',
-    linkedinEnabled && 'LinkedIn',
-  ].filter(Boolean);
+  const activeChannels = [emailEnabled && 'Email', linkedinEnabled && 'LinkedIn'].filter(Boolean);
 
   // Check if enabled channels have their campaigns selected
   const emailReady = !emailEnabled || !!smartleadCampaignId;
   const linkedinReady = !linkedinEnabled || !!heyreachCampaignId;
   const allChannelsReady = emailReady && linkedinReady;
+  const mergeFieldsReady = !emailEnabled || !mergeFieldAudit || !mergeFieldAudit.hasUnmapped;
 
   // Pick first buyer with email for the preview
   const previewBuyer = useMemo(() => {
-    return selectedBuyers.find(b => b.email) || selectedBuyers[0] || null;
+    return selectedBuyers.find((b) => b.email) || selectedBuyers[0] || null;
   }, [selectedBuyers]);
 
-  const renderedMessage = useMemo(() => {
-    return renderMessagePreview(template, profile || null, previewBuyer);
-  }, [template, profile, previewBuyer]);
+  // Build replacement map for preview
+  const replacementMap = useMemo(() => {
+    return buildReplacementMap(profile || null, previewBuyer, customMappings);
+  }, [profile, previewBuyer, customMappings]);
+
+  // Get actual campaign content for preview
+  const campaignContent = useMemo(() => {
+    return getFirstStepContent(sequences);
+  }, [sequences]);
+
+  // Rendered preview — use actual campaign content if available, else fallback
+  const renderedPreview = useMemo(() => {
+    if (campaignContent) {
+      return {
+        subject: renderWithReplacements(campaignContent.subject, replacementMap),
+        body: renderWithReplacements(campaignContent.body, replacementMap),
+        isFromCampaign: true,
+      };
+    }
+    return {
+      subject: '',
+      body: renderWithReplacements(fallbackTemplate, replacementMap),
+      isFromCampaign: false,
+    };
+  }, [campaignContent, fallbackTemplate, replacementMap]);
 
   const handleLaunch = async () => {
     if (!profile) {
@@ -239,15 +412,26 @@ export function LaunchOutreachPanel({
       return;
     }
 
+    if (mergeFieldAudit?.hasUnmapped) {
+      toast({
+        title: 'Unmapped merge fields',
+        description: `Map all merge fields before launching: ${mergeFieldAudit.unmappedTags.join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLaunching(true);
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) {
       toast({ title: 'Not authenticated', variant: 'destructive' });
       setIsLaunching(false);
       return;
     }
 
-    const buyerIds = selectedBuyers.map(b => b.id);
+    const buyerIds = selectedBuyers.map((b) => b.id);
     const results: { channel: string; pushed: number; errors: string[] }[] = [];
 
     try {
@@ -255,24 +439,32 @@ export function LaunchOutreachPanel({
       const promises: Promise<void>[] = [];
 
       if (emailEnabled && smartleadCampaignId) {
+        // Include custom mappings if any unknown tags were mapped by the user
+        const hasCustomMappings = Object.keys(customMappings).length > 0;
+
         promises.push(
           fetch(`${SUPABASE_URL}/functions/v1/push-buyer-to-smartlead`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${session.access_token}`,
+              Authorization: `Bearer ${session.access_token}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
               deal_id: dealId,
               buyer_ids: buyerIds,
               campaign_id: Number(smartleadCampaignId),
+              ...(hasCustomMappings ? { custom_fields_override: customMappings } : {}),
             }),
           })
-            .then(r => r.json())
-            .then(data => {
-              results.push({ channel: 'Email', pushed: data.pushed || 0, errors: data.errors || [] });
+            .then((r) => r.json())
+            .then((data) => {
+              results.push({
+                channel: 'Email',
+                pushed: data.pushed || 0,
+                errors: data.errors || [],
+              });
             })
-            .catch(err => {
+            .catch((err) => {
               results.push({ channel: 'Email', pushed: 0, errors: [err.message] });
             }),
         );
@@ -283,7 +475,7 @@ export function LaunchOutreachPanel({
           fetch(`${SUPABASE_URL}/functions/v1/push-buyer-to-heyreach`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${session.access_token}`,
+              Authorization: `Bearer ${session.access_token}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -292,11 +484,15 @@ export function LaunchOutreachPanel({
               campaign_id: Number(heyreachCampaignId),
             }),
           })
-            .then(r => r.json())
-            .then(data => {
-              results.push({ channel: 'LinkedIn', pushed: data.pushed || 0, errors: data.errors || [] });
+            .then((r) => r.json())
+            .then((data) => {
+              results.push({
+                channel: 'LinkedIn',
+                pushed: data.pushed || 0,
+                errors: data.errors || [],
+              });
             })
-            .catch(err => {
+            .catch((err) => {
               results.push({ channel: 'LinkedIn', pushed: 0, errors: [err.message] });
             }),
         );
@@ -306,7 +502,7 @@ export function LaunchOutreachPanel({
 
       const totalPushed = results.reduce((sum, r) => sum + r.pushed, 0);
       const totalErrors = results.reduce((sum, r) => sum + r.errors.length, 0);
-      const channelSummary = results.map(r => r.channel).join(', ');
+      const channelSummary = results.map((r) => r.channel).join(', ');
 
       if (totalPushed === 0 && totalErrors > 0) {
         toast({
@@ -381,7 +577,9 @@ export function LaunchOutreachPanel({
                   </div>
                   <div>
                     <span className="text-muted-foreground">Buyer Ref: </span>
-                    <span className="text-xs italic text-muted-foreground">derived per buyer type</span>
+                    <span className="text-xs italic text-muted-foreground">
+                      derived per buyer type
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -413,12 +611,21 @@ export function LaunchOutreachPanel({
               {emailEnabled && (
                 <Select value={smartleadCampaignId} onValueChange={setSmartleadCampaignId}>
                   <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Select Smartlead campaign" />
+                    <SelectValue
+                      placeholder={
+                        campaignsLoading ? 'Loading campaigns...' : 'Select Smartlead campaign'
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {(smartleadCampaigns || []).map(c => (
+                    {smartleadCampaigns.map((c) => (
                       <SelectItem key={c.id} value={String(c.id)}>
-                        {c.name}
+                        <div className="flex items-center gap-2">
+                          <span>{c.name}</span>
+                          <Badge variant="outline" className="text-[10px] px-1.5">
+                            {c.status}
+                          </Badge>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -444,7 +651,7 @@ export function LaunchOutreachPanel({
                     <SelectValue placeholder="Select HeyReach campaign" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(heyreachCampaigns || []).map(c => (
+                    {(heyreachCampaigns || []).map((c) => (
                       <SelectItem key={c.id} value={String(c.id)}>
                         {c.name}
                       </SelectItem>
@@ -455,11 +662,57 @@ export function LaunchOutreachPanel({
             </div>
           </div>
 
+          {/* Campaign Merge Fields audit */}
+          {emailEnabled && smartleadCampaignId && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Campaign Merge Fields</h4>
+              {sequencesLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading campaign sequences...
+                </div>
+              ) : mergeFieldAudit ? (
+                <Card>
+                  <CardContent className="py-3">
+                    <div className="space-y-2">
+                      {mergeFieldAudit.tags.map((t: ClassifiedTag) => (
+                        <MergeFieldRow
+                          key={t.tag}
+                          tag={t}
+                          replacementMap={replacementMap}
+                          customMapping={customMappings[t.tag]}
+                          onMap={(sourceField) =>
+                            setCustomMappings((prev) => ({ ...prev, [t.tag]: sourceField }))
+                          }
+                        />
+                      ))}
+                    </div>
+                    {mergeFieldAudit.hasUnmapped && (
+                      <div className="flex items-start gap-2 mt-3 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-800">
+                        <CircleAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                        <span>
+                          Map all merge fields before launching:{' '}
+                          {mergeFieldAudit.unmappedTags.map((t) => `{{${t}}}`).join(', ')}
+                        </span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="text-xs text-muted-foreground py-1">
+                  No sequences found in this campaign.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Message Preview */}
           {emailEnabled && profile && previewBuyer && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium">Message Preview</h4>
+                <h4 className="text-sm font-medium">
+                  {renderedPreview.isFromCampaign ? 'Campaign Preview (Step 1)' : 'Message Preview'}
+                </h4>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -473,24 +726,51 @@ export function LaunchOutreachPanel({
               {showPreview && (
                 <>
                   <div className="text-xs text-muted-foreground mb-1">
-                    Preview for: <span className="font-medium">{previewBuyer.first_name} {previewBuyer.last_name}</span>
-                    {previewBuyer.buyer_company_name && (
-                      <span> at <span className="font-medium">{previewBuyer.buyer_company_name}</span></span>
+                    Preview for:{' '}
+                    <span className="font-medium">
+                      {previewBuyer.first_name} {previewBuyer.last_name}
+                    </span>
+                    {(previewBuyer.buyer_company_name || previewBuyer.company_name) && (
+                      <span>
+                        {' '}
+                        at{' '}
+                        <span className="font-medium">
+                          {previewBuyer.buyer_company_name || previewBuyer.company_name}
+                        </span>
+                      </span>
                     )}
                   </div>
                   <Card className="bg-muted/30">
                     <CardContent className="py-3">
-                      <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">
-                        {renderedMessage}
-                      </pre>
+                      {renderedPreview.subject && (
+                        <div className="text-sm font-semibold mb-2 pb-2 border-b">
+                          Subject: {renderedPreview.subject}
+                        </div>
+                      )}
+                      {renderedPreview.isFromCampaign ? (
+                        <div
+                          className="text-sm leading-relaxed [&_br]:block [&_div]:mb-1"
+                          dangerouslySetInnerHTML={{ __html: renderedPreview.body }}
+                        />
+                      ) : (
+                        <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">
+                          {renderedPreview.body}
+                        </pre>
+                      )}
                     </CardContent>
                   </Card>
-                  <p className="text-xs text-muted-foreground">
-                    Template can be customized in{' '}
-                    <a href="/admin/settings/outreach" className="text-primary underline" target="_blank">
-                      Outreach Settings
-                    </a>
-                  </p>
+                  {!renderedPreview.isFromCampaign && (
+                    <p className="text-xs text-muted-foreground">
+                      Select a campaign to preview actual email content.{' '}
+                      <a
+                        href="/admin/settings/outreach"
+                        className="text-primary underline"
+                        target="_blank"
+                      >
+                        Outreach Settings
+                      </a>
+                    </p>
+                  )}
                 </>
               )}
             </div>
@@ -506,7 +786,8 @@ export function LaunchOutreachPanel({
                 >
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>
-                    {w.count} buyer{w.count !== 1 ? 's' : ''} will be skipped for {w.channel} — missing {w.field}
+                    {w.count} buyer{w.count !== 1 ? 's' : ''} will be skipped for {w.channel} —
+                    missing {w.field}
                   </span>
                 </div>
               ))}
@@ -532,7 +813,13 @@ export function LaunchOutreachPanel({
             className="w-full"
             size="lg"
             onClick={handleLaunch}
-            disabled={isLaunching || !profile || activeChannels.length === 0 || !allChannelsReady}
+            disabled={
+              isLaunching ||
+              !profile ||
+              activeChannels.length === 0 ||
+              !allChannelsReady ||
+              !mergeFieldsReady
+            }
           >
             {isLaunching ? (
               <>
@@ -546,5 +833,65 @@ export function LaunchOutreachPanel({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ─── Merge field row component ────────────────────────────────────────────
+
+function MergeFieldRow({
+  tag,
+  replacementMap,
+  customMapping,
+  onMap,
+}: {
+  tag: ClassifiedTag;
+  replacementMap: Record<string, string>;
+  customMapping?: string;
+  onMap: (sourceField: string) => void;
+}) {
+  if (tag.status === 'system') {
+    return (
+      <div className="flex items-center gap-2 text-xs">
+        <Info className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+        <code className="bg-muted px-1 py-0.5 rounded text-[11px]">{`{{${tag.tag}}}`}</code>
+        <span className="text-muted-foreground">Handled by SmartLead</span>
+      </div>
+    );
+  }
+
+  if (tag.status === 'auto-mapped') {
+    const value = replacementMap[tag.tag];
+    return (
+      <div className="flex items-center gap-2 text-xs">
+        <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+        <code className="bg-muted px-1 py-0.5 rounded text-[11px]">{`{{${tag.tag}}}`}</code>
+        <span className="text-muted-foreground">{tag.label}</span>
+        {value && (
+          <span className="text-foreground font-medium truncate max-w-[150px]" title={value}>
+            = {value}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // needs-mapping
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <CircleAlert className="h-3.5 w-3.5 text-red-500 shrink-0" />
+      <code className="bg-muted px-1 py-0.5 rounded text-[11px]">{`{{${tag.tag}}}`}</code>
+      <Select value={customMapping || ''} onValueChange={onMap}>
+        <SelectTrigger className="h-6 text-[11px] w-[160px]">
+          <SelectValue placeholder="Map to field..." />
+        </SelectTrigger>
+        <SelectContent>
+          {AVAILABLE_DATA_SOURCES.map((ds) => (
+            <SelectItem key={ds.value} value={ds.value} className="text-xs">
+              <span className="text-muted-foreground">{ds.group}:</span> {ds.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }

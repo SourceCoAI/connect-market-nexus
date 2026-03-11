@@ -93,14 +93,24 @@ export interface SmartleadCampaignStats {
 
 // ─── Sequence types ─────────────────────────────────────────────────────────
 
+export interface SmartleadSequenceVariant {
+  id: number;
+  subject?: string;
+  email_body?: string;
+  variant_label?: string;
+  is_deleted?: boolean;
+}
+
 export interface SmartleadSequence {
   seq_number: number;
   seq_delay_details?: {
     delay_in_days: number;
+    delayInDays?: number;
   };
   subject?: string;
   email_body?: string;
   variant_distribution?: Record<string, number>;
+  sequence_variants?: SmartleadSequenceVariant[] | null;
 }
 
 // ─── Webhook event types ────────────────────────────────────────────────────
