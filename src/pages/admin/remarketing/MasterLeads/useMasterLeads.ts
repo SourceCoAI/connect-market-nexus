@@ -204,6 +204,8 @@ export function useMasterLeads() {
               ebitda: row.ebitda != null ? Number(row.ebitda) : null,
               valuationEstimate: row.valuation_mid != null ? Number(row.valuation_mid) : null,
               score: row.lead_score != null ? Number(row.lead_score) : null,
+              linkedinEmployeeCount: null,
+              googleReviewCount: null,
               pushedToActiveDeals: !!row.pushed_to_all_deals,
               dateAdded: row.created_at,
               detailPath: '/admin/remarketing/leads/valuation',
