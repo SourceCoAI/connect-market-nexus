@@ -325,12 +325,68 @@ This would reduce the `listings` table from 193 to ~129 columns, with the moved 
 
 ## 6. MIGRATION FILE AUDIT
 
-**852 migration files** in `/supabase/migrations/`. This is extremely high and suggests:
-- Frequent schema churn
-- Possible net-zero migrations (create then drop)
-- Manual schema changes that required corrective migrations
+**852 migration files** in `/supabase/migrations/`. This is extremely high.
 
-**Recommendation:** Consider squashing old migrations into a single baseline migration to reduce complexity.
+### 6A. Schema Churn: 184 Tables Created, 48 Dropped
+
+**29 net-zero tables** — created then later dropped:
+
+| Table | Notes |
+|-------|-------|
+| `ai_command_center_actions` | Feature removed |
+| `buyer_type_profiles` | Consolidated |
+| `chat_recommendations` | Feature removed |
+| `chat_smart_suggestions` | Feature removed |
+| `collections` | Feature removed |
+| `connection_request_stages` | Consolidated |
+| `contact_call_history` | Moved to contacts table |
+| `contact_email_history` | Moved to contacts table |
+| `contact_linkedin_history` | Moved to contacts table |
+| `deal_contacts` | Consolidated into contacts |
+| `deal_notes` | Merged into deal_comments |
+| `docuseal_webhook_log` | Replaced by PandaDoc |
+| `generic_email_domains` | Removed |
+| `interest_signals` | Removed |
+| `listing_messages` | Removed |
+| `listing_personal_notes` | Removed |
+| `pe_firm_contacts` | Consolidated into contacts |
+| `platform_contacts` | Consolidated into contacts |
+| `profile_data_snapshots` | Removed |
+| `scoring_weights_history` | Removed |
+| `task_pin_log` | Removed |
+| `tracker_activity_logs` | Removed |
+| `visitor_companies` | Removed |
+
+Plus 19 additional tables dropped that were views/materialized data.
+
+### 6B. CRITICAL: Table Resurrection Pattern
+
+**`listing_notes`** was dropped in migration `20260503000000_drop_unused_tables.sql` as "unused", then **restored** in `20260522000000_restore_listing_notes.sql` because it was actually in active use by `ListingNotesLog` component.
+
+**Risk:** This indicates the drop-unused-tables migration was based on incomplete codebase analysis. Other tables dropped in that migration may also need resurrection. Audit recommended:
+- `buyer_introductions` — comments say "still in use"
+- `introduction_status_log` — comments say "still in use"
+
+### 6C. Orphaned ALTER TABLE Statements
+
+20+ ALTER TABLE statements modify tables that were later dropped. These don't error (IF EXISTS), but represent dead migration code:
+- `buyer_type_profiles`: 5+ ALTERs before drop
+- `chat_recommendations`: 5+ ALTERs before drop
+- `deal_contacts`: 3+ ALTERs before drop
+- `docuseal_webhook_log`: 4+ ALTERs before drop
+
+### 6D. Double-Drop Redundancy
+
+Several tables are dropped in multiple migrations (redundant IF EXISTS):
+- `deal_notes`: dropped in both `20260302100000` AND `20260222032323`
+- `listing_messages`: dropped in both migrations
+- Suggests uncoordinated parallel cleanup efforts
+
+### 6E. Recommendation
+
+1. **Immediate**: Re-audit all tables dropped in `20260503000000` against current codebase to prevent another resurrection
+2. **High**: Squash old migrations into a single baseline migration
+3. **Medium**: Remove redundant ALTER/DROP statements for non-existent tables
 
 ---
 
