@@ -280,8 +280,8 @@ const ReMarketingDashboard = () => {
               });
               return (
                 <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {entries.map((item) => {
-                    const oid = item.owner_id;
+                  {entries.map((item: any) => {
+                    const oid = item.owner_id as string;
                     const profile =
                       oid !== '__unassigned' && adminProfiles ? adminProfiles[oid] : null;
                     const name = profile ? profile.displayName : 'Unassigned';
