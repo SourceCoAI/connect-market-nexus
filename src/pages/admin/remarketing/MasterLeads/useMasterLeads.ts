@@ -20,6 +20,7 @@ export interface MasterLead {
   valuationEstimate: number | null;
   score: number | null;
   linkedinEmployeeCount: number | null;
+  linkedinEmployeeRange: string | null;
   googleReviewCount: number | null;
   pushedToActiveDeals: boolean;
   dateAdded: string | null;
