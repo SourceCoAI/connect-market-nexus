@@ -355,7 +355,7 @@ async function getStaleDealsTool(
     .in('entity_id', dealIds)
     .gte('created_at', cutoffDate);
 
-  for (const t of tasks || []) activeDeals.add(t.entity_id);
+  for (const t of (tasks || []) as any[]) activeDeals.add(t.entity_id);
 
   // 4. Check outreach_records for recent action
   const { data: outreach } = await supabase
