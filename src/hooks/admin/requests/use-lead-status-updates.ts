@@ -141,7 +141,7 @@ export const useUpdateLeadNDAStatus = () => {
 
       if (deal) {
         await logDealActivity({
-          dealId: deal.id,
+          dealId: deal.id as string,
           activityType: 'nda_status_changed',
           title: value ? 'NDA Signed' : 'NDA Status Revoked',
           description: value
