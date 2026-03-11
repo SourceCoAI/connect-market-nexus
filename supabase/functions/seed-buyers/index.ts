@@ -633,15 +633,17 @@ Deno.serve(async (req: Request) => {
           const inferResult = await callClaude({
             model: CLAUDE_MODELS.haiku,
             maxTokens: 256,
-            systemPrompt:
-              'You classify businesses. Return ONLY a JSON object with two keys: "industry" (string, e.g. "HVAC Services") and "categories" (array of 1-3 short category strings). No markdown, no explanation.',
-            userPrompt: `Classify this business:\n\n${descText.slice(0, 1500)}`,
+            systemPrompt: 'You classify businesses. Return ONLY a JSON object with two keys: "industry" (string, e.g. "HVAC Services") and "categories" (array of 1-3 short category strings). No markdown, no explanation.',
+            messages: [{ role: 'user', content: `Classify this business:\n\n${descText.slice(0, 1500)}` }],
             timeoutMs: 15_000,
           });
 
-          if (inferResult?.content) {
-            const raw = inferResult.content.replace(/```json\s*/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(raw);
+          // Extract text from ContentBlock[]
+          const textBlock = inferResult?.content?.find((b: any) => b.type === 'text');
+          const rawText = (textBlock as any)?.text || '';
+          if (rawText) {
+            const cleaned = rawText.replace(/```json\s*/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleaned);
             if (parsed.industry && !dealIndustry) {
               (deal as Record<string, unknown>).industry = parsed.industry;
               console.log(`[seed-buyers] Inferred industry: ${parsed.industry}`);
