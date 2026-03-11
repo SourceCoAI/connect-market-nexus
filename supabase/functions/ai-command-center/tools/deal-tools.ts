@@ -284,7 +284,7 @@ async function queryDeals(
     let batch: Record<string, unknown>[] | null = null;
     try {
       // Retry each page fetch up to 2 times with exponential backoff
-      batch = await withRetry(() => fetchPage(offset, batchSize));
+      batch = await withRetry(() => fetchPage(offset, batchSize)) as any;
     } catch (primaryError) {
       // If we were using full fields, fall back to quick fields and retry
       if (fields === DEAL_FIELDS_FULL) {
