@@ -298,7 +298,7 @@ export default function DealLandingPage() {
           </div>
         </div>
 
-        {relatedDeals && relatedDeals.length > 0 && <RelatedDeals deals={relatedDeals} />}
+        <RelatedDeals deals={relatedDeals ?? []} />
       </main>
 
       <MobileStickyBar dealId={deal.id} />
