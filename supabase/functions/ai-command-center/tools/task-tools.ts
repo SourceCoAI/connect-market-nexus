@@ -271,11 +271,23 @@ All tasks are created as PENDING APPROVAL — a human must approve them.`,
         task_type: {
           type: 'string',
           enum: [
-            'contact_owner', 'build_buyer_universe', 'follow_up_with_buyer',
-            'send_materials', 'update_pipeline', 'schedule_call', 'nda_execution',
-            'ioi_loi_process', 'due_diligence', 'buyer_qualification',
-            'seller_relationship', 'buyer_ic_followup', 'call', 'email',
-            'find_buyers', 'contact_buyers', 'other',
+            'contact_owner',
+            'build_buyer_universe',
+            'follow_up_with_buyer',
+            'send_materials',
+            'update_pipeline',
+            'schedule_call',
+            'nda_execution',
+            'ioi_loi_process',
+            'due_diligence',
+            'buyer_qualification',
+            'seller_relationship',
+            'buyer_ic_followup',
+            'call',
+            'email',
+            'find_buyers',
+            'contact_buyers',
+            'other',
           ],
           description: 'Task type (default "follow_up_with_buyer")',
         },
@@ -841,7 +853,9 @@ async function completeTask(
     });
   }
 
-  return { data: { success: true, task_id: taskId, message: `Task "${task.title}" marked as completed.` } };
+  return {
+    data: { success: true, task_id: taskId, message: `Task "${task.title}" marked as completed.` },
+  };
 }
 
 async function addTaskComment(
@@ -894,18 +908,16 @@ async function bulkCreateTasks(
   const description = (args.description as string) || null;
 
   // Fetch entity names for deal_reference (best-effort)
-  let entityNames: Map<string, string> = new Map();
+  const entityNames: Map<string, string> = new Map();
   if (entityType === 'listing' || entityType === 'deal') {
     const table = entityType === 'deal' ? 'deal_pipeline' : 'listings';
     const nameCol = entityType === 'deal' ? 'id, listings!inner(title)' : 'id, title';
-    const { data: entities } = await supabase
-      .from(table)
-      .select(nameCol)
-      .in('id', entityIds);
+    const { data: entities } = await supabase.from(table).select(nameCol).in('id', entityIds);
     for (const e of entities || []) {
-      const name = entityType === 'deal'
-        ? (e.listings as { title: string })?.title
-        : (e as { title: string }).title;
+      const name =
+        entityType === 'deal'
+          ? (e.listings as { title: string })?.title
+          : (e as { title: string }).title;
       if (name) entityNames.set(e.id, name);
     }
   } else if (entityType === 'buyer') {
@@ -919,7 +931,7 @@ async function bulkCreateTasks(
   }
 
   // Build task records
-  const taskRecords = entityIds.map(eid => ({
+  const taskRecords = entityIds.map((eid) => ({
     title,
     description,
     task_type: taskType,
@@ -958,14 +970,16 @@ async function bulkCreateTasks(
   // Log deal activities for deal-linked tasks
   const dealType = entityType === 'deal' || entityType === 'listing';
   if (dealType) {
-    const dealActivities = (inserted || []).map((t: { id: string; entity_id: string; deal_reference: string | null }) => ({
-      deal_id: t.entity_id,
-      admin_id: userId,
-      activity_type: 'task_created',
-      title: `Task: ${title}`,
-      description: `Bulk-created via AI Command Center. Type: ${taskType}`,
-      metadata: { task_id: t.id, source: 'chatbot_bulk' },
-    }));
+    const dealActivities = (inserted || []).map(
+      (t: { id: string; entity_id: string; deal_reference: string | null }) => ({
+        deal_id: t.entity_id,
+        admin_id: userId,
+        activity_type: 'task_created',
+        title: `Task: ${title}`,
+        description: `Bulk-created via AI Command Center. Type: ${taskType}`,
+        metadata: { task_id: t.id, source: 'chatbot_bulk' },
+      }),
+    );
     if (dealActivities.length > 0) {
       await supabase.from('deal_activities').insert(dealActivities);
     }

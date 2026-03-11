@@ -1,7 +1,12 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { GEMINI_API_URL, getGeminiHeaders } from '../_shared/ai-providers.ts';
-import { canOverwriteField, getFieldSource, createFieldSource, updateExtractionSources } from '../_shared/source-priority.ts';
+import {
+  canOverwriteField,
+  getFieldSource,
+  createFieldSource,
+  updateExtractionSources,
+} from '../_shared/source-priority.ts';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
@@ -501,11 +506,6 @@ serve(async (req) => {
           .eq('id', buyer_id)
           .single();
 
-        const existingSources = (existingBuyer?.extraction_sources || []) as Record<
-          string,
-          unknown
-        >[];
-
         const sourceUpdates: Record<string, unknown> = {};
         const rejectedFields: string[] = [];
 
@@ -599,7 +599,9 @@ serve(async (req) => {
                 type: 'transcript',
                 transcript_id: transcriptRecord.id,
                 extracted_at: new Date().toISOString(),
-                fields_extracted: Object.keys(buyerUpdates).filter((k) => k !== 'extraction_sources'),
+                fields_extracted: Object.keys(buyerUpdates).filter(
+                  (k) => k !== 'extraction_sources',
+                ),
                 confidence: insights.overall_confidence,
               },
             ],

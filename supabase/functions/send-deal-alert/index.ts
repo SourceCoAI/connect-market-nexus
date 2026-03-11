@@ -82,7 +82,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Escape all user-controlled data before interpolating into HTML email
     const safeTitle = escapeHtml(listing_data.title || '');
-    const safeAlertName = escapeHtml(alert_name || '');
+    const _safeAlertName = escapeHtml(alert_name || '');
     const safeLocation = escapeHtml(listing_data.location || '');
     const safeCategory = escapeHtml(listing_data.category || '');
     const safeDescription = escapeHtml(

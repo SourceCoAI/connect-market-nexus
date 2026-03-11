@@ -377,7 +377,10 @@ function extractDealReference(text: string): string {
       // For short names (≤4 chars like "CES"), require word boundary to avoid
       // substring false positives (e.g. "sequences" containing "ces")
       if (name.length <= 4) {
-        const wordBoundaryRegex = new RegExp(`\\b${nameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        const wordBoundaryRegex = new RegExp(
+          `\\b${nameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+          'i',
+        );
         if (wordBoundaryRegex.test(text)) {
           return name;
         }
@@ -404,9 +407,10 @@ function extractDealReference(text: string): string {
       if (NON_DEAL_TERMS.has(ref)) continue;
       // Also reject each word individually for multi-word matches
       const words = ref.split(/\s+/);
-      if (words.some(w => NON_DEAL_TERMS.has(w) || isTeamMemberName(w))) continue;
+      if (words.some((w) => NON_DEAL_TERMS.has(w) || isTeamMemberName(w))) continue;
       // Reject generic verbs/adjectives that got captured
-      if (/^(Enrich|Follow|Start|Build|Create|Update|Check|Get|Go|Meet|Show)\b/i.test(ref)) continue;
+      if (/^(Enrich|Follow|Start|Build|Create|Update|Check|Get|Go|Meet|Show)\b/i.test(ref))
+        continue;
       return ref;
     }
   }
@@ -415,14 +419,25 @@ function extractDealReference(text: string): string {
 }
 
 /** Infer task_category from text and task_type */
-function inferTaskCategory(text: string, taskType: string): 'deal_task' | 'platform_task' | 'operations_task' {
+function inferTaskCategory(
+  text: string,
+  taskType: string,
+): 'deal_task' | 'platform_task' | 'operations_task' {
   const lower = text.toLowerCase();
   // Platform/dev tasks
-  if (/\b(fix|bug|deploy|push|merge|code|api|endpoint|database|migration|integration|upload|enrichment|smartleads|data warehouse|platform|technical|dev|developer)\b/.test(lower)) {
+  if (
+    /\b(fix|bug|deploy|push|merge|code|api|endpoint|database|migration|integration|upload|enrichment|smartleads|data warehouse|platform|technical|dev|developer)\b/.test(
+      lower,
+    )
+  ) {
     return 'platform_task';
   }
   // Operations tasks
-  if (/\b(invoice|billing|payroll|hr|onboard|training|license|compliance|accounting|admin|operations|office)\b/.test(lower)) {
+  if (
+    /\b(invoice|billing|payroll|hr|onboard|training|license|compliance|accounting|admin|operations|office)\b/.test(
+      lower,
+    )
+  ) {
     return 'operations_task';
   }
   // update_pipeline could be either
@@ -443,7 +458,7 @@ function inferTaskCategory(text: string, taskType: string): 'deal_task' | 'platf
  *   "send data room to patrick" → "Send Data Room to Patrick"
  *   "reconnect with ace garage door" → "Reconnect with Ace Garage Door"
  */
-function standardizeTaskTitle(title: string, dealRef?: string): string {
+function standardizeTaskTitle(title: string, _dealRef?: string): string {
   let result = title.trim();
   if (!result) return result;
 
@@ -481,17 +496,18 @@ function standardizeTaskTitle(title: string, dealRef?: string): string {
   result = result.replace(
     /^(send|share|forward)\s+(the\s+)?(data room|teaser|cim|memo|materials|nda)\s+(to|for)\s+/i,
     (_, _verb, _the, doc, prep) => {
-      const docTitle = doc.toLowerCase() === 'cim' ? 'CIM' : doc.toLowerCase() === 'nda' ? 'NDA' :
-        doc.replace(/\b\w/g, (c: string) => c.toUpperCase());
+      const docTitle =
+        doc.toLowerCase() === 'cim'
+          ? 'CIM'
+          : doc.toLowerCase() === 'nda'
+            ? 'NDA'
+            : doc.replace(/\b\w/g, (c: string) => c.toUpperCase());
       return `Send ${docTitle} ${prep.toLowerCase()} `;
     },
   );
 
   // Standardize "email" patterns
-  result = result.replace(
-    /^(email|send\s+email\s+to|write\s+email\s+to)\s+/i,
-    () => 'Email ',
-  );
+  result = result.replace(/^(email|send\s+email\s+to|write\s+email\s+to)\s+/i, () => 'Email ');
 
   // Standardize "CC" → always uppercase
   result = result.replace(/\bcc\b/gi, 'CC');
@@ -503,7 +519,21 @@ function standardizeTaskTitle(title: string, dealRef?: string): string {
   result = result.replace(/\b([a-z])/g, (_, c) => c.toUpperCase());
 
   // Preserve known acronyms as uppercase
-  const acronyms = ['NDA', 'CIM', 'IOI', 'LOI', 'CRM', 'IC', 'MPG', 'PE', 'LLC', 'CEO', 'CFO', 'COO', 'CC'];
+  const acronyms = [
+    'NDA',
+    'CIM',
+    'IOI',
+    'LOI',
+    'CRM',
+    'IC',
+    'MPG',
+    'PE',
+    'LLC',
+    'CEO',
+    'CFO',
+    'COO',
+    'CC',
+  ];
   for (const acr of acronyms) {
     const regex = new RegExp(`\\b${acr}\\b`, 'gi');
     result = result.replace(regex, acr);
@@ -540,21 +570,71 @@ let _teamMemberNames: Set<string> = new Set();
 /** Common non-deal terms to exclude from deal reference regex fallback */
 const NON_DEAL_TERMS = new Set([
   // People / roles
-  'Alia', 'Ali', 'Bill', 'Brandon', 'Oz', 'Tomos', 'Tom', 'Sean', 'Kyle', 'Mile', 'Patrick',
-  'Unassigned', 'Speaker',
+  'Alia',
+  'Ali',
+  'Bill',
+  'Brandon',
+  'Oz',
+  'Tomos',
+  'Tom',
+  'Sean',
+  'Kyle',
+  'Mile',
+  'Patrick',
+  'Unassigned',
+  'Speaker',
   // Geographic
-  'California', 'Louisiana', 'Missouri', 'New Mexico', 'Texas', 'Florida', 'Oregon',
-  'Northeast', 'Southeast', 'Midwest', 'Southwest', 'Pacific Northwest',
-  'Orlando', 'Seattle', 'Modesto',
+  'California',
+  'Louisiana',
+  'Missouri',
+  'New Mexico',
+  'Texas',
+  'Florida',
+  'Oregon',
+  'Northeast',
+  'Southeast',
+  'Midwest',
+  'Southwest',
+  'Pacific Northwest',
+  'Orlando',
+  'Seattle',
+  'Modesto',
   // Lead sources / platforms (not deals)
-  'GP Partners', 'Giuseppe', 'Fireflies', 'SmartLead', 'Smart Lead', 'Salesforce',
-  'LinkedIn', 'Source Co', 'SourceCo', 'Valuation Leads',
+  'GP Partners',
+  'Giuseppe',
+  'Fireflies',
+  'SmartLead',
+  'Smart Lead',
+  'Salesforce',
+  'LinkedIn',
+  'Source Co',
+  'SourceCo',
+  'Valuation Leads',
   // Generic terms the regex catches
-  'Team', 'Today', 'Everyone', 'Guys',
+  'Team',
+  'Today',
+  'Everyone',
+  'Guys',
   // Days / months (expanded)
-  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ]);
 
 async function loadActiveDealNames(supabase: ReturnType<typeof createClient>): Promise<string[]> {
@@ -598,7 +678,10 @@ async function findRecurringTask(
     // Exact match
     if (existingNorm === normalized) return true;
     // Substring match for longer titles (≥15 chars)
-    if (normalized.length >= 15 && (existingNorm.includes(normalized) || normalized.includes(existingNorm))) {
+    if (
+      normalized.length >= 15 &&
+      (existingNorm.includes(normalized) || normalized.includes(existingNorm))
+    ) {
       return true;
     }
   }
@@ -632,7 +715,7 @@ async function carryOverIncompleteTasks(
 
   if (!incompleteTasks || incompleteTasks.length === 0) return 0;
 
-  const newTitlesLower = new Set(newTaskTitles.map(t => t.toLowerCase().trim()));
+  const newTitlesLower = new Set(newTaskTitles.map((t) => t.toLowerCase().trim()));
   let carriedCount = 0;
 
   for (const task of incompleteTasks) {
@@ -640,12 +723,15 @@ async function carryOverIncompleteTasks(
     if (newTitlesLower.has(task.title.toLowerCase().trim())) continue;
 
     const isOverdue = task.due_date && task.due_date < currentMeetingDate;
-    await supabase.from('daily_standup_tasks').update({
-      source_meeting_id: currentMeetingId,
-      carried_over: true,
-      carry_count: (task.carry_count || 0) + 1,
-      ...(isOverdue ? { status: 'overdue' } : {}),
-    }).eq('id', task.id);
+    await supabase
+      .from('daily_standup_tasks')
+      .update({
+        source_meeting_id: currentMeetingId,
+        carried_over: true,
+        carry_count: (task.carry_count || 0) + 1,
+        ...(isOverdue ? { status: 'overdue' } : {}),
+      })
+      .eq('id', task.id);
     carriedCount++;
   }
 
@@ -890,7 +976,10 @@ async function loadTeamMembers(supabase: ReturnType<typeof createClient>): Promi
   // Use profiles.id (same as user_id) for alias lookup — both reference auth.users.id.
   // Also extract email prefix as an automatic alias for better Fireflies speaker matching.
   return (teamRoles || []).map(
-    (r: { user_id: string; profiles: { id: string; first_name: string; last_name: string; email: string } }) => {
+    (r: {
+      user_id: string;
+      profiles: { id: string; first_name: string; last_name: string; email: string };
+    }) => {
       const profileId = r.profiles.id;
       const manualAliases = aliasMap.get(profileId) || [];
 
@@ -1093,7 +1182,7 @@ async function recomputeRanks(supabase: ReturnType<typeof createClient>): Promis
     const batch = ranked.slice(i, i + BATCH_SIZE);
     await Promise.all(
       batch.map(({ id, rank }) =>
-        supabase.from('daily_standup_tasks').update({ priority_rank: rank }).eq('id', id)
+        supabase.from('daily_standup_tasks').update({ priority_rank: rank }).eq('id', id),
       ),
     );
   }
@@ -1286,23 +1375,32 @@ async function processSingleMeeting(
     // Auto-create alias if speaker name matched but isn't already a known alias
     if (assigneeId && task.assignee_name && task.assignee_name !== 'Unassigned') {
       const speakerLower = task.assignee_name.toLowerCase().trim();
-      const matchedMember = teamMembers.find(m => m.id === assigneeId);
+      const matchedMember = teamMembers.find((m) => m.id === assigneeId);
       if (matchedMember) {
         const existingAliases = new Set([
           matchedMember.name.toLowerCase(),
           matchedMember.first_name.toLowerCase(),
           matchedMember.last_name.toLowerCase(),
-          ...matchedMember.aliases.map(a => a.toLowerCase()),
+          ...matchedMember.aliases.map((a) => a.toLowerCase()),
         ]);
         if (!existingAliases.has(speakerLower)) {
           // Save new alias for future matching (fire-and-forget)
-          supabase.from('team_member_aliases').upsert(
-            { profile_id: assigneeId, alias: task.assignee_name.trim() },
-            { onConflict: 'profile_id,alias' },
-          ).then(({ error }) => {
-            if (error) console.warn(`[alias] Failed to save alias "${task.assignee_name}" for ${matchedMember.name}: ${error.message}`);
-            else console.log(`[alias] Auto-saved alias "${task.assignee_name}" → ${matchedMember.name}`);
-          });
+          supabase
+            .from('team_member_aliases')
+            .upsert(
+              { profile_id: assigneeId, alias: task.assignee_name.trim() },
+              { onConflict: 'profile_id,alias' },
+            )
+            .then(({ error }) => {
+              if (error)
+                console.warn(
+                  `[alias] Failed to save alias "${task.assignee_name}" for ${matchedMember.name}: ${error.message}`,
+                );
+              else
+                console.log(
+                  `[alias] Auto-saved alias "${task.assignee_name}" → ${matchedMember.name}`,
+                );
+            });
         }
       }
     }
@@ -1387,22 +1485,35 @@ async function processSingleMeeting(
 
   // Log deal activities for tasks linked to deals
   const dealActivityRecords = (insertedTasks || [])
-    .filter((t: { entity_type: string | null; entity_id: string | null }) => t.entity_type === 'deal' && t.entity_id)
-    .map((t: { id: string; entity_id: string; title: string; task_type: string; assignee_id: string | null }) => ({
-      deal_id: t.entity_id,
-      activity_type: 'task_created',
-      title: `Task: ${t.title}`,
-      description: `Auto-extracted from standup meeting. Type: ${t.task_type}`,
-      metadata: { task_id: t.id, source: 'standup', assignee_id: t.assignee_id },
-    }));
+    .filter(
+      (t: { entity_type: string | null; entity_id: string | null }) =>
+        t.entity_type === 'deal' && t.entity_id,
+    )
+    .map(
+      (t: {
+        id: string;
+        entity_id: string;
+        title: string;
+        task_type: string;
+        assignee_id: string | null;
+      }) => ({
+        deal_id: t.entity_id,
+        activity_type: 'task_created',
+        title: `Task: ${t.title}`,
+        description: `Auto-extracted from standup meeting. Type: ${t.task_type}`,
+        metadata: { task_id: t.id, source: 'standup', assignee_id: t.assignee_id },
+      }),
+    );
   if (dealActivityRecords.length > 0) {
     await supabase.from('deal_activities').insert(dealActivityRecords);
   }
 
   // Task carryover: bring forward incomplete tasks from previous standup
   const carriedOver = await carryOverIncompleteTasks(
-    supabase, meeting.id, meetingDate,
-    extractedTasks.map(t => t.title),
+    supabase,
+    meeting.id,
+    meetingDate,
+    extractedTasks.map((t) => t.title),
   );
   if (carriedOver > 0) {
     console.log(`[carryover] Carried forward ${carriedOver} incomplete tasks`);

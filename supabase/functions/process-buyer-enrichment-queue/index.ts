@@ -144,9 +144,15 @@ Deno.serve(async (req) => {
     }
 
     // Helper: process a single buyer item (used by parallel batch below)
-    async function processOneItem(
-      item: { id: string; buyer_id: string; universe_id: string | null; status: string; attempts: number; queued_at: string; force: boolean | null },
-    ): Promise<'success' | 'failed' | 'rate_limited' | 'skipped'> {
+    async function processOneItem(item: {
+      id: string;
+      buyer_id: string;
+      universe_id: string | null;
+      status: string;
+      attempts: number;
+      queued_at: string;
+      force: boolean | null;
+    }): Promise<'success' | 'failed' | 'rate_limited' | 'skipped'> {
       const itemForce = item.force === true;
 
       // BUG-7 FIX: Improved freshness check — only skip if the ENRICHMENT PROCESS itself
@@ -177,10 +183,17 @@ Deno.serve(async (req) => {
           });
 
           if (Date.now() - lastUpdatedMs < freshnessWindowMs && hasRecentEnrichmentSource) {
-            console.log(`Skipping buyer ${item.buyer_id} — enrichment data is fresh, marking completed`);
+            console.log(
+              `Skipping buyer ${item.buyer_id} — enrichment data is fresh, marking completed`,
+            );
             await supabase
               .from('buyer_enrichment_queue')
-              .update({ status: 'completed', completed_at: new Date().toISOString(), last_error: 'Skipped: buyer enrichment data already fresh', updated_at: new Date().toISOString() })
+              .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                last_error: 'Skipped: buyer enrichment data already fresh',
+                updated_at: new Date().toISOString(),
+              })
               .eq('id', item.id);
             await updateGlobalQueueProgress(supabase, 'buyer_enrichment', { completedDelta: 1 });
             return 'skipped';
@@ -191,7 +204,12 @@ Deno.serve(async (req) => {
       // Atomically claim this item
       const { data: claimedItem, error: claimError } = await supabase
         .from('buyer_enrichment_queue')
-        .update({ status: 'processing', attempts: item.attempts + 1, started_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .update({
+          status: 'processing',
+          attempts: item.attempts + 1,
+          started_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', item.id)
         .eq('status', 'pending')
         .select('id')
@@ -208,8 +226,16 @@ Deno.serve(async (req) => {
       try {
         const response = await fetch(`${supabaseUrl}/functions/v1/enrich-buyer`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseServiceKey}` },
-          body: JSON.stringify({ buyerId: item.buyer_id, skipLock: true, forceReExtract: itemForce }),
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            buyerId: item.buyer_id,
+            skipLock: true,
+            forceReExtract: itemForce,
+          }),
           signal: controller.signal,
         });
 
@@ -217,37 +243,91 @@ Deno.serve(async (req) => {
         const data = await response.json().catch(() => ({}));
 
         if (response.status === 429 || data.error_code === 'rate_limited') {
-          const resetAt = data.resetTime || new Date(Date.now() + RATE_LIMIT_BACKOFF_MS).toISOString();
+          const resetAt =
+            data.resetTime || new Date(Date.now() + RATE_LIMIT_BACKOFF_MS).toISOString();
           await reportRateLimit(supabase, 'gemini', RATE_LIMIT_BACKOFF_MS / 1000);
           await supabase
             .from('buyer_enrichment_queue')
-            .update({ status: 'rate_limited', rate_limit_reset_at: resetAt, last_error: 'Rate limited - will retry after reset', updated_at: new Date().toISOString() })
+            .update({
+              status: 'rate_limited',
+              rate_limit_reset_at: resetAt,
+              last_error: 'Rate limited - will retry after reset',
+              updated_at: new Date().toISOString(),
+            })
             .eq('id', item.id);
           console.log(`Rate limited at buyer ${item.buyer_id}`);
           if (enrichmentJobId) {
-            Promise.resolve(supabase.rpc('update_enrichment_job_progress', { p_job_id: enrichmentJobId, p_rate_limited: true })).catch(() => {});
+            Promise.resolve(
+              supabase.rpc('update_enrichment_job_progress', {
+                p_job_id: enrichmentJobId,
+                p_rate_limited: true,
+              }),
+            ).catch(() => {});
           }
-          logEnrichmentEvent(supabase, { entityType: 'buyer', entityId: item.buyer_id, provider: 'gemini', functionName: 'process-buyer-enrichment-queue', stepName: 'enrich-buyer', status: 'rate_limited', jobId: enrichmentJobId || undefined });
+          logEnrichmentEvent(supabase, {
+            entityType: 'buyer',
+            entityId: item.buyer_id,
+            provider: 'gemini',
+            functionName: 'process-buyer-enrichment-queue',
+            stepName: 'enrich-buyer',
+            status: 'rate_limited',
+            jobId: enrichmentJobId || undefined,
+          });
           return 'rate_limited';
         }
 
         if (!response.ok || !data.success) {
-          const errorMsg = data.details ? `${data.error}: ${data.details}` : data.error || `HTTP ${response.status}`;
+          const errorMsg = data.details
+            ? `${data.error}: ${data.details}`
+            : data.error || `HTTP ${response.status}`;
           throw new Error(errorMsg);
         }
 
         const wasPartial = data.extractionDetails?.rateLimited === true;
         if (wasPartial && item.attempts < MAX_ATTEMPTS - 1) {
-          await supabase.from('buyer_enrichment_queue').update({ status: 'pending', started_at: null, last_error: `Partial: ${data.extractionDetails?.promptsSuccessful}/${data.extractionDetails?.promptsRun} prompts completed`, updated_at: new Date().toISOString() }).eq('id', item.id);
+          await supabase
+            .from('buyer_enrichment_queue')
+            .update({
+              status: 'pending',
+              started_at: null,
+              last_error: `Partial: ${data.extractionDetails?.promptsSuccessful}/${data.extractionDetails?.promptsRun} prompts completed`,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id);
         } else {
-          await supabase.from('buyer_enrichment_queue').update({ status: 'completed', completed_at: new Date().toISOString(), force: false, last_error: wasPartial ? `Partial: ${data.extractionDetails?.promptsSuccessful}/${data.extractionDetails?.promptsRun} prompts` : null, updated_at: new Date().toISOString() }).eq('id', item.id);
+          await supabase
+            .from('buyer_enrichment_queue')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+              force: false,
+              last_error: wasPartial
+                ? `Partial: ${data.extractionDetails?.promptsSuccessful}/${data.extractionDetails?.promptsRun} prompts`
+                : null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id);
         }
 
         await updateGlobalQueueProgress(supabase, 'buyer_enrichment', { completedDelta: 1 });
         if (enrichmentJobId) {
-          Promise.resolve(supabase.rpc('update_enrichment_job_progress', { p_job_id: enrichmentJobId, p_succeeded_delta: 1, p_last_processed_id: item.buyer_id })).catch(() => {});
+          Promise.resolve(
+            supabase.rpc('update_enrichment_job_progress', {
+              p_job_id: enrichmentJobId,
+              p_succeeded_delta: 1,
+              p_last_processed_id: item.buyer_id,
+            }),
+          ).catch(() => {});
         }
-        logEnrichmentEvent(supabase, { entityType: 'buyer', entityId: item.buyer_id, provider: 'pipeline', functionName: 'process-buyer-enrichment-queue', stepName: 'enrich-buyer', status: 'success', jobId: enrichmentJobId || undefined });
+        logEnrichmentEvent(supabase, {
+          entityType: 'buyer',
+          entityId: item.buyer_id,
+          provider: 'pipeline',
+          functionName: 'process-buyer-enrichment-queue',
+          stepName: 'enrich-buyer',
+          status: 'success',
+          jobId: enrichmentJobId || undefined,
+        });
         return 'success';
       } catch (error) {
         clearTimeout(timeoutId);
@@ -255,14 +335,41 @@ Deno.serve(async (req) => {
         const currentAttempts = item.attempts + 1;
         const newStatus = currentAttempts >= MAX_ATTEMPTS ? 'failed' : 'pending';
 
-        await supabase.from('buyer_enrichment_queue').update({ status: newStatus, last_error: errorMsg, started_at: null, updated_at: new Date().toISOString() }).eq('id', item.id);
+        await supabase
+          .from('buyer_enrichment_queue')
+          .update({
+            status: newStatus,
+            last_error: errorMsg,
+            started_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', item.id);
         console.error(`Failed to enrich buyer ${item.buyer_id}:`, errorMsg);
-        await updateGlobalQueueProgress(supabase, 'buyer_enrichment', { failedDelta: 1, errorEntry: { itemId: item.buyer_id, error: errorMsg } });
+        await updateGlobalQueueProgress(supabase, 'buyer_enrichment', {
+          failedDelta: 1,
+          errorEntry: { itemId: item.buyer_id, error: errorMsg },
+        });
 
         if (enrichmentJobId) {
-          Promise.resolve(supabase.rpc('update_enrichment_job_progress', { p_job_id: enrichmentJobId, p_failed_delta: 1, p_last_processed_id: item.buyer_id, p_error_message: errorMsg })).catch(() => {});
+          Promise.resolve(
+            supabase.rpc('update_enrichment_job_progress', {
+              p_job_id: enrichmentJobId,
+              p_failed_delta: 1,
+              p_last_processed_id: item.buyer_id,
+              p_error_message: errorMsg,
+            }),
+          ).catch(() => {});
         }
-        logEnrichmentEvent(supabase, { entityType: 'buyer', entityId: item.buyer_id, provider: 'pipeline', functionName: 'process-buyer-enrichment-queue', stepName: 'enrich-buyer', status: 'failure', errorMessage: errorMsg, jobId: enrichmentJobId || undefined });
+        logEnrichmentEvent(supabase, {
+          entityType: 'buyer',
+          entityId: item.buyer_id,
+          provider: 'pipeline',
+          functionName: 'process-buyer-enrichment-queue',
+          stepName: 'enrich-buyer',
+          status: 'failure',
+          errorMessage: errorMsg,
+          jobId: enrichmentJobId || undefined,
+        });
         return 'failed';
       }
     }
@@ -278,13 +385,17 @@ Deno.serve(async (req) => {
     while (true) {
       // Time guard: stop before Deno's execution limit
       if (Date.now() - functionStartTime > MAX_FUNCTION_RUNTIME_MS) {
-        console.log(`Time limit reached after ${totalProcessed} buyers, will continue on next invocation`);
+        console.log(
+          `Time limit reached after ${totalProcessed} buyers, will continue on next invocation`,
+        );
         break;
       }
 
       // Circuit breaker: stop if API appears down
       if (consecutiveFailures >= CIRCUIT_BREAKER_THRESHOLD) {
-        console.error(`Circuit breaker tripped after ${consecutiveFailures} consecutive failures — stopping to prevent wasted retries`);
+        console.error(
+          `Circuit breaker tripped after ${consecutiveFailures} consecutive failures — stopping to prevent wasted retries`,
+        );
         break;
       }
 
@@ -301,12 +412,16 @@ Deno.serve(async (req) => {
         if (!availability.ok) {
           const waitMs = availability.retryAfterMs || RATE_LIMIT_BACKOFF_MS;
           if (waitMs > 30000) {
-            console.log(`${provider} rate limited for ${Math.round(waitMs / 1000)}s — stopping queue processing`);
+            console.log(
+              `${provider} rate limited for ${Math.round(waitMs / 1000)}s — stopping queue processing`,
+            );
             totalRateLimited++;
             rateLimitBlocked = true;
             break;
           }
-          console.log(`${provider} rate limited — waiting ${Math.round(waitMs / 1000)}s before processing`);
+          console.log(
+            `${provider} rate limited — waiting ${Math.round(waitMs / 1000)}s before processing`,
+          );
           await new Promise((r) => setTimeout(r, waitMs));
         }
       }
@@ -335,7 +450,9 @@ Deno.serve(async (req) => {
           .eq('status', 'processing');
 
         if ((processingCount ?? 0) > 0) {
-          console.log(`No pending items, but ${processingCount} still processing — skipping completion`);
+          console.log(
+            `No pending items, but ${processingCount} still processing — skipping completion`,
+          );
         } else {
           console.log(`No more pending items. Processed ${totalProcessed} buyers this run.`);
           await completeGlobalQueueOperation(supabase, 'buyer_enrichment');
@@ -343,14 +460,13 @@ Deno.serve(async (req) => {
         break;
       }
 
-      console.log(`Processing batch of ${queueItems.length} buyers [#${totalProcessed + 1}-${totalProcessed + queueItems.length} this run]`);
-
-      // Process batch in parallel
-      const results = await Promise.allSettled(
-        queueItems.map((item) => processOneItem(item)),
+      console.log(
+        `Processing batch of ${queueItems.length} buyers [#${totalProcessed + 1}-${totalProcessed + queueItems.length} this run]`,
       );
 
-      let batchFailed = 0;
+      // Process batch in parallel
+      const results = await Promise.allSettled(queueItems.map((item) => processOneItem(item)));
+
       for (const result of results) {
         const outcome = result.status === 'fulfilled' ? result.value : 'failed';
         if (outcome === 'success' || outcome === 'skipped') {
@@ -360,7 +476,7 @@ Deno.serve(async (req) => {
           totalRateLimited++;
         } else {
           totalFailed++;
-          batchFailed++;
+          // batchFailed tracked for future per-batch circuit breaking
           consecutiveFailures++;
         }
         totalProcessed++;
