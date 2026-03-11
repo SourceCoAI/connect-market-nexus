@@ -12,10 +12,10 @@
 | Severity | Count | Description |
 |----------|-------|-------------|
 | **Critical (P0)** | 2 | Must fix before production confidence |
-| **High (P1)** | 8 | Fix within 1 sprint |
+| **High (P1)** | 9 | Fix within 1 sprint |
 | **Medium (P2)** | 14 | Fix within 1 month |
 | **Low (P3)** | 11 | Backlog items |
-| **Total** | **35** | |
+| **Total** | **36** | |
 
 ### Key Findings
 
@@ -27,6 +27,7 @@
 6. **100 AI tools defined** (exceeds the 83 mentioned in docs) — some reference deprecated tables
 7. **Context directory duplication** — `src/context/` and `src/contexts/` coexist
 8. **The `handle-buyer-approval` edge function is dead code** — `approve-marketplace-buyer` is the one actually invoked
+9. **3 Clay webhook endpoints have NO authentication** — accept data with only a request_id, enabling potential data poisoning
 
 ---
 
@@ -530,10 +531,20 @@ export const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY |
 
 ## SECURITY ISSUES
 
-1. **P3:** Hardcoded Supabase anon key in `client.ts` — use env var exclusively
-2. **P3:** `@types/*` packages in production dependencies — move to devDependencies
-3. **P3:** `husky` in production dependencies — move to devDependencies
-4. **P3:** File upload validation in `data-room-upload` not confirmed — audit manually
+1. **P1:** Unprotected Clay webhooks (`clay-webhook-linkedin`, `clay-webhook-name-domain`, `clay-webhook-phone`) — these endpoints accept data with NO authentication, relying only on `request_id` (a guessable UUID). An attacker could inject false contact data (emails, phones, LinkedIn URLs) into the system. Code explicitly states `NO auth/secret/signature check — DO NOT re-add`. **Add HMAC-SHA256 signature verification** matching the PandaDoc/SmartLead pattern.
+2. **P3:** Hardcoded Supabase anon key in `client.ts` — use env var exclusively
+3. **P3:** `@types/*` packages in production dependencies — move to devDependencies
+4. **P3:** `husky` in production dependencies — move to devDependencies
+5. **P3:** File upload validation in `data-room-upload` — **confirmed secure** (whitelist: PDF/DOCX/XLSX/PPTX/PNG/JPG/CSV only, 50MB limit, admin-only, sanitized filenames)
+
+**Security strengths confirmed:**
+- PandaDoc webhook: HMAC-SHA256 with timing-safe comparison ✅
+- SmartLead webhook: shared secret with timing-safe comparison ✅
+- HeyReach webhook: shared secret with timing-safe comparison ✅
+- RLS hardening: recent migration fixed overly permissive USING(true) policies ✅
+- XSS protection: DOMPurify sanitization on all rich-text display ✅
+- Data room access: admin + RPC check + audit trail + 5-min signed URLs ✅
+- Cron jobs: CRON_SECRET environment variable with fail-closed behavior ✅
 
 ## RECOMMENDED DELETION LIST
 
