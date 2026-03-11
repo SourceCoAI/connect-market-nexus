@@ -1,8 +1,12 @@
 // Comprehensive type definitions for admin user management
 
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+import type { ApprovalStatus } from './status-enums';
+export type { ApprovalStatus };
 
-export interface User {
+/** @deprecated Use AdminUser instead */
+export type User = AdminUser;
+
+export interface AdminUser {
   id: string;
   email: string;
   first_name: string;

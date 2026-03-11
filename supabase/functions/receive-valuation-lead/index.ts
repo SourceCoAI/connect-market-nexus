@@ -1,18 +1,12 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 /** Safely read a nested .value from calculator_inputs objects. */
 function inputVal(inputs: Record<string, unknown>, key: string): unknown {
   const obj = inputs?.[key];
   if (obj == null) return null;
-  if (typeof obj === "object" && "value" in (obj as Record<string, unknown>)) {
+  if (typeof obj === 'object' && 'value' in (obj as Record<string, unknown>)) {
     return (obj as Record<string, unknown>).value;
   }
   return obj;
@@ -25,56 +19,68 @@ function businessNameFromDomain(website: string | null): string | null {
     const domain = website
       .trim()
       .toLowerCase()
-      .replace(/^[a-z]{3,6}:\/\//i, "")
-      .replace(/^www\./i, "")
-      .split("/")[0]
-      .split("?")[0]
-      .split(".")[0];
+      .replace(/^[a-z]{3,6}:\/\//i, '')
+      .replace(/^www\./i, '')
+      .split('/')[0]
+      .split('?')[0]
+      .split('.')[0];
     if (domain && domain.length > 1) {
       return domain.charAt(0).toUpperCase() + domain.slice(1);
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return null;
 }
 
 serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return corsPreflightResponse(req);
   }
 
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+  const corsHeaders = getCorsHeaders(req);
+
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   try {
     const body = await req.json();
-    console.log("[receive-valuation-lead] Full body:", JSON.stringify(body));
+    console.log('[receive-valuation-lead] Full body:', JSON.stringify(body));
 
     const { full_name, email, website, calculator_inputs, valuation_result } = body;
 
     // Validate required fields
     const missing: string[] = [];
-    if (!full_name) missing.push("full_name");
-    if (!email) missing.push("email");
-    if (!calculator_inputs) missing.push("calculator_inputs");
-    if (!valuation_result) missing.push("valuation_result");
+    if (!full_name) missing.push('full_name');
+    if (!email) missing.push('email');
+    if (!calculator_inputs) missing.push('calculator_inputs');
+    if (!valuation_result) missing.push('valuation_result');
 
     if (missing.length > 0) {
       return new Response(
-        JSON.stringify({ error: `Missing required fields: ${missing.join(", ")}` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: `Missing required fields: ${missing.join(', ')}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    const leadSource = body.lead_source ?? "auto_shop_calculator";
-    console.log("Payload debug:", JSON.stringify({ full_name, email, lead_source: leadSource, ci_keys: calculator_inputs ? Object.keys(calculator_inputs) : null }));
+    const leadSource = body.lead_source ?? 'auto_shop_calculator';
+    console.log(
+      'Payload debug:',
+      JSON.stringify({
+        full_name,
+        email,
+        lead_source: leadSource,
+        ci_keys: calculator_inputs ? Object.keys(calculator_inputs) : null,
+      }),
+    );
 
     const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
     // ─── 1. Insert into incoming_leads (preserve both submissions as audit trail) ──
@@ -82,7 +88,7 @@ serve(async (req: Request) => {
       external_lead_id: body.external_lead_id ?? null,
       full_name,
       email,
-      website: website ?? "",
+      website: website ?? '',
       lead_source: leadSource,
       calculator_inputs,
       valuation_result,
@@ -96,11 +102,11 @@ serve(async (req: Request) => {
 
     // Use ignoreDuplicates so both initial_unlock and full_report raw payloads are preserved
     const { error: incomingError } = await supabaseAdmin
-      .from("incoming_leads")
-      .upsert(incomingRow, { onConflict: "email", ignoreDuplicates: false });
+      .from('incoming_leads')
+      .upsert(incomingRow, { onConflict: 'email', ignoreDuplicates: false });
 
     if (incomingError) {
-      console.error("incoming_leads upsert error:", incomingError);
+      console.error('incoming_leads upsert error:', incomingError);
       // Non-fatal — continue to valuation_leads
     }
 
@@ -122,12 +128,12 @@ serve(async (req: Request) => {
       return String(v);
     };
 
-    const revenue = toNum(inputVal(ci, "revenue_ltm"));
-    const ebitda = toNum(inputVal(ci, "ebitda_ltm"));
-    const serviceType = toStr(inputVal(ci, "service_type"));
-    const locationsCount = toInt(inputVal(ci, "locations_count"));
-    const ownerDependency = toStr(inputVal(ci, "owner_dependency"));
-    const growthTrend = toStr(inputVal(ci, "trend_24m"));
+    const revenue = toNum(inputVal(ci, 'revenue_ltm'));
+    const ebitda = toNum(inputVal(ci, 'ebitda_ltm'));
+    const serviceType = toStr(inputVal(ci, 'service_type'));
+    const locationsCount = toInt(inputVal(ci, 'locations_count'));
+    const ownerDependency = toStr(inputVal(ci, 'owner_dependency'));
+    const growthTrend = toStr(inputVal(ci, 'trend_24m'));
 
     const businessValue = vr?.businessValue as Record<string, number> | null;
     const qualityLabel = vr?.qualityLabel as Record<string, string> | null;
@@ -136,17 +142,17 @@ serve(async (req: Request) => {
 
     const city = body.city as string | null;
     const region = body.region as string | null;
-    const locationStr = [city, region].filter(Boolean).join(", ") || null;
+    const locationStr = [city, region].filter(Boolean).join(', ') || null;
 
     // All auto calculator submissions → single "auto_shop" type.
     // Raw service_type is preserved in raw_calculator_inputs for later classification.
-    const calculatorType = "auto_shop";
+    const calculatorType = 'auto_shop';
 
     const now = new Date().toISOString();
 
     // ─── Atomic upsert via RPC — no race condition possible ──
     try {
-      const { data: mergedId, error: rpcError } = await supabaseAdmin.rpc("merge_valuation_lead", {
+      const { data: mergedId, error: rpcError } = await supabaseAdmin.rpc('merge_valuation_lead', {
         p_calculator_type: calculatorType,
         p_full_name: full_name,
         p_email: email,
@@ -177,43 +183,48 @@ serve(async (req: Request) => {
         throw new Error(`merge_valuation_lead RPC failed: ${rpcError.message}`);
       }
 
-      console.log(`Lead merged atomically: ${email} → valuation_leads id=${mergedId} (type=${calculatorType}, source=${leadSource})`);
+      console.log(
+        `Lead merged atomically: ${email} → valuation_leads id=${mergedId} (type=${calculatorType}, source=${leadSource})`,
+      );
     } catch (structuredErr) {
       // ─── FALLBACK: minimal safe insert so the lead is NEVER lost ──
-      console.error("Structured merge failed, attempting minimal fallback:", structuredErr);
+      console.error('Structured merge failed, attempting minimal fallback:', structuredErr);
 
       try {
-        const { error: fallbackErr } = await supabaseAdmin
-          .from("valuation_leads")
-          .upsert({
+        const { error: fallbackErr } = await supabaseAdmin.from('valuation_leads').upsert(
+          {
             email,
             full_name,
-            calculator_type: calculatorType || "unknown",
+            calculator_type: calculatorType || 'unknown',
             lead_source: leadSource,
             raw_calculator_inputs: calculator_inputs,
             raw_valuation_results: valuation_result,
             updated_at: now,
-          }, { onConflict: "email,calculator_type" });
+          },
+          { onConflict: 'email,calculator_type' },
+        );
 
         if (fallbackErr) {
-          console.error("Minimal fallback also failed:", fallbackErr);
+          console.error('Minimal fallback also failed:', fallbackErr);
         } else {
-          console.log(`Lead saved via FALLBACK: ${email} → valuation_leads (minimal, type=${calculatorType})`);
+          console.log(
+            `Lead saved via FALLBACK: ${email} → valuation_leads (minimal, type=${calculatorType})`,
+          );
         }
       } catch (fallbackCatchErr) {
-        console.error("Fallback catch error:", fallbackCatchErr);
+        console.error('Fallback catch error:', fallbackCatchErr);
       }
     }
     // Always return 200 — incoming_leads is the source of truth backup
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error("receive-valuation-lead error:", err);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    console.error('receive-valuation-lead error:', err);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

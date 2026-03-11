@@ -5,14 +5,9 @@
  */
 
 import { Badge } from '@/components/ui/badge';
-import {
-  Loader2,
-  Bot,
-  Wrench,
-  CheckCircle,
-  XCircle,
-} from 'lucide-react';
+import { Loader2, Bot, Wrench, CheckCircle, XCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 import { cn } from '@/lib/utils';
 import { type ToolCallInfo } from '@/hooks/useAICommandCenter';
 
@@ -78,7 +73,7 @@ export function StreamingIndicator({
         {/* Streaming text */}
         {content ? (
           <div className="text-base prose prose-base max-w-none">
-            <ReactMarkdown>{content}</ReactMarkdown>
+            <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{content}</ReactMarkdown>
           </div>
         ) : (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">

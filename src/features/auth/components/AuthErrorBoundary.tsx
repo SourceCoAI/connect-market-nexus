@@ -19,23 +19,23 @@ export class AuthErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
-    errorInfo: null
+    errorInfo: null,
   };
 
   public static getDerivedStateFromError(error: Error): State {
     return {
       hasError: true,
       error,
-      errorInfo: null
+      errorInfo: null,
     };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Auth Error Boundary caught an error:', error, errorInfo);
-    
+
     this.setState({
       error,
-      errorInfo
+      errorInfo,
     });
 
     // Log specific signup flow errors
@@ -48,7 +48,7 @@ export class AuthErrorBoundary extends Component<Props, State> {
     this.setState({
       hasError: false,
       error: null,
-      errorInfo: null
+      errorInfo: null,
     });
   };
 
@@ -69,12 +69,11 @@ export class AuthErrorBoundary extends Component<Props, State> {
               <CardDescription>
                 {this.state.error instanceof SignupStateTransitionError
                   ? 'There was an issue with the signup process. Please try again.'
-                  : 'Something went wrong with authentication. Please refresh and try again.'
-                }
+                  : 'Something went wrong with authentication. Please refresh and try again.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {process.env.NODE_ENV === 'development' && this.state.error && (
+              {import.meta.env.DEV && this.state.error && (
                 <div className="p-3 bg-muted rounded-md">
                   <p className="text-sm text-muted-foreground font-mono">
                     {this.state.error.message}
@@ -86,9 +85,9 @@ export class AuthErrorBoundary extends Component<Props, State> {
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Try Again
                 </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => window.location.href = '/'} 
+                <Button
+                  variant="outline"
+                  onClick={() => (window.location.href = '/')}
                   className="w-full"
                 >
                   Go Home

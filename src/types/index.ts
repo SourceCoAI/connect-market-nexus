@@ -25,10 +25,15 @@ export type SignupBuyerType =
 /** @deprecated Use SignupBuyerType (marketplace) or BuyerType from @/types/remarketing (canonical). */
 export type BuyerType = SignupBuyerType;
 
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+/** @deprecated Import ApprovalStatus from '@/types/status-enums' instead. */
+export type { ApprovalStatus } from './status-enums';
 
 export type ListingStatus = 'active' | 'inactive';
 
+/**
+ * Simplified connection request status for marketplace-facing code.
+ * The canonical 5-value type is ConnectionRequestStatus from status-enums.ts.
+ */
 export type ConnectionRequestStatus = 'pending' | 'approved' | 'rejected';
 
 /** Severity levels used by the error handling subsystem. */
@@ -123,7 +128,7 @@ export interface User {
   equity_source?: string[];
   // Canonical DB column name
   flex_subxm_ebitda?: boolean;
-  // Back-compat alias used in some components
+  /** @deprecated Use flex_subxm_ebitda instead */
   flex_subXm_ebitda?: boolean;
   backers_summary?: string;
   deployment_timing?: string;

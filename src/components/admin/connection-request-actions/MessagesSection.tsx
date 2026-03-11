@@ -15,25 +15,31 @@ import {
   useMarkMessagesReadByAdmin,
 } from '@/hooks/use-connection-messages';
 import { formatDistanceToNow, format } from 'date-fns';
+import DOMPurify from 'dompurify';
 
 // ─── Helpers ───
 
-function escapeHtmlChars(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function linkifyText(text: string): string {
   const urlRegex = /(https?:\/\/[^\s<]+)/g;
-  // First escape the entire text to prevent XSS, then replace URLs with links
-  const escaped = escapeHtmlChars(text);
-  return escaped.replace(urlRegex, (url) => {
-    const display = url.length > 60 ? url.substring(0, 57) + '...' : url;
-    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80 break-all" onclick="event.stopPropagation()">${display}</a>`;
+  // Split text by URLs, building safe HTML via DOMPurify
+  const parts = text.split(urlRegex);
+  const html = parts
+    .map((part, i) => {
+      if (i % 2 === 1) {
+        // This is a URL match — create a link
+        const safeUrl = DOMPurify.sanitize(part, { ALLOWED_TAGS: [] });
+        const display = safeUrl.length > 60 ? safeUrl.substring(0, 57) + '...' : safeUrl;
+        return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-primary/80 break-all">${display}</a>`;
+      }
+      // Escape plain text via DOM API (safe against injection)
+      const div = document.createElement('div');
+      div.textContent = part;
+      return div.innerHTML;
+    })
+    .join('');
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['a'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
   });
 }
 

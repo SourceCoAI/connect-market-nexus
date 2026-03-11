@@ -1,21 +1,9 @@
 // Scoring Components (unified)
 export { ScoreBadge, getTierFromScore } from '@/components/shared/ScoreBadge';
-export { ScoreBreakdown } from './ScoreBreakdown';
-export { AIReasoningPanel } from './AIReasoningPanel';
-export { PassReasonDialog } from './PassReasonDialog';
 export { NotAFitReasonDialog } from './NotAFitReasonDialog';
 export { IntelligenceBadge } from './IntelligenceBadge';
-export { BulkScoringPanel } from './BulkScoringPanel';
 export { ScoreFilters, filterScores } from './ScoreFilters';
 export type { ScoreFiltersState } from './ScoreFilters';
-
-// Engagement Components
-export { EngagementIndicator, getEngagementLevel } from './EngagementIndicator';
-export { StaleScoreWarning } from './StaleScoreWarning';
-export { EngagementHeatmapInsight } from './EngagementHeatmapInsight';
-
-// Enrichment Components
-export { EnrichmentButton } from './EnrichmentButton';
 
 // Universe Components
 export { StructuredCriteriaPanel } from './StructuredCriteriaPanel';
@@ -23,7 +11,6 @@ export { DocumentUploadSection } from './DocumentUploadSection';
 export { MAGuideEditor } from './MAGuideEditor';
 export { UniverseTemplates } from './UniverseTemplates';
 export { ScoringBehaviorPanel } from './ScoringBehaviorPanel';
-export { ScoringBehaviorPanelEnhanced } from './ScoringBehaviorPanelEnhanced';
 export { ScoringInsightsPanel } from './ScoringInsightsPanel';
 export { ScoringInstructionsPanel } from './ScoringInstructionsPanel';
 export { PassConfirmDialog } from './PassConfirmDialog';
@@ -34,6 +21,7 @@ export { BuyerFitCriteriaAccordion } from './BuyerFitCriteriaAccordion';
 export { BuyerFitCriteriaDialog } from './BuyerFitCriteriaDialog';
 export { BuyerTableToolbar } from './BuyerTableToolbar';
 export { ScoringStyleCard } from './ScoringStyleCard';
+
 // Match Card Components
 export { BuyerMatchCard } from './BuyerMatchCard';
 export { ApproveBuyerMultiDealDialog } from './ApproveBuyerMultiDealDialog';
@@ -44,6 +32,7 @@ export { BuyerTableEnhanced } from './BuyerTableEnhanced';
 export { AlignmentScoreBadge } from './AlignmentScoreBadge';
 export { UniverseDealsTable } from './UniverseDealsTable';
 export { DealMergePanel } from './DealMergePanel';
+
 // Deal Management Components
 export { AddDealToUniverseDialog } from './AddDealToUniverseDialog';
 export { AddDealDialog } from './AddDealDialog';
@@ -64,29 +53,19 @@ export { ReMarketingBadge } from './ReMarketingBadge';
 
 // Import Components
 export { default as BuyerCSVImport } from './BuyerCSVImport/index';
-
 export { DealImportDialog } from './DealImportDialog';
 export type { DealIdMapping } from './DealMergePanel';
 
-// Transcript Components
-export { TranscriptSection } from './TranscriptSection';
-
 // Outreach/Introduction Components
 export { OutreachTimeline } from './OutreachTimeline';
-export { IntroductionStatusCard } from './IntroductionStatusCard';
 export { OutreachStatusDialog } from './OutreachStatusDialog';
 export type { OutreachStatus } from './OutreachStatusDialog';
-
-// Learning Components
-export { QuickInsightsWidget } from './QuickInsightsWidget';
 
 // Layout Components
 export { ReMarketingLayout } from './ReMarketingLayout';
 export { IntelligenceCoverageBar } from './IntelligenceCoverageBar';
-export { ScoringInsightsSidebar } from './ScoringInsightsSidebar';
 
 // Bulk Actions & Progress
-export { BulkActionsToolbar } from './BulkActionsToolbar';
 export { DealBulkActionBar } from './DealBulkActionBar';
 export { AddBuyersToListDialog } from './AddBuyersToListDialog';
 export { AddDealsToListDialog } from './AddDealsToListDialog';
@@ -105,17 +84,6 @@ export { PipelineSummaryCard } from './PipelineSummaryCard';
 
 // Transcript Components
 export { DealTranscriptSection } from './DealTranscriptSection';
-
-// Phase 4: CRM & Enterprise
-export { CRMExportPanel } from './CRMExportPanel';
-export { OutreachSequenceTracker } from './OutreachSequenceTracker';
-
-// Phase 5: Advanced Analytics
-export { WinRateAnalysis } from './WinRateAnalysis';
-export { OutreachVelocityDashboard } from './OutreachVelocityDashboard';
-
-// Dashboard Widgets
-export { UnlinkedListingsWidget } from './UnlinkedListingsWidget';
 
 // Guide & Criteria Input Components
 export { TrackerNotesSection } from './TrackerNotesSection';

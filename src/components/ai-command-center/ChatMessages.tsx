@@ -24,6 +24,7 @@ import {
   Archive,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 import { cn } from '@/lib/utils';
 import { type AIMessage, type Conversation } from '@/hooks/useAICommandCenter';
 import { supabase } from '@/integrations/supabase/client';
@@ -148,7 +149,7 @@ export function MessageBubble({
         {/* Message content */}
         {message.content ? (
           <div className="text-base prose prose-base max-w-none [&_*]:text-[#0E101A] [&_a]:text-[#DEC76B]">
-            <ReactMarkdown>{message.content}</ReactMarkdown>
+            <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{message.content}</ReactMarkdown>
           </div>
         ) : (
           !isUser &&

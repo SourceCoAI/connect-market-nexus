@@ -182,7 +182,7 @@ export interface AdminConnectionRequest {
   id: string;
   user_id: string | null;
   listing_id: string;
-  status: 'pending' | 'approved' | 'rejected' | 'on_hold';
+  status: import('./status-enums').ConnectionRequestStatus | 'on_hold';
   admin_comment?: string;
   user_message?: string;
   decision_notes?: string;

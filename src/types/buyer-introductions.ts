@@ -1,9 +1,5 @@
-export type IntroductionStatus =
-  | 'need_to_show_deal'
-  | 'outreach_initiated'
-  | 'meeting_scheduled'
-  | 'not_a_fit'
-  | 'fit_and_interested';
+// Re-export canonical IntroductionStatus from status-enums (includes 'deal_created')
+export type { IntroductionStatus } from './status-enums';
 
 export interface BuyerIntroduction {
   id: string;
