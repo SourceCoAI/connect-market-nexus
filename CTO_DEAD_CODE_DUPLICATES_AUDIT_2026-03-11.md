@@ -12,10 +12,10 @@
 |----------|-------|-------------|
 | **P0 Critical** | 3 | Dead tables with zero code references, `listings` table at 193 columns |
 | **P1 High** | 21 | Dead edge functions, dead columns in core tables, duplicate type systems |
-| **P2 Medium** | 42 | Low-reference tables, duplicate type definitions, near-dead columns |
+| **P2 Medium** | 63 | Low-reference tables, duplicate type definitions, near-dead columns, orphaned routes |
 | **P3 Low** | 114 | Unused TypeScript types, minor duplicate patterns |
 
-**Total issues found: ~180**
+**Total issues found: ~200**
 
 ---
 
@@ -412,7 +412,52 @@ supabase/functions/verify-platform-website/
 
 ---
 
-## 8. RECOMMENDED CONSOLIDATION LIST
+## 8. ORPHANED ROUTES
+
+**113+ routes defined, ~45 actively linked, ~39 orphaned.**
+
+### Genuinely Orphaned Admin Routes (never linked from UI navigation)
+
+| Route | Page | Status |
+|-------|------|--------|
+| `/admin/smartlead/campaigns` | SmartLead campaigns | **ORPHANED** — no sidebar link |
+| `/admin/smartlead/settings` | SmartLead settings | **ORPHANED** — no sidebar link |
+| `/admin/phoneburner/sessions` | PhoneBurner sessions | **ORPHANED** — no sidebar link |
+| `/admin/phoneburner/settings` | PhoneBurner settings | **ORPHANED** — no sidebar link |
+| `/admin/fireflies` | Fireflies integration | **ORPHANED** — no sidebar link |
+| `/admin/approvals` | Global approvals | **ORPHANED** — no sidebar link |
+| `/admin/documents` | Document tracking | **ORPHANED** — no sidebar link |
+| `/admin/marketplace/create-listing` | Create listing | **ORPHANED** — no link |
+| `/admin/marketplace/messages` | Admin messages | **ORPHANED** — no link |
+| `/admin/buyers/contacts` | Buyer contacts | **ORPHANED** — no link |
+| `/admin/feature-ideas` | Feature ideas | **ORPHANED** — no link |
+| `/admin/remarketing/leads/sourceco` | SourceCo deals | **ORPHANED** — sub-route not linked |
+| `/admin/remarketing/leads/sourceco/:dealId` | SourceCo deal detail | **ORPHANED** |
+
+### Orphaned Settings Sub-routes (not linked from settings navigation)
+
+| Route | Purpose |
+|-------|---------|
+| `/admin/settings/owner-leads` | Owner leads settings |
+| `/admin/settings/data-quality/pe-links` | PE firm link review |
+| `/admin/settings/webhooks` | Webhooks settings |
+| `/admin/settings/enrichment-queue` | Enrichment queue |
+| `/admin/settings/outreach` | Outreach settings |
+| `/admin/settings/data-recovery` | Data recovery |
+| `/admin/settings/form-monitoring` | Form monitoring |
+| `/admin/settings/security` | Security settings |
+
+### Acceptable Orphans (externally accessed or post-action pages)
+
+These routes are intentionally not linked in UI — accessed via external URLs, emails, or form redirects:
+- `/referrals/:shareToken`, `/dataroom/:accessToken`, `/view/:linkToken`, `/deals/:id`
+- `/auth/callback`, `/reset-password`, `/signup-success`, `/pending-approval`
+- `/sell` (entry point for owner inquiry — may need an external landing page link)
+- 15 legacy redirect routes (`/admin/remarketing/deals` → `/admin/deals`, etc.)
+
+---
+
+## 9. RECOMMENDED CONSOLIDATION LIST
 
 | Source (merge from) | Target (keep) | Action |
 |---------------------|---------------|--------|
@@ -450,3 +495,5 @@ supabase/functions/verify-platform-website/
 12. `supabase-helpers.ts` has 40+ unused type aliases — clean up
 13. Admin view tables (v1+v2, 8 total) should be consolidated into `admin_view_state`
 14. Edge functions only used in test pages should be flagged for review
+15. 21+ orphaned routes (admin pages not linked from sidebar/navigation)
+16. 8 orphaned settings sub-routes not accessible from settings UI
