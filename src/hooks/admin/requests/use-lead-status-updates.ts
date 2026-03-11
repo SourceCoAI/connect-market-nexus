@@ -342,7 +342,7 @@ export const useUpdateLeadFeeAgreementStatus = () => {
 
       if (deal) {
         await logDealActivity({
-          dealId: deal.id,
+          dealId: deal.id as string,
           activityType: 'fee_agreement_status_changed',
           title: value ? 'Fee Agreement Signed' : 'Fee Agreement Status Revoked',
           description: value
