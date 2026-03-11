@@ -39,6 +39,7 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
   const lastCompletedRef = useRef<number>(0);
   const wasRunningRef = useRef<boolean>(false);
   const realtimeDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const isFetchingRef = useRef<boolean>(false);
 
   const [progress, setProgress] = useState<QueueProgress>({
     pending: 0,
@@ -58,17 +59,45 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
   // Fetch queue status using lightweight count queries instead of fetching all rows
   const fetchQueueStatus = useCallback(async () => {
     if (!universeId) return;
+    // Guard against overlapping invocations from setInterval with async callback
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
     try {
       // Use parallel count queries grouped by status — much lighter than fetching all rows
       const [pendingRes, processingRes, completedRes, failedRes, rateLimitedRes, pausedRes] =
         await Promise.all([
-          supabase.from('buyer_enrichment_queue').select('id', { count: 'exact', head: true }).eq('universe_id', universeId).eq('status', 'pending'),
-          supabase.from('buyer_enrichment_queue').select('id', { count: 'exact', head: true }).eq('universe_id', universeId).eq('status', 'processing'),
-          supabase.from('buyer_enrichment_queue').select('id', { count: 'exact', head: true }).eq('universe_id', universeId).eq('status', 'completed'),
-          supabase.from('buyer_enrichment_queue').select('id', { count: 'exact', head: true }).eq('universe_id', universeId).eq('status', 'failed'),
-          supabase.from('buyer_enrichment_queue').select('id, rate_limit_reset_at', { count: 'exact' }).eq('universe_id', universeId).eq('status', 'rate_limited').limit(1),
-          supabase.from('buyer_enrichment_queue').select('id', { count: 'exact', head: true }).eq('universe_id', universeId).eq('status', 'paused'),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id', { count: 'exact', head: true })
+            .eq('universe_id', universeId)
+            .eq('status', 'pending'),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id', { count: 'exact', head: true })
+            .eq('universe_id', universeId)
+            .eq('status', 'processing'),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id', { count: 'exact', head: true })
+            .eq('universe_id', universeId)
+            .eq('status', 'completed'),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id', { count: 'exact', head: true })
+            .eq('universe_id', universeId)
+            .eq('status', 'failed'),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id, rate_limit_reset_at', { count: 'exact' })
+            .eq('universe_id', universeId)
+            .eq('status', 'rate_limited')
+            .limit(1),
+          supabase
+            .from('buyer_enrichment_queue')
+            .select('id', { count: 'exact', head: true })
+            .eq('universe_id', universeId)
+            .eq('status', 'paused'),
         ]);
 
       const counts = {
@@ -86,7 +115,12 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
       }
 
       const total =
-        counts.pending + counts.processing + counts.completed + counts.failed + counts.rateLimited + counts.paused;
+        counts.pending +
+        counts.processing +
+        counts.completed +
+        counts.failed +
+        counts.rateLimited +
+        counts.paused;
       const isRunning = counts.pending > 0 || counts.processing > 0 || counts.rateLimited > 0;
       const isPaused = counts.paused > 0 && !isRunning;
 
@@ -155,6 +189,8 @@ export function useBuyerEnrichmentQueue(universeId?: string) {
       return { counts, isRunning };
     } catch (error) {
       console.error('Error fetching buyer queue status:', error);
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [universeId, queryClient]);
 
