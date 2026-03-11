@@ -14,8 +14,8 @@
 | **Critical (P0)** | 2 | Must fix before production confidence |
 | **High (P1)** | 9 | Fix within 1 sprint |
 | **Medium (P2)** | 14 | Fix within 1 month |
-| **Low (P3)** | 11 | Backlog items |
-| **Total** | **36** | |
+| **Low (P3)** | 17 | Backlog items |
+| **Total** | **42** | |
 
 ### Key Findings
 
@@ -28,6 +28,8 @@
 7. **Context directory duplication** — `src/context/` and `src/contexts/` coexist
 8. **The `handle-buyer-approval` edge function is dead code** — `approve-marketplace-buyer` is the one actually invoked
 9. **3 Clay webhook endpoints have NO authentication** — accept data with only a request_id, enabling potential data poisoning
+10. **5 dead frontend components** — `FirmManagementTools`, `CompleteAuditTrail`, `LazyImage`, `SessionMonitoringProvider`, `AgreementPanel` have zero imports
+11. **`lovable-tagger` npm package** is completely unused — no imports anywhere in the codebase
 
 ---
 
@@ -153,9 +155,17 @@ Since we cannot query the live database, assessment is based on code references:
 
 ### 2C. Dead Frontend Components
 
-Based on import analysis, the following component files are candidates for removal (not imported anywhere):
+Based on import analysis, the following component files are confirmed dead (not imported anywhere):
 
-This requires a comprehensive cross-reference of 641 files. Key observations:
+| Component | Path | Evidence |
+|-----------|------|----------|
+| `FirmManagementTools` | `src/components/admin/firm-agreements/FirmManagementTools.tsx` | No imports found in any file |
+| `CompleteAuditTrail` | `src/components/admin/pipeline/CompleteAuditTrail.tsx` | No imports found in any file |
+| `LazyImage` | `src/components/common/LazyImage.tsx` | No imports found in any file |
+| `SessionMonitoringProvider` | `src/components/security/SessionMonitoringProvider.tsx` | No imports found in any file |
+| `AgreementPanel` | `src/components/pandadoc/AgreementPanel.tsx` | No imports found in any file |
+
+Additional candidates:
 - The `src/components/ui/` directory contains ShadCN components — some may not be imported but are available for future use. These are low priority.
 - Files in `src/pages/admin/BuyerRecommendationTest.tsx`, `src/pages/admin/ListingPipelineTest.tsx`, `src/pages/admin/PromptTestRunner.tsx` appear to be test/debug pages not linked in routing — candidates for cleanup.
 
@@ -178,8 +188,10 @@ All routes in `App.tsx` are either:
 | `husky` | **MISPLACED** | Should be in devDependencies, not dependencies |
 | `@testing-library/dom` | **MISPLACED** | Should be in devDependencies, not dependencies |
 | `react-simple-maps` | **VERIFY** | Large package — verify if map feature is actively used |
+| `lovable-tagger` | **DEAD** | No imports or usage found anywhere in the codebase |
 
 **P2:** Move `@types/*`, `husky`, and `@testing-library/dom` from `dependencies` to `devDependencies`. Adds unnecessary weight to production builds.
+**P3:** Remove `lovable-tagger` — completely unused dependency.
 
 ---
 
@@ -211,6 +223,7 @@ All routes in `App.tsx` are either:
 |---------|-----------|
 | Sidebar | **RESOLVED** — Single `UnifiedAdminSidebar.tsx`. No duplicates. |
 | `src/context/` vs `src/contexts/` | **ORGANIZATIONAL DUPLICATE** — Two directories for context providers. `context/` has AuthContext, AnalyticsContext, NavigationStateContext, TabVisibilityContext. `contexts/` has AnalyticsFiltersContext, SearchSessionContext, SessionContext. Both are actively used. **Consolidate into one directory.** |
+| `DuplicateWarningDialog` | **DUPLICATE COMPONENT** — Two instances with incompatible prop interfaces: `src/components/admin/DuplicateWarningDialog.tsx` (inbound lead dedup) and `src/components/admin/CreateDealModal/DuplicateWarningDialog.tsx` (deal dedup). **Consolidate into one reusable component.** |
 
 ### 3D. Duplicate Constants & Config
 
@@ -494,6 +507,12 @@ export const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY |
 | `validate-criteria` | Edge function | No invocations found | **DELETE** |
 | `verify-platform-website` | Edge function | No invocations found | **DELETE** |
 | `deal_tasks` | Database table | Superseded by `daily_standup_tasks` | **PLAN DROP** (after FK cleanup) |
+| `FirmManagementTools` | Component | No imports found anywhere in codebase | **DELETE** |
+| `CompleteAuditTrail` | Component | No imports found anywhere in codebase | **DELETE** |
+| `LazyImage` | Component | No imports found anywhere in codebase | **DELETE** |
+| `SessionMonitoringProvider` | Component | No imports found anywhere in codebase | **DELETE** |
+| `AgreementPanel` | Component | No imports found anywhere in codebase | **DELETE** |
+| `lovable-tagger` | npm package | No imports or usage found anywhere | **DELETE** |
 | `BuyerType` in `src/types/index.ts` | Type definition | camelCase version incompatible with DB snake_case | **DELETE** (use `remarketing.ts` version) |
 
 ## DUPLICATE INVENTORY
@@ -571,6 +590,20 @@ supabase/functions/sync-missing-profiles/
 supabase/functions/track-engagement-signal/
 supabase/functions/validate-criteria/
 supabase/functions/verify-platform-website/
+```
+
+### Dead Frontend Components:
+```
+src/components/admin/firm-agreements/FirmManagementTools.tsx
+src/components/admin/pipeline/CompleteAuditTrail.tsx
+src/components/common/LazyImage.tsx
+src/components/security/SessionMonitoringProvider.tsx
+src/components/pandadoc/AgreementPanel.tsx
+```
+
+### Dead npm Packages:
+```
+lovable-tagger
 ```
 
 ### Type definitions:
