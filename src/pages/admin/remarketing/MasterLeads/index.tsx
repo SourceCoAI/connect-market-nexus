@@ -395,6 +395,11 @@ export default function MasterLeads() {
                       {lead.linkedinEmployeeCount != null ? lead.linkedinEmployeeCount.toLocaleString() : '-'}
                     </TableCell>
 
+                    {/* LI Range */}
+                    <TableCell className="text-sm text-muted-foreground">
+                      {lead.linkedinEmployeeRange || '-'}
+                    </TableCell>
+
                     {/* Google Reviews */}
                     <TableCell className="text-right text-sm text-muted-foreground">
                       {lead.googleReviewCount != null ? lead.googleReviewCount.toLocaleString() : '-'}
