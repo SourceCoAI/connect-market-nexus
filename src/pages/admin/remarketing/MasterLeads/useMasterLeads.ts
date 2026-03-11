@@ -118,6 +118,7 @@ export function useMasterLeads() {
           .select(
             `id, title, internal_company_name, website, main_contact_name, main_contact_email,
              industry, category, location, revenue, ebitda, deal_total_score,
+             linkedin_employee_count, google_review_count,
              pushed_to_all_deals, deal_source, created_at`,
           )
           .in('deal_source', ['captarget', 'gp_partner', 'sourceco'])
