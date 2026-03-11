@@ -92,20 +92,20 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (ndaSigned) {
       // Version B — NDA already signed
-      subject = "You're approved — full access is live";
+      subject = "You're in — full access is live.";
       htmlContent = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <p>Hi ${firstName},</p>
-        <p>Your SourceCo account is approved and your NDA is already on file. You have full access right now.</p>
-        <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Browse deals</a></p>
-        <p>A few things to know:</p>
-        <ul style="padding-left: 20px; color: #374151;">
-          <li>We introduce 1&ndash;3 buyers per deal. When you request access, explain why you're a fit.</li>
-          <li>All deals are off-market &mdash; you won't find these anywhere else.</li>
-          <li>Our fee is success-only. You only pay if a deal closes.</li>
-        </ul>
-        <p>Questions? Reply to this email.</p>
-        <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-      </div>`;
+  <p>Hi ${firstName},</p>
+  <p>You're in. Your NDA is already on file — you have full access to the deal pipeline right now.</p>
+  <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Browse Deals</a></p>
+  <h3 style="color: #0e101a; font-size: 16px; margin: 24px 0 8px 0;">Before you submit your first request</h3>
+  <ul style="padding-left: 20px; color: #374151;">
+    <li>Every deal is off-market — you won't find these anywhere else</li>
+    <li>We introduce a small number of buyers per deal. Tell us specifically why you're a strong fit — generic messages rarely get selected</li>
+    <li>Your first introduction request will prompt you to sign a fee agreement — success-only, nothing owed unless a deal closes, covers every introduction we make on your behalf</li>
+  </ul>
+  <p>Questions? Reply to this email.</p>
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
+</div>`;
       textContent = `Hi ${firstName},
 
 Your SourceCo account is approved and your NDA is already on file. You have full access right now.
@@ -122,43 +122,22 @@ Questions? Reply to this email.
 — The SourceCo Team`;
     } else {
       // Version A — NDA not signed (most common)
-      subject = "You're approved — sign your NDA to get in";
+      subject = "You're approved — one step to full access.";
       htmlContent = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <p>Hi ${firstName},</p>
-        <p>Your SourceCo account is approved.</p>
-        <p>Before you can access deal details, you'll need to sign your NDA. It takes about 60 seconds and covers every deal on the platform.</p>
-        <p style="margin: 24px 0;"><a href="${siteUrl}/pending-approval" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Sign your NDA</a></p>
-        <p>Once signed, you'll have full access to:</p>
-        <ul style="padding-left: 20px; color: #374151;">
-          <li>Browse exclusive off-market businesses ($1M&ndash;$50M+ revenue)</li>
-          <li>View verified financials and data rooms</li>
-          <li>Request introductions to sellers</li>
-        </ul>
-        <p>A few things to know before you start:</p>
-        <p style="color: #374151;">We introduce 1&ndash;3 buyers per deal. We review every connection request and select buyers based on fit. When you submit a request, explain specifically why you're a strong match &mdash; generic messages don't get selected.</p>
-        <p>Questions? Reply to this email.</p>
-        <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-      </div>`;
-      textContent = `Hi ${firstName},
-
-Your SourceCo account is approved.
-
-Before you can access deal details, you'll need to sign your NDA. It takes about 60 seconds and covers every deal on the platform.
-
-Sign your NDA: ${siteUrl}/pending-approval
-
-Once signed, you'll have full access to:
-- Browse exclusive off-market businesses ($1M-$50M+ revenue)
-- View verified financials and data rooms
-- Request introductions to sellers
-
-A few things to know before you start:
-
-We introduce 1-3 buyers per deal. We review every connection request and select buyers based on fit. When you submit a request, explain specifically why you're a strong match - generic messages don't get selected.
-
-Questions? Reply to this email.
-
-— The SourceCo Team`;
+  <p>Hi ${firstName},</p>
+  <p>You're approved.</p>
+  <p>Before you can browse deal details and request introductions, you'll need to sign your NDA. It covers your use of the platform — one signature, and you're in for good. Takes about 60 seconds.</p>
+  <p style="margin: 24px 0;"><a href="${siteUrl}/pending-approval" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Sign Your NDA</a></p>
+  <h3 style="color: #0e101a; font-size: 16px; margin: 24px 0 8px 0;">A few things to know before you start</h3>
+  <ul style="padding-left: 20px; color: #374151;">
+    <li>Every deal on SourceCo is off-market — you won't find these anywhere else</li>
+    <li>We introduce a small number of buyers per deal. When you request an introduction, tell us specifically why you're a strong fit — generic messages rarely get selected</li>
+    <li>Before your first introduction request, you'll be asked to sign a fee agreement. It's success-only — nothing owed unless a deal closes</li>
+  </ul>
+  <p>Questions? Reply to this email.</p>
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
+</div>`;
+      textContent = `Hi ${firstName}, you're approved. Sign your NDA to get full access: ${siteUrl}/pending-approval\n\nA few things to know:\n- Every deal is off-market\n- We introduce a small number of buyers per deal — be specific about why you're a fit\n- Your first introduction request will prompt a fee agreement — success-only, nothing owed unless a deal closes\n\nQuestions? Reply to this email.\n\n— The SourceCo Team`;
     }
 
     // Send via Brevo

@@ -82,6 +82,7 @@ serve(async (req: Request) => {
     }
 
     const isNda = documentType === 'nda';
+    const isFeeAgreement = documentType === 'fee_agreement';
     const docLabel = isNda ? 'NDA' : 'Fee Agreement';
 
     // Deterministic firm resolution
@@ -327,7 +328,14 @@ async function sendSigningConfirmationEmails(
   <h1 style="color:#0E101A;font-size:20px;font-weight:700;margin:0 0 24px 0;line-height:1.4;">✅ ${docLabel} Signed Successfully</h1>
   <div style="color:#3A3A3A;font-size:15px;line-height:1.7;">
     <p style="margin:0 0 16px 0;">Hi ${signerName},</p>
-    <p style="margin:0 0 16px 0;">Your <strong>${docLabel}</strong> has been signed and recorded successfully. Thank you for completing this step.</p>
+    ${isNda ? `<p style="margin:0 0 16px 0;">Your NDA is signed and on file. That's the only signature you'll ever need on the platform — it covers every deal on SourceCo, now and in the future.</p>
+<h3 style="color: #0e101a; font-size: 16px; margin: 24px 0 8px 0;">What to do next</h3>
+<ul style="padding-left: 20px; color: #374151; margin: 0 0 24px 0;">
+  <li>Browse every deal in the pipeline — deal summaries and business details are now visible</li>
+  <li>When you find a fit, request an introduction — our team reviews every request and selects based on fit</li>
+  <li>Tell us specifically why you're a strong match when you submit — it makes a difference</li>
+</ul>` : `<p style="margin:0 0 16px 0;">Your fee agreement is signed and on file. You're fully set up — every deal on SourceCo is open to you and your introduction request is now being reviewed.</p>
+<p style="margin:0 0 16px 0;">Our fee is success-only — nothing owed unless a deal closes.</p>`}
     ${downloadLine}
   </div>
   <div style="text-align:center;margin:32px 0;">
@@ -338,10 +346,14 @@ async function sendSigningConfirmationEmails(
   </div>
 </div></body></html>`;
 
+      const buyerSubject = isNda
+        ? `NDA signed — the full pipeline is open.`
+        : `Fee agreement signed — you're fully set up.`;
+
       await sendViaBervo({
         to: signerEmail,
         toName: signerName,
-        subject: `✅ Your ${docLabel} Has Been Signed — SourceCo`,
+        subject: buyerSubject,
         htmlContent: buyerHtml,
         senderName,
         senderEmail,

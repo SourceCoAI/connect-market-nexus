@@ -187,7 +187,7 @@ const handler = async (req: Request): Promise<Response> => {
       dealTitle,
     );
 
-    const subject = `New Message: ${dealTitle}`;
+    const subject = `New message from SourceCo re: ${escapeHtml(dealTitle)}`;
     const htmlContent = buildMessageNotificationHtml(buyerName, dealTitle, preview, loginUrl);
     const textContent = buildPlainText(buyerName, dealTitle, preview, loginUrl);
 

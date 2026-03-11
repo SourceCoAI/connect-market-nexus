@@ -35,12 +35,12 @@ function buildUserConfirmationHtml(
     </div>
 
     <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0; line-height: 1.4;">
-      Connection Request Submitted
+      Introduction request received.
     </h1>
 
     <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
       <p style="margin: 0 0 16px 0;">
-        Your connection request for <strong>${escapeHtml(listingTitle)}</strong> has been submitted and is being reviewed.
+        We've received your introduction request for <strong>${escapeHtml(listingTitle)}</strong>. Our team reviews every request and selects buyers based on fit — you'll hear from us within 24 hours.
       </p>
 
       ${
@@ -54,12 +54,13 @@ function buildUserConfirmationHtml(
           : ''
       }
 
-      <p style="margin: 0 0 8px 0; font-weight: 600;">What happens next?</p>
+      <p style="margin: 0 0 8px 0; font-weight: 600;">What happens if you're selected</p>
       <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #3A3A3A;">
-        <li>Our team will review your request (typically within 24–48 hours)</li>
-        <li>You'll receive an email with the response</li>
-        <li>If approved, you'll get access to detailed deal information</li>
+        <li>We make a direct introduction to the business owner</li>
+        <li>You'll receive access to deal details and supporting materials</li>
+        <li>Our team supports through the process</li>
       </ul>
+      <p style="margin: 0 0 24px 0;">In the meantime, keep browsing — new deals are added to the pipeline regularly.</p>
     </div>
 
     <div style="text-align: center; margin: 32px 0;">
@@ -186,7 +187,7 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error('recipientEmail is required for user_confirmation');
       }
 
-      const subject = `Connection Request Submitted — "${listingTitle}"`;
+      const subject = `Introduction request received — ${escapeHtml(listingTitle)}`;
       const htmlContent = buildUserConfirmationHtml(listingTitle, listingUrl, loginUrl, message);
       const correlationId = `connection-confirm-${requestId || crypto.randomUUID()}`;
 
@@ -234,7 +235,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       const buyerMessagesUrl = `https://marketplace.sourcecodeals.com/messages`;
-      const subject = `Connection Request Approved — "${escapeHtml(listingTitle)}"`;
+      const subject = `You're in — introduction to ${escapeHtml(listingTitle)} approved.`;
       const htmlContent = `
 <!DOCTYPE html>
 <html>
@@ -246,20 +247,23 @@ const handler = async (req: Request): Promise<Response> => {
     </div>
 
     <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0; line-height: 1.4;">
-      Connection Request Approved
+      Introduction Approved
     </h1>
 
     <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
       <p style="margin: 0 0 16px 0;">
-        Great news! Your connection request for <strong>${escapeHtml(listingTitle)}</strong> has been approved.
+        Your introduction to <strong>${escapeHtml(listingTitle)}</strong> has been approved.
       </p>
-
-      <p style="margin: 0 0 8px 0; font-weight: 600;">What happens next?</p>
+      <p style="margin: 0 0 16px 0;">
+        We're making a direct introduction to the business owner. You'll receive a message from our team with next steps — typically within one business day.
+      </p>
+      <p style="margin: 0 0 8px 0; font-weight: 600;">What to expect</p>
       <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #3A3A3A;">
-        <li>A brief overview of the deal has been shared with you</li>
-        <li>Review the details in your messages inbox</li>
-        <li>Let us know if you'd like to proceed with next steps</li>
+        <li>Our team facilitates the initial introduction</li>
+        <li>You'll receive access to deal details and supporting materials</li>
+        <li>Reply to any email or message us in the platform — we support through the process</li>
       </ul>
+      <p style="margin: 0 0 24px 0;">This is an exclusive introduction — we work with a small number of buyers per deal. Move at your own pace, but don't sit on it.</p>
     </div>
 
     <div style="text-align: center; margin: 32px 0;">

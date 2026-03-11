@@ -27,30 +27,16 @@ const LOGIN_URL = 'https://marketplace.sourcecodeals.com/login';
 
 function buildWelcomeHtml(userName: string): string {
   return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
-    <div style="margin-bottom: 32px;">
-      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase;">SOURCECO</div>
-    </div>
-    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0;">Welcome to SourceCo, ${escapeHtml(userName)}!</h1>
-    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
-      <p style="margin: 0 0 16px 0;">Thank you for creating your account. Please check your inbox for a verification email to confirm your email address.</p>
-      <div style="background: #FCF9F0; border-left: 4px solid #DEC76B; padding: 16px; border-radius: 0 8px 8px 0; margin: 0 0 24px 0;">
-        <p style="margin: 0; color: #3A3A3A; font-size: 14px;">Once verified, our team will review your account (typically within 24 hours). You'll receive an email when approved.</p>
-      </div>
-    </div>
-    <div style="text-align: center; margin: 32px 0;">
-      <a href="${LOGIN_URL}" style="display: inline-block; background: #0E101A; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Log In</a>
-    </div>
-    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
-      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">This is an automated notification from SourceCo.</p>
-    </div>
-  </div>
-</body>
-</html>`;
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <p>Hi ${escapeHtml(userName)},</p>
+  <p>Your application is in. Our team will review it — typically within one business day — and you'll hear from us by email the moment you're cleared.</p>
+  <p>While you wait, verify your email address using the link we just sent you.</p>
+  <h3 style="color: #0e101a; font-size: 16px; margin: 24px 0 8px 0;">What you're applying for</h3>
+  <p>SourceCo is a private marketplace for off-market, founder-led businesses. Every deal in the pipeline has been sourced and qualified by our team before it reaches buyers — you're not browsing a listing aggregator, you're accessing curated deal flow.</p>
+  <p>Once approved, you'll sign a single NDA that unlocks your access to the platform, then a fee agreement before your first introduction. Both take about 60 seconds each.</p>
+  <p>Questions before then? Reply to this email.</p>
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
+</div>`;
 }
 
 function buildApprovalHtml(userName: string): string {
@@ -108,30 +94,19 @@ function buildRejectionHtml(userName: string, reason: string): string {
 
 function buildEmailVerifiedHtml(userName: string): string {
   return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
-    <div style="margin-bottom: 32px;">
-      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase;">SOURCECO</div>
-    </div>
-    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0;">Email Verified</h1>
-    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
-      <p style="margin: 0 0 16px 0;">${escapeHtml(userName)}, your email has been verified. Your account is now under review by our team.</p>
-      <div style="background: #FCF9F0; border-left: 4px solid #DEC76B; padding: 16px; border-radius: 0 8px 8px 0; margin: 0 0 24px 0;">
-        <p style="margin: 0; color: #3A3A3A; font-size: 14px;">Admin review typically takes less than 24 hours during business days. You'll receive an email as soon as your account is approved.</p>
-      </div>
-    </div>
-    <div style="text-align: center; margin: 32px 0;">
-      <a href="${LOGIN_URL}" style="display: inline-block; background: #0E101A; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Log In</a>
-    </div>
-    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
-      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">This is an automated notification from SourceCo.</p>
-    </div>
-  </div>
-</body>
-</html>`;
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <p>Hi ${escapeHtml(userName)},</p>
+  <p>Your email is confirmed. Your application is now with our team.</p>
+  <p>We review applications same day during business hours. You'll get an email the moment you're approved — typically within a few hours, never more than one business day.</p>
+  <h3 style="color: #0e101a; font-size: 16px; margin: 24px 0 8px 0;">What happens when you're approved</h3>
+  <ul style="padding-left: 20px; color: #374151;">
+    <li>You'll sign a single NDA — covers your use of the platform, takes about 60 seconds</li>
+    <li>Full access to browse every deal in the pipeline immediately after</li>
+    <li>When you find a fit, request an introduction — we handle it from there</li>
+  </ul>
+  <p style="margin: 24px 0;"><a href="${LOGIN_URL}" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Log In</a></p>
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
+</div>`;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -159,15 +134,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     switch (event_type) {
       case 'user_created':
-        subject = 'Welcome to SourceCo';
+        subject = 'Your application to SourceCo is in.';
         htmlContent = buildWelcomeHtml(user_name || 'there');
-        textContent = `Welcome to SourceCo, ${user_name || 'there'}! Please verify your email to continue. Log in: ${LOGIN_URL}`;
+        textContent = `Hi ${user_name || 'there'}, your application is in. Verify your email to continue. Our team will review your application — typically within one business day. Log in: ${LOGIN_URL}`;
         break;
 
       case 'email_verified':
-        subject = 'Email Verified — Account Under Review';
+        subject = 'Email confirmed — you\'re in the queue.';
         htmlContent = buildEmailVerifiedHtml(user_name || 'there');
-        textContent = `Your email has been verified, ${user_name || 'there'}. Your account is now under review. You'll hear from us within 24 hours.`;
+        textContent = `Hi ${user_name || 'there'}, your email is confirmed. Your application is now with our team — we'll review it same day. You'll hear from us the moment you're approved. Log in: ${LOGIN_URL}`;
         break;
 
       case 'profile_approved':
