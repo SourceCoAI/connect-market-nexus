@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from 'react';
+import { useState, useMemo, lazy, Suspense, type ComponentType } from 'react';
 import { AnalyticsCard, SortToggle, SortValue } from './AnalyticsCard';
 import { AnalyticsTooltip } from './AnalyticsTooltip';
 import { cn } from '@/lib/utils';

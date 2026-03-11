@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { DialerEntityType } from '@/hooks/use-push-to-dialer';
 import {
   usePhoneBurnerConnectedUsers,
   type PhoneBurnerConnectedUser,

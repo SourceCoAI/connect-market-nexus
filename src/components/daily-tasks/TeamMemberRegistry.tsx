@@ -29,9 +29,7 @@ export function TeamMemberRegistry() {
         .select('user_id, role, profiles!inner(id, first_name, last_name, email)')
         .in('role', ['owner', 'admin', 'moderator']);
 
-      const { data: aliases } = await supabase
-        .from('team_member_aliases' as UntypedTable)
-        .select('*');
+      const { data: aliases } = await untypedFrom('team_member_aliases').select('*');
 
       const aliasMap = new Map<string, { id: string; alias: string }[]>();
       for (const a of (aliases || []) as unknown as AliasRow[]) {
