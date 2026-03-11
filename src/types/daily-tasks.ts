@@ -309,6 +309,16 @@ export interface TeamMemberScorecard extends TaskAnalyticsSummary {
   completion_trend: { date: string; rate: number }[];
 }
 
+export interface MeetingQualityMetrics {
+  meeting_id: string;
+  meeting_date: string;
+  extraction_confidence_rate: number;
+  needs_review_rate: number;
+  tasks_per_meeting: number;
+  assignee_match_rate: number;
+  meeting_duration_minutes: number | null;
+}
+
 // ─── v3.1 — New Entity Types ───
 
 export interface TaskComment {

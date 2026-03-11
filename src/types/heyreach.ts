@@ -81,9 +81,11 @@ export interface HeyReachWebhookEvent {
 
 // ─── API request/response types ─────────────────────────────────────────────
 
+export type HeyReachEntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
+
 export interface PushLeadsRequest {
   campaign_id: number;
-  entity_type: 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
+  entity_type: HeyReachEntityType;
   entity_ids: string[];
   list_id?: number;
 }
