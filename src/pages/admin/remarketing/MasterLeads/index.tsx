@@ -308,7 +308,7 @@ export default function MasterLeads() {
           <TableBody>
             {hook.paginatedLeads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={13} className="text-center py-12 text-muted-foreground">
                   <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">No leads found</p>
                 </TableCell>
