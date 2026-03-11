@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { useSmartleadCampaigns, useSmartleadSequences } from '@/hooks/smartlead';
 import {
   extractTagsFromSequences,
@@ -750,7 +751,7 @@ export function LaunchOutreachPanel({
                       {renderedPreview.isFromCampaign ? (
                         <div
                           className="text-sm leading-relaxed [&_br]:block [&_div]:mb-1"
-                          dangerouslySetInnerHTML={{ __html: renderedPreview.body }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderedPreview.body) }}
                         />
                       ) : (
                         <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">

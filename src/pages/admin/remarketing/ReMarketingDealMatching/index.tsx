@@ -198,16 +198,17 @@ export default function ReMarketingDealMatching() {
                 isSelected={actions.selectedIds.has(score.id)}
                 isHighlighted={actions.highlightedBuyerIds?.includes(score.buyer_id)}
                 onSelect={actions.handleSelect}
-                onApprove={(id) => actions.handleApprove(id, score as any)}
+                onApprove={(id) => actions.handleApprove(id, score)}
                 onPass={(id) =>
                   actions.handleOpenPassDialog(
                     id,
-                    (score as any).buyer?.company_name || 'Unknown',
-                    score as any,
+                    (score.buyer as { company_name?: string } | undefined)?.company_name ||
+                      'Unknown',
+                    score,
                   )
                 }
                 onToggleInterested={(id, interested) =>
-                  actions.handleToggleInterested(id, interested, score as any)
+                  actions.handleToggleInterested(id, interested, score)
                 }
                 onOutreachUpdate={actions.handleOutreachUpdate}
                 onViewed={actions.handleScoreViewed}

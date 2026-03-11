@@ -126,18 +126,30 @@ export default function CreateListingFromDeal() {
         customer_types: ((deal as Record<string, unknown>).customer_types as string) || null,
         end_market_description:
           ((deal as Record<string, unknown>).end_market_description as string) || null,
-        investment_thesis: ((deal as Record<string, unknown>).investment_thesis as string) ?? undefined,
+        investment_thesis:
+          ((deal as Record<string, unknown>).investment_thesis as string) ?? undefined,
         competitive_position:
           ((deal as Record<string, unknown>).competitive_position as string) ?? undefined,
         ownership_structure:
           ((deal as Record<string, unknown>).ownership_structure as string) ?? undefined,
-        seller_motivation: ((deal as Record<string, unknown>).seller_motivation as string) ?? undefined,
+        seller_motivation:
+          ((deal as Record<string, unknown>).seller_motivation as string) ?? undefined,
         business_model: ((deal as Record<string, unknown>).business_model as string) ?? undefined,
         revenue_model: ((deal as Record<string, unknown>).revenue_model as string) ?? undefined,
         growth_drivers: ((deal as Record<string, unknown>).growth_drivers as string[]) || null,
-        services: anonymized.services.length > 0 ? anonymized.services : ((deal as Record<string, unknown>).services as string[]) || null,
-        service_mix: (() => { const mix = anonymized.service_mix || ((deal as Record<string, unknown>).service_mix as string); return mix ? [mix] : null; })(),
-        geographic_states: anonymized.geographic_states.length > 0 ? anonymized.geographic_states : ((deal as Record<string, unknown>).geographic_states as string[]) || null,
+        services:
+          anonymized.services.length > 0
+            ? anonymized.services
+            : ((deal as Record<string, unknown>).services as string[]) || null,
+        service_mix: (() => {
+          const mix =
+            anonymized.service_mix || ((deal as Record<string, unknown>).service_mix as string);
+          return mix ? [mix] : null;
+        })(),
+        geographic_states:
+          anonymized.geographic_states.length > 0
+            ? anonymized.geographic_states
+            : ((deal as Record<string, unknown>).geographic_states as string[]) || null,
         custom_sections: [],
         tags: [],
         status: 'active',
@@ -189,10 +201,6 @@ export default function CreateListingFromDeal() {
         }
 
         // Step 2: Call the dedicated marketplace listing generator
-        console.log(
-          '[CreateListingFromDeal] Calling generate-marketplace-listing for deal_id:',
-          dealId,
-        );
         const { data, error } = await supabase.functions.invoke('generate-marketplace-listing', {
           body: { deal_id: dealId },
         });
@@ -233,7 +241,6 @@ export default function CreateListingFromDeal() {
         }
 
         // Step 3: Set the HTML description in the editor
-        console.log('[CreateListingFromDeal] AI listing description generated successfully');
         setPrefilled((prev) => {
           if (!prev) return prev;
           return {
@@ -286,7 +293,8 @@ export default function CreateListingFromDeal() {
             growth_drivers: prefilled.growth_drivers || null,
             services: prefilled.services || null,
             service_mix: (prefilled as unknown as Record<string, unknown>).service_mix || null,
-            geographic_states: (prefilled as unknown as Record<string, unknown>).geographic_states || null,
+            geographic_states:
+              (prefilled as unknown as Record<string, unknown>).geographic_states || null,
           }
         : {};
 
@@ -321,7 +329,8 @@ export default function CreateListingFromDeal() {
             // Validate each section has the expected shape before using it
             const validSections = sections.filter(
               (s): s is { key: string; title: string; content: string } =>
-                typeof s === 'object' && s !== null &&
+                typeof s === 'object' &&
+                s !== null &&
                 typeof (s as Record<string, unknown>).key === 'string' &&
                 typeof (s as Record<string, unknown>).title === 'string' &&
                 typeof (s as Record<string, unknown>).content === 'string',
@@ -347,9 +356,12 @@ export default function CreateListingFromDeal() {
                 .eq('id', newListing.id);
 
               if (syncUpdateError) {
-                console.warn('[CreateListingFromDeal] Teaser sync update failed:', syncUpdateError.message);
+                console.warn(
+                  '[CreateListingFromDeal] Teaser sync update failed:',
+                  syncUpdateError.message,
+                );
               } else {
-                console.log('[CreateListingFromDeal] Auto-synced teaser content to new listing');
+                // teaser content synced successfully
               }
             }
           }

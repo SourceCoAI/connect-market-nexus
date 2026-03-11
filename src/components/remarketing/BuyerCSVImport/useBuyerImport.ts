@@ -214,27 +214,22 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         }
       }
 
+      // Filter out skipped duplicates
+      const dataToImport = validRows.filter(({ index }) => !skipDuplicates.has(index));
+      const wantContacts = hasContactMapping(mappings);
 
+      // Build the batch payload for the edge function
+      const payload = dataToImport.map(({ index: rowIndex, row }) => {
+        const existingBuyerId = existingBuyerMap.get(rowIndex) || null;
+        const buyer = buildBuyerFromRow(row, mappings, universeId);
+        const contact = wantContacts ? extractContactFromRow(row, mappings) : null;
+        return { buyer, contact, existingBuyerId };
+      });
 
-
-    // Filter out skipped duplicates
-    const dataToImport = validRows.filter(({ index }) => !skipDuplicates.has(index));
-    const wantContacts = hasContactMapping(mappings);
-
-    // Build the batch payload for the edge function
-    const payload = dataToImport.map(({ index: rowIndex, row }) => {
-      const existingBuyerId = existingBuyerMap.get(rowIndex) || null;
-      const buyer = buildBuyerFromRow(row, mappings, universeId);
-      const contact = wantContacts ? extractContactFromRow(row, mappings) : null;
-      return { buyer, contact, existingBuyerId };
-    });
-
-    // Send to edge function (uses service role to bypass RLS)
-    const { data, error } = await supabase.functions.invoke('import-buyers', {
-      body: { buyers: payload, universeId },
-    });
-
-      console.log('import-buyers response:', JSON.stringify(data));
+      // Send to edge function (uses service role to bypass RLS)
+      const { data, error } = await supabase.functions.invoke('import-buyers', {
+        body: { buyers: payload, universeId },
+      });
 
       if (error) {
         console.error('import-buyers edge function error:', error);
@@ -245,7 +240,14 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
         return;
       }
 
-      const { success = 0, errors: errorCount = 0, skipped = 0, linked = 0, contactsCreated = 0, errorDetails = [] } = data || {};
+      const {
+        success = 0,
+        errors: errorCount = 0,
+        skipped = 0,
+        linked = 0,
+        contactsCreated = 0,
+        errorDetails = [],
+      } = data || {};
 
       setImportProgress(100);
       setImportResults({ success, errors: errorCount, skipped, linked });
@@ -268,9 +270,8 @@ export function useBuyerImport({ universeId, onComplete }: UseBuyerImportOptions
       }
 
       if (errorCount > 0) {
-        const detail = errorDetails.length > 0
-          ? ` (${errorDetails[0].code}: ${errorDetails[0].message})`
-          : '';
+        const detail =
+          errorDetails.length > 0 ? ` (${errorDetails[0].code}: ${errorDetails[0].message})` : '';
         console.error('Import error details:', errorDetails);
         toast.error(`Failed to import ${errorCount} buyers${detail}`);
       }

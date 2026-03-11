@@ -49,12 +49,12 @@ interface MatchListProps {
   selectedIds: Set<string>;
   highlightedBuyerIds: string[];
   handleSelect: (id: string, selected: boolean) => void;
-  handleApprove: (scoreId: string, scoreData?: any) => Promise<void>;
-  handleOpenPassDialog: (scoreId: string, buyerName: string, scoreData?: any) => void;
+  handleApprove: (scoreId: string, scoreData?: ScoreRecord) => Promise<void>;
+  handleOpenPassDialog: (scoreId: string, buyerName: string, scoreData?: ScoreRecord) => void;
   handleToggleInterested: (
     scoreId: string,
     interested: boolean,
-    scoreData?: any,
+    scoreData?: ScoreRecord,
   ) => Promise<void>;
   handleOutreachUpdate: (scoreId: string, status: OutreachStatus, notes: string) => Promise<void>;
   handleScoreViewed: (scoreId: string) => Promise<void>;
