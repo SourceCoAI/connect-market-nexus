@@ -210,7 +210,7 @@ const ReMarketingDealDetail = () => {
 
         <TabsContent value="overview" className="space-y-6">
           <OverviewTab
-            deal={deal as Record<string, unknown>}
+            deal={deal as any}
             dealId={dealId!}
             scoreStats={scoreStats}
             pipelineStats={pipelineStats}

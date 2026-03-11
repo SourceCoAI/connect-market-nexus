@@ -44,7 +44,7 @@ export function EnhancedAnalyticsHealthDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [isTestingRunning, setIsTestingRunning] = useState(false);
   const [testResults, setTestResults] = useState<
-    Array<{ test: string; success: boolean; details?: unknown }>
+    Array<{ test: string; success: boolean; details?: any }>
   >([]);
   const [autoRefresh, setAutoRefresh] = useState(false);
 

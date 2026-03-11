@@ -4,7 +4,7 @@ import { Cloud } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface SalesforceInfoCardProps {
-  deal: Record<string, unknown>;
+  deal: Record<string, any>;
 }
 
 export function SalesforceInfoCard({ deal }: SalesforceInfoCardProps) {

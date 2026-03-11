@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ExternalLink, MapPin, DollarSign, Briefcase } from 'lucide-react';
 
 interface ListingSummaryCardProps {
-  listing: Record<string, unknown>;
+  listing: Record<string, any>;
   formatCurrency: (value: number | null) => string;
 }
 
