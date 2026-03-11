@@ -291,11 +291,41 @@ These serve different entity types but share 80% structural overlap. **Consider 
 | `contacts.ts` | 4 | All 4 exported types (ApifyEmployee, ProspeoResult, etc.) |
 | `index.ts` | 3 | SignupBuyerType, JsonValue, AsyncResult |
 
-### 4D. Duplicate UI Components
+### 4D. Dead & Duplicate UI Components
+
+**30 truly dead components** out of 594 total (5%). Mostly abandoned remarketing features and test files:
+
+| Component | Path | Notes |
+|-----------|------|-------|
+| `AIReasoningPanel` | remarketing/ | Unused feature |
+| `BulkActionsToolbar` | remarketing/ | Unused feature |
+| `BulkScoringPanel` | remarketing/ | Unused feature |
+| `CRMExportPanel` | remarketing/ | Unused feature |
+| `EngagementHeatmapInsight` | remarketing/ | Unused feature |
+| `EngagementIndicator` | remarketing/ | Unused feature |
+| `EnrichmentButton` | remarketing/ | Unused feature |
+| `IntroductionStatusCard` | remarketing/ | Unused feature |
+| `OutreachSequenceTracker` | remarketing/ | Unused feature |
+| `OutreachVelocityDashboard` | remarketing/ | Unused feature |
+| `PassReasonDialog` | remarketing/ | Unused feature |
+| `QuickInsightsWidget` | remarketing/ | Unused feature |
+| `ScoringBehaviorPanelEnhanced` | remarketing/ | Unused feature |
+| `ScoringInsightsSidebar` | remarketing/ | Unused feature |
+| `StaleScoreWarning` | remarketing/ | Unused feature |
+| `TranscriptSection` | remarketing/ | Unused feature |
+| `UnlinkedListingsWidget` | remarketing/ | Unused feature |
+| `WinRateAnalysis` | remarketing/ | Unused feature |
+| `FilterChips` | admin/analytics/datafast/ | Dead analytics component |
+| 11 `.test.tsx` files | various | Test files for components (not truly dead, but worth noting) |
+
+**Duplicate components:**
 
 | Category | Components | Issue |
 |----------|-----------|-------|
-| Rich Text Editors | `rich-text-editor.tsx`, `premium-rich-text-editor.tsx` | Both are imported by the same 2 files — `EditorDescriptionSection.tsx` and `EditableDescription.tsx`. Likely one supersedes the other. |
+| Rich Text Editors | `rich-text-editor.tsx`, `premium-rich-text-editor.tsx` | Both imported by same 2 files. One supersedes the other. |
+| ErrorBoundary | `ErrorBoundary.tsx`, `ProductionErrorBoundary.tsx`, `AdminErrorBoundary.tsx`, `PageErrorBoundary.tsx`, `common/ErrorBoundary.tsx` | **5 error boundary implementations** — consolidate to 1-2 |
+| ConnectionRequestDialog | `admin/ConnectionRequestDialog.tsx`, `connection/ConnectionRequestDialog.tsx` | **Same name, different locations** — both actively used |
+| AgreementStatusBadge | `firm-agreements/AgreementStatusBadge.tsx`, `pandadoc/AgreementStatusBadge.tsx` | **Same name, different locations** — both actively used |
 
 ---
 
