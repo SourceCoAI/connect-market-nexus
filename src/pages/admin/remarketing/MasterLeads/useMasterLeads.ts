@@ -19,6 +19,8 @@ export interface MasterLead {
   /** For valuation leads this holds the mid valuation estimate */
   valuationEstimate: number | null;
   score: number | null;
+  linkedinEmployeeCount: number | null;
+  googleReviewCount: number | null;
   pushedToActiveDeals: boolean;
   dateAdded: string | null;
   /** Path to navigate to for the detail page */
