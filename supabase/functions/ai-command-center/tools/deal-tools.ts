@@ -298,7 +298,7 @@ async function queryDeals(
         allData = [];
         offset = 0;
         try {
-          batch = await withRetry(() => fetchPage(0, batchSize));
+          batch = await withRetry(() => fetchPage(0, batchSize)) as any;
         } catch (fallbackError) {
           const errMsg =
             fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
