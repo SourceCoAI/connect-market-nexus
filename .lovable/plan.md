@@ -1,38 +1,43 @@
 
 
-# Fix: Relax category/industry validation in seed-buyers
+# Plan: Fix Edge Function Build Errors & Deploy All
 
-## Problem
-The `validateDealFields` function in `supabase/functions/seed-buyers/index.ts` (lines 165-169) requires **both** `industry` AND `categories`/`category` to be present. The user wants it to only require **one or the other**, and if neither is present, the AI should infer it from the deal description before proceeding.
+The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
 
-## Current Logic (lines 165-169)
-```
-if (!industry) missing.push('industry');
-if (!categories && !category) missing.push('categories');
-```
-Both are checked independently — both must exist.
+## Errors & Fixes
 
-## Plan
+### 1. `auto-create-firm-on-approval/index.ts` (1 error)
+**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
+**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
 
-### 1. Relax validation (line 165-169)
-Change the validation so that `industry` and `categories` are checked together — only flag as missing if **neither** is present:
+### 2. `bulk-import-remarketing/index.ts` (2 errors)
+**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
+**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
 
-```typescript
-const hasIndustryOrCategory =
-  (deal.industry as string)?.trim() ||
-  (cats && cats.length > 0) ||
-  cat?.trim();
-if (!hasIndustryOrCategory)
-  missing.push('industry or categories');
-```
+### 3. `calculate-deal-quality/index.ts` (24 errors)
+**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
+**Fix:**
+- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
+- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
 
-### 2. Add AI inference fallback (before validation, ~line 617)
-If neither `industry`, `categories`, nor `category` is populated but a description exists, call the Gemini API with a short prompt to infer a reasonable industry and category from the deal description, then patch the `deal` object in-memory before validation runs. This avoids blocking the user.
+### 4. `clarify-industry/index.ts` (1 error)
+**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
+**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
 
-The prompt would be minimal: "Given this business description, return a JSON with `industry` (string) and `categories` (string array of 1-3 values)."
+### 5. `confirm-agreement-signed/index.ts` (3 errors)
+**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
+**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
 
-This ensures the search never fails on missing category/industry as long as there's a description to work from.
+## After Fixes
+Deploy all edge functions using the deployment tool.
 
-### Files to edit
-- `supabase/functions/seed-buyers/index.ts` — `validateDealFields` + add AI inference block
+## Summary of Changes
+| File | Change |
+|------|--------|
+| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
+| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
+| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
+| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
+| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
+| Deploy all ~148 functions | After fixes pass |
 

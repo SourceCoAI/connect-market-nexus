@@ -162,11 +162,12 @@ function validateDealFields(deal: Record<string, unknown>): string[] {
   if (!hasDescription)
     missing.push('description (executive_summary, description, or hero_description)');
 
-  if (!(deal.industry as string)?.trim()) missing.push('industry');
-
-  const cats = deal.categories as string[] | null;
-  const cat = deal.category as string | null;
-  if ((!cats || cats.length === 0) && !cat?.trim()) missing.push('categories');
+  // Industry and categories are alternatives — only flag if NEITHER is present
+  const hasIndustryOrCategory =
+    (deal.industry as string)?.trim() ||
+    (cats && cats.length > 0) ||
+    cat?.trim();
+  if (!hasIndustryOrCategory) missing.push('industry or categories');
 
   return missing;
 }
@@ -614,7 +615,52 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // ── Phase 0: Validate critical deal fields ──
+    // ── Phase 0a: AI inference fallback for missing industry/categories ──
+    const dealIndustry = (deal.industry as string)?.trim();
+    const dealCats = deal.categories as string[] | null;
+    const dealCat = (deal.category as string)?.trim();
+    const hasIndustryOrCat = dealIndustry || (dealCats && dealCats.length > 0) || dealCat;
+
+    if (!hasIndustryOrCat) {
+      const descText =
+        (deal.executive_summary as string)?.trim() ||
+        (deal.description as string)?.trim() ||
+        (deal.hero_description as string)?.trim() ||
+        '';
+      if (descText) {
+        try {
+          console.log('[seed-buyers] No industry/categories — inferring via AI…');
+          const inferResult = await callClaude({
+            model: CLAUDE_MODELS.haiku,
+            maxTokens: 256,
+            systemPrompt: 'You classify businesses. Return ONLY a JSON object with two keys: "industry" (string, e.g. "HVAC Services") and "categories" (array of 1-3 short category strings). No markdown, no explanation.',
+            messages: [{ role: 'user', content: `Classify this business:\n\n${descText.slice(0, 1500)}` }],
+            timeoutMs: 15_000,
+          });
+
+          // Extract text from ContentBlock[]
+          const textBlock = inferResult?.content?.find((b: any) => b.type === 'text');
+          const rawText = (textBlock as any)?.text || '';
+          if (rawText) {
+            const cleaned = rawText.replace(/```json\s*/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleaned);
+            if (parsed.industry && !dealIndustry) {
+              (deal as Record<string, unknown>).industry = parsed.industry;
+              console.log(`[seed-buyers] Inferred industry: ${parsed.industry}`);
+            }
+            if (Array.isArray(parsed.categories) && parsed.categories.length > 0 && !dealCats?.length && !dealCat) {
+              (deal as Record<string, unknown>).categories = parsed.categories;
+              console.log(`[seed-buyers] Inferred categories: ${parsed.categories.join(', ')}`);
+            }
+          }
+        } catch (inferErr) {
+          console.warn('[seed-buyers] AI inference for industry/categories failed:', inferErr);
+          // Continue — validation below will catch if still missing
+        }
+      }
+    }
+
+    // ── Phase 0b: Validate critical deal fields ──
     const missingFields = validateDealFields(deal);
     if (missingFields.length > 0) {
       return new Response(
