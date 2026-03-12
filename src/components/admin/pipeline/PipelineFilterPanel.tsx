@@ -109,14 +109,12 @@ export function PipelineFilterPanel({ pipeline }: PipelineFilterPanelProps) {
       pipeline.setBuyerTypeFilter(
         filters.buyerTypeFilter as
           | 'all'
-          | 'privateEquity'
-          | 'familyOffice'
-          | 'searchFund'
+          | 'private_equity'
           | 'corporate'
-          | 'individual'
-          | 'independentSponsor'
-          | 'advisor'
-          | 'businessOwner',
+          | 'family_office'
+          | 'independent_sponsor'
+          | 'search_fund'
+          | 'individual_buyer',
       );
     if (filters.companyFilter) pipeline.setCompanyFilter(filters.companyFilter as string[]);
     if (filters.adminFilter) pipeline.setAdminFilter(filters.adminFilter as string);
@@ -492,14 +490,12 @@ export function PipelineFilterPanel({ pipeline }: PipelineFilterPanelProps) {
                         pipeline.setBuyerTypeFilter(
                           value as
                             | 'all'
-                            | 'privateEquity'
-                            | 'familyOffice'
-                            | 'searchFund'
+                            | 'private_equity'
                             | 'corporate'
-                            | 'individual'
-                            | 'independentSponsor'
-                            | 'advisor'
-                            | 'businessOwner',
+                            | 'family_office'
+                            | 'independent_sponsor'
+                            | 'search_fund'
+                            | 'individual_buyer',
                         )
                       }
                     >
@@ -508,14 +504,12 @@ export function PipelineFilterPanel({ pipeline }: PipelineFilterPanelProps) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Buyer Types</SelectItem>
-                        <SelectItem value="privateEquity">Private Equity</SelectItem>
-                        <SelectItem value="familyOffice">Family Office</SelectItem>
-                        <SelectItem value="searchFund">Search Fund</SelectItem>
-                        <SelectItem value="corporate">Corporate</SelectItem>
-                        <SelectItem value="individual">Individual</SelectItem>
-                        <SelectItem value="independentSponsor">Independent Sponsor</SelectItem>
-                        <SelectItem value="advisor">Advisor / Banker</SelectItem>
-                        <SelectItem value="businessOwner">Business Owner</SelectItem>
+                        <SelectItem value="private_equity">Private Equity</SelectItem>
+                        <SelectItem value="family_office">Family Office</SelectItem>
+                        <SelectItem value="search_fund">Search Fund</SelectItem>
+                        <SelectItem value="corporate">Corporate / Strategic</SelectItem>
+                        <SelectItem value="individual_buyer">Individual Buyer</SelectItem>
+                        <SelectItem value="independent_sponsor">Independent Sponsor</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

@@ -71,16 +71,16 @@ export const mapRole = (role: string): string => {
     normalized.includes('private equity') ||
     tokens.has('pe')
   ) {
-    return 'privateEquity';
+    return 'private_equity';
   }
   if (normalized === 'familyoffice' || normalized.includes('family office') || tokens.has('fo')) {
-    return 'familyOffice';
+    return 'family_office';
   }
   if (normalized === 'independentsponsor' || normalized.includes('independent sponsor')) {
-    return 'independentSponsor';
+    return 'independent_sponsor';
   }
   if (normalized === 'searchfund' || normalized.includes('search fund') || tokens.has('sf')) {
-    return 'searchFund';
+    return 'search_fund';
   }
   if (normalized === 'corporate' || normalized.includes('corporate') || tokens.has('corp')) {
     return 'corporate';
@@ -90,9 +90,9 @@ export const mapRole = (role: string): string => {
     normalized.includes('individual') ||
     normalized.includes('investor')
   ) {
-    return 'individual';
+    return 'individual_buyer';
   }
-  return 'other';
+  return 'corporate';
 };
 
 export const parseDate = (dateStr: string): Date | null => {

@@ -1,5 +1,18 @@
 import { BuyerType } from '@/types';
 
+// Map canonical snake_case DB values to camelCase keys used in BUYER_TYPE_FIELD_MAPPINGS
+const CANONICAL_TO_CAMEL: Record<string, string> = {
+  private_equity: 'privateEquity',
+  family_office: 'familyOffice',
+  search_fund: 'searchFund',
+  independent_sponsor: 'independentSponsor',
+  individual_buyer: 'individual',
+  corporate: 'corporate',
+};
+
+/** Normalize a buyer type to the camelCase key used in field mappings */
+const normalizeBuyerType = (bt: string): string => CANONICAL_TO_CAMEL[bt] || bt;
+
 // Define exactly which fields should be shown for each buyer type based on signup flow
 export const BUYER_TYPE_FIELD_MAPPINGS = {
   basic: [
@@ -97,13 +110,14 @@ export const getRelevantFieldsForBuyerType = (buyerType: BuyerType | 'admin'): s
     return [...BUYER_TYPE_FIELD_MAPPINGS.basic];
   }
   
-  const buyerSpecificFields = BUYER_TYPE_FIELD_MAPPINGS[buyerType as BuyerType] || [];
-  
+  const normalized = normalizeBuyerType(buyerType);
+  const buyerSpecificFields = BUYER_TYPE_FIELD_MAPPINGS[normalized as BuyerType] || [];
+
   return [
     ...BUYER_TYPE_FIELD_MAPPINGS.basic,
     ...BUYER_TYPE_FIELD_MAPPINGS.profile,
-    // Add revenue ranges for all except privateEquity, independentSponsor, and admin
-    ...(buyerType !== 'privateEquity' && buyerType !== 'independentSponsor' ? BUYER_TYPE_FIELD_MAPPINGS.revenue : []),
+    // Add revenue ranges for all except privateEquity and independentSponsor
+    ...(normalized !== 'privateEquity' && normalized !== 'independentSponsor' ? BUYER_TYPE_FIELD_MAPPINGS.revenue : []),
     ...buyerSpecificFields,
   ];
 };
@@ -111,7 +125,8 @@ export const getRelevantFieldsForBuyerType = (buyerType: BuyerType | 'admin'): s
 // Get buyer-specific financial fields only
 export const getBuyerSpecificFields = (buyerType: BuyerType | 'admin'): string[] => {
   if (buyerType === 'admin') return [];
-  return [...(BUYER_TYPE_FIELD_MAPPINGS[buyerType as BuyerType] || [])];
+  const normalized = normalizeBuyerType(buyerType);
+  return [...(BUYER_TYPE_FIELD_MAPPINGS[normalized as BuyerType] || [])];
 };
 
 // Check if a field is relevant for a buyer type
@@ -223,7 +238,7 @@ export const getFieldCategories = (buyerType: BuyerType | 'admin') => {
     ),
     'Business Profile': [
       ...BUYER_TYPE_FIELD_MAPPINGS.profile,
-      ...(buyerType !== 'privateEquity' && buyerType !== 'independentSponsor' ? BUYER_TYPE_FIELD_MAPPINGS.revenue : []),
+      ...(normalizeBuyerType(buyerType) !== 'privateEquity' && normalizeBuyerType(buyerType) !== 'independentSponsor' ? BUYER_TYPE_FIELD_MAPPINGS.revenue : []),
     ],
     'Financial Information': getBuyerSpecificFields(buyerType),
     'Sourcing & Discovery': [...SOURCING_FIELDS],

@@ -91,22 +91,39 @@ export const LISTING_STATUSES = {
 // ── Buyer types (display labels) ─────────────────────────────────────
 
 export const BUYER_TYPE_LABELS: Record<string, string> = {
-  // Marketplace (profiles table) camelCase values
-  corporate: 'Corporate Development',
-  privateEquity: 'Private Equity',
-  familyOffice: 'Family Office',
-  searchFund: 'Search Fund',
-  individual: 'Individual',
-  independentSponsor: 'Independent Sponsor',
-  advisor: 'Advisor / Banker',
-  businessOwner: 'Business Owner',
-  // Remarketing (buyers table) canonical values
+  // Canonical 6-value snake_case (DB)
   private_equity: 'Private Equity',
+  corporate: 'Corporate / Strategic',
   family_office: 'Family Office',
   independent_sponsor: 'Independent Sponsor',
   search_fund: 'Search Fund',
   individual_buyer: 'Individual Buyer',
-} as const;
+  // Legacy camelCase aliases (profiles in transit)
+  privateEquity: 'Private Equity',
+  familyOffice: 'Family Office',
+  searchFund: 'Search Fund',
+  individual: 'Individual Buyer',
+  independentSponsor: 'Independent Sponsor',
+  advisor: 'Advisor / Banker',
+  businessOwner: 'Business Owner',
+};
+
+export const BUYER_TYPE_SHORT_LABELS: Record<string, string> = {
+  private_equity: 'PE Firm',
+  corporate: 'Corporate',
+  family_office: 'Family Office',
+  search_fund: 'Search Fund',
+  individual_buyer: 'Individual',
+  independent_sponsor: 'Ind. Sponsor',
+  // Legacy camelCase
+  privateEquity: 'PE Firm',
+  familyOffice: 'Family Office',
+  searchFund: 'Search Fund',
+  individual: 'Individual',
+  independentSponsor: 'Ind. Sponsor',
+  advisor: 'Advisor',
+  businessOwner: 'Biz Owner',
+};
 
 // ── Error handling ───────────────────────────────────────────────────
 

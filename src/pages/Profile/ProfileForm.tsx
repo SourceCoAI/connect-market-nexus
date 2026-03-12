@@ -180,8 +180,8 @@ export function ProfileForm({
                 />
               </div>
 
-              {(formData.buyer_type === 'privateEquity' ||
-                formData.buyer_type === 'familyOffice') && (
+              {(formData.buyer_type === 'privateEquity' || formData.buyer_type === 'private_equity' ||
+                formData.buyer_type === 'familyOffice' || formData.buyer_type === 'family_office') && (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="fund_size">Fund Size</Label>
@@ -222,7 +222,7 @@ export function ProfileForm({
                 </div>
               )}
 
-              {formData.buyer_type === 'searchFund' && (
+              {(formData.buyer_type === 'searchFund' || formData.buyer_type === 'search_fund') && (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="is_funded">Funding Status</Label>

@@ -107,7 +107,7 @@ const ConnectionButton = ({
   }
 
   // Block business owners (sellers) from requesting connections
-  if (user?.buyer_type === 'businessOwner') {
+  if (user?.buyer_type === 'businessOwner' || user?.buyer_type === 'business_owner') {
     return (
       <div className="w-full px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
         <p className="text-sm font-medium text-amber-900">Seller Account</p>

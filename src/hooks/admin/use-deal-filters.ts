@@ -3,7 +3,7 @@ import { Deal } from './use-deals';
 import { useMarketplaceCompanies } from './use-marketplace-companies';
 
 export type DealStatusFilter = 'all' | 'active_only' | 'closed_won' | 'closed_lost' | 'closed' | string;
-export type BuyerTypeFilter = 'all' | 'privateEquity' | 'familyOffice' | 'searchFund' | 'corporate' | 'individual' | 'independentSponsor' | 'advisor' | 'businessOwner';
+export type BuyerTypeFilter = 'all' | 'private_equity' | 'corporate' | 'family_office' | 'independent_sponsor' | 'search_fund' | 'individual_buyer';
 export type ListingFilter = 'all' | string;
 export type CompanyFilter = string[]; // Changed to array for multiselect
 export type AdminFilter = 'all' | 'unassigned' | 'assigned_to_me' | string;

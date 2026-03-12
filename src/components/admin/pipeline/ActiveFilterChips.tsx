@@ -65,14 +65,12 @@ export function ActiveFilterChips({ pipeline }: ActiveFilterChipsProps) {
   // Buyer type filter
   if (pipeline.buyerTypeFilter !== 'all') {
     const buyerLabels: Record<string, string> = {
-      'privateEquity': 'Private Equity',
-      'familyOffice': 'Family Office',
-      'searchFund': 'Search Fund',
-      'corporate': 'Corporate',
-      'individual': 'Individual',
-      'independentSponsor': 'Independent Sponsor',
-      'advisor': 'Advisor',
-      'businessOwner': 'Business Owner',
+      'private_equity': 'Private Equity',
+      'family_office': 'Family Office',
+      'search_fund': 'Search Fund',
+      'corporate': 'Corporate / Strategic',
+      'individual_buyer': 'Individual Buyer',
+      'independent_sponsor': 'Independent Sponsor',
     };
     activeFilters.push({
       key: 'buyer',

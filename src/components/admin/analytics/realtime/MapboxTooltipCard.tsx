@@ -59,13 +59,12 @@ function formatTotalTime(seconds: number): string {
 
 // Buyer type display names and colors
 const buyerTypeConfig: Record<string, { label: string; className: string }> = {
-  'privateEquity': { label: 'Private Equity', className: 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/20' },
-  'familyOffice': { label: 'Family Office', className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
-  'corporate': { label: 'Corporate', className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20' },
-  'searchFund': { label: 'Search Fund', className: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20' },
-  'independentSponsor': { label: 'Independent Sponsor', className: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/20' },
-  'individual': { label: 'Individual', className: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/20' },
-  'advisor': { label: 'Advisor', className: 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/20' },
+  'private_equity': { label: 'Private Equity', className: 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/20' },
+  'family_office': { label: 'Family Office', className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
+  'corporate': { label: 'Corporate / Strategic', className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20' },
+  'search_fund': { label: 'Search Fund', className: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20' },
+  'independent_sponsor': { label: 'Independent Sponsor', className: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/20' },
+  'individual_buyer': { label: 'Individual Buyer', className: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/20' },
 };
 
 export function MapboxTooltipCard({

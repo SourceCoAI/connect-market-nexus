@@ -199,7 +199,7 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
               )}
               {buyerType && (
                 <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
-                  {buyerType === 'privateEquity' ? 'Private Equity' : buyerType === 'strategicBuyer' ? 'Strategic Buyer' : buyerType === 'searchFund' ? 'Search Fund' : buyerType}
+                  {buyerType === 'private_equity' ? 'Private Equity' : buyerType === 'corporate' ? 'Corporate / Strategic' : buyerType === 'search_fund' ? 'Search Fund' : buyerType === 'family_office' ? 'Family Office' : buyerType === 'independent_sponsor' ? 'Independent Sponsor' : buyerType === 'individual_buyer' ? 'Individual Buyer' : buyerType}
                 </span>
               )}
               <div className="flex flex-wrap gap-2 pt-1">

@@ -331,15 +331,13 @@ export function validateUserData(user: User): { isValid: boolean; errors: string
     errors.push('Invalid approval status');
   }
 
-  const validBuyerTypes: BuyerType[] = [
-    'corporate',
-    'privateEquity',
-    'familyOffice',
-    'searchFund',
-    'individual',
-    'independentSponsor',
-    'advisor',
-    'businessOwner',
+  const validBuyerTypes: string[] = [
+    // Canonical snake_case (DB)
+    'private_equity', 'corporate', 'family_office',
+    'independent_sponsor', 'search_fund', 'individual_buyer',
+    // Legacy camelCase (signup form + pre-migration profiles)
+    'privateEquity', 'familyOffice', 'searchFund',
+    'individual', 'independentSponsor', 'advisor', 'businessOwner',
   ];
   if (!validBuyerTypes.includes(user.buyer_type)) {
     errors.push('Invalid buyer type');

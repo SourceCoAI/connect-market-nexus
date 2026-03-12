@@ -162,17 +162,17 @@ export function UsersTable({
                 </TableCell>
                 <TableCell className="py-2">
                   <div className="text-xs">
-                    {user.buyer_type === 'privateEquity'
+                    {user.buyer_type === 'private_equity'
                       ? 'PE'
-                      : user.buyer_type === 'familyOffice'
+                      : user.buyer_type === 'family_office'
                         ? 'FO'
-                        : user.buyer_type === 'searchFund'
+                        : user.buyer_type === 'search_fund'
                           ? 'SF'
-                          : user.buyer_type === 'independentSponsor'
+                          : user.buyer_type === 'independent_sponsor'
                             ? 'IS'
                             : user.buyer_type === 'corporate'
                               ? 'Corp'
-                              : user.buyer_type === 'individual'
+                              : user.buyer_type === 'individual_buyer'
                                 ? 'Indiv'
                                 : '\u2014'}
                   </div>

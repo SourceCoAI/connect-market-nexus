@@ -368,7 +368,6 @@ export type {
   MemoStatus,
   MarketplaceListingStatus,
   EnrichmentJobStatus,
-  BuyerTypeEnum,
   GlobalActivityStatus,
 } from './status-enums';
 export {
@@ -378,6 +377,5 @@ export {
   MEMO_STATUSES,
   MARKETPLACE_LISTING_STATUSES,
   ENRICHMENT_JOB_STATUSES,
-  BUYER_TYPE_ENUMS,
   GLOBAL_ACTIVITY_STATUSES,
 } from './status-enums';

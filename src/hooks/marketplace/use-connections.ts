@@ -29,7 +29,7 @@ export const useRequestConnection = () => {
         .eq('id', authUser.id)
         .single();
 
-      if (profile?.buyer_type === 'businessOwner') {
+      if (profile?.buyer_type === 'businessOwner' || profile?.buyer_type === 'business_owner') {
         throw new Error(
           'Business owners cannot request deal connections. If you are looking to sell your business, please visit our Sell page.',
         );

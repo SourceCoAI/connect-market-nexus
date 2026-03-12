@@ -89,27 +89,6 @@ export const ENRICHMENT_JOB_STATUSES: readonly EnrichmentJobStatus[] = [
   'failed',
 ] as const;
 
-// ── Buyer Type Classification ────────────────────────────────────────
-// Canonical 6-value enum — matches DB CHECK constraint on buyers table.
-// Legacy values (pe_firm, platform, strategic, other) were normalized
-// in migration 20260511000000_buyer_classification_taxonomy.
-export type BuyerTypeEnum =
-  | 'private_equity'
-  | 'corporate'
-  | 'independent_sponsor'
-  | 'search_fund'
-  | 'family_office'
-  | 'individual_buyer';
-
-export const BUYER_TYPE_ENUMS: readonly BuyerTypeEnum[] = [
-  'private_equity',
-  'corporate',
-  'independent_sponsor',
-  'search_fund',
-  'family_office',
-  'individual_buyer',
-] as const;
-
 // ── User Approval Status ─────────────────────────────────────────────
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 

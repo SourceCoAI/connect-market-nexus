@@ -84,14 +84,12 @@ const listingFormSchema = z.object({
   visible_to_buyer_types: z
     .array(
       z.enum([
-        'privateEquity',
+        'private_equity',
         'corporate',
-        'familyOffice',
-        'searchFund',
-        'individual',
-        'independentSponsor',
-        'advisor',
-        'businessOwner',
+        'family_office',
+        'search_fund',
+        'individual_buyer',
+        'independent_sponsor',
       ]),
     )
     .nullable()
@@ -358,14 +356,12 @@ export function ImprovedListingEditor({
           formData.status_tag && formData.status_tag !== 'none' ? formData.status_tag : null,
         visible_to_buyer_types: (formData.visible_to_buyer_types || null) as
           | (
-              | 'privateEquity'
+              | 'private_equity'
               | 'corporate'
-              | 'familyOffice'
-              | 'searchFund'
-              | 'individual'
-              | 'independentSponsor'
-              | 'advisor'
-              | 'businessOwner'
+              | 'family_office'
+              | 'search_fund'
+              | 'individual_buyer'
+              | 'independent_sponsor'
             )[]
           | null,
         custom_metric_label: formData.custom_metric_label || null,

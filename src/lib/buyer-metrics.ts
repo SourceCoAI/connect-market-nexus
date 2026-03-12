@@ -70,7 +70,7 @@ export function getBuyerTier(user: User | null): BuyerTierInfo {
   const maxFinancial = Math.max(aum, fundSize);
 
   switch (buyerType) {
-    case 'privateEquity':
+    case 'private_equity':
       if (maxFinancial >= 1000000000) { // $1B+
         return { tier: 1, badge: '🏆', color: 'text-emerald-600', description: 'Premier PE ($1B+)' };
       } else if (maxFinancial >= 200000000) { // $200M+
@@ -78,28 +78,28 @@ export function getBuyerTier(user: User | null): BuyerTierInfo {
       }
       return { tier: 1, badge: '1', color: 'text-emerald-500', description: 'Private Equity' };
       
-    case 'familyOffice':
+    case 'family_office':
       if (maxFinancial >= 1000000000) { // $1B+
         return { tier: 2, badge: '🏆', color: 'text-blue-600', description: 'Premier Family Office ($1B+)' };
       }
       return { tier: 2, badge: '2', color: 'text-blue-600', description: 'Family Office' };
       
-    case 'independentSponsor':
+    case 'independent_sponsor':
       return { tier: 2, badge: '2', color: 'text-purple-600', description: 'Independent Sponsor' };
       
     case 'corporate':
       return { tier: 3, badge: '3', color: 'text-amber-600', description: 'Corporate' };
       
-    case 'advisor':
+    case 'advisor': // legacy
       return { tier: 4, badge: '4', color: 'text-teal-600', description: 'Advisor/Banker' };
       
-    case 'searchFund':
+    case 'search_fund':
       return { tier: 4, badge: '4', color: 'text-orange-600', description: 'Search Fund' };
       
-    case 'businessOwner':
+    case 'business_owner':
       return { tier: 5, badge: '5', color: 'text-gray-600', description: 'Business Owner' };
       
-    case 'individual':
+    case 'individual_buyer':
       return { tier: 5, badge: '5', color: 'text-gray-600', description: 'Individual' };
       
     default:
@@ -162,7 +162,7 @@ export function getPrimaryMetrics(user: User | null): BuyerMetric[] {
 
   // Type-specific metrics
   switch (buyerType) {
-    case 'privateEquity':
+    case 'private_equity':
       // Priority: AUM → Fund Size → Investment Size
       if (user.aum) {
         metrics.push({
@@ -188,7 +188,7 @@ export function getPrimaryMetrics(user: User | null): BuyerMetric[] {
       }
       break;
 
-    case 'familyOffice':
+    case 'family_office':
       // Show AUM → Investment Size → Revenue Targets
       if (user.aum) {
         metrics.push({
@@ -221,7 +221,7 @@ export function getPrimaryMetrics(user: User | null): BuyerMetric[] {
       }
       break;
 
-    case 'independentSponsor':
+    case 'independent_sponsor':
       if (user.committed_equity_band) {
         metrics.push({
           label: 'Committed Equity',
@@ -272,7 +272,7 @@ export function getPrimaryMetrics(user: User | null): BuyerMetric[] {
       }
       break;
 
-    case 'advisor':
+    case 'advisor': // legacy
       if (user.on_behalf_of_buyer) {
         metrics.push({
           label: 'On Behalf Of',
@@ -306,7 +306,7 @@ export function getPrimaryMetrics(user: User | null): BuyerMetric[] {
       }
       break;
 
-    case 'searchFund':
+    case 'search_fund':
       // Highlight Funding Status → Funded By → Target Size
       if (user.is_funded) {
         metrics.push({
@@ -332,7 +332,7 @@ export function getPrimaryMetrics(user: User | null): BuyerMetric[] {
       }
       break;
 
-    case 'businessOwner':
+    case 'business_owner':
       if (user.owner_intent) {
         metrics.push({
           label: 'Intent',
@@ -357,7 +357,7 @@ export function getPrimaryMetrics(user: User | null): BuyerMetric[] {
       }
       break;
 
-    case 'individual':
+    case 'individual_buyer':
       // Show Funding Source → SBA Needs → Target Range
       if (user.funding_source) {
         metrics.push({
@@ -449,8 +449,8 @@ export function getDataCompleteness(user: User | null): number {
   // Check buyer-specific fields
   const buyerType = user.buyer_type as BuyerType;
   switch (buyerType) {
-    case 'privateEquity':
-    case 'familyOffice':
+    case 'private_equity':
+    case 'family_office':
       if (user.aum || user.fund_size) score += 3;
       if (user.investment_size) score += 1;
       total += 4;
@@ -459,27 +459,27 @@ export function getDataCompleteness(user: User | null): number {
       if (user.estimated_revenue) score += 2;
       total += 2;
       break;
-    case 'independentSponsor':
+    case 'independent_sponsor':
       if (user.committed_equity_band || (Array.isArray(user.equity_source) && user.equity_source.length > 0)) score += 2;
       if (user.target_deal_size_min || user.target_deal_size_max) score += 1;
       total += 3;
       break;
-    case 'advisor':
+    case 'advisor': // legacy
       if (user.on_behalf_of_buyer && user.buyer_role) score += 2;
       if (user.buyer_org_url) score += 1;
       total += 3;
       break;
-    case 'searchFund':
+    case 'search_fund':
       if (user.is_funded) score += 2;
       if (user.target_company_size) score += 1;
       total += 3;
       break;
-    case 'businessOwner':
+    case 'business_owner':
       if (user.owner_intent) score += 2;
       if (user.owner_timeline) score += 1;
       total += 3;
       break;
-    case 'individual':
+    case 'individual_buyer':
       if (user.funding_source) score += 2;
       total += 2;
       break;

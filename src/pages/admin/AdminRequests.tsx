@@ -466,7 +466,7 @@ const AdminRequests = () => {
                   variant="outline"
                   className="text-xs font-medium px-3 py-1.5 bg-secondary/10 text-secondary-foreground border-secondary/20"
                 >
-                  Type: {buyerTypeFilter === 'privateEquity' ? 'PE' : buyerTypeFilter}
+                  Type: {buyerTypeFilter === 'private_equity' ? 'PE' : buyerTypeFilter.replace(/_/g, ' ')}
                 </Badge>
               )}
               {ndaFilter !== 'all' && (

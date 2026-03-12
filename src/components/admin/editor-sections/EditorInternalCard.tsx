@@ -28,14 +28,12 @@ interface EditorInternalCardProps {
 }
 
 const BUYER_TYPES = [
-  { value: 'privateEquity', label: 'PE' },
+  { value: 'private_equity', label: 'PE' },
   { value: 'corporate', label: 'Corporate' },
-  { value: 'familyOffice', label: 'Family Office' },
-  { value: 'searchFund', label: 'Search Fund' },
-  { value: 'individual', label: 'Individual' },
-  { value: 'independentSponsor', label: 'Ind. Sponsor' },
-  { value: 'advisor', label: 'Advisor' },
-  { value: 'businessOwner', label: 'Bus. Owner' },
+  { value: 'family_office', label: 'Family Office' },
+  { value: 'search_fund', label: 'Search Fund' },
+  { value: 'individual_buyer', label: 'Individual' },
+  { value: 'independent_sponsor', label: 'Ind. Sponsor' },
 ] as const;
 
 /**

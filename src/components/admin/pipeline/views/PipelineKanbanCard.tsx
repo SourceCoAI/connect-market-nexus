@@ -9,23 +9,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useUnreadMessageCounts } from '@/hooks/use-connection-messages';
+import { BUYER_TYPE_SHORT_LABELS } from '@/constants';
 
 interface PipelineKanbanCardProps {
   deal: Deal;
   onDealClick: (deal: Deal) => void;
   isDragging?: boolean;
 }
-
-const BUYER_TYPE_LABELS: Record<string, string> = {
-  privateEquity: 'PE Firm',
-  corporate: 'Corporate',
-  familyOffice: 'Family Office',
-  searchFund: 'Search Fund',
-  individual: 'Individual',
-  independentSponsor: 'Ind. Sponsor',
-  advisor: 'Advisor',
-  businessOwner: 'Biz Owner',
-};
 
 const TIER_CONFIG: Record<number, { label: string; style: React.CSSProperties }> = {
   1: { label: 'T1', style: { backgroundColor: '#DEC76B', color: '#0E101A' } },
@@ -50,7 +40,7 @@ export function PipelineKanbanCard({ deal, onDealClick, isDragging }: PipelineKa
   const companyName = deal.listing_real_company_name || deal.listing_title || 'Unnamed Company';
   const contactName = deal.contact_name || deal.buyer_name || 'Unknown';
   const buyerCompany = deal.contact_company || deal.buyer_company;
-  const buyerTypeLabel = deal.buyer_type ? (BUYER_TYPE_LABELS[deal.buyer_type] || deal.buyer_type) : null;
+  const buyerTypeLabel = deal.buyer_type ? (BUYER_TYPE_SHORT_LABELS[deal.buyer_type] || deal.buyer_type) : null;
 
   const fmt = (val: number) => {
     if (!val) return '—';
