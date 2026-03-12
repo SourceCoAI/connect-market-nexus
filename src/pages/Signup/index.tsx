@@ -98,8 +98,9 @@ const Signup = () => {
   }, [searchParams]);
 
   const [currentStep, setCurrentStep] = useState(() => {
-    const saved = localStorage.getItem(DRAFT_STEP_KEY);
-    return saved ? Math.min(Number(saved), STEPS.length - 1) : 0;
+    // Always start at step 0 so the user re-enters their password
+    // (passwords are never persisted to the draft for security)
+    return 0;
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
