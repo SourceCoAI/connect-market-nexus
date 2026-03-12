@@ -71,7 +71,15 @@ Also discovered by migration audit:
 - `src/pages/admin/ChatbotTestRunner/RulesTab.tsx` (pe_firm_contacts, platform_contacts)
 - `supabase/functions/_shared/ai-command-center-tools.test.ts` (pe_firm_contacts)
 - `src/lib/migrations.ts` (all three dropped tables)
-- 29 files still reference `buyer_contacts` (dropped in `20260515`)
+- 27 files still reference `buyer_contacts` (dropped in `20260515`) — **HIGH RISK: active code querying a non-existent table**
+
+### 2A-2. Other Dropped Tables with Stale Code References (P1)
+
+| Dropped Table | Stale Edge Refs | Stale Frontend Refs | Risk |
+|---------------|-----------------|---------------------|------|
+| `buyer_contacts` | 14 files | 13 files | **HIGH** — active code queries a dropped table |
+| `interest_signals` | 3 files (AI command center) | 0 | MEDIUM |
+| `engagement_scores` | 0 | 2 files (`useBuyerIntentAnalytics.ts`, `useEnhancedRealTimeAnalytics.ts`) | MEDIUM — dropped in analytics consolidation, `engagement_signals` is the replacement |
 
 ### 2B. Lead Tables
 
