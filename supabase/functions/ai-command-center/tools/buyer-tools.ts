@@ -298,8 +298,8 @@ NOT FOR: searching acquirers/buyers (use search_buyers), valuation leads (use se
     name: 'search_valuation_leads',
     description: `Search valuation calculator leads — business owners who used SourceCo valuation tools (HVAC calculator, collision calculator, auto shop calculator, general calculator).
 DATA SOURCE: valuation_leads table.
-USE WHEN: "how many HVAC calculator leads", "valuation leads in Texas", "show me auto shop leads".
-SEARCHABLE FIELDS: search param checks business_name, display_name, industry, region, location. State param checks region and location.
+USE WHEN: "how many HVAC calculator leads", "valuation leads in Texas", "show me auto shop leads", "find pro4mance".
+SEARCHABLE FIELDS: search param checks business_name, display_name, full_name, email, website, industry, region, location. State param checks region and location.
 These are high-intent SELLER leads with self-reported financials — NOT buyers/acquirers.`,
     input_schema: {
       type: 'object',
@@ -971,7 +971,7 @@ async function searchValuationLeads(
   let query = supabase
     .from('valuation_leads')
     .select(
-      'id, calculator_type, display_name, business_name, industry, region, location, revenue, ebitda, lead_score, quality_tier, status, pushed_to_all_deals, excluded, created_at',
+      'id, calculator_type, display_name, business_name, full_name, email, website, industry, region, location, revenue, ebitda, lead_score, quality_tier, status, pushed_to_all_deals, excluded, created_at',
     )
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -998,12 +998,18 @@ async function searchValuationLeads(
       (l: {
         business_name?: string;
         display_name?: string;
+        full_name?: string;
+        email?: string;
+        website?: string;
         industry?: string;
         region?: string;
         location?: string;
       }) =>
         l.business_name?.toLowerCase().includes(term) ||
         l.display_name?.toLowerCase().includes(term) ||
+        l.full_name?.toLowerCase().includes(term) ||
+        l.email?.toLowerCase().includes(term) ||
+        l.website?.toLowerCase().includes(term) ||
         l.industry?.toLowerCase().includes(term) ||
         l.region?.toLowerCase().includes(term) ||
         l.location?.toLowerCase().includes(term),

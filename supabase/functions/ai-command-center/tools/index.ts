@@ -135,6 +135,7 @@ const TOOL_CATEGORIES: Record<string, string[]> = {
     'get_deal_scoring_adjustments',
     'search_contacts',
     'get_connection_requests',
+    'search_valuation_leads', // cross-search valuation leads when looking up entities by name
   ],
   FOLLOW_UP: [
     'get_deal_tasks',
