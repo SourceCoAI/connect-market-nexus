@@ -11,7 +11,7 @@
 | Severity | Count | Description |
 |----------|-------|-------------|
 | **P0 Critical** | 2 | Ghost types in types.ts for dropped tables; duplicate `BuyerType` definitions with incompatible values |
-| **P1 High** | 14 | 40 dead edge functions; 5 droppable DB tables; 11-file dead feature module; duplicate type definitions causing silent mismatches |
+| **P1 High** | 14 | 40 dead edge functions; 12 droppable DB tables; 11-file dead feature module; duplicate type definitions causing silent mismatches |
 | **P2 Medium** | 18 | Dead components; orphaned routes; unused npm packages; duplicate UI components; stale type exports |
 | **P3 Low** | 12 | Duplicate constants; unnecessary re-exports; consolidation candidates (transcript tables, email functions) |
 
@@ -21,13 +21,20 @@
 
 ## 1. DEAD DATABASE TABLES
 
-### 1A. Confirmed Dead Tables (0 code references outside types.ts)
+### 1A. Confirmed Dead Tables (0 code references in both edge functions AND frontend)
 
-| Table | Migration Refs | Recommendation |
-|-------|---------------|----------------|
-| `enrichment_test_results` | 2 | DROP — testing artifact, 0 code refs |
-| `enrichment_test_runs` | 2 | DROP — testing artifact, 0 code refs |
-| `introduction_activity` | 4 | DROP — already dropped in migration `20260503000000`, ghost entry in types.ts |
+| Table | Created In | Recommendation |
+|-------|-----------|----------------|
+| `enrichment_test_results` | `20260326000000_enrichment_test_tracking.sql` | DROP — testing artifact, 0 code refs |
+| `enrichment_test_runs` | `20260326000000_enrichment_test_tracking.sql` | DROP — testing artifact, 0 code refs |
+| `introduction_activity` | `20260327000000` | DROP — already dropped in migration `20260503000000`, ghost entry in types.ts |
+| `api_rate_limits` | `20260516100000_global_rate_limiter.sql` | DROP — 0 code refs (may be used by DB triggers — verify first) |
+| `api_semaphore` | `20260516100000_global_rate_limiter.sql` | DROP — 0 code refs (may be used by DB triggers — verify first) |
+| `enrichment_history` | `20260525000000_platform_audit_remediation.sql` | DROP — 0 code refs |
+| `rm_task_discards` | `20260227000000_ai_task_system_v31_schema.sql` | DROP — 0 code refs |
+| `rm_task_extractions` | `20260227000000_ai_task_system_v31_schema.sql` | DROP — 0 code refs |
+| `transcript_extraction_errors` | `20260205120000` | DROP — 0 code refs |
+| `buyer_company_scores` | Pre-existing (no migration found) | DROP — 0 code refs anywhere |
 
 ### 1B. Likely Dead Tables (only referenced from dead code like `src/lib/migrations.ts`)
 
@@ -57,10 +64,14 @@ This file is **never imported** by any other file in the codebase. It exists as 
 | `deal_contacts` | DROPPED | 5 stale refs | Clean stale code refs |
 | `enriched_contacts` | ACTIVE (enrichment cache) | 42 refs | KEEP — distinct purpose |
 
+Also discovered by migration audit:
+| `buyer_contacts` | DROPPED (`20260515`) | 29 stale refs (15 front + 14 edge) | Clean stale code refs |
+
 **Stale references found in:**
 - `src/pages/admin/ChatbotTestRunner/RulesTab.tsx` (pe_firm_contacts, platform_contacts)
 - `supabase/functions/_shared/ai-command-center-tools.test.ts` (pe_firm_contacts)
 - `src/lib/migrations.ts` (all three dropped tables)
+- 29 files still reference `buyer_contacts` (dropped in `20260515`)
 
 ### 2B. Lead Tables
 
@@ -367,6 +378,14 @@ Consumers import whichever they find first, creating **silent type mismatches** 
 -- Dead tables (0 code refs)
 DROP TABLE IF EXISTS enrichment_test_results CASCADE;
 DROP TABLE IF EXISTS enrichment_test_runs CASCADE;
+DROP TABLE IF EXISTS enrichment_history CASCADE;
+DROP TABLE IF EXISTS rm_task_discards CASCADE;
+DROP TABLE IF EXISTS rm_task_extractions CASCADE;
+DROP TABLE IF EXISTS transcript_extraction_errors CASCADE;
+DROP TABLE IF EXISTS buyer_company_scores CASCADE;
+-- Verify these aren't used by DB triggers before dropping:
+-- DROP TABLE IF EXISTS api_rate_limits CASCADE;
+-- DROP TABLE IF EXISTS api_semaphore CASCADE;
 
 -- Duplicate/superseded tables
 DROP TABLE IF EXISTS incoming_leads CASCADE;          -- redundant copy of valuation_leads
@@ -477,7 +496,7 @@ The Supabase types file (`src/integrations/supabase/types.ts`) is **out of sync*
 
 | Category | Dead Items | % of Total |
 |----------|-----------|------------|
-| Database tables (droppable) | 2-5 | 1-3% of 150 tables |
+| Database tables (droppable) | 10-12 | 6-8% of ~163 live tables |
 | Edge functions | 40 | 23% of 171 functions |
 | Frontend files | 17+ files | -- |
 | npm packages | 7 | -- |
