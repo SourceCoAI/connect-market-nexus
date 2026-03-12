@@ -164,10 +164,13 @@ These functions exist in `supabase/functions/` but have **zero invocations** fro
 
 | Dropped Table | Files Referencing |
 |---------------|-------------------|
+| `introduction_status_log` | `src/hooks/use-buyer-introductions.ts:112` (INSERT) |
 | `connection_request_stages` | `src/hooks/use-realtime-admin.ts` (realtime subscription) |
 | `engagement_scores` | `src/hooks/useBuyerIntentAnalytics.ts`, `src/hooks/useEnhancedRealTimeAnalytics.ts` |
 | `interest_signals` | `supabase/functions/ai-command-center/tools/signal-tools.ts` |
-| `deal_contacts` | `supabase/functions/ai-command-center/tools/deal-extra-tools.ts` |
+| `deal_contacts` | `supabase/functions/ai-command-center/tools/deal-extra-tools.ts`, `supabase/functions/convert-to-pipeline-deal/index.ts` |
+| `buyer_contacts` | `src/types/supabase-helpers.ts`, `src/types/smartlead.ts`, `src/types/heyreach.ts`, `src/components/remarketing/PushToDialerModal.tsx`, `src/pages/admin/BuyerContactsPage.tsx`, `supabase/functions/smartlead-leads/`, `supabase/functions/heyreach-leads/`, `supabase/functions/phoneburner-push-contacts/` |
+| `lead_sources` | `supabase/functions/ai-command-center/tools/buyer-tools.ts`, `deal-tools.ts`, `router.ts` |
 | `marketplace_listings` | `src/hooks/admin/listings/listingsSourceOfTruth.test.ts` (test) |
 
 **Resolution options:**
