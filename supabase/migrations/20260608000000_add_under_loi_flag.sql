@@ -120,16 +120,16 @@ LANGUAGE sql STABLE SECURITY INVOKER AS $$
     COALESCE(bp.website, bp.buyer_org_url),
     bp.buyer_quality_score,
     bp.buyer_tier,
-    cr.lead_name,
-    cr.lead_email,
+    COALESCE(cr.lead_name, CONCAT(bc.first_name, ' ', bc.last_name)),
+    COALESCE(cr.lead_email, bc.email),
     cr.lead_company,
-    cr.lead_phone,
+    COALESCE(cr.lead_phone, bc.phone),
     cr.lead_role,
-    bp.first_name,
-    bp.last_name,
-    bp.email,
+    COALESCE(bp.first_name, bc.first_name),
+    COALESCE(bp.last_name, bc.last_name),
+    COALESCE(bp.email, bc.email),
     bp.company,
-    bp.phone_number,
+    COALESCE(bp.phone_number, bc.phone),
     CASE
       WHEN cr.lead_nda_signed THEN 'signed'
       WHEN cr.lead_nda_email_sent THEN 'sent'
@@ -152,6 +152,7 @@ LANGUAGE sql STABLE SECURITY INVOKER AS $$
   LEFT JOIN public.profiles ap ON ap.id = d.assigned_to
   LEFT JOIN public.connection_requests cr ON cr.id = d.connection_request_id
   LEFT JOIN public.profiles bp ON bp.id = cr.user_id
+  LEFT JOIN public.contacts bc ON bc.id = d.buyer_contact_id
   WHERE d.deleted_at IS NULL
     AND (
       d.connection_request_id IS NULL

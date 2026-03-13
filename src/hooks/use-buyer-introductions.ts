@@ -184,16 +184,15 @@ export function useBuyerIntroductions(listingId: string | undefined) {
       // Upsert buyer contact if we have email
       let buyerContactId: string | null = null;
       if (buyer.buyer_email) {
-        const nameParts = buyer.buyer_name.split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-
+        // buyer_name is the company name, not a person name.
+        // Use the company/firm name as the contact company, and leave
+        // first/last name to be filled in by the user later if needed.
         const { data: contact } = await supabase
           .from('contacts')
           .upsert(
             {
-              first_name: firstName,
-              last_name: lastName,
+              first_name: buyer.buyer_name || '',
+              last_name: '',
               email: buyer.buyer_email.toLowerCase().trim(),
               phone: buyer.buyer_phone || null,
               contact_type: 'buyer',

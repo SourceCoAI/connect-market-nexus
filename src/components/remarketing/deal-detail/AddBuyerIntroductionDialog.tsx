@@ -129,35 +129,41 @@ export function AddBuyerIntroductionDialog({
   const handleSubmit = () => {
     const isExisting = tab === 'existing';
 
-    const buyerName =
+    const contactName =
       contactFirstName.trim() && contactLastName.trim()
         ? `${contactFirstName.trim()} ${contactLastName.trim()}`
         : contactFirstName.trim() || contactLastName.trim() || '';
 
-    let firmName = '';
+    let companyName = '';
+    let peFirmName = '';
     if (isExisting) {
       if (!selectedBuyerId || !selectedBuyer) {
         toast.error('Please select a buyer');
         return;
       }
-      firmName = selectedBuyer.company_name;
+      companyName = selectedBuyer.company_name;
+      peFirmName = selectedBuyer.pe_firm_name || selectedBuyer.company_name;
     } else {
       if (!newCompanyName.trim()) {
         toast.error('Company name is required');
         return;
       }
-      firmName = newCompanyName.trim();
+      companyName = newCompanyName.trim();
+      peFirmName = companyName;
     }
 
-    if (!buyerName) {
+    if (!contactName) {
       toast.error('Contact first name is required');
       return;
     }
 
     createIntroduction(
       {
-        buyer_name: buyerName,
-        buyer_firm_name: firmName,
+        // buyer_name = company/platform name (displayed as primary on card)
+        // buyer_firm_name = PE firm name (displayed as secondary on card)
+        // This matches the data model used by createBuyerIntroductionFromApproval
+        buyer_name: companyName,
+        buyer_firm_name: peFirmName,
         buyer_email: contactEmail.trim() || undefined,
         buyer_linkedin_url: isExisting
           ? selectedBuyer?.company_website || undefined
