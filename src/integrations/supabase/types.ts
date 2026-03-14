@@ -11342,6 +11342,7 @@ export type Database = {
           valuation_low: number | null
           valuation_mid: number | null
           website: string | null
+          work_email: string | null
         }
         Insert: {
           business_name?: string | null
@@ -11398,6 +11399,7 @@ export type Database = {
           valuation_low?: number | null
           valuation_mid?: number | null
           website?: string | null
+          work_email?: string | null
         }
         Update: {
           business_name?: string | null
@@ -11454,6 +11456,7 @@ export type Database = {
           valuation_low?: number | null
           valuation_mid?: number | null
           website?: string | null
+          work_email?: string | null
         }
         Relationships: [
           {

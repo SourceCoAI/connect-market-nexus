@@ -137,19 +137,21 @@ serve(async (req: Request) => {
           const bonusEmail = (payload.email as string) || (payload.work_email as string) || null;
           if (bonusEmail) leadUpdates.work_email = bonusEmail;
 
-          const { error: leadUpdateErr } = await supabase
-            .from('valuation_leads')
-            .update(leadUpdates)
-            .eq('id', request.source_entity_id);
+          if (Object.keys(leadUpdates).length > 1) {
+            const { error: leadUpdateErr } = await supabase
+              .from('valuation_leads')
+              .update(leadUpdates)
+              .eq('id', request.source_entity_id);
 
-          if (leadUpdateErr) {
-            console.warn(
-              `[clay-webhook-phone] Valuation lead update failed for ${request.source_entity_id}: ${leadUpdateErr.message}`,
-            );
-          } else {
-            console.log(
-              `[clay-webhook-phone] Updated valuation_lead ${request.source_entity_id} with phone via Clay`,
-            );
+            if (leadUpdateErr) {
+              console.warn(
+                `[clay-webhook-phone] Valuation lead update failed for ${request.source_entity_id}: ${leadUpdateErr.message}`,
+              );
+            } else {
+              console.log(
+                `[clay-webhook-phone] Updated valuation_lead ${request.source_entity_id} with phone via Clay`,
+              );
+            }
           }
         } else {
           // Default: update contacts table

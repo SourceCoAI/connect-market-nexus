@@ -151,13 +151,15 @@ serve(async (req: Request) => {
     const now = new Date().toISOString();
 
     // ─── Atomic upsert via RPC — no race condition possible ──
+    const businessName = businessNameFromDomain(website) ?? null;
+
     try {
       const { data: mergedId, error: rpcError } = await supabaseAdmin.rpc('merge_valuation_lead', {
         p_calculator_type: calculatorType,
         p_full_name: full_name,
         p_email: email,
         p_website: website ?? null,
-        p_business_name: businessNameFromDomain(website) ?? null,
+        p_business_name: businessName,
         p_industry: serviceType ?? null,
         p_region: region ?? null,
         p_location: locationStr,
@@ -194,7 +196,7 @@ serve(async (req: Request) => {
           full_name,
           email,
           website: website ?? undefined,
-          business_name: businessNameFromDomain(website) ?? undefined,
+          business_name: businessName ?? undefined,
         });
       }
     } catch (structuredErr) {
@@ -210,6 +212,10 @@ serve(async (req: Request) => {
               full_name,
               calculator_type: calculatorType || 'unknown',
               lead_source: leadSource,
+              website: website ?? null,
+              business_name: businessName,
+              region: region ?? null,
+              location: locationStr,
               raw_calculator_inputs: calculator_inputs,
               raw_valuation_results: valuation_result,
               updated_at: now,
@@ -233,7 +239,7 @@ serve(async (req: Request) => {
               full_name,
               email,
               website: website ?? undefined,
-              business_name: businessNameFromDomain(website) ?? undefined,
+              business_name: businessName ?? undefined,
             });
           }
         }
