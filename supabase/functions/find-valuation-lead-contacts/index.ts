@@ -18,6 +18,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { requireAdmin } from '../_shared/auth.ts';
 import { googleSearch } from '../_shared/serper-client.ts';
 import { findPhone } from '../_shared/blitz-client.ts';
 
@@ -39,16 +40,15 @@ Deno.serve(async (req: Request) => {
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-  // Auth: accept internal service-role calls or admin JWT
+  // Auth: accept internal service-role calls via x-internal-secret, or validated admin JWT
   const internalSecret = req.headers.get('x-internal-secret');
   const isServiceCall = internalSecret === supabaseServiceKey;
 
   if (!isServiceCall) {
-    // For non-service calls, require valid auth (but don't block — this is mostly internal)
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
+    const auth = await requireAdmin(req, supabaseAdmin);
+    if (!auth.authenticated || !auth.isAdmin) {
+      return new Response(JSON.stringify({ error: auth.error || 'Unauthorized' }), {
+        status: auth.authenticated ? 403 : 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -161,8 +161,19 @@ Deno.serve(async (req: Request) => {
     }
 
     const duration = Date.now() - startTime;
+
+    // Structured audit log — queryable in Supabase Edge Function logs
     console.log(
-      `[find-valuation-lead-contacts] Done for "${body.full_name}" in ${duration}ms — linkedin=${!!linkedinUrl} phone=${!!phone}`,
+      JSON.stringify({
+        fn: 'find-valuation-lead-contacts',
+        lead_id: body.valuation_lead_id,
+        email: body.email,
+        linkedin_found: !!linkedinUrl,
+        phone_found: !!phone,
+        needed_linkedin: needsLinkedIn,
+        needed_phone: needsPhone,
+        duration_ms: duration,
+      }),
     );
 
     return new Response(
@@ -236,22 +247,34 @@ async function findPersonLinkedIn(
 
 /**
  * Execute a Google search and extract the best linkedin.com/in URL from results.
+ * Retries once on failure (covers Serper 429 rate limits and transient errors).
  */
 async function searchLinkedInProfile(query: string): Promise<string | null> {
-  try {
-    const results = await googleSearch(query, 5);
-    for (const result of results) {
-      // Match personal LinkedIn profiles (linkedin.com/in/...)
-      if (result.url.includes('linkedin.com/in/')) {
-        // Clean up the URL — strip query params and fragments
-        const url = new URL(result.url);
-        return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+  const MAX_ATTEMPTS = 2;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const results = await googleSearch(query, 5);
+      for (const result of results) {
+        // Match personal LinkedIn profiles (linkedin.com/in/...)
+        if (result.url.includes('linkedin.com/in/')) {
+          // Clean up the URL — strip query params and fragments
+          const url = new URL(result.url);
+          return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+        }
+      }
+      // Search succeeded but no LinkedIn result — don't retry
+      return null;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[find-valuation-lead-contacts] Serper search failed (attempt ${attempt + 1}/${MAX_ATTEMPTS}): ${msg}`,
+      );
+      // Wait 5s before retry (covers 429 rate limits)
+      if (attempt < MAX_ATTEMPTS - 1) {
+        await new Promise((r) => setTimeout(r, 5_000));
       }
     }
-  } catch (err) {
-    console.warn(
-      `[find-valuation-lead-contacts] Serper search failed: ${err instanceof Error ? err.message : err}`,
-    );
   }
   return null;
 }

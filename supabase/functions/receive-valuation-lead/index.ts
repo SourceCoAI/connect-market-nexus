@@ -202,18 +202,22 @@ serve(async (req: Request) => {
       console.error('Structured merge failed, attempting minimal fallback:', structuredErr);
 
       try {
-        const { error: fallbackErr } = await supabaseAdmin.from('valuation_leads').upsert(
-          {
-            email,
-            full_name,
-            calculator_type: calculatorType || 'unknown',
-            lead_source: leadSource,
-            raw_calculator_inputs: calculator_inputs,
-            raw_valuation_results: valuation_result,
-            updated_at: now,
-          },
-          { onConflict: 'email,calculator_type' },
-        );
+        const { data: fallbackRows, error: fallbackErr } = await supabaseAdmin
+          .from('valuation_leads')
+          .upsert(
+            {
+              email,
+              full_name,
+              calculator_type: calculatorType || 'unknown',
+              lead_source: leadSource,
+              raw_calculator_inputs: calculator_inputs,
+              raw_valuation_results: valuation_result,
+              updated_at: now,
+            },
+            { onConflict: 'email,calculator_type' },
+          )
+          .select('id')
+          .single();
 
         if (fallbackErr) {
           console.error('Minimal fallback also failed:', fallbackErr);
@@ -221,6 +225,17 @@ serve(async (req: Request) => {
           console.log(
             `Lead saved via FALLBACK: ${email} → valuation_leads (minimal, type=${calculatorType})`,
           );
+
+          // Trigger contact finding for fallback-saved leads too
+          if (fallbackRows?.id) {
+            triggerContactFinding(supabaseAdmin, {
+              valuation_lead_id: fallbackRows.id,
+              full_name,
+              email,
+              website: website ?? undefined,
+              business_name: businessNameFromDomain(website) ?? undefined,
+            });
+          }
         }
       } catch (fallbackCatchErr) {
         console.error('Fallback catch error:', fallbackCatchErr);
