@@ -64,6 +64,7 @@ export function useCreatePandaDocDocument() {
  */
 export function useAutoCreateFirmOnApproval() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ userId }: { userId: string }) => {
@@ -84,6 +85,13 @@ export function useAutoCreateFirmOnApproval() {
       queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
       queryClient.invalidateQueries({ queryKey: ['firm-members'] });
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Failed to auto-create firm on approval',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
     },
   });
 }

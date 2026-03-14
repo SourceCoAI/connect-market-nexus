@@ -85,8 +85,12 @@ Deno.serve(async (req: Request) => {
         );
       }
     } catch (rateLimitErr) {
-      // Non-critical: if rate limit check fails, allow the request
-      console.warn('[ai-cc] Rate limit check failed:', rateLimitErr);
+      // Fail closed: if rate limit check fails, reject the request
+      console.error('[ai-cc] Rate limit check failed:', rateLimitErr);
+      return new Response(
+        JSON.stringify({ error: 'Rate limit check failed. Please try again shortly.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     // Parse request body

@@ -9,7 +9,6 @@ import { NavigationStateProvider } from '@/contexts/NavigationStateContext';
 import SessionTrackingProvider from '@/components/SessionTrackingProvider';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
-import { SimpleToastProvider } from '@/components/ui/simple-toast';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { errorHandler } from '@/lib/error-handler';
 
@@ -45,7 +44,7 @@ function AppProviders({ children }: { children: ReactNode }) {
           <AuthProvider>
             <SessionTrackingProvider>
               <AnalyticsProvider>
-                <SimpleToastProvider>{children}</SimpleToastProvider>
+                {children}
               </AnalyticsProvider>
             </SessionTrackingProvider>
           </AuthProvider>
@@ -265,22 +264,22 @@ function App() {
         >
           <Routes>
             {/* ─── PUBLIC ─── */}
-            <Route path="/welcome" element={<Welcome />} />
-            <Route path="/sell" element={<OwnerInquiry />} />
-            <Route path="/sell/success" element={<OwnerInquirySuccess />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/signup-success" element={<SignupSuccess />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/pending-approval" element={<PendingApproval />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/unauthorized" element={<Unauthorized />} />
-            <Route path="/admin-login" element={<AdminLogin />} />
-            <Route path="/referrals/:shareToken" element={<ReferralTrackerPage />} />
-            <Route path="/dataroom/:accessToken" element={<DataRoomPortal />} />
-            <Route path="/view/:linkToken" element={<TrackedDocumentViewer />} />
-            <Route path="/deals/:id" element={<DealLandingPage />} />
+            <Route path="/welcome" element={<RouteErrorBoundary name="PublicRoutes"><Welcome /></RouteErrorBoundary>} />
+            <Route path="/sell" element={<RouteErrorBoundary name="PublicRoutes"><OwnerInquiry /></RouteErrorBoundary>} />
+            <Route path="/sell/success" element={<RouteErrorBoundary name="PublicRoutes"><OwnerInquirySuccess /></RouteErrorBoundary>} />
+            <Route path="/login" element={<RouteErrorBoundary name="PublicRoutes"><Login /></RouteErrorBoundary>} />
+            <Route path="/signup" element={<RouteErrorBoundary name="PublicRoutes"><Signup /></RouteErrorBoundary>} />
+            <Route path="/signup-success" element={<RouteErrorBoundary name="PublicRoutes"><SignupSuccess /></RouteErrorBoundary>} />
+            <Route path="/forgot-password" element={<RouteErrorBoundary name="PublicRoutes"><ForgotPassword /></RouteErrorBoundary>} />
+            <Route path="/reset-password" element={<RouteErrorBoundary name="PublicRoutes"><ResetPassword /></RouteErrorBoundary>} />
+            <Route path="/pending-approval" element={<RouteErrorBoundary name="PublicRoutes"><PendingApproval /></RouteErrorBoundary>} />
+            <Route path="/auth/callback" element={<RouteErrorBoundary name="PublicRoutes"><AuthCallback /></RouteErrorBoundary>} />
+            <Route path="/unauthorized" element={<RouteErrorBoundary name="PublicRoutes"><Unauthorized /></RouteErrorBoundary>} />
+            <Route path="/admin-login" element={<RouteErrorBoundary name="PublicRoutes"><AdminLogin /></RouteErrorBoundary>} />
+            <Route path="/referrals/:shareToken" element={<RouteErrorBoundary name="PublicRoutes"><ReferralTrackerPage /></RouteErrorBoundary>} />
+            <Route path="/dataroom/:accessToken" element={<RouteErrorBoundary name="PublicRoutes"><DataRoomPortal /></RouteErrorBoundary>} />
+            <Route path="/view/:linkToken" element={<RouteErrorBoundary name="PublicRoutes"><TrackedDocumentViewer /></RouteErrorBoundary>} />
+            <Route path="/deals/:id" element={<RouteErrorBoundary name="PublicRoutes"><DealLandingPage /></RouteErrorBoundary>} />
 
             {/* ─── BUYER-FACING (unchanged) ─── */}
             <Route

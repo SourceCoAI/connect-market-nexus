@@ -3,7 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 /**
- * Hook to listen for deal assignment notifications and trigger email notifications
+ * Hook to listen for deal assignment notifications and update the UI.
+ *
+ * Email notifications are sent exclusively by the direct edge-function call
+ * in useDealMutations.ts (notify-deal-owner-change). This Realtime listener
+ * must NOT invoke edge functions because every open admin tab would fire
+ * independently, causing duplicate emails (N times amplification).
  */
 export function useDealOwnerNotifications() {
   useEffect(() => {
@@ -17,31 +22,14 @@ export function useDealOwnerNotifications() {
           table: 'admin_notifications',
           filter: 'notification_type=eq.deal_assignment'
         },
-        async (payload: RealtimePostgresChangesPayload<any>) => {
+        (payload: RealtimePostgresChangesPayload<any>) => {
           const notification = payload.new;
           const metadata = notification.metadata;
 
           if (!metadata) return;
 
-          try {
-            // Send email to new owner
-            await supabase.functions.invoke('notify-new-deal-owner', {
-              body: {
-                dealId: metadata.deal_id,
-                dealTitle: metadata.deal_title,
-                listingTitle: metadata.listing_title,
-                companyName: metadata.company_name,
-                newOwnerName: metadata.new_owner_name,
-                newOwnerEmail: metadata.new_owner_email,
-                buyerName: metadata.buyer_name,
-                buyerEmail: metadata.buyer_email,
-                buyerCompany: metadata.buyer_company,
-                assignedByName: metadata.assigned_by_name
-              }
-            });
-          } catch (error) {
-            console.error('Failed to send new owner email notification:', error);
-          }
+          // UI-only: log for debugging. Email is sent by useDealMutations.ts.
+          console.debug('[DealOwnerNotifications] New deal assignment notification received:', metadata.deal_id);
         }
       )
       .on(
@@ -52,31 +40,14 @@ export function useDealOwnerNotifications() {
           table: 'admin_notifications',
           filter: 'notification_type=eq.deal_reassignment'
         },
-        async (payload: RealtimePostgresChangesPayload<any>) => {
+        (payload: RealtimePostgresChangesPayload<any>) => {
           const notification = payload.new;
           const metadata = notification.metadata;
 
           if (!metadata || !metadata.previous_owner_email) return;
 
-          try {
-            // Send email to previous owner
-            await supabase.functions.invoke('notify-deal-reassignment', {
-              body: {
-                dealId: metadata.deal_id,
-                dealTitle: metadata.deal_title,
-                listingTitle: metadata.listing_title,
-                companyName: metadata.company_name,
-                previousOwnerId: metadata.previous_owner_id,
-                previousOwnerName: metadata.previous_owner_name,
-                previousOwnerEmail: metadata.previous_owner_email,
-                newOwnerId: metadata.new_owner_id,
-                newOwnerName: metadata.new_owner_name,
-                newOwnerEmail: metadata.new_owner_email
-              }
-            });
-          } catch (error) {
-            console.error('Failed to send reassignment email notification:', error);
-          }
+          // UI-only: log for debugging. Email is sent by useDealMutations.ts.
+          console.debug('[DealOwnerNotifications] Deal reassignment notification received:', metadata.deal_id);
         }
       )
       .subscribe();

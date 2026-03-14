@@ -7,7 +7,7 @@ export type KanbanColumn = 'to_introduce' | 'introduced' | 'interested' | 'passe
 const COLUMN_STATUSES: Record<KanbanColumn, IntroductionStatus[]> = {
   to_introduce: ['need_to_show_deal'],
   introduced: ['outreach_initiated'],
-  interested: ['meeting_scheduled', 'fit_and_interested'],
+  interested: ['meeting_scheduled', 'fit_and_interested', 'deal_created'],
   passed: ['not_a_fit'],
 };
 

@@ -263,7 +263,7 @@ serve(async (req: Request) => {
 
           // Send the document via email
           await new Promise((r) => setTimeout(r, 2000));
-          await fetch(`https://api.pandadoc.com/public/v1/documents/${documentId}/send`, {
+          const sendResponse = await fetch(`https://api.pandadoc.com/public/v1/documents/${documentId}/send`, {
             method: 'POST',
             headers: {
               'Authorization': `API-Key ${pandadocApiKey}`,
@@ -275,7 +275,12 @@ serve(async (req: Request) => {
             }),
           });
 
-          await supabaseAdmin
+          if (!sendResponse.ok) {
+            const sendErrorText = await sendResponse.text();
+            console.warn(`⚠️ PandaDoc /send failed (${sendResponse.status}):`, sendErrorText);
+          }
+
+          const { error: firmUpdateError } = await supabaseAdmin
             .from('firm_agreements')
             .update({
               nda_pandadoc_document_id: documentId,
@@ -286,7 +291,11 @@ serve(async (req: Request) => {
             })
             .eq('id', firmId);
 
-          await supabaseAdmin
+          if (firmUpdateError) {
+            console.warn('⚠️ Failed to update firm_agreements with NDA status:', firmUpdateError);
+          }
+
+          const { error: crUpdateError } = await supabaseAdmin
             .from('connection_requests')
             .update({
               lead_nda_email_sent: true,
@@ -296,13 +305,21 @@ serve(async (req: Request) => {
             })
             .eq('id', connectionRequestId);
 
-          await supabaseAdmin.from('pandadoc_webhook_log').insert({
+          if (crUpdateError) {
+            console.warn('⚠️ Failed to update connection_request NDA status:', crUpdateError);
+          }
+
+          const { error: webhookLogError } = await supabaseAdmin.from('pandadoc_webhook_log').insert({
             event_type: 'nda_auto_created_on_approval',
             document_id: documentId,
             document_type: 'nda',
             external_id: firmId,
             raw_payload: { connection_request_id: connectionRequestId, created_by: auth.userId },
           });
+
+          if (webhookLogError) {
+            console.warn('⚠️ Failed to insert pandadoc_webhook_log entry:', webhookLogError);
+          }
         } else {
           const errorText = await pandadocResponse.text();
           console.error('❌ PandaDoc NDA creation failed:', errorText);

@@ -86,7 +86,7 @@ export function useConnectionRequestActions({
   // ─── Decision Handlers ───
 
   const handleAccept = async () => {
-    if (!requestId) return;
+    if (!requestId || updateStatus.isPending) return;
     try {
       await updateStatus.mutateAsync({ requestId, status: 'approved' });
       await sendMessage.mutateAsync({

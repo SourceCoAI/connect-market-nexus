@@ -263,7 +263,7 @@ serve(async (req: Request) => {
         await supabaseAdmin.from('profiles').update(profileUpdates).eq('id', member.user_id);
       }
 
-      await sendBuyerSignedDocNotification(supabaseAdmin, members, firmId, docLabel, signedDocUrl);
+      await sendBuyerSignedDocNotification(supabaseAdmin, members, firmId, docLabel, null);
     }
 
     // Send confirmation emails
@@ -273,7 +273,7 @@ serve(async (req: Request) => {
       docLabel,
       signerName,
       signerEmail: profile?.email || '',
-      signedDocUrl,
+      signedDocUrl: null,
     });
 
     await createAdminNotification(supabaseAdmin, firmId, firmName, docLabel);
@@ -281,7 +281,7 @@ serve(async (req: Request) => {
     console.log(`✅ Confirmed ${docLabel} signed for firm ${firmId} (buyer ${userId})`);
 
     return new Response(
-      JSON.stringify({ confirmed: true, signedDocumentUrl: signedDocUrl, resolvedFirmId: firmId }),
+      JSON.stringify({ confirmed: true, signedDocumentUrl: null, resolvedFirmId: firmId }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   } catch (error: unknown) {
@@ -310,6 +310,7 @@ async function sendSigningConfirmationEmails(
   },
 ) {
   const { firmId: _firmId, firmName, docLabel, signerName, signerEmail, signedDocUrl } = opts;
+  const isNda = docLabel === 'NDA';
   const senderEmail = Deno.env.get('SENDER_EMAIL') || 'notifications@sourcecodeals.com';
   const senderName = Deno.env.get('SENDER_NAME') || 'SourceCo';
 
