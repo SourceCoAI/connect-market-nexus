@@ -310,6 +310,7 @@ async function sendSigningConfirmationEmails(
   },
 ) {
   const { firmId: _firmId, firmName, docLabel, signerName, signerEmail, signedDocUrl } = opts;
+  const isNda = docLabel === 'NDA';
   const senderEmail = Deno.env.get('SENDER_EMAIL') || 'notifications@sourcecodeals.com';
   const senderName = Deno.env.get('SENDER_NAME') || 'SourceCo';
 
