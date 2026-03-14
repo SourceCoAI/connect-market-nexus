@@ -138,6 +138,16 @@ Deno.serve(async (req: Request) => {
       .eq('pushed_listing_id', deal_id)
       .maybeSingle();
 
+    // Fetch data room documents with extracted text
+    const { data: dataRoomDocs } = await supabaseAdmin
+      .from('data_room_documents')
+      .select('file_name, text_content')
+      .eq('deal_id', deal_id)
+      .eq('document_category', 'data_room')
+      .eq('status', 'active')
+      .not('text_content', 'is', null)
+      .order('created_at', { ascending: false });
+
     // Listing completeness check: require minimum data before generating memos
     // (Audit P1: prevent blank-context memo generation)
     const missingCritical: string[] = [];
@@ -169,7 +179,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Build data context for AI
-    const dataContext = buildDataContext(deal, transcripts || [], valuationData);
+    const dataContext = buildDataContext(deal, transcripts || [], valuationData, dataRoomDocs || []);
 
     // Generate memo(s)
     const results: Record<string, Record<string, unknown>> = {};
@@ -375,6 +385,7 @@ interface DataContext {
   enrichmentData: string;
   manualEntries: string;
   valuationData: string;
+  dataRoomContent: string;
   sources: string[];
 }
 
@@ -382,6 +393,7 @@ function buildDataContext(
   deal: Record<string, unknown>,
   transcripts: Record<string, unknown>[],
   valuationData: Record<string, unknown> | null,
+  dataRoomDocs: Record<string, unknown>[] = [],
 ): DataContext {
   const sources: string[] = [];
 
@@ -490,6 +502,20 @@ function buildDataContext(
       .join('\n');
   }
 
+  // Data room documents (high-priority due diligence material)
+  let dataRoomContent = '';
+  if (dataRoomDocs.length > 0) {
+    sources.push('data_room_documents');
+    dataRoomContent = dataRoomDocs
+      .filter((d) => d.text_content)
+      .map((d) => {
+        // Cap each document at 25K chars
+        const text = String(d.text_content).substring(0, 25_000);
+        return `--- Document: ${d.file_name} ---\n${text}`;
+      })
+      .join('\n\n');
+  }
+
   return {
     deal,
     transcriptExcerpts,
@@ -497,6 +523,7 @@ function buildDataContext(
     manualEntries:
       manualEntries + (notesExcerpt ? `\n\n--- GENERAL NOTES ---\n${notesExcerpt}` : ''),
     valuationData: valuationStr,
+    dataRoomContent,
     sources,
   };
 }
@@ -1106,9 +1133,10 @@ CORE RULES
 
 SOURCE PRIORITY (highest to lowest)
 1. Financial statements / tax returns (for financial figures only)
-2. Call transcripts (most recent first)
-3. General notes and manual entries
-4. Enrichment data (website, LinkedIn)
+2. Data room documents (uploaded due diligence material)
+3. Call transcripts (most recent first)
+4. General notes and manual entries
+5. Enrichment data (website, LinkedIn)
 
 Conflict rules:
 * When two sources give specific, different values for the same data point, use the highest-priority source and note: "Owner stated $X; [other source] shows $Y."
@@ -1164,6 +1192,8 @@ IMPORTANT: Transcripts may include SourceCo associates and the business owner. E
 === MANUAL DATA ENTRIES & NOTES === ${context.manualEntries || 'No manual entries or notes.'}
 
 === VALUATION CALCULATOR DATA === ${context.valuationData || 'No valuation data.'}
+
+=== DATA ROOM DOCUMENTS (authoritative due diligence material) === ${context.dataRoomContent || 'No data room documents available.'}
 
 Return the memo as markdown with ## headers. Headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES. Omit sections with no data (except COMPANY OVERVIEW). Present financial data as simple labeled lines. Do not use tables. Include all identifying information. Flag conflicts between sources.`;
 
@@ -1383,7 +1413,7 @@ After Rules 1-8, do a final anonymity audit. Could an industry expert identify t
 BANNED IDENTIFYING TERMS: ${bannedTermsLine}
 
 SOURCE HIERARCHY
-Financial statements/tax returns > Transcripts > General Notes > Enrichment/Website > Manual entries. Most recent transcript takes priority. If no call transcript is provided, note: "Based on enrichment data only."
+Financial statements/tax returns > Data room documents > Transcripts > General Notes > Enrichment/Website > Manual entries. Most recent transcript takes priority. If no call transcript is provided, note: "Based on enrichment data only."
 
 SECTIONS — use only these headers, in this order:
 
@@ -1430,7 +1460,9 @@ IMPORTANT: Call transcripts may include conversations between SourceCo associate
 
 === VALUATION CALCULATOR DATA === ${context.valuationData || 'No valuation data.'}
 
-DATA SOURCE PRIORITY: Financial statements > Transcripts > General Notes > Enrichment > Manual entries. When sources conflict, use the highest-priority source. When data is absent, omit the topic entirely.
+=== DATA ROOM DOCUMENTS (authoritative due diligence material) === ${context.dataRoomContent || 'No data room documents available.'}
+
+DATA SOURCE PRIORITY: Financial statements > Data room documents > Transcripts > General Notes > Enrichment > Manual entries. When sources conflict, use the highest-priority source. When data is absent, omit the topic entirely.
 
 Return as markdown with ## headers. Must exactly match: BUSINESS OVERVIEW, DEAL SNAPSHOT, KEY FACTS, GROWTH CONTEXT, OWNER OBJECTIVES. Omit GROWTH CONTEXT if no growth plans were stated.
 

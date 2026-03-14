@@ -634,8 +634,11 @@ export function validateLinkedInUrl(extracted: Record<string, unknown>): void {
 export function validateDealExtraction(
   extracted: Record<string, unknown>,
   websiteContent: string,
+  opts?: { skipFinancialStrip?: boolean },
 ): void {
-  stripFinancialFields(extracted);
+  if (!opts?.skipFinancialStrip) {
+    stripFinancialFields(extracted);
+  }
   filterToValidKeys(extracted);
   validateAddressState(extracted);
   validateAddressZip(extracted);
