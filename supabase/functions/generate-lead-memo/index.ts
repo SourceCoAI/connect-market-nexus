@@ -213,6 +213,7 @@ Deno.serve(async (req: Request) => {
         branding,
         anonCompanyMeta,
         resolvedProjectName,
+        supabaseAdmin,
       );
 
       // Save to lead_memos
@@ -1609,6 +1610,7 @@ async function generateMemo(
     company_phone: string;
   },
   projectName?: string,
+  supabase?: SupabaseClient,
 ): Promise<MemoContent> {
   const isAnonymous = memoType === 'anonymous_teaser';
 
@@ -1621,7 +1623,7 @@ async function generateMemo(
 
   // Route to the appropriate generation pipeline
   if (!isAnonymous) {
-    return await generateFullMemo(apiKey, context, branding, companyMeta);
+    return await generateFullMemo(apiKey, context, branding, companyMeta, supabase);
   }
 
   return await generateAnonymousTeaser(
@@ -1631,6 +1633,7 @@ async function generateMemo(
     companyMeta,
     projectCodename,
     regionName,
+    supabase,
   );
 }
 
