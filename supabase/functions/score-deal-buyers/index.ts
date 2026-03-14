@@ -106,18 +106,79 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // ── Fetch buyers (all active, non-archived) ──
+    // ── Fetch deal's universe(s) ──
+    const { data: universeLinks } = await supabase
+      .from('remarketing_universe_deals')
+      .select('universe_id')
+      .eq('listing_id', listingId)
+      .eq('status', 'active');
+
+    const universeIds = (universeLinks || []).map((l) => l.universe_id);
+
+    // ── Fetch buyers (active, non-archived, scoped to deal's universes when available) ──
     const BUYER_SELECT =
-      'id, company_name, company_website, pe_firm_name, pe_firm_id, buyer_type, is_pe_backed, hq_state, hq_city, ' +
+      'id, company_name, company_website, platform_website, pe_firm_name, pe_firm_id, buyer_type, is_pe_backed, hq_state, hq_city, ' +
       'target_services, target_industries, industry_vertical, ' +
       'target_geographies, geographic_footprint, ' +
       'target_ebitda_min, target_ebitda_max, ' +
       'has_fee_agreement, acquisition_appetite, total_acquisitions, ' +
-      'thesis_summary, ai_seeded, ai_seeded_from_deal_id, ai_seeded_at, marketplace_firm_id';
+      'thesis_summary, ai_seeded, ai_seeded_from_deal_id, ai_seeded_at, marketplace_firm_id, is_publicly_traded';
 
-    const buyerQuery = supabase.from('buyers').select(BUYER_SELECT).eq('archived', false);
+    // deno-lint-ignore no-explicit-any
+    let fetchedBuyers: any[] | null = null;
+    // deno-lint-ignore no-explicit-any
+    let buyerError: any = null;
 
-    const { data: fetchedBuyers, error: buyerError } = await buyerQuery.limit(10000);
+    if (universeIds.length > 0) {
+      // Scope internal buyers to the deal's universe(s).
+      // Also fetch AI-seeded buyers and buyers with no universe (manually added)
+      // separately so they aren't excluded by the universe filter.
+      const [internalResult, aiSeededResult, noUniverseResult] = await Promise.all([
+        supabase
+          .from('buyers')
+          .select(BUYER_SELECT)
+          .eq('archived', false)
+          .in('universe_id', universeIds)
+          .limit(10000),
+        supabase
+          .from('buyers')
+          .select(BUYER_SELECT)
+          .eq('archived', false)
+          .eq('ai_seeded', true)
+          .limit(5000),
+        // Include manually-added buyers with no universe assignment
+        supabase
+          .from('buyers')
+          .select(BUYER_SELECT)
+          .eq('archived', false)
+          .is('universe_id', null)
+          .neq('ai_seeded', true)
+          .limit(5000),
+      ]);
+
+      buyerError = internalResult.error || aiSeededResult.error || noUniverseResult.error;
+
+      // Merge and deduplicate by buyer id
+      const seen = new Set<string>();
+      // deno-lint-ignore no-explicit-any
+      const merged: any[] = [];
+      for (const b of [
+        ...(internalResult.data || []),
+        ...(aiSeededResult.data || []),
+        ...(noUniverseResult.data || []),
+      ]) {
+        if (!seen.has(b.id)) {
+          seen.add(b.id);
+          merged.push(b);
+        }
+      }
+      fetchedBuyers = merged;
+    } else {
+      // No universes connected — fall back to unfiltered behavior (all buyers)
+      const result = await supabase.from('buyers').select(BUYER_SELECT).eq('archived', false).limit(10000);
+      fetchedBuyers = result.data;
+      buyerError = result.error;
+    }
 
     if (buyerError) {
       return new Response(
@@ -403,6 +464,7 @@ Deno.serve(async (req: Request) => {
         has_fee_agreement: !!buyer.has_fee_agreement,
         acquisition_appetite: buyer.acquisition_appetite,
         company_website: buyer.company_website || null,
+        platform_website: buyer.platform_website || null,
         composite_score: composite,
         service_score: svc.score,
         geography_score: geo.score,
@@ -413,6 +475,7 @@ Deno.serve(async (req: Request) => {
         source,
         buyer_type_priority: buyerTypePriority,
         is_pe_backed: isPeBacked,
+        is_publicly_traded: buyer.is_publicly_traded ?? null,
       });
     }
 

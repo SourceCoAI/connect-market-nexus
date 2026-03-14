@@ -39,7 +39,7 @@ export function resolveBuyerDisplayData(buyer: BuyerIntroduction, score?: BuyerS
   const sourceBadge = sourceKey ? SOURCE_BADGE[sourceKey] || SOURCE_BADGE.scored : null;
   const compositeScore = score?.composite_score ?? snap?.composite_score;
   const hasFeeAgreement = score?.has_fee_agreement ?? snap?.has_fee_agreement ?? false;
-  const companyWebsite = score?.company_website || snap?.company_website || null;
+  const companyWebsite = score?.platform_website || score?.company_website || snap?.platform_website || snap?.company_website || null;
   const isPubliclyTraded = score?.is_publicly_traded ?? snap?.is_publicly_traded ?? false;
   const statusConfig = STATUS_CONFIG[buyer.introduction_status as keyof typeof STATUS_CONFIG];
 

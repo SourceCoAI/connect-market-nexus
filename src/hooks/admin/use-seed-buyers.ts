@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/invoke-edge-function';
 
 export interface SeedBuyerResult {
   buyer_id: string;
@@ -33,24 +33,6 @@ interface SeedBuyersParams {
   jobId?: string;
 }
 
-/** Extract the real error message from a Supabase FunctionsHttpError */
-async function extractEdgeFunctionError(error: unknown): Promise<string> {
-  if (error && typeof error === 'object' && 'context' in error) {
-    try {
-      const ctx = (error as { context: Response }).context;
-      if (ctx && typeof ctx.json === 'function') {
-        const body = await ctx.json();
-        if (body?.error) return body.error + (body.details ? `: ${body.details}` : '');
-        return JSON.stringify(body);
-      }
-    } catch {
-      // Fall through
-    }
-  }
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
-
 /** Validate edge function response shape to prevent cache corruption */
 function validateSeedResult(data: unknown): SeedBuyersResponse {
   const d = data as SeedBuyersResponse;
@@ -65,13 +47,12 @@ export function useSeedBuyers() {
 
   return useMutation<SeedBuyersResponse, Error, SeedBuyersParams>({
     mutationFn: async ({ listingId, maxBuyers, forceRefresh, buyerCategory, jobId }) => {
-      const { data, error } = await supabase.functions.invoke('seed-buyers', {
+      const data = await invokeEdgeFunction<SeedBuyersResponse>('seed-buyers', {
         body: { listingId, maxBuyers, forceRefresh, buyerCategory, jobId },
+        // AI search can take a while — allow up to 2 minutes per attempt
+        timeoutMs: 120_000,
+        maxRetries: 2,
       });
-      if (error) {
-        const msg = await extractEdgeFunctionError(error);
-        throw new Error(msg);
-      }
       return validateSeedResult(data);
     },
     onSuccess: (_data, variables) => {

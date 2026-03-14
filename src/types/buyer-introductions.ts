@@ -58,6 +58,7 @@ export interface ScoreSnapshot {
   pe_firm_id: string | null;
   acquisition_appetite: string | null;
   company_website: string | null;
+  platform_website?: string | null;
   is_publicly_traded: boolean | null;
   is_pe_backed: boolean;
 }

@@ -3,6 +3,7 @@
  * and trigger the background worker.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/invoke-edge-function';
 import { toast } from 'sonner';
 
 interface QueueDealScoringParams {
@@ -72,12 +73,11 @@ export async function queueDealScoring({
     throw new Error(upsertErrors.join('; '));
   }
 
-  // Fire-and-forget worker invocation
-  supabase.functions
-    .invoke('process-scoring-queue', {
-      body: { trigger: 'deal-scoring' },
-    })
-    .catch((err) => console.warn('Worker trigger failed:', err));
+  // Fire-and-forget worker invocation with retry
+  invokeEdgeFunction('process-scoring-queue', {
+    body: { trigger: 'deal-scoring' },
+    maxRetries: 2,
+  }).catch((err) => console.warn('Worker trigger failed:', err));
 
   if (!silent) toast.info(`Queued ${newIds.length} deal(s) for background scoring`);
   return newIds.length;
@@ -135,11 +135,10 @@ export async function queueAlignmentScoring({
     throw new Error(upsertErrors.join('; '));
   }
 
-  supabase.functions
-    .invoke('process-scoring-queue', {
-      body: { trigger: 'alignment-scoring' },
-    })
-    .catch((err) => console.warn('Worker trigger failed:', err));
+  invokeEdgeFunction('process-scoring-queue', {
+    body: { trigger: 'alignment-scoring' },
+    maxRetries: 2,
+  }).catch((err) => console.warn('Worker trigger failed:', err));
 
   toast.info(`Queued ${newIds.length} buyer(s) for alignment scoring`);
   return newIds.length;
@@ -212,14 +211,11 @@ export async function queueDealQualityScoring(
     let errors = 0;
     for (const listingId of listingIds) {
       try {
-        const { error } = await supabase.functions.invoke('calculate-deal-quality', {
+        await invokeEdgeFunction('calculate-deal-quality', {
           body: { listingId },
+          maxRetries: 1,
         });
-        if (error) {
-          errors++;
-        } else {
-          scored++;
-        }
+        scored++;
       } catch {
         errors++;
       }
@@ -240,15 +236,17 @@ export async function queueDealQualityScoring(
       : { calculateAll: true };
   }
 
-  const { data, error } = await supabase.functions.invoke('calculate-deal-quality', { body });
-  if (error) {
+  const data = await invokeEdgeFunction<Record<string, unknown>>('calculate-deal-quality', {
+    body,
+    maxRetries: 1,
+  }).catch((err) => {
     toast.error('Failed to calculate scores');
-    throw error;
-  }
+    throw err;
+  });
 
-  const scored = data?.scored ?? 0;
-  const errors = data?.errors ?? 0;
-  const enrichmentQueued = data?.enrichmentQueued ?? 0;
+  const scored = (data as { scored?: number })?.scored ?? 0;
+  const errors = (data as { errors?: number })?.errors ?? 0;
+  const enrichmentQueued = (data as { enrichmentQueued?: number })?.enrichmentQueued ?? 0;
 
   if (scored === 0 && !enrichmentQueued) {
     toast.info('All deals already have quality scores');
@@ -279,13 +277,14 @@ export async function queueBuyerQualityScoring(
     const batch = profileIds.slice(i, i + BATCH_SIZE);
     const results = await Promise.allSettled(
       batch.map((profileId) =>
-        supabase.functions.invoke('calculate-buyer-quality-score', {
+        invokeEdgeFunction('calculate-buyer-quality-score', {
           body: { profile_id: profileId, ...extraBody },
+          maxRetries: 1,
         }),
       ),
     );
     results.forEach((r) => {
-      if (r.status === 'fulfilled' && !r.value.error) {
+      if (r.status === 'fulfilled') {
         scored++;
       } else {
         errors++;
@@ -305,14 +304,14 @@ export async function queueBuyerQualityScoring(
 export async function queueValuationLeadScoring(
   mode: 'unscored' | 'all',
 ): Promise<{ scored: number }> {
-  const { data, error } = await supabase.functions.invoke('calculate-valuation-lead-score', {
+  const data = await invokeEdgeFunction<Record<string, unknown>>('calculate-valuation-lead-score', {
     body: { mode },
-  });
-  if (error) {
+    maxRetries: 1,
+  }).catch((err) => {
     toast.error('Scoring failed');
-    throw error;
-  }
-  const scored = data?.scored ?? 0;
+    throw err;
+  });
+  const scored = (data as { scored?: number })?.scored ?? 0;
   toast.success(`Scored ${scored} lead(s)`);
   return { scored };
 }
@@ -324,15 +323,15 @@ export async function queueExternalOnlyEnrichment(options: {
   dealSource: string;
   mode: string;
 }): Promise<{ total: number }> {
-  const { data, error } = await supabase.functions.invoke('enrich-external-only', {
+  const data = await invokeEdgeFunction<Record<string, unknown>>('enrich-external-only', {
     body: options,
-  });
-  if (error) {
+    maxRetries: 1,
+  }).catch((err) => {
     toast.error('Failed to start LinkedIn/Google enrichment');
-    throw error;
-  }
-  toast.success(`Queued ${data?.total || 0} deals for LinkedIn + Google enrichment`, {
+    throw err;
+  });
+  toast.success(`Queued ${(data as { total?: number })?.total || 0} deals for LinkedIn + Google enrichment`, {
     description: 'This runs much faster than full enrichment — no website re-scraping',
   });
-  return { total: data?.total || 0 };
+  return { total: (data as { total?: number })?.total || 0 };
 }

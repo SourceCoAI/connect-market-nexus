@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -185,6 +185,10 @@ function BuyerCard({
   const tier = TIER_CONFIG[buyer.tier];
   const TierIcon = tier.icon;
   const sourceBadge = SOURCE_BADGE[buyer.source] || SOURCE_BADGE.scored;
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const websiteUrl = buyer.platform_website || buyer.company_website;
 
   return (
     <div
@@ -207,26 +211,34 @@ function BuyerCard({
         {/* Name + location */}
         <div className="shrink-0 min-w-[180px]">
           <div className="flex items-center gap-1.5">
-            <Link to={`/admin/buyers/${buyer.buyer_id}`}>
-              <span className="font-semibold text-[15px] hover:underline truncate">
-                {buyer.company_name}
-              </span>
-            </Link>
-            {buyer.pe_firm_name && (
+            {buyer.pe_firm_name ? (
               <>
-                <span className="text-muted-foreground text-[13px]">/</span>
                 {buyer.pe_firm_id ? (
                   <Link to={`/admin/buyers/pe-firms/${buyer.pe_firm_id}`}>
-                    <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
+                    <span className="font-semibold text-[15px] hover:underline truncate">
                       {buyer.pe_firm_name}
                     </span>
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-muted-foreground truncate">
+                  <span className="font-semibold text-[15px] truncate">
                     {buyer.pe_firm_name}
                   </span>
                 )}
+                <span className="text-muted-foreground text-[13px]">/</span>
+                <span
+                  className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate cursor-pointer"
+                  onClick={() => navigate(`/admin/buyers/${buyer.buyer_id}`, { state: { from: location.pathname } })}
+                >
+                  {buyer.company_name}
+                </span>
               </>
+            ) : (
+              <span
+                className="font-semibold text-[15px] hover:underline truncate cursor-pointer"
+                onClick={() => navigate(`/admin/buyers/${buyer.buyer_id}`, { state: { from: location.pathname } })}
+              >
+                {buyer.company_name}
+              </span>
             )}
             {isInPipeline && (
               <Badge
@@ -249,13 +261,9 @@ function BuyerCard({
                 Fee
               </span>
             )}
-            {buyer.company_website && (
+            {websiteUrl && (
               <a
-                href={
-                  buyer.company_website.startsWith('http')
-                    ? buyer.company_website
-                    : `https://${buyer.company_website}`
-                }
+                href={websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
@@ -339,11 +347,9 @@ function BuyerCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link to={`/admin/buyers/${buyer.buyer_id}`}>
-                      <ExternalLink className="h-3.5 w-3.5 mr-2" />
-                      View Profile
-                    </Link>
+                  <DropdownMenuItem onClick={() => navigate(`/admin/buyers/${buyer.buyer_id}`, { state: { from: location.pathname } })}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                    View Profile
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -523,6 +529,7 @@ export function RecommendedBuyersTab({
                 pe_firm_id: buyer.pe_firm_id,
                 acquisition_appetite: buyer.acquisition_appetite,
                 company_website: buyer.company_website,
+                platform_website: buyer.platform_website,
                 is_publicly_traded: buyer.is_publicly_traded ?? null,
                 is_pe_backed: buyer.is_pe_backed ?? false,
               },
