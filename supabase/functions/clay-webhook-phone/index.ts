@@ -129,9 +129,17 @@ serve(async (req: Request) => {
       if (request.source_entity_id) {
         if (request.source_function === 'find-valuation-lead-contacts') {
           // Valuation lead enrichment — update valuation_leads table
+          const leadUpdates: Record<string, unknown> = {
+            phone: resultPhone,
+            updated_at: new Date().toISOString(),
+          };
+          // Clay may also return an email alongside phone — save as work_email
+          const bonusEmail = (payload.email as string) || (payload.work_email as string) || null;
+          if (bonusEmail) leadUpdates.work_email = bonusEmail;
+
           const { error: leadUpdateErr } = await supabase
             .from('valuation_leads')
-            .update({ phone: resultPhone, updated_at: new Date().toISOString() })
+            .update(leadUpdates)
             .eq('id', request.source_entity_id);
 
           if (leadUpdateErr) {

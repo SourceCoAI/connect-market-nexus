@@ -130,7 +130,8 @@ serve(async (req: Request) => {
           const resultLinkedIn = (payload.linkedin_url as string) || (payload.linkedinUrl as string) || null;
           const leadUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() };
           if (resultLinkedIn) leadUpdates.linkedin_url = resultLinkedIn;
-          // Don't overwrite email — the lead already has the original submission email
+          // Save enriched email as work_email (don't overwrite submission email)
+          if (resultEmail) leadUpdates.work_email = resultEmail;
 
           if (Object.keys(leadUpdates).length > 1) {
             const { error: leadUpdateErr } = await supabase

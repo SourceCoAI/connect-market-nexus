@@ -126,10 +126,26 @@ serve(async (req: Request) => {
       // 8. Update source entity with result
       if (request.source_entity_id) {
         if (request.source_function === 'find-valuation-lead-contacts') {
-          // Valuation lead enrichment — we don't overwrite email but log the match
-          console.log(
-            `[clay-webhook-linkedin] Clay LinkedIn enrichment completed for valuation_lead ${request.source_entity_id}`,
-          );
+          // Valuation lead enrichment — save email as work_email (not overwriting submission email)
+          const leadUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+          if (resultEmail) leadUpdates.work_email = resultEmail;
+
+          if (Object.keys(leadUpdates).length > 1) {
+            const { error: leadUpdateErr } = await supabase
+              .from('valuation_leads')
+              .update(leadUpdates)
+              .eq('id', request.source_entity_id);
+
+            if (leadUpdateErr) {
+              console.warn(
+                `[clay-webhook-linkedin] Valuation lead update failed for ${request.source_entity_id}: ${leadUpdateErr.message}`,
+              );
+            } else {
+              console.log(
+                `[clay-webhook-linkedin] Updated valuation_lead ${request.source_entity_id} with work_email via Clay`,
+              );
+            }
+          }
         } else {
           // Default: update contacts table
           const { error: contactUpdateErr } = await supabase

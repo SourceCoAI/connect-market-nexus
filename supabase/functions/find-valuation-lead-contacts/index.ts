@@ -23,7 +23,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import { googleSearch } from '../_shared/serper-client.ts';
-import { findPhone } from '../_shared/blitz-client.ts';
+import { findPhone, findWorkEmail } from '../_shared/blitz-client.ts';
 import {
   sendToClayLinkedIn,
   sendToClayNameDomain,
@@ -45,6 +45,7 @@ interface FindValuationLeadContactsRequest {
 interface CachedResult {
   linkedin_url: string | null;
   phone: string | null;
+  work_email: string | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -94,10 +95,10 @@ Deno.serve(async (req: Request) => {
   );
 
   try {
-    // Step 1: Check if the lead already has both fields populated
+    // Step 1: Check if the lead already has all fields populated
     const { data: existingLead, error: fetchError } = await supabaseAdmin
       .from('valuation_leads')
-      .select('linkedin_url, phone')
+      .select('linkedin_url, phone, work_email')
       .eq('id', body.valuation_lead_id)
       .single();
 
@@ -111,16 +112,18 @@ Deno.serve(async (req: Request) => {
 
     const needsLinkedIn = !existingLead.linkedin_url;
     const needsPhone = !existingLead.phone;
+    const needsWorkEmail = !existingLead.work_email;
 
-    if (!needsLinkedIn && !needsPhone) {
+    if (!needsLinkedIn && !needsPhone && !needsWorkEmail) {
       console.log(
-        `[find-valuation-lead-contacts] Lead ${body.valuation_lead_id} already has linkedin_url and phone — skipping`,
+        `[find-valuation-lead-contacts] Lead ${body.valuation_lead_id} already has linkedin_url, phone, and work_email — skipping`,
       );
       return new Response(
         JSON.stringify({
           success: true,
           linkedin_url: existingLead.linkedin_url,
           phone: existingLead.phone,
+          work_email: existingLead.work_email,
           skipped: true,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -129,6 +132,7 @@ Deno.serve(async (req: Request) => {
 
     let linkedinUrl: string | null = existingLead.linkedin_url || null;
     let phone: string | null = existingLead.phone || null;
+    let workEmail: string | null = existingLead.work_email || null;
     let fromCache = false;
     let clayFallbackSent = false;
 
@@ -141,6 +145,7 @@ Deno.serve(async (req: Request) => {
       fromCache = true;
       if (needsLinkedIn && cached.linkedin_url) linkedinUrl = cached.linkedin_url;
       if (needsPhone && cached.phone) phone = cached.phone;
+      if (needsWorkEmail && cached.work_email) workEmail = cached.work_email;
     }
 
     // Step 3: Find LinkedIn profile via Google search (if not cached)
@@ -148,25 +153,54 @@ Deno.serve(async (req: Request) => {
       linkedinUrl = await findPersonLinkedIn(body.full_name, body.business_name, body.website);
     }
 
-    // Step 4: Find phone via Blitz (primary) if we have a LinkedIn URL
-    if (needsPhone && !phone && linkedinUrl) {
-      try {
-        const phoneRes = await findPhone(linkedinUrl);
-        if (phoneRes.ok && phoneRes.data?.phone) {
-          phone = phoneRes.data.phone;
-          console.log(
-            `[find-valuation-lead-contacts] Found phone for "${body.full_name}" via Blitz`,
+    // Step 4: Find phone + work email via Blitz (primary) if we have a LinkedIn URL
+    if (linkedinUrl) {
+      // Phone enrichment
+      if (needsPhone && !phone) {
+        try {
+          const phoneRes = await findPhone(linkedinUrl);
+          if (phoneRes.ok && phoneRes.data?.phone) {
+            phone = phoneRes.data.phone;
+            console.log(
+              `[find-valuation-lead-contacts] Found phone for "${body.full_name}" via Blitz`,
+            );
+          }
+        } catch (phoneErr) {
+          console.warn(
+            `[find-valuation-lead-contacts] Blitz phone lookup failed: ${phoneErr instanceof Error ? phoneErr.message : phoneErr}`,
           );
         }
-      } catch (phoneErr) {
-        console.warn(
-          `[find-valuation-lead-contacts] Blitz phone lookup failed: ${phoneErr instanceof Error ? phoneErr.message : phoneErr}`,
-        );
+      }
+
+      // Work email enrichment — find their work email (may differ from calculator submission)
+      if (needsWorkEmail && !workEmail) {
+        try {
+          const emailRes = await findWorkEmail(linkedinUrl);
+          if (emailRes.ok && emailRes.data?.email) {
+            const foundEmail = emailRes.data.email.trim().toLowerCase();
+            // Only save if it's different from the calculator submission email
+            if (foundEmail !== body.email.trim().toLowerCase()) {
+              workEmail = foundEmail;
+              console.log(
+                `[find-valuation-lead-contacts] Found work email for "${body.full_name}" via Blitz: ${workEmail}`,
+              );
+            } else {
+              console.log(
+                `[find-valuation-lead-contacts] Blitz email matches submission email — skipping work_email`,
+              );
+            }
+          }
+        } catch (emailErr) {
+          console.warn(
+            `[find-valuation-lead-contacts] Blitz email lookup failed: ${emailErr instanceof Error ? emailErr.message : emailErr}`,
+          );
+        }
       }
     }
 
-    // Step 5: Clay waterfall fallback — if we still need phone or LinkedIn
+    // Step 5: Clay waterfall fallback — if we still need phone, LinkedIn, or email
     const stillNeedsPhone = needsPhone && !phone;
+    const stillNeedsWorkEmail = needsWorkEmail && !workEmail;
     const nameParts = body.full_name.trim().split(/\s+/);
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
@@ -182,6 +216,19 @@ Deno.serve(async (req: Request) => {
         lastName,
         body.business_name,
       );
+    }
+
+    if (stillNeedsWorkEmail && linkedinUrl) {
+      // We have LinkedIn but no work email → send to Clay LinkedIn waterfall (returns email)
+      const sent = await sendClayLinkedInRequest(
+        supabaseAdmin,
+        body.valuation_lead_id,
+        linkedinUrl,
+        firstName,
+        lastName,
+        body.business_name,
+      );
+      if (sent) clayFallbackSent = true;
     }
 
     if (needsLinkedIn && !linkedinUrl && domain) {
@@ -200,6 +247,7 @@ Deno.serve(async (req: Request) => {
     const updates: Record<string, unknown> = {};
     if (linkedinUrl && needsLinkedIn) updates.linkedin_url = linkedinUrl;
     if (phone && needsPhone) updates.phone = phone;
+    if (workEmail && needsWorkEmail) updates.work_email = workEmail;
 
     if (Object.keys(updates).length > 0) {
       updates.updated_at = new Date().toISOString();
@@ -226,6 +274,7 @@ Deno.serve(async (req: Request) => {
       await setCachedResult(supabaseAdmin, cacheKey, body.full_name, {
         linkedin_url: linkedinUrl,
         phone,
+        work_email: workEmail,
       });
     }
 
@@ -239,8 +288,10 @@ Deno.serve(async (req: Request) => {
         email: body.email,
         linkedin_found: !!linkedinUrl,
         phone_found: !!phone,
+        work_email_found: !!workEmail,
         needed_linkedin: needsLinkedIn,
         needed_phone: needsPhone,
+        needed_work_email: needsWorkEmail,
         from_cache: fromCache,
         clay_fallback_sent: clayFallbackSent,
         duration_ms: duration,
@@ -252,6 +303,7 @@ Deno.serve(async (req: Request) => {
         success: true,
         linkedin_url: linkedinUrl,
         phone,
+        work_email: workEmail,
         skipped: false,
         from_cache: fromCache,
         clay_fallback_sent: clayFallbackSent,
@@ -475,6 +527,53 @@ async function sendClayNameDomainRequest(
     return true;
   } catch (err) {
     console.warn(`[find-valuation-lead-contacts] Clay name+domain request failed: ${err}`);
+    return false;
+  }
+}
+
+/**
+ * Send a Clay LinkedIn enrichment request (finds email from LinkedIn URL).
+ * Creates a tracking row and fires the Clay webhook.
+ */
+async function sendClayLinkedInRequest(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  valuationLeadId: string,
+  linkedinUrl: string,
+  firstName: string,
+  lastName: string,
+  companyName?: string,
+): Promise<boolean> {
+  try {
+    const requestId = crypto.randomUUID();
+
+    const { error: insertErr } = await supabaseAdmin.from('clay_enrichment_requests').insert({
+      request_id: requestId,
+      request_type: 'linkedin',
+      status: 'pending',
+      workspace_id: SYSTEM_WORKSPACE_ID,
+      first_name: firstName || null,
+      last_name: lastName || null,
+      linkedin_url: linkedinUrl,
+      company_name: companyName || null,
+      source_function: 'find-valuation-lead-contacts',
+      source_entity_id: valuationLeadId,
+    });
+
+    if (insertErr) {
+      console.warn(`[find-valuation-lead-contacts] Clay LinkedIn request insert failed: ${insertErr.message}`);
+      return false;
+    }
+
+    sendToClayLinkedIn({ requestId, linkedinUrl })
+      .then((res) => {
+        if (!res.success) console.warn(`[find-valuation-lead-contacts] Clay LinkedIn webhook failed: ${res.error}`);
+        else console.log(`[find-valuation-lead-contacts] Clay LinkedIn webhook sent for ${firstName} ${lastName}`);
+      })
+      .catch((err) => console.error(`[find-valuation-lead-contacts] Clay LinkedIn webhook error: ${err}`));
+
+    return true;
+  } catch (err) {
+    console.warn(`[find-valuation-lead-contacts] Clay LinkedIn request failed: ${err}`);
     return false;
   }
 }
