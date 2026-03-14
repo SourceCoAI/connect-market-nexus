@@ -78,6 +78,9 @@ export async function applyExistingTranscriptData(
   let appliedTranscriptCount = 0;
 
   for (const t of transcriptsWithExtracted) {
+    // Finding 18: Skip transcripts already applied (unless force re-extract)
+    if (!forceReExtract && t.applied_to_deal) continue;
+
     const extracted = (t.extracted_data ?? {}) as Record<string, unknown>;
     const flat = mapTranscriptToListing(extracted, listingKeys);
     if (Object.keys(flat).length === 0) continue;

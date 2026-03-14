@@ -289,7 +289,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { deal_id: dealId, project_name: requestProjectName } = await req.json();
+    const { deal_id: dealId, project_name: requestProjectName, branding: requestBranding } = await req.json();
 
     if (!dealId) {
       return new Response(JSON.stringify({ error: 'deal_id is required' }), {
@@ -509,7 +509,7 @@ Verify before returning: search your output for any proper noun that is not the 
     const teaserContent: MemoContent = {
       sections: teaserSections,
       memo_type: 'anonymous_teaser',
-      branding: 'sourceco',
+      branding: requestBranding || 'sourceco',
       generated_at: new Date().toISOString(),
       company_name: projectName,
       company_address: '',

@@ -14,6 +14,22 @@
 import { validateUrl } from '../_shared/security.ts';
 import { DEAL_SCRAPE_TIMEOUT_MS, WEBSITE_PLACEHOLDERS } from '../_shared/deal-extraction.ts';
 
+function isLoginWallContent(content: string): boolean {
+  const loginIndicators = [
+    /\bsign\s*in\b/i,
+    /\blog\s*in\b/i,
+    /\bpassword\b/i,
+    /\bauthentication\s*required\b/i,
+    /\baccess\s*denied\b/i,
+    /\b403\s*forbidden\b/i,
+    /\bcaptcha\b/i,
+    /\bverify\s*you\s*are\s*human\b/i,
+  ];
+  const matches = loginIndicators.filter(re => re.test(content));
+  // If 2+ indicators match and content is relatively short, likely a login wall
+  return matches.length >= 2 && content.length < 2000;
+}
+
 export interface ScrapeResult {
   url: string;
   content: string;
@@ -142,7 +158,13 @@ async function scrapePage(url: string, firecrawlApiKey: string): Promise<ScrapeR
 
     const data = await response.json();
     const content = data.data?.markdown || data.markdown || '';
-    return { url, content, success: content.length > 50 };
+
+    if (isLoginWallContent(content)) {
+      console.warn(`Login wall detected for ${url}, skipping`);
+      return { url, content: '', success: false };
+    }
+
+    return { url, content, success: content.length > 200 };
   } catch (err) {
     console.error(
       `Firecrawl scrape exception for ${url}:`,
@@ -235,7 +257,7 @@ export async function scrapeWebsite(
   scrapedPages.push(homepageResult);
 
   // Extract and scrape high-value subpages from homepage links
-  if (homepageResult.success && homepageResult.content.length > 50) {
+  if (homepageResult.success && homepageResult.content.length > 200) {
     const subpageUrls = extractSubpageUrls(homepageResult.content, websiteUrl);
     if (subpageUrls.length > 0) {
       console.log(
@@ -264,7 +286,7 @@ export async function scrapeWebsite(
 
   let websiteContent = '';
   for (const page of scrapedPages) {
-    if (page.success && page.content.length > 50) {
+    if (page.success && page.content.length > 200) {
       const pageName = new URL(page.url).pathname || 'homepage';
       websiteContent += `\n\n=== PAGE: ${pageName} ===\n\n${page.content}`;
     }

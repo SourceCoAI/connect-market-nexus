@@ -34,6 +34,7 @@ const SOURCE_PRIORITY: Record<ExtractionSource, number> = {
 const PROTECTED_FIELDS = new Set([
   'revenue',
   'ebitda',
+  'asking_price',
   'owner_goals',
   'transition_preferences',
   'key_quotes',

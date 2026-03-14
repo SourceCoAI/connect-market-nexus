@@ -23,6 +23,7 @@ import {
   getAnthropicHeaders,
   fetchWithAutoRetry,
 } from '../_shared/ai-providers.ts';
+import { logAICallCost } from '../_shared/cost-tracker.ts';
 
 // ─── Types ───
 
@@ -479,10 +480,10 @@ Deno.serve(async (req: Request) => {
     // the lead_memos row contains the parseable content.
     const { data: leadMemo } = await supabaseAdmin
       .from('lead_memos')
-      .select('content, status')
+      .select('content, status, created_at')
       .eq('deal_id', dealId)
       .eq('memo_type', 'full_memo')
-      .in('status', ['completed', 'draft', 'published'])
+      .in('status', ['completed', 'published'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -509,6 +510,19 @@ Deno.serve(async (req: Request) => {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Track warnings to surface in the response
+    const warnings: string[] = [];
+
+    // Check if the memo is stale (deal was updated after memo was generated)
+    if (leadMemo && deal) {
+      const memoCreatedAt = new Date(leadMemo.created_at || 0).getTime();
+      const dealUpdatedAt = new Date(deal.updated_at || 0).getTime();
+      if (dealUpdatedAt > memoCreatedAt) {
+        console.warn(`Lead memo may be stale: memo created ${leadMemo.created_at}, deal updated ${deal.updated_at}`);
+        warnings.push(`Lead memo may be outdated. The deal was updated on ${deal.updated_at} but the memo was generated on ${leadMemo.created_at}. Consider regenerating the memo first.`);
+      }
     }
 
     // Step 3: Build lead memo text from sections
@@ -572,6 +586,23 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
     }
 
     const result = await response.json();
+
+    // Log AI cost (non-blocking)
+    if (result.usage) {
+      logAICallCost(
+        supabaseAdmin,
+        'generate-marketplace-listing',
+        'anthropic',
+        DEFAULT_CLAUDE_MODEL,
+        {
+          inputTokens: result.usage.input_tokens,
+          outputTokens: result.usage.output_tokens,
+        },
+        undefined,
+        { deal_id: dealId },
+      ).catch(console.error);
+    }
+
     let markdownText = result.content?.[0]?.text;
 
     if (!markdownText) {
@@ -608,6 +639,19 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
 
     if (!validation.pass) {
       console.warn(`[generate-marketplace-listing] Validation failed:`, validation.errors);
+    }
+
+    // Check if there are anonymity breaches — these are blocking errors
+    const anonymityBreaches = validation.errors?.filter(e => e.includes('ANONYMITY BREACH')) || [];
+    if (anonymityBreaches.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: 'Anonymity validation failed',
+          anonymity_breaches: anonymityBreaches,
+          message: 'The listing contains anonymity breaches that must be resolved. Please regenerate or manually fix the content.',
+        }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Step 6b: Generate an anonymous title from the AI output.
@@ -699,6 +743,7 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
         hero_description: heroDescription || null,
         location: regionDescriptor || null,
         validation,
+        warnings,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );

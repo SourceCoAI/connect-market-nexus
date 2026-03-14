@@ -79,6 +79,13 @@ serve(async (req: Request) => {
       });
     }
 
+    if (Deno.env.get('ENABLE_TEST_FUNCTIONS') !== 'true') {
+      return new Response(JSON.stringify({ error: 'Test functions are disabled in this environment' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const pandadocApiKey = Deno.env.get("PANDADOC_API_KEY") || "";
     const webhookKey = Deno.env.get("PANDADOC_WEBHOOK_KEY") || "";
     const ndaTemplateUuid = Deno.env.get("PANDADOC_NDA_TEMPLATE_UUID") || "";

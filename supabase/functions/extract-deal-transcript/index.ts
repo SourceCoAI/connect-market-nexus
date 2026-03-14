@@ -3,6 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { normalizeStates, mergeStates } from '../_shared/geography.ts';
 import { buildPriorityUpdates, updateExtractionSources } from '../_shared/source-priority.ts';
 import { isPlaceholder } from '../_shared/deal-extraction.ts';
+// Uses Gemini 2.5 Flash (not 2.0) for superior long-context extraction on call transcripts.
+// Transcripts are the highest-priority data source (priority 100) and benefit from the newer model.
 import { GEMINI_25_FLASH_MODEL } from '../_shared/ai-providers.ts';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';

@@ -45,7 +45,7 @@ serve(async (req: Request) => {
         fee_pandadoc_status, fee_agreement_email_sent_at
       `,
       )
-      .eq('fee_pandadoc_status', 'pending')
+      .in('fee_pandadoc_status', ['pending', 'not_sent', 'sent'])
       .eq('fee_agreement_email_sent', true)
       .not('fee_agreement_email_sent_at', 'is', null)
       .eq('fee_agreement_signed', false);
@@ -164,7 +164,7 @@ serve(async (req: Request) => {
             event_type: `fee_reminder_${reminderType}`,
             external_id: firm.id,
             document_type: 'fee_agreement',
-            document_id: 'reminder',
+            document_id: firm.id,
             raw_payload: { reminder_type: reminderType },
             processed_at: new Date().toISOString(),
           });

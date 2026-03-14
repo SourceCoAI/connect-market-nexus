@@ -50,7 +50,7 @@ serve(async (req: Request) => {
         nda_pandadoc_status, nda_email_sent_at
       `,
       )
-      .eq('nda_pandadoc_status', 'pending')
+      .in('nda_pandadoc_status', ['pending', 'not_sent', 'sent'])
       .eq('nda_email_sent', true)
       .not('nda_email_sent_at', 'is', null)
       .eq('nda_signed', false);
@@ -183,7 +183,7 @@ serve(async (req: Request) => {
             event_type: `nda_reminder_${reminderType}`,
             external_id: firm.id,
             document_type: 'nda',
-            document_id: 'reminder',
+            document_id: firm.id,
             raw_payload: { reminder_type: reminderType },
             processed_at: new Date().toISOString(),
           });
