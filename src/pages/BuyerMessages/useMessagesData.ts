@@ -46,6 +46,14 @@ export function useBuyerThreads() {
           queryClient.invalidateQueries({ queryKey: ['unread-buyer-message-counts'] });
         },
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'connection_messages' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['buyer-message-threads'] });
+          queryClient.invalidateQueries({ queryKey: ['unread-buyer-message-counts'] });
+        },
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);

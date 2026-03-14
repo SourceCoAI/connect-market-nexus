@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, ArrowLeft, Loader2, CheckCheck } from 'lucide-react';
-import { useConnectionMessages } from '@/hooks/use-connection-messages';
+import { useConnectionMessages, useMarkMessagesReadByBuyer } from '@/hooks/use-connection-messages';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
@@ -53,6 +53,19 @@ export function GeneralChatView({
   const threadId = resolvedThread?.connection_request_id;
 
   const { data: existingMessages = [] } = useConnectionMessages(threadId || '');
+  const markRead = useMarkMessagesReadByBuyer();
+
+  // Mark admin messages as read when the thread is opened / new messages arrive
+  const unreadCount = existingMessages.filter(
+    (m) => m.sender_role === 'admin' && !m.is_read_by_buyer,
+  ).length;
+
+  useEffect(() => {
+    if (threadId && unreadCount > 0) {
+      markRead.mutate(threadId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId, unreadCount]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -115,8 +128,19 @@ export function GeneralChatView({
         sender_id: user.id,
         body,
         sender_role: 'buyer',
+        is_read_by_buyer: true,
       });
       if (error) throw error;
+
+      // Notify admin of new buyer message (fire-and-forget)
+      supabase.functions
+        .invoke('notify-admin-new-message', {
+          body: {
+            connection_request_id: threadId,
+            message_preview: body.substring(0, 200),
+          },
+        })
+        .catch(console.error);
 
       setNewMessage('');
       setAttachment(null);

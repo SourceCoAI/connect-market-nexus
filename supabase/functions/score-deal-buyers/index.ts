@@ -139,12 +139,14 @@ Deno.serve(async (req: Request) => {
           .select(BUYER_SELECT)
           .eq('archived', false)
           .in('universe_id', universeIds)
+          .order('created_at', { ascending: false })
           .limit(10000),
         supabase
           .from('buyers')
           .select(BUYER_SELECT)
           .eq('archived', false)
           .eq('ai_seeded', true)
+          .order('created_at', { ascending: false })
           .limit(5000),
         // Include manually-added buyers with no universe assignment
         supabase
@@ -153,10 +155,21 @@ Deno.serve(async (req: Request) => {
           .eq('archived', false)
           .is('universe_id', null)
           .neq('ai_seeded', true)
+          .order('created_at', { ascending: false })
           .limit(5000),
       ]);
 
       buyerError = internalResult.error || aiSeededResult.error || noUniverseResult.error;
+
+      if (internalResult.data?.length === 10000) {
+        console.warn(`Buyer pool hit 10,000 limit for universes ${universeIds}. Some buyers may be excluded from scoring.`);
+      }
+      if (aiSeededResult.data?.length === 5000) {
+        console.warn(`AI-seeded buyer pool hit 5,000 limit. Some buyers may be excluded from scoring.`);
+      }
+      if (noUniverseResult.data?.length === 5000) {
+        console.warn(`No-universe buyer pool hit 5,000 limit. Some buyers may be excluded from scoring.`);
+      }
 
       // Merge and deduplicate by buyer id
       const seen = new Set<string>();
@@ -175,9 +188,12 @@ Deno.serve(async (req: Request) => {
       fetchedBuyers = merged;
     } else {
       // No universes connected — fall back to unfiltered behavior (all buyers)
-      const result = await supabase.from('buyers').select(BUYER_SELECT).eq('archived', false).limit(10000);
+      const result = await supabase.from('buyers').select(BUYER_SELECT).eq('archived', false).order('created_at', { ascending: false }).limit(10000);
       fetchedBuyers = result.data;
       buyerError = result.error;
+      if (result.data?.length === 10000) {
+        console.warn(`Buyer pool hit 10,000 limit (no universes). Some buyers may be excluded from scoring.`);
+      }
     }
 
     if (buyerError) {
@@ -299,7 +315,7 @@ Deno.serve(async (req: Request) => {
       );
 
       // Apply service fit gate multiplier — crushes composite for bad service fits
-      const gateMultiplier = getServiceGateMultiplier(svc.score);
+      const gateMultiplier = getServiceGateMultiplier(svc.score, svc.noData);
       const composite = Math.round(rawComposite * gateMultiplier);
 
       const fitSignals = [...svc.signals, ...geo.signals, ...bonus.signals];

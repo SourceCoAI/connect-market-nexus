@@ -21,6 +21,8 @@ import {
   fetchWithAutoRetry,
 } from '../_shared/ai-providers.ts';
 import { STATE_CODE_TO_NAME, STATE_CODE_TO_REGION } from '../_shared/geography.ts';
+import { logAICallCost } from '../_shared/cost-tracker.ts';
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Memo section structure
 interface MemoSection {
@@ -211,6 +213,7 @@ Deno.serve(async (req: Request) => {
         branding,
         anonCompanyMeta,
         resolvedProjectName,
+        supabaseAdmin,
       );
 
       // Save to lead_memos
@@ -297,7 +300,7 @@ Deno.serve(async (req: Request) => {
         // The hero is the first thing buyers see on cards and landing pages —
         // it must be a concise 2-3 sentence elevator pitch, fully anonymized,
         // free of transcript language, with financials as approximate ranges.
-        listingUpdate.hero_description = await buildHeroFromMemo(anthropicApiKey, teaserContent.sections, deal);
+        listingUpdate.hero_description = await buildHeroFromMemo(anthropicApiKey, teaserContent.sections, deal, supabaseAdmin);
 
         const { error: syncError } = await supabaseAdmin
           .from('listings')
@@ -321,6 +324,7 @@ Deno.serve(async (req: Request) => {
         branding,
         fullCompanyMeta,
         resolvedProjectName,
+        supabaseAdmin,
       );
 
       const { data: fullMemo, error: fullError } = await supabaseAdmin
@@ -545,6 +549,7 @@ async function buildHeroFromMemo(
   apiKey: string,
   sections: MemoSection[],
   deal: Record<string, unknown>,
+  supabase?: SupabaseClient,
 ): Promise<string> {
   // Gather section text for context
   const sectionText = sections
@@ -610,6 +615,18 @@ Return ONLY the hero description text. No preamble, no quotes, no explanation.`;
     }
 
     const result = await response.json();
+
+    // Log AI cost (non-blocking)
+    if (supabase && result.usage) {
+      logAICallCost(
+        supabase,
+        'generate-lead-memo:hero',
+        'anthropic',
+        DEFAULT_CLAUDE_MODEL,
+        { inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens },
+      ).catch(console.error);
+    }
+
     let hero = (result.content?.[0]?.text || '').trim();
 
     // Strip any wrapping quotes the model may have added
@@ -1119,6 +1136,7 @@ async function generateFullMemo(
     company_website: string;
     company_phone: string;
   },
+  supabase?: SupabaseClient,
 ): Promise<MemoContent> {
   const systemPrompt = `You are a senior analyst at a tech-enabled investment bank writing an internal lead memo. Your audience: partners and deal team members who evaluate opportunities. A partner should read this in under 5 minutes and know whether to pursue the deal.
 
@@ -1227,6 +1245,20 @@ Return the memo as markdown with ## headers. Headers must exactly match: COMPANY
     }
 
     const result = await response.json();
+
+    // Log AI cost (non-blocking)
+    if (supabase && result.usage) {
+      logAICallCost(
+        supabase,
+        'generate-lead-memo:full',
+        'anthropic',
+        DEFAULT_CLAUDE_MODEL,
+        { inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens },
+        undefined,
+        { attempt },
+      ).catch(console.error);
+    }
+
     const rawContent = result.content?.[0]?.text;
 
     if (!rawContent) {
@@ -1335,6 +1367,7 @@ async function generateAnonymousTeaser(
   },
   projectCodename: string,
   regionName: string,
+  supabase?: SupabaseClient,
 ): Promise<MemoContent> {
   // Build banned terms list for anonymity enforcement in the prompt
   const companyName = (context.deal.internal_company_name || context.deal.title || '') as string;
@@ -1498,6 +1531,20 @@ FINAL ANONYMITY CHECK: Before returning, re-read every sentence. Confirm no comb
     }
 
     const result = await response.json();
+
+    // Log AI cost (non-blocking)
+    if (supabase && result.usage) {
+      logAICallCost(
+        supabase,
+        'generate-lead-memo:teaser',
+        'anthropic',
+        DEFAULT_CLAUDE_MODEL,
+        { inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens },
+        undefined,
+        { attempt },
+      ).catch(console.error);
+    }
+
     const rawContent = result.content?.[0]?.text;
 
     if (!rawContent) {
@@ -1564,6 +1611,7 @@ async function generateMemo(
     company_phone: string;
   },
   projectName?: string,
+  supabase?: SupabaseClient,
 ): Promise<MemoContent> {
   const isAnonymous = memoType === 'anonymous_teaser';
 
@@ -1576,7 +1624,7 @@ async function generateMemo(
 
   // Route to the appropriate generation pipeline
   if (!isAnonymous) {
-    return await generateFullMemo(apiKey, context, branding, companyMeta);
+    return await generateFullMemo(apiKey, context, branding, companyMeta, supabase);
   }
 
   return await generateAnonymousTeaser(
@@ -1586,6 +1634,7 @@ async function generateMemo(
     companyMeta,
     projectCodename,
     regionName,
+    supabase,
   );
 }
 

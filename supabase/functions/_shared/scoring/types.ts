@@ -2,6 +2,8 @@
 // Shared across score-deal-buyers, process-scoring-queue, and any future
 // consumer of the buyer-scoring pipeline.
 
+import { normalizeBuyerType } from '../buyer-type-definitions.ts';
+
 /** Tier classification for scored buyers. */
 export type Tier = 'move_now' | 'strong' | 'speculative';
 
@@ -71,8 +73,11 @@ export type ScoreWeights = typeof SCORE_WEIGHTS;
  * If service_score falls in a range, the ENTIRE composite score is
  * multiplied by the corresponding factor.
  */
-export function getServiceGateMultiplier(serviceScore: number): number {
-  if (serviceScore === 0) return 0.0; // Hard kill — explicitly wrong industry
+export function getServiceGateMultiplier(serviceScore: number, noData?: boolean): number {
+  if (serviceScore === 0) {
+    if (noData) return 0.3; // No data — apply penalty but don't eliminate
+    return 0.0; // Hard kill — explicitly wrong industry
+  }
   if (serviceScore <= 20) return 0.4; // Completely unrelated services
   if (serviceScore <= 40) return 0.6; // Weak adjacency at best
   if (serviceScore <= 60) return 0.8; // Partial overlap, some adjacency
@@ -90,23 +95,26 @@ export function getServiceGateMultiplier(serviceScore: number): number {
  * 4. Non-PE operating companies — legitimate but lower priority
  */
 export function getBuyerTypePriority(buyerType: string | null, isPeBacked: boolean): number {
+  // Normalize legacy buyer type strings (e.g. 'pe_firm' → 'private_equity')
+  const normalized = normalizeBuyerType(buyerType);
+
   // PE-backed platform company (corporate with PE backing)
-  if (buyerType === 'corporate' && isPeBacked) return 1;
+  if (normalized === 'corporate' && isPeBacked) return 1;
 
   // PE firm
-  if (buyerType === 'private_equity') return 2;
+  if (normalized === 'private_equity') return 2;
 
   // Family office
-  if (buyerType === 'family_office') return 2;
+  if (normalized === 'family_office') return 2;
 
   // Independent sponsor
-  if (buyerType === 'independent_sponsor') return 3;
+  if (normalized === 'independent_sponsor') return 3;
 
   // Search fund
-  if (buyerType === 'search_fund') return 3;
+  if (normalized === 'search_fund') return 3;
 
   // Non-PE operating company (corporate without PE backing)
-  if (buyerType === 'corporate') return 4;
+  if (normalized === 'corporate') return 4;
 
   // Individual buyer or unknown
   return 5;

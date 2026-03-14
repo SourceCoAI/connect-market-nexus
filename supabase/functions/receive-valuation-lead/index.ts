@@ -100,6 +100,9 @@ serve(async (req: Request) => {
       received_at: new Date().toISOString(),
     };
 
+    // incoming_leads is an audit-trail table for raw webhook payloads.
+    // The primary operational leads table is inbound_leads.
+    // TODO: Consider renaming to valuation_lead_audit_log for clarity.
     // Use ignoreDuplicates so both initial_unlock and full_report raw payloads are preserved
     const { error: incomingError } = await supabaseAdmin
       .from('incoming_leads')

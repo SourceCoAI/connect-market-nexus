@@ -71,14 +71,14 @@ export function scoreService(
   buyerServices: string[],
   buyerIndustries: string[],
   buyerIndustryVertical: string,
-): { score: number; signals: string[] } {
+): { score: number; signals: string[]; noData?: boolean } {
   const rawDealTerms = [...dealCategories, dealIndustry].filter(Boolean);
   const rawBuyerTerms = [...buyerServices, ...buyerIndustries, buyerIndustryVertical].filter(
     Boolean,
   );
 
   if (rawDealTerms.length === 0 || rawBuyerTerms.length === 0) {
-    return { score: 0, signals: [] }; // No data -- cannot score, don't inflate
+    return { score: 0, signals: [], noData: true }; // No data -- cannot score, don't inflate
   }
 
   // Expand terms through synonyms for semantic matching

@@ -176,7 +176,10 @@ const handler = async (req: Request): Promise<Response> => {
             
             <div class="footer">
               <p>You're receiving this because you have an active deal alert on SourceCo.</p>
-              <p><a href="${Deno.env.get('SITE_URL') ?? 'https://marketplace.sourcecodeals.com'}/profile">Manage your alerts</a></p>
+              <p style="font-size: 12px; color: #666;">
+                <a href="${Deno.env.get('SITE_URL') ?? 'https://marketplace.sourcecodeals.com'}/profile?tab=alerts">Manage your alerts</a> |
+                <a href="${Deno.env.get('SITE_URL') ?? 'https://marketplace.sourcecodeals.com'}/api/unsubscribe?email=${encodeURIComponent(user_email)}&type=deal_alerts">Unsubscribe from deal alerts</a>
+              </p>
             </div>
           </div>
         </body>
@@ -204,6 +207,10 @@ const handler = async (req: Request): Promise<Response> => {
         to: [{ email: user_email, name: user_email.split('@')[0] }],
         subject: `New deal — matches your mandate.`,
         htmlContent: emailHtml,
+        headers: {
+          "List-Unsubscribe": "<mailto:unsubscribe@sourcecodeals.com>",
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
         params: { trackClicks: false, trackOpens: true },
       }),
     });

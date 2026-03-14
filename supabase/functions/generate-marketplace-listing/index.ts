@@ -23,6 +23,8 @@ import {
   getAnthropicHeaders,
   fetchWithAutoRetry,
 } from '../_shared/ai-providers.ts';
+import { logAICallCost } from '../_shared/cost-tracker.ts';
+import { sanitizeAnonymityBreaches, STATE_NAMES, STATE_ABBREVS } from '../_shared/anonymization.ts';
 
 // ─── Types ───
 
@@ -177,70 +179,8 @@ function extractCities(leadMemoText: string): string[] {
   return [...new Set(cities)];
 }
 
-// ─── Post-processing: strip leaked state names and location-identifying patterns ───
-
-// Canonical state-to-region mappings — must match deal-to-listing-anonymizer.ts
-const STATE_NAMES: Record<string, string> = {
-  'Alabama': 'Southeast', 'Alaska': 'Northwest', 'Arizona': 'Mountain West',
-  'Arkansas': 'South Central', 'California': 'West Coast', 'Colorado': 'Mountain West',
-  'Connecticut': 'New England', 'Delaware': 'Mid-Atlantic', 'Florida': 'Southeast',
-  'Georgia': 'Southeast', 'Hawaii': 'Pacific', 'Idaho': 'Mountain West',
-  'Illinois': 'Midwest', 'Indiana': 'Midwest', 'Iowa': 'Midwest',
-  'Kansas': 'Great Plains', 'Kentucky': 'Southeast', 'Louisiana': 'South Central',
-  'Maine': 'New England', 'Maryland': 'Mid-Atlantic', 'Massachusetts': 'New England',
-  'Michigan': 'Midwest', 'Minnesota': 'Great Plains', 'Mississippi': 'Southeast',
-  'Missouri': 'Great Plains', 'Montana': 'Mountain West', 'Nebraska': 'Great Plains',
-  'Nevada': 'Mountain West', 'New Hampshire': 'New England', 'New Jersey': 'Mid-Atlantic',
-  'New Mexico': 'Mountain West', 'New York': 'Mid-Atlantic', 'North Carolina': 'Southeast',
-  'North Dakota': 'Great Plains', 'Ohio': 'Midwest', 'Oklahoma': 'South Central',
-  'Oregon': 'West Coast', 'Pennsylvania': 'Mid-Atlantic', 'Rhode Island': 'New England',
-  'South Carolina': 'Southeast', 'South Dakota': 'Great Plains', 'Tennessee': 'Southeast',
-  'Texas': 'South Central', 'Utah': 'Mountain West', 'Vermont': 'New England',
-  'Virginia': 'Southeast', 'Washington': 'West Coast', 'West Virginia': 'Mid-Atlantic',
-  'Wisconsin': 'Midwest', 'Wyoming': 'Mountain West',
-};
-
-const STATE_ABBREVS: Record<string, string> = {
-  'AL': 'Southeast', 'AK': 'Northwest', 'AZ': 'Mountain West', 'AR': 'South Central',
-  'CA': 'West Coast', 'CO': 'Mountain West', 'CT': 'New England', 'DE': 'Mid-Atlantic',
-  'FL': 'Southeast', 'GA': 'Southeast', 'HI': 'Pacific', 'ID': 'Mountain West',
-  'IL': 'Midwest', 'IN': 'Midwest', 'IA': 'Midwest', 'KS': 'Great Plains',
-  'KY': 'Southeast', 'LA': 'South Central', 'ME': 'New England', 'MD': 'Mid-Atlantic',
-  'MA': 'New England', 'MI': 'Midwest', 'MN': 'Great Plains', 'MS': 'Southeast',
-  'MO': 'Great Plains', 'MT': 'Mountain West', 'NE': 'Great Plains', 'NV': 'Mountain West',
-  'NH': 'New England', 'NJ': 'Mid-Atlantic', 'NM': 'Mountain West', 'NY': 'Mid-Atlantic',
-  'NC': 'Southeast', 'ND': 'Great Plains', 'OH': 'Midwest', 'OK': 'South Central',
-  'OR': 'West Coast', 'PA': 'Mid-Atlantic', 'RI': 'New England', 'SC': 'Southeast',
-  'SD': 'Great Plains', 'TN': 'Southeast', 'TX': 'South Central', 'UT': 'Mountain West',
-  'VT': 'New England', 'VA': 'Southeast', 'WA': 'West Coast', 'WV': 'Mid-Atlantic',
-  'WI': 'Midwest', 'WY': 'Mountain West',
-};
-
-function sanitizeAnonymityBreaches(text: string): string {
-  let result = text;
-
-  // Replace full state names with regional descriptors
-  for (const [state, region] of Object.entries(STATE_NAMES)) {
-    const escaped = state.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(`\\b${escaped}\\b`, 'gi'), region);
-  }
-
-  // Replace specific location counts per region (e.g. "Two South Central locations" -> "several locations in one region")
-  // Per-region counts combined with region names can narrow down the specific business
-  const regionNames = 'South Central|Southeast|Midwest|Mid-Atlantic|West Coast|Mountain West|New England|Pacific|Northwest';
-  result = result.replace(
-    new RegExp(`\\b(one|two|three|four|five|six|seven|eight|nine|ten|\\d+)\\s+(${regionNames})\\s+(location|store|shop|office|branch|site|facilit)`, 'gi'),
-    'several $3',
-  );
-
-  // Replace "both {Region} locations" pattern
-  result = result.replace(
-    new RegExp(`\\bboth\\s+(${regionNames})\\s+(location|store|shop|office|branch|site|facilit)`, 'gi'),
-    'the $2',
-  );
-
-  return result;
-}
+// ─── Post-processing: sanitizeAnonymityBreaches, STATE_NAMES, STATE_ABBREVS
+//     are imported from '../_shared/anonymization.ts'
 
 // ─── Markdown to HTML ───
 
@@ -479,10 +419,10 @@ Deno.serve(async (req: Request) => {
     // the lead_memos row contains the parseable content.
     const { data: leadMemo } = await supabaseAdmin
       .from('lead_memos')
-      .select('content, status')
+      .select('content, status, created_at')
       .eq('deal_id', dealId)
       .eq('memo_type', 'full_memo')
-      .in('status', ['completed', 'draft', 'published'])
+      .in('status', ['completed', 'published'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -509,6 +449,19 @@ Deno.serve(async (req: Request) => {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Track warnings to surface in the response
+    const warnings: string[] = [];
+
+    // Check if the memo is stale (deal was updated after memo was generated)
+    if (leadMemo && deal) {
+      const memoCreatedAt = new Date(leadMemo.created_at || 0).getTime();
+      const dealUpdatedAt = new Date(deal.updated_at || 0).getTime();
+      if (dealUpdatedAt > memoCreatedAt) {
+        console.warn(`Lead memo may be stale: memo created ${leadMemo.created_at}, deal updated ${deal.updated_at}`);
+        warnings.push(`Lead memo may be outdated. The deal was updated on ${deal.updated_at} but the memo was generated on ${leadMemo.created_at}. Consider regenerating the memo first.`);
+      }
     }
 
     // Step 3: Build lead memo text from sections
@@ -572,6 +525,23 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
     }
 
     const result = await response.json();
+
+    // Log AI cost (non-blocking)
+    if (result.usage) {
+      logAICallCost(
+        supabaseAdmin,
+        'generate-marketplace-listing',
+        'anthropic',
+        DEFAULT_CLAUDE_MODEL,
+        {
+          inputTokens: result.usage.input_tokens,
+          outputTokens: result.usage.output_tokens,
+        },
+        undefined,
+        { deal_id: dealId },
+      ).catch(console.error);
+    }
+
     let markdownText = result.content?.[0]?.text;
 
     if (!markdownText) {
@@ -608,6 +578,19 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
 
     if (!validation.pass) {
       console.warn(`[generate-marketplace-listing] Validation failed:`, validation.errors);
+    }
+
+    // Check if there are anonymity breaches — these are blocking errors
+    const anonymityBreaches = validation.errors?.filter(e => e.includes('ANONYMITY BREACH')) || [];
+    if (anonymityBreaches.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: 'Anonymity validation failed',
+          anonymity_breaches: anonymityBreaches,
+          message: 'The listing contains anonymity breaches that must be resolved. Please regenerate or manually fix the content.',
+        }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Step 6b: Generate an anonymous title from the AI output.
@@ -699,6 +682,7 @@ Apply all anonymization rules strictly. Return markdown only - no preamble, no e
         hero_description: heroDescription || null,
         location: regionDescriptor || null,
         validation,
+        warnings,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
