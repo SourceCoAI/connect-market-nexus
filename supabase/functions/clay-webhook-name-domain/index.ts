@@ -123,21 +123,48 @@ serve(async (req: Request) => {
         { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false },
       );
 
-      // 8. Update contacts table if source_entity_id is a contact ID
+      // 8. Update source entity with result
       if (request.source_entity_id) {
-        const { error: contactUpdateErr } = await supabase
-          .from('contacts')
-          .update({ email: resultEmail })
-          .eq('id', request.source_entity_id);
+        if (request.source_function === 'find-valuation-lead-contacts') {
+          // Valuation lead enrichment — Clay may return LinkedIn URL alongside email
+          const resultLinkedIn = (payload.linkedin_url as string) || (payload.linkedinUrl as string) || null;
+          const leadUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+          if (resultLinkedIn) leadUpdates.linkedin_url = resultLinkedIn;
+          // Save enriched email as work_email (don't overwrite submission email)
+          if (resultEmail) leadUpdates.work_email = resultEmail;
 
-        if (contactUpdateErr) {
-          console.warn(
-            `[clay-webhook-name-domain] Contact update failed for ${request.source_entity_id}: ${contactUpdateErr.message}`,
-          );
+          if (Object.keys(leadUpdates).length > 1) {
+            const { error: leadUpdateErr } = await supabase
+              .from('valuation_leads')
+              .update(leadUpdates)
+              .eq('id', request.source_entity_id);
+
+            if (leadUpdateErr) {
+              console.warn(
+                `[clay-webhook-name-domain] Valuation lead update failed for ${request.source_entity_id}: ${leadUpdateErr.message}`,
+              );
+            } else {
+              console.log(
+                `[clay-webhook-name-domain] Updated valuation_lead ${request.source_entity_id} with Clay result`,
+              );
+            }
+          }
         } else {
-          console.log(
-            `[clay-webhook-name-domain] Updated contact ${request.source_entity_id} with Clay result`,
-          );
+          // Default: update contacts table
+          const { error: contactUpdateErr } = await supabase
+            .from('contacts')
+            .update({ email: resultEmail })
+            .eq('id', request.source_entity_id);
+
+          if (contactUpdateErr) {
+            console.warn(
+              `[clay-webhook-name-domain] Contact update failed for ${request.source_entity_id}: ${contactUpdateErr.message}`,
+            );
+          } else {
+            console.log(
+              `[clay-webhook-name-domain] Updated contact ${request.source_entity_id} with Clay result`,
+            );
+          }
         }
       }
 
