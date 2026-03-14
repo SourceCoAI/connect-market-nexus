@@ -9,9 +9,9 @@
  *   2. Skip if lead already has both linkedin_url and phone
  *   3. Find person's LinkedIn via Serper Google search ("full_name" site:linkedin.com/in)
  *      - If website/business_name available, refine search with company context
- *   4. If LinkedIn found → Blitz phone enrichment (primary)
- *   5. If Blitz misses phone → Prospeo enrichment fallback (also returns phone)
- *   6. Update valuation_leads row with linkedin_url and phone
+ *   4. If LinkedIn found → Blitz phone enrichment (primary, synchronous)
+ *   5. If Blitz misses → Clay waterfall fallback (async — results arrive via Clay webhooks)
+ *   6. Update valuation_leads row with whatever we found synchronously
  *   7. Cache results for 7 days
  *
  * POST /find-valuation-lead-contacts
@@ -24,9 +24,15 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import { googleSearch } from '../_shared/serper-client.ts';
 import { findPhone } from '../_shared/blitz-client.ts';
-import { enrichContact } from '../_shared/prospeo-client.ts';
+import {
+  sendToClayLinkedIn,
+  sendToClayNameDomain,
+  sendToClayPhone,
+} from '../_shared/clay-client.ts';
 
 const CACHE_TTL_DAYS = 7;
+/** Sentinel workspace_id for system/service-initiated Clay requests */
+const SYSTEM_WORKSPACE_ID = '00000000-0000-0000-0000-000000000000';
 
 interface FindValuationLeadContactsRequest {
   valuation_lead_id: string;
@@ -124,6 +130,7 @@ Deno.serve(async (req: Request) => {
     let linkedinUrl: string | null = existingLead.linkedin_url || null;
     let phone: string | null = existingLead.phone || null;
     let fromCache = false;
+    let clayFallbackSent = false;
 
     // Step 2: Check cache for recent results (7-day TTL)
     const cacheKey = buildCacheKey(body.full_name, body.email);
@@ -158,34 +165,38 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Step 5: Prospeo fallback — if we still need phone or LinkedIn
-    const stillNeedsLinkedIn = needsLinkedIn && !linkedinUrl;
+    // Step 5: Clay waterfall fallback — if we still need phone or LinkedIn
     const stillNeedsPhone = needsPhone && !phone;
+    const nameParts = body.full_name.trim().split(/\s+/);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    const domain = extractDomain(body.website);
 
-    if (stillNeedsLinkedIn || stillNeedsPhone) {
-      const prospeoResult = await tryProspeoEnrichment(
-        body.full_name,
+    if (stillNeedsPhone && linkedinUrl) {
+      // We have LinkedIn but no phone → send to Clay phone waterfall
+      clayFallbackSent = await sendClayPhoneRequest(
+        supabaseAdmin,
+        body.valuation_lead_id,
         linkedinUrl,
-        body.website,
+        firstName,
+        lastName,
+        body.business_name,
       );
-
-      if (prospeoResult) {
-        if (stillNeedsLinkedIn && prospeoResult.linkedin_url) {
-          linkedinUrl = prospeoResult.linkedin_url;
-          console.log(
-            `[find-valuation-lead-contacts] Found LinkedIn for "${body.full_name}" via Prospeo`,
-          );
-        }
-        if (stillNeedsPhone && prospeoResult.phone) {
-          phone = prospeoResult.phone;
-          console.log(
-            `[find-valuation-lead-contacts] Found phone for "${body.full_name}" via Prospeo`,
-          );
-        }
-      }
     }
 
-    // Step 6: Update valuation_leads with whatever we found
+    if (needsLinkedIn && !linkedinUrl && domain) {
+      // We have name + domain but no LinkedIn → send to Clay name+domain waterfall
+      clayFallbackSent = await sendClayNameDomainRequest(
+        supabaseAdmin,
+        body.valuation_lead_id,
+        firstName,
+        lastName,
+        domain,
+        body.business_name,
+      );
+    }
+
+    // Step 6: Update valuation_leads with whatever we found synchronously
     const updates: Record<string, unknown> = {};
     if (linkedinUrl && needsLinkedIn) updates.linkedin_url = linkedinUrl;
     if (phone && needsPhone) updates.phone = phone;
@@ -231,6 +242,7 @@ Deno.serve(async (req: Request) => {
         needed_linkedin: needsLinkedIn,
         needed_phone: needsPhone,
         from_cache: fromCache,
+        clay_fallback_sent: clayFallbackSent,
         duration_ms: duration,
       }),
     );
@@ -242,6 +254,7 @@ Deno.serve(async (req: Request) => {
         phone,
         skipped: false,
         from_cache: fromCache,
+        clay_fallback_sent: clayFallbackSent,
         duration_ms: duration,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -260,12 +273,10 @@ Deno.serve(async (req: Request) => {
 
 // ─── Cache helpers ───────────────────────────────────────────────────────────
 
-/** Build a cache key from name + email (stable, unique per person). */
 function buildCacheKey(fullName: string, email: string): string {
   return `vlead:${fullName.trim().toLowerCase()}:${email.trim().toLowerCase()}`;
 }
 
-/** Look up a cached enrichment result within the TTL window. */
 async function getCachedResult(
   supabaseAdmin: ReturnType<typeof createClient>,
   cacheKey: string,
@@ -282,8 +293,7 @@ async function getCachedResult(
       .maybeSingle();
 
     if (data?.results) {
-      const r = data.results as CachedResult;
-      return r;
+      return data.results as CachedResult;
     }
   } catch (err) {
     console.warn('[find-valuation-lead-contacts] Cache read failed:', err);
@@ -291,7 +301,6 @@ async function getCachedResult(
   return null;
 }
 
-/** Write enrichment results to the cache. */
 async function setCachedResult(
   supabaseAdmin: ReturnType<typeof createClient>,
   cacheKey: string,
@@ -301,7 +310,7 @@ async function setCachedResult(
   try {
     await supabaseAdmin.from('contact_search_cache').insert({
       cache_key: cacheKey,
-      company_name: fullName, // Reuse company_name column for person name
+      company_name: fullName,
       results: result,
     });
   } catch (err) {
@@ -311,14 +320,6 @@ async function setCachedResult(
 
 // ─── LinkedIn search ─────────────────────────────────────────────────────────
 
-/**
- * Find a person's LinkedIn profile URL via Google search.
- *
- * Strategy:
- *   1. Search with business context: "full_name" "business_name" site:linkedin.com/in
- *   2. Fallback: "full_name" site:linkedin.com/in
- *   3. Pick the best linkedin.com/in result
- */
 async function findPersonLinkedIn(
   fullName: string,
   businessName?: string,
@@ -327,10 +328,8 @@ async function findPersonLinkedIn(
   const cleanName = fullName.trim();
   if (!cleanName) return null;
 
-  // Build company context for more precise results
   const companyContext = businessName || extractBusinessFromDomain(website) || '';
 
-  // Try with company context first for better precision
   if (companyContext) {
     const contextUrl = await searchLinkedInProfile(
       `"${cleanName}" "${companyContext}" site:linkedin.com/in`,
@@ -343,7 +342,6 @@ async function findPersonLinkedIn(
     }
   }
 
-  // Fallback: just the person's name
   const nameOnlyUrl = await searchLinkedInProfile(
     `"${cleanName}" site:linkedin.com/in`,
   );
@@ -358,10 +356,6 @@ async function findPersonLinkedIn(
   return null;
 }
 
-/**
- * Execute a Google search and extract the best linkedin.com/in URL from results.
- * Retries once on failure (covers Serper 429 rate limits and transient errors).
- */
 async function searchLinkedInProfile(query: string): Promise<string | null> {
   const MAX_ATTEMPTS = 2;
 
@@ -369,21 +363,17 @@ async function searchLinkedInProfile(query: string): Promise<string | null> {
     try {
       const results = await googleSearch(query, 5);
       for (const result of results) {
-        // Match personal LinkedIn profiles (linkedin.com/in/...)
         if (result.url.includes('linkedin.com/in/')) {
-          // Clean up the URL — strip query params and fragments
           const url = new URL(result.url);
           return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
         }
       }
-      // Search succeeded but no LinkedIn result — don't retry
       return null;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(
         `[find-valuation-lead-contacts] Serper search failed (attempt ${attempt + 1}/${MAX_ATTEMPTS}): ${msg}`,
       );
-      // Wait 5s before retry (covers 429 rate limits)
       if (attempt < MAX_ATTEMPTS - 1) {
         await new Promise((r) => setTimeout(r, 5_000));
       }
@@ -392,48 +382,105 @@ async function searchLinkedInProfile(query: string): Promise<string | null> {
   return null;
 }
 
-// ─── Prospeo fallback ────────────────────────────────────────────────────────
+// ─── Clay waterfall fallback ─────────────────────────────────────────────────
 
 /**
- * Try Prospeo enrichment as a fallback when Serper + Blitz didn't find everything.
- * Returns linkedin_url and/or phone if found, null otherwise.
+ * Send a Clay phone enrichment request. Creates a tracking row in
+ * clay_enrichment_requests and fires the Clay webhook.
+ * Returns true if the request was sent, false on error.
  */
-async function tryProspeoEnrichment(
-  fullName: string,
-  linkedinUrl: string | null,
-  website?: string,
-): Promise<{ linkedin_url: string | null; phone: string | null } | null> {
+async function sendClayPhoneRequest(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  valuationLeadId: string,
+  linkedinUrl: string,
+  firstName: string,
+  lastName: string,
+  companyName?: string,
+): Promise<boolean> {
   try {
-    const nameParts = fullName.trim().split(/\s+/);
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
+    const requestId = crypto.randomUUID();
 
-    const domain = extractDomain(website);
-
-    const result = await enrichContact({
-      firstName,
-      lastName,
-      linkedinUrl: linkedinUrl || undefined,
-      domain: domain || undefined,
+    const { error: insertErr } = await supabaseAdmin.from('clay_enrichment_requests').insert({
+      request_id: requestId,
+      request_type: 'phone',
+      status: 'pending',
+      workspace_id: SYSTEM_WORKSPACE_ID,
+      first_name: firstName || null,
+      last_name: lastName || null,
+      linkedin_url: linkedinUrl,
+      company_name: companyName || null,
+      source_function: 'find-valuation-lead-contacts',
+      source_entity_id: valuationLeadId,
     });
 
-    if (!result) return null;
+    if (insertErr) {
+      console.warn(`[find-valuation-lead-contacts] Clay phone request insert failed: ${insertErr.message}`);
+      return false;
+    }
 
-    return {
-      linkedin_url: result.linkedin_url || null,
-      phone: result.phone || null,
-    };
+    sendToClayPhone({ requestId, linkedinUrl })
+      .then((res) => {
+        if (!res.success) console.warn(`[find-valuation-lead-contacts] Clay phone webhook failed: ${res.error}`);
+        else console.log(`[find-valuation-lead-contacts] Clay phone webhook sent for ${firstName} ${lastName}`);
+      })
+      .catch((err) => console.error(`[find-valuation-lead-contacts] Clay phone webhook error: ${err}`));
+
+    return true;
   } catch (err) {
-    console.warn(
-      `[find-valuation-lead-contacts] Prospeo fallback failed: ${err instanceof Error ? err.message : err}`,
-    );
-    return null;
+    console.warn(`[find-valuation-lead-contacts] Clay phone request failed: ${err}`);
+    return false;
+  }
+}
+
+/**
+ * Send a Clay name+domain enrichment request (finds email/LinkedIn).
+ * Creates a tracking row and fires the Clay webhook.
+ */
+async function sendClayNameDomainRequest(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  valuationLeadId: string,
+  firstName: string,
+  lastName: string,
+  domain: string,
+  companyName?: string,
+): Promise<boolean> {
+  try {
+    const requestId = crypto.randomUUID();
+
+    const { error: insertErr } = await supabaseAdmin.from('clay_enrichment_requests').insert({
+      request_id: requestId,
+      request_type: 'name_domain',
+      status: 'pending',
+      workspace_id: SYSTEM_WORKSPACE_ID,
+      first_name: firstName || null,
+      last_name: lastName || null,
+      domain: domain,
+      company_name: companyName || null,
+      source_function: 'find-valuation-lead-contacts',
+      source_entity_id: valuationLeadId,
+    });
+
+    if (insertErr) {
+      console.warn(`[find-valuation-lead-contacts] Clay name+domain request insert failed: ${insertErr.message}`);
+      return false;
+    }
+
+    sendToClayNameDomain({ requestId, firstName, lastName, domain })
+      .then((res) => {
+        if (!res.success) console.warn(`[find-valuation-lead-contacts] Clay name+domain webhook failed: ${res.error}`);
+        else console.log(`[find-valuation-lead-contacts] Clay name+domain webhook sent for ${firstName} ${lastName}`);
+      })
+      .catch((err) => console.error(`[find-valuation-lead-contacts] Clay name+domain webhook error: ${err}`));
+
+    return true;
+  } catch (err) {
+    console.warn(`[find-valuation-lead-contacts] Clay name+domain request failed: ${err}`);
+    return false;
   }
 }
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
-/** Extract a readable business name from a website domain. */
 function extractBusinessFromDomain(website?: string): string | null {
   if (!website) return null;
   try {
@@ -454,7 +501,6 @@ function extractBusinessFromDomain(website?: string): string | null {
   return null;
 }
 
-/** Extract a clean domain from a URL string. */
 function extractDomain(url?: string): string | null {
   if (!url) return null;
   try {

@@ -123,21 +123,29 @@ serve(async (req: Request) => {
         { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false },
       );
 
-      // 8. Update contacts table if source_entity_id is a contact ID
+      // 8. Update source entity with result
       if (request.source_entity_id) {
-        const { error: contactUpdateErr } = await supabase
-          .from('contacts')
-          .update({ email: resultEmail })
-          .eq('id', request.source_entity_id);
-
-        if (contactUpdateErr) {
-          console.warn(
-            `[clay-webhook-linkedin] Contact update failed for ${request.source_entity_id}: ${contactUpdateErr.message}`,
+        if (request.source_function === 'find-valuation-lead-contacts') {
+          // Valuation lead enrichment — we don't overwrite email but log the match
+          console.log(
+            `[clay-webhook-linkedin] Clay LinkedIn enrichment completed for valuation_lead ${request.source_entity_id}`,
           );
         } else {
-          console.log(
-            `[clay-webhook-linkedin] Updated contact ${request.source_entity_id} with Clay result`,
-          );
+          // Default: update contacts table
+          const { error: contactUpdateErr } = await supabase
+            .from('contacts')
+            .update({ email: resultEmail })
+            .eq('id', request.source_entity_id);
+
+          if (contactUpdateErr) {
+            console.warn(
+              `[clay-webhook-linkedin] Contact update failed for ${request.source_entity_id}: ${contactUpdateErr.message}`,
+            );
+          } else {
+            console.log(
+              `[clay-webhook-linkedin] Updated contact ${request.source_entity_id} with Clay result`,
+            );
+          }
         }
       }
 

@@ -125,21 +125,40 @@ serve(async (req: Request) => {
         { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false },
       );
 
-      // 8. Update contacts table if source_entity_id is a contact ID
+      // 8. Update source entity with result
       if (request.source_entity_id) {
-        const { error: contactUpdateErr } = await supabase
-          .from('contacts')
-          .update({ phone: resultPhone })
-          .eq('id', request.source_entity_id);
+        if (request.source_function === 'find-valuation-lead-contacts') {
+          // Valuation lead enrichment — update valuation_leads table
+          const { error: leadUpdateErr } = await supabase
+            .from('valuation_leads')
+            .update({ phone: resultPhone, updated_at: new Date().toISOString() })
+            .eq('id', request.source_entity_id);
 
-        if (contactUpdateErr) {
-          console.warn(
-            `[clay-webhook-phone] Contact update failed for ${request.source_entity_id}: ${contactUpdateErr.message}`,
-          );
+          if (leadUpdateErr) {
+            console.warn(
+              `[clay-webhook-phone] Valuation lead update failed for ${request.source_entity_id}: ${leadUpdateErr.message}`,
+            );
+          } else {
+            console.log(
+              `[clay-webhook-phone] Updated valuation_lead ${request.source_entity_id} with phone via Clay`,
+            );
+          }
         } else {
-          console.log(
-            `[clay-webhook-phone] Updated contact ${request.source_entity_id} with Clay result`,
-          );
+          // Default: update contacts table
+          const { error: contactUpdateErr } = await supabase
+            .from('contacts')
+            .update({ phone: resultPhone })
+            .eq('id', request.source_entity_id);
+
+          if (contactUpdateErr) {
+            console.warn(
+              `[clay-webhook-phone] Contact update failed for ${request.source_entity_id}: ${contactUpdateErr.message}`,
+            );
+          } else {
+            console.log(
+              `[clay-webhook-phone] Updated contact ${request.source_entity_id} with Clay result`,
+            );
+          }
         }
       }
 
