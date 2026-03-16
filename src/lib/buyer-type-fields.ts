@@ -111,7 +111,7 @@ export const getRelevantFieldsForBuyerType = (buyerType: BuyerType | 'admin'): s
   }
   
   const normalized = normalizeBuyerType(buyerType);
-  const buyerSpecificFields = BUYER_TYPE_FIELD_MAPPINGS[normalized as BuyerType] || [];
+  const buyerSpecificFields = BUYER_TYPE_FIELD_MAPPINGS[normalized as keyof typeof BUYER_TYPE_FIELD_MAPPINGS] || [];
 
   return [
     ...BUYER_TYPE_FIELD_MAPPINGS.basic,
@@ -126,7 +126,7 @@ export const getRelevantFieldsForBuyerType = (buyerType: BuyerType | 'admin'): s
 export const getBuyerSpecificFields = (buyerType: BuyerType | 'admin'): string[] => {
   if (buyerType === 'admin') return [];
   const normalized = normalizeBuyerType(buyerType);
-  return [...(BUYER_TYPE_FIELD_MAPPINGS[normalized as BuyerType] || [])];
+  return [...(BUYER_TYPE_FIELD_MAPPINGS[normalized as keyof typeof BUYER_TYPE_FIELD_MAPPINGS] || [])];
 };
 
 // Check if a field is relevant for a buyer type

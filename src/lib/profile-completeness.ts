@@ -14,15 +14,21 @@ const UNIVERSAL_REQUIRED_FIELDS = [
 ] as const;
 
 // Critical buyer-type-specific required fields (subset of all type fields)
-const BUYER_TYPE_REQUIRED_FIELDS: Record<BuyerType, readonly string[]> = {
+const BUYER_TYPE_REQUIRED_FIELDS: Partial<Record<string, readonly string[]>> = {
   corporate: ['estimated_revenue', 'deal_size_band', 'corpdev_intent'],
   privateEquity: ['fund_size', 'investment_size', 'aum'],
+  private_equity: ['fund_size', 'investment_size', 'aum'],
   familyOffice: ['fund_size', 'investment_size', 'aum'],
+  family_office: ['fund_size', 'investment_size', 'aum'],
   searchFund: ['search_type', 'acq_equity_band', 'search_stage'],
+  search_fund: ['search_type', 'acq_equity_band', 'search_stage'],
   individual: ['funding_source', 'max_equity_today_band'],
+  individual_buyer: ['funding_source', 'max_equity_today_band'],
   independentSponsor: ['committed_equity_band', 'equity_source', 'deployment_timing'],
+  independent_sponsor: ['committed_equity_band', 'equity_source', 'deployment_timing'],
   advisor: ['on_behalf_of_buyer', 'buyer_role'],
   businessOwner: ['owner_intent', 'owner_timeline'],
+  business_owner: ['owner_intent', 'owner_timeline'],
 };
 
 function hasValue(value: unknown): boolean {

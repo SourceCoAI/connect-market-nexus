@@ -11,12 +11,12 @@ import { findIntroductionContacts } from '@/lib/remarketing/findIntroductionCont
 interface ScoreData {
   id: string;
   buyer_id: string;
-  universe_id?: string;
-  composite_score?: number;
-  geography_score?: number;
-  size_score?: number;
-  service_score?: number;
-  owner_goals_score?: number;
+  universe_id?: string | null;
+  composite_score?: number | null;
+  geography_score?: number | null;
+  size_score?: number | null;
+  service_score?: number | null;
+  owner_goals_score?: number | null;
   [key: string]: unknown;
 }
 
