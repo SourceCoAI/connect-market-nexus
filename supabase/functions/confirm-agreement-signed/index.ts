@@ -231,7 +231,7 @@ serve(async (req: Request) => {
       .insert({
         event_type: 'document.completed',
         document_id: String(documentId),
-        external_id: firmId,
+        external_id: resolvedFirmId,
         raw_payload: { confirmed_by_frontend: userId, document_type: documentType },
         processed_at: now,
       })
