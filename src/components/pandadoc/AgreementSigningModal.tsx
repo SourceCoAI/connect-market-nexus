@@ -36,6 +36,7 @@ export function AgreementSigningModal({
   const [isDownloadingDraft, setIsDownloadingDraft] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
