@@ -115,7 +115,7 @@ serve(async (req: Request) => {
       const { data: docData } = await supabaseAdmin
         .from('firm_agreements')
         .select(docUrlCol)
-        .eq('id', firmId)
+        .eq('id', resolvedFirmId)
         .single();
       return new Response(
         JSON.stringify({
