@@ -113,6 +113,18 @@ export function AgreementSigningModal({
       description: 'Thank you for signing. Your access has been updated.',
     });
 
+    // Immediately confirm the signing on the backend (updates firm_agreements, sends emails/notifications)
+    // Fire-and-forget — webhook serves as backup if this fails
+    supabase.functions
+      .invoke('confirm-agreement-signed', { body: { documentType } })
+      .then(() => {
+        // Re-invalidate after backend confirmation to pick up DB changes
+        invalidateAgreementQueries(queryClient, user?.id);
+      })
+      .catch((err) => {
+        console.warn('confirm-agreement-signed call failed (webhook will retry):', err);
+      });
+
     // Staggered invalidation of all agreement-related queries
     invalidateAgreementQueries(queryClient, user?.id);
 
