@@ -14,7 +14,7 @@ interface MobileNavItemsProps {
 const MobileNavItems = ({ isAdmin, isApproved, onNavigateToAdmin }: MobileNavItemsProps) => {
   const { unreadCount } = useUserNotifications();
   const { data: unreadMessages } = useUnreadBuyerMessageCounts();
-  const totalDealsUnread = unreadCount + (unreadMessages?.total || 0);
+  const totalDealsUnread = unreadCount + (unreadMessages?.dealTotal || 0);
 
   if (!isApproved) {
     return null;
