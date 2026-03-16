@@ -5886,6 +5886,8 @@ export type Database = {
           fee_agreement_source: string | null
           fee_agreement_status: string | null
           fee_inherited_from_firm_id: string | null
+          fee_pandadoc_document_id: string | null
+          fee_pandadoc_status: string | null
           fee_signed_document_url: string | null
           id: string
           member_count: number | null
@@ -5897,6 +5899,8 @@ export type Database = {
           nda_email_sent_by: string | null
           nda_expires_at: string | null
           nda_inherited_from_firm_id: string | null
+          nda_pandadoc_document_id: string | null
+          nda_pandadoc_status: string | null
           nda_redline_document_url: string | null
           nda_redline_notes: string | null
           nda_sent_at: string | null
@@ -5934,6 +5938,8 @@ export type Database = {
           fee_agreement_source?: string | null
           fee_agreement_status?: string | null
           fee_inherited_from_firm_id?: string | null
+          fee_pandadoc_document_id?: string | null
+          fee_pandadoc_status?: string | null
           fee_signed_document_url?: string | null
           id?: string
           member_count?: number | null
@@ -5945,6 +5951,8 @@ export type Database = {
           nda_email_sent_by?: string | null
           nda_expires_at?: string | null
           nda_inherited_from_firm_id?: string | null
+          nda_pandadoc_document_id?: string | null
+          nda_pandadoc_status?: string | null
           nda_redline_document_url?: string | null
           nda_redline_notes?: string | null
           nda_sent_at?: string | null
@@ -5982,6 +5990,8 @@ export type Database = {
           fee_agreement_source?: string | null
           fee_agreement_status?: string | null
           fee_inherited_from_firm_id?: string | null
+          fee_pandadoc_document_id?: string | null
+          fee_pandadoc_status?: string | null
           fee_signed_document_url?: string | null
           id?: string
           member_count?: number | null
@@ -5993,6 +6003,8 @@ export type Database = {
           nda_email_sent_by?: string | null
           nda_expires_at?: string | null
           nda_inherited_from_firm_id?: string | null
+          nda_pandadoc_document_id?: string | null
+          nda_pandadoc_status?: string | null
           nda_redline_document_url?: string | null
           nda_redline_notes?: string | null
           nda_sent_at?: string | null
