@@ -50,11 +50,24 @@ serve(async (req: Request) => {
       p_user_id: userId,
     });
 
-    if (resolveErr || !firmId) {
-      return new Response(
-        JSON.stringify({ error: 'No firm found' }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
+    let resolvedFirmId = firmId;
+    if (resolveErr || !resolvedFirmId) {
+      // Self-heal
+      const { data: profileForHeal } = await supabaseAdmin
+        .from('profiles')
+        .select('email, company')
+        .eq('id', userId)
+        .single();
+      if (profileForHeal) {
+        const result = await selfHealFirm(supabaseAdmin, userId, profileForHeal);
+        if (result) resolvedFirmId = result.firmId;
+      }
+      if (!resolvedFirmId) {
+        return new Response(
+          JSON.stringify({ error: 'No firm found' }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        );
+      }
     }
 
     // Get document ID and signed status — use canonical nda_status / fee_agreement_status
