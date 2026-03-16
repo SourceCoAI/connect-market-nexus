@@ -218,14 +218,7 @@ export function SimpleFeeAgreementDialog({
                   <span className="text-sm">{user.email}</span>
                   <span className="text-sm text-muted-foreground">({userName})</span>
                 </div>
-                <div className="flex gap-2">
-                  <Badge variant={user.fee_agreement_signed ? 'default' : 'secondary'}>
-                    {user.fee_agreement_signed ? 'Signed' : 'Pending'}
-                  </Badge>
-                  <Badge variant={user.fee_agreement_email_sent ? 'default' : 'outline'}>
-                    {user.fee_agreement_email_sent ? 'Email Sent' : 'Not Sent'}
-                  </Badge>
-                </div>
+                <FeeAgreementStatusBadges userId={user.id} />
               </div>
             </CardContent>
           </Card>

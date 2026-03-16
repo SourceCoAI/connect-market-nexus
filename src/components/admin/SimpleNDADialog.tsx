@@ -137,45 +137,7 @@ ${adminName}`,
                 <Badge variant="outline">{user.email}</Badge>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-muted-foreground">NDA Status:</span>
-                    <Badge variant={user.nda_signed ? 'default' : 'secondary'}>
-                      {user.nda_signed ? 'Signed' : 'Not Signed'}
-                    </Badge>
-                  </div>
-                  {user.nda_signed && user.nda_signed_at && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-muted-foreground">Signed:</span>
-                      <span>
-                        {formatDistanceToNow(new Date(user.nda_signed_at), { addSuffix: true })}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-muted-foreground">Email Status:</span>
-                    <Badge variant={user.nda_email_sent ? 'default' : 'secondary'}>
-                      {user.nda_email_sent ? 'Sent' : 'Not Sent'}
-                    </Badge>
-                  </div>
-                  {user.nda_email_sent && user.nda_email_sent_at && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-muted-foreground">Sent:</span>
-                      <span>
-                        {formatDistanceToNow(new Date(user.nda_email_sent_at), { addSuffix: true })}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <NDAStatusBadges userId={user.id} />
             </div>
 
             {/* Template Selection */}
