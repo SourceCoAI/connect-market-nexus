@@ -1,43 +1,61 @@
 
 
-# Plan: Fix Edge Function Build Errors & Deploy All
+# Status Report: Agreement Tracking Integrity
 
-The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
+## What's Fully Done
 
-## Errors & Fixes
+All frontend hooks, components, and 3 of 4 edge functions now use the canonical `resolve_user_firm_id` RPC and read exclusively from `firm_agreements`:
 
-### 1. `auto-create-firm-on-approval/index.ts` (1 error)
-**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
-**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
+- `useConnectionRequestFirm` — resolves via user_id + RPC
+- `useConnectionRequestActions` — firm-only, no profile fallbacks
+- `DualNDAToggle` / `DualFeeAgreementToggle` — firm-only
+- `useUserFirm` (both versions) — canonical RPC
+- `ProfileDocuments` (buyer) — canonical RPC
+- `MessageCenter` — uses `firm_members` directly
+- Pipeline filters + mobile table — `lead_*` fields only
+- `confirm-agreement-signed` edge function — canonical RPC, no profile writes
+- `get-buyer-nda-embed` / `get-buyer-fee-embed` — canonical RPC, no profile writes
+- `auto-create-firm-on-approval` — re-resolves, ignores `cr.firm_id`
+- `get-agreement-document` — canonical RPC
+- `company` and `buyer_type` locked (PRIVILEGED_FIELDS + ProfileForm disabled + DB trigger)
+- `SimpleNDADialog` / `SimpleFeeAgreementDialog` — firm-level badges
+- `AgreementToggle.tsx` (non-marketplace) — resolves firm via domain
+- Realtime hooks — marked APPROXIMATE
+- Buyer-facing `useMyAgreementStatus` — uses `get_my_agreement_status` RPC
+- `useFirmAgreementStatus` (buyer messages) — uses `get_user_firm_agreement_status` RPC
+- `useBuyerNdaStatus` — uses `get_user_firm_agreement_status` RPC
+- `AgreementStatusDropdown` — writes to `firm_agreements` via `update_agreement_status` RPC with audit logging
+- `agreement_audit_log` table exists with admin attribution
 
-### 2. `bulk-import-remarketing/index.ts` (2 errors)
-**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
-**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
+## One Remaining Issue
 
-### 3. `calculate-deal-quality/index.ts` (24 errors)
-**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
-**Fix:**
-- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
-- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
+### `pandadoc-webhook-handler` still writes to `profiles` table (MEDIUM)
 
-### 4. `clarify-industry/index.ts` (1 error)
-**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
-**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
+**File**: `supabase/functions/pandadoc-webhook-handler/index.ts`, lines 408-434
 
-### 5. `confirm-agreement-signed/index.ts` (3 errors)
-**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
-**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
+When PandaDoc fires a `document.completed` webhook, this handler correctly updates `firm_agreements` (lines 366-396). But then on lines 416-426, it also loops through all `firm_members` and writes `nda_signed: true` / `fee_agreement_signed: true` back to each member's `profiles` row.
 
-## After Fixes
-Deploy all edge functions using the deployment tool.
+This is the last remaining path that writes stale agreement data to `profiles`. While it doesn't break anything today (since all frontend consumers now read from `firm_agreements`), it keeps the stale shadow data alive and could confuse future developers.
 
-## Summary of Changes
-| File | Change |
+**Fix**: Remove the profile sync loop (lines 416-426). Keep the member query (needed for buyer notifications on line 429) but delete the `profiles.update()` calls.
+
+## Summary
+
+| Area | Status |
 |------|--------|
-| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
-| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
-| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
-| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
-| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
-| Deploy all ~148 functions | After fixes pass |
+| Frontend hooks (all) | Done |
+| Admin components (all) | Done |
+| Buyer components (all) | Done |
+| Pipeline filters + mobile | Done |
+| Edge: confirm-agreement-signed | Done |
+| Edge: get-buyer-nda-embed | Done |
+| Edge: get-buyer-fee-embed | Done |
+| Edge: auto-create-firm-on-approval | Done |
+| Edge: get-agreement-document | Done |
+| Edge: pandadoc-webhook-handler | **Profile writes remain** |
+| Data integrity (company/buyer_type lock) | Done |
+| Audit logging (agreement_audit_log) | Done |
+| `/admin/documents` as single source of truth | Done |
+
+One edit to `pandadoc-webhook-handler/index.ts` to remove the profile sync loop, then deploy. That closes the last gap.
 
