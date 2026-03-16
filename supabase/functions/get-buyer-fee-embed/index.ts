@@ -332,6 +332,8 @@ serve(async (req: Request) => {
 
     console.log(`✅ Created fee agreement document ${documentId} for buyer ${userId} (firm ${firmId})`);
 
+    await notifyAdminsSigningRequested(supabaseAdmin, buyerName, profile.email, firmId, 'fee_agreement', true);
+
     return new Response(JSON.stringify({ feeSigned: false, embedUrl, resolvedFirmId: firmId }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
