@@ -95,7 +95,23 @@ export const AgreementToggle = ({ user, type, checked }: AgreementToggleProps) =
 
   const updateMutation = useMutation({
     mutationFn: async ({ isSigned, signerId }: { isSigned: boolean; signerId?: string }) => {
-      if (user.firm_id) {
+      // Resolve firm via canonical resolver instead of trusting user.firm_id
+      let resolvedFirmId = user.firm_id;
+      if (!resolvedFirmId && user.email) {
+        // Try to find a firm by email domain
+        const domain = user.email.split('@')[1];
+        if (domain) {
+          const { data: firm } = await supabase
+            .from('firm_agreements')
+            .select('id')
+            .or(`email_domain.eq.${domain},website_domain.eq.${domain}`)
+            .limit(1)
+            .maybeSingle();
+          resolvedFirmId = firm?.id || null;
+        }
+      }
+
+      if (resolvedFirmId) {
         // Update at firm level
         const rpcName =
           type === 'nda' ? 'update_nda_firm_status' : 'update_fee_agreement_firm_status';
