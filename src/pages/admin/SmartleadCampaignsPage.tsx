@@ -315,7 +315,7 @@ export default function SmartleadCampaignsPage() {
                       <StatusBadge status={campaign.status} />
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">{campaign.local?.lead_count ?? '—'}</span>
+                      <span className="text-sm">{(campaign.local as Record<string, unknown>)?.lead_count as React.ReactNode ?? '—'}</span>
                     </TableCell>
                     <TableCell>
                       <CampaignStatsInline campaignId={campaign.id} />

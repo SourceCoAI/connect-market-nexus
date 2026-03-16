@@ -365,7 +365,8 @@ export type GlobalActivityOperationType =
 
 export type GlobalActivityClassification = 'major' | 'minor';
 
-export type { GlobalActivityStatus } from './status-enums';
+import type { GlobalActivityStatus } from './status-enums';
+export type { GlobalActivityStatus };
 
 export interface GlobalActivityErrorEntry {
   itemId: string;
