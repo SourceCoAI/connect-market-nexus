@@ -1,43 +1,54 @@
 
 
-# Plan: Fix Edge Function Build Errors & Deploy All
+# Root Cause: Missing Database Columns
 
-The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
+## The Problem
 
-## Errors & Fixes
+The `firm_agreements` table does **not** have these PandaDoc-specific columns that the edge functions reference:
+- `nda_pandadoc_document_id`
+- `nda_pandadoc_status`
+- `fee_pandadoc_document_id`
+- `fee_pandadoc_status`
 
-### 1. `auto-create-firm-on-approval/index.ts` (1 error)
-**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
-**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
+When `get-buyer-nda-embed` runs this query (line 147):
+```sql
+SELECT id, nda_signed, nda_pandadoc_document_id, nda_pandadoc_status
+FROM firm_agreements WHERE id = '...'
+```
+PostgREST silently returns `null` because the columns don't exist. The function then hits `if (!firm)` → returns `{ hasFirm: false }` → frontend shows "Your account hasn't been set up for signing yet."
 
-### 2. `bulk-import-remarketing/index.ts` (2 errors)
-**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
-**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
+The same issue affects `get-buyer-fee-embed` and `confirm-agreement-signed` (which queries `nda_pandadoc_document_id` / `fee_pandadoc_document_id`).
 
-### 3. `calculate-deal-quality/index.ts` (24 errors)
-**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
-**Fix:**
-- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
-- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
+## What the User Should See
 
-### 4. `clarify-industry/index.ts` (1 error)
-**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
-**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
+After clicking "Sign NDA Now", they should see the PandaDoc embedded signing form inside the modal — not an error.
 
-### 5. `confirm-agreement-signed/index.ts` (3 errors)
-**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
-**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
+## Fix
 
-## After Fixes
-Deploy all edge functions using the deployment tool.
+### 1. Add the missing columns to `firm_agreements`
 
-## Summary of Changes
-| File | Change |
-|------|--------|
-| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
-| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
-| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
-| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
-| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
-| Deploy all ~148 functions | After fixes pass |
+Run migration to add:
+- `nda_pandadoc_document_id` (text, nullable)
+- `nda_pandadoc_status` (text, nullable)
+- `fee_pandadoc_document_id` (text, nullable)
+- `fee_pandadoc_status` (text, nullable)
+
+### 2. Redeploy all affected edge functions
+
+After the schema change, redeploy:
+- `get-buyer-nda-embed`
+- `get-buyer-fee-embed`
+- `confirm-agreement-signed`
+
+No code changes needed — the edge function code is already correct, it just references columns that don't exist yet.
+
+### Impact
+
+| File/Component | Change |
+|---|---|
+| Database: `firm_agreements` table | Add 4 PandaDoc columns via SQL migration |
+| `get-buyer-nda-embed` | Redeploy (no code change) |
+| `get-buyer-fee-embed` | Redeploy (no code change) |
+| `confirm-agreement-signed` | Redeploy (no code change) |
+| `pandadoc-webhook-handler` | Likely also references these columns — verify and redeploy |
 
