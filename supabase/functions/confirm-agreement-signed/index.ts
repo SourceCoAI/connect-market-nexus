@@ -122,7 +122,7 @@ serve(async (req: Request) => {
           confirmed: true,
           alreadySigned: true,
           signedDocumentUrl: (docData as any)?.[docUrlCol] || null,
-          resolvedFirmId: firmId,
+          resolvedFirmId,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
