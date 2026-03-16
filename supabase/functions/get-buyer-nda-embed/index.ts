@@ -217,12 +217,12 @@ serve(async (req: Request) => {
                 nda_status: 'signed',
                 updated_at: now,
               })
-              .eq('id', firmId);
+              .eq('id', resolvedFirmId);
 
             // firm_agreements is the single source of truth — no profile-level writes
 
-            console.log(`🔧 Self-healed: NDA for firm ${firmId} marked as signed`);
-            return new Response(JSON.stringify({ ndaSigned: true, embedUrl: null, resolvedFirmId: firmId }), {
+            console.log(`🔧 Self-healed: NDA for firm ${resolvedFirmId} marked as signed`);
+            return new Response(JSON.stringify({ ndaSigned: true, embedUrl: null, resolvedFirmId }), {
               status: 200,
               headers: { 'Content-Type': 'application/json', ...corsHeaders },
             });
