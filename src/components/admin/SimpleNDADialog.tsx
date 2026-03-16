@@ -11,9 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FileText, Mail, User, Calendar } from 'lucide-react';
+import { Loader2, FileText, Mail, User } from 'lucide-react';
 import { User as UserType, Listing } from '@/types';
-import { formatDistanceToNow } from 'date-fns';
 import { useUserFirm } from '@/hooks/admin/use-firm-agreement-actions';
 import { EditableSignature } from '@/components/admin/EditableSignature';
 // Hook removed - edge function handles both email sending and database logging
