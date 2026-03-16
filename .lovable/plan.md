@@ -1,33 +1,43 @@
 
 
-# Fix: Separate notification badges for "My Deals" vs "Messages"
+# Plan: Fix Edge Function Build Errors & Deploy All
 
-## Problem
-When an admin messages a buyer, the unread count appears in **both** the "My Deals" and "Messages" nav badges. The user wants:
-- **Messages tab** — only general inquiry threads (linked to the internal listing `00000000-0000-0000-0000-000000000001`)
-- **My Deals tab** — only deal-related threads (all other listings)
+The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
 
-## Root Cause
-`useUnreadBuyerMessageCounts` returns a single `total` across all connection requests. Both `DesktopNavItems` and `MobileNavItems` use this same total for the Messages badge, and also add it into the My Deals badge.
+## Errors & Fixes
 
-## Plan
+### 1. `auto-create-firm-on-approval/index.ts` (1 error)
+**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
+**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
 
-### 1. Update `useUnreadBuyerMessageCounts` (src/hooks/use-connection-messages.ts)
-- Fetch `connection_requests` with `id` AND `listing_id` (instead of just `id`)
-- After counting unread messages per request, split them into two totals:
-  - `dealTotal` — requests where `listing_id !== GENERAL_INQUIRY_LISTING_ID`
-  - `messagesTotal` — requests where `listing_id === GENERAL_INQUIRY_LISTING_ID`
-- Return `{ byRequest, total, dealTotal, messagesTotal }`
+### 2. `bulk-import-remarketing/index.ts` (2 errors)
+**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
+**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
 
-### 2. Update DesktopNavItems (src/components/navbar/DesktopNavItems.tsx)
-- My Deals badge: use `unreadCount` (notifications) + `unreadMessages?.dealTotal` instead of `unreadMessages?.total`
-- Messages badge: use `unreadMessages?.messagesTotal` instead of `unreadMessages?.total`
+### 3. `calculate-deal-quality/index.ts` (24 errors)
+**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
+**Fix:**
+- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
+- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
 
-### 3. Update MobileNavItems (src/components/navbar/MobileNavItems.tsx)
-- Same split as desktop
+### 4. `clarify-industry/index.ts` (1 error)
+**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
+**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
 
-### Files to edit
-- `src/hooks/use-connection-messages.ts` — split unread counts by listing type
-- `src/components/navbar/DesktopNavItems.tsx` — use split counts
-- `src/components/navbar/MobileNavItems.tsx` — use split counts
+### 5. `confirm-agreement-signed/index.ts` (3 errors)
+**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
+**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
+
+## After Fixes
+Deploy all edge functions using the deployment tool.
+
+## Summary of Changes
+| File | Change |
+|------|--------|
+| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
+| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
+| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
+| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
+| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
+| Deploy all ~148 functions | After fixes pass |
 

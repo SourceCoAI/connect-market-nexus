@@ -272,14 +272,19 @@ export function useUnreadBuyerMessageCounts() {
       } = await supabase.auth.getUser();
       if (!user) return { byRequest: {} as Record<string, number>, total: 0 };
 
+      const GENERAL_INQUIRY_LISTING_ID = '00000000-0000-0000-0000-000000000001';
+
       const { data: requests } = await supabase
         .from('connection_requests')
-        .select('id')
+        .select('id, listing_id')
         .eq('user_id', user.id);
 
       const requestIds = (requests || []).map((r) => r.id);
-      if (requestIds.length === 0) return { byRequest: {} as Record<string, number>, total: 0 };
+      if (requestIds.length === 0) return { byRequest: {} as Record<string, number>, total: 0, dealTotal: 0, messagesTotal: 0 };
 
+      // Build a map of request_id -> listing_id
+      const requestListingMap: Record<string, string | null> = {};
+      (requests || []).forEach((r) => { requestListingMap[r.id] = r.listing_id; });
       const { data, error } = await supabase
         .from('connection_messages' as never)
         .select('connection_request_id')
@@ -291,12 +296,20 @@ export function useUnreadBuyerMessageCounts() {
 
       const byRequest: Record<string, number> = {};
       let total = 0;
+      let dealTotal = 0;
+      let messagesTotal = 0;
       ((data || []) as Array<{ connection_request_id: string }>).forEach((row) => {
         byRequest[row.connection_request_id] = (byRequest[row.connection_request_id] || 0) + 1;
         total++;
+        const listingId = requestListingMap[row.connection_request_id];
+        if (listingId === GENERAL_INQUIRY_LISTING_ID) {
+          messagesTotal++;
+        } else {
+          dealTotal++;
+        }
       });
 
-      return { byRequest, total };
+      return { byRequest, total, dealTotal, messagesTotal };
     },
     staleTime: 30000,
   });
