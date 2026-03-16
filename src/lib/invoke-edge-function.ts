@@ -1,12 +1,14 @@
 /**
  * Reliable edge function invocation with retry + timeout.
  *
- * Combines `invokeWithTimeout` (prevents hung requests) with
+ * Combines `invokeWithTimeout` (direct fetch with AbortController) with
  * `retryWithBackoff` (retries transient network / 5xx failures).
  *
- * Use this for any user-facing edge function call that should
- * survive intermittent "Failed to send a request to the Edge Function"
- * errors from the Supabase client.
+ * Uses direct fetch() instead of supabase.functions.invoke() so that:
+ * - AbortController signal actually works for timeouts
+ * - Real error messages are preserved (not wrapped in generic
+ *   "Failed to send a request to the Edge Function")
+ * - HTTP status codes are available for retry decisions
  */
 import { invokeWithTimeout } from './invoke-with-timeout';
 import { retryWithBackoff } from './retry';
@@ -20,46 +22,37 @@ export interface InvokeEdgeFunctionOptions {
 }
 
 /**
- * Whether an error from `supabase.functions.invoke` looks transient
- * (network failure, timeout, 5xx) vs permanent (4xx, auth, validation).
+ * Whether an error looks transient (network failure, timeout, 5xx)
+ * vs permanent (4xx, auth, validation).
  */
 function isTransientError(error: Error): boolean {
+  // Check HTTP status if attached by invokeWithTimeout
+  const status = (error as Error & { status?: number }).status;
+  if (status !== undefined) {
+    // 4xx errors (except 429) are permanent — don't retry
+    if (status >= 400 && status < 500 && status !== 429) return false;
+    // 429 and 5xx are transient
+    if (status === 429 || status >= 500) return true;
+  }
+
   const msg = error.message.toLowerCase();
   return (
-    msg.includes('failed to send a request') ||
+    msg.includes('network error') ||
     msg.includes('failed to fetch') ||
-    msg.includes('network') ||
     msg.includes('timed out') ||
     msg.includes('timeout') ||
     msg.includes('econnrefused') ||
     msg.includes('econnreset') ||
     msg.includes('socket hang up') ||
-    msg.includes('502') ||
-    msg.includes('503') ||
-    msg.includes('504') ||
+    msg.includes('not deployed') ||
+    msg.includes('http 502') ||
+    msg.includes('http 503') ||
+    msg.includes('http 504') ||
     msg.includes('bad gateway') ||
     msg.includes('service unavailable') ||
     msg.includes('gateway timeout') ||
     error.name === 'TypeError' // fetch throws TypeError on network failure
   );
-}
-
-/** Extract the real error message from a Supabase FunctionsHttpError */
-export async function extractEdgeFunctionError(error: unknown): Promise<string> {
-  if (error && typeof error === 'object' && 'context' in error) {
-    try {
-      const ctx = (error as { context: Response }).context;
-      if (ctx && typeof ctx.json === 'function') {
-        const body = await ctx.json();
-        if (body?.error) return body.error + (body.details ? `: ${body.details}` : '');
-        return JSON.stringify(body);
-      }
-    } catch {
-      // Fall through
-    }
-  }
-  if (error instanceof Error) return error.message;
-  return String(error);
 }
 
 /**
@@ -83,15 +76,15 @@ export async function invokeEdgeFunction<T = unknown>(
       });
 
       if (error) {
-        // Extract a meaningful message before deciding whether to retry
-        const msg = await extractEdgeFunctionError(error);
-        const richError = new Error(msg);
-        // Preserve transient-ness check on the original error too
-        if (!isTransientError(error) && !isTransientError(richError)) {
-          // Non-transient: mark so retry predicate can stop
-          (richError as { _permanent?: boolean })._permanent = true;
+        // Preserve the status code on the re-thrown error for retry decisions
+        const status = (error as Error & { status?: number }).status;
+        if (!isTransientError(error)) {
+          (error as Error & { _permanent?: boolean })._permanent = true;
         }
-        throw richError;
+        if (status !== undefined) {
+          (error as Error & { status?: number }).status = status;
+        }
+        throw error;
       }
 
       return data as T;
