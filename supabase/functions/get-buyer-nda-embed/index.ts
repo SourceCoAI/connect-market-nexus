@@ -285,10 +285,10 @@ serve(async (req: Request) => {
             },
           ],
           metadata: {
-            firm_id: firmId,
+            firm_id: resolvedFirmId,
             document_type: 'nda',
           },
-          tags: ['nda', `firm:${firmId}`],
+          tags: ['nda', `firm:${resolvedFirmId}`],
         }),
         signal: createController.signal,
       });
