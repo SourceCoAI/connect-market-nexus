@@ -279,10 +279,10 @@ serve(async (req: Request) => {
             },
           ],
           metadata: {
-            firm_id: firmId,
+            firm_id: resolvedFirmId,
             document_type: 'fee_agreement',
           },
-          tags: ['fee_agreement', `firm:${firmId}`],
+          tags: ['fee_agreement', `firm:${resolvedFirmId}`],
         }),
         signal: createController.signal,
       });
