@@ -15,13 +15,19 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  History,
+  UserMinus,
+  ExternalLink,
 } from 'lucide-react';
 import { formatDistanceToNow, format, differenceInDays } from 'date-fns';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
 import { AgreementStatusDropdown } from '@/components/admin/firm-agreements/AgreementStatusDropdown';
 import type { FirmAgreement, FirmMember, AgreementStatus } from '@/hooks/admin/use-firm-agreements';
+import { useRemoveFirmMember } from '@/hooks/admin/use-firm-agreements';
+import { useAgreementAuditLog } from '@/hooks/admin/use-firm-agreements';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
