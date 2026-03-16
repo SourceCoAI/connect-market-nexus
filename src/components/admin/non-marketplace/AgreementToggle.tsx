@@ -116,7 +116,7 @@ export const AgreementToggle = ({ user, type, checked }: AgreementToggleProps) =
         const rpcName =
           type === 'nda' ? 'update_nda_firm_status' : 'update_fee_agreement_firm_status';
         const { error } = await supabase.rpc(rpcName, {
-          p_firm_id: user.firm_id,
+          p_firm_id: resolvedFirmId,
           p_is_signed: isSigned,
           p_signed_by_user_id: isSigned ? (signerId ?? undefined) : undefined,
           p_signed_at: isSigned ? new Date().toISOString() : undefined,
