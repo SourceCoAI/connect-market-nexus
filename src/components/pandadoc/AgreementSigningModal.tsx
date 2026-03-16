@@ -59,6 +59,7 @@ export function AgreementSigningModal({
       setError(null);
       setBannerDismissed(false);
       setZoomLevel(1);
+      setRetryCount(0);
       return;
     }
 
