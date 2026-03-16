@@ -15,8 +15,8 @@ export const DAILY_TASKS_QUERY_KEY = 'daily-standup-tasks';
 const FULL_SELECT = `
   *,
   assignee:profiles!daily_standup_tasks_assignee_id_fkey(id, first_name, last_name, email),
-  deal:deal_pipeline!daily_standup_tasks_deal_id_fkey(id, listing_id, listings(title, internal_company_name, ebitda), deal_stages(name)),
-  source_meeting:standup_meetings(id, meeting_title, meeting_date, transcript_url)
+  deal:deal_pipeline!daily_standup_tasks_deal_id_fkey(id, listing_id, listings!deals_listing_id_fkey(title, internal_company_name, ebitda), deal_stages!deals_stage_id_fkey(name)),
+  source_meeting:standup_meetings!daily_standup_tasks_source_meeting_id_fkey(id, meeting_title, meeting_date, transcript_url)
 `;
 
 // Minimal select without nested relation joins (fallback when FK joins fail)
@@ -68,9 +68,6 @@ export function useDailyTasks(options: UseDailyTasksOptions) {
           query = query.eq('assignee_id', user.id);
         }
 
-        // Only show deal-related tasks (filter out platform/operations tasks)
-        query = query.eq('task_category', 'deal_task');
-
         if (!options.includeCompleted) {
           query = query.in('status', [
             'pending_approval',
@@ -101,7 +98,7 @@ export function useDailyTasks(options: UseDailyTasksOptions) {
             retried = true;
             continue;
           }
-          throw error;
+          throw new Error(error.message);
         }
 
         return (data || []) as unknown as DailyStandupTaskWithRelations[];

@@ -67,7 +67,7 @@ export function TaskListContent({
           <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-400" />
           <p className="font-medium text-red-700 mb-1">Failed to load tasks</p>
           <p className="text-sm text-muted-foreground">
-            {tasksError instanceof Error ? tasksError.message : 'An unexpected error occurred'}
+            {(tasksError as { message?: string })?.message || 'An unexpected error occurred'}
           </p>
         </CardContent>
       </Card>
