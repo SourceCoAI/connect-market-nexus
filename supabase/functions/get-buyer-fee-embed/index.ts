@@ -153,7 +153,7 @@ serve(async (req: Request) => {
     }
 
     if (firm.fee_agreement_signed) {
-      return new Response(JSON.stringify({ feeSigned: true, embedUrl: null, resolvedFirmId: firmId }), {
+      return new Response(JSON.stringify({ feeSigned: true, embedUrl: null, resolvedFirmId }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
