@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
 import { sendViaBervo } from '../_shared/brevo-sender.ts';
+import { selfHealFirm } from '../_shared/firm-self-heal.ts';
 
 /**
  * confirm-agreement-signed
