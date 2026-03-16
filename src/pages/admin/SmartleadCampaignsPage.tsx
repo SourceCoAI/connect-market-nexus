@@ -35,7 +35,7 @@ import {
   useSyncSmartleadCampaigns,
   useSmartleadCampaignStats,
 } from '@/hooks/smartlead';
-import type { SmartleadCampaign, LocalSmartleadCampaign } from '@/types/smartlead';
+import type { SmartleadCampaign } from '@/types/smartlead';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
 

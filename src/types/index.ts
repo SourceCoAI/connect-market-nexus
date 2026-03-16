@@ -20,7 +20,14 @@ export type SignupBuyerType =
   | 'individual'
   | 'independentSponsor'
   | 'advisor'
-  | 'businessOwner';
+  | 'businessOwner'
+  // Snake-case variants (used in admin/remarketing contexts and legacy DB rows)
+  | 'private_equity'
+  | 'family_office'
+  | 'search_fund'
+  | 'independent_sponsor'
+  | 'business_owner'
+  | 'individual_buyer';
 
 /** @deprecated Use SignupBuyerType (marketplace) or BuyerType from @/types/remarketing (canonical). */
 export type BuyerType = SignupBuyerType;
