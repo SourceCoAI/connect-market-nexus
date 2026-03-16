@@ -218,7 +218,7 @@ export function SimpleFeeAgreementDialog({
                   <span className="text-sm">{user.email}</span>
                   <span className="text-sm text-muted-foreground">({userName})</span>
                 </div>
-                <FeeAgreementStatusBadges userId={user.id} />
+                <FirmFeeStatusBadges userId={user.id} />
               </div>
             </CardContent>
           </Card>

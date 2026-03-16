@@ -136,7 +136,7 @@ ${adminName}`,
                 <Badge variant="outline">{user.email}</Badge>
               </div>
 
-              <NDAStatusBadges userId={user.id} />
+              <FirmNDAStatusBadges userId={user.id} />
             </div>
 
             {/* Template Selection */}
