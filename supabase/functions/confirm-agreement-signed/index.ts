@@ -223,7 +223,7 @@ serve(async (req: Request) => {
       updates.fee_agreement_signed_by_name = signerName;
     }
 
-    await supabaseAdmin.from('firm_agreements').update(updates).eq('id', firmId);
+    await supabaseAdmin.from('firm_agreements').update(updates).eq('id', resolvedFirmId);
 
     // Dedup log
     await supabaseAdmin
