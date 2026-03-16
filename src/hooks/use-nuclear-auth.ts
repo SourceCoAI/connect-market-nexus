@@ -402,6 +402,8 @@ export function useNuclearAuth() {
         'role',
         'id',
         'email',
+        'company',
+        'buyer_type',
       ];
       for (const field of PRIVILEGED_FIELDS) {
         delete dbPayload[field];

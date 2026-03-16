@@ -59,8 +59,9 @@ export function ProfileForm({
               <Select
                 value={formData.buyer_type}
                 onValueChange={(value) => onSelectChange(value, 'buyer_type')}
+                disabled
               >
-                <SelectTrigger>
+                <SelectTrigger className="bg-muted/50">
                   <SelectValue placeholder="Select a buyer type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -74,6 +75,12 @@ export function ProfileForm({
                   <SelectItem value="businessOwner">Business Owner</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Need to update your buyer type? Contact{' '}
+                <a href="mailto:support@sourceco.com" className="text-primary hover:underline">
+                  support@sourceco.com
+                </a>
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -102,8 +109,15 @@ export function ProfileForm({
                 id="company"
                 name="company"
                 value={formData.company}
-                onChange={onInputChange}
+                disabled
+                className="bg-muted/50"
               />
+              <p className="text-xs text-muted-foreground">
+                Need to update your company? Contact{' '}
+                <a href="mailto:support@sourceco.com" className="text-primary hover:underline">
+                  support@sourceco.com
+                </a>
+              </p>
             </div>
 
             <div className="space-y-2">

@@ -88,9 +88,9 @@ serve(async (req: Request) => {
       existingFirmId: cr.firm_id,
     });
 
-    let firmId = cr.firm_id;
+    // Always re-resolve firm via email domain / company name — NEVER trust cr.firm_id
+    // because it may contain stale/corrupted values from the old circular resolver.
     const companyName = cr.lead_company || 'Unknown Company';
-    // Strip common business suffixes before normalizing so "ABC Inc" and "ABC Inc." match.
     const BUSINESS_SUFFIXES =
       /\b(inc|llc|llp|ltd|corp|corporation|company|co|group|holdings|partners|lp|plc|pllc|pa|pc|sa|gmbh|ag|pty|srl|bv|nv)\b/gi;
     const normalizedName = companyName
@@ -102,7 +102,6 @@ serve(async (req: Request) => {
       .trim();
     const emailDomain = cr.lead_email?.split('@')[1] || null;
 
-    // Generic/free email providers — never use these for firm matching.
     const GENERIC_EMAIL_DOMAINS = new Set([
       'gmail.com',
       'googlemail.com',
@@ -129,60 +128,59 @@ serve(async (req: Request) => {
       ? GENERIC_EMAIL_DOMAINS.has(emailDomain.toLowerCase())
       : false;
 
-    // Step 1: Find or create firm
-    if (!firmId) {
-      let existingFirm = null;
+    // Step 1: Always re-resolve firm (ignore cr.firm_id)
+    let firmId: string | null = null;
+    let existingFirm = null;
 
-      if (emailDomain && !isGenericDomain) {
-        const { data } = await supabaseAdmin
-          .from('firm_agreements')
-          .select('id')
-          .eq('email_domain', emailDomain)
-          .maybeSingle();
-        existingFirm = data;
-      }
-
-      if (!existingFirm) {
-        const { data } = await supabaseAdmin
-          .from('firm_agreements')
-          .select('id')
-          .eq('normalized_company_name', normalizedName)
-          .maybeSingle();
-        existingFirm = data;
-      }
-
-      if (existingFirm) {
-        firmId = existingFirm.id;
-      } else {
-        const { data: newFirm, error: firmError } = await supabaseAdmin
-          .from('firm_agreements')
-          .insert({
-            primary_company_name: companyName,
-            normalized_company_name: normalizedName,
-            email_domain: isGenericDomain ? null : emailDomain,
-            nda_signed: false,
-            fee_agreement_signed: false,
-          })
-          .select('id')
-          .single();
-
-        if (firmError) {
-          console.error('❌ Failed to create firm:', firmError);
-          return new Response(JSON.stringify({ error: 'Failed to create firm agreement' }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          });
-        }
-
-        firmId = newFirm.id;
-      }
-
-      // Link firm to connection request
-      await supabaseAdmin
-        .from('connection_requests')
-        .update({ firm_id: firmId, updated_at: new Date().toISOString() })
-        .eq('id', connectionRequestId);
+    if (emailDomain && !isGenericDomain) {
+      const { data } = await supabaseAdmin
+        .from('firm_agreements')
+        .select('id')
+        .eq('email_domain', emailDomain)
+        .maybeSingle();
+      existingFirm = data;
     }
+
+    if (!existingFirm) {
+      const { data } = await supabaseAdmin
+        .from('firm_agreements')
+        .select('id')
+        .eq('normalized_company_name', normalizedName)
+        .maybeSingle();
+      existingFirm = data;
+    }
+
+    if (existingFirm) {
+      firmId = existingFirm.id;
+    } else {
+      const { data: newFirm, error: firmError } = await supabaseAdmin
+        .from('firm_agreements')
+        .insert({
+          primary_company_name: companyName,
+          normalized_company_name: normalizedName,
+          email_domain: isGenericDomain ? null : emailDomain,
+          nda_signed: false,
+          fee_agreement_signed: false,
+        })
+        .select('id')
+        .single();
+
+      if (firmError) {
+        console.error('❌ Failed to create firm:', firmError);
+        return new Response(JSON.stringify({ error: 'Failed to create firm agreement' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+
+      firmId = newFirm.id;
+    }
+
+    // Always update connection request with the correctly resolved firm
+    await supabaseAdmin
+      .from('connection_requests')
+      .update({ firm_id: firmId, updated_at: new Date().toISOString() })
+      .eq('id', connectionRequestId);
 
     // Step 2: Create firm_member if user exists
     if (cr.user_id) {

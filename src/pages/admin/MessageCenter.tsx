@@ -94,7 +94,7 @@ function useInboxThreads() {
       > = {};
 
       if (uniqueUserIds.length > 0) {
-        // Get firm memberships
+        // Use canonical firm resolver — batch resolve via firm_members only (no connection_requests.firm_id)
         const { data: memberships } = await supabase
           .from('firm_members')
           .select('user_id, firm_id')
@@ -105,14 +105,8 @@ function useInboxThreads() {
           if (m.user_id) userFirmMap[m.user_id] = m.firm_id;
         });
 
-        // Also check firm_id from connection_requests
-        requests.forEach((req) => {
-          const userId = req.user_id as string;
-          const firmId = req.firm_id as string;
-          if (userId && firmId && !userFirmMap[userId]) {
-            userFirmMap[userId] = firmId;
-          }
-        });
+        // NOTE: We no longer fall back to connection_requests.firm_id here.
+        // The firm_members table is the canonical source of user→firm associations.
 
         const firmIds = [...new Set(Object.values(userFirmMap).filter(Boolean))];
         if (firmIds.length > 0) {

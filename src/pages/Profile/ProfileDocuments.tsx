@@ -36,40 +36,17 @@ function useAllDocuments() {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      // Deterministic firm resolution: connection_requests first, then firm_members
-      let firmId: string | null = null;
+      // Use canonical firm resolver RPC (deterministic: email domain → company name → latest member)
+      const { data: resolvedFirmId, error: resolveError } = await supabase.rpc('resolve_user_firm_id', {
+        p_user_id: user.id,
+      });
 
-      // Try connection_requests → firm_id
-      const { data: crData } = await (
-        supabase.from('connection_requests' as never) as unknown as ReturnType<typeof supabase.from>
-      )
-        .select('firm_id')
-        .eq('user_id', user.id)
-        .not('firm_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (crData) {
-        firmId = (crData as unknown as { firm_id: string }).firm_id;
+      if (resolveError) {
+        console.error('Failed to resolve firm:', resolveError);
+        return [];
       }
 
-      // Fallback: firm_members
-      if (!firmId) {
-        const { data: membership } = await (
-          supabase.from('firm_members' as never) as unknown as ReturnType<typeof supabase.from>
-        )
-          .select('firm_id')
-          .eq('user_id', user.id)
-          .order('added_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (membership) {
-          firmId = (membership as unknown as { firm_id: string }).firm_id;
-        }
-      }
-
+      const firmId = resolvedFirmId as string | null;
       if (!firmId) return [];
 
       const { data: firmRaw } = await (
