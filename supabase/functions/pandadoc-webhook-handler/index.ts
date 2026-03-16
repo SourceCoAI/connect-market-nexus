@@ -405,7 +405,7 @@ async function processEvent(
     await createAdminNotification(supabase, firmId, firmName, docLabel, pandadocStatus);
   }
 
-  // If completed, sync to profiles AND send buyer notification
+  // If completed, send buyer notification (firm_agreements is already updated above)
   if (pandadocStatus === 'completed') {
     try {
       const { data: members } = await supabase
@@ -414,22 +414,10 @@ async function processEvent(
         .eq('firm_id', firmId);
 
       if (members?.length) {
-        const profileUpdates = isNda
-          ? { nda_signed: true, nda_signed_at: now }
-          : { fee_agreement_signed: true, fee_agreement_signed_at: now };
-
-        for (const member of members) {
-          await supabase
-            .from('profiles')
-            .update({ ...profileUpdates, updated_at: now })
-            .eq('id', member.user_id);
-        }
-
-        // Send buyer notification (PDF URL fetched on-demand, not cached)
         await sendBuyerSignedDocNotification(supabase, members, firmId, docLabel, null);
       }
-    } catch (syncError) {
-      console.error('⚠️ Profile sync error:', syncError);
+    } catch (notifyError) {
+      console.error('⚠️ Buyer notification error:', notifyError);
     }
   }
 }
