@@ -105,7 +105,7 @@ export function useDailyTasks(options: UseDailyTasksOptions) {
       }
     },
     staleTime: 30_000,
-    // Poll every 2 minutes so tasks created by cron/webhook appear automatically
-    refetchInterval: 120_000,
+    // Poll every hour so tasks created by cron/webhook appear automatically
+    refetchInterval: 3_600_000,
   });
 }
