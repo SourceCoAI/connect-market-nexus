@@ -319,6 +319,11 @@ export function UnifiedAdminSidebar({
                   icon: <Settings className="h-4 w-4" />,
                 },
                 {
+                  label: 'Call Insights',
+                  href: '/admin/call-insights',
+                  icon: <BarChart3 className="h-4 w-4" />,
+                },
+                {
                   label: 'Fireflies',
                   href: '/admin/fireflies',
                   icon: <Phone className="h-4 w-4" />,

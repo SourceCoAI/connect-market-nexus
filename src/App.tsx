@@ -152,6 +152,9 @@ const PhoneBurnerSessionsPage = lazyWithRetry(
 const PhoneBurnerSettingsPage = lazyWithRetry(
   () => import('@/pages/admin/PhoneBurnerSettingsPage'),
 );
+const CallInsightsPage = lazyWithRetry(
+  () => import('@/pages/admin/CallInsightsPage'),
+);
 
 // Fireflies pages
 const FirefliesIntegrationPage = lazyWithRetry(
@@ -487,6 +490,14 @@ function App() {
                 element={
                   <RoleGate min="admin">
                     <PhoneBurnerSettingsPage />
+                  </RoleGate>
+                }
+              />
+              <Route
+                path="call-insights"
+                element={
+                  <RoleGate min="admin">
+                    <CallInsightsPage />
                   </RoleGate>
                 }
               />

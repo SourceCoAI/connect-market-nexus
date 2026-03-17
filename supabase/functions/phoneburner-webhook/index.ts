@@ -1224,5 +1224,31 @@ async function savePhoneBurnerTranscript(
     } catch (enrichErr) {
       console.warn('[phoneburner-webhook] Failed to trigger enrichment:', enrichErr);
     }
+
+    // Trigger call quality scoring (non-blocking)
+    try {
+      const scoreUrl = Deno.env.get('SUPABASE_URL')!;
+      const scoreKey = Deno.env.get('SUPABASE_ANON_KEY');
+      if (scoreKey) {
+        fetch(`${scoreUrl}/functions/v1/score-call-transcript`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${scoreKey}`,
+          },
+          body: JSON.stringify({
+            contact_activity_id: opts.contactActivityId,
+            transcript_text: opts.transcriptText,
+            rep_name: opts.userName,
+            listing_id: opts.listingId,
+            call_duration_seconds: opts.durationMinutes ? opts.durationMinutes * 60 : null,
+          }),
+        }).catch((err) => {
+          console.warn(`[phoneburner-webhook] Non-blocking score-call-transcript call failed:`, err);
+        });
+      }
+    } catch (scoreErr) {
+      console.warn('[phoneburner-webhook] Failed to trigger call scoring:', scoreErr);
+    }
   }
 }
