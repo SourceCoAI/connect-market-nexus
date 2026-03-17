@@ -15,6 +15,7 @@ import {
   DealEnrichmentSummaryDialog,
   DealBulkActionBar,
   AddDealsToListDialog,
+  PushToHeyreachModal,
 } from '@/components/remarketing';
 import type { DealForList } from '@/components/remarketing';
 import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
@@ -54,6 +55,7 @@ export default function ValuationLeads() {
   const { setPageContext } = useAICommandCenterContext();
   const [dialerOpen, setDialerOpen] = useState(false);
   const [smartleadOpen, setSmartleadOpen] = useState(false);
+  const [heyreachOpen, setHeyreachOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [addToListOpen, setAddToListOpen] = useState(false);
   const {
@@ -102,6 +104,8 @@ export default function ValuationLeads() {
     handleRetryFailedEnrichment,
     handleScoreLeads,
     handleAssignOwner,
+    handleEnrichSelected,
+    handleDelete,
     selectedLead,
     drawerOpen,
     setDrawerOpen,
@@ -111,6 +115,7 @@ export default function ValuationLeads() {
     isScoring,
     isEnriching,
     isMarkingNotFit,
+    isDeleting,
     enrichmentProgress,
     enrichmentSummary,
     showEnrichmentSummary,
@@ -417,20 +422,20 @@ export default function ValuationLeads() {
         onRefetch={refetch}
         onApproveToActiveDeals={(ids) => handlePushToAllDeals(ids)}
         isPushing={isPushing}
-        onPushAndEnrich={(ids) => handlePushAndEnrich(ids)}
-        isPushAndEnriching={isPushEnriching}
-        onReEnrichPushed={(ids) => handleReEnrich(ids)}
-        isReEnrichingPushed={isReEnriching}
+        onEnrichSelected={(dealIds) => handleEnrichSelected(dealIds)}
+        isEnriching={isEnriching}
         onExportCSV={() => {
           const selected = filteredLeads.filter((l) => selectedIds.has(l.id));
           exportLeadsToCSV(selected);
         }}
-        showPriorityToggle={false}
         onMarkNotFit={() => handleMarkNotFit(Array.from(selectedIds))}
         isMarkingNotFit={isMarkingNotFit}
         onArchive={() => handleArchive(Array.from(selectedIds))}
+        onDelete={() => handleDelete(Array.from(selectedIds))}
+        isDeleting={isDeleting}
         onPushToDialer={() => setDialerOpen(true)}
         onPushToSmartlead={() => setSmartleadOpen(true)}
+        onPushToHeyreach={() => setHeyreachOpen(true)}
         onAddToList={() => setAddToListOpen(true)}
       />
       <PushToDialerModal
@@ -443,6 +448,13 @@ export default function ValuationLeads() {
       <PushToSmartleadModal
         open={smartleadOpen}
         onOpenChange={setSmartleadOpen}
+        contactIds={Array.from(selectedIds)}
+        contactCount={selectedIds.size}
+        entityType="listings"
+      />
+      <PushToHeyreachModal
+        open={heyreachOpen}
+        onOpenChange={setHeyreachOpen}
         contactIds={Array.from(selectedIds)}
         contactCount={selectedIds.size}
         entityType="listings"
