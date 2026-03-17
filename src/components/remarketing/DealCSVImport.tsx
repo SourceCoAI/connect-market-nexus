@@ -62,6 +62,8 @@ interface DetailedImportResults {
   errors: string[];
   newDeals: NewDealDetail[];
   mergedDeals: MergedDealDetail[];
+  /** All listing IDs that were linked to the universe (new + merged) for scoring */
+  linkedListingIds: string[];
 }
 
 export const DealCSVImport = ({
@@ -275,6 +277,7 @@ export const DealCSVImport = ({
         errors: [],
         newDeals: [],
         mergedDeals: [],
+        linkedListingIds: [],
       };
 
       // Fields eligible for merge-fill on existing deals
@@ -483,6 +486,7 @@ export const DealCSVImport = ({
               );
               if (mergeResult) {
                 results.merged++;
+                results.linkedListingIds.push(mergeResult.id);
                 results.mergedDeals.push({
                   row: i + 1,
                   csvCompanyName: (listingData.title as string) || 'Unknown',
@@ -516,6 +520,7 @@ export const DealCSVImport = ({
             if (linkError) throw linkError;
 
             results.imported++;
+            results.linkedListingIds.push(listing.id);
             results.newDeals.push({
               row: i + 1,
               companyName: (listingData.title as string) || 'Unknown',
@@ -533,7 +538,19 @@ export const DealCSVImport = ({
       setImportResults(results);
       setStep('complete');
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'universe-deals', universeId] });
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals', 'universe', universeId] });
       queryClient.invalidateQueries({ queryKey: ['listings'] });
+
+      // Queue background scoring for all imported/merged deals
+      const listingIds = results?.linkedListingIds || [];
+      if (listingIds.length > 0) {
+        try {
+          const { queueDealScoring } = await import('@/lib/remarketing/queueScoring');
+          await queueDealScoring({ universeId, listingIds });
+        } catch (err) {
+          console.warn('[DealCSVImport] Failed to queue scoring:', err);
+        }
+      }
 
       onImportComplete?.();
     },

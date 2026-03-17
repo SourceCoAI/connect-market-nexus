@@ -251,17 +251,48 @@ export function BulkApproveForDealsDialog({
         }
       }
 
-      void [...scoreIds, ...newScoreIds];
+      // Build a map from score ID → buyer ID so outreach records get the correct buyer
+      const scoreIdToBuyerId = new Map<string, string>();
 
-      // Auto-create outreach records for approved scores
+      // For existing pending scores, fetch buyer_id from the database
+      if (scoreIds.length > 0) {
+        const { data: scoreRows } = await supabase
+          .from('remarketing_scores')
+          .select('id, buyer_id')
+          .in('id', scoreIds);
+        for (const s of scoreRows || []) {
+          scoreIdToBuyerId.set(s.id, s.buyer_id);
+        }
+      }
+
+      // For newly created scores, we know the buyer_id because we created them
+      // in order: each group's unscoredBuyerIds maps 1:1 to the inserted score IDs
+      let newScoreIdx = 0;
       for (const group of selectedGroups) {
-        for (const scoreId of [...group.pendingScoreIds, ...newScoreIds.filter(() => true)]) {
+        for (const bId of group.unscoredBuyerIds) {
+          if (newScoreIdx < newScoreIds.length) {
+            scoreIdToBuyerId.set(newScoreIds[newScoreIdx], bId);
+            newScoreIdx++;
+          }
+        }
+      }
+
+      // Auto-create outreach records for approved scores with correct buyer_id
+      for (const group of selectedGroups) {
+        const groupNewScoreIds = newScoreIds.filter((id) => {
+          const bId = scoreIdToBuyerId.get(id);
+          return bId && group.unscoredBuyerIds.includes(bId);
+        });
+        const groupScoreIds = [...group.pendingScoreIds, ...groupNewScoreIds];
+        for (const scoreId of groupScoreIds) {
+          const buyerId = scoreIdToBuyerId.get(scoreId);
+          if (!buyerId) continue;
           try {
             await untypedFrom('remarketing_outreach').upsert(
               {
                 score_id: scoreId,
                 listing_id: group.listingId,
-                buyer_id: buyerIds.find(() => true), // Will be resolved per-score
+                buyer_id: buyerId,
                 status: 'pending',
                 created_by: user?.id,
               },
@@ -273,9 +304,22 @@ export function BulkApproveForDealsDialog({
         }
       }
 
+      // Collect unique buyer IDs that were actually approved across selected groups
+      const approvedBuyerIdSet = new Set<string>();
+      for (const group of selectedGroups) {
+        for (const scoreId of group.pendingScoreIds) {
+          const bId = scoreIdToBuyerId.get(scoreId);
+          if (bId) approvedBuyerIdSet.add(bId);
+        }
+        for (const bId of group.unscoredBuyerIds) {
+          approvedBuyerIdSet.add(bId);
+        }
+      }
+      const approvedBuyerIds = Array.from(approvedBuyerIdSet);
+
       // Fire-and-forget: auto-discover contacts via Serper + Clay + Prospeo pipeline
       // Use Promise.allSettled to consolidate into a single summary toast for bulk ops
-      Promise.allSettled(buyerIds.map((bId) => findIntroductionContacts(bId, 'bulk_approval')))
+      Promise.allSettled(approvedBuyerIds.map((bId) => findIntroductionContacts(bId, 'bulk_approval')))
         .then((results) => {
           let totalContacts = 0;
           let buyersWithContacts = 0;
@@ -299,12 +343,22 @@ export function BulkApproveForDealsDialog({
           toast.error('Contact discovery failed — try manual search in AI Command Center');
         });
 
-      // Auto-create buyer introductions at first Kanban stage
+      // Auto-create buyer introductions only for buyers actually approved per deal
       if (user?.id) {
         const pairs: Array<{ buyerId: string; listingId: string }> = [];
-        for (const group of groups) {
-          if (!selectedListingIds.has(group.listingId)) continue;
-          for (const bId of buyerIds) {
+        for (const group of selectedGroups) {
+          // Collect buyer IDs that were actually approved for this group:
+          // 1. Buyers with pending scores (from scoreIdToBuyerId map)
+          // 2. Buyers that were unscored and got new score records
+          const approvedBuyerIds = new Set<string>();
+          for (const scoreId of group.pendingScoreIds) {
+            const bId = scoreIdToBuyerId.get(scoreId);
+            if (bId) approvedBuyerIds.add(bId);
+          }
+          for (const bId of group.unscoredBuyerIds) {
+            approvedBuyerIds.add(bId);
+          }
+          for (const bId of approvedBuyerIds) {
             pairs.push({ buyerId: bId, listingId: group.listingId });
           }
         }
