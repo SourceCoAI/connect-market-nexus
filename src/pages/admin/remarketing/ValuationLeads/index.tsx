@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,7 +14,9 @@ import {
   EnrichmentProgressIndicator,
   DealEnrichmentSummaryDialog,
   DealBulkActionBar,
+  AddDealsToListDialog,
 } from '@/components/remarketing';
+import type { DealForList } from '@/components/remarketing';
 import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
 import { PushToSmartleadModal } from '@/components/remarketing/PushToSmartleadModal';
 import {
@@ -53,6 +55,7 @@ export default function ValuationLeads() {
   const [dialerOpen, setDialerOpen] = useState(false);
   const [smartleadOpen, setSmartleadOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [addToListOpen, setAddToListOpen] = useState(false);
   const {
     leads,
     isLoading,
@@ -116,6 +119,19 @@ export default function ValuationLeads() {
     resumeEnrichment,
     cancelEnrichment,
   } = useValuationLeadsData();
+
+  const selectedDealsForList = useMemo((): DealForList[] => {
+    if (!filteredLeads || selectedIds.size === 0) return [];
+    return filteredLeads
+      .filter((l) => selectedIds.has(l.id))
+      .map((l) => ({
+        dealId: l.id,
+        dealName: l.business_name || l.display_name || 'Unknown Lead',
+        contactName: l.full_name,
+        contactEmail: l.email || l.work_email,
+        contactPhone: l.phone,
+      }));
+  }, [filteredLeads, selectedIds]);
 
   useEffect(() => {
     setPageContext({ page: 'valuation_leads', entity_type: 'leads' });
@@ -415,6 +431,7 @@ export default function ValuationLeads() {
         onArchive={() => handleArchive(Array.from(selectedIds))}
         onPushToDialer={() => setDialerOpen(true)}
         onPushToSmartlead={() => setSmartleadOpen(true)}
+        onAddToList={() => setAddToListOpen(true)}
       />
       <PushToDialerModal
         open={dialerOpen}
@@ -429,6 +446,12 @@ export default function ValuationLeads() {
         contactIds={Array.from(selectedIds)}
         contactCount={selectedIds.size}
         entityType="listings"
+      />
+      <AddDealsToListDialog
+        open={addToListOpen}
+        onOpenChange={setAddToListOpen}
+        selectedDeals={selectedDealsForList}
+        entityType="lead"
       />
 
       {/* Upload Dialog */}
