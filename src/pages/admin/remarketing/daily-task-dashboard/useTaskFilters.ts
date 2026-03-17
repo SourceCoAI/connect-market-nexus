@@ -113,12 +113,13 @@ export function useTaskFilters({
 
   // Stats (only from approved tasks)
   const stats = useMemo(() => {
-    if (!approvedTasks) return { total: 0, completed: 0, overdue: 0, pending: 0 };
+    if (!approvedTasks) return { total: 0, completed: 0, overdue: 0, pending: 0, in_progress: 0 };
     return {
       total: approvedTasks.length,
       completed: approvedTasks.filter((t) => t.status === 'completed').length,
       overdue: approvedTasks.filter((t) => t.status === 'overdue').length,
       pending: approvedTasks.filter((t) => t.status === 'pending').length,
+      in_progress: approvedTasks.filter((t) => t.status === 'in_progress').length,
     };
   }, [approvedTasks]);
 
@@ -127,6 +128,7 @@ export function useTaskFilters({
     return approvedTasks.filter(
       (t) =>
         t.status !== 'completed' &&
+        t.status !== 'snoozed' &&
         ((t.due_date ?? '') <= today || !t.due_date || t.status === 'overdue'),
     );
   }, [approvedTasks, today]);
@@ -134,7 +136,11 @@ export function useTaskFilters({
   const futureTasks = useMemo(() => {
     return approvedTasks.filter(
       (t) =>
-        !!t.due_date && t.due_date > today && t.status !== 'overdue' && t.status !== 'completed',
+        !!t.due_date &&
+        t.due_date > today &&
+        t.status !== 'overdue' &&
+        t.status !== 'completed' &&
+        t.status !== 'snoozed',
     );
   }, [approvedTasks, today]);
 

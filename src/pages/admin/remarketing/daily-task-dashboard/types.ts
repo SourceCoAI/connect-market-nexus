@@ -16,6 +16,7 @@ export interface TaskStats {
   completed: number;
   overdue: number;
   pending: number;
+  in_progress: number;
 }
 
 export interface TaskHandlers {
