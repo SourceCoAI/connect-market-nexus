@@ -131,6 +131,11 @@ serve(async (req) => {
 
     console.log(`${unprocessed.length} unprocessed meetings (${processedIds.size} already done)`);
 
+    // Auto-detect extraction mode: use Fireflies-native mode when Gemini key is not configured
+    const hasGeminiKey = !!(Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY'));
+    const useFirefliesActions = !hasGeminiKey;
+    console.log(`Extraction mode: ${useFirefliesActions ? 'fireflies-native' : 'ai'}`);
+
     // Process each unprocessed standup
     const results: {
       transcript_id: string;
@@ -153,6 +158,7 @@ serve(async (req) => {
           body: JSON.stringify({
             fireflies_transcript_id: transcript.id,
             meeting_title: transcript.title,
+            use_fireflies_actions: useFirefliesActions,
           }),
         });
 

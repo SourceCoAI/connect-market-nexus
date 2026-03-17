@@ -16,7 +16,7 @@ export function TaskStatsCards({ stats }: TaskStatsCardsProps) {
               <ListChecks className="h-5 w-5 text-blue-700" />
             </div>
             <div>
-              <p className="text-2xl font-bold tabular-nums">{stats.pending + stats.overdue}</p>
+              <p className="text-2xl font-bold tabular-nums">{stats.pending + stats.overdue + stats.in_progress}</p>
               <p className="text-xs text-muted-foreground">Open Tasks</p>
             </div>
           </div>

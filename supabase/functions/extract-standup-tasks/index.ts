@@ -1582,6 +1582,18 @@ serve(async (req) => {
       autoApproveEnabled = autoApproveSetting.value === 'true' || autoApproveSetting.value === true;
     }
 
+    // Auto-detect Fireflies-native mode when caller doesn't specify.
+    // If no Gemini key is configured, fall back to parsing Fireflies' built-in
+    // action_items instead of running AI extraction. This ensures the cron job
+    // and manual sync work even without a Gemini API key.
+    if (body.use_fireflies_actions === undefined) {
+      const hasGeminiKey = !!(Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY'));
+      body.use_fireflies_actions = !hasGeminiKey;
+      console.log(
+        `[auto-detect] use_fireflies_actions not specified, using ${body.use_fireflies_actions ? 'fireflies-native' : 'ai'} mode`,
+      );
+    }
+
     // Determine which IDs to process
     const transcriptIds: string[] = [];
     if (body.fireflies_transcript_ids && body.fireflies_transcript_ids.length > 0) {
