@@ -251,17 +251,48 @@ export function BulkApproveForDealsDialog({
         }
       }
 
-      void [...scoreIds, ...newScoreIds];
+      // Build a map from score ID → buyer ID so outreach records get the correct buyer
+      const scoreIdToBuyerId = new Map<string, string>();
 
-      // Auto-create outreach records for approved scores
+      // For existing pending scores, fetch buyer_id from the database
+      if (scoreIds.length > 0) {
+        const { data: scoreRows } = await supabase
+          .from('remarketing_scores')
+          .select('id, buyer_id')
+          .in('id', scoreIds);
+        for (const s of scoreRows || []) {
+          scoreIdToBuyerId.set(s.id, s.buyer_id);
+        }
+      }
+
+      // For newly created scores, we know the buyer_id because we created them
+      // in order: each group's unscoredBuyerIds maps 1:1 to the inserted score IDs
+      let newScoreIdx = 0;
       for (const group of selectedGroups) {
-        for (const scoreId of [...group.pendingScoreIds, ...newScoreIds.filter(() => true)]) {
+        for (const bId of group.unscoredBuyerIds) {
+          if (newScoreIdx < newScoreIds.length) {
+            scoreIdToBuyerId.set(newScoreIds[newScoreIdx], bId);
+            newScoreIdx++;
+          }
+        }
+      }
+
+      // Auto-create outreach records for approved scores with correct buyer_id
+      for (const group of selectedGroups) {
+        const groupNewScoreIds = newScoreIds.filter((id) => {
+          const bId = scoreIdToBuyerId.get(id);
+          return bId && group.unscoredBuyerIds.includes(bId);
+        });
+        const groupScoreIds = [...group.pendingScoreIds, ...groupNewScoreIds];
+        for (const scoreId of groupScoreIds) {
+          const buyerId = scoreIdToBuyerId.get(scoreId);
+          if (!buyerId) continue;
           try {
             await untypedFrom('remarketing_outreach').upsert(
               {
                 score_id: scoreId,
                 listing_id: group.listingId,
-                buyer_id: buyerIds.find(() => true), // Will be resolved per-score
+                buyer_id: buyerId,
                 status: 'pending',
                 created_by: user?.id,
               },

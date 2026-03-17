@@ -206,17 +206,39 @@ async function generateForListing(
 
 Given information about a company, you must produce two outputs:
 
-1. **buyer_universe_label**: A short label (3-6 words) describing NOT what the company does, but WHO would BUY this type of company as an add-on acquisition. Think about the buyer universe this deal belongs to.
-   - BAD: "Trucking Company" (describes what they do)
-   - GOOD: "Regional Fleet Services Add-On" or "Last-Mile Logistics Platform Target"
-   - BAD: "HVAC Services" (generic industry)
-   - GOOD: "Residential HVAC Roll-Up Target" or "Southeast Mechanical Services Add-On"
+1. **buyer_universe_label**: A short label (3-6 words max) identifying the SPECIFIC TYPE of business or service vertical, ending with "Add-On" or occasionally "Platform Target".
+   The label must answer: "What exact type of company is this?" — NOT "Where do they operate?" or "How big are they?"
+
+   STRICT RULES:
+   - NEVER lead with geography (no "Regional", "Southeast", "Pacific NW", "National", "Midwest", etc.)
+   - NEVER use vague filler words like "Services", "Solutions", or "Platform" as the PRIMARY descriptor — the specific trade or product type must come first
+   - Focus on the specific trade, product, or service vertical
+   - Keep it under 6 words total
+
+   FORMAT: [Specific Service/Product Type] + Add-On  OR  [Specific Service/Product Type] + Platform Target
+
+   GOOD examples:
+   - "Window & Door Installation Add-On" (specific trade)
+   - "Commercial Fleet Maintenance Add-On" (specific service)
+   - "HVAC Services Add-On" (specific trade)
+   - "Restoration Services Add-On" (specific vertical — fire/water damage)
+   - "Equipment Rental & Supply Add-On" (specific product type)
+   - "Commercial Landscaping Add-On" (specific trade)
+   - "Last-Mile Logistics Add-On" (specific service model)
+
+   BAD examples (NEVER produce these):
+   - "Pacific NW Home Services Add-On" (leads with geography)
+   - "Regional Fleet Services Add-On" (leads with geography, vague "Services")
+   - "Southeast Mechanical Services Add-On" (leads with geography)
+   - "Regional Equipment Rental Platform Add-On" (leads with geography)
+   - "Trucking Company" (too generic, missing "Add-On")
+   - "Commercial Landscaping Platform Add-On" (unnecessary "Platform")
 
 2. **buyer_universe_description**: Exactly 2 sentences.
-   - Sentence 1: What this company specifically does (more precise than a generic industry tag).
-   - Sentence 2: Who would likely acquire them and why (what type of PE firm or strategic buyer, and what thesis fits).
+   - Sentence 1: What this company specifically does (precise trade/service, not a generic industry tag).
+   - Sentence 2: Who would likely acquire them and why (what type of PE firm or strategic buyer, and what acquisition thesis fits).
 
-Be specific and actionable. Reference geography, specialization, and deal thesis where possible.`;
+Be specific about the trade or service vertical. Focus on specialization and deal thesis, not geography.`;
 
   const tool = {
     type: 'function',
@@ -229,7 +251,7 @@ Be specific and actionable. Reference geography, specialization, and deal thesis
           buyer_universe_label: {
             type: 'string',
             description:
-              'Short 3-6 word label describing who would buy this company (buyer perspective, not seller)',
+              'Short 3-6 word label identifying the specific service/product type ending with Add-On. Never lead with geography. Example: "Window & Door Installation Add-On"',
           },
           buyer_universe_description: {
             type: 'string',
