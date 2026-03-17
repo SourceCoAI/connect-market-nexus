@@ -82,47 +82,57 @@ WHERE ro.buyer_id != rs.buyer_id;
 
 ### Additional Bug A — DealCSVImport Does NOT Queue Scoring After Import
 
+**Status**: CONFIRMED and FIXED
+
 **Severity**: High
 
 **File**: `src/components/remarketing/DealCSVImport.tsx`
 
-**Details**: The `importMutation.onSuccess` callback (line 532–543) invalidates query caches and calls `onImportComplete?.()` but **never queues background scoring** for the imported deals. Compare with `AddDealToUniverseDialog` which explicitly calls `queueDealScoring()` after adding deals (lines 215–216, 426–428). This means CSV-imported deals sit in the universe with no buyer scores until someone manually triggers scoring.
+**Details**: The `importMutation.onSuccess` callback invalidated query caches and called `onImportComplete?.()` but **never queued background scoring** for the imported deals. Compare with `AddDealToUniverseDialog` which explicitly calls `queueDealScoring()` after adding deals. CSV-imported deals sat in the universe with no buyer scores until someone manually triggered scoring. Also missing cache invalidation for `['remarketing', 'deals', 'universe', universeId]`.
 
-**Recommended Fix**: Add `queueDealScoring({ universeId, listingIds: importedListingIds })` in the `onSuccess` callback, where `importedListingIds` is collected from successful inserts during import.
+**Fix Applied**: Added `linkedListingIds` tracking to `DetailedImportResults`. Both new inserts and merged deals now push their listing IDs into this array during import. In `onSuccess`, `queueDealScoring()` is called with all linked IDs. Also added missing cache invalidation key.
 
 ---
 
 ### Additional Bug B — extract-buyer-criteria-background Bypasses Source Priority
 
+**Status**: CONFIRMED and FIXED
+
 **Severity**: Medium
 
 **File**: `supabase/functions/extract-buyer-criteria-background/index.ts` (lines 267–275)
 
-**Details**: The background version directly updates `buyer_universes` with extracted criteria (lines 267–275) WITHOUT checking source priority. The foreground `extract-buyer-criteria/index.ts` (lines 541–725) correctly implements source priority checks — it skips overwriting fields that already have transcript-sourced data. The background version calls the foreground version via HTTP (which applies source priority), but then ALSO does its own update on lines 267–275 that overwrites the universe criteria unconditionally. This is a double-write where the second write can clobber transcript-priority data.
+**Details**: The background version directly updated `buyer_universes` with extracted criteria WITHOUT checking source priority. The foreground `extract-buyer-criteria/index.ts` correctly implements source priority checks — it skips overwriting fields that already have transcript-sourced data. The background version calls the foreground version via HTTP (which applies source priority), but then ALSO did its own unconditional update that could clobber transcript-priority data.
 
-**Recommended Fix**: Remove the direct update on lines 267–275 since the HTTP call to `extract-buyer-criteria` already handles the universe update with proper priority logic.
+**Fix Applied**: Removed the direct `buyer_universes` update. The HTTP call to `extract-buyer-criteria` already handles the universe update with proper source-priority-aware logic.
 
 ---
 
 ### Additional Bug C — BulkApproveForDealsDialog Creates Introductions for ALL Buyers x ALL Deals
 
+**Status**: CONFIRMED and FIXED
+
 **Severity**: Medium
 
-**File**: `src/components/remarketing/BulkApproveForDealsDialog.tsx` (lines 303–312)
+**File**: `src/components/remarketing/BulkApproveForDealsDialog.tsx` (lines 333–342)
 
-**Details**: The buyer introduction creation loop iterates over ALL `buyerIds` for ALL selected groups, not just the buyers that were actually scored/approved for each group. If buyer A has scores only for deals 1 and 2, and buyer B only for deal 3, approving all three deals creates introductions for buyer A on deal 3 and buyer B on deals 1 and 2 — even though those buyer-deal pairs were never scored or approved.
+**Details**: The buyer introduction creation loop iterated over ALL `buyerIds` for ALL selected groups, not just the buyers that were actually scored/approved for each group. If buyer A has scores only for deals 1 and 2, and buyer B only for deal 3, approving all three deals created introductions for buyer A on deal 3 and buyer B on deals 1 and 2 — even though those buyer-deal pairs were never scored or approved.
 
-**Recommended Fix**: Filter `buyerIds` per group to only include buyers that have pending scores or are in the unscored list for that specific group.
+**Fix Applied**: Now collects the actual approved buyer IDs per group from `scoreIdToBuyerId` (for pending scores) and `unscoredBuyerIds` (for newly created scores), creating introductions only for buyer-deal pairs that were actually approved.
 
 ---
 
 ### Additional Bug D — Contact Discovery Fires for ALL Buyers Regardless of Selection
 
+**Status**: CONFIRMED and FIXED
+
 **Severity**: Low
 
-**File**: `src/components/remarketing/BulkApproveForDealsDialog.tsx` (line 278)
+**File**: `src/components/remarketing/BulkApproveForDealsDialog.tsx` (line 309)
 
-**Details**: `Promise.allSettled(buyerIds.map(...))` fires contact discovery for ALL buyers passed to the dialog, not just those that were actually approved (some deals may not be selected). This is wasteful but not data-corrupting since contact discovery is idempotent.
+**Details**: `Promise.allSettled(buyerIds.map(...))` fired contact discovery for ALL buyers passed to the dialog, not just those that were actually approved (some deals may not be selected). This was wasteful but not data-corrupting since contact discovery is idempotent.
+
+**Fix Applied**: Now collects unique buyer IDs from the `scoreIdToBuyerId` map and `unscoredBuyerIds` across selected groups, firing contact discovery only for buyers that were actually approved.
 
 ---
 
@@ -197,8 +207,8 @@ When a deal is removed from a universe and re-added, `queueDealScoring()` checks
 
 However, if a queue entry is stuck in `failed` status (after MAX_ATTEMPTS), re-adding the deal will also not be blocked (since `failed` is not in the checked statuses). The stale recovery in `process-scoring-queue` only resets `processing` items older than 5 minutes — it does not retry `failed` items. Failed items require manual intervention or a separate cleanup job.
 
-### 4.4 Missing Cache Invalidation in Some Paths
-`DealCSVImport` invalidates `['remarketing', 'universe-deals', universeId]` and `['listings']` but not `['remarketing', 'deals', 'universe', universeId]` which is used by the universe detail page. Other paths (like `AddDealToUniverseDialog`) correctly invalidate both keys.
+### 4.4 Missing Cache Invalidation in Some Paths (FIXED)
+`DealCSVImport` previously invalidated `['remarketing', 'universe-deals', universeId]` and `['listings']` but not `['remarketing', 'deals', 'universe', universeId]` which is used by the universe detail page. Fixed as part of Additional Bug A.
 
 ### 4.5 Buyer Universe Label Regeneration Requires Manual Trigger
 The migration `20260402000001` reset all `buyer_universe_generated_at` to NULL. The `generate-buyer-universe` function checks this field and returns cached values when set (line 64). After the migration, labels will only regenerate when:
