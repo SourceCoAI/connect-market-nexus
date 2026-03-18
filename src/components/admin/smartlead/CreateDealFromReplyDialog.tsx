@@ -193,9 +193,9 @@ export function CreateDealFromReplyDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Deal from Reply</DialogTitle>
+          <DialogTitle>Add Lead from Reply</DialogTitle>
           <DialogDescription>
-            Review and edit the pre-filled fields before creating a deal pipeline entry.
+            Review and edit the pre-filled fields. This will add the lead to the selected remarketing list.
           </DialogDescription>
         </DialogHeader>
 
