@@ -47,7 +47,7 @@ export function CreateDealFromReplyDialog({
   const contactName = String(item.to_name || '').trim();
   const campaignName = String(item.campaign_name || '').trim();
   const subject = String(item.subject || '').trim();
-  const aiCategory = String(item.manual_category || item.ai_category || '');
+  
   const leadEmail = String(item.to_email || item.sl_lead_email || '').trim();
 
   // Extract company name from email domain as best guess
