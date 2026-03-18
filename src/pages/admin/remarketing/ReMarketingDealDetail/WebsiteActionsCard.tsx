@@ -329,7 +329,8 @@ function PushToMarketplaceButton({
                   })
                   .eq('id', dealId);
                 if (error) {
-                  toast.error('Failed to push to marketplace queue');
+                  console.error('Push to marketplace error:', error);
+                  toast.error(`Failed to push to marketplace queue: ${error.message}`);
                 } else {
                   if (gaps.length === 0) {
                     toast.success('Deal pushed to Marketplace Queue');
@@ -352,9 +353,7 @@ function PushToMarketplaceButton({
         </Tooltip>
       </TooltipProvider>
       {gaps.length > 0 && (
-        <span className="text-xs text-amber-600 ml-1">
-          Missing for listing: {gaps.join(', ')}
-        </span>
+        <span className="text-xs text-amber-600 ml-1">Missing for listing: {gaps.join(', ')}</span>
       )}
     </div>
   );
