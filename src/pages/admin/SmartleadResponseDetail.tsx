@@ -1,5 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { format } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ExternalLink,
@@ -9,6 +11,7 @@ import {
   Hash,
   Mail,
   MessageSquare,
+  LinkIcon,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,10 +25,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
   useSmartleadInboxItem,
   useRecategorizeInbox,
+  useLinkInboxToDeal,
 } from '@/hooks/smartlead/use-smartlead-inbox';
 
 const CATEGORIES = [
@@ -63,7 +78,27 @@ function getSentimentColor(sentiment: string | null) {
 }
 
 function stripHtml(html: string) {
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/&apos;/gi, "'").replace(/&rsquo;/gi, "'").replace(/&ndash;/gi, '–').replace(/\s+/g, ' ').trim();
+}
+
+function useDeals(search: string) {
+  return useQuery({
+    queryKey: ['deal-pipeline-picker', search],
+    queryFn: async () => {
+      let query = (supabase.from('deal_pipeline') as any)
+        .select('id, title, priority, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (search.trim()) {
+        query = query.ilike('title', `%${search}%`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as Array<{ id: string; title: string; priority: string | null; created_at: string }>;
+    },
+  });
 }
 
 export default function SmartleadResponseDetail() {
@@ -71,6 +106,10 @@ export default function SmartleadResponseDetail() {
   const navigate = useNavigate();
   const { data: item, isLoading } = useSmartleadInboxItem(inboxId);
   const recategorize = useRecategorizeInbox();
+  const linkToDeal = useLinkInboxToDeal();
+  const [dealDialogOpen, setDealDialogOpen] = useState(false);
+  const [dealSearch, setDealSearch] = useState('');
+  const { data: deals } = useDeals(dealSearch);
 
   if (isLoading) {
     return <div className="text-center py-12 text-muted-foreground">Loading...</div>;
@@ -94,7 +133,7 @@ export default function SmartleadResponseDetail() {
   const category: string = String(item.manual_category || item.ai_category || 'neutral');
   const sentiment: string = String(item.manual_sentiment || item.ai_sentiment || 'neutral');
   const replyText: string = item.reply_body ? stripHtml(String(item.reply_body)) : String(item.reply_message || item.preview_text || '');
-  const sentText: string = item.sent_message_body ? stripHtml(String(item.sent_message_body)) : String(item.sent_message || '');
+  const sentText: string = item.sent_message_body ? stripHtml(String(item.sent_message_body)) : (item.sent_message ? stripHtml(String(item.sent_message)) : '');
 
   const handleRecategorize = (field: 'category' | 'sentiment', value: string) => {
     recategorize.mutate(
@@ -103,6 +142,25 @@ export default function SmartleadResponseDetail() {
         ...(field === 'category' ? { category: value } : { sentiment: value }),
       },
       { onSuccess: () => toast.success('Classification updated') },
+    );
+  };
+
+  const handleLinkDeal = (dealId: string, dealTitle: string) => {
+    linkToDeal.mutate(
+      { id: item.id, dealId },
+      {
+        onSuccess: () => {
+          toast.success(`Linked to deal: ${dealTitle}`);
+          setDealDialogOpen(false);
+        },
+      },
+    );
+  };
+
+  const handleUnlinkDeal = () => {
+    linkToDeal.mutate(
+      { id: item.id, dealId: null },
+      { onSuccess: () => toast.success('Deal unlinked') },
     );
   };
 
@@ -179,9 +237,9 @@ export default function SmartleadResponseDetail() {
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Confidence</span>
-                    <span>{Math.round(item.ai_confidence * 100)}%</span>
+                    <span>{Math.round(Number(item.ai_confidence) * 100)}%</span>
                   </div>
-                  <Progress value={item.ai_confidence * 100} className="h-2" />
+                  <Progress value={Number(item.ai_confidence) * 100} className="h-2" />
                 </div>
               )}
             </CardContent>
@@ -222,15 +280,15 @@ export default function SmartleadResponseDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {item.to_name && <p className="font-medium">{item.to_name}</p>}
+              {item.to_name && <p className="font-medium">{String(item.to_name)}</p>}
               {item.to_email && (
-                <p className="text-muted-foreground">Reply from: {item.to_email}</p>
+                <p className="text-muted-foreground">Reply from: {String(item.to_email)}</p>
               )}
               {item.sl_lead_email && (
-                <p className="text-muted-foreground">Lead: {item.sl_lead_email}</p>
+                <p className="text-muted-foreground">Lead: {String(item.sl_lead_email)}</p>
               )}
               {item.from_email && (
-                <p className="text-muted-foreground">Sent from: {item.from_email}</p>
+                <p className="text-muted-foreground">Sent from: {String(item.from_email)}</p>
               )}
             </CardContent>
           </Card>
@@ -243,17 +301,17 @@ export default function SmartleadResponseDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {item.campaign_name && <p className="font-medium">{item.campaign_name}</p>}
+              {item.campaign_name && <p className="font-medium">{String(item.campaign_name)}</p>}
               {item.campaign_id && (
-                <p className="text-muted-foreground">ID: {item.campaign_id}</p>
+                <p className="text-muted-foreground">ID: {String(item.campaign_id)}</p>
               )}
               {item.campaign_status && (
                 <Badge variant="outline" className="capitalize">
-                  {item.campaign_status}
+                  {String(item.campaign_status)}
                 </Badge>
               )}
               {item.sequence_number && (
-                <p className="text-muted-foreground">Sequence step: {item.sequence_number}</p>
+                <p className="text-muted-foreground">Sequence step: {String(item.sequence_number)}</p>
               )}
             </CardContent>
           </Card>
@@ -267,9 +325,9 @@ export default function SmartleadResponseDetail() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
               {item.time_replied && (
-                <p>Replied: {format(new Date(item.time_replied), 'MMM d, yyyy h:mm a')}</p>
+                <p>Replied: {format(new Date(String(item.time_replied)), 'MMM d, yyyy h:mm a')}</p>
               )}
-              <p>Received: {format(new Date(item.created_at), 'MMM d, yyyy h:mm a')}</p>
+              <p>Received: {format(new Date(String(item.created_at)), 'MMM d, yyyy h:mm a')}</p>
             </CardContent>
           </Card>
 
@@ -282,15 +340,61 @@ export default function SmartleadResponseDetail() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
               {item.sl_email_lead_id && (
-                <p className="font-mono text-xs">Lead ID: {item.sl_email_lead_id}</p>
+                <p className="font-mono text-xs">Lead ID: {String(item.sl_email_lead_id)}</p>
               )}
               {item.event_type && (
-                <p className="font-mono text-xs">Event: {item.event_type}</p>
+                <p className="font-mono text-xs">Event: {String(item.event_type)}</p>
               )}
             </CardContent>
           </Card>
 
           <Separator />
+
+          {/* Add to Deal */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <LinkIcon className="h-3.5 w-3.5" /> Deal Link
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {item.linked_deal_id ? (
+                <div className="space-y-2">
+                  <Badge variant="secondary" className="text-xs">
+                    Linked to deal
+                  </Badge>
+                  <p className="text-xs text-muted-foreground font-mono">{String(item.linked_deal_id)}</p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7"
+                      onClick={() => navigate(`/admin/deals/${item.linked_deal_id}`)}
+                    >
+                      View Deal
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-7 text-destructive"
+                      onClick={handleUnlinkDeal}
+                    >
+                      Unlink
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => setDealDialogOpen(true)}
+                >
+                  <LinkIcon className="h-3 w-3 mr-1" /> Add to Deal
+                </Button>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Manual re-classification */}
           <Card>
@@ -301,7 +405,7 @@ export default function SmartleadResponseDetail() {
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Category</label>
                 <Select
-                  value={item.manual_category || ''}
+                  value={String(item.manual_category || '')}
                   onValueChange={(v) => handleRecategorize('category', v)}
                 >
                   <SelectTrigger className="h-8 text-xs">
@@ -319,7 +423,7 @@ export default function SmartleadResponseDetail() {
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Sentiment</label>
                 <Select
-                  value={item.manual_sentiment || ''}
+                  value={String(item.manual_sentiment || '')}
                   onValueChange={(v) => handleRecategorize('sentiment', v)}
                 >
                   <SelectTrigger className="h-8 text-xs">
@@ -338,6 +442,56 @@ export default function SmartleadResponseDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Add to Deal Dialog */}
+      <Dialog open={dealDialogOpen} onOpenChange={setDealDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add to Deal</DialogTitle>
+            <DialogDescription>
+              Link this SmartLead response to an existing deal in the pipeline.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Search deals..."
+              value={dealSearch}
+              onChange={(e) => setDealSearch(e.target.value)}
+              className="text-sm"
+            />
+            <ScrollArea className="h-[300px]">
+              <div className="space-y-1">
+                {deals && deals.length > 0 ? (
+                  deals.map((deal) => (
+                    <button
+                      key={deal.id}
+                      className="w-full text-left p-2 rounded-md hover:bg-muted transition-colors text-sm"
+                      onClick={() => handleLinkDeal(deal.id, deal.title || 'Untitled')}
+                    >
+                      <p className="font-medium truncate">{deal.title || 'Untitled Deal'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {deal.priority && <span className="capitalize">{deal.priority}</span>}
+                        {deal.created_at && (
+                          <span> • {format(new Date(deal.created_at), 'MMM d, yyyy')}</span>
+                        )}
+                      </p>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {dealSearch ? 'No deals found' : 'Loading deals...'}
+                  </p>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setDealDialogOpen(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
