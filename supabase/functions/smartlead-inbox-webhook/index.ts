@@ -357,6 +357,64 @@ Deno.serve(async (req) => {
       `[smartlead-inbox-webhook] Stored reply ${inserted.id} — ${classification.category} (${classification.sentiment})`,
     );
 
+    // ─── Enrich from Smartlead API (best-effort, non-blocking) ────────
+    try {
+      const lookupEmail = record.sl_lead_email || record.from_email;
+      if (lookupEmail) {
+        console.log(`[smartlead-inbox-webhook] Enriching lead via API for ${lookupEmail}`);
+        const leadResult = await smartleadRequest<{
+          id: string;
+          first_name?: string;
+          last_name?: string;
+          company_name?: string;
+          website?: string;
+          phone_number?: string;
+          linkedin_profile?: string;
+          location?: string;
+          custom_fields?: Record<string, string>;
+          [key: string]: unknown;
+        }>({
+          path: '/leads/',
+          queryParams: { email: lookupEmail },
+        });
+
+        if (leadResult.ok && leadResult.data) {
+          const ld = leadResult.data;
+          const cf = ld.custom_fields || {};
+
+          const enrichUpdate: Record<string, unknown> = {
+            lead_first_name: ld.first_name || null,
+            lead_last_name: ld.last_name || null,
+            lead_company_name: ld.company_name || null,
+            lead_website: ld.website || null,
+            lead_phone: cf.Phone || ld.phone_number || null,
+            lead_mobile: cf.Mobile || null,
+            lead_linkedin_url: ld.linkedin_profile || cf.Person_LinkedIn || null,
+            lead_title: cf.Title || null,
+            lead_location: ld.location && ld.location !== '--' ? ld.location : null,
+            lead_custom_fields: Object.keys(cf).length > 0 ? cf : null,
+            smartlead_lead_data: ld,
+            enriched_at: new Date().toISOString(),
+          };
+
+          const { error: enrichErr } = await supabase
+            .from('smartlead_reply_inbox')
+            .update(enrichUpdate)
+            .eq('id', inserted.id);
+
+          if (enrichErr) {
+            console.error('[smartlead-inbox-webhook] Enrichment update error:', enrichErr);
+          } else {
+            console.log(`[smartlead-inbox-webhook] Enriched lead for ${lookupEmail}`);
+          }
+        } else {
+          console.warn(`[smartlead-inbox-webhook] Lead lookup failed for ${lookupEmail}:`, leadResult.error);
+        }
+      }
+    } catch (enrichError) {
+      console.error('[smartlead-inbox-webhook] Enrichment error (non-fatal):', enrichError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
