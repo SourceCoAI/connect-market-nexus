@@ -12,7 +12,6 @@ import {
   MessageSquare,
   LinkIcon,
   Plus,
-  Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,8 +31,7 @@ import {
   useRecategorizeInbox,
   useLinkInboxToDeal,
 } from '@/hooks/smartlead/use-smartlead-inbox';
-import { useCreateDeal } from '@/hooks/admin/use-deals';
-import { useDealStages } from '@/hooks/admin/deals/useDealStages';
+import { CreateDealFromReplyDialog } from '@/components/admin/smartlead/CreateDealFromReplyDialog';
 
 const CATEGORIES = [
   'meeting_request',
@@ -81,9 +79,7 @@ export default function SmartleadResponseDetail() {
   const { data: item, isLoading } = useSmartleadInboxItem(inboxId);
   const recategorize = useRecategorizeInbox();
   const linkToDeal = useLinkInboxToDeal();
-  const createDeal = useCreateDeal();
-  const { data: stages } = useDealStages(false);
-  const [isCreatingDeal, setIsCreatingDeal] = useState(false);
+  const [showCreateDealDialog, setShowCreateDealDialog] = useState(false);
 
   if (isLoading) {
     return <div className="text-center py-12 text-muted-foreground">Loading...</div>;
@@ -117,69 +113,6 @@ export default function SmartleadResponseDetail() {
       },
       { onSuccess: () => toast.success('Classification updated') },
     );
-  };
-
-  const handleCreateDeal = async () => {
-    if (!item || isCreatingDeal) return;
-    setIsCreatingDeal(true);
-
-    // Find default stage
-    const defaultStage = stages?.find((s) => s.is_default) || stages?.[0];
-    if (!defaultStage) {
-      toast.error('No deal stages configured. Please create a stage first.');
-      setIsCreatingDeal(false);
-      return;
-    }
-
-    // Derive a sensible title
-    const contactName = String(item.to_name || '').trim();
-    const campaignName = String(item.campaign_name || '').trim();
-    const subject = String(item.subject || '').trim();
-    const dealTitle = contactName
-      ? `${contactName}${campaignName ? ` – ${campaignName}` : ''}`
-      : subject || campaignName || 'SmartLead Response';
-
-    // Map AI category → priority
-    const category = String(item.manual_category || item.ai_category || '');
-    let priority = 'medium';
-    if (['meeting_request', 'interested'].includes(category)) priority = 'high';
-    else if (['not_interested', 'unsubscribe', 'negative_hostile'].includes(category)) priority = 'low';
-
-    const dealPayload: Record<string, unknown> = {
-      title: dealTitle,
-      stage_id: defaultStage.id,
-      source: 'smartlead',
-      priority,
-      contact_name: contactName || null,
-      contact_email: String(item.to_email || item.sl_lead_email || '').trim() || null,
-      contact_phone: null,
-      contact_company: null,
-      description: [
-        subject ? `Subject: ${subject}` : null,
-        campaignName ? `Campaign: ${campaignName}` : null,
-        item.ai_reasoning ? `AI Summary: ${String(item.ai_reasoning)}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    };
-
-    try {
-      const newDeal = await createDeal.mutateAsync(dealPayload);
-      // Link inbox item to newly created deal
-      const newDealId = (newDeal as { id: string }).id;
-      linkToDeal.mutate(
-        { id: item.id, dealId: newDealId },
-        {
-          onSuccess: () => {
-            toast.success(`Deal created: ${dealTitle}`);
-            setIsCreatingDeal(false);
-          },
-          onError: () => setIsCreatingDeal(false),
-        },
-      );
-    } catch {
-      setIsCreatingDeal(false);
-    }
   };
 
   const handleUnlinkDeal = () => {
@@ -413,15 +346,10 @@ export default function SmartleadResponseDetail() {
                   variant="outline"
                   size="sm"
                   className="w-full text-xs"
-                  disabled={isCreatingDeal}
-                  onClick={handleCreateDeal}
+                  onClick={() => setShowCreateDealDialog(true)}
                 >
-                  {isCreatingDeal ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  ) : (
-                    <Plus className="h-3 w-3 mr-1" />
-                  )}
-                  {isCreatingDeal ? 'Creating...' : 'Create Deal from Reply'}
+                  <Plus className="h-3 w-3 mr-1" />
+                  Create Deal from Reply
                 </Button>
               )}
             </CardContent>
@@ -473,6 +401,15 @@ export default function SmartleadResponseDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Create Deal Dialog */}
+      {item && (
+        <CreateDealFromReplyDialog
+          open={showCreateDealDialog}
+          onOpenChange={setShowCreateDealDialog}
+          inboxItem={item as unknown as Record<string, unknown>}
+        />
+      )}
     </div>
   );
 }
