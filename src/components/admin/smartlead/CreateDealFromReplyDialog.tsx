@@ -280,6 +280,16 @@ export function CreateDealFromReplyDialog({
                   className="h-8 text-sm"
                 />
               </div>
+              <div className="space-y-1 col-span-2">
+                <Label htmlFor="contact-industry" className="text-xs">Industry</Label>
+                <Input
+                  id="contact-industry"
+                  value={contactIndustry}
+                  onChange={(e) => setContactIndustry(e.target.value)}
+                  placeholder="Industry"
+                  className="h-8 text-sm"
+                />
+              </div>
             </div>
           </div>
 
