@@ -756,10 +756,12 @@ export function RecommendedBuyersTab({
             </div>
           </div>
           <Progress value={job.progress_pct} className="h-1.5" />
-          {job.progress_message && (
+          {job.status === 'failed' && job.progress_message && (
+            <p className="text-xs text-destructive">{job.progress_message}</p>
+          )}
+          {job.status !== 'failed' && job.progress_message && (
             <p className="text-xs text-muted-foreground">{job.progress_message}</p>
           )}
-          {job.error && <p className="text-xs text-destructive">{job.error}</p>}
           {job.status === 'completed' && job.buyers_found > 0 && (
             <p className="text-xs text-emerald-600">
               Found {job.buyers_found} buyers ({job.buyers_inserted} new, {job.buyers_updated}{' '}

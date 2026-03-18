@@ -353,7 +353,20 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
       // (the server-side 4h score cache would otherwise return stale data)
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to seed buyers');
+      const msg = err instanceof Error ? err.message : 'Failed to seed buyers';
+      // Show user-friendly error based on the error type
+      const lower = msg.toLowerCase();
+      if (lower.includes('timeout') || lower.includes('timed out')) {
+        toast.error('AI search timed out. Please try again — it often succeeds on retry.');
+      } else if (lower.includes('rate') || lower.includes('429')) {
+        toast.error('AI service is busy. Please wait a minute and try again.');
+      } else if (lower.includes('unavailable') || lower.includes('502') || lower.includes('503')) {
+        toast.error('AI service is temporarily unavailable. Please try again shortly.');
+      } else if (lower.includes('network') || lower.includes('failed to fetch')) {
+        toast.error('Network error reaching AI service. Please check your connection.');
+      } else {
+        toast.error(msg);
+      }
     }
   };
 

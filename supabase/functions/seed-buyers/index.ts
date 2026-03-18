@@ -1110,7 +1110,42 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error) {
     console.error('seed-buyers error:', error);
-    // Mark job as failed if we have a jobId
+
+    // Categorize the error for a user-friendly message
+    const rawMsg = error instanceof Error ? error.message : String(error);
+    const lowerMsg = rawMsg.toLowerCase();
+
+    let userMessage: string;
+    let errorCode: string;
+    let statusCode = 500;
+
+    if (lowerMsg.includes('timeout') || lowerMsg.includes('timed out') || lowerMsg.includes('aborterror') || (error instanceof Error && error.name === 'TimeoutError')) {
+      userMessage = 'The AI search timed out. This can happen with complex deals. Please try again.';
+      errorCode = 'ai_timeout';
+    } else if (lowerMsg.includes('rate limit') || lowerMsg.includes('429') || lowerMsg.includes('too many requests')) {
+      userMessage = 'The AI service is currently rate-limited. Please wait a minute and try again.';
+      errorCode = 'rate_limited';
+      statusCode = 429;
+    } else if (lowerMsg.includes('anthropic_api_key') || lowerMsg.includes('api key') || lowerMsg.includes('not configured')) {
+      userMessage = 'The AI service is not configured. Please contact your administrator.';
+      errorCode = 'config_error';
+    } else if (lowerMsg.includes('claude api error 5') || lowerMsg.includes('service unavailable') || lowerMsg.includes('bad gateway') || lowerMsg.includes('502') || lowerMsg.includes('503')) {
+      userMessage = 'The AI service is temporarily unavailable. Please try again in a few minutes.';
+      errorCode = 'ai_unavailable';
+    } else if (lowerMsg.includes('claude api error 4')) {
+      userMessage = 'The AI service rejected the request. Please contact your administrator.';
+      errorCode = 'ai_request_error';
+    } else if (lowerMsg.includes('json') || lowerMsg.includes('parse') || lowerMsg.includes('unexpected response')) {
+      userMessage = 'The AI returned an unexpected response format. Please try again.';
+      errorCode = 'parse_error';
+    } else if (lowerMsg.includes('network') || lowerMsg.includes('fetch') || lowerMsg.includes('econnrefused') || lowerMsg.includes('econnreset')) {
+      userMessage = 'A network error occurred while contacting the AI service. Please check your connection and try again.';
+      errorCode = 'network_error';
+    } else {
+      userMessage = 'An unexpected error occurred during AI buyer search. Please try again or contact support.';
+      errorCode = 'internal_error';
+    }
+
     // Mark job as failed if we have a jobId
     if (_jobId) {
       try {
@@ -1120,16 +1155,16 @@ Deno.serve(async (req: Request) => {
         await errClient.from('buyer_search_jobs').update({
           status: 'failed',
           progress_pct: 0,
-          progress_message: 'Search failed',
-          error: String(error).slice(0, 500),
+          progress_message: userMessage,
+          error: `[${errorCode}] ${rawMsg}`.slice(0, 500),
           completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }).eq('id', _jobId);
       } catch { /* best effort */ }
     }
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: String(error) }),
-      { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } },
+      JSON.stringify({ error: userMessage, code: errorCode, details: rawMsg.slice(0, 500) }),
+      { status: statusCode, headers: { ...headers, 'Content-Type': 'application/json' } },
     );
   }
 });

@@ -62,9 +62,15 @@ export async function invokeWithTimeout<T = unknown>(
       let errorMessage: string;
       try {
         const errorBody = await response.json();
-        errorMessage = errorBody?.error
-          ? errorBody.error + (errorBody.details ? `: ${errorBody.details}` : '')
-          : `Edge function "${functionName}" returned HTTP ${response.status}`;
+        // If the server returned a categorized error code, use just the user-friendly
+        // message without appending raw details (which are meant for logging).
+        if (errorBody?.error && errorBody?.code) {
+          errorMessage = errorBody.error;
+        } else {
+          errorMessage = errorBody?.error
+            ? errorBody.error + (errorBody.details ? `: ${errorBody.details}` : '')
+            : `Edge function "${functionName}" returned HTTP ${response.status}`;
+        }
       } catch {
         const text = await response.text().catch(() => '');
         errorMessage = text || `Edge function "${functionName}" returned HTTP ${response.status}`;
