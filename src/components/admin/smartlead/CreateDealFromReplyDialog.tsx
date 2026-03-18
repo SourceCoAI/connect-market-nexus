@@ -19,8 +19,6 @@ import {
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useCreateDeal } from '@/hooks/admin/deals';
-import { useDealStages } from '@/hooks/admin/deals/useDealStages';
 import { useLinkInboxToDeal } from '@/hooks/smartlead/use-smartlead-inbox';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,13 +28,6 @@ interface CreateDealFromReplyDialogProps {
   onOpenChange: (open: boolean) => void;
   inboxItem: Record<string, unknown>;
 }
-
-const PRIORITY_OPTIONS = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-  { value: 'urgent', label: 'Urgent' },
-];
 
 const REMARKETING_LIST_OPTIONS = [
   { value: 'captarget', label: 'CapTarget Deals' },
@@ -50,30 +41,13 @@ export function CreateDealFromReplyDialog({
   onOpenChange,
   inboxItem: item,
 }: CreateDealFromReplyDialogProps) {
-  const createDeal = useCreateDeal();
   const linkToDeal = useLinkInboxToDeal();
-  const { data: stages } = useDealStages(false);
-
-  // Fetch listings for the listing dropdown
-  const { data: listings } = useQuery({
-    queryKey: ['listings-for-deal-create'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('listings')
-        .select('id, title')
-        .order('title')
-        .limit(200);
-      if (error) throw error;
-      return data;
-    },
-    enabled: open,
-  });
 
   // Derive defaults from the inbox item
   const contactName = String(item.to_name || '').trim();
   const campaignName = String(item.campaign_name || '').trim();
   const subject = String(item.subject || '').trim();
-  const aiCategory = String(item.manual_category || item.ai_category || '');
+  
   const leadEmail = String(item.to_email || item.sl_lead_email || '').trim();
 
   // Extract company name from email domain as best guess
@@ -106,11 +80,6 @@ export function CreateDealFromReplyDialog({
     ? `${contactName}${campaignName ? ` – ${campaignName}` : ''}`
     : subject || campaignName || 'SmartLead Response';
 
-  let defaultPriority = 'medium';
-  if (['meeting_request', 'interested'].includes(aiCategory)) defaultPriority = 'high';
-  else if (['not_interested', 'unsubscribe', 'negative_hostile'].includes(aiCategory))
-    defaultPriority = 'low';
-
   const defaultDescription = [
     subject ? `Subject: ${subject}` : null,
     campaignName ? `Campaign: ${campaignName}` : null,
@@ -128,19 +97,8 @@ export function CreateDealFromReplyDialog({
   const [contactCompany, setContactCompany] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [description, setDescription] = useState(defaultDescription);
-  const [priority, setPriority] = useState(defaultPriority);
-  const [stageId, setStageId] = useState('');
-  const [listingId, setListingId] = useState('');
-  const [dealSource, setDealSource] = useState('');
+  const [dealSource, setDealSource] = useState('captarget');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Set default stage when stages load
-  useEffect(() => {
-    if (stages?.length && !stageId) {
-      const def = stages.find((s) => s.is_default) || stages[0];
-      setStageId(def.id);
-    }
-  }, [stages, stageId]);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -151,9 +109,7 @@ export function CreateDealFromReplyDialog({
       setContactCompany(derivedCompany);
       setContactPhone('');
       setDescription(defaultDescription);
-      setPriority(defaultPriority);
-      setListingId('');
-      setDealSource('');
+      setDealSource('captarget');
       // stageId will be set by the other effect
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,89 +126,45 @@ export function CreateDealFromReplyDialog({
       toast.error('Title is required');
       return;
     }
-
-    // If a remarketing list is selected, create in listings table instead
-    const isRemarketingList = !!dealSource && REMARKETING_LIST_OPTIONS.some(o => o.value === dealSource);
-
-    if (!isRemarketingList && !stageId) {
-      toast.error('Please select a pipeline stage');
+    if (!dealSource) {
+      toast.error('Please select a remarketing list');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      if (isRemarketingList) {
-        // Create in listings table so it shows up in the remarketing pages
-        const { data: newListing, error: listingError } = await supabase
-          .from('listings')
-          .insert({
-            title: title.trim(),
-            internal_company_name: contactCompany.trim() || title.trim(),
-            website: null,
-            main_contact_name: contactNameField.trim() || null,
-            main_contact_email: contactEmail.trim() || null,
-            main_contact_phone: contactPhone.trim() || null,
-            description: description.trim() || null,
-            deal_source: dealSource,
-            status: 'active',
-            is_internal_deal: true,
-            pushed_to_all_deals: false,
-          } as never)
-          .select('id')
-          .single();
-
-        if (listingError) throw listingError;
-
-        // Link inbox item to the listing (store as deal_id for reference)
-        if (newListing?.id) {
-          linkToDeal.mutate(
-            { id: String(item.id), dealId: newListing.id },
-            {
-              onSuccess: () => {
-                toast.success(`Deal added to ${REMARKETING_LIST_OPTIONS.find(o => o.value === dealSource)?.label}`);
-                setIsSubmitting(false);
-                onOpenChange(false);
-              },
-              onError: () => {
-                toast.success(`Deal created but failed to link to inbox item`);
-                setIsSubmitting(false);
-                onOpenChange(false);
-              },
-            },
-          );
-        }
-      } else {
-        // Standard deal_pipeline creation
-        const dealPayload: Record<string, unknown> = {
+      const { data: newListing, error: listingError } = await supabase
+        .from('listings')
+        .insert({
           title: title.trim(),
-          stage_id: stageId,
-          source: 'smartlead',
-          priority,
-          contact_name: contactNameField.trim() || null,
-          contact_email: contactEmail.trim() || null,
-          contact_phone: contactPhone.trim() || null,
-          contact_company: contactCompany.trim() || null,
+          internal_company_name: contactCompany.trim() || title.trim(),
+          website: null,
+          main_contact_name: contactNameField.trim() || null,
+          main_contact_email: contactEmail.trim() || null,
+          main_contact_phone: contactPhone.trim() || null,
           description: description.trim() || null,
-        };
+          deal_source: dealSource,
+          status: 'active',
+          is_internal_deal: true,
+          pushed_to_all_deals: false,
+        } as never)
+        .select('id')
+        .single();
 
-        if (listingId) {
-          dealPayload.listing_id = listingId;
-        }
+      if (listingError) throw listingError;
 
-        const newDeal = await createDeal.mutateAsync(dealPayload);
-        const newDealId = (newDeal as { id: string }).id;
-
+      if (newListing?.id) {
         linkToDeal.mutate(
-          { id: String(item.id), dealId: newDealId },
+          { id: String(item.id), dealId: newListing.id },
           {
             onSuccess: () => {
-              toast.success(`Deal created: ${title}`);
+              toast.success(`Lead added to ${REMARKETING_LIST_OPTIONS.find(o => o.value === dealSource)?.label}`);
               setIsSubmitting(false);
               onOpenChange(false);
             },
             onError: () => {
-              toast.success(`Deal created but failed to link to inbox item`);
+              toast.success(`Lead created but failed to link to inbox item`);
               setIsSubmitting(false);
               onOpenChange(false);
             },
@@ -260,7 +172,7 @@ export function CreateDealFromReplyDialog({
         );
       }
     } catch (err) {
-      toast.error(`Failed to create deal: ${(err as Error).message}`);
+      toast.error(`Failed to create lead: ${(err as Error).message}`);
       setIsSubmitting(false);
     }
   };
@@ -269,9 +181,9 @@ export function CreateDealFromReplyDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Deal from Reply</DialogTitle>
+          <DialogTitle>Add Lead from Reply</DialogTitle>
           <DialogDescription>
-            Review and edit the pre-filled fields before creating a deal pipeline entry.
+            Review and edit the pre-filled fields. This will add the lead to the selected remarketing list.
           </DialogDescription>
         </DialogHeader>
 
@@ -287,74 +199,21 @@ export function CreateDealFromReplyDialog({
             />
           </div>
 
-          {/* Stage & Priority row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Pipeline Stage *</Label>
-              <Select value={stageId} onValueChange={setStageId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stages?.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Priority</Label>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Remarketing List & Listing */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Remarketing List</Label>
-              <Select value={dealSource || 'none'} onValueChange={(v) => setDealSource(v === 'none' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select list" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {REMARKETING_LIST_OPTIONS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Listing (optional)</Label>
-              <Select value={listingId || 'none'} onValueChange={(v) => setListingId(v === 'none' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Link to a listing..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No listing</SelectItem>
-                  {listings?.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Remarketing List */}
+          <div className="space-y-1.5">
+            <Label>Remarketing List *</Label>
+            <Select value={dealSource} onValueChange={setDealSource}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select list" />
+              </SelectTrigger>
+              <SelectContent>
+                {REMARKETING_LIST_OPTIONS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Contact fields */}
@@ -430,7 +289,7 @@ export function CreateDealFromReplyDialog({
             </Button>
             <Button onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSubmitting ? 'Creating...' : 'Create Deal'}
+              {isSubmitting ? 'Adding...' : 'Add Lead'}
             </Button>
           </div>
         </div>
