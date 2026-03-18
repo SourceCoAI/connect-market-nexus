@@ -187,8 +187,8 @@ export function useRecategorizeInbox() {
       if (category !== undefined) updates.manual_category = category;
       if (sentiment !== undefined) updates.manual_sentiment = sentiment;
 
-      const { error } = await supabase
-        .from('smartlead_reply_inbox')
+      const { error } = await (supabase
+        .from('smartlead_reply_inbox') as any)
         .update(updates)
         .eq('id', id);
 
