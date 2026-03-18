@@ -108,6 +108,7 @@ export function CreateDealFromReplyDialog({
   const [priority, setPriority] = useState(defaultPriority);
   const [stageId, setStageId] = useState('');
   const [listingId, setListingId] = useState('');
+  const [dealSource, setDealSource] = useState('smartlead');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Set default stage when stages load
