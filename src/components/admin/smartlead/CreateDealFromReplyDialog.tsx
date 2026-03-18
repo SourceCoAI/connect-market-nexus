@@ -180,7 +180,7 @@ export function CreateDealFromReplyDialog({
     const dealPayload: Record<string, unknown> = {
       title: title.trim(),
       stage_id: stageId,
-      source: dealSource,
+      source: dealSource || 'smartlead',
       priority,
       contact_name: contactNameField.trim() || null,
       contact_email: contactEmail.trim() || null,
