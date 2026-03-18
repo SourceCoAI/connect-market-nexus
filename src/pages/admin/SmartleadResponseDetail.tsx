@@ -79,9 +79,7 @@ export default function SmartleadResponseDetail() {
   const { data: item, isLoading } = useSmartleadInboxItem(inboxId);
   const recategorize = useRecategorizeInbox();
   const linkToDeal = useLinkInboxToDeal();
-  const createDeal = useCreateDeal();
-  const { data: stages } = useDealStages(false);
-  const [isCreatingDeal, setIsCreatingDeal] = useState(false);
+  const [showCreateDealDialog, setShowCreateDealDialog] = useState(false);
 
   if (isLoading) {
     return <div className="text-center py-12 text-muted-foreground">Loading...</div>;
