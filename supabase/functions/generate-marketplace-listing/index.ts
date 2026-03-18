@@ -387,9 +387,7 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[generate-marketplace-listing] Starting for deal_id=${dealId}, listing_id=${listingId || 'none'}`);
 
-    // Step 1a: Verify Final PDFs exist in data_room_documents for both memo types.
-    // The Final PDF is the authoritative, reviewed document — both must be uploaded
-    // before a marketplace listing can be generated.
+    // Step 1a: Check for Final PDFs in data_room_documents (preferred, reviewed docs)
     const { data: finalPdfs } = await supabaseAdmin
       .from('data_room_documents')
       .select('document_category')
@@ -400,23 +398,9 @@ Deno.serve(async (req: Request) => {
     const hasFinalLeadMemo = finalPdfs?.some((d: { document_category: string }) => d.document_category === 'full_memo');
     const hasFinalTeaser = finalPdfs?.some((d: { document_category: string }) => d.document_category === 'anonymous_teaser');
 
-    if (!hasFinalLeadMemo || !hasFinalTeaser) {
-      const missing = [];
-      if (!hasFinalLeadMemo) missing.push('Full Lead Memo');
-      if (!hasFinalTeaser) missing.push('Anonymous Teaser');
-      return new Response(
-        JSON.stringify({
-          error: `Final PDF missing for: ${missing.join(' and ')}. Upload Final PDFs in the Data Room before generating a marketplace listing.`,
-          needs_pdf: true,
-          missing_pdfs: missing,
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    // Step 1b: Fetch the lead memo content (draft or completed) — this provides the
-    // structured text that the AI uses as input. The Final PDF confirms it was reviewed;
-    // the lead_memos row contains the parseable content.
+    // Step 1b: Fetch the lead memo content (completed or published) — this provides the
+    // structured text that the AI uses as input. Proceed if either Final PDFs exist
+    // OR a completed lead memo is available in the lead_memos table.
     const { data: leadMemo } = await supabaseAdmin
       .from('lead_memos')
       .select('content, status, created_at')
@@ -426,6 +410,21 @@ Deno.serve(async (req: Request) => {
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
+
+    // Require at least one content source: Final PDFs or a completed lead memo
+    if ((!hasFinalLeadMemo || !hasFinalTeaser) && !leadMemo) {
+      const missing = [];
+      if (!hasFinalLeadMemo) missing.push('Full Lead Memo');
+      if (!hasFinalTeaser) missing.push('Anonymous Teaser');
+      return new Response(
+        JSON.stringify({
+          error: `No lead memo content found and Final PDF missing for: ${missing.join(' and ')}. Generate a Full Lead Memo or upload Final PDFs before generating a marketplace listing.`,
+          needs_memo: true,
+          missing_pdfs: missing,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
 
     if (!leadMemo) {
       return new Response(

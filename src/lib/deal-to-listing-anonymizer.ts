@@ -230,6 +230,12 @@ export function stripIdentifyingInfo(text: string, deal: DealData): string {
   // Strip any remaining URLs
   result = result.replace(/https?:\/\/[^\s)]+/gi, '[redacted]');
 
+  // Replace full state names with regional descriptors to prevent geographic identification
+  for (const [stateName, region] of Object.entries(STATE_NAME_TO_REGION)) {
+    const escaped = stateName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp(`\\b${escaped}\\b`, 'gi'), region);
+  }
+
   return result;
 }
 
@@ -613,7 +619,7 @@ function generateAnonymousDescription(deal: DealData): string {
         '\n\n' +
           growthDrivers
             .slice(0, 4)
-            .map((d) => `- ${d}`)
+            .map((d) => `- ${stripIdentifyingInfo(d, deal)}`)
             .join('\n'),
       );
     }
@@ -745,7 +751,8 @@ function generateHeroDescription(deal: DealData): string {
   if (growthDrivers.length > 0) {
     sentence4 = `Growth levers include ${growthDrivers.slice(0, 2).join(' and ').toLowerCase()}.`;
   } else if (deal.customer_geography) {
-    sentence4 = `Serving ${deal.customer_geography.toLowerCase()} markets.`;
+    const anonGeo = stripIdentifyingInfo(deal.customer_geography.toLowerCase(), deal);
+    sentence4 = `Serving ${anonGeo} markets.`;
   } else if (deal.geographic_states && deal.geographic_states.length > 1) {
     sentence4 = `Multi-state operations with regional market coverage.`;
   }

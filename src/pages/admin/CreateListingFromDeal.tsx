@@ -175,9 +175,9 @@ export default function CreateListingFromDeal() {
 
     (async () => {
       try {
-        // Step 1: Check that Final PDFs exist for both memo types
-        // The Final PDF (uploaded to data_room_documents) is the authoritative,
-        // reviewed document. Both must be present before generating a listing.
+        // Step 1: Check that content sources exist to generate a listing.
+        // Priority: Final PDFs in data_room_documents (reviewed) > completed
+        // lead memos in lead_memos table > anonymizer fallback.
         const { data: finalPdfs } = await supabase
           .from('data_room_documents')
           .select('document_category')
@@ -188,13 +188,26 @@ export default function CreateListingFromDeal() {
         const hasFinalLeadMemo = finalPdfs?.some((d) => d.document_category === 'full_memo');
         const hasFinalTeaser = finalPdfs?.some((d) => d.document_category === 'anonymous_teaser');
 
+        // If Final PDFs are missing, check if completed lead memos exist
+        // (the lead memo content is sufficient for AI listing generation)
+        let hasLeadMemoContent = false;
         if (!hasFinalLeadMemo || !hasFinalTeaser) {
-          const missing = [];
-          if (!hasFinalLeadMemo) missing.push('Full Lead Memo');
-          if (!hasFinalTeaser) missing.push('Anonymous Teaser');
+          const { data: leadMemos } = await supabase
+            .from('lead_memos')
+            .select('memo_type')
+            .eq('deal_id', dealId)
+            .in('memo_type', ['full_memo', 'anonymous_teaser'])
+            .in('status', ['completed', 'published']);
+
+          const hasFullMemoContent = leadMemos?.some((m) => m.memo_type === 'full_memo');
+          const hasTeaserContent = leadMemos?.some((m) => m.memo_type === 'anonymous_teaser');
+          hasLeadMemoContent = !!(hasFullMemoContent || hasTeaserContent);
+        }
+
+        if (!hasFinalLeadMemo && !hasFinalTeaser && !hasLeadMemoContent) {
           setDescriptionSource('anonymizer');
           toast.warning(
-            `Final PDF missing for: ${missing.join(' and ')}. Upload Final PDFs in the Data Room before creating a listing.`,
+            `No lead memos found. Generate a Full Lead Memo from the Data Room before creating a listing.`,
             { duration: 8000 },
           );
           return;
