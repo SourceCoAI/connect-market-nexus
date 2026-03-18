@@ -333,27 +333,111 @@ export default function SmartleadResponseDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>{String(item.to_email || item.sl_lead_email || item.from_email || 'Unknown')}</span>
-              </div>
-              {item.to_name && (
+              {/* Name */}
+              {(item.lead_first_name || item.lead_last_name || item.to_name) && (
                 <div className="flex items-center gap-2">
-                  <Building className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{String(item.to_name)}</span>
+                  <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="font-medium">
+                    {[item.lead_first_name, item.lead_last_name].filter(Boolean).join(' ') || String(item.to_name)}
+                  </span>
+                  {item.lead_title && (
+                    <span className="text-xs text-muted-foreground">· {String(item.lead_title)}</span>
+                  )}
                 </div>
               )}
+
+              {/* Email */}
+              <div className="flex items-center gap-2">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span>{String(item.to_email || item.sl_lead_email || item.from_email || 'Unknown')}</span>
+              </div>
+
+              {/* Company */}
+              {item.lead_company_name && (
+                <div className="flex items-center gap-2">
+                  <Building className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{String(item.lead_company_name)}</span>
+                </div>
+              )}
+
+              {/* Industry */}
+              {item.lead_industry && (
+                <div className="flex items-center gap-2">
+                  <Factory className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{String(item.lead_industry)}</span>
+                </div>
+              )}
+
+              {/* Phone */}
+              {(item.lead_phone || item.lead_mobile) && (
+                <div className="flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{String(item.lead_phone || item.lead_mobile)}</span>
+                  {item.lead_phone && item.lead_mobile && item.lead_phone !== item.lead_mobile && (
+                    <span className="text-xs text-muted-foreground">· Mobile: {String(item.lead_mobile)}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Website */}
+              {item.lead_website && (
+                <div className="flex items-center gap-2">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <a
+                    href={String(item.lead_website).startsWith('http') ? String(item.lead_website) : `https://${item.lead_website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline truncate"
+                  >
+                    {String(item.lead_website)}
+                  </a>
+                </div>
+              )}
+
+              {/* LinkedIn */}
+              {item.lead_linkedin_url && (
+                <div className="flex items-center gap-2">
+                  <Linkedin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <a
+                    href={String(item.lead_linkedin_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline truncate"
+                  >
+                    LinkedIn Profile
+                  </a>
+                </div>
+              )}
+
+              {/* Location */}
+              {item.lead_location && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{String(item.lead_location)}</span>
+                </div>
+              )}
+
+              {/* Date */}
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5" />
+                <Calendar className="h-3.5 w-3.5 shrink-0" />
                 <span>
                   {item.time_replied || item.created_at
                     ? format(new Date(String(item.time_replied || item.created_at)), 'PPp')
                     : 'Unknown time'}
                 </span>
               </div>
+
+              {/* Campaign */}
+              {item.campaign_name && (
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground">{String(item.campaign_name)}</span>
+                </div>
+              )}
+
               {item.message_id && (
                 <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <Hash className="h-3.5 w-3.5 mt-0.5" />
+                  <Hash className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                   <span className="break-all">{String(item.message_id)}</span>
                 </div>
               )}
