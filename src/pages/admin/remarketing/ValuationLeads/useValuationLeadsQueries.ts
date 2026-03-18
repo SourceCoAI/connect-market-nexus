@@ -309,7 +309,8 @@ export function useValuationLeadsQueries() {
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [activeTab, timeframe, sortColumn, sortDirection, filterState, setCurrentPage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, timeframe, sortColumn, sortDirection, filterState]);
 
   const handleSort = (col: SortColumn) => {
     setSearchParams(

@@ -242,7 +242,8 @@ export function useGPPartnerDeals() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterState, sortColumn, sortDirection, setCurrentPage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterState, sortColumn, sortDirection]);
 
   const handleSort = (col: SortColumn) => {
     setSearchParams(

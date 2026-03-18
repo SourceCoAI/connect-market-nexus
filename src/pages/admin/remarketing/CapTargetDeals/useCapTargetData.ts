@@ -272,7 +272,8 @@ export function useCapTargetData() {
   // Reset to page 1 when filters/sort change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterState, sortColumn, sortDirection, setCurrentPage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterState, sortColumn, sortDirection]);
 
   // Selection helpers
   const allSelected =
