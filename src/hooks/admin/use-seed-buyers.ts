@@ -49,9 +49,12 @@ export function useSeedBuyers() {
     mutationFn: async ({ listingId, maxBuyers, forceRefresh, buyerCategory, jobId }) => {
       const data = await invokeEdgeFunction<SeedBuyersResponse>('seed-buyers', {
         body: { listingId, maxBuyers, forceRefresh, buyerCategory, jobId },
-        // AI search can take a while — allow up to 2 minutes per attempt
-        timeoutMs: 120_000,
-        maxRetries: 2,
+        // Client timeout must exceed server wall-time limit (150s) so the server
+        // always has time to return a proper response instead of being cut off.
+        timeoutMs: 160_000,
+        // Only retry on transient network errors, not timeouts — the job-based
+        // progress tracking handles server-side failures.
+        maxRetries: 1,
       });
       return validateSeedResult(data);
     },

@@ -489,6 +489,9 @@ export function RecommendedBuyersTab({
       setSeedResults(result.seeded_buyers);
       setSummaryCached(!!result.cached);
       setSummaryDialogOpen(true);
+      // Reset pagination so user sees newly seeded buyers
+      setInternalPage(0);
+      setExternalPage(0);
       await refresh();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to seed buyers';

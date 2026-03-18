@@ -117,7 +117,7 @@ export async function callClaude(options: ClaudeCallOptions): Promise<ClaudeResp
         }),
         signal: AbortSignal.timeout(options.timeoutMs || 30000),
       },
-      { maxRetries: 2, baseDelayMs: 1000, callerName: `Claude/${options.model}` },
+      { maxRetries: 1, baseDelayMs: 1000, callerName: `Claude/${options.model}` },
     );
 
     if (response.status === 429 && options.rateLimitConfig?.supabase) {
@@ -132,11 +132,23 @@ export async function callClaude(options: ClaudeCallOptions): Promise<ClaudeResp
     return await response.json();
   };
 
-  // Wrap with concurrency tracking if rate limiter is configured
-  if (options.rateLimitConfig?.supabase) {
-    return await withConcurrencyTracking(options.rateLimitConfig.supabase, 'anthropic', doFetch);
+  try {
+    // Wrap with concurrency tracking if rate limiter is configured
+    if (options.rateLimitConfig?.supabase) {
+      return await withConcurrencyTracking(options.rateLimitConfig.supabase, 'anthropic', doFetch);
+    }
+    return await doFetch();
+  } catch (err) {
+    // Re-throw timeout/abort errors with model context for better diagnostics
+    if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      const timeoutSec = Math.round((options.timeoutMs || 30000) / 1000);
+      throw new Error(
+        `Claude ${options.model} timed out after ${timeoutSec}s. ` +
+        'The AI model took too long to respond.'
+      );
+    }
+    throw err;
   }
-  return await doFetch();
 }
 
 // ---------- Streaming call (for orchestrator) ----------

@@ -25,6 +25,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { callClaude, CLAUDE_MODELS } from '../_shared/claude-client.ts';
 import { googleSearch } from '../_shared/serper-client.ts';
+// Wall-time budget for the edge function. Supabase hard-kills edge functions
+// based on plan (60s free, 150s Pro, 400s Enterprise). We track elapsed time
+// and dynamically cap Claude API timeouts to avoid being killed mid-response.
+const WALL_TIME_LIMIT_MS = 150_000;
+const WALL_TIME_SAFETY_MARGIN_MS = 5_000; // stop 5s before limit to send response
 
 // ── Types ──
 
@@ -163,10 +168,12 @@ function validateDealFields(deal: Record<string, unknown>): string[] {
     missing.push('description (executive_summary, description, or hero_description)');
 
   // Industry and categories are alternatives — only flag if NEITHER is present
+  const dealCats = deal.categories as string[] | null;
+  const dealCat = (deal.category as string) || '';
   const hasIndustryOrCategory =
     (deal.industry as string)?.trim() ||
-    (cats && cats.length > 0) ||
-    cat?.trim();
+    (dealCats && dealCats.length > 0) ||
+    dealCat?.trim();
   if (!hasIndustryOrCategory) missing.push('industry or categories');
 
   return missing;
@@ -533,6 +540,12 @@ Deno.serve(async (req: Request) => {
 
   const headers = getCorsHeaders(req);
   let _jobId: string | undefined; // hoisted for error handler access
+  const fnStartTime = Date.now();
+
+  /** Returns remaining ms before the edge function should stop work */
+  function remainingMs(): number {
+    return Math.max(0, WALL_TIME_LIMIT_MS - WALL_TIME_SAFETY_MARGIN_MS - (Date.now() - fnStartTime));
+  }
 
   try {
     // ── Auth guard (mirrors score-deal-buyers pattern) ──
@@ -635,7 +648,7 @@ Deno.serve(async (req: Request) => {
             maxTokens: 256,
             systemPrompt: 'You classify businesses. Return ONLY a JSON object with two keys: "industry" (string, e.g. "HVAC Services") and "categories" (array of 1-3 short category strings). No markdown, no explanation.',
             messages: [{ role: 'user', content: `Classify this business:\n\n${descText.slice(0, 1500)}` }],
-            timeoutMs: 15_000,
+            timeoutMs: Math.min(15_000, remainingMs() - 120_000), // reserve time for main passes
           });
 
           // Extract text from ContentBlock[]
@@ -769,12 +782,17 @@ Deno.serve(async (req: Request) => {
     // ── Pass 1: Define the buyer profile ──
     await updateJobProgress({ status: 'searching', progress_pct: 10, progress_message: 'Defining ideal buyer profile (Pass 1)…' });
     console.log('Pass 1: Defining buyer profile...');
+    // Cap timeout to remaining wall time (need to save time for Pass 2 + inserts)
+    const pass1Timeout = Math.min(30_000, remainingMs() - 100_000); // reserve 100s for Pass 2 + post-processing
+    if (pass1Timeout < 10_000) {
+      throw new Error('Insufficient wall time remaining for AI buyer search. Please try again.');
+    }
     const pass1Response = await callClaude({
       model: CLAUDE_MODELS.sonnet,
       maxTokens: 2048,
       systemPrompt: buildPass1SystemPrompt(),
       messages: [{ role: 'user', content: buildPass1UserPrompt(deal) }],
-      timeoutMs: 30000,
+      timeoutMs: pass1Timeout,
     });
 
     const pass1Text = pass1Response.content
@@ -809,12 +827,18 @@ Deno.serve(async (req: Request) => {
       pass2Prompt += feedbackSection;
     }
 
+    // Cap Pass 2 timeout to remaining wall time minus time needed for post-processing
+    const pass2Timeout = Math.min(90_000, remainingMs() - 20_000); // reserve 20s for inserts/Serper
+    if (pass2Timeout < 15_000) {
+      throw new Error('Insufficient wall time remaining for buyer discovery. Please try again.');
+    }
+    console.log(`Pass 2: using ${pass2Timeout}ms timeout (${remainingMs()}ms wall time remaining)`);
     const pass2Response = await callClaude({
       model: CLAUDE_MODELS.opus,
       maxTokens: 8192,
       systemPrompt: buildPass2SystemPrompt(),
       messages: [{ role: 'user', content: pass2Prompt }],
-      timeoutMs: 90000,
+      timeoutMs: pass2Timeout,
     });
 
     const pass2Text = pass2Response.content
@@ -843,13 +867,20 @@ Deno.serve(async (req: Request) => {
 
     for (const suggested of suggestedBuyers) {
       // If Claude didn't provide a website, attempt a Google search to find one
-      if (!suggested.company_website) {
+      // (skip if running low on wall time — the buyer can be enriched later)
+      if (!suggested.company_website && remainingMs() > 8_000) {
         console.info(`${suggested.company_name} — no website from AI, attempting Serper lookup…`);
-        const foundUrl = await lookupCompanyWebsite(suggested.company_name);
-        if (foundUrl) {
-          suggested.company_website = foundUrl;
-          console.info(`  → Found website via Serper: ${foundUrl}`);
+        try {
+          const foundUrl = await lookupCompanyWebsite(suggested.company_name);
+          if (foundUrl) {
+            suggested.company_website = foundUrl;
+            console.info(`  → Found website via Serper: ${foundUrl}`);
+          }
+        } catch (serperErr) {
+          console.warn(`  → Serper lookup failed for ${suggested.company_name}:`, serperErr);
         }
+      } else if (!suggested.company_website) {
+        console.info(`${suggested.company_name} — skipping Serper lookup (low wall time: ${remainingMs()}ms)`);
       }
 
       const domain = extractDomain(suggested.company_website);
@@ -967,22 +998,26 @@ Deno.serve(async (req: Request) => {
 
         if (insertError) {
           if (insertError.code === '23505') {
+            // Re-find by exact domain match (not ilike which could match wrong rows)
             const { data: raced } = await supabase
               .from('buyers')
-              .select('id')
+              .select('id, company_website')
               .eq('archived', false)
-              .ilike('company_website', `%${domain}%`)
-              .maybeSingle();
+              .or(`company_website.ilike.%${domain}%,company_website.ilike.%www.${domain}%`)
+              .limit(10);
 
-            if (raced) {
+            // Filter to exact domain match in application code
+            const exactMatch = (raced || []).find(r => extractDomain(r.company_website) === domain);
+
+            if (exactMatch) {
               action = 'enriched_existing';
               wasNew = false;
-              buyerId = raced.id;
+              buyerId = exactMatch.id;
               existingDomainSet.add(domain);
-              domainToId.set(domain, raced.id);
+              domainToId.set(domain, exactMatch.id);
             } else {
               console.warn(
-                `Unique conflict inserting ${suggested.company_name} but couldn't re-find by domain — skipping`,
+                `Unique conflict inserting ${suggested.company_name} but couldn't re-find by domain "${domain}" — skipping`,
               );
               continue;
             }

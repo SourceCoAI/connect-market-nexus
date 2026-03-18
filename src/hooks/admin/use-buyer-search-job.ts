@@ -18,6 +18,8 @@ export interface BuyerSearchJob {
 }
 
 const POLL_INTERVAL = 2000;
+/** If a job hasn't been updated in this many ms, consider it stale/crashed */
+const STALE_JOB_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 /**
  * Creates a buyer search job record and polls for progress updates.
@@ -49,6 +51,25 @@ export function useBuyerSearchJob(listingId: string) {
     }
 
     if (data) {
+      // Detect stale jobs — if the job hasn't been updated in 3 minutes,
+      // the edge function likely crashed without updating the job record.
+      const updatedAt = data.updated_at || data.created_at;
+      const isStale = updatedAt &&
+        Date.now() - new Date(updatedAt).getTime() > STALE_JOB_TIMEOUT_MS &&
+        data.status !== 'completed' && data.status !== 'failed';
+
+      if (isStale) {
+        const staleJob: BuyerSearchJob = {
+          ...(data as BuyerSearchJob),
+          status: 'failed',
+          progress_message: 'The search appears to have stopped unexpectedly. Please try again.',
+          error: 'Job timed out — no progress update received',
+        };
+        setJob(staleJob);
+        stopPolling();
+        return;
+      }
+
       setJob(data as BuyerSearchJob);
       if (data.status === 'completed' || data.status === 'failed') {
         stopPolling();
@@ -82,6 +103,22 @@ export function useBuyerSearchJob(listingId: string) {
       }
 
       if (data) {
+        // Don't resume stale jobs — treat them as failed
+        const updatedAt = data.updated_at || data.created_at;
+        const isStale = updatedAt &&
+          Date.now() - new Date(updatedAt).getTime() > STALE_JOB_TIMEOUT_MS;
+
+        if (isStale) {
+          // Show as failed without polling
+          setJob({
+            ...(data as BuyerSearchJob),
+            status: 'failed',
+            progress_message: 'The previous search stopped unexpectedly. Please try again.',
+            error: 'Job timed out — no progress update received',
+          });
+          return;
+        }
+
         setJob(data as BuyerSearchJob);
         setActiveJobId(data.id);
       }
