@@ -72,9 +72,7 @@ export function CreateDealFromReplyDialog({
   const derivedCompany = enrichedCompany || companyFromEmail(leadEmail);
   const derivedPhone = enrichedPhone || enrichedMobile;
 
-  const defaultTitle = contactName
-    ? `${contactName}${campaignName ? ` – ${campaignName}` : ''}`
-    : subject || campaignName || 'SmartLead Response';
+  const defaultTitle = derivedCompany || contactName || subject || campaignName || 'SmartLead Response';
 
   const defaultDescription = [
     subject ? `Subject: ${subject}` : null,
