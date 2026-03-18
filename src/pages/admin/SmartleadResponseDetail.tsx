@@ -464,6 +464,15 @@ export default function SmartleadResponseDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Create Deal Dialog */}
+      {item && (
+        <CreateDealFromReplyDialog
+          open={showCreateDealDialog}
+          onOpenChange={setShowCreateDealDialog}
+          inboxItem={item}
+        />
+      )}
     </div>
   );
 }
