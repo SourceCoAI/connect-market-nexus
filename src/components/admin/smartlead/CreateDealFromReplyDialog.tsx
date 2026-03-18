@@ -73,11 +73,29 @@ export function CreateDealFromReplyDialog({
     enabled: open,
   });
 
+  // Look up company name from smartlead_campaign_leads by email
+  const leadEmail = String(item.to_email || item.sl_lead_email || '').trim();
+  const { data: campaignLead } = useQuery({
+    queryKey: ['smartlead-lead-company', leadEmail],
+    queryFn: async () => {
+      if (!leadEmail) return null;
+      const { data, error } = await (supabase.from('smartlead_campaign_leads') as any)
+        .select('company_name')
+        .eq('email', leadEmail)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { company_name: string | null } | null;
+    },
+    enabled: open && !!leadEmail,
+  });
+
   // Derive defaults from the inbox item
   const contactName = String(item.to_name || '').trim();
   const campaignName = String(item.campaign_name || '').trim();
   const subject = String(item.subject || '').trim();
   const aiCategory = String(item.manual_category || item.ai_category || '');
+  const derivedCompany = campaignLead?.company_name || '';
 
   const defaultTitle = contactName
     ? `${contactName}${campaignName ? ` – ${campaignName}` : ''}`
@@ -125,7 +143,7 @@ export function CreateDealFromReplyDialog({
       setTitle(defaultTitle);
       setContactNameField(contactName);
       setContactEmail(String(item.to_email || item.sl_lead_email || '').trim());
-      setContactCompany('');
+      setContactCompany(derivedCompany);
       setContactPhone('');
       setDescription(defaultDescription);
       setPriority(defaultPriority);
@@ -136,6 +154,12 @@ export function CreateDealFromReplyDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Update company when campaign lead data loads
+  useEffect(() => {
+    if (derivedCompany && !contactCompany) {
+      setContactCompany(derivedCompany);
+    }
+  }, [derivedCompany]);
   const handleSubmit = async () => {
     if (!title.trim()) {
       toast.error('Title is required');
