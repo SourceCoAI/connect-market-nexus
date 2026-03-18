@@ -409,7 +409,8 @@ export function useMasterLeads() {
   // Reset page on filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeSource, search, sortColumn, sortDirection, hidePushed, setCurrentPage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSource, search, sortColumn, sortDirection, hidePushed]);
 
   const handleSort = useCallback(
     (col: SortColumn) => {
