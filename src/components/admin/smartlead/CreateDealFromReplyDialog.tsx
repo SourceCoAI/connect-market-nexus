@@ -38,14 +38,10 @@ const PRIORITY_OPTIONS = [
   { value: 'urgent', label: 'Urgent' },
 ];
 
-const DEAL_SOURCE_OPTIONS = [
-  { value: 'smartlead', label: 'SmartLead' },
+const REMARKETING_LIST_OPTIONS = [
+  { value: 'captarget', label: 'CapTarget Deals' },
   { value: 'gp_partners', label: 'GP Partner Deals' },
   { value: 'sourceco', label: 'SourceCo Deals' },
-  { value: 'captarget', label: 'CapTarget Deals' },
-  { value: 'remarketing', label: 'Remarketing' },
-  { value: 'referral', label: 'Referral' },
-  { value: 'manual', label: 'Manual' },
 ];
 
 
