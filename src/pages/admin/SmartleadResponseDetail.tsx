@@ -425,9 +425,15 @@ export default function SmartleadResponseDetail() {
                   variant="outline"
                   size="sm"
                   className="w-full text-xs"
-                  onClick={() => setDealDialogOpen(true)}
+                  disabled={isCreatingDeal}
+                  onClick={handleCreateDeal}
                 >
-                  <LinkIcon className="h-3 w-3 mr-1" /> Add to Deal
+                  {isCreatingDeal ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Plus className="h-3 w-3 mr-1" />
+                  )}
+                  {isCreatingDeal ? 'Creating...' : 'Create Deal from Reply'}
                 </Button>
               )}
             </CardContent>
@@ -479,56 +485,6 @@ export default function SmartleadResponseDetail() {
           </Card>
         </div>
       </div>
-
-      {/* Add to Deal Dialog */}
-      <Dialog open={dealDialogOpen} onOpenChange={setDealDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add to Deal</DialogTitle>
-            <DialogDescription>
-              Link this SmartLead response to an existing deal in the pipeline.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              placeholder="Search deals..."
-              value={dealSearch}
-              onChange={(e) => setDealSearch(e.target.value)}
-              className="text-sm"
-            />
-            <ScrollArea className="h-[300px]">
-              <div className="space-y-1">
-                {deals && deals.length > 0 ? (
-                  deals.map((deal) => (
-                    <button
-                      key={deal.id}
-                      className="w-full text-left p-2 rounded-md hover:bg-muted transition-colors text-sm"
-                      onClick={() => handleLinkDeal(deal.id, deal.title || 'Untitled')}
-                    >
-                      <p className="font-medium truncate">{deal.title || 'Untitled Deal'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {deal.priority && <span className="capitalize">{deal.priority}</span>}
-                        {deal.created_at && (
-                          <span> • {format(new Date(deal.created_at), 'MMM d, yyyy')}</span>
-                        )}
-                      </p>
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    {dealSearch ? 'No deals found' : 'Loading deals...'}
-                  </p>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setDealDialogOpen(false)}>
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
