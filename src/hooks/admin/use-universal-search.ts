@@ -2,6 +2,25 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+/** Fetch all rows from a Supabase query by paginating in chunks to bypass the default 1000-row limit. */
+async function fetchAllRows<T>(
+  buildQuery: (from: number, to: number) => ReturnType<ReturnType<typeof supabase.from>['select']>,
+  pageSize = 5000,
+): Promise<T[]> {
+  const allRows: T[] = [];
+  let offset = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await buildQuery(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as T[];
+    allRows.push(...rows);
+    if (rows.length < pageSize) break;
+    offset += pageSize;
+  }
+  return allRows;
+}
+
 export interface UniversalSearchResult {
   id: string;
   title: string;
@@ -75,45 +94,58 @@ export function useUniversalSearch() {
   const allDealsQuery = useQuery({
     queryKey: ['universal-search', 'all-deals'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('listings')
-        .select(
-          'id, title, internal_company_name, description, location, category, industry, website, deal_source, remarketing_status, main_contact_name, main_contact_email, captarget_client_name, address_state',
-        )
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-        .limit(5000);
-      if (error) throw error;
-      return (data ?? []).map((l) => {
+      const rows = await fetchAllRows<Record<string, unknown>>(
+        (from, to) =>
+          supabase
+            .from('listings')
+            .select(
+              'id, title, internal_company_name, real_company_name, description, location, category, industry, website, deal_source, remarketing_status, main_contact_name, main_contact_email, captarget_client_name, address_state, status',
+            )
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false })
+            .range(from, to),
+      );
+      return rows.map((l: Record<string, unknown>) => {
         // Route to the appropriate detail page based on deal_source
+        const dealSource = l.deal_source as string | null;
         let href = `/admin/remarketing/deals/${l.id}`;
         let category: SearchCategory = 'all_deals';
-        if (l.deal_source === 'captarget') {
+        if (dealSource === 'captarget') {
           category = 'captarget';
           href = `/admin/remarketing/leads/captarget`;
-        } else if (l.deal_source === 'gp_partners') {
+        } else if (dealSource === 'gp_partners') {
           category = 'gp_partners';
           href = `/admin/remarketing/leads/gp-partners`;
-        } else if (l.deal_source === 'sourceco') {
+        } else if (dealSource === 'sourceco') {
           category = 'sourceco';
           href = `/admin/remarketing/leads/sourceco`;
         }
 
+        const companyName = (l.internal_company_name || l.real_company_name || l.title || 'Untitled') as string;
         return {
-          id: l.id,
-          title: l.internal_company_name || l.title || 'Untitled',
+          id: l.id as string,
+          title: companyName,
           subtitle: [
             l.industry,
             l.location || l.address_state,
             l.category,
             l.main_contact_name,
             l.captarget_client_name,
+            l.real_company_name && l.real_company_name !== companyName ? l.real_company_name : null,
           ]
             .filter(Boolean)
             .join(' · '),
           category,
           href,
-          meta: [l.description?.slice(0, 80), l.website, l.main_contact_email, l.deal_source, l.remarketing_status]
+          meta: [
+            (l.description as string)?.slice(0, 80),
+            l.website,
+            l.main_contact_email,
+            dealSource,
+            l.remarketing_status,
+            l.status,
+            l.title && l.title !== companyName ? l.title : null,
+          ]
             .filter(Boolean)
             .join(' | '),
         };
@@ -130,8 +162,7 @@ export function useUniversalSearch() {
         .from('valuation_leads')
         .select('id, display_name, business_name, full_name, email, website, industry, location')
         .eq('excluded', false)
-        .order('created_at', { ascending: false })
-        .limit(2000);
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []).map((v) => ({
         id: v.id,
@@ -153,8 +184,7 @@ export function useUniversalSearch() {
         .from('inbound_leads')
         .select('id, name, email, company_name, role, message, lead_type')
         .is('lead_type', null)
-        .order('created_at', { ascending: false })
-        .limit(1000);
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []).map((l) => ({
         id: l.id,
@@ -176,8 +206,7 @@ export function useUniversalSearch() {
         .from('inbound_leads')
         .select('id, name, email, company_name, business_website, message')
         .eq('lead_type', 'owner')
-        .order('created_at', { ascending: false })
-        .limit(1000);
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []).map((l) => ({
         id: l.id,
@@ -222,8 +251,7 @@ export function useUniversalSearch() {
           'id, company_name, company_website, buyer_type, pe_firm_name, thesis_summary, hq_city, hq_state',
         )
         .eq('archived', false)
-        .order('company_name')
-        .limit(2000);
+        .order('company_name');
       if (error) throw error;
       return (data ?? []).map((b) => ({
         id: b.id,
@@ -252,8 +280,7 @@ export function useUniversalSearch() {
         .select('id, first_name, last_name, email, title, phone, remarketing_buyer_id, buyers!inner(company_name)')
         .eq('contact_type', 'buyer')
         .eq('archived', false)
-        .order('first_name')
-        .limit(2000);
+        .order('first_name');
       if (error) throw error;
       return (data ?? []).map((c: Record<string, unknown>) => {
         const buyer = c.buyers as Record<string, unknown> | null;
@@ -325,7 +352,7 @@ export function useUniversalSearch() {
         const haystack = [r.title, r.subtitle, r.meta].filter(Boolean).join(' ').toLowerCase();
         return tokens.every((t) => haystack.includes(t));
       })
-      .slice(0, 50);
+      .slice(0, 100);
   }, [query, allResults]);
 
   const grouped = useMemo(() => {
