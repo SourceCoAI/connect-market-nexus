@@ -290,6 +290,11 @@ function InboxCard({
                 {item.status.replace('_', ' ')}
               </Badge>
             )}
+            {item.linked_deal_id && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary">
+                🔗 Linked
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
             {item.campaign_name && <span className="truncate">{item.campaign_name}</span>}

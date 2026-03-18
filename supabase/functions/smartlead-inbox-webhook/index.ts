@@ -265,13 +265,25 @@ Deno.serve(async (req) => {
     const previewText = payload.preview_text || stripHtml(replyText).substring(0, 300) || null;
 
     // ─── Insert record ──────────────────────────────────────────────────
+    // Handle fields that may come as objects (SmartLead sends nested structures)
+    const replyMessageStr = typeof payload.reply_message === 'object' && payload.reply_message
+      ? (payload.reply_message.text || payload.reply_message.html || JSON.stringify(payload.reply_message))
+      : (payload.reply_message || null);
+    
+    const sentMessageStr = typeof payload.sent_message === 'object' && payload.sent_message
+      ? (payload.sent_message.text || payload.sent_message.html || JSON.stringify(payload.sent_message))
+      : (payload.sent_message || null);
+
+    // Handle camelCase variants from SmartLead/n8n
+    const leadCorrespondence = payload.lead_correspondence || payload.leadCorrespondence || null;
+
     const record = {
       campaign_status: payload.campaign_status || null,
       campaign_name: payload.campaign_name || null,
       campaign_id: payload.campaign_id ? Number(payload.campaign_id) : null,
       stats_id: payload.stats_id || null,
-      sl_email_lead_id: payload.sl_email_lead_id || null,
-      sl_email_lead_map_id: payload.sl_email_lead_map_id || null,
+      sl_email_lead_id: payload.sl_email_lead_id ? String(payload.sl_email_lead_id) : null,
+      sl_email_lead_map_id: payload.sl_email_lead_map_id ? String(payload.sl_email_lead_map_id) : null,
       sl_lead_email: payload.sl_lead_email || null,
       from_email: fromEmail,
       to_email: payload.to_email || null,
@@ -280,10 +292,10 @@ Deno.serve(async (req) => {
       subject: payload.subject || null,
       message_id: messageId,
       sent_message_body: payload.sent_message_body || null,
-      sent_message: payload.sent_message || null,
+      sent_message: sentMessageStr,
       time_replied: payload.time_replied || null,
       event_timestamp: eventTimestamp,
-      reply_message: payload.reply_message || null,
+      reply_message: replyMessageStr,
       reply_body: payload.reply_body || null,
       preview_text: previewText,
       sequence_number: payload.sequence_number ? Number(payload.sequence_number) : null,
@@ -292,12 +304,12 @@ Deno.serve(async (req) => {
       ui_master_inbox_link: payload.ui_master_inbox_link || null,
       description: payload.description || null,
       metadata: payload.metadata || null,
-      lead_correspondence: payload.lead_correspondence || null,
+      lead_correspondence: leadCorrespondence,
       webhook_url: payload.webhook_url || null,
-      webhook_id: payload.webhook_id || null,
+      webhook_id: payload.webhook_id ? String(payload.webhook_id) : null,
       webhook_name: payload.webhook_name || null,
       event_type: payload.event_type || payload.event || 'REPLY',
-      client_id: payload.client_id || null,
+      client_id: payload.client_id ? String(payload.client_id) : null,
       ai_category: classification.category,
       ai_sentiment: classification.sentiment,
       ai_is_positive: classification.is_positive,
