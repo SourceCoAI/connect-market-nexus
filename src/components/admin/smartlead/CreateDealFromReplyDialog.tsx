@@ -20,7 +20,6 @@ import {
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLinkInboxToDeal } from '@/hooks/smartlead/use-smartlead-inbox';
-import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CreateDealFromReplyDialogProps {
@@ -43,38 +42,35 @@ export function CreateDealFromReplyDialog({
 }: CreateDealFromReplyDialogProps) {
   const linkToDeal = useLinkInboxToDeal();
 
-  // Derive defaults from the inbox item
-  const contactName = String(item.to_name || '').trim();
+  // Use enriched fields first, fall back to legacy derivation
+  const enrichedFirstName = String(item.lead_first_name || '').trim();
+  const enrichedLastName = String(item.lead_last_name || '').trim();
+  const enrichedFullName = [enrichedFirstName, enrichedLastName].filter(Boolean).join(' ');
+  const contactName = enrichedFullName || String(item.to_name || '').trim();
   const campaignName = String(item.campaign_name || '').trim();
   const subject = String(item.subject || '').trim();
   
   const leadEmail = String(item.to_email || item.sl_lead_email || '').trim();
 
-  // Extract company name from email domain as best guess
+  // Enriched fields from Smartlead API
+  const enrichedCompany = String(item.lead_company_name || '').trim();
+  const enrichedPhone = String(item.lead_phone || '').trim();
+  const enrichedMobile = String(item.lead_mobile || '').trim();
+  const enrichedWebsite = String(item.lead_website || '').trim();
+  const enrichedLinkedIn = String(item.lead_linkedin_url || '').trim();
+  const enrichedTitle = String(item.lead_title || '').trim();
+  const enrichedIndustry = String(item.lead_industry || '').trim();
+
+  // Extract company name from email domain as fallback
   function companyFromEmail(email: string): string {
     if (!email || !email.includes('@')) return '';
     const domain = email.split('@')[1]?.split('.')[0] || '';
     if (['gmail', 'yahoo', 'hotmail', 'outlook', 'aol', 'icloud', 'mail', 'protonmail'].includes(domain.toLowerCase())) return '';
-    // Capitalize first letter
     return domain.charAt(0).toUpperCase() + domain.slice(1);
   }
 
-  // Look up company name from smartlead_campaign_leads by email, fall back to email domain
-  const { data: campaignLead } = useQuery({
-    queryKey: ['smartlead-lead-company', leadEmail],
-    queryFn: async () => {
-      if (!leadEmail) return null;
-      const { data } = await (supabase.from('smartlead_campaign_leads') as any)
-        .select('company_name')
-        .eq('email', leadEmail)
-        .limit(1)
-        .maybeSingle();
-      return data as { company_name: string | null } | null;
-    },
-    enabled: open && !!leadEmail,
-  });
-
-  const derivedCompany = campaignLead?.company_name || companyFromEmail(leadEmail);
+  const derivedCompany = enrichedCompany || companyFromEmail(leadEmail);
+  const derivedPhone = enrichedPhone || enrichedMobile;
 
   const defaultTitle = contactName
     ? `${contactName}${campaignName ? ` – ${campaignName}` : ''}`
@@ -83,6 +79,8 @@ export function CreateDealFromReplyDialog({
   const defaultDescription = [
     subject ? `Subject: ${subject}` : null,
     campaignName ? `Campaign: ${campaignName}` : null,
+    enrichedTitle ? `Title: ${enrichedTitle}` : null,
+    enrichedIndustry ? `Industry: ${enrichedIndustry}` : null,
     item.ai_reasoning ? `AI Summary: ${String(item.ai_reasoning)}` : null,
   ]
     .filter(Boolean)
@@ -91,11 +89,11 @@ export function CreateDealFromReplyDialog({
   // Form state
   const [title, setTitle] = useState(defaultTitle);
   const [contactNameField, setContactNameField] = useState(contactName);
-  const [contactEmail, setContactEmail] = useState(
-    String(item.to_email || item.sl_lead_email || '').trim(),
-  );
+  const [contactEmail, setContactEmail] = useState(leadEmail);
   const [contactCompany, setContactCompany] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [contactWebsite, setContactWebsite] = useState('');
+  const [contactLinkedIn, setContactLinkedIn] = useState('');
   const [description, setDescription] = useState(defaultDescription);
   const [dealSource, setDealSource] = useState('captarget');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,22 +103,17 @@ export function CreateDealFromReplyDialog({
     if (open) {
       setTitle(defaultTitle);
       setContactNameField(contactName);
-      setContactEmail(String(item.to_email || item.sl_lead_email || '').trim());
+      setContactEmail(leadEmail);
       setContactCompany(derivedCompany);
-      setContactPhone('');
+      setContactPhone(derivedPhone);
+      setContactWebsite(enrichedWebsite);
+      setContactLinkedIn(enrichedLinkedIn);
       setDescription(defaultDescription);
       setDealSource('captarget');
-      // stageId will be set by the other effect
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Update company when campaign lead data loads
-  useEffect(() => {
-    if (derivedCompany && !contactCompany) {
-      setContactCompany(derivedCompany);
-    }
-  }, [derivedCompany]);
   const handleSubmit = async () => {
     if (!title.trim()) {
       toast.error('Title is required');
@@ -139,10 +132,11 @@ export function CreateDealFromReplyDialog({
         .insert({
           title: title.trim(),
           internal_company_name: contactCompany.trim() || title.trim(),
-          website: null,
+          website: contactWebsite.trim() || null,
           main_contact_name: contactNameField.trim() || null,
           main_contact_email: contactEmail.trim() || null,
           main_contact_phone: contactPhone.trim() || null,
+          main_contact_linkedin: contactLinkedIn.trim() || null,
           description: description.trim() || null,
           deal_source: dealSource,
           status: 'active',
@@ -181,7 +175,7 @@ export function CreateDealFromReplyDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Lead from Reply</DialogTitle>
+          <DialogTitle>Create Lead from Reply</DialogTitle>
           <DialogDescription>
             Review and edit the pre-filled fields. This will add the lead to the selected remarketing list.
           </DialogDescription>
@@ -190,12 +184,12 @@ export function CreateDealFromReplyDialog({
         <div className="space-y-4 pt-2">
           {/* Title */}
           <div className="space-y-1.5">
-            <Label htmlFor="deal-title">Deal Title *</Label>
+            <Label htmlFor="deal-title">Lead Title *</Label>
             <Input
               id="deal-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Deal title"
+              placeholder="Lead title"
             />
           </div>
 
@@ -263,6 +257,26 @@ export function CreateDealFromReplyDialog({
                   className="h-8 text-sm"
                 />
               </div>
+              <div className="space-y-1">
+                <Label htmlFor="contact-website" className="text-xs">Website</Label>
+                <Input
+                  id="contact-website"
+                  value={contactWebsite}
+                  onChange={(e) => setContactWebsite(e.target.value)}
+                  placeholder="Website"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="contact-linkedin" className="text-xs">LinkedIn</Label>
+                <Input
+                  id="contact-linkedin"
+                  value={contactLinkedIn}
+                  onChange={(e) => setContactLinkedIn(e.target.value)}
+                  placeholder="LinkedIn URL"
+                  className="h-8 text-sm"
+                />
+              </div>
             </div>
           </div>
 
@@ -289,7 +303,7 @@ export function CreateDealFromReplyDialog({
             </Button>
             <Button onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSubmitting ? 'Adding...' : 'Add Lead'}
+              {isSubmitting ? 'Adding...' : 'Create Lead'}
             </Button>
           </div>
         </div>

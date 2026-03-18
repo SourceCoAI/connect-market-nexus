@@ -397,7 +397,7 @@ export default function SmartleadResponseDetail() {
                   onClick={() => setShowCreateDealDialog(true)}
                 >
                   <Plus className="h-3 w-3 mr-1" />
-                  Create Deal from Reply
+                  Create Lead from Reply
                 </Button>
               )}
             </CardContent>
