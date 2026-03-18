@@ -142,7 +142,7 @@ export default function SmartleadResponseDetail() {
           </Card>
 
           {/* Original message */}
-          {sentText && (
+          {sentText.length > 0 ? (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -153,7 +153,7 @@ export default function SmartleadResponseDetail() {
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">{sentText}</p>
               </CardContent>
             </Card>
-          )}
+          ) : null}
 
           {/* AI Analysis */}
           <Card>
