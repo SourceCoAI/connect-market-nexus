@@ -46,6 +46,20 @@ export interface SmartleadInboxItem {
   status: string | null;
   linked_deal_id: string | null;
   created_at: string;
+  // Enriched fields from Smartlead API
+  lead_first_name: string | null;
+  lead_last_name: string | null;
+  lead_company_name: string | null;
+  lead_website: string | null;
+  lead_phone: string | null;
+  lead_mobile: string | null;
+  lead_linkedin_url: string | null;
+  lead_title: string | null;
+  lead_location: string | null;
+  lead_industry: string | null;
+  lead_custom_fields: Record<string, string> | null;
+  smartlead_lead_data: Record<string, unknown> | null;
+  enriched_at: string | null;
 }
 
 export interface InboxStats {
