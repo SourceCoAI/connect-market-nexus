@@ -139,8 +139,8 @@ export function useSmartleadInboxItem(id: string | undefined) {
     queryKey: ['smartlead-inbox', id],
     queryFn: async () => {
       if (!id) return null;
-      const { data, error } = await supabase
-        .from('smartlead_reply_inbox')
+      const { data, error } = await (supabase
+        .from('smartlead_reply_inbox') as any)
         .select('*')
         .eq('id', id)
         .single();
