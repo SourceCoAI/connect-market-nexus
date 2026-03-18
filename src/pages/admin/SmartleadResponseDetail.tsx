@@ -409,15 +409,10 @@ export default function SmartleadResponseDetail() {
                   variant="outline"
                   size="sm"
                   className="w-full text-xs"
-                  disabled={isCreatingDeal}
-                  onClick={handleCreateDeal}
+                  onClick={() => setShowCreateDealDialog(true)}
                 >
-                  {isCreatingDeal ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  ) : (
-                    <Plus className="h-3 w-3 mr-1" />
-                  )}
-                  {isCreatingDeal ? 'Creating...' : 'Create Deal from Reply'}
+                  <Plus className="h-3 w-3 mr-1" />
+                  Create Deal from Reply
                 </Button>
               )}
             </CardContent>
