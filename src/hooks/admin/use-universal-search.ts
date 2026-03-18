@@ -26,7 +26,7 @@ export type SearchCategory =
 
 const CATEGORY_CONFIG: Record<SearchCategory, { label: string; color: string }> = {
   deals: { label: 'Pipeline Deals', color: 'text-blue-600' },
-  all_deals: { label: 'Active Deals', color: 'text-indigo-600' },
+  all_deals: { label: 'All Deals', color: 'text-indigo-600' },
   captarget: { label: 'CapTarget', color: 'text-orange-600' },
   gp_partners: { label: 'GP Partners', color: 'text-emerald-600' },
   sourceco: { label: 'SourceCo', color: 'text-cyan-600' },
@@ -71,102 +71,53 @@ export function useUniversalSearch() {
     staleTime: 60_000,
   });
 
-  // --- All Deals (remarketing listings) ---
+  // --- All Deals (all listings regardless of status or source) ---
   const allDealsQuery = useQuery({
     queryKey: ['universal-search', 'all-deals'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('listings')
         .select(
-          'id, title, internal_company_name, description, location, category, industry, website, deal_source',
+          'id, title, internal_company_name, description, location, category, industry, website, deal_source, remarketing_status, main_contact_name, main_contact_email, captarget_client_name, address_state',
         )
-        .eq('remarketing_status', 'active')
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
-        .limit(2000);
+        .limit(5000);
       if (error) throw error;
-      return (data ?? []).map((l) => ({
-        id: l.id,
-        title: l.internal_company_name || l.title || 'Untitled',
-        subtitle: [l.industry, l.location, l.category].filter(Boolean).join(' · '),
-        category: 'all_deals' as SearchCategory,
-        href: `/admin/remarketing/deals/${l.id}`,
-        meta: [l.description?.slice(0, 80), l.website].filter(Boolean).join(' | '),
-      }));
-    },
-    staleTime: 60_000,
-  });
+      return (data ?? []).map((l) => {
+        // Route to the appropriate detail page based on deal_source
+        let href = `/admin/remarketing/deals/${l.id}`;
+        let category: SearchCategory = 'all_deals';
+        if (l.deal_source === 'captarget') {
+          category = 'captarget';
+          href = `/admin/remarketing/leads/captarget`;
+        } else if (l.deal_source === 'gp_partners') {
+          category = 'gp_partners';
+          href = `/admin/remarketing/leads/gp-partners`;
+        } else if (l.deal_source === 'sourceco') {
+          category = 'sourceco';
+          href = `/admin/remarketing/leads/sourceco`;
+        }
 
-  // --- CapTarget Deals ---
-  const captargetQuery = useQuery({
-    queryKey: ['universal-search', 'captarget'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('listings')
-        .select(
-          'id, title, internal_company_name, captarget_client_name, main_contact_name, main_contact_email, website, industry',
-        )
-        .eq('deal_source', 'captarget')
-        .order('created_at', { ascending: false })
-        .limit(2000);
-      if (error) throw error;
-      return (data ?? []).map((l) => ({
-        id: l.id,
-        title: l.internal_company_name || l.title || 'Untitled',
-        subtitle: [l.captarget_client_name, l.main_contact_name, l.main_contact_email]
-          .filter(Boolean)
-          .join(' · '),
-        category: 'captarget' as SearchCategory,
-        href: `/admin/remarketing/leads/captarget`,
-        meta: [l.website, l.industry].filter(Boolean).join(' | '),
-      }));
-    },
-    staleTime: 60_000,
-  });
-
-  // --- GP Partner Deals ---
-  const gpPartnersQuery = useQuery({
-    queryKey: ['universal-search', 'gp-partners'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('listings')
-        .select(
-          'id, title, internal_company_name, main_contact_name, main_contact_email, website, industry',
-        )
-        .eq('deal_source', 'gp_partners')
-        .order('created_at', { ascending: false })
-        .limit(2000);
-      if (error) throw error;
-      return (data ?? []).map((l) => ({
-        id: l.id,
-        title: l.internal_company_name || l.title || 'Untitled',
-        subtitle: [l.main_contact_name, l.main_contact_email].filter(Boolean).join(' · '),
-        category: 'gp_partners' as SearchCategory,
-        href: `/admin/remarketing/leads/gp-partners`,
-        meta: [l.website, l.industry].filter(Boolean).join(' | '),
-      }));
-    },
-    staleTime: 60_000,
-  });
-
-  // --- SourceCo Deals ---
-  const sourcecoQuery = useQuery({
-    queryKey: ['universal-search', 'sourceco'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('listings')
-        .select('id, title, internal_company_name, main_contact_name, main_contact_email, website, industry')
-        .eq('deal_source', 'sourceco')
-        .order('created_at', { ascending: false })
-        .limit(2000);
-      if (error) throw error;
-      return (data ?? []).map((l) => ({
-        id: l.id,
-        title: l.internal_company_name || l.title || 'Untitled',
-        subtitle: [l.main_contact_name, l.main_contact_email].filter(Boolean).join(' · '),
-        category: 'sourceco' as SearchCategory,
-        href: `/admin/remarketing/leads/sourceco`,
-        meta: [l.website, l.industry].filter(Boolean).join(' | '),
-      }));
+        return {
+          id: l.id,
+          title: l.internal_company_name || l.title || 'Untitled',
+          subtitle: [
+            l.industry,
+            l.location || l.address_state,
+            l.category,
+            l.main_contact_name,
+            l.captarget_client_name,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          category,
+          href,
+          meta: [l.description?.slice(0, 80), l.website, l.main_contact_email, l.deal_source, l.remarketing_status]
+            .filter(Boolean)
+            .join(' | '),
+        };
+      });
     },
     staleTime: 60_000,
   });
@@ -323,9 +274,6 @@ export function useUniversalSearch() {
   const isLoading =
     dealsQuery.isLoading ||
     allDealsQuery.isLoading ||
-    captargetQuery.isLoading ||
-    gpPartnersQuery.isLoading ||
-    sourcecoQuery.isLoading ||
     valuationQuery.isLoading ||
     inboundQuery.isLoading ||
     ownerQuery.isLoading ||
@@ -333,27 +281,32 @@ export function useUniversalSearch() {
     buyersQuery.isLoading ||
     buyerContactsQuery.isLoading;
 
-
   const allResults: UniversalSearchResult[] = useMemo(
-    () => [
-      ...(dealsQuery.data ?? []),
-      ...(allDealsQuery.data ?? []),
-      ...(captargetQuery.data ?? []),
-      ...(gpPartnersQuery.data ?? []),
-      ...(sourcecoQuery.data ?? []),
-      ...(valuationQuery.data ?? []),
-      ...(inboundQuery.data ?? []),
-      ...(ownerQuery.data ?? []),
-      ...(referralQuery.data ?? []),
-      ...(buyersQuery.data ?? []),
-      ...(buyerContactsQuery.data ?? []),
-    ],
+    () => {
+      // Combine all sources, then deduplicate by id within each category
+      const combined = [
+        ...(dealsQuery.data ?? []),
+        ...(allDealsQuery.data ?? []),
+        ...(valuationQuery.data ?? []),
+        ...(inboundQuery.data ?? []),
+        ...(ownerQuery.data ?? []),
+        ...(referralQuery.data ?? []),
+        ...(buyersQuery.data ?? []),
+        ...(buyerContactsQuery.data ?? []),
+      ];
+
+      // Deduplicate: keep first occurrence per id+category
+      const seen = new Set<string>();
+      return combined.filter((r) => {
+        const key = `${r.category}:${r.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    },
     [
       dealsQuery.data,
       allDealsQuery.data,
-      captargetQuery.data,
-      gpPartnersQuery.data,
-      sourcecoQuery.data,
       valuationQuery.data,
       inboundQuery.data,
       ownerQuery.data,

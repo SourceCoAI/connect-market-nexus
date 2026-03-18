@@ -305,49 +305,61 @@ function PushToMarketplaceButton({
   const isBlocked = gaps.length > 0;
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            className="gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-500"
-            disabled={isBlocked}
-            onClick={async () => {
-              if (isBlocked) {
-                toast.error(`Cannot push to marketplace: missing ${gaps.join(', ')}`);
-                return;
-              }
-              const {
-                data: { user: authUser },
-              } = await supabase.auth.getUser();
-              const { error } = await supabase
-                .from('listings')
-                .update({
-                  pushed_to_marketplace: true,
-                  pushed_to_marketplace_at: new Date().toISOString(),
-                  pushed_to_marketplace_by: authUser?.id || null,
-                })
-                .eq('id', dealId);
-              if (error) {
-                toast.error('Failed to push to marketplace queue');
-              } else {
-                toast.success('Deal pushed to Marketplace Queue');
-                queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', dealId] });
-                queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
-                queryClient.invalidateQueries({ queryKey: ['marketplace-queue'] });
-              }
-            }}
-          >
-            <Store className="h-4 w-4" />
-            Push to Marketplace
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs">
-          {gaps.length === 0
-            ? 'Push this deal to the Marketplace Queue for review and publishing.'
-            : `Push to queue — note: these are still needed before a listing can be created:\n${gaps.map((g) => `• ${g}`).join('\n')}`}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div className="flex flex-col gap-1">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              className={`gap-2 ${
+                isBlocked
+                  ? 'border-amber-300 text-amber-600 hover:bg-amber-50 hover:border-amber-500'
+                  : 'border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-500'
+              }`}
+              onClick={async () => {
+                if (isBlocked) {
+                  toast.error(`Cannot push to marketplace. Missing: ${gaps.join(', ')}`, {
+                    duration: 5000,
+                  });
+                  return;
+                }
+                const {
+                  data: { user: authUser },
+                } = await supabase.auth.getUser();
+                const { error } = await supabase
+                  .from('listings')
+                  .update({
+                    pushed_to_marketplace: true,
+                    pushed_to_marketplace_at: new Date().toISOString(),
+                    pushed_to_marketplace_by: authUser?.id || null,
+                  })
+                  .eq('id', dealId);
+                if (error) {
+                  toast.error('Failed to push to marketplace queue');
+                } else {
+                  toast.success('Deal pushed to Marketplace Queue');
+                  queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', dealId] });
+                  queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
+                  queryClient.invalidateQueries({ queryKey: ['marketplace-queue'] });
+                }
+              }}
+            >
+              <Store className="h-4 w-4" />
+              Push to Marketplace
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            {gaps.length === 0
+              ? 'Push this deal to the Marketplace Queue for review and publishing.'
+              : `Cannot push — missing required fields:\n${gaps.map((g) => `• ${g}`).join('\n')}`}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {isBlocked && (
+        <span className="text-xs text-amber-600 ml-1">
+          Missing: {gaps.join(', ')}
+        </span>
+      )}
+    </div>
   );
 }
