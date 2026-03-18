@@ -277,12 +277,13 @@ export function CreateDealFromReplyDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Remarketing List</Label>
-              <Select value={dealSource} onValueChange={setDealSource}>
+              <Select value={dealSource || 'none'} onValueChange={(v) => setDealSource(v === 'none' ? '' : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select list" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DEAL_SOURCE_OPTIONS.map((s) => (
+                  <SelectItem value="none">None</SelectItem>
+                  {REMARKETING_LIST_OPTIONS.map((s) => (
                     <SelectItem key={s.value} value={s.value}>
                       {s.label}
                     </SelectItem>
