@@ -116,8 +116,8 @@ export function useSmartleadInbox(filter: InboxFilter = 'all', search: string = 
   const query = useQuery({
     queryKey: ['smartlead-inbox'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('smartlead_reply_inbox')
+      const { data, error } = await (supabase
+        .from('smartlead_reply_inbox') as any)
         .select('*')
         .order('time_replied', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false });
