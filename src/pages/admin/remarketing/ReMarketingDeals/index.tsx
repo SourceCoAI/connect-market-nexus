@@ -199,7 +199,7 @@ const ReMarketingDeals = () => {
           </Button>
           <Button variant="outline" onClick={() => h.setShowImportDialog(true)}>
             <Upload className="h-4 w-4 mr-2" />
-            Import CSV
+            Import Spreadsheet
           </Button>
           <Button
             onClick={() => h.setShowEnrichDialog(true)}

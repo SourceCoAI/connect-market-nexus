@@ -243,7 +243,7 @@ export default function GPPartnerDeals() {
           </Button>
           <Button variant="outline" size="sm" onClick={() => hook.setCsvUploadOpen(true)}>
             <FileSpreadsheet className="h-4 w-4 mr-1" />
-            Import CSV
+            Import Spreadsheet
           </Button>
 
           <DropdownMenu>

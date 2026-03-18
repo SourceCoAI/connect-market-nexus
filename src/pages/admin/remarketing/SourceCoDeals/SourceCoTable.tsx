@@ -174,7 +174,7 @@ export function SourceCoTable({
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setCsvUploadOpen(true)}>
                         <FileSpreadsheet className="h-4 w-4 mr-1" />
-                        Import CSV
+                        Import Spreadsheet
                       </Button>
                     </div>
                   </TableCell>

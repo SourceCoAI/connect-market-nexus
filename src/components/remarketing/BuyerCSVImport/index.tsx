@@ -89,7 +89,7 @@ export const BuyerCSVImport = ({
       {!hideTrigger && (
         <Button variant="outline" onClick={() => setIsOpen(true)}>
           <Upload className="mr-2 h-4 w-4" />
-          Import CSV
+          Import Spreadsheet
         </Button>
       )}
 
@@ -104,10 +104,10 @@ export const BuyerCSVImport = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5" />
-              Import Buyers from CSV
+              Import Buyers from Spreadsheet
             </DialogTitle>
             <DialogDescription>
-              Upload a CSV file to bulk import buyers. AI will help map your columns.
+              Upload a CSV, XLS, or XLSX file to bulk import buyers. AI will help map your columns.
             </DialogDescription>
           </DialogHeader>
 
