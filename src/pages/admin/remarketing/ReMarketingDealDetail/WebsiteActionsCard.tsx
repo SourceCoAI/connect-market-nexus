@@ -281,8 +281,8 @@ function PushToMarketplaceButton({
   }
 
   /**
-   * Hard gate checks: all items must be satisfied before marketplace push.
-   * (Audit P2: hardened from informational to blocking)
+   * Informational checks: show warnings for missing fields but allow push.
+   * Missing fields will still need to be completed before creating a listing.
    */
   const gaps: string[] = [];
 
@@ -302,8 +302,6 @@ function PushToMarketplaceButton({
 
   if (!deal?.main_contact_email) gaps.push('Main contact email');
 
-  const isBlocked = gaps.length > 0;
-
   return (
     <div className="flex flex-col gap-1">
       <TooltipProvider>
@@ -311,17 +309,13 @@ function PushToMarketplaceButton({
           <TooltipTrigger asChild>
             <Button
               variant="outline"
-              className={`gap-2 ${
-                isBlocked
-                  ? 'border-amber-300 text-amber-600 hover:bg-amber-50 hover:border-amber-500'
-                  : 'border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-500'
-              }`}
+              className="gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-500"
               onClick={async () => {
-                if (isBlocked) {
-                  toast.error(`Cannot push to marketplace. Missing: ${gaps.join(', ')}`, {
-                    duration: 5000,
-                  });
-                  return;
+                if (gaps.length > 0) {
+                  toast.warning(
+                    `Pushed to queue, but still missing: ${gaps.join(', ')}. These must be completed before creating a listing.`,
+                    { duration: 5000 },
+                  );
                 }
                 const {
                   data: { user: authUser },
@@ -337,7 +331,9 @@ function PushToMarketplaceButton({
                 if (error) {
                   toast.error('Failed to push to marketplace queue');
                 } else {
-                  toast.success('Deal pushed to Marketplace Queue');
+                  if (gaps.length === 0) {
+                    toast.success('Deal pushed to Marketplace Queue');
+                  }
                   queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', dealId] });
                   queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
                   queryClient.invalidateQueries({ queryKey: ['marketplace-queue'] });
@@ -351,13 +347,13 @@ function PushToMarketplaceButton({
           <TooltipContent className="max-w-xs">
             {gaps.length === 0
               ? 'Push this deal to the Marketplace Queue for review and publishing.'
-              : `Cannot push — missing required fields:\n${gaps.map((g) => `• ${g}`).join('\n')}`}
+              : `Push to queue for review. Missing fields (needed before listing):\n${gaps.map((g) => `• ${g}`).join('\n')}`}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      {isBlocked && (
+      {gaps.length > 0 && (
         <span className="text-xs text-amber-600 ml-1">
-          Missing: {gaps.join(', ')}
+          Missing for listing: {gaps.join(', ')}
         </span>
       )}
     </div>

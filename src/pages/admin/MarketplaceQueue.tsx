@@ -176,9 +176,16 @@ const MarketplaceQueue = () => {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (d) =>
-          (d.internal_company_name || d.title || '').toLowerCase().includes(q) ||
-          (d.industry || d.category || '').toLowerCase().includes(q) ||
-          (d.address_state || '').toLowerCase().includes(q),
+          (d.internal_company_name || '').toLowerCase().includes(q) ||
+          (d.title || '').toLowerCase().includes(q) ||
+          (d.industry || '').toLowerCase().includes(q) ||
+          (d.category || '').toLowerCase().includes(q) ||
+          (d.address_state || '').toLowerCase().includes(q) ||
+          (d.main_contact_name || '').toLowerCase().includes(q) ||
+          (d.main_contact_email || '').toLowerCase().includes(q) ||
+          (d.description || '').toLowerCase().includes(q) ||
+          (d.deal_source || '').toLowerCase().includes(q) ||
+          (d.location || '').toLowerCase().includes(q),
       );
     }
 
