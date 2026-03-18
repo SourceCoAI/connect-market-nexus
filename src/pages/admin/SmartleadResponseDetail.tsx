@@ -170,11 +170,11 @@ export default function SmartleadResponseDetail() {
                   </Badge>
                 )}
               </div>
-              {item.ai_reasoning && (
+              {item.ai_reasoning ? (
                 <blockquote className="border-l-2 border-muted pl-3 text-sm text-muted-foreground italic">
-                  {item.ai_reasoning}
+                  {String(item.ai_reasoning)}
                 </blockquote>
-              )}
+              ) : null}
               {item.ai_confidence !== null && item.ai_confidence !== undefined && (
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
