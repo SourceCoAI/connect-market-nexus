@@ -218,6 +218,11 @@ Deno.serve(async (req) => {
   try {
     const payload = await req.json();
 
+    console.log(
+      '[smartlead-inbox-webhook] Incoming payload:',
+      JSON.stringify(payload),
+    );
+
     // ─── Extract fields from webhook payload ────────────────────────────
     const messageId = payload.message_id || null;
     const fromEmail = payload.from_email || null;
