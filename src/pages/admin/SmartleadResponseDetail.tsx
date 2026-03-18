@@ -44,6 +44,8 @@ import {
   useRecategorizeInbox,
   useLinkInboxToDeal,
 } from '@/hooks/smartlead/use-smartlead-inbox';
+import { useCreateDeal } from '@/hooks/admin/use-deals';
+import { useDealStages } from '@/hooks/admin/deals/useDealStages';
 
 const CATEGORIES = [
   'meeting_request',
