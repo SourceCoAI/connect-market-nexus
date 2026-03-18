@@ -85,25 +85,7 @@ function stripHtml(html: string) {
   return html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/&apos;/gi, "'").replace(/&rsquo;/gi, "'").replace(/&ndash;/gi, '–').replace(/\s+/g, ' ').trim();
 }
 
-function useDeals(search: string) {
-  return useQuery({
-    queryKey: ['deal-pipeline-picker', search],
-    queryFn: async () => {
-      let query = (supabase.from('deal_pipeline') as any)
-        .select('id, title, priority, created_at')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (search.trim()) {
-        query = query.ilike('title', `%${search}%`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data || []) as Array<{ id: string; title: string; priority: string | null; created_at: string }>;
-    },
-  });
-}
+// Removed: useDeals search hook — replaced by direct deal creation
 
 export default function SmartleadResponseDetail() {
   const { inboxId } = useParams<{ inboxId: string }>();
