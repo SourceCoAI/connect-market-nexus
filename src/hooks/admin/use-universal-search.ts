@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 /** Fetch all rows from a Supabase query by paginating in chunks to bypass the default 1000-row limit. */
 async function fetchAllRows<T>(
-  buildQuery: (from: number, to: number) => ReturnType<ReturnType<typeof supabase.from>['select']>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  buildQuery: (from: number, to: number) => any,
   pageSize = 5000,
 ): Promise<T[]> {
   const allRows: T[] = [];
