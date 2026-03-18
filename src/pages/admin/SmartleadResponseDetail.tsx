@@ -32,6 +32,7 @@ import {
   useLinkInboxToDeal,
 } from '@/hooks/smartlead/use-smartlead-inbox';
 import { CreateDealFromReplyDialog } from '@/components/admin/smartlead/CreateDealFromReplyDialog';
+import { supabase } from '@/integrations/supabase/client';
 
 const CATEGORIES = [
   'meeting_request',
@@ -68,10 +69,33 @@ function getSentimentColor(sentiment: string | null) {
 }
 
 function stripHtml(html: string) {
-  return html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/&apos;/gi, "'").replace(/&rsquo;/gi, "'").replace(/&ndash;/gi, '–').replace(/\s+/g, ' ').trim();
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&rsquo;/gi, "'")
+    .replace(/&ndash;/gi, '–')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-// Removed: useDeals search hook — replaced by direct deal creation
+function companyFromEmail(email: string) {
+  if (!email || !email.includes('@')) return '';
+  const domain = email.split('@')[1]?.split('.')[0] || '';
+  if (
+    ['gmail', 'yahoo', 'hotmail', 'outlook', 'aol', 'icloud', 'mail', 'protonmail'].includes(
+      domain.toLowerCase(),
+    )
+  ) {
+    return '';
+  }
+  return domain.charAt(0).toUpperCase() + domain.slice(1);
+}
 
 export default function SmartleadResponseDetail() {
   const { inboxId } = useParams<{ inboxId: string }>();
@@ -80,6 +104,7 @@ export default function SmartleadResponseDetail() {
   const recategorize = useRecategorizeInbox();
   const linkToDeal = useLinkInboxToDeal();
   const [showCreateDealDialog, setShowCreateDealDialog] = useState(false);
+  const [isResolvingDeal, setIsResolvingDeal] = useState(false);
 
   if (isLoading) {
     return <div className="text-center py-12 text-muted-foreground">Loading...</div>;
@@ -100,10 +125,16 @@ export default function SmartleadResponseDetail() {
     );
   }
 
-  const category: string = String(item.manual_category || item.ai_category || 'neutral');
-  const sentiment: string = String(item.manual_sentiment || item.ai_sentiment || 'neutral');
-  const replyText: string = item.reply_body ? stripHtml(String(item.reply_body)) : String(item.reply_message || item.preview_text || '');
-  const sentText: string = item.sent_message_body ? stripHtml(String(item.sent_message_body)) : (item.sent_message ? stripHtml(String(item.sent_message)) : '');
+  const category = String(item.manual_category || item.ai_category || 'neutral');
+  const sentiment = String(item.manual_sentiment || item.ai_sentiment || 'neutral');
+  const replyText = item.reply_body
+    ? stripHtml(String(item.reply_body))
+    : String(item.reply_message || item.preview_text || '');
+  const sentText = item.sent_message_body
+    ? stripHtml(String(item.sent_message_body))
+    : item.sent_message
+      ? stripHtml(String(item.sent_message))
+      : '';
 
   const handleRecategorize = (field: 'category' | 'sentiment', value: string) => {
     recategorize.mutate(
@@ -122,9 +153,97 @@ export default function SmartleadResponseDetail() {
     );
   };
 
+  const resolveLinkedDealRoute = async (): Promise<
+    | { kind: 'listing'; id: string }
+    | { kind: 'pipeline'; id: string }
+    | null
+  > => {
+    const linkedId = item.linked_deal_id ? String(item.linked_deal_id) : '';
+
+    if (linkedId) {
+      const { data: listingById, error: listingError } = await supabase
+        .from('listings')
+        .select('id')
+        .eq('id', linkedId)
+        .maybeSingle();
+      if (listingError) throw listingError;
+      if (listingById) return { kind: 'listing', id: listingById.id };
+
+      const { data: pipelineById, error: pipelineError } = await supabase
+        .from('deal_pipeline')
+        .select('id')
+        .eq('id', linkedId)
+        .maybeSingle();
+      if (pipelineError) throw pipelineError;
+      if (pipelineById) return { kind: 'pipeline', id: pipelineById.id };
+    }
+
+    const remarketingSources = ['captarget', 'gp_partners', 'sourceco'];
+    const candidateEmails = [item.to_email, item.sl_lead_email, item.from_email]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+
+    for (const email of candidateEmails) {
+      const { data: listingByEmail, error: listingError } = await supabase
+        .from('listings')
+        .select('id')
+        .eq('main_contact_email', email)
+        .in('deal_source', remarketingSources)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (listingError) throw listingError;
+      if (listingByEmail) return { kind: 'listing', id: listingByEmail.id };
+    }
+
+    const companyGuess = companyFromEmail(String(item.to_email || item.sl_lead_email || ''));
+    if (companyGuess) {
+      const { data: listingByCompany, error: listingError } = await supabase
+        .from('listings')
+        .select('id')
+        .or(`internal_company_name.ilike.%${companyGuess}%,title.ilike.%${companyGuess}%`)
+        .in('deal_source', remarketingSources)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (listingError) throw listingError;
+      if (listingByCompany) return { kind: 'listing', id: listingByCompany.id };
+    }
+
+    return null;
+  };
+
+  const handleViewDeal = async () => {
+    setIsResolvingDeal(true);
+    try {
+      const resolved = await resolveLinkedDealRoute();
+
+      if (!resolved) {
+        if (item.linked_deal_id) {
+          linkToDeal.mutate({ id: item.id, dealId: null });
+        }
+        toast.error('This linked deal no longer exists. Recreate it from this reply.');
+        return;
+      }
+
+      if (resolved.kind === 'listing') {
+        if (resolved.id !== item.linked_deal_id) {
+          linkToDeal.mutate({ id: item.id, dealId: resolved.id });
+        }
+        navigate(`/admin/deals/${resolved.id}`);
+        return;
+      }
+
+      navigate(`/admin/deals/pipeline?deal=${resolved.id}`);
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to open linked deal');
+    } finally {
+      setIsResolvingDeal(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {/* Navigation */}
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
@@ -143,9 +262,7 @@ export default function SmartleadResponseDetail() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Main column */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Reply */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
@@ -157,7 +274,6 @@ export default function SmartleadResponseDetail() {
             </CardContent>
           </Card>
 
-          {/* Original message */}
           {sentText.length > 0 ? (
             <Card>
               <CardHeader className="pb-2">
@@ -171,7 +287,6 @@ export default function SmartleadResponseDetail() {
             </Card>
           ) : null}
 
-          {/* AI Analysis */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">AI Analysis</CardTitle>
@@ -202,35 +317,9 @@ export default function SmartleadResponseDetail() {
               )}
             </CardContent>
           </Card>
-
-          {/* Thread view */}
-          {Array.isArray(item.lead_correspondence) && item.lead_correspondence.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Email Thread</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {(item.lead_correspondence as Array<Record<string, unknown>>).map(
-                  (msg, idx) => (
-                    <div key={idx} className="border-l-2 border-muted pl-3">
-                      <div className="text-xs text-muted-foreground mb-1">
-                        {String(msg.from || msg.sender || 'Unknown')} •{' '}
-                        {msg.time ? String(msg.time) : ''}
-                      </div>
-                      <p className="text-sm">
-                        {msg.body ? stripHtml(String(msg.body)) : String(msg.message || '')}
-                      </p>
-                    </div>
-                  ),
-                )}
-              </CardContent>
-            </Card>
-          )}
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-4">
-          {/* Contact */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -238,77 +327,35 @@ export default function SmartleadResponseDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {item.to_name && <p className="font-medium">{String(item.to_name)}</p>}
-              {item.to_email && (
-                <p className="text-muted-foreground">Reply from: {String(item.to_email)}</p>
+              <div className="flex items-center gap-2">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{String(item.to_email || item.sl_lead_email || item.from_email || 'Unknown')}</span>
+              </div>
+              {item.to_name && (
+                <div className="flex items-center gap-2">
+                  <Building className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>{String(item.to_name)}</span>
+                </div>
               )}
-              {item.sl_lead_email && (
-                <p className="text-muted-foreground">Lead: {String(item.sl_lead_email)}</p>
-              )}
-              {item.from_email && (
-                <p className="text-muted-foreground">Sent from: {String(item.from_email)}</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Campaign */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Building className="h-3.5 w-3.5" /> Campaign
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {item.campaign_name && <p className="font-medium">{String(item.campaign_name)}</p>}
-              {item.campaign_id && (
-                <p className="text-muted-foreground">ID: {String(item.campaign_id)}</p>
-              )}
-              {item.campaign_status && (
-                <Badge variant="outline" className="capitalize">
-                  {String(item.campaign_status)}
-                </Badge>
-              )}
-              {item.sequence_number && (
-                <p className="text-muted-foreground">Sequence step: {String(item.sequence_number)}</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Timeline */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Calendar className="h-3.5 w-3.5" /> Timeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              {item.time_replied && (
-                <p>Replied: {format(new Date(String(item.time_replied)), 'MMM d, yyyy h:mm a')}</p>
-              )}
-              <p>Received: {format(new Date(String(item.created_at)), 'MMM d, yyyy h:mm a')}</p>
-            </CardContent>
-          </Card>
-
-          {/* Identifiers */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Hash className="h-3.5 w-3.5" /> Identifiers
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              {item.sl_email_lead_id && (
-                <p className="font-mono text-xs">Lead ID: {String(item.sl_email_lead_id)}</p>
-              )}
-              {item.event_type && (
-                <p className="font-mono text-xs">Event: {String(item.event_type)}</p>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>
+                  {item.time_replied || item.created_at
+                    ? format(new Date(String(item.time_replied || item.created_at)), 'PPp')
+                    : 'Unknown time'}
+                </span>
+              </div>
+              {item.message_id && (
+                <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <Hash className="h-3.5 w-3.5 mt-0.5" />
+                  <span className="break-all">{String(item.message_id)}</span>
+                </div>
               )}
             </CardContent>
           </Card>
 
           <Separator />
 
-          {/* Add to Deal */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -327,9 +374,10 @@ export default function SmartleadResponseDetail() {
                       variant="outline"
                       size="sm"
                       className="text-xs h-7"
-                      onClick={() => navigate(`/admin/deals/${item.linked_deal_id}`)}
+                      onClick={handleViewDeal}
+                      disabled={isResolvingDeal}
                     >
-                      View Deal
+                      {isResolvingDeal ? 'Opening...' : 'View Deal'}
                     </Button>
                     <Button
                       variant="ghost"
@@ -355,7 +403,6 @@ export default function SmartleadResponseDetail() {
             </CardContent>
           </Card>
 
-          {/* Manual re-classification */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Manual Override</CardTitle>
@@ -402,14 +449,11 @@ export default function SmartleadResponseDetail() {
         </div>
       </div>
 
-      {/* Create Deal Dialog */}
-      {item && (
-        <CreateDealFromReplyDialog
-          open={showCreateDealDialog}
-          onOpenChange={setShowCreateDealDialog}
-          inboxItem={item as unknown as Record<string, unknown>}
-        />
-      )}
+      <CreateDealFromReplyDialog
+        open={showCreateDealDialog}
+        onOpenChange={setShowCreateDealDialog}
+        inboxItem={item as unknown as Record<string, unknown>}
+      />
     </div>
   );
 }

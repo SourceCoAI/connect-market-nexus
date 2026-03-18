@@ -143,10 +143,10 @@ export function useSmartleadInboxItem(id: string | undefined) {
         .from('smartlead_reply_inbox') as any)
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return data as SmartleadInboxItem;
+      return (data as SmartleadInboxItem | null) ?? null;
     },
     enabled: !!id,
   });
