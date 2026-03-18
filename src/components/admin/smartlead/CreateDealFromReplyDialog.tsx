@@ -170,49 +170,97 @@ export function CreateDealFromReplyDialog({
       toast.error('Title is required');
       return;
     }
-    if (!stageId) {
+
+    // If a remarketing list is selected, create in listings table instead
+    const isRemarketingList = !!dealSource && REMARKETING_LIST_OPTIONS.some(o => o.value === dealSource);
+
+    if (!isRemarketingList && !stageId) {
       toast.error('Please select a pipeline stage');
       return;
     }
 
     setIsSubmitting(true);
 
-    const dealPayload: Record<string, unknown> = {
-      title: title.trim(),
-      stage_id: stageId,
-      source: dealSource || 'smartlead',
-      priority,
-      contact_name: contactNameField.trim() || null,
-      contact_email: contactEmail.trim() || null,
-      contact_phone: contactPhone.trim() || null,
-      contact_company: contactCompany.trim() || null,
-      description: description.trim() || null,
-    };
-
-    if (listingId) {
-      dealPayload.listing_id = listingId;
-    }
-
     try {
-      const newDeal = await createDeal.mutateAsync(dealPayload);
-      const newDealId = (newDeal as { id: string }).id;
+      if (isRemarketingList) {
+        // Create in listings table so it shows up in the remarketing pages
+        const { data: newListing, error: listingError } = await supabase
+          .from('listings')
+          .insert({
+            title: title.trim(),
+            internal_company_name: contactCompany.trim() || title.trim(),
+            website: null,
+            main_contact_name: contactNameField.trim() || null,
+            main_contact_email: contactEmail.trim() || null,
+            main_contact_phone: contactPhone.trim() || null,
+            description: description.trim() || null,
+            deal_source: dealSource,
+            status: 'active',
+            is_internal_deal: true,
+            pushed_to_all_deals: false,
+          } as never)
+          .select('id')
+          .single();
 
-      linkToDeal.mutate(
-        { id: String(item.id), dealId: newDealId },
-        {
-          onSuccess: () => {
-            toast.success(`Deal created: ${title}`);
-            setIsSubmitting(false);
-            onOpenChange(false);
+        if (listingError) throw listingError;
+
+        // Link inbox item to the listing (store as deal_id for reference)
+        if (newListing?.id) {
+          linkToDeal.mutate(
+            { id: String(item.id), dealId: newListing.id },
+            {
+              onSuccess: () => {
+                toast.success(`Deal added to ${REMARKETING_LIST_OPTIONS.find(o => o.value === dealSource)?.label}`);
+                setIsSubmitting(false);
+                onOpenChange(false);
+              },
+              onError: () => {
+                toast.success(`Deal created but failed to link to inbox item`);
+                setIsSubmitting(false);
+                onOpenChange(false);
+              },
+            },
+          );
+        }
+      } else {
+        // Standard deal_pipeline creation
+        const dealPayload: Record<string, unknown> = {
+          title: title.trim(),
+          stage_id: stageId,
+          source: 'smartlead',
+          priority,
+          contact_name: contactNameField.trim() || null,
+          contact_email: contactEmail.trim() || null,
+          contact_phone: contactPhone.trim() || null,
+          contact_company: contactCompany.trim() || null,
+          description: description.trim() || null,
+        };
+
+        if (listingId) {
+          dealPayload.listing_id = listingId;
+        }
+
+        const newDeal = await createDeal.mutateAsync(dealPayload);
+        const newDealId = (newDeal as { id: string }).id;
+
+        linkToDeal.mutate(
+          { id: String(item.id), dealId: newDealId },
+          {
+            onSuccess: () => {
+              toast.success(`Deal created: ${title}`);
+              setIsSubmitting(false);
+              onOpenChange(false);
+            },
+            onError: () => {
+              toast.success(`Deal created but failed to link to inbox item`);
+              setIsSubmitting(false);
+              onOpenChange(false);
+            },
           },
-          onError: () => {
-            toast.success(`Deal created but failed to link to inbox item`);
-            setIsSubmitting(false);
-            onOpenChange(false);
-          },
-        },
-      );
-    } catch {
+        );
+      }
+    } catch (err) {
+      toast.error(`Failed to create deal: ${(err as Error).message}`);
       setIsSubmitting(false);
     }
   };
