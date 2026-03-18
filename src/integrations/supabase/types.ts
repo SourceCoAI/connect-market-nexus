@@ -10529,6 +10529,7 @@ export type Database = {
           lead_correspondence: Json | null
           lead_custom_fields: Json | null
           lead_first_name: string | null
+          lead_industry: string | null
           lead_last_name: string | null
           lead_linkedin_url: string | null
           lead_location: string | null
@@ -10590,6 +10591,7 @@ export type Database = {
           lead_correspondence?: Json | null
           lead_custom_fields?: Json | null
           lead_first_name?: string | null
+          lead_industry?: string | null
           lead_last_name?: string | null
           lead_linkedin_url?: string | null
           lead_location?: string | null
@@ -10651,6 +10653,7 @@ export type Database = {
           lead_correspondence?: Json | null
           lead_custom_fields?: Json | null
           lead_first_name?: string | null
+          lead_industry?: string | null
           lead_last_name?: string | null
           lead_linkedin_url?: string | null
           lead_location?: string | null

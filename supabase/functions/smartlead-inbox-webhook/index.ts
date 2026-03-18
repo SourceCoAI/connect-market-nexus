@@ -382,6 +382,20 @@ Deno.serve(async (req) => {
           const ld = leadResult.data;
           const cf = ld.custom_fields || {};
 
+          // Extract industry from campaign name (pattern: "Client - Industry - Tier - Sender")
+          let leadIndustry: string | null = null;
+          const campaignName = record.campaign_name || '';
+          if (campaignName) {
+            const parts = campaignName.split(/\s*[-–—]\s*/);
+            // Industry is typically the 2nd segment (index 1) in "Client - Industry - ..."
+            if (parts.length >= 3) {
+              leadIndustry = parts[1].trim() || null;
+            } else if (parts.length === 2) {
+              // Fallback: might be "Client - Industry"
+              leadIndustry = parts[1].trim() || null;
+            }
+          }
+
           const enrichUpdate: Record<string, unknown> = {
             lead_first_name: ld.first_name || null,
             lead_last_name: ld.last_name || null,
@@ -392,6 +406,7 @@ Deno.serve(async (req) => {
             lead_linkedin_url: ld.linkedin_profile || cf.Person_LinkedIn || null,
             lead_title: cf.Title || null,
             lead_location: ld.location && ld.location !== '--' ? ld.location : null,
+            lead_industry: leadIndustry,
             lead_custom_fields: Object.keys(cf).length > 0 ? cf : null,
             smartlead_lead_data: ld,
             enriched_at: new Date().toISOString(),
