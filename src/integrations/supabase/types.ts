@@ -10520,11 +10520,22 @@ export type Database = {
           client_id: string | null
           created_at: string
           description: string | null
+          enriched_at: string | null
           event_timestamp: string | null
           event_type: string | null
           from_email: string | null
           id: string
+          lead_company_name: string | null
           lead_correspondence: Json | null
+          lead_custom_fields: Json | null
+          lead_first_name: string | null
+          lead_last_name: string | null
+          lead_linkedin_url: string | null
+          lead_location: string | null
+          lead_mobile: string | null
+          lead_phone: string | null
+          lead_title: string | null
+          lead_website: string | null
           linked_deal_id: string | null
           manual_category: string | null
           manual_sentiment: string | null
@@ -10543,6 +10554,7 @@ export type Database = {
           sl_email_lead_id: string | null
           sl_email_lead_map_id: string | null
           sl_lead_email: string | null
+          smartlead_lead_data: Json | null
           stats_id: string | null
           status: string | null
           subject: string | null
@@ -10569,11 +10581,22 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           description?: string | null
+          enriched_at?: string | null
           event_timestamp?: string | null
           event_type?: string | null
           from_email?: string | null
           id?: string
+          lead_company_name?: string | null
           lead_correspondence?: Json | null
+          lead_custom_fields?: Json | null
+          lead_first_name?: string | null
+          lead_last_name?: string | null
+          lead_linkedin_url?: string | null
+          lead_location?: string | null
+          lead_mobile?: string | null
+          lead_phone?: string | null
+          lead_title?: string | null
+          lead_website?: string | null
           linked_deal_id?: string | null
           manual_category?: string | null
           manual_sentiment?: string | null
@@ -10592,6 +10615,7 @@ export type Database = {
           sl_email_lead_id?: string | null
           sl_email_lead_map_id?: string | null
           sl_lead_email?: string | null
+          smartlead_lead_data?: Json | null
           stats_id?: string | null
           status?: string | null
           subject?: string | null
@@ -10618,11 +10642,22 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           description?: string | null
+          enriched_at?: string | null
           event_timestamp?: string | null
           event_type?: string | null
           from_email?: string | null
           id?: string
+          lead_company_name?: string | null
           lead_correspondence?: Json | null
+          lead_custom_fields?: Json | null
+          lead_first_name?: string | null
+          lead_last_name?: string | null
+          lead_linkedin_url?: string | null
+          lead_location?: string | null
+          lead_mobile?: string | null
+          lead_phone?: string | null
+          lead_title?: string | null
+          lead_website?: string | null
           linked_deal_id?: string | null
           manual_category?: string | null
           manual_sentiment?: string | null
@@ -10641,6 +10676,7 @@ export type Database = {
           sl_email_lead_id?: string | null
           sl_email_lead_map_id?: string | null
           sl_lead_email?: string | null
+          smartlead_lead_data?: Json | null
           stats_id?: string | null
           status?: string | null
           subject?: string | null
