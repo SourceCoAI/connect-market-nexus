@@ -211,74 +211,21 @@ export function CreateDealFromReplyDialog({
             />
           </div>
 
-          {/* Stage & Priority row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Pipeline Stage *</Label>
-              <Select value={stageId} onValueChange={setStageId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stages?.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Priority</Label>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Remarketing List & Listing */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Remarketing List</Label>
-              <Select value={dealSource || 'none'} onValueChange={(v) => setDealSource(v === 'none' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select list" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {REMARKETING_LIST_OPTIONS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Listing (optional)</Label>
-              <Select value={listingId || 'none'} onValueChange={(v) => setListingId(v === 'none' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Link to a listing..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No listing</SelectItem>
-                  {listings?.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Remarketing List */}
+          <div className="space-y-1.5">
+            <Label>Remarketing List *</Label>
+            <Select value={dealSource} onValueChange={setDealSource}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select list" />
+              </SelectTrigger>
+              <SelectContent>
+                {REMARKETING_LIST_OPTIONS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Contact fields */}
