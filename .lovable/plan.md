@@ -1,43 +1,38 @@
 
 
-# Plan: Fix Edge Function Build Errors & Deploy All
+# Plan: Test Smartlead API Lead Lookup
 
-The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
+## Goal
+Create a temporary test edge function that calls the Smartlead API with real data from your account, logs the full response, and returns it so we can inspect all available fields before committing to a schema.
 
-## Errors & Fixes
+## What We'll Do
 
-### 1. `auto-create-firm-on-approval/index.ts` (1 error)
-**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
-**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
+### 1. Create `smartlead-test-lead-lookup` edge function
+A lightweight, no-auth function that:
+- Takes a `campaign_id` and `lead_id` (or `email`) as input
+- Calls two Smartlead API endpoints using the existing `smartlead-client.ts`:
+  - `GET /campaigns/{campaign_id}/leads/{lead_id}` — single lead detail
+  - `GET /campaigns/{campaign_id}/leads?limit=1` — list endpoint (may return different fields)
+- Returns the raw JSON responses so we can see every field
 
-### 2. `bulk-import-remarketing/index.ts` (2 errors)
-**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
-**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
+We'll test with these real records from your inbox:
+- Campaign `1654146`, Lead `3174912111` (danm@diygaragedoor.com)
+- Campaign `2842565`, Lead `3260647508` (management@unifursity.com)
 
-### 3. `calculate-deal-quality/index.ts` (24 errors)
-**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
-**Fix:**
-- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
-- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
+### 2. Add to config.toml
+```toml
+[functions.smartlead-test-lead-lookup]
+verify_jwt = false
+```
 
-### 4. `clarify-industry/index.ts` (1 error)
-**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
-**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
+### 3. Deploy, call, and review
+After deploying, we'll invoke the function, capture the full response, and review which fields Smartlead returns (company, website, LinkedIn, phone, custom fields, etc.).
 
-### 5. `confirm-agreement-signed/index.ts` (3 errors)
-**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
-**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
+### 4. Clean up
+Delete the test function after we've captured the results.
 
-## After Fixes
-Deploy all edge functions using the deployment tool.
-
-## Summary of Changes
-| File | Change |
-|------|--------|
-| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
-| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
-| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
-| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
-| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
-| Deploy all ~148 functions | After fixes pass |
+## Technical Details
+- Uses the existing `smartleadRequest` helper from `_shared/smartlead-client.ts` — no new API key setup needed.
+- No database changes yet — this is purely a read-only API probe.
+- The function will be temporary (created, tested, then deleted).
 
