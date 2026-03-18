@@ -34,6 +34,10 @@ const SOURCE_CONFIG: Record<string, { label: string; className: string }> = {
     label: "Salesforce",
     className: "bg-teal-50 text-teal-700 border-teal-200",
   },
+  smartlead: {
+    label: "SmartLead",
+    className: "bg-amber-50 text-amber-700 border-amber-200",
+  },
   manual: {
     label: "Manual",
     className: "bg-gray-50 text-gray-600 border-gray-200",

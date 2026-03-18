@@ -38,6 +38,16 @@ const PRIORITY_OPTIONS = [
   { value: 'urgent', label: 'Urgent' },
 ];
 
+const DEAL_SOURCE_OPTIONS = [
+  { value: 'smartlead', label: 'SmartLead' },
+  { value: 'gp_partners', label: 'GP Partner Deals' },
+  { value: 'sourceco', label: 'SourceCo Deals' },
+  { value: 'captarget', label: 'CapTarget Deals' },
+  { value: 'remarketing', label: 'Remarketing' },
+  { value: 'referral', label: 'Referral' },
+  { value: 'manual', label: 'Manual' },
+];
+
 
 export function CreateDealFromReplyDialog({
   open,
@@ -98,6 +108,7 @@ export function CreateDealFromReplyDialog({
   const [priority, setPriority] = useState(defaultPriority);
   const [stageId, setStageId] = useState('');
   const [listingId, setListingId] = useState('');
+  const [dealSource, setDealSource] = useState('smartlead');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Set default stage when stages load
@@ -119,6 +130,7 @@ export function CreateDealFromReplyDialog({
       setDescription(defaultDescription);
       setPriority(defaultPriority);
       setListingId('');
+      setDealSource('smartlead');
       // stageId will be set by the other effect
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -139,7 +151,7 @@ export function CreateDealFromReplyDialog({
     const dealPayload: Record<string, unknown> = {
       title: title.trim(),
       stage_id: stageId,
-      source: 'smartlead',
+      source: dealSource,
       priority,
       contact_name: contactNameField.trim() || null,
       contact_email: contactEmail.trim() || null,
@@ -232,22 +244,39 @@ export function CreateDealFromReplyDialog({
             </div>
           </div>
 
-          {/* Listing */}
-          <div className="space-y-1.5">
-            <Label>Listing (optional)</Label>
-            <Select value={listingId || 'none'} onValueChange={(v) => setListingId(v === 'none' ? '' : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Link to a listing..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No listing</SelectItem>
-                {listings?.map((l) => (
-                  <SelectItem key={l.id} value={l.id}>
-                    {l.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Remarketing List & Listing */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Remarketing List</Label>
+              <Select value={dealSource} onValueChange={setDealSource}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select list" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEAL_SOURCE_OPTIONS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Listing (optional)</Label>
+              <Select value={listingId || 'none'} onValueChange={(v) => setListingId(v === 'none' ? '' : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Link to a listing..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No listing</SelectItem>
+                  {listings?.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Contact fields */}
