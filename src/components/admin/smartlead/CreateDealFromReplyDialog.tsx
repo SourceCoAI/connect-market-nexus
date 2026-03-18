@@ -109,19 +109,8 @@ export function CreateDealFromReplyDialog({
   const [contactCompany, setContactCompany] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [description, setDescription] = useState(defaultDescription);
-  const [priority, setPriority] = useState(defaultPriority);
-  const [stageId, setStageId] = useState('');
-  const [listingId, setListingId] = useState('');
-  const [dealSource, setDealSource] = useState('');
+  const [dealSource, setDealSource] = useState('captarget');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Set default stage when stages load
-  useEffect(() => {
-    if (stages?.length && !stageId) {
-      const def = stages.find((s) => s.is_default) || stages[0];
-      setStageId(def.id);
-    }
-  }, [stages, stageId]);
 
   // Reset form when dialog opens
   useEffect(() => {
