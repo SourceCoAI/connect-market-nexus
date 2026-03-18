@@ -1,43 +1,112 @@
 
 
-# Plan: Fix Edge Function Build Errors & Deploy All
+# Plan: Smartlead Responses Inbox (under Messages subtab)
 
-The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
+## Overview
 
-## Errors & Fixes
+Add an AI-powered email reply inbox that receives SmartLead reply webhooks, classifies them with AI, and displays them in a filterable dashboard. Placed as a subtab within the existing Messages page.
 
-### 1. `auto-create-firm-on-approval/index.ts` (1 error)
-**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
-**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
+---
 
-### 2. `bulk-import-remarketing/index.ts` (2 errors)
-**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
-**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
+## 1. Database: `smartlead_reply_inbox` table
 
-### 3. `calculate-deal-quality/index.ts` (24 errors)
-**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
-**Fix:**
-- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
-- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
+Migration to create table with all specified columns (campaign info, email content, AI classification fields, manual override fields, status for bulk actions). Key details:
 
-### 4. `clarify-industry/index.ts` (1 error)
-**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
-**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
+- **Indexes**: `message_id`, `from_email`, `time_replied`, `ai_category`, `ai_sentiment`
+- **Manual override columns**: `manual_category`, `manual_sentiment`, `recategorized_by` (uuid), `recategorized_at`
+- **Status column**: `status` text default `'new'` (values: new, reviewed, archived, needs_followup)
+- **Deal link column**: `linked_deal_id` (uuid, nullable) for manual "Add to Deal" 
+- **RLS**: Authenticated SELECT; UPDATE restricted to override/status fields only; no client INSERT/DELETE
+- **Realtime**: Enable on this table
 
-### 5. `confirm-agreement-signed/index.ts` (3 errors)
-**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
-**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
+## 2. Edge Function: `smartlead-inbox-webhook`
 
-## After Fixes
-Deploy all edge functions using the deployment tool.
+New function at `supabase/functions/smartlead-inbox-webhook/index.ts`:
 
-## Summary of Changes
-| File | Change |
-|------|--------|
-| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
-| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
-| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
-| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
-| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
-| Deploy all ~148 functions | After fixes pass |
+- `verify_jwt = false` in config.toml (external webhook source)
+- Validates `SMARTLEAD_WEBHOOK_SECRET` via header or query param (reuses existing `timingSafeEqual` from `_shared/security.ts`)
+- **Idempotency**: Check `message_id` exists; fallback check `from_email` + `event_timestamp`
+- **AI Classification**: Calls Lovable AI (`google/gemini-3-flash-preview`) via tool-calling to classify reply into one of 10 categories + sentiment. Strips HTML, truncates to 5000 chars before sending.
+- Inserts into `smartlead_reply_inbox` with service role key
+- Returns `{ success, id, classification }`
+
+Webhook URL: `https://vhzipqarkmmfuqadefep.supabase.co/functions/v1/smartlead-inbox-webhook`
+
+## 3. Routing: Messages subtab structure
+
+Change `App.tsx` line 377 from a flat route to nested routes:
+
+```
+marketplace/messages → MessagesLayout (tab bar: Conversations | Smartlead Responses)
+  index              → MessageCenter (existing, no changes)
+  smartlead          → SmartleadResponsesList (new)
+  smartlead/:inboxId → SmartleadResponseDetail (new)
+```
+
+Update `UnifiedAdminSidebar.tsx` line 517: change `isActive` from `===` to `startsWith` so the sidebar highlights correctly on subtabs.
+
+## 4. MessagesLayout wrapper
+
+New `src/pages/admin/MessagesLayout.tsx`:
+- Two tabs at top using shadcn Tabs: "Conversations" and "Smartlead Responses" (with unread/new count badge)
+- `<Outlet />` renders the active sub-page
+- Tab navigation via `useNavigate`
+
+## 5. SmartleadResponsesList page
+
+`src/pages/admin/SmartleadResponsesList.tsx`:
+
+- **6 filter stat cards**: Total, Meetings, Interested, Positive, Negative, Neutral — clickable with counts
+- **Search bar**: filters across reply content, email, campaign name (client-side for now)
+- **Reply list** (ScrollArea): Each card shows lead name/email, sentiment badge, category badge with emoji, campaign name, sequence step, subject, 2-line preview, relative time, "View in SmartLead" link
+- **Bulk actions**: Select multiple → Mark reviewed / archived / needs follow-up
+- **Export CSV** button
+- **Realtime**: Supabase channel subscription on INSERT → auto-refresh
+- Click navigates to detail page
+
+## 6. SmartleadResponseDetail page
+
+`src/pages/admin/SmartleadResponseDetail.tsx`:
+
+3-column layout (2:1):
+
+**Left**: Reply card, original outbound message, email thread (from `lead_correspondence` JSON), AI analysis (category/sentiment badges, reasoning, confidence bar)
+
+**Right sidebar**: Contact info, campaign info, timeline, identifiers, manual re-classification dropdowns (category + sentiment), **"Add to Deal"** button (dialog with deal picker → saves `linked_deal_id`)
+
+## 7. Hooks
+
+New `src/hooks/smartlead/use-smartlead-inbox.ts`:
+- `useSmartleadInbox(filter, search)` — query with filters
+- `useSmartleadInboxItem(id)` — single item
+- `useSmartleadInboxStats()` — counts by category/sentiment
+- `useUpdateInboxStatus()` — bulk status mutation
+- `useRecategorizeInbox()` — manual override mutation
+- `useLinkInboxToDeal()` — link to deal mutation
+- Realtime subscription hook
+
+Export from `src/hooks/smartlead/index.ts`.
+
+## 8. Build error fixes
+
+- `ValuationLeads/index.tsx` line 113-114: prefix `isPushEnriching` and `isReEnriching` with `_`
+- `useValuationLeadsMutations.ts` line 52: prefix `setIsDeleting` with `_`
+
+## File Summary
+
+| File | Action |
+|---|---|
+| Migration SQL | Create `smartlead_reply_inbox` table + indexes + RLS + realtime |
+| `supabase/functions/smartlead-inbox-webhook/index.ts` | New edge function |
+| `supabase/config.toml` | Add `[functions.smartlead-inbox-webhook]` verify_jwt = false |
+| `src/pages/admin/MessagesLayout.tsx` | New tab wrapper |
+| `src/pages/admin/SmartleadResponsesList.tsx` | New list page |
+| `src/pages/admin/SmartleadResponseDetail.tsx` | New detail page |
+| `src/hooks/smartlead/use-smartlead-inbox.ts` | New hooks |
+| `src/hooks/smartlead/index.ts` | Add exports |
+| `src/App.tsx` | Nest messages routes under MessagesLayout |
+| `src/components/admin/UnifiedAdminSidebar.tsx` | Fix isActive to use startsWith |
+| `src/integrations/supabase/types.ts` | Auto-updated after migration |
+| `src/pages/admin/remarketing/ValuationLeads/index.tsx` | Fix unused vars |
+| `src/pages/admin/remarketing/ValuationLeads/useValuationLeadsMutations.ts` | Fix unused var |
 
