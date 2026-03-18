@@ -115,69 +115,6 @@ export default function SmartleadResponseDetail() {
     );
   };
 
-  const handleCreateDeal = async () => {
-    if (!item || isCreatingDeal) return;
-    setIsCreatingDeal(true);
-
-    // Find default stage
-    const defaultStage = stages?.find((s) => s.is_default) || stages?.[0];
-    if (!defaultStage) {
-      toast.error('No deal stages configured. Please create a stage first.');
-      setIsCreatingDeal(false);
-      return;
-    }
-
-    // Derive a sensible title
-    const contactName = String(item.to_name || '').trim();
-    const campaignName = String(item.campaign_name || '').trim();
-    const subject = String(item.subject || '').trim();
-    const dealTitle = contactName
-      ? `${contactName}${campaignName ? ` – ${campaignName}` : ''}`
-      : subject || campaignName || 'SmartLead Response';
-
-    // Map AI category → priority
-    const category = String(item.manual_category || item.ai_category || '');
-    let priority = 'medium';
-    if (['meeting_request', 'interested'].includes(category)) priority = 'high';
-    else if (['not_interested', 'unsubscribe', 'negative_hostile'].includes(category)) priority = 'low';
-
-    const dealPayload: Record<string, unknown> = {
-      title: dealTitle,
-      stage_id: defaultStage.id,
-      source: 'smartlead',
-      priority,
-      contact_name: contactName || null,
-      contact_email: String(item.to_email || item.sl_lead_email || '').trim() || null,
-      contact_phone: null,
-      contact_company: null,
-      description: [
-        subject ? `Subject: ${subject}` : null,
-        campaignName ? `Campaign: ${campaignName}` : null,
-        item.ai_reasoning ? `AI Summary: ${String(item.ai_reasoning)}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    };
-
-    try {
-      const newDeal = await createDeal.mutateAsync(dealPayload);
-      // Link inbox item to newly created deal
-      const newDealId = (newDeal as { id: string }).id;
-      linkToDeal.mutate(
-        { id: item.id, dealId: newDealId },
-        {
-          onSuccess: () => {
-            toast.success(`Deal created: ${dealTitle}`);
-            setIsCreatingDeal(false);
-          },
-          onError: () => setIsCreatingDeal(false),
-        },
-      );
-    } catch {
-      setIsCreatingDeal(false);
-    }
-  };
-
   const handleUnlinkDeal = () => {
     linkToDeal.mutate(
       { id: item.id, dealId: null },
