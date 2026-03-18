@@ -1,7 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ExternalLink,
@@ -12,6 +11,8 @@ import {
   Mail,
   MessageSquare,
   LinkIcon,
+  Plus,
+  Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,23 +26,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import {
   useSmartleadInboxItem,
   useRecategorizeInbox,
   useLinkInboxToDeal,
 } from '@/hooks/smartlead/use-smartlead-inbox';
+import { useCreateDeal } from '@/hooks/admin/use-deals';
+import { useDealStages } from '@/hooks/admin/deals/useDealStages';
 
 const CATEGORIES = [
   'meeting_request',
@@ -81,25 +73,7 @@ function stripHtml(html: string) {
   return html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/&apos;/gi, "'").replace(/&rsquo;/gi, "'").replace(/&ndash;/gi, '–').replace(/\s+/g, ' ').trim();
 }
 
-function useDeals(search: string) {
-  return useQuery({
-    queryKey: ['deal-pipeline-picker', search],
-    queryFn: async () => {
-      let query = (supabase.from('deal_pipeline') as any)
-        .select('id, title, priority, created_at')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (search.trim()) {
-        query = query.ilike('title', `%${search}%`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data || []) as Array<{ id: string; title: string; priority: string | null; created_at: string }>;
-    },
-  });
-}
+// Removed: useDeals search hook — replaced by direct deal creation
 
 export default function SmartleadResponseDetail() {
   const { inboxId } = useParams<{ inboxId: string }>();
@@ -107,9 +81,9 @@ export default function SmartleadResponseDetail() {
   const { data: item, isLoading } = useSmartleadInboxItem(inboxId);
   const recategorize = useRecategorizeInbox();
   const linkToDeal = useLinkInboxToDeal();
-  const [dealDialogOpen, setDealDialogOpen] = useState(false);
-  const [dealSearch, setDealSearch] = useState('');
-  const { data: deals } = useDeals(dealSearch);
+  const createDeal = useCreateDeal();
+  const { data: stages } = useDealStages(false);
+  const [isCreatingDeal, setIsCreatingDeal] = useState(false);
 
   if (isLoading) {
     return <div className="text-center py-12 text-muted-foreground">Loading...</div>;
@@ -145,16 +119,67 @@ export default function SmartleadResponseDetail() {
     );
   };
 
-  const handleLinkDeal = (dealId: string, dealTitle: string) => {
-    linkToDeal.mutate(
-      { id: item.id, dealId },
-      {
-        onSuccess: () => {
-          toast.success(`Linked to deal: ${dealTitle}`);
-          setDealDialogOpen(false);
+  const handleCreateDeal = async () => {
+    if (!item || isCreatingDeal) return;
+    setIsCreatingDeal(true);
+
+    // Find default stage
+    const defaultStage = stages?.find((s) => s.is_default) || stages?.[0];
+    if (!defaultStage) {
+      toast.error('No deal stages configured. Please create a stage first.');
+      setIsCreatingDeal(false);
+      return;
+    }
+
+    // Derive a sensible title
+    const contactName = String(item.to_name || '').trim();
+    const campaignName = String(item.campaign_name || '').trim();
+    const subject = String(item.subject || '').trim();
+    const dealTitle = contactName
+      ? `${contactName}${campaignName ? ` – ${campaignName}` : ''}`
+      : subject || campaignName || 'SmartLead Response';
+
+    // Map AI category → priority
+    const category = String(item.manual_category || item.ai_category || '');
+    let priority = 'medium';
+    if (['meeting_request', 'interested'].includes(category)) priority = 'high';
+    else if (['not_interested', 'unsubscribe', 'negative_hostile'].includes(category)) priority = 'low';
+
+    const dealPayload: Record<string, unknown> = {
+      title: dealTitle,
+      stage_id: defaultStage.id,
+      source: 'smartlead',
+      priority,
+      contact_name: contactName || null,
+      contact_email: String(item.to_email || item.sl_lead_email || '').trim() || null,
+      contact_phone: null,
+      contact_company: null,
+      description: [
+        subject ? `Subject: ${subject}` : null,
+        campaignName ? `Campaign: ${campaignName}` : null,
+        item.ai_reasoning ? `AI Summary: ${String(item.ai_reasoning)}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    };
+
+    try {
+      const newDeal = await createDeal.mutateAsync(dealPayload);
+      // Link inbox item to newly created deal
+      const newDealId = (newDeal as { id: string }).id;
+      linkToDeal.mutate(
+        { id: item.id, dealId: newDealId },
+        {
+          onSuccess: () => {
+            toast.success(`Deal created: ${dealTitle}`);
+            setIsCreatingDeal(false);
+          },
+          onError: () => setIsCreatingDeal(false),
         },
-      },
-    );
+      );
+    } catch {
+      setIsCreatingDeal(false);
+    }
   };
 
   const handleUnlinkDeal = () => {
@@ -388,9 +413,15 @@ export default function SmartleadResponseDetail() {
                   variant="outline"
                   size="sm"
                   className="w-full text-xs"
-                  onClick={() => setDealDialogOpen(true)}
+                  disabled={isCreatingDeal}
+                  onClick={handleCreateDeal}
                 >
-                  <LinkIcon className="h-3 w-3 mr-1" /> Add to Deal
+                  {isCreatingDeal ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Plus className="h-3 w-3 mr-1" />
+                  )}
+                  {isCreatingDeal ? 'Creating...' : 'Create Deal from Reply'}
                 </Button>
               )}
             </CardContent>
@@ -442,56 +473,6 @@ export default function SmartleadResponseDetail() {
           </Card>
         </div>
       </div>
-
-      {/* Add to Deal Dialog */}
-      <Dialog open={dealDialogOpen} onOpenChange={setDealDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add to Deal</DialogTitle>
-            <DialogDescription>
-              Link this SmartLead response to an existing deal in the pipeline.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              placeholder="Search deals..."
-              value={dealSearch}
-              onChange={(e) => setDealSearch(e.target.value)}
-              className="text-sm"
-            />
-            <ScrollArea className="h-[300px]">
-              <div className="space-y-1">
-                {deals && deals.length > 0 ? (
-                  deals.map((deal) => (
-                    <button
-                      key={deal.id}
-                      className="w-full text-left p-2 rounded-md hover:bg-muted transition-colors text-sm"
-                      onClick={() => handleLinkDeal(deal.id, deal.title || 'Untitled')}
-                    >
-                      <p className="font-medium truncate">{deal.title || 'Untitled Deal'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {deal.priority && <span className="capitalize">{deal.priority}</span>}
-                        {deal.created_at && (
-                          <span> • {format(new Date(deal.created_at), 'MMM d, yyyy')}</span>
-                        )}
-                      </p>
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    {dealSearch ? 'No deals found' : 'Loading deals...'}
-                  </p>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setDealDialogOpen(false)}>
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
