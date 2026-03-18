@@ -188,7 +188,7 @@ export default function SmartleadResponseDetail() {
           </Card>
 
           {/* Thread view */}
-          {item.lead_correspondence && Array.isArray(item.lead_correspondence) && (
+          {Array.isArray(item.lead_correspondence) && item.lead_correspondence.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Email Thread</CardTitle>
