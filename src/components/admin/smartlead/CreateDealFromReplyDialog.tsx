@@ -301,7 +301,7 @@ export function CreateDealFromReplyDialog({
             </Button>
             <Button onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSubmitting ? 'Creating...' : 'Create Deal'}
+              {isSubmitting ? 'Adding...' : 'Add Lead'}
             </Button>
           </div>
         </div>
