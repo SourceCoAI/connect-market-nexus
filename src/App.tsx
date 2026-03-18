@@ -136,6 +136,9 @@ const GlobalApprovalsPage = lazyWithRetry(() => import('@/pages/admin/GlobalAppr
 const DocumentTrackingPage = lazyWithRetry(() => import('@/pages/admin/DocumentTrackingPage'));
 const TestingHub = lazyWithRetry(() => import('@/pages/admin/TestingHub'));
 const MessageCenter = lazyWithRetry(() => import('@/pages/admin/MessageCenter'));
+const MessagesLayout = lazyWithRetry(() => import('@/pages/admin/MessagesLayout'));
+const SmartleadResponsesList = lazyWithRetry(() => import('@/pages/admin/SmartleadResponsesList'));
+const SmartleadResponseDetail = lazyWithRetry(() => import('@/pages/admin/SmartleadResponseDetail'));
 const AdminFeatureIdeas = lazyWithRetry(() => import('@/pages/admin/AdminFeatureIdeas'));
 const PEFirmLinkReview = lazyWithRetry(() => import('@/pages/admin/PEFirmLinkReview'));
 
