@@ -153,7 +153,7 @@ export function CreateDealFromReplyDialog({
       setDescription(defaultDescription);
       setPriority(defaultPriority);
       setListingId('');
-      setDealSource('smartlead');
+      setDealSource('');
       // stageId will be set by the other effect
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
