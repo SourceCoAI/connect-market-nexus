@@ -94,6 +94,7 @@ export function CreateDealFromReplyDialog({
   const [contactPhone, setContactPhone] = useState('');
   const [contactWebsite, setContactWebsite] = useState('');
   const [contactLinkedIn, setContactLinkedIn] = useState('');
+  const [contactIndustry, setContactIndustry] = useState('');
   const [description, setDescription] = useState(defaultDescription);
   const [dealSource, setDealSource] = useState('captarget');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,6 +109,7 @@ export function CreateDealFromReplyDialog({
       setContactPhone(derivedPhone);
       setContactWebsite(enrichedWebsite);
       setContactLinkedIn(enrichedLinkedIn);
+      setContactIndustry(enrichedIndustry);
       setDescription(defaultDescription);
       setDealSource('captarget');
     }
@@ -133,6 +135,7 @@ export function CreateDealFromReplyDialog({
           title: title.trim(),
           internal_company_name: contactCompany.trim() || title.trim(),
           website: contactWebsite.trim() || null,
+          category: contactIndustry.trim() || null,
           main_contact_name: contactNameField.trim() || null,
           main_contact_email: contactEmail.trim() || null,
           main_contact_phone: contactPhone.trim() || null,
@@ -274,6 +277,16 @@ export function CreateDealFromReplyDialog({
                   value={contactLinkedIn}
                   onChange={(e) => setContactLinkedIn(e.target.value)}
                   placeholder="LinkedIn URL"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1 col-span-2">
+                <Label htmlFor="contact-industry" className="text-xs">Industry</Label>
+                <Input
+                  id="contact-industry"
+                  value={contactIndustry}
+                  onChange={(e) => setContactIndustry(e.target.value)}
+                  placeholder="Industry"
                   className="h-8 text-sm"
                 />
               </div>
