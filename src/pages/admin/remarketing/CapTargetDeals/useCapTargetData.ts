@@ -154,6 +154,8 @@ export function useCapTargetData() {
             next.set('sort', col);
             next.set('dir', 'asc');
           }
+          // Reset pagination when sort changes
+          next.delete('cp');
           return next;
         },
         { replace: true },
@@ -268,12 +270,6 @@ export function useCapTargetData() {
     const start = (safePage - 1) * PAGE_SIZE;
     return filteredDeals.slice(start, start + PAGE_SIZE);
   }, [filteredDeals, safePage]);
-
-  // Reset to page 1 when filters/sort change
-  useEffect(() => {
-    setCurrentPage(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState, sortColumn, sortDirection]);
 
   // Selection helpers
   const allSelected =

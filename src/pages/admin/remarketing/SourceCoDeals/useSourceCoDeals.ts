@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useShiftSelect } from '@/hooks/useShiftSelect';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
@@ -240,11 +240,6 @@ export function useSourceCoDeals() {
     return filteredDeals.slice(start, start + PAGE_SIZE);
   }, [filteredDeals, safePage]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState, sortColumn, sortDirection]);
-
   const handleSort = (col: SortColumn) => {
     setSearchParams(
       (prev) => {
@@ -255,6 +250,8 @@ export function useSourceCoDeals() {
           next.set('sort', col);
           next.set('dir', 'asc');
         }
+        // Reset pagination when sort changes
+        next.delete('cp');
         return next;
       },
       { replace: true },

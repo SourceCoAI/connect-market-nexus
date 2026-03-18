@@ -201,6 +201,8 @@ export function useFilterEngine<T>(items: T[], fieldDefinitions: FilterFieldDef[
             } else {
               n.delete('f');
             }
+            // Reset pagination when filters change to avoid stale page
+            n.delete('cp');
             return n;
           },
           { replace: true },
