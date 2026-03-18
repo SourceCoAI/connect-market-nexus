@@ -121,9 +121,7 @@ export function CreateDealFromReplyDialog({
       setContactCompany(derivedCompany);
       setContactPhone('');
       setDescription(defaultDescription);
-      setPriority(defaultPriority);
-      setListingId('');
-      setDealSource('');
+      setDealSource('captarget');
       // stageId will be set by the other effect
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
