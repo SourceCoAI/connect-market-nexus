@@ -94,6 +94,7 @@ export function CreateDealFromReplyDialog({
   const [contactPhone, setContactPhone] = useState('');
   const [contactWebsite, setContactWebsite] = useState('');
   const [contactLinkedIn, setContactLinkedIn] = useState('');
+  const [contactIndustry, setContactIndustry] = useState('');
   const [description, setDescription] = useState(defaultDescription);
   const [dealSource, setDealSource] = useState('captarget');
   const [isSubmitting, setIsSubmitting] = useState(false);
