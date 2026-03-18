@@ -30,3 +30,17 @@ export type {
   SmartleadContactEvent,
   ContactSmartleadHistory,
 } from './use-contact-smartlead-history';
+
+export {
+  useSmartleadInbox,
+  useSmartleadInboxItem,
+  useUpdateInboxStatus,
+  useRecategorizeInbox,
+  useLinkInboxToDeal,
+  useSmartleadInboxRealtime,
+} from './use-smartlead-inbox';
+export type {
+  SmartleadInboxItem,
+  InboxFilter,
+  InboxStats,
+} from './use-smartlead-inbox';

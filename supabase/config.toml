@@ -268,3 +268,5 @@ verify_jwt = false
 verify_jwt = false
 [functions.trigger-contact-discovery]
 verify_jwt = false
+[functions.smartlead-inbox-webhook]
+verify_jwt = false

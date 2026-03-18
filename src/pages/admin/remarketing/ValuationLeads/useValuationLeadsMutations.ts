@@ -49,7 +49,7 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
   const [isScoring, setIsScoring] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   const [isMarkingNotFit, setIsMarkingNotFit] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleting, _setIsDeleting] = useState(false);
 
   // Drawer state
   const [selectedLead, setSelectedLead] = useState<ValuationLead | null>(null);

@@ -10504,6 +10504,156 @@ export type Database = {
           },
         ]
       }
+      smartlead_reply_inbox: {
+        Row: {
+          ai_category: string | null
+          ai_confidence: number | null
+          ai_is_positive: boolean | null
+          ai_reasoning: string | null
+          ai_sentiment: string | null
+          app_url: string | null
+          campaign_id: number | null
+          campaign_name: string | null
+          campaign_status: string | null
+          categorized_at: string | null
+          cc_emails: string[] | null
+          client_id: string | null
+          created_at: string
+          description: string | null
+          event_timestamp: string | null
+          event_type: string | null
+          from_email: string | null
+          id: string
+          lead_correspondence: Json | null
+          linked_deal_id: string | null
+          manual_category: string | null
+          manual_sentiment: string | null
+          message_id: string | null
+          metadata: Json | null
+          preview_text: string | null
+          raw_payload: Json | null
+          recategorized_at: string | null
+          recategorized_by: string | null
+          reply_body: string | null
+          reply_message: string | null
+          secret_key: string | null
+          sent_message: string | null
+          sent_message_body: string | null
+          sequence_number: number | null
+          sl_email_lead_id: string | null
+          sl_email_lead_map_id: string | null
+          sl_lead_email: string | null
+          stats_id: string | null
+          status: string | null
+          subject: string | null
+          time_replied: string | null
+          to_email: string | null
+          to_name: string | null
+          ui_master_inbox_link: string | null
+          webhook_id: string | null
+          webhook_name: string | null
+          webhook_url: string | null
+        }
+        Insert: {
+          ai_category?: string | null
+          ai_confidence?: number | null
+          ai_is_positive?: boolean | null
+          ai_reasoning?: string | null
+          ai_sentiment?: string | null
+          app_url?: string | null
+          campaign_id?: number | null
+          campaign_name?: string | null
+          campaign_status?: string | null
+          categorized_at?: string | null
+          cc_emails?: string[] | null
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          event_timestamp?: string | null
+          event_type?: string | null
+          from_email?: string | null
+          id?: string
+          lead_correspondence?: Json | null
+          linked_deal_id?: string | null
+          manual_category?: string | null
+          manual_sentiment?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          preview_text?: string | null
+          raw_payload?: Json | null
+          recategorized_at?: string | null
+          recategorized_by?: string | null
+          reply_body?: string | null
+          reply_message?: string | null
+          secret_key?: string | null
+          sent_message?: string | null
+          sent_message_body?: string | null
+          sequence_number?: number | null
+          sl_email_lead_id?: string | null
+          sl_email_lead_map_id?: string | null
+          sl_lead_email?: string | null
+          stats_id?: string | null
+          status?: string | null
+          subject?: string | null
+          time_replied?: string | null
+          to_email?: string | null
+          to_name?: string | null
+          ui_master_inbox_link?: string | null
+          webhook_id?: string | null
+          webhook_name?: string | null
+          webhook_url?: string | null
+        }
+        Update: {
+          ai_category?: string | null
+          ai_confidence?: number | null
+          ai_is_positive?: boolean | null
+          ai_reasoning?: string | null
+          ai_sentiment?: string | null
+          app_url?: string | null
+          campaign_id?: number | null
+          campaign_name?: string | null
+          campaign_status?: string | null
+          categorized_at?: string | null
+          cc_emails?: string[] | null
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          event_timestamp?: string | null
+          event_type?: string | null
+          from_email?: string | null
+          id?: string
+          lead_correspondence?: Json | null
+          linked_deal_id?: string | null
+          manual_category?: string | null
+          manual_sentiment?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          preview_text?: string | null
+          raw_payload?: Json | null
+          recategorized_at?: string | null
+          recategorized_by?: string | null
+          reply_body?: string | null
+          reply_message?: string | null
+          secret_key?: string | null
+          sent_message?: string | null
+          sent_message_body?: string | null
+          sequence_number?: number | null
+          sl_email_lead_id?: string | null
+          sl_email_lead_map_id?: string | null
+          sl_lead_email?: string | null
+          stats_id?: string | null
+          status?: string | null
+          subject?: string | null
+          time_replied?: string | null
+          to_email?: string | null
+          to_name?: string | null
+          ui_master_inbox_link?: string | null
+          webhook_id?: string | null
+          webhook_name?: string | null
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       smartlead_webhook_events: {
         Row: {
           created_at: string | null

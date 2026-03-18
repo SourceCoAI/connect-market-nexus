@@ -514,7 +514,7 @@ export function UnifiedAdminSidebar({
             href="/admin/marketplace/messages"
             icon={<Mail className="h-4 w-4" />}
             label="Messages"
-            isActive={location.pathname === '/admin/marketplace/messages'}
+            isActive={location.pathname.startsWith('/admin/marketplace/messages')}
             collapsed={collapsed}
             badge={unreadMessages?.total || 0}
           />

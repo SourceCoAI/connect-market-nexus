@@ -136,6 +136,9 @@ const GlobalApprovalsPage = lazyWithRetry(() => import('@/pages/admin/GlobalAppr
 const DocumentTrackingPage = lazyWithRetry(() => import('@/pages/admin/DocumentTrackingPage'));
 const TestingHub = lazyWithRetry(() => import('@/pages/admin/TestingHub'));
 const MessageCenter = lazyWithRetry(() => import('@/pages/admin/MessageCenter'));
+const MessagesLayout = lazyWithRetry(() => import('@/pages/admin/MessagesLayout'));
+const SmartleadResponsesList = lazyWithRetry(() => import('@/pages/admin/SmartleadResponsesList'));
+const SmartleadResponseDetail = lazyWithRetry(() => import('@/pages/admin/SmartleadResponseDetail'));
 const AdminFeatureIdeas = lazyWithRetry(() => import('@/pages/admin/AdminFeatureIdeas'));
 const PEFirmLinkReview = lazyWithRetry(() => import('@/pages/admin/PEFirmLinkReview'));
 
@@ -374,7 +377,11 @@ function App() {
               <Route path="marketplace/queue" element={<MarketplaceQueue />} />
               <Route path="marketplace/create-listing" element={<CreateListingFromDeal />} />
               <Route path="marketplace/requests" element={<AdminRequests />} />
-              <Route path="marketplace/messages" element={<MessageCenter />} />
+              <Route path="marketplace/messages" element={<MessagesLayout />}>
+                <Route index element={<MessageCenter />} />
+                <Route path="smartlead" element={<SmartleadResponsesList />} />
+                <Route path="smartlead/:inboxId" element={<SmartleadResponseDetail />} />
+              </Route>
               <Route path="marketplace/users" element={<MarketplaceUsersPage />} />
 
               {/* REMARKETING (GlobalActivityStatusBar lives in ReMarketingLayout wrapper) */}
