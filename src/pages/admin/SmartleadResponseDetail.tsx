@@ -33,7 +33,70 @@ import {
 } from '@/hooks/smartlead/use-smartlead-inbox';
 import { CreateDealFromReplyDialog } from '@/components/admin/smartlead/CreateDealFromReplyDialog';
 import { supabase } from '@/integrations/supabase/client';
-...
+
+const CATEGORIES = [
+  'meeting_request',
+  'interested',
+  'question',
+  'referral',
+  'not_now',
+  'not_interested',
+  'unsubscribe',
+  'out_of_office',
+  'negative_hostile',
+  'neutral',
+];
+
+const SENTIMENTS = ['positive', 'negative', 'neutral'];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  meeting_request: '📅 Meeting Request',
+  interested: '✨ Interested',
+  question: '❓ Question',
+  referral: '👤 Referral',
+  not_now: '⏰ Not Now',
+  not_interested: '👎 Not Interested',
+  unsubscribe: '🚫 Unsubscribe',
+  out_of_office: '🏖️ Out of Office',
+  negative_hostile: '⚠️ Hostile',
+  neutral: '➖ Neutral',
+};
+
+function getSentimentColor(sentiment: string | null) {
+  if (sentiment === 'positive') return 'bg-green-500/10 text-green-700 dark:text-green-400';
+  if (sentiment === 'negative') return 'bg-destructive/10 text-destructive';
+  return 'bg-muted text-muted-foreground';
+}
+
+function stripHtml(html: string) {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&rsquo;/gi, "'")
+    .replace(/&ndash;/gi, '–')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function companyFromEmail(email: string) {
+  if (!email || !email.includes('@')) return '';
+  const domain = email.split('@')[1]?.split('.')[0] || '';
+  if (
+    ['gmail', 'yahoo', 'hotmail', 'outlook', 'aol', 'icloud', 'mail', 'protonmail'].includes(
+      domain.toLowerCase(),
+    )
+  ) {
+    return '';
+  }
+  return domain.charAt(0).toUpperCase() + domain.slice(1);
+}
+
 export default function SmartleadResponseDetail() {
   const { inboxId } = useParams<{ inboxId: string }>();
   const navigate = useNavigate();
@@ -42,25 +105,52 @@ export default function SmartleadResponseDetail() {
   const linkToDeal = useLinkInboxToDeal();
   const [showCreateDealDialog, setShowCreateDealDialog] = useState(false);
   const [isResolvingDeal, setIsResolvingDeal] = useState(false);
-...
+
+  if (isLoading) {
+    return <div className="text-center py-12 text-muted-foreground">Loading...</div>;
+  }
+
+  if (!item) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Reply not found</p>
+        <Button
+          variant="ghost"
+          className="mt-4"
+          onClick={() => navigate('/admin/marketplace/messages/smartlead')}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back to inbox
+        </Button>
+      </div>
+    );
+  }
+
+  const category = String(item.manual_category || item.ai_category || 'neutral');
+  const sentiment = String(item.manual_sentiment || item.ai_sentiment || 'neutral');
+  const replyText = item.reply_body
+    ? stripHtml(String(item.reply_body))
+    : String(item.reply_message || item.preview_text || '');
+  const sentText = item.sent_message_body
+    ? stripHtml(String(item.sent_message_body))
+    : item.sent_message
+      ? stripHtml(String(item.sent_message))
+      : '';
+
+  const handleRecategorize = (field: 'category' | 'sentiment', value: string) => {
+    recategorize.mutate(
+      {
+        id: item.id,
+        ...(field === 'category' ? { category: value } : { sentiment: value }),
+      },
+      { onSuccess: () => toast.success('Classification updated') },
+    );
+  };
+
   const handleUnlinkDeal = () => {
     linkToDeal.mutate(
       { id: item.id, dealId: null },
       { onSuccess: () => toast.success('Deal unlinked') },
     );
-  };
-
-  const companyFromEmail = (email: string) => {
-    if (!email || !email.includes('@')) return '';
-    const domain = email.split('@')[1]?.split('.')[0] || '';
-    if (
-      ['gmail', 'yahoo', 'hotmail', 'outlook', 'aol', 'icloud', 'mail', 'protonmail'].includes(
-        domain.toLowerCase(),
-      )
-    ) {
-      return '';
-    }
-    return domain.charAt(0).toUpperCase() + domain.slice(1);
   };
 
   const resolveLinkedDealRoute = async (): Promise<
@@ -151,7 +241,128 @@ export default function SmartleadResponseDetail() {
       setIsResolvingDeal(false);
     }
   };
-...
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/admin/marketplace/messages/smartlead')}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back
+        </Button>
+        {item.ui_master_inbox_link && (
+          <Button variant="outline" size="sm" asChild>
+            <a href={item.ui_master_inbox_link} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-4 w-4 mr-2" /> View in SmartLead
+            </a>
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" /> Reply
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm whitespace-pre-wrap">{replyText || 'No reply content'}</p>
+            </CardContent>
+          </Card>
+
+          {sentText.length > 0 ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Mail className="h-4 w-4" /> Original Message
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{sentText}</p>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">AI Analysis</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="secondary">{CATEGORY_LABELS[category] || category}</Badge>
+                <Badge className={getSentimentColor(sentiment)}>{sentiment}</Badge>
+                {item.ai_is_positive && (
+                  <Badge className="bg-green-500/10 text-green-700 dark:text-green-400">
+                    ✅ Positive Reply
+                  </Badge>
+                )}
+              </div>
+              {item.ai_reasoning ? (
+                <blockquote className="border-l-2 border-muted pl-3 text-sm text-muted-foreground italic">
+                  {String(item.ai_reasoning)}
+                </blockquote>
+              ) : null}
+              {item.ai_confidence !== null && item.ai_confidence !== undefined && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Confidence</span>
+                    <span>{Math.round(Number(item.ai_confidence) * 100)}%</span>
+                  </div>
+                  <Progress value={Number(item.ai_confidence) * 100} className="h-2" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <User className="h-3.5 w-3.5" /> Contact
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{String(item.to_email || item.sl_lead_email || item.from_email || 'Unknown')}</span>
+              </div>
+              {item.to_name && (
+                <div className="flex items-center gap-2">
+                  <Building className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>{String(item.to_name)}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>
+                  {item.time_replied || item.created_at
+                    ? format(new Date(String(item.time_replied || item.created_at)), 'PPp')
+                    : 'Unknown time'}
+                </span>
+              </div>
+              {item.message_id && (
+                <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <Hash className="h-3.5 w-3.5 mt-0.5" />
+                  <span className="break-all">{String(item.message_id)}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Separator />
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <LinkIcon className="h-3.5 w-3.5" /> Deal Link
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
               {item.linked_deal_id ? (
                 <div className="space-y-2">
                   <Badge variant="secondary" className="text-xs">
@@ -192,7 +403,6 @@ export default function SmartleadResponseDetail() {
             </CardContent>
           </Card>
 
-          {/* Manual re-classification */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Manual Override</CardTitle>
@@ -239,14 +449,11 @@ export default function SmartleadResponseDetail() {
         </div>
       </div>
 
-      {/* Create Deal Dialog */}
-      {item && (
-        <CreateDealFromReplyDialog
-          open={showCreateDealDialog}
-          onOpenChange={setShowCreateDealDialog}
-          inboxItem={item as unknown as Record<string, unknown>}
-        />
-      )}
+      <CreateDealFromReplyDialog
+        open={showCreateDealDialog}
+        onOpenChange={setShowCreateDealDialog}
+        inboxItem={item as unknown as Record<string, unknown>}
+      />
     </div>
   );
 }
