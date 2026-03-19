@@ -31,6 +31,7 @@ interface KanbanBoardProps {
 export function KanbanBoard({ listingId, listingTitle }: KanbanBoardProps) {
   const {
     columns,
+    introductions,
     isLoading,
     moveToColumn,
     updateIntroductionNotes,
