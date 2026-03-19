@@ -41,6 +41,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
       );
 
       let resolvedBuyerIdsByCompany: Record<string, string> = {};
+      let resolvedPeFirmByCompany: Record<string, string> = {};
 
       if (unresolvedCompanyNames.length > 0) {
         const { data: buyers, error: buyersError } = await supabase
