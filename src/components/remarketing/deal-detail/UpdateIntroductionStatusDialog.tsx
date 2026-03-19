@@ -128,10 +128,13 @@ export function UpdateIntroductionStatusDialog({
               </a>
             )}
             {buyer.buyer_phone && (
-              <span className="flex items-center gap-1">
+              <a
+                href={`tel:${buyer.buyer_phone}`}
+                className="flex items-center gap-1 hover:text-foreground transition-colors"
+              >
                 <Phone className="h-3 w-3" />
                 {buyer.buyer_phone}
-              </span>
+              </a>
             )}
             {buyer.buyer_linkedin_url && (
               <a
