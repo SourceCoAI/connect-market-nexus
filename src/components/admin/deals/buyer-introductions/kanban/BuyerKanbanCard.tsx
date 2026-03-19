@@ -57,6 +57,7 @@ interface BuyerKanbanCardProps {
 export function BuyerKanbanCard({
   buyer,
   column,
+  resolvedBuyerId,
   onIntroduce,
   onMarkInterested,
   onMarkPassed,
