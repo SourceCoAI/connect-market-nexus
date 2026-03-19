@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import {
   Linkedin,
   MessageSquare,
   Clock,
+  GripVertical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -69,11 +70,13 @@ export function BuyerKanbanCard({
   const buyerType = snap?.buyer_type ?? null;
   const isPeBacked = snap?.is_pe_backed ?? false;
   const source = snap?.source ?? null;
+  const navigate = useNavigate();
 
   const {
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -102,21 +105,39 @@ export function BuyerKanbanCard({
       ? `/admin/buyers/${buyer.contact_id}`
       : null;
 
+  const handleCardClick = () => {
+    if (buyerLink && !isDragging) {
+      navigate(buyerLink);
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
       className={cn(
-        'bg-white rounded-lg border p-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing',
+        'bg-white rounded-lg border p-3 shadow-sm hover:shadow-md transition-shadow',
         isDragging && 'opacity-50 shadow-lg ring-2 ring-blue-300',
         isStale && 'border-l-4 border-l-amber-400',
-        isInPipeline && 'cursor-default opacity-90',
+        isInPipeline && 'opacity-90',
+        buyerLink && !isDragging ? 'cursor-pointer' : 'cursor-default',
       )}
+      onClick={handleCardClick}
     >
-      {/* Header: Name + Type */}
+      {/* Drag handle + Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
+        {/* Drag handle */}
+        {!isInPipeline && (
+          <div
+            ref={setActivatorNodeRef}
+            {...listeners}
+            className="shrink-0 mt-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground/40 hover:text-muted-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
+        )}
         <div className="min-w-0">
           {buyerLink ? (
             <Link
