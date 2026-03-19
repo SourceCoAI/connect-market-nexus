@@ -381,34 +381,7 @@ Use the tool to return structured data.`;
         }
       }
 
-      // Attempt 2: Lovable AI Gateway fallback
-      if (!aiSuccess && lovableApiKey) {
-        try {
-          console.log('[AI] Falling back to Lovable AI Gateway...');
-          const gatewayBody = { ...requestBody, model: 'google/gemini-2.5-flash' };
-          const aiResponse = await callGeminiWithRetry(
-            'https://ai.gateway.lovable.dev/v1/chat/completions',
-            { Authorization: `Bearer ${lovableApiKey}`, 'Content-Type': 'application/json' },
-            gatewayBody,
-            90000,
-            'LovableAI/notes-extract'
-          );
 
-          if (aiResponse.ok) {
-            const parsed = parseToolResponse(await aiResponse.json());
-            if (parsed) {
-              aiExtracted = parsed;
-              aiSuccess = true;
-              console.log('[AI] Lovable AI Gateway succeeded');
-            }
-          } else {
-            const errText = await aiResponse.text();
-            console.error('[AI] Lovable AI Gateway failed:', aiResponse.status, errText.slice(0, 200));
-          }
-        } catch (e) {
-          console.error('[AI] Lovable AI Gateway error:', e instanceof Error ? e.message : e);
-        }
-      }
 
       if (!aiSuccess) {
         console.warn('[AI] All AI providers failed — using regex-only extraction');
