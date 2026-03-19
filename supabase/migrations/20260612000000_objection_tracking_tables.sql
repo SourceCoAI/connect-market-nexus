@@ -21,7 +21,9 @@ CREATE POLICY "Authenticated users can read objection categories"
 
 CREATE POLICY "Admins can manage objection categories"
   ON objection_categories FOR ALL TO authenticated
-  USING (is_admin(auth.uid()));
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
+  );
 
 -- Seed the 10 default categories
 INSERT INTO objection_categories (name, description, icon) VALUES
@@ -65,7 +67,9 @@ CREATE POLICY "Authenticated users can read objection instances"
 
 CREATE POLICY "Admins can manage objection instances"
   ON objection_instances FOR ALL TO authenticated
-  USING (is_admin(auth.uid()));
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
+  );
 
 CREATE POLICY "Service role can insert objection instances"
   ON objection_instances FOR INSERT TO service_role
@@ -101,7 +105,9 @@ CREATE POLICY "Authenticated users can read playbook entries"
 
 CREATE POLICY "Admins can manage playbook entries"
   ON objection_playbook FOR ALL TO authenticated
-  USING (is_admin(auth.uid()));
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
+  );
 
 CREATE POLICY "Service role can manage playbook entries"
   ON objection_playbook FOR ALL TO service_role
