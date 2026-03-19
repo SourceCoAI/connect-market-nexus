@@ -169,11 +169,10 @@ Deno.serve(async (req) => {
 
     // Step 2: AI extraction
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
     let aiExtracted: Record<string, unknown> = {};
 
-    if (geminiApiKey || lovableApiKey) {
+    if (geminiApiKey) {
       const systemPrompt = `You are an elite M&A analyst extracting buyer investment criteria from internal notes, call summaries, and broker memos. Extract EVERY detail about what this buyer is looking for in an acquisition target.
 
 RULES:
@@ -259,33 +258,7 @@ Use the tool to return structured data.`;
         }
       }
 
-      // Attempt 2: Lovable AI Gateway fallback
-      if (!aiSuccess && lovableApiKey) {
-        try {
-          console.log('[AI] Falling back to Lovable AI Gateway...');
-          const gatewayBody = { ...requestBody, model: 'google/gemini-2.5-flash' };
-          const aiResponse = await callGeminiWithRetry(
-            'https://ai.gateway.lovable.dev/v1/chat/completions',
-            { Authorization: `Bearer ${lovableApiKey}`, 'Content-Type': 'application/json' },
-            gatewayBody,
-            90000,
-            'LovableAI/buyer-notes-extract'
-          );
-          if (aiResponse.ok) {
-            const parsed = parseToolResponse(await aiResponse.json());
-            if (parsed) {
-              aiExtracted = parsed;
-              aiSuccess = true;
-              console.log('[AI] Lovable AI Gateway succeeded for buyer notes');
-            }
-          } else {
-            const errText = await aiResponse.text();
-            console.error('[AI] Lovable AI Gateway failed:', aiResponse.status, errText.slice(0, 200));
-          }
-        } catch (e) {
-          console.error('[AI] Lovable AI Gateway error:', e instanceof Error ? e.message : e);
-        }
-      }
+
 
       if (!aiSuccess) {
         console.warn('[AI] All AI providers failed — using regex-only extraction for buyer notes');

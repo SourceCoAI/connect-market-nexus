@@ -43,9 +43,9 @@ interface AIClassification {
 }
 
 async function classifyReply(replyText: string): Promise<AIClassification> {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY');
+  const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) {
-    console.warn('[smartlead-inbox-webhook] LOVABLE_API_KEY not set, skipping classification');
+    console.warn('[smartlead-inbox-webhook] GEMINI_API_KEY not set, skipping classification');
     return {
       category: 'neutral',
       sentiment: 'neutral',
@@ -84,14 +84,14 @@ Sentiment: positive, negative, neutral
 is_positive should be true ONLY for meeting_request and interested categories.`;
 
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: 'gemini-2.0-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Classify this email reply:\n\n${sanitized}` },
