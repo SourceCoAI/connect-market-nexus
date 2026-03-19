@@ -53,6 +53,7 @@ interface KanbanColumnProps {
 export function KanbanColumn({
   column,
   buyers,
+  resolvedBuyerIds,
   onAddBuyer,
   onIntroduce,
   onMarkInterested,
