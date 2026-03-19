@@ -45,7 +45,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
       if (unresolvedCompanyNames.length > 0) {
         const { data: buyers, error: buyersError } = await supabase
           .from('buyers')
-          .select('id, company_name')
+          .select('id, company_name, pe_firm_name')
           .eq('archived', false)
           .in('company_name', unresolvedCompanyNames);
 
@@ -55,6 +55,11 @@ export function useBuyerIntroductions(listingId: string | undefined) {
           (buyers || [])
             .filter((buyer) => !!buyer.company_name)
             .map((buyer) => [buyer.company_name.trim().toLowerCase(), buyer.id]),
+        );
+        resolvedPeFirmByCompany = Object.fromEntries(
+          (buyers || [])
+            .filter((buyer) => !!buyer.company_name && !!buyer.pe_firm_name)
+            .map((buyer) => [buyer.company_name.trim().toLowerCase(), buyer.pe_firm_name as string]),
         );
       }
 
