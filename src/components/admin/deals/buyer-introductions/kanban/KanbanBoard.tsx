@@ -183,6 +183,13 @@ export function KanbanBoard({ listingId, listingTitle }: KanbanBoardProps) {
     ]),
   );
 
+  const resolvedPeFirmNames = Object.fromEntries(
+    introductions.map((intro) => [
+      intro.id,
+      ((intro as BuyerIntroduction & { resolved_pe_firm_name?: string | null }).resolved_pe_firm_name ?? null),
+    ]),
+  );
+
   if (isLoading) {
     return (
       <div className="flex gap-4 overflow-x-auto pb-4">
