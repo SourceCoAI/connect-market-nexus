@@ -23,7 +23,7 @@ import {
   Loader2,
   User,
   Mail,
-  Phone,
+  
   Linkedin,
   Building2,
   Target,
