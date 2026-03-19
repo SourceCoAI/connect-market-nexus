@@ -69,11 +69,13 @@ export function BuyerKanbanCard({
   const buyerType = snap?.buyer_type ?? null;
   const isPeBacked = snap?.is_pe_backed ?? false;
   const source = snap?.source ?? null;
+  const navigate = useNavigate();
 
   const {
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -102,18 +104,25 @@ export function BuyerKanbanCard({
       ? `/admin/buyers/${buyer.contact_id}`
       : null;
 
+  const handleCardClick = () => {
+    if (buyerLink && !isDragging) {
+      navigate(buyerLink);
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
       className={cn(
-        'bg-white rounded-lg border p-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing',
+        'bg-white rounded-lg border p-3 shadow-sm hover:shadow-md transition-shadow',
         isDragging && 'opacity-50 shadow-lg ring-2 ring-blue-300',
         isStale && 'border-l-4 border-l-amber-400',
-        isInPipeline && 'cursor-default opacity-90',
+        isInPipeline && 'opacity-90',
+        buyerLink && !isDragging ? 'cursor-pointer' : 'cursor-default',
       )}
+      onClick={handleCardClick}
     >
       {/* Header: Name + Type */}
       <div className="flex items-start justify-between gap-2 mb-2">
