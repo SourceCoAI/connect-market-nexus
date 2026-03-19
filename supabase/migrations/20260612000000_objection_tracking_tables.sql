@@ -15,19 +15,13 @@ CREATE TABLE IF NOT EXISTS objection_categories (
 
 ALTER TABLE objection_categories ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Authenticated users can read active objection categories"
+CREATE POLICY "Authenticated users can read objection categories"
   ON objection_categories FOR SELECT TO authenticated
   USING (true);
 
 CREATE POLICY "Admins can manage objection categories"
   ON objection_categories FOR ALL TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_roles
-      WHERE user_roles.user_id = auth.uid()
-        AND user_roles.role IN ('owner', 'admin')
-    )
-  );
+  USING (is_admin(auth.uid()));
 
 -- Seed the 10 default categories
 INSERT INTO objection_categories (name, description, icon) VALUES
@@ -71,13 +65,7 @@ CREATE POLICY "Authenticated users can read objection instances"
 
 CREATE POLICY "Admins can manage objection instances"
   ON objection_instances FOR ALL TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_roles
-      WHERE user_roles.user_id = auth.uid()
-        AND user_roles.role IN ('owner', 'admin')
-    )
-  );
+  USING (is_admin(auth.uid()));
 
 CREATE POLICY "Service role can insert objection instances"
   ON objection_instances FOR INSERT TO service_role
@@ -107,19 +95,13 @@ CREATE TABLE IF NOT EXISTS objection_playbook (
 
 ALTER TABLE objection_playbook ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Authenticated users can read published playbook entries"
+CREATE POLICY "Authenticated users can read playbook entries"
   ON objection_playbook FOR SELECT TO authenticated
   USING (true);
 
 CREATE POLICY "Admins can manage playbook entries"
   ON objection_playbook FOR ALL TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_roles
-      WHERE user_roles.user_id = auth.uid()
-        AND user_roles.role IN ('owner', 'admin')
-    )
-  );
+  USING (is_admin(auth.uid()));
 
 CREATE POLICY "Service role can manage playbook entries"
   ON objection_playbook FOR ALL TO service_role
