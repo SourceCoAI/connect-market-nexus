@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Pencil, Loader2, User, Mail, Phone } from "lucide-react";
+import { Pencil, Loader2, User, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 interface PrimaryContactCardProps {
