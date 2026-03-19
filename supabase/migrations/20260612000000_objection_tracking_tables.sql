@@ -23,9 +23,9 @@ CREATE POLICY "Admins can manage objection categories"
   ON objection_categories FOR ALL TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM team_roles
-      WHERE team_roles.user_id = auth.uid()
-        AND team_roles.role IN ('owner', 'admin')
+      SELECT 1 FROM user_roles
+      WHERE user_roles.user_id = auth.uid()
+        AND user_roles.role IN ('owner', 'admin')
     )
   );
 
@@ -73,9 +73,9 @@ CREATE POLICY "Admins can manage objection instances"
   ON objection_instances FOR ALL TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM team_roles
-      WHERE team_roles.user_id = auth.uid()
-        AND team_roles.role IN ('owner', 'admin')
+      SELECT 1 FROM user_roles
+      WHERE user_roles.user_id = auth.uid()
+        AND user_roles.role IN ('owner', 'admin')
     )
   );
 
@@ -115,9 +115,9 @@ CREATE POLICY "Admins can manage playbook entries"
   ON objection_playbook FOR ALL TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM team_roles
-      WHERE team_roles.user_id = auth.uid()
-        AND team_roles.role IN ('owner', 'admin')
+      SELECT 1 FROM user_roles
+      WHERE user_roles.user_id = auth.uid()
+        AND user_roles.role IN ('owner', 'admin')
     )
   );
 
