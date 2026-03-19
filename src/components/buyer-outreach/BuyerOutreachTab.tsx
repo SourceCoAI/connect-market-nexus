@@ -147,7 +147,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
 
       const { data: introEntries } = await supabase
         .from('buyer_introductions' as never)
-        .select('id, remarketing_buyer_id, buyer_name, buyer_email, buyer_phone, buyer_linkedin_url, buyer_firm_name')
+        .select('id, remarketing_buyer_id, contact_id, buyer_name, buyer_email, buyer_phone, buyer_linkedin_url, buyer_firm_name')
         .eq('listing_id', dealId)
         .is('archived_at', null);
 
@@ -181,6 +181,7 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
       const typedIntroEntries = (introEntries || []) as Array<{
         id: string;
         remarketing_buyer_id: string | null;
+        contact_id: string | null;
         buyer_name: string;
         buyer_email: string | null;
         buyer_phone: string | null;
@@ -233,7 +234,12 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
       // Collect intros that still have no remarketing_buyer_id (truly new buyers)
       const unresolvedIntroEntries = typedIntroEntries.filter(e => !e.remarketing_buyer_id);
 
-      if (!buyerIds.length && unresolvedIntroEntries.length === 0) return [];
+      // Collect contact_ids from introductions for direct lookup
+      const introContactIds = typedIntroEntries
+        .map(e => e.contact_id)
+        .filter((id): id is string => !!id);
+
+      if (!buyerIds.length && unresolvedIntroEntries.length === 0 && introContactIds.length === 0) return [];
 
       let contacts: Array<{
         id: string; first_name: string; last_name: string;
@@ -248,6 +254,22 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
           .in('remarketing_buyer_id', buyerIds)
           .eq('archived', false);
         contacts = data || [];
+      }
+
+      // Also fetch contacts directly referenced by introduction contact_id
+      if (introContactIds.length > 0) {
+        const existingIds = new Set(contacts.map(c => c.id));
+        const missingContactIds = introContactIds.filter(id => !existingIds.has(id));
+        if (missingContactIds.length > 0) {
+          const { data: directContacts } = await supabase
+            .from('contacts')
+            .select('id, first_name, last_name, email, phone, linkedin_url, company_name, title, remarketing_buyer_id')
+            .in('id', missingContactIds)
+            .eq('archived', false);
+          for (const c of directContacts || []) {
+            contacts.push(c);
+          }
+        }
       }
 
       const { data: buyerRows } = buyerIds.length > 0

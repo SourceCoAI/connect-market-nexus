@@ -126,13 +126,11 @@ export function AddBuyerIntroductionDialog({
     return buyers.find((b) => b.id === selectedBuyerId) || null;
   }, [selectedBuyerId, buyers]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const isExisting = tab === 'existing';
 
-    const contactName =
-      contactFirstName.trim() && contactLastName.trim()
-        ? `${contactFirstName.trim()} ${contactLastName.trim()}`
-        : contactFirstName.trim() || contactLastName.trim() || '';
+    const firstName = contactFirstName.trim();
+    const lastName = contactLastName.trim();
 
     let companyName = '';
     let peFirmName = '';
@@ -152,9 +150,33 @@ export function AddBuyerIntroductionDialog({
       peFirmName = companyName;
     }
 
-    if (!contactName) {
+    if (!firstName) {
       toast.error('Contact first name is required');
       return;
+    }
+
+    // Create a contact record for the person so they appear in Buyer Outreach
+    let contactId: string | undefined;
+    const remarkBuyerId = isExisting ? selectedBuyerId : undefined;
+    const email = contactEmail.trim() || null;
+
+    try {
+      const { data: newContact } = await supabase
+        .from('contacts')
+        .insert({
+          first_name: firstName,
+          last_name: lastName,
+          email,
+          company_name: peFirmName,
+          contact_type: 'buyer' as const,
+          source: 'buyer_introduction',
+          remarketing_buyer_id: remarkBuyerId || null,
+        })
+        .select('id')
+        .single();
+      if (newContact) contactId = newContact.id;
+    } catch {
+      // Non-fatal — contact may already exist (duplicate email)
     }
 
     createIntroduction(
@@ -164,11 +186,12 @@ export function AddBuyerIntroductionDialog({
         // This matches the data model used by createBuyerIntroductionFromApproval
         buyer_name: companyName,
         buyer_firm_name: peFirmName,
-        buyer_email: contactEmail.trim() || undefined,
+        buyer_email: email || undefined,
         buyer_linkedin_url: isExisting
           ? selectedBuyer?.company_website || undefined
           : newCompanyWebsite.trim() || undefined,
-        remarketing_buyer_id: isExisting ? selectedBuyerId : undefined,
+        remarketing_buyer_id: remarkBuyerId,
+        contact_id: contactId,
         targeting_reason: targetingReason.trim() || undefined,
         listing_id: listingId,
         company_name: listingTitle,
