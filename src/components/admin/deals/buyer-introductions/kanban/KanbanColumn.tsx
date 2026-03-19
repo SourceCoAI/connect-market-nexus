@@ -40,6 +40,7 @@ interface KanbanColumnProps {
   column: KanbanColumnType;
   buyers: BuyerIntroduction[];
   resolvedBuyerIds?: Record<string, string | null>;
+  resolvedPeFirmNames?: Record<string, string | null>;
   onAddBuyer?: () => void;
   onIntroduce?: (buyer: BuyerIntroduction) => void;
   onMarkInterested?: (buyer: BuyerIntroduction) => void;
@@ -54,6 +55,7 @@ export function KanbanColumn({
   column,
   buyers,
   resolvedBuyerIds,
+  resolvedPeFirmNames,
   onAddBuyer,
   onIntroduce,
   onMarkInterested,
