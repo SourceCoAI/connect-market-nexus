@@ -109,8 +109,58 @@ export function BuyerKanbanCard({
       ? `/admin/buyers/${buyer.contact_id}`
       : null;
 
-  const handleCardClick = () => {
+  /** Fire-and-forget: ensure a contact record exists on the buyer for this introduction's person */
+  const ensureContactOnBuyer = async (buyerId: string) => {
+    try {
+      // Parse name into first/last
+      const parts = (buyer.buyer_name || '').trim().split(/\s+/);
+      const firstName = parts[0] || '';
+      const lastName = parts.slice(1).join(' ') || '';
+      const email = buyer.buyer_email?.toLowerCase().trim();
+
+      // Skip if no meaningful data
+      if (!firstName && !email) return;
+
+      // Check if contact already exists on this buyer (by email or name match)
+      const { data: existing } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('remarketing_buyer_id', buyerId)
+        .eq('contact_type', 'buyer')
+        .eq('archived', false)
+        .or(
+          [
+            email ? `email.eq.${email}` : null,
+            `and(first_name.ilike.${firstName},last_name.ilike.${lastName})`,
+          ]
+            .filter(Boolean)
+            .join(','),
+        )
+        .limit(1);
+
+      if (existing && existing.length > 0) return; // already exists
+
+      await supabase.from('contacts').insert({
+        remarketing_buyer_id: buyerId,
+        first_name: firstName,
+        last_name: lastName,
+        email: email || null,
+        phone: buyer.buyer_phone || null,
+        linkedin_url: buyer.buyer_linkedin_url || null,
+        contact_type: 'buyer',
+        source: 'introduction_auto_link',
+      } as never);
+    } catch (err) {
+      console.warn('[BuyerKanbanCard] Failed to auto-create contact:', err);
+    }
+  };
+
+  const handleCardClick = async () => {
     if (buyerLink && !isDragging) {
+      // Fire-and-forget: ensure contact exists on the buyer
+      if (effectiveBuyerId && buyer.buyer_name) {
+        ensureContactOnBuyer(effectiveBuyerId);
+      }
       navigate(buyerLink);
     }
   };
