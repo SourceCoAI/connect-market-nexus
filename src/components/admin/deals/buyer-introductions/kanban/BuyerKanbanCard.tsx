@@ -124,8 +124,19 @@ export function BuyerKanbanCard({
       )}
       onClick={handleCardClick}
     >
-      {/* Header: Name + Type */}
+      {/* Drag handle + Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
+        {/* Drag handle */}
+        {!isInPipeline && (
+          <div
+            ref={setActivatorNodeRef}
+            {...listeners}
+            className="shrink-0 mt-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground/40 hover:text-muted-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
+        )}
         <div className="min-w-0">
           {buyerLink ? (
             <Link
