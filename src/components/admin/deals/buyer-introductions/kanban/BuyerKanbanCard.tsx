@@ -60,6 +60,7 @@ export function BuyerKanbanCard({
   buyer,
   column,
   resolvedBuyerId,
+  resolvedPeFirmName,
   onIntroduce,
   onMarkInterested,
   onMarkPassed,
