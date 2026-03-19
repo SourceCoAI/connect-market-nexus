@@ -30,7 +30,7 @@ import {
   Building2,
   Calendar,
   AlarmClock,
-  Phone,
+  
   Mail,
   User,
 } from 'lucide-react';
