@@ -128,13 +128,15 @@ export function UpdateIntroductionStatusDialog({
               </a>
             )}
             {buyer.buyer_phone && (
-              <a
-                href={`tel:${buyer.buyer_phone}`}
-                className="flex items-center gap-1 hover:text-foreground transition-colors"
-              >
-                <Phone className="h-3 w-3" />
-                {buyer.buyer_phone}
-              </a>
+              <ClickToDialPhone
+                phone={buyer.buyer_phone}
+                name={buyer.buyer_name}
+                email={buyer.buyer_email || undefined}
+                company={buyer.buyer_firm_name}
+                entityType={buyer.remarketing_buyer_id ? 'buyers' : undefined}
+                entityId={buyer.remarketing_buyer_id || undefined}
+                size="sm"
+              />
             )}
             {buyer.buyer_linkedin_url && (
               <a

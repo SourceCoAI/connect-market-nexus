@@ -195,15 +195,17 @@ export function BuyerKanbanCard({
             </a>
           )}
           {buyer.buyer_phone && (
-            <a
-              href={`tel:${buyer.buyer_phone}`}
-              onClick={(e) => e.stopPropagation()}
-              title={buyer.buyer_phone}
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
-            >
-              <Phone className="h-2.5 w-2.5" />
-              Call
-            </a>
+            <ClickToDialPhone
+              phone={buyer.buyer_phone}
+              name={buyer.buyer_name}
+              email={buyer.buyer_email || undefined}
+              company={buyer.buyer_firm_name}
+              entityType={buyer.remarketing_buyer_id ? 'buyers' : undefined}
+              entityId={buyer.remarketing_buyer_id || undefined}
+              label="Call"
+              size="xs"
+              className="px-1.5 py-0.5 rounded bg-green-50 hover:bg-green-100"
+            />
           )}
           {buyer.buyer_linkedin_url && (
             <a
