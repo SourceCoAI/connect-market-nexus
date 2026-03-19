@@ -115,7 +115,7 @@ export const PrimaryContactCard = ({
                 {phone && (
                   <ClickToDialPhone
                     phone={phone}
-                    name={displayName || undefined}
+                    name={name || undefined}
                     email={email || undefined}
                     size="sm"
                     className="text-sm text-muted-foreground hover:text-foreground"
