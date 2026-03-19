@@ -135,7 +135,7 @@ export const PrimaryContactCard = ({
                   <Button variant="outline" size="sm" className="gap-1" onClick={() => {}}>
                     <ClickToDialPhone
                       phone={phone}
-                      name={displayName || undefined}
+                      name={name || undefined}
                       email={email || undefined}
                       label="Call"
                       size="sm"

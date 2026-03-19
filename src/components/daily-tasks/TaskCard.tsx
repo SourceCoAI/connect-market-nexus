@@ -555,7 +555,7 @@ export function TaskCard({
                   <div className="flex items-center gap-2 text-sm">
                     <ClickToDialPhone
                       phone={sellerContact.phone}
-                      name={sellerContact.name || undefined}
+                      name={`${sellerContact.first_name} ${sellerContact.last_name}`.trim() || undefined}
                       email={sellerContact.email || undefined}
                       size="sm"
                     />

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, Plus, Mail, Phone, Linkedin, Users } from "lucide-react";
+import { Star, Plus, Mail, Linkedin, Users } from "lucide-react";
 import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
