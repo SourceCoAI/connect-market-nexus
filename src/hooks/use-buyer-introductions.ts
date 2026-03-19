@@ -41,11 +41,12 @@ export function useBuyerIntroductions(listingId: string | undefined) {
       );
 
       let resolvedBuyerIdsByCompany: Record<string, string> = {};
+      let resolvedPeFirmByCompany: Record<string, string> = {};
 
       if (unresolvedCompanyNames.length > 0) {
         const { data: buyers, error: buyersError } = await supabase
           .from('buyers')
-          .select('id, company_name')
+          .select('id, company_name, pe_firm_name')
           .eq('archived', false)
           .in('company_name', unresolvedCompanyNames);
 
@@ -56,16 +57,30 @@ export function useBuyerIntroductions(listingId: string | undefined) {
             .filter((buyer) => !!buyer.company_name)
             .map((buyer) => [buyer.company_name.trim().toLowerCase(), buyer.id]),
         );
+        resolvedPeFirmByCompany = Object.fromEntries(
+          (buyers || [])
+            .filter((buyer) => !!buyer.company_name && !!buyer.pe_firm_name)
+            .map((buyer) => [buyer.company_name.trim().toLowerCase(), buyer.pe_firm_name as string]),
+        );
       }
 
-      return intros.map((intro) => ({
-        ...intro,
-        resolved_buyer_id:
-          intro.remarketing_buyer_id ||
-          resolvedBuyerIdsByCompany[intro.buyer_firm_name?.trim().toLowerCase() || ''] ||
-          resolvedBuyerIdsByCompany[intro.buyer_name?.trim().toLowerCase() || ''] ||
-          null,
-      })) as unknown as BuyerIntroduction[];
+      return intros.map((intro) => {
+        const key = intro.buyer_firm_name?.trim().toLowerCase() || '';
+        const nameKey = intro.buyer_name?.trim().toLowerCase() || '';
+        return {
+          ...intro,
+          resolved_buyer_id:
+            intro.remarketing_buyer_id ||
+            resolvedBuyerIdsByCompany[key] ||
+            resolvedBuyerIdsByCompany[nameKey] ||
+            null,
+          resolved_pe_firm_name:
+            (intro.score_snapshot as ScoreSnapshot | null)?.pe_firm_name ||
+            resolvedPeFirmByCompany[key] ||
+            resolvedPeFirmByCompany[nameKey] ||
+            null,
+        };
+      }) as unknown as BuyerIntroduction[];
     },
     enabled: !!listingId,
   });

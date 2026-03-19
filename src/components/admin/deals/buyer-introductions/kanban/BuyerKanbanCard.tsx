@@ -46,6 +46,7 @@ interface BuyerKanbanCardProps {
   buyer: BuyerIntroduction;
   column: KanbanColumn;
   resolvedBuyerId?: string | null;
+  resolvedPeFirmName?: string | null;
   onIntroduce?: (buyer: BuyerIntroduction) => void;
   onMarkInterested?: (buyer: BuyerIntroduction) => void;
   onMarkPassed?: (buyer: BuyerIntroduction) => void;
@@ -59,6 +60,7 @@ export function BuyerKanbanCard({
   buyer,
   column,
   resolvedBuyerId,
+  resolvedPeFirmName,
   onIntroduce,
   onMarkInterested,
   onMarkPassed,
@@ -73,6 +75,7 @@ export function BuyerKanbanCard({
   const buyerType = snap?.buyer_type ?? null;
   const isPeBacked = snap?.is_pe_backed ?? false;
   const source = snap?.source ?? null;
+  const peFirmName = resolvedPeFirmName || snap?.pe_firm_name || null;
   const navigate = useNavigate();
 
   const {
@@ -214,9 +217,13 @@ export function BuyerKanbanCard({
               {buyer.buyer_name}
             </span>
           )}
-          {buyer.buyer_firm_name && buyer.buyer_firm_name !== buyer.buyer_name && (
+          {peFirmName ? (
+            <p className="text-xs text-muted-foreground truncate">
+              {peFirmName} → {buyer.buyer_firm_name}
+            </p>
+          ) : buyer.buyer_firm_name && buyer.buyer_firm_name !== buyer.buyer_name ? (
             <p className="text-xs text-muted-foreground truncate">{buyer.buyer_firm_name}</p>
-          )}
+          ) : null}
         </div>
 
         {/* Overflow menu */}
