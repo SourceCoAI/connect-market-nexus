@@ -179,6 +179,47 @@ export function BuyerKanbanCard({
         <SourceBadge source={source} />
       </div>
 
+      {/* Contact quick-actions: email, phone, linkedin */}
+      {(buyer.buyer_email || buyer.buyer_phone || buyer.buyer_linkedin_url) && (
+        <div className="flex items-center gap-1 mb-2">
+          {buyer.buyer_email && (
+            <a
+              href={`mailto:${buyer.buyer_email}`}
+              onClick={(e) => e.stopPropagation()}
+              title={buyer.buyer_email}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+            >
+              <Mail className="h-2.5 w-2.5" />
+              Email
+            </a>
+          )}
+          {buyer.buyer_phone && (
+            <a
+              href={`tel:${buyer.buyer_phone}`}
+              onClick={(e) => e.stopPropagation()}
+              title={buyer.buyer_phone}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+            >
+              <Phone className="h-2.5 w-2.5" />
+              Call
+            </a>
+          )}
+          {buyer.buyer_linkedin_url && (
+            <a
+              href={buyer.buyer_linkedin_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="LinkedIn Profile"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-sky-50 text-sky-700 hover:bg-sky-100 transition-colors"
+            >
+              <Linkedin className="h-2.5 w-2.5" />
+              LinkedIn
+            </a>
+          )}
+        </div>
+      )}
+
       {/* Column-specific content */}
       {column === 'to_introduce' && (
         <>
@@ -334,6 +375,18 @@ export function BuyerKanbanCard({
             </p>
           )}
         </>
+      )}
+
+      {/* View Profile link at bottom */}
+      {buyerLink && (
+        <Link
+          to={buyerLink}
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center justify-center gap-1 mt-2 pt-2 border-t text-[11px] font-medium text-blue-600 hover:text-blue-800 transition-colors"
+        >
+          <ExternalLink className="h-3 w-3" />
+          View Buyer Profile
+        </Link>
       )}
     </div>
   );
