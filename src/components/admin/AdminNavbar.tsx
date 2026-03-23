@@ -1,7 +1,7 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/context/AuthContext";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   LayoutDashboard,
   Users,
@@ -21,10 +21,17 @@ import {
   Search,
   LogOut,
   User,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose,
+} from '@/components/ui/sheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,12 +39,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { AdminNotificationBell } from "./AdminNotificationBell";
-import { useUnviewedDealSourcingCount } from "@/hooks/admin/use-unviewed-deal-sourcing";
-import { useUnviewedConnectionRequests } from "@/hooks/admin/use-unviewed-connection-requests";
-import { useUnviewedUsers } from "@/hooks/admin/use-unviewed-users";
-import { useUnviewedOwnerLeads } from "@/hooks/admin/use-unviewed-owner-leads";
+} from '@/components/ui/dropdown-menu';
+import { AdminNotificationBell } from './AdminNotificationBell';
+import { useUnviewedDealSourcingCount } from '@/hooks/admin/use-unviewed-deal-sourcing';
+import { useUnviewedConnectionRequests } from '@/hooks/admin/use-unviewed-connection-requests';
+import { useUnviewedUsers } from '@/hooks/admin/use-unviewed-users';
+import { useUnviewedOwnerLeads } from '@/hooks/admin/use-unviewed-owner-leads';
 
 interface AdminNavbarProps {
   className?: string;
@@ -64,109 +71,116 @@ export function AdminNavbar({ className, onSearchClick }: AdminNavbarProps) {
 
   const navItems: MobileNavItem[] = [
     {
-      to: "/admin",
-      label: "Dashboard",
+      to: '/admin',
+      label: 'Dashboard',
       icon: <LayoutDashboard className="h-4 w-4 mr-2" />,
-      active: location.pathname === "/admin" || location.pathname === "/admin/dashboard",
+      active: location.pathname === '/admin' || location.pathname === '/admin/dashboard',
     },
     // Deals
     {
-      to: "/admin/deals",
-      label: "Active Deals",
+      to: '/admin/deals',
+      label: 'Active Deals',
       icon: <Building2 className="h-4 w-4 mr-2" />,
-      active: location.pathname.startsWith("/admin/deals"),
-      section: "Deals",
+      active: location.pathname.startsWith('/admin/deals'),
+      section: 'Deals',
     },
     {
-      to: "/admin/deals/pipeline",
-      label: "Pipeline",
+      to: '/admin/deals/pipeline',
+      label: 'Pipeline',
       icon: <GitBranch className="h-4 w-4 mr-2" />,
-      active: location.pathname.startsWith("/admin/deals/pipeline"),
+      active: location.pathname.startsWith('/admin/deals/pipeline'),
     },
     // Buyers
     {
-      to: "/admin/buyers",
-      label: "All Buyers",
+      to: '/admin/buyers',
+      label: 'All Buyers',
       icon: <Users className="h-4 w-4 mr-2" />,
-      active: location.pathname.startsWith("/admin/buyers"),
-      section: "Buyers",
+      active: location.pathname.startsWith('/admin/buyers'),
+      section: 'Buyers',
     },
     {
-      to: "/admin/buyers/firm-agreements",
-      label: "Firm Agreements",
+      to: '/admin/buyers/firm-agreements',
+      label: 'Firm Agreements',
       icon: <FileSignature className="h-4 w-4 mr-2" />,
-      active: location.pathname.startsWith("/admin/buyers/firm-agreements"),
+      active: location.pathname.startsWith('/admin/buyers/firm-agreements'),
     },
     {
-      to: "/admin/buyers/deal-sourcing",
-      label: "Deal Sourcing",
+      to: '/admin/buyers/deal-sourcing',
+      label: 'Deal Sourcing',
       icon: <Sparkles className="h-4 w-4 mr-2" />,
-      active: location.pathname.startsWith("/admin/buyers/deal-sourcing"),
+      active: location.pathname.startsWith('/admin/buyers/deal-sourcing'),
       badge: unviewedDealSourcingCount,
     },
     // Marketplace
     {
-      to: "/admin/marketplace/listings",
-      label: "Listings",
+      to: '/admin/marketplace/listings',
+      label: 'Listings',
       icon: <Store className="h-4 w-4 mr-2" />,
-      active: location.pathname.startsWith("/admin/marketplace/listings"),
-      section: "Marketplace",
+      active: location.pathname.startsWith('/admin/marketplace/listings'),
+      section: 'Marketplace',
     },
     {
-      to: "/admin/marketplace/queue",
-      label: "Marketplace Queue",
+      to: '/admin/marketplace/queue',
+      label: 'Marketplace Queue',
       icon: <Store className="h-4 w-4 mr-2" />,
-      active: location.pathname.startsWith("/admin/marketplace/queue"),
+      active: location.pathname.startsWith('/admin/marketplace/queue'),
     },
     {
-      to: "/admin/marketplace/requests",
-      label: "Connection Requests",
+      to: '/admin/marketplace/requests',
+      label: 'Connection Requests',
       icon: <MessageSquare className="h-4 w-4 mr-2" />,
-      active: location.pathname.startsWith("/admin/marketplace/requests"),
+      active: location.pathname.startsWith('/admin/marketplace/requests'),
       badge: unviewedConnectionRequestsCount,
     },
     {
-      to: "/admin/marketplace/users",
-      label: "Marketplace Users",
+      to: '/admin/marketplace/users',
+      label: 'Marketplace Users',
       icon: <UserCog className="h-4 w-4 mr-2" />,
-      active: location.pathname.startsWith("/admin/marketplace/users"),
+      active: location.pathname.startsWith('/admin/marketplace/users'),
       badge: unviewedUsersCount,
     },
     // Remarketing
     {
-      to: "/admin/remarketing",
-      label: "Remarketing",
+      to: '/admin/remarketing',
+      label: 'Remarketing',
       icon: <Target className="h-4 w-4 mr-2" />,
-      active: location.pathname === "/admin/remarketing",
-      section: "Remarketing",
+      active: location.pathname === '/admin/remarketing',
+      section: 'Remarketing',
     },
     // Analytics
     {
-      to: "/admin/analytics",
-      label: "Analytics",
+      to: '/admin/analytics',
+      label: 'Analytics',
       icon: <BarChart3 className="h-4 w-4 mr-2" />,
-      active: location.pathname.startsWith("/admin/analytics") || location.pathname.startsWith("/admin/analytics"),
-      section: "Analytics",
+      active:
+        location.pathname.startsWith('/admin/analytics') ||
+        location.pathname.startsWith('/admin/analytics'),
+      section: 'Analytics',
     },
     // Admin
     {
-      to: "/admin/settings/team",
-      label: "Settings",
+      to: '/admin/settings/team',
+      label: 'Settings',
       icon: <Settings className="h-4 w-4 mr-2" />,
-      active: location.pathname.startsWith("/admin/settings"),
-      section: "Admin",
+      active: location.pathname.startsWith('/admin/settings'),
+      section: 'Admin',
     },
     // View Marketplace
     {
-      to: "/",
-      label: "View Marketplace",
+      to: '/',
+      label: 'View Marketplace',
       icon: <ShoppingBag className="h-4 w-4 mr-2" />,
       active: false,
     },
   ];
 
   return (
-    <div className={cn("flex items-center justify-between p-3 sm:p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", className)}>
+    <div
+      className={cn(
+        'flex items-center justify-between p-3 sm:p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60',
+        className,
+      )}
+    >
       <div className="flex items-center gap-3">
         <Sheet>
           <SheetTrigger asChild>
@@ -202,18 +216,16 @@ export function AdminNavbar({ className, onSearchClick }: AdminNavbarProps) {
                     <Link
                       to={item.to}
                       className={cn(
-                        "flex items-center px-4 py-2.5 text-sm rounded-lg transition-colors touch-manipulation min-h-[44px]",
+                        'flex items-center px-4 py-2.5 text-sm rounded-lg transition-colors touch-manipulation min-h-[44px]',
                         item.active
-                          ? "bg-primary text-primary-foreground font-medium"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                          ? 'bg-primary text-primary-foreground font-medium'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
                       )}
                     >
                       {item.icon}
                       <span className="font-medium flex-1">{item.label}</span>
                       {item.badge !== undefined && item.badge > 0 && (
-                        <Badge
-                          className="h-5 min-w-[20px] px-2 flex items-center justify-center text-[10px] font-bold tracking-wide ml-auto bg-notification text-notification-foreground border-notification shadow-sm"
-                        >
+                        <Badge className="h-5 min-w-[20px] px-2 flex items-center justify-center text-[10px] font-bold tracking-wide ml-auto bg-notification text-notification-foreground border-notification shadow-sm">
                           {item.badge > 9 ? '9+' : item.badge}
                         </Badge>
                       )}
@@ -224,7 +236,18 @@ export function AdminNavbar({ className, onSearchClick }: AdminNavbarProps) {
             </nav>
           </SheetContent>
         </Sheet>
-        <h1 className="text-base sm:text-lg font-semibold truncate">SourceCo Admin</h1>
+        <h1 className="text-base sm:text-lg font-semibold truncate">
+          SourceCo Admin
+          {/* M-20 FIX: Show environment indicator so admins know if they're on staging */}
+          {import.meta.env.MODE !== 'production' && (
+            <Badge
+              variant="outline"
+              className="ml-2 text-[10px] py-0 px-1.5 border-orange-400 text-orange-600 align-middle"
+            >
+              {import.meta.env.MODE || 'dev'}
+            </Badge>
+          )}
+        </h1>
       </div>
 
       <div className="flex items-center gap-2">
@@ -249,9 +272,7 @@ export function AdminNavbar({ className, onSearchClick }: AdminNavbarProps) {
                 <p className="text-sm font-medium leading-none">
                   {user?.first_name} {user?.last_name}
                 </p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email}
-                </p>
+                <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -260,9 +281,15 @@ export function AdminNavbar({ className, onSearchClick }: AdminNavbarProps) {
               Profile
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={async () => {
-              try { await logout(); } catch { window.location.href = '/login'; }
-            }}>
+            <DropdownMenuItem
+              onClick={async () => {
+                try {
+                  await logout();
+                } catch {
+                  window.location.href = '/login';
+                }
+              }}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Log Out
             </DropdownMenuItem>

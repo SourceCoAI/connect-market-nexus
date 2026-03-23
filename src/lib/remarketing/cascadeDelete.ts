@@ -35,8 +35,11 @@ export async function deleteUniverseWithRelated(
       await supabase.from('call_intelligence').delete().in('buyer_id', buyerIds);
     }
 
-    // Delete all buyers from buyers for this universe
-    await supabase.from('buyers').delete().eq('universe_id', universeId);
+    // C-7 FIX: Soft delete (archive) buyers instead of hard delete
+    await supabase
+      .from('buyers')
+      .update({ archived: true, archived_at: new Date().toISOString() } as never)
+      .eq('universe_id', universeId);
 
     // Delete remarketing_scores for this universe
     await supabase.from('remarketing_scores').delete().eq('universe_id', universeId);

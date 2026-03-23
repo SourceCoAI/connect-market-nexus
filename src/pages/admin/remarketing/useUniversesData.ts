@@ -1,7 +1,7 @@
 import { useCallback, useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { DragEndEvent } from '@dnd-kit/core';
@@ -54,20 +54,17 @@ export function useUniversesData() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      const response = await fetch(
-        `https://vhzipqarkmmfuqadefep.supabase.co/functions/v1/clarify-industry`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({
-            industry_name: newName.trim(),
-            generate_description: true,
-          }),
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/clarify-industry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
         },
-      );
+        body: JSON.stringify({
+          industry_name: newName.trim(),
+          generate_description: true,
+        }),
+      });
       if (response.ok) {
         const result = await response.json();
         if (result.description) {

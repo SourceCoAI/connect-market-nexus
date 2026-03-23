@@ -7,6 +7,7 @@ import { AdminListing } from '@/types/admin';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { parseCurrency } from '@/lib/currency-utils';
+import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Save, Target, ExternalLink } from 'lucide-react';
 
 // Import section components
@@ -223,8 +224,50 @@ export function ImprovedListingEditor({
   const [isImageChanged, setIsImageChanged] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
 
-  const isGenerating = false;
-  const generatingField: string | null = null;
+  // H-2 FIX: Wire up AI generation for hero description and body content.
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingField, setGeneratingField] = useState<string | null>(null);
+
+  const handleAiGenerate = async (field: string) => {
+    if (!effectiveDealId) {
+      toast({
+        title: 'No source deal',
+        description: 'AI generation requires a linked deal.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setIsGenerating(true);
+    setGeneratingField(field);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-lead-memo', {
+        body: { listingId: effectiveDealId, memo_type: 'anonymous_teaser', targetField: field },
+      });
+      if (error) throw error;
+      if (field === 'hero_description' && data?.hero_description) {
+        form.setValue('hero_description', data.hero_description, { shouldDirty: true });
+        toast({ title: 'AI Content Generated', description: 'Hero description updated.' });
+      } else if (field === 'description' && data?.description) {
+        form.setValue('description', data.description, { shouldDirty: true });
+        if (data.description_html) {
+          form.setValue('description_html' as never, data.description_html, { shouldDirty: true });
+        }
+        toast({ title: 'AI Content Generated', description: 'Description updated.' });
+      } else if (data?.custom_sections) {
+        form.setValue('custom_sections' as never, data.custom_sections, { shouldDirty: true });
+        toast({ title: 'AI Content Generated', description: 'Content sections updated.' });
+      }
+    } catch (err) {
+      toast({
+        title: 'Generation Failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+      setGeneratingField(null);
+    }
+  };
 
   const form = useForm<ListingFormInput, unknown, ListingFormValues>({
     resolver: zodResolver(listingFormSchema as unknown as Parameters<typeof zodResolver>[0]),
@@ -466,6 +509,7 @@ export function ImprovedListingEditor({
                 form={formForSections}
                 isGenerating={isGenerating}
                 generatingField={generatingField}
+                onAiGenerate={effectiveDealId ? handleAiGenerate : undefined}
               />
             </div>
 
@@ -475,6 +519,7 @@ export function ImprovedListingEditor({
                 form={formForSections}
                 isGenerating={isGenerating}
                 generatingField={generatingField}
+                onAiGenerate={effectiveDealId ? handleAiGenerate : undefined}
               />
             </div>
 

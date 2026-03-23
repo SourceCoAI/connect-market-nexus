@@ -61,21 +61,18 @@ export function FormMonitoringTab() {
       buyerTypeDistribution[type] = (buyerTypeDistribution[type] || 0) + 1;
     });
 
-    const validationErrors = [
-      { field: 'email', errorCount: Math.floor(totalSignups * 0.02), errorType: 'Invalid format' },
-      { field: 'website', errorCount: Math.floor(totalSignups * 0.05), errorType: 'Invalid URL' },
-      {
-        field: 'linkedin_profile',
-        errorCount: Math.floor(totalSignups * 0.03),
-        errorType: 'Invalid URL',
-      },
-    ].filter((error) => error.errorCount > 0);
+    // M-15 FIX: Replaced synthetic/estimated validation error counts with a note
+    // that real tracking is not yet implemented. Previously showed fabricated numbers
+    // (e.g., 2% email errors, 5% website errors) which created false confidence.
+    const validationErrors: Array<{ field: string; errorCount: number; errorType: string }> = [];
+    // TODO: Implement actual form validation error tracking via user_activity table
+    // to populate real error counts instead of synthetic estimates.
 
     return {
       totalSignups,
       completedSignups,
       completionRate,
-      avgCompletionTime: 8.5,
+      avgCompletionTime: 0, // M-15 FIX: Was hardcoded to 8.5, now shows 0 until real tracking
       fieldCompletionRates,
       validationErrors,
       buyerTypeDistribution,

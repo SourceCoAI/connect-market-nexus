@@ -89,9 +89,10 @@ export function usePartnerActions(
       );
       if (hashResultError) throw hashResultError;
       const hash = hashResult?.hash || password;
+      // C-5 FIX: Stop storing plaintext password in database. Only store the hash.
       const { error } = await supabase
         .from('referral_partners')
-        .update({ share_password_hash: hash, share_password_plaintext: password } as never)
+        .update({ share_password_hash: hash, share_password_plaintext: null } as never)
         .eq('id', partnerId!);
       if (error) throw error;
       return password;

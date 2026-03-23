@@ -38,15 +38,58 @@ export interface ScoreRequest {
 }
 
 /**
- * Relative weights for each scoring dimension (must sum to 1.0).
- * v1 -- hardcoded; a future version may make these configurable per-deal.
+ * Default relative weights for each scoring dimension (must sum to 1.0).
+ * H-1 FIX: These are now defaults that can be overridden by per-universe weights.
  */
-export const SCORE_WEIGHTS = {
+export const DEFAULT_SCORE_WEIGHTS = {
   service: 0.4,
   geography: 0.3,
   size: 0.2,
   bonus: 0.1,
 } as const;
 
-/** Convenience type for the weights object. */
-export type ScoreWeights = typeof SCORE_WEIGHTS;
+/** @deprecated Use DEFAULT_SCORE_WEIGHTS and getScoreWeights() instead */
+export const SCORE_WEIGHTS = DEFAULT_SCORE_WEIGHTS;
+
+/** Mutable weights that can be customized per-universe. */
+export interface ScoreWeights {
+  service: number;
+  geography: number;
+  size: number;
+  bonus: number;
+}
+
+/**
+ * H-1 FIX: Build scoring weights from universe config, falling back to defaults.
+ * Universe weights are stored as percentages (e.g., 45 for 45%), converted to decimals.
+ */
+export function getScoreWeights(
+  universeWeights?: {
+    service_weight?: number | null;
+    geography_weight?: number | null;
+    size_weight?: number | null;
+    owner_goals_weight?: number | null;
+  } | null,
+): ScoreWeights {
+  if (!universeWeights) return { ...DEFAULT_SCORE_WEIGHTS };
+
+  const svc = universeWeights.service_weight;
+  const geo = universeWeights.geography_weight;
+  const sz = universeWeights.size_weight;
+  const bonus = universeWeights.owner_goals_weight;
+
+  // Only use universe weights if all are provided
+  if (svc != null && geo != null && sz != null && bonus != null) {
+    const total = svc + geo + sz + bonus;
+    if (total > 0) {
+      return {
+        service: svc / total,
+        geography: geo / total,
+        size: sz / total,
+        bonus: bonus / total,
+      };
+    }
+  }
+
+  return { ...DEFAULT_SCORE_WEIGHTS };
+}

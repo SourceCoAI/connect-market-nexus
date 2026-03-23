@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
-import type { BuyerScore, ScoreRequest } from '../_shared/scoring/types.ts';
-import { SCORE_WEIGHTS } from '../_shared/scoring/types.ts';
+import type { BuyerScore, ScoreRequest, ScoreWeights } from '../_shared/scoring/types.ts';
+import { SCORE_WEIGHTS, getScoreWeights } from '../_shared/scoring/types.ts';
 import {
   norm,
   normArray,
@@ -102,6 +102,32 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // H-1 FIX: Fetch universe-specific weights if the deal belongs to a universe.
+    // If no universe weights are found, fall back to DEFAULT_SCORE_WEIGHTS.
+    let weights: ScoreWeights = { ...SCORE_WEIGHTS };
+    const { data: universeLink } = await supabase
+      .from('remarketing_universe_deals')
+      .select('universe_id')
+      .eq('listing_id', listingId)
+      .limit(1)
+      .maybeSingle();
+
+    if (universeLink?.universe_id) {
+      const { data: universe } = await supabase
+        .from('buyer_universes')
+        .select('service_weight, geography_weight, size_weight, owner_goals_weight')
+        .eq('id', universeLink.universe_id)
+        .single();
+
+      if (universe) {
+        weights = getScoreWeights(universe);
+        console.log(
+          `[score-deal-buyers] Using universe weights for ${universeLink.universe_id}:`,
+          weights,
+        );
+      }
+    }
+
     // ── Fetch ALL active, non-archived buyers ──
     // Explicit limit required: Supabase config max_rows=1000 silently truncates without it
     const { data: buyers, error: buyerError } = await supabase
@@ -198,11 +224,12 @@ Deno.serve(async (req: Request) => {
       const size = scoreSize(dealEbitda, buyer.target_ebitda_min, buyer.target_ebitda_max);
       const bonus = scoreBonus(buyer);
 
+      // H-1 FIX: Use dynamic weights (universe-specific or defaults)
       const composite = Math.round(
-        svc.score * SCORE_WEIGHTS.service +
-          geo.score * SCORE_WEIGHTS.geography +
-          size.score * SCORE_WEIGHTS.size +
-          bonus.score * SCORE_WEIGHTS.bonus,
+        svc.score * weights.service +
+          geo.score * weights.geography +
+          size.score * weights.size +
+          bonus.score * weights.bonus,
       );
 
       const fitSignals = [...svc.signals, ...geo.signals, ...size.signals, ...bonus.signals];

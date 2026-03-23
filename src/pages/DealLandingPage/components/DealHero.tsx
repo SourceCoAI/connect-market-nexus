@@ -7,11 +7,14 @@ interface DealHeroProps {
   deal: LandingPageDeal;
 }
 
+// C-1 FIX: internal_company_name and website are no longer fetched from the server
+// for the public landing page. Anonymization still runs but without those fields,
+// so any accidental inclusion of PII in text content is still caught by pattern matching.
 function buildDealDataForAnonymization(deal: LandingPageDeal): DealData {
   return {
     id: deal.id,
     title: deal.title,
-    internal_company_name: deal.internal_company_name ?? null,
+    internal_company_name: null,
     executive_summary: null,
     description: null,
     revenue: deal.revenue,
@@ -22,7 +25,7 @@ function buildDealDataForAnonymization(deal: LandingPageDeal): DealData {
     category: deal.category ?? deal.categories?.[0] ?? null,
     industry: null,
     service_mix: null,
-    website: deal.website ?? null,
+    website: null,
     full_time_employees: deal.full_time_employees,
     linkedin_employee_count: null,
     main_contact_name: null,
@@ -76,8 +79,8 @@ export default function DealHero({ deal }: DealHeroProps) {
       <div className="flex items-start gap-3 bg-[#F8F9FA] border border-[#E5E7EB] rounded-lg px-4 py-3 mt-5">
         <Shield className="h-4 w-4 text-[#9CA3AF] mt-0.5 flex-shrink-0" />
         <p className="text-xs text-[#6B7280] leading-relaxed font-['Inter',system-ui,sans-serif]">
-          Business identity is confidential. Request access to receive full deal materials
-          including the company name.
+          Business identity is confidential. Request access to receive full deal materials including
+          the company name.
         </p>
       </div>
     </section>

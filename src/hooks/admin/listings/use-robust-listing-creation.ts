@@ -126,7 +126,7 @@ export function useRobustListingCreation() {
     mutationFn: async ({
       listing,
       image,
-      sendDealAlerts,
+      sendDealAlerts: _sendDealAlerts,
       targetType: _targetType,
     }: {
       listing: Omit<AdminListing, 'id' | 'created_at' | 'updated_at'>;
@@ -214,7 +214,8 @@ export function useRobustListingCreation() {
           // Structured contact fields (tied to deal contact)
           main_contact_first_name: listing.main_contact_first_name || null,
           main_contact_last_name: listing.main_contact_last_name || null,
-          main_contact_name: listing.main_contact_name ||
+          main_contact_name:
+            listing.main_contact_name ||
             (listing.main_contact_first_name || listing.main_contact_last_name
               ? `${listing.main_contact_first_name || ''} ${listing.main_contact_last_name || ''}`.trim()
               : null),
@@ -292,19 +293,11 @@ export function useRobustListingCreation() {
           }
         }
 
-        // Step 5: Handle deal alerts separately (completely isolated)
-        if (sendDealAlerts) {
-          try {
-            // Call deal alerts function separately to avoid transaction interference
-            await triggerDealAlertsForListing(finalListing);
-          } catch (_alertError: unknown) {
-            // Don't fail the entire operation for deal alerts
-            toast({
-              title: 'Listing Created',
-              description: 'Listing created successfully, but deal alerts could not be sent.',
-            });
-          }
-        }
+        // H-4 FIX: Deal alerts should NOT fire on listing creation.
+        // Listings are created as internal drafts (is_internal_deal=true) and should only
+        // trigger alerts when published to the marketplace. The alert trigger has been
+        // moved to the publish-listing flow instead.
+        // Previously: if (sendDealAlerts) await triggerDealAlertsForListing(finalListing);
 
         return finalListing as unknown as AdminListing;
       } catch (error: unknown) {
@@ -342,7 +335,9 @@ export function useRobustListingCreation() {
 /**
  * Separate function to handle deal alerts without affecting main listing creation
  */
-async function triggerDealAlertsForListing(listing: Record<string, unknown>): Promise<void> {
+// H-4 FIX: This function is no longer called from listing creation.
+// Deal alerts are now triggered from use-publish-listing.ts on publication instead.
+async function _triggerDealAlertsForListing(listing: Record<string, unknown>): Promise<void> {
   try {
     // Query deal alerts that match this listing
     const { data: matchingAlerts, error } = await supabase.rpc('match_deal_alerts_with_listing', {

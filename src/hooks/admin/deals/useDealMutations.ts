@@ -143,9 +143,13 @@ export function useUpdateDealStage() {
         }
       }
 
-      // Check if moved to "Owner intro requested" stage and trigger email
+      // H-5 FIX: Use stage type instead of hardcoded name string for triggering
+      // owner intro notification. The stage type is set in the DB and won't break if renamed.
+      // Fetch the target stage's type to decide behavior.
       const newStageName = result?.new_stage_name as string | undefined;
-      if (newStageName === 'Owner intro requested') {
+      const newStageType = result?.new_stage_type as string | undefined;
+      // Support both: stage type 'owner_intro' (preferred) or legacy name match (fallback)
+      if (newStageType === 'owner_intro' || newStageName === 'Owner intro requested') {
         const deals = queryClient.getQueryData<Deal[]>(['deals']);
         const deal = deals?.find((d) => d.deal_id === variables.dealId);
 

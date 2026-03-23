@@ -1,4 +1,4 @@
-import { ExternalLink, Download, User } from 'lucide-react';
+import { ExternalLink, User } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,16 +13,13 @@ const DEFAULT_PRESENTER = {
 };
 
 interface DealSidebarProps {
-  executiveSummaryUrl?: string | null;
   listingId?: string;
   presentedByAdminId?: string | null;
 }
 
-export default function DealSidebar({
-  executiveSummaryUrl,
-  listingId,
-  presentedByAdminId,
-}: DealSidebarProps) {
+// C-3 FIX: Removed executiveSummaryUrl prop — executive summary should not be
+// publicly downloadable without NDA/authentication.
+export default function DealSidebar({ listingId, presentedByAdminId }: DealSidebarProps) {
   // GAP 10: Fetch presenter dynamically from database
   const { data: presenter } = useQuery({
     queryKey: ['deal-presenter', presentedByAdminId],
@@ -103,17 +100,8 @@ export default function DealSidebar({
             Schedule Buyer Call
           </a>
 
-          {executiveSummaryUrl && (
-            <a
-              href={executiveSummaryUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full bg-white border border-[#1A1A1A] text-[#1A1A1A] font-semibold text-[15px] py-3 rounded-md hover:bg-gray-50 transition-colors font-['Inter',system-ui,sans-serif]"
-            >
-              <Download className="w-4 h-4" />
-              Download Executive Summary
-            </a>
-          )}
+          {/* C-3 FIX: Executive summary download removed from public landing page.
+              Available only after NDA signing via authenticated listing detail page. */}
         </div>
       </div>
 

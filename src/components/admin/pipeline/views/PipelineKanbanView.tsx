@@ -1,5 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, PointerSensor, useSensor, useSensors, DragOverlay, closestCorners } from '@dnd-kit/core';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  closestCorners,
+} from '@dnd-kit/core';
 import { usePipelineCore } from '@/hooks/admin/use-pipeline-core';
 import { useUpdateDealStage } from '@/hooks/admin/use-deals';
 import { PipelineKanbanColumn } from './PipelineKanbanColumn';
@@ -23,9 +33,22 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
   const [activeId, setActiveId] = useState<string | null>(null);
   const [scrollPosition, setScrollPosition] = useState(0);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  
-  const [ownerWarning, setOwnerWarning] = useState<{ show: boolean; ownerName: string; dealTitle: string; dealId: string; stageId: string } | null>(null);
-  const [ownerAssignmentNeeded, setOwnerAssignmentNeeded] = useState<{ show: boolean; dealTitle: string; dealId: string; stageId: string; fromStage?: string; toStage?: string } | null>(null);
+
+  const [ownerWarning, setOwnerWarning] = useState<{
+    show: boolean;
+    ownerName: string;
+    dealTitle: string;
+    dealId: string;
+    stageId: string;
+  } | null>(null);
+  const [ownerAssignmentNeeded, setOwnerAssignmentNeeded] = useState<{
+    show: boolean;
+    dealTitle: string;
+    dealId: string;
+    stageId: string;
+    fromStage?: string;
+    toStage?: string;
+  } | null>(null);
   const [ownerIntroConfig, setOwnerIntroConfig] = useState<{
     show: boolean;
     dealTitle: string;
@@ -42,32 +65,36 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
   const updateDeal = useUpdateDeal();
   const updateListing = useUpdateListing();
   const { toast } = useToast();
-  
+
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id || null)).catch(() => null);
+    supabase.auth
+      .getUser()
+      .then(({ data }) => setCurrentUserId(data.user?.id || null))
+      .catch(() => null);
   }, []);
-  
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-  
+
   // Transform stages to include metrics
   const stagesWithMetrics = useMemo(() => {
-    return pipeline.stages.map(stage => {
-      const stageDeals = pipeline.deals.filter(d => d.stage_id === stage.id);
+    return pipeline.stages.map((stage) => {
+      const stageDeals = pipeline.deals.filter((d) => d.stage_id === stage.id);
       return {
         ...stage,
         dealCount: stageDeals.length,
         totalValue: stageDeals.reduce((sum, d) => sum + (Number(d.deal_value) || 0), 0),
-        avgProbability: stageDeals.length > 0 
-          ? stageDeals.reduce((sum, d) => sum + (d.deal_probability || 0), 0) / stageDeals.length 
-          : 0,
-        deals: stageDeals
+        avgProbability:
+          stageDeals.length > 0
+            ? stageDeals.reduce((sum, d) => sum + (d.deal_probability || 0), 0) / stageDeals.length
+            : 0,
+        deals: stageDeals,
       };
     });
   }, [pipeline.stages, pipeline.deals]);
-  
+
   const handleDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id));
   const handleDragOver = (_event: DragOverEvent) => {};
-  
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     const activeIdStr = String(active?.id ?? '');
@@ -80,23 +107,30 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
 
     const dealId = activeIdStr.startsWith('deal:') ? activeIdStr.slice(5) : activeIdStr;
     let destStageId: string | null = null;
-    
+
     if (overIdStr.startsWith('stage:')) {
       destStageId = overIdStr.slice(6);
     } else if (overIdStr.startsWith('deal:')) {
-      const overDeal = pipeline.deals.find(d => d.deal_id === overIdStr.slice(5));
+      const overDeal = pipeline.deals.find((d) => d.deal_id === overIdStr.slice(5));
       destStageId = overDeal?.stage_id || null;
     }
 
-    if (!destStageId) { setActiveId(null); return; }
+    if (!destStageId) {
+      setActiveId(null);
+      return;
+    }
 
-    const deal = pipeline.deals.find(d => d.deal_id === dealId);
-    const targetStage = pipeline.stages.find(s => s.id === destStageId);
+    const deal = pipeline.deals.find((d) => d.deal_id === dealId);
+    const targetStage = pipeline.stages.find((s) => s.id === destStageId);
 
-    if (!deal || !targetStage || deal.stage_id === destStageId) { setActiveId(null); return; }
+    if (!deal || !targetStage || deal.stage_id === destStageId) {
+      setActiveId(null);
+      return;
+    }
 
-    // Check if moving to "Owner intro requested" - show configuration dialog
-    if (targetStage.name === 'Owner intro requested') {
+    // H-5 FIX: Use stage type instead of hardcoded name for owner intro check.
+    // Supports both the preferred type-based check and legacy name match as fallback.
+    if (targetStage.type === 'owner_intro' || targetStage.name === 'Owner intro requested') {
       try {
         if (!deal.listing_id) {
           toast({
@@ -111,15 +145,17 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
         // Fetch listing data with primary owner
         const { data: listingData, error: listingDataError } = await supabase
           .from('listings')
-          .select(`
+          .select(
+            `
             id,
             primary_owner_id,
             primary_owner:profiles!listings_primary_owner_id_fkey(id, first_name, last_name, email)
-          `)
+          `,
+          )
           .eq('id', deal.listing_id)
           .single();
         if (listingDataError) throw listingDataError;
-        
+
         if (!listingData) {
           toast({
             title: 'Error',
@@ -129,7 +165,7 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
           setActiveId(null);
           return;
         }
-        
+
         // Fetch deal owner if assigned
         let dealOwner = null;
         if (deal.assigned_to) {
@@ -139,23 +175,29 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
             .eq('id', deal.assigned_to)
             .single();
           if (ownerDataError) throw ownerDataError;
-          
+
           if (ownerData) {
             dealOwner = {
               id: ownerData.id,
-              name: `${ownerData.first_name || ''} ${ownerData.last_name || ''}`.trim() || ownerData.email,
-              email: ownerData.email
+              name:
+                `${ownerData.first_name || ''} ${ownerData.last_name || ''}`.trim() ||
+                ownerData.email,
+              email: ownerData.email,
             };
           }
         }
-        
+
         // Format primary owner
-        const primaryOwner = listingData?.primary_owner ? {
-          id: listingData.primary_owner.id,
-          name: `${listingData.primary_owner.first_name || ''} ${listingData.primary_owner.last_name || ''}`.trim() || listingData.primary_owner.email,
-          email: listingData.primary_owner.email
-        } : null;
-        
+        const primaryOwner = listingData?.primary_owner
+          ? {
+              id: listingData.primary_owner.id,
+              name:
+                `${listingData.primary_owner.first_name || ''} ${listingData.primary_owner.last_name || ''}`.trim() ||
+                listingData.primary_owner.email,
+              email: listingData.primary_owner.email,
+            }
+          : null;
+
         // Show configuration dialog
         setOwnerIntroConfig({
           show: true,
@@ -166,9 +208,9 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
           currentDealOwner: dealOwner,
           currentPrimaryOwner: primaryOwner,
           fromStage: deal.stage_name || undefined,
-          toStage: targetStage.name
+          toStage: targetStage.name,
         });
-        
+
         setActiveId(null);
         return;
       } catch (error) {
@@ -184,17 +226,17 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
 
     // Check if this deal belongs to another owner BEFORE attempting the mutation
     if (currentUserId && deal.assigned_to && deal.assigned_to !== currentUserId) {
-      const ownerName = deal.assigned_admin_name 
+      const ownerName = deal.assigned_admin_name
         ? `${deal.assigned_admin_name}`.trim()
         : 'Another admin';
-      
+
       // Show warning dialog and store the pending move
-      setOwnerWarning({ 
-        show: true, 
-        ownerName, 
-        dealTitle: deal.title, 
-        dealId, 
-        stageId: destStageId 
+      setOwnerWarning({
+        show: true,
+        ownerName,
+        dealTitle: deal.title,
+        dealId,
+        stageId: destStageId,
       });
       setActiveId(null);
       return;
@@ -207,32 +249,35 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
       fromStage: deal.stage_name || undefined,
       toStage: targetStage.name,
       currentAdminId: currentUserId ?? undefined,
-      skipOwnerCheck: true // We already checked above
+      skipOwnerCheck: true, // We already checked above
     });
     setActiveId(null);
   };
 
   const handleOwnerWarningConfirm = () => {
     if (!ownerWarning) return;
-    
-    const deal = pipeline.deals.find(d => d.deal_id === ownerWarning.dealId);
-    const targetStage = stagesWithMetrics.find(s => s.id === ownerWarning.stageId);
-    
+
+    const deal = pipeline.deals.find((d) => d.deal_id === ownerWarning.dealId);
+    const targetStage = stagesWithMetrics.find((s) => s.id === ownerWarning.stageId);
+
     if (!deal || !targetStage) {
-      console.error('[Owner Warning] Deal or stage not found', { dealId: ownerWarning.dealId, stageId: ownerWarning.stageId });
+      console.error('[Owner Warning] Deal or stage not found', {
+        dealId: ownerWarning.dealId,
+        stageId: ownerWarning.stageId,
+      });
       setOwnerWarning(null);
       return;
     }
-    
+
     updateDealStage.mutate({
       dealId: ownerWarning.dealId,
       stageId: ownerWarning.stageId,
       fromStage: deal.stage_name || undefined,
       toStage: targetStage.name || undefined,
       currentAdminId: currentUserId ?? undefined,
-      skipOwnerCheck: true
+      skipOwnerCheck: true,
     });
-    
+
     setOwnerWarning(null);
   };
 
@@ -242,11 +287,11 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
     try {
       await updateDeal.mutateAsync({
         dealId: ownerAssignmentNeeded.dealId,
-        updates: { 
+        updates: {
           assigned_to: ownerId,
           owner_assigned_at: new Date().toISOString(),
-          owner_assigned_by: currentUserId ?? undefined
-        }
+          owner_assigned_by: currentUserId ?? undefined,
+        },
       });
 
       updateDealStage.mutate({
@@ -255,7 +300,7 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
         fromStage: ownerAssignmentNeeded.fromStage,
         toStage: ownerAssignmentNeeded.toStage,
         currentAdminId: currentUserId ?? undefined,
-        skipOwnerCheck: true
+        skipOwnerCheck: true,
       });
 
       setOwnerAssignmentNeeded(null);
@@ -274,16 +319,19 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
     dealOwnerId: string | null;
   }) => {
     if (!ownerIntroConfig) return;
-    
+
     try {
       // Update listing primary owner if changed
-      if (config.primaryOwnerId && config.primaryOwnerId !== ownerIntroConfig.currentPrimaryOwner?.id) {
+      if (
+        config.primaryOwnerId &&
+        config.primaryOwnerId !== ownerIntroConfig.currentPrimaryOwner?.id
+      ) {
         await updateListing.mutateAsync({
           listingId: ownerIntroConfig.listingId,
-          updates: { primary_owner_id: config.primaryOwnerId }
+          updates: { primary_owner_id: config.primaryOwnerId },
         });
       }
-      
+
       // Update deal owner if changed
       if (config.dealOwnerId && config.dealOwnerId !== ownerIntroConfig.currentDealOwner?.id) {
         await updateDeal.mutateAsync({
@@ -291,11 +339,11 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
           updates: {
             assigned_to: config.dealOwnerId,
             owner_assigned_at: new Date().toISOString(),
-            owner_assigned_by: currentUserId ?? undefined
-          }
+            owner_assigned_by: currentUserId ?? undefined,
+          },
         });
       }
-      
+
       // Proceed with stage move
       updateDealStage.mutate({
         dealId: ownerIntroConfig.dealId,
@@ -303,9 +351,9 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
         fromStage: ownerIntroConfig.fromStage,
         toStage: ownerIntroConfig.toStage,
         currentAdminId: currentUserId ?? undefined,
-        skipOwnerCheck: true
+        skipOwnerCheck: true,
       });
-      
+
       setOwnerIntroConfig(null);
     } catch (error) {
       toast({
@@ -315,7 +363,7 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
       });
     }
   };
-  
+
   const scrollToStage = (direction: 'left' | 'right') => {
     const container = document.getElementById('kanban-scroll-container');
     if (container) {
@@ -325,30 +373,78 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
     }
   };
 
-  const activeDeal = activeId ? pipeline.deals.find(d => `deal:${d.deal_id}` === activeId) : null;
+  const activeDeal = activeId ? pipeline.deals.find((d) => `deal:${d.deal_id}` === activeId) : null;
 
   return (
     <>
       <div className="h-full flex flex-col">
-        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
           <div className="flex-1 relative overflow-hidden">
             <div className="md:hidden absolute top-2 right-2 z-20 flex gap-1 bg-background/95 backdrop-blur-sm rounded-lg p-1 shadow-lg">
-              <Button variant="outline" size="sm" onClick={() => scrollToStage('left')} className="h-7 w-7 p-0"><ChevronLeft className="h-3.5 w-3.5" /></Button>
-              <Button variant="outline" size="sm" onClick={() => scrollToStage('right')} className="h-7 w-7 p-0"><ChevronRight className="h-3.5 w-3.5" /></Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => scrollToStage('left')}
+                className="h-7 w-7 p-0"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => scrollToStage('right')}
+                className="h-7 w-7 p-0"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
             </div>
-            <div id="kanban-scroll-container" className="absolute inset-0 overflow-x-auto overflow-y-hidden" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+            <div
+              id="kanban-scroll-container"
+              className="absolute inset-0 overflow-x-auto overflow-y-hidden"
+              style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+            >
               <div className="flex gap-4 p-4 h-full min-w-min" style={{ minHeight: '600px' }}>
                 {stagesWithMetrics.map((stage) => (
-                  <PipelineKanbanColumn key={stage.id} stage={stage} deals={stage.deals} onDealClick={pipeline.handleDealSelect} onOpenCreateDeal={onOpenCreateDeal} totalStages={pipeline.stages.length} />
+                  <PipelineKanbanColumn
+                    key={stage.id}
+                    stage={stage}
+                    deals={stage.deals}
+                    onDealClick={pipeline.handleDealSelect}
+                    onOpenCreateDeal={onOpenCreateDeal}
+                    totalStages={pipeline.stages.length}
+                  />
                 ))}
               </div>
             </div>
           </div>
-          <DragOverlay>{activeDeal ? <PipelineKanbanCardOverlay deal={activeDeal} /> : null}</DragOverlay>
+          <DragOverlay>
+            {activeDeal ? <PipelineKanbanCardOverlay deal={activeDeal} /> : null}
+          </DragOverlay>
         </DndContext>
       </div>
-      {ownerWarning && <DealOwnerWarningDialog open={ownerWarning.show} onOpenChange={(open) => !open && setOwnerWarning(null)} ownerName={ownerWarning.ownerName} dealTitle={ownerWarning.dealTitle} onConfirm={handleOwnerWarningConfirm} />}
-      {ownerAssignmentNeeded && <AssignOwnerDialog open={ownerAssignmentNeeded.show} onOpenChange={(open) => !open && setOwnerAssignmentNeeded(null)} dealTitle={ownerAssignmentNeeded.dealTitle} onConfirm={handleOwnerAssignmentConfirm} />}
+      {ownerWarning && (
+        <DealOwnerWarningDialog
+          open={ownerWarning.show}
+          onOpenChange={(open) => !open && setOwnerWarning(null)}
+          ownerName={ownerWarning.ownerName}
+          dealTitle={ownerWarning.dealTitle}
+          onConfirm={handleOwnerWarningConfirm}
+        />
+      )}
+      {ownerAssignmentNeeded && (
+        <AssignOwnerDialog
+          open={ownerAssignmentNeeded.show}
+          onOpenChange={(open) => !open && setOwnerAssignmentNeeded(null)}
+          dealTitle={ownerAssignmentNeeded.dealTitle}
+          onConfirm={handleOwnerAssignmentConfirm}
+        />
+      )}
       {ownerIntroConfig && (
         <OwnerIntroConfigDialog
           open={ownerIntroConfig.show}

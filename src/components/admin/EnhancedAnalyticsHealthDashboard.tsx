@@ -219,7 +219,23 @@ export function EnhancedAnalyticsHealthDashboard() {
     }
   };
 
+  // C-9 FIX: Restrict analytics data deletion to owner role only.
+  // This is a destructive, irreversible operation that should not be available to
+  // all admins. The owner role check is verified via Supabase RPC before proceeding.
   const clearAnalyticsData = async () => {
+    // Verify owner role server-side before allowing destructive operation
+    const { data: currentRole } = await supabase.rpc('get_user_role', {
+      _user_id: (await supabase.auth.getUser()).data.user?.id ?? '',
+    });
+    if (currentRole !== 'owner') {
+      toast({
+        title: 'Permission Denied',
+        description: 'Only the platform owner can clear analytics data.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (
       !confirm(
         '⚠️ Are you sure? This will delete ALL analytics data. This action cannot be undone.',

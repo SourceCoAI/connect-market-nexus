@@ -12,11 +12,12 @@ interface ContentSectionsProps {
  * Build a minimal DealData object from the landing page listing data
  * so we can reuse stripIdentifyingInfo for anonymization.
  */
+// C-1 FIX: internal_company_name and website no longer sent to client
 function buildDealDataForAnonymization(deal: LandingPageDeal): DealData {
   return {
     id: deal.id,
     title: deal.title,
-    internal_company_name: deal.internal_company_name ?? null,
+    internal_company_name: null,
     executive_summary: null,
     description: null,
     revenue: deal.revenue,
@@ -27,7 +28,7 @@ function buildDealDataForAnonymization(deal: LandingPageDeal): DealData {
     category: deal.category ?? deal.categories?.[0] ?? null,
     industry: null,
     service_mix: null,
-    website: deal.website ?? null,
+    website: null,
     full_time_employees: deal.full_time_employees,
     linkedin_employee_count: null,
     main_contact_name: null,
@@ -145,7 +146,12 @@ export default function ContentSections({ deal }: ContentSectionsProps) {
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {deal.geographic_states!.map((s) => (
-                  <span key={s} className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#F3F4F6] text-xs font-medium text-[#374151]">{s}</span>
+                  <span
+                    key={s}
+                    className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#F3F4F6] text-xs font-medium text-[#374151]"
+                  >
+                    {s}
+                  </span>
                 ))}
               </div>
             </div>

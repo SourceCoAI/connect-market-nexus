@@ -89,7 +89,7 @@ export default function EmailCapture({ listingId }: EmailCaptureProps) {
         <div className="max-w-[800px] mx-auto px-4 sm:px-6 py-3">
           {isSubmitted ? (
             <p className="text-center text-white text-[14px] font-['Inter',system-ui,sans-serif] py-1">
-              You're on the list! We'll notify you when new deals match your interests.
+              Thanks! Our team will follow up with you shortly about relevant opportunities.
             </p>
           ) : (
             <div className="flex flex-col sm:flex-row items-center gap-3">

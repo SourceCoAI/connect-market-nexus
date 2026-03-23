@@ -30,8 +30,11 @@ export const APP_CONFIG = {
 } as const;
 
 // ─── Feature Flags ───────────────────────────────────────────────────────────
+// M-14 FIX: Default flags that can be overridden at runtime via app_settings table.
+// To toggle a flag: INSERT INTO app_settings (key, value) VALUES ('feature_remarketing', 'false')
+// ON CONFLICT (key) DO UPDATE SET value = 'false';
 
-export const FEATURE_FLAGS = {
+export const DEFAULT_FEATURE_FLAGS = {
   /** Enable the ReMarketing module */
   remarketing: true,
 
@@ -49,8 +52,37 @@ export const FEATURE_FLAGS = {
 
   /** Enable MFA enrollment prompt */
   mfaPrompt: true,
-
 } as const;
+
+// Mutable copy that can be updated at runtime
+export const FEATURE_FLAGS: Record<keyof typeof DEFAULT_FEATURE_FLAGS, boolean> = {
+  ...DEFAULT_FEATURE_FLAGS,
+};
+
+/**
+ * M-14 FIX: Load feature flag overrides from app_settings table.
+ * Call this once on app init. Flags not found in DB use defaults.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function loadFeatureFlags(supabase: any) {
+  try {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .like('key', 'feature_%');
+
+    if (data) {
+      for (const row of data) {
+        const flagName = row.key.replace('feature_', '') as keyof typeof DEFAULT_FEATURE_FLAGS;
+        if (flagName in DEFAULT_FEATURE_FLAGS) {
+          FEATURE_FLAGS[flagName] = row.value === 'true' || row.value === '"true"';
+        }
+      }
+    }
+  } catch {
+    // Use defaults if DB read fails
+  }
+}
 
 // ─── Pagination ──────────────────────────────────────────────────────────────
 

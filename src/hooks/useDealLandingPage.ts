@@ -24,7 +24,7 @@ export interface LandingPageDeal {
   metric_4_custom_label: string | null;
   metric_4_custom_value: string | null;
   metric_4_custom_subtitle: string | null;
-  executive_summary: string | null;
+  // C-3 FIX: executive_summary removed from public landing page (requires NDA)
   full_time_employees: number | null;
   part_time_employees: number | null;
   status: string;
@@ -37,9 +37,8 @@ export interface LandingPageDeal {
   revenue_model: string | null;
   business_model: string | null;
   growth_trajectory: string | null;
-  // Internal fields used only for anonymization — never displayed directly
-  internal_company_name: string | null;
-  website: string | null;
+  // C-2 FIX: is_internal_deal used to gate access to draft/internal listings
+  is_internal_deal: boolean;
 }
 
 export interface RelatedDeal {
@@ -54,17 +53,22 @@ export interface RelatedDeal {
   hero_description: string | null;
 }
 
+// C-1 FIX: Removed internal_company_name and website from public query to prevent
+// leaking confidential data in browser network tab. These fields are only needed
+// server-side for anonymization — the stripIdentifyingInfo function is applied to
+// displayed text, but the raw field values were being sent to the client.
+// C-3 FIX: Removed executive_summary from public query — confidential document URLs
+// should not be accessible without NDA/authentication.
 const LANDING_PAGE_FIELDS = `
   id, title, deal_identifier, hero_description, description, description_html, location,
   revenue, ebitda, categories, category, custom_sections,
   revenue_metric_subtitle, ebitda_metric_subtitle,
   metric_3_type, metric_3_custom_label, metric_3_custom_value, metric_3_custom_subtitle,
   metric_4_type, metric_4_custom_label, metric_4_custom_value, metric_4_custom_subtitle,
-  executive_summary, full_time_employees, part_time_employees,
-  status, presented_by_admin_id,
+  full_time_employees, part_time_employees,
+  status, presented_by_admin_id, is_internal_deal,
   geographic_states, services, number_of_locations, customer_types,
-  revenue_model, business_model, growth_trajectory,
-  internal_company_name, website
+  revenue_model, business_model, growth_trajectory
 `;
 
 export function useDealLandingPage(dealId: string | undefined) {
@@ -73,10 +77,15 @@ export function useDealLandingPage(dealId: string | undefined) {
     queryFn: async (): Promise<LandingPageDeal> => {
       if (!dealId) throw new Error('Deal ID is required');
 
+      // C-2 FIX: Filter by is_internal_deal=false and status=active so that
+      // draft/internal listings are not accessible by UUID on the public landing page.
       const { data, error } = await supabase
         .from('listings')
         .select(LANDING_PAGE_FIELDS)
         .eq('id', dealId)
+        .eq('is_internal_deal', false)
+        .eq('status', 'active')
+        .is('deleted_at', null)
         .single();
 
       if (error) throw error;
@@ -102,6 +111,8 @@ export function useRelatedDeals(currentDealId: string | undefined) {
           'id, title, location, revenue, ebitda, ebitda_margin, categories, description, hero_description',
         )
         .eq('status', 'active')
+        .eq('is_internal_deal', false)
+        .is('deleted_at', null)
         .neq('id', currentDealId ?? '')
         .order('created_at', { ascending: false })
         .limit(3);

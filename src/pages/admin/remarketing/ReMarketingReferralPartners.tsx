@@ -210,12 +210,12 @@ export default function ReMarketingReferralPartners() {
     },
   });
 
-  // Archive partner
+  // Archive partner — C-6 FIX: Use archived_at timestamp instead of overwriting notes
   const archiveMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('referral_partners')
-        .update({ is_active: false, notes: '[ARCHIVED]' } as never)
+        .update({ is_active: false, archived_at: new Date().toISOString() } as never)
         .eq('id', id);
       if (error) throw error;
     },

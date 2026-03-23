@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import {
   Dialog,
   DialogContent,
@@ -368,16 +368,13 @@ export const AddDealToUniverseDialog = ({
                 const formData = new FormData();
                 formData.append('file', file);
 
-                const response = await fetch(
-                  `https://vhzipqarkmmfuqadefep.supabase.co/functions/v1/parse-transcript-file`,
-                  {
-                    method: 'POST',
-                    headers: {
-                      Authorization: `Bearer ${session?.access_token}`,
-                    },
-                    body: formData,
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/parse-transcript-file`, {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${session?.access_token}`,
                   },
-                );
+                  body: formData,
+                });
 
                 if (response.ok) {
                   const result = await response.json();

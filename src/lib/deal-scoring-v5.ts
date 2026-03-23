@@ -57,8 +57,14 @@ export function estimateEmployeesFromRange(range: string | null): number {
   return 0;
 }
 
+// M-17 FIX: Financial normalization assumes small numbers are shorthand:
+//   val < 1000  → treated as millions (e.g., 5 → $5M)
+//   val < 100K  → treated as thousands (e.g., 5000 → $5M)
+//   val >= 100K → treated as raw dollars
+// Added guard: values under 1 are likely data entry errors, not $500K+ companies.
 function normalizeFinancial(val: number): number {
   if (val <= 0) return 0;
+  if (val < 1) return 0; // M-17: sub-$1 values are likely errors, not $500K+
   if (val < 1000) return Math.round(val * 1_000_000);
   if (val < 100000) return Math.round(val * 1_000);
   return val;

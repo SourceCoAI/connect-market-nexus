@@ -49,9 +49,36 @@ export function usePublishListing() {
 
       return data;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-listings'] });
       queryClient.invalidateQueries({ queryKey: ['simple-listings'] });
+
+      // H-4 FIX: Trigger deal alerts on publication, not creation.
+      // This ensures buyers are only alerted about listings that are actually live.
+      if (variables.action === 'publish' && data?.listing) {
+        try {
+          const listing = data.listing;
+          const { data: matchingAlerts } = await supabase.rpc('match_deal_alerts_with_listing', {
+            listing_data: listing as unknown as Record<string, never>,
+          });
+          if (matchingAlerts?.length) {
+            for (const alert of matchingAlerts) {
+              if (alert.alert_frequency === 'instant') {
+                await supabase.functions.invoke('send-deal-alert', {
+                  body: { alertId: alert.id, listingId: variables.listingId, listing },
+                });
+              }
+            }
+            toast({
+              title: 'Deal Alerts Sent',
+              description: `${matchingAlerts.length} matching buyer alert(s) triggered.`,
+            });
+          }
+        } catch (alertError) {
+          console.error('Failed to send deal alerts on publish:', alertError);
+          // Don't fail publish for alert errors
+        }
+      }
 
       toast({
         title:

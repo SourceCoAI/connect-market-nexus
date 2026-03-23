@@ -32,6 +32,46 @@ export function useUpdateListing() {
         }
       }
 
+      // H-3 FIX: If the listing is published, validate that the update won't violate
+      // publishing gate requirements before applying. This prevents published listings
+      // from being edited into an invalid state.
+      const { data: currentListing } = await supabase
+        .from('listings')
+        .select(
+          'is_internal_deal, published_at, title, description, categories, location, revenue, ebitda, image_url',
+        )
+        .eq('id', id)
+        .single();
+
+      const isPublished =
+        currentListing && !currentListing.is_internal_deal && currentListing.published_at;
+      if (isPublished) {
+        const merged = { ...currentListing, ...listing };
+        const violations: string[] = [];
+        if (merged.title != null && String(merged.title).length < 5)
+          violations.push('Title must be at least 5 characters');
+        if (merged.description != null && String(merged.description).length < 50)
+          violations.push('Description must be at least 50 characters');
+        if (
+          listing.categories !== undefined &&
+          (!merged.categories || (merged.categories as string[]).length === 0)
+        )
+          violations.push('At least one category is required');
+        if (listing.location !== undefined && !merged.location)
+          violations.push('Location is required');
+        if (listing.revenue !== undefined && (!merged.revenue || Number(merged.revenue) <= 0))
+          violations.push('Revenue must be greater than 0');
+        if (listing.ebitda !== undefined && merged.ebitda == null)
+          violations.push('EBITDA is required');
+        if (listing.image_url !== undefined && !merged.image_url)
+          violations.push('Image is required for published listings');
+        if (violations.length > 0) {
+          throw new Error(
+            `Cannot save: published listing would violate requirements. ${violations.join('. ')}`,
+          );
+        }
+      }
+
       // Step 1: Update the listing details
       const { data, error } = await supabase
         .from('listings')
