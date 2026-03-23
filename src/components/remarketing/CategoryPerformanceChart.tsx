@@ -1,11 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MapPin, DollarSign, Briefcase, Target } from 'lucide-react';
+import { MapPin, Briefcase, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CategoryPerformanceChartProps {
   data: {
     geography: number;
-    size: number;
     service: number;
     ownerGoals: number;
   };
@@ -13,30 +12,24 @@ interface CategoryPerformanceChartProps {
 }
 
 const categories = [
-  { 
-    key: 'geography' as const, 
-    label: 'Geography Match', 
+  {
+    key: 'geography' as const,
+    label: 'Geography Match',
     icon: MapPin,
-    description: 'Location alignment with buyer criteria'
+    description: 'Location alignment with buyer criteria',
   },
-  { 
-    key: 'size' as const, 
-    label: 'Size Fit', 
-    icon: DollarSign,
-    description: 'Revenue and deal size compatibility'
-  },
-  { 
-    key: 'service' as const, 
-    label: 'Service Alignment', 
+  {
+    key: 'service' as const,
+    label: 'Service Alignment',
     icon: Briefcase,
-    description: 'Industry and service type match'
+    description: 'Industry and service type match',
   },
-  { 
-    key: 'ownerGoals' as const, 
-    label: 'Owner Goals', 
+  {
+    key: 'ownerGoals' as const,
+    label: 'Owner Goals',
     icon: Target,
-    description: 'Transition and outcome expectations'
-  }
+    description: 'Transition and outcome expectations',
+  },
 ];
 
 function getScoreColor(score: number): string {
@@ -54,9 +47,7 @@ function getProgressColor(score: number): string {
 }
 
 export function CategoryPerformanceChart({ data, className }: CategoryPerformanceChartProps) {
-  const avgScore = Math.round(
-    (data.geography + data.size + data.service + data.ownerGoals) / 4
-  );
+  const avgScore = Math.round((data.geography + data.service + data.ownerGoals) / 3);
 
   return (
     <Card className={className}>
@@ -67,9 +58,7 @@ export function CategoryPerformanceChart({ data, className }: CategoryPerformanc
             Category Performance
           </CardTitle>
           <div className="text-right">
-            <p className={cn("text-2xl font-bold", getScoreColor(avgScore))}>
-              {avgScore}
-            </p>
+            <p className={cn('text-2xl font-bold', getScoreColor(avgScore))}>{avgScore}</p>
             <p className="text-xs text-muted-foreground">Avg. Score</p>
           </div>
         </div>
@@ -84,16 +73,14 @@ export function CategoryPerformanceChart({ data, className }: CategoryPerformanc
                   <Icon className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium text-sm">{label}</span>
                 </div>
-                <span className={cn("font-bold", getScoreColor(score))}>
-                  {score}
-                </span>
+                <span className={cn('font-bold', getScoreColor(score))}>{score}</span>
               </div>
               <div className="relative">
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className={cn(
-                      "h-full rounded-full transition-all duration-500",
-                      getProgressColor(score)
+                      'h-full rounded-full transition-all duration-500',
+                      getProgressColor(score),
                     )}
                     style={{ width: `${score}%` }}
                   />
@@ -103,18 +90,13 @@ export function CategoryPerformanceChart({ data, className }: CategoryPerformanc
             </div>
           );
         })}
-        
+
         {/* Insights */}
         <div className="pt-4 border-t space-y-2">
           <p className="text-sm font-medium">Insights</p>
           {data.geography >= 80 && (
             <p className="text-xs text-emerald-600">
               ✓ Strong geographic alignment with buyer targets
-            </p>
-          )}
-          {data.size < 60 && (
-            <p className="text-xs text-amber-600">
-              ⚠ Size criteria may need refinement for better matches
             </p>
           )}
           {data.service >= 75 && data.ownerGoals >= 75 && (

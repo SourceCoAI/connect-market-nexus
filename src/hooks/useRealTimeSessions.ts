@@ -49,6 +49,8 @@ export interface ProfileRow {
   company_name: string | null;
   buyer_type: string | null;
   job_title: string | null;
+  // NOTE: These are synced from firm_agreements via webhook cascade.
+  // Canonical source of truth is firm_agreements.nda_status / fee_agreement_status.
   fee_agreement_signed: boolean | null;
   nda_signed: boolean | null;
 }
@@ -258,7 +260,8 @@ export function buildEnhancedActiveUser(
     totalVisits: vHistory?.totalSessions || engagement?.session_count || 1,
     totalTimeSpent: vHistory?.totalTime || engagement?.total_session_time || 0,
     searchCount: engagement?.search_count || 0,
-    // Trust signals
+    // Trust signals (APPROXIMATE — reads stale profile-level booleans for performance;
+    // canonical source is firm_agreements via resolve_user_firm_id RPC)
     feeAgreementSigned: profile?.fee_agreement_signed || false,
     ndaSigned: profile?.nda_signed || false,
     // Cross-session journey data

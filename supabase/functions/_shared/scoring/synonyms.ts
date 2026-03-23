@@ -29,12 +29,15 @@ export const SECTOR_SYNONYMS: Record<string, string[]> = {
     'municipal',
   ],
   metering: ['amr', 'ami', 'smart meter', 'meter reading', 'meter installation'],
+  'water meter': ['metering', 'amr', 'ami', 'smart meter', 'meter installation'],
+  'smart grid': ['ami', 'smart meter', 'meter installation', 'demand response'],
+  'field services': ['utility services', 'utility', 'infrastructure services'],
   infrastructure: ['utility', 'field services', 'municipal', 'outsourced services'],
   // Home Services -- each maps to "home services" as their shared parent but NOT
   // to each other's specific terms (hvac != plumbing, plumbing != roofing)
   'home services': ['residential services', 'home repair'],
-  hvac: ['mechanical', 'climate control', 'heating and cooling'],
-  plumbing: ['plumbing services', 'mechanical services', 'pipe services'],
+  hvac: ['hvac services', 'climate control', 'heating and cooling', 'air conditioning'],
+  plumbing: ['plumbing services', 'plumbing contractor', 'pipe services'],
   roofing: ['roofing services', 'exterior services'],
   collision: ['auto body', 'paint and body', 'auto repair'],
   // Healthcare -- each sub-vertical maps to its own close synonyms, NOT the
@@ -77,12 +80,20 @@ export const SECTOR_SYNONYMS: Record<string, string[]> = {
   landscaping: ['grounds maintenance', 'outdoor services', 'lawn care', 'landscape services'],
   'pest control': ['extermination', 'pest management', 'termite control'],
   'waste management': ['waste services', 'recycling', 'hauling', 'waste collection'],
-  'environmental services': [
-    'remediation',
-    'environmental consulting',
-    'environmental compliance',
-  ],
+  'environmental services': ['remediation', 'environmental consulting', 'environmental compliance'],
   insurance: ['insurance services', 'insurance brokerage', 'risk management'],
+  // Employee Benefits / TPA -- distinct from insurance brokerage
+  'employee benefits': ['benefits administration', 'benefits advisory', 'group benefits', 'tpa'],
+  'benefits administration': ['employee benefits', 'benefits advisory', 'tpa', 'group benefits'],
+  'benefits advisory': ['employee benefits', 'benefits administration', 'group benefits', 'tpa'],
+  tpa: [
+    'third party administrator',
+    'benefits administration',
+    'employee benefits',
+    'self-funded plans',
+  ],
+  'third party administrator': ['tpa', 'benefits administration', 'employee benefits'],
+  'self-funded plans': ['tpa', 'third party administrator', 'benefits administration'],
   'food services': ['food distribution', 'catering', 'food manufacturing'],
   automotive: ['auto services', 'auto repair', 'collision', 'vehicle services'],
   education: ['training', 'learning', 'ed tech', 'tutoring', 'educational services'],

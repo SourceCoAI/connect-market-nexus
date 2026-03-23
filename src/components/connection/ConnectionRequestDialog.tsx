@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { getProfileCompletionDetails } from '@/lib/buyer-metrics';
 import { supabase } from '@/integrations/supabase/client';
 import { Sparkles, Loader2, RefreshCw, AlertCircle } from 'lucide-react';

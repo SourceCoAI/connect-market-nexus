@@ -242,12 +242,12 @@ function formatPagePath(path: string): string {
 
 function getBuyerTypeColor(buyerType: string | null): string {
   const colorMap: Record<string, string> = {
-    'privateEquity': 'bg-violet-500',
-    'familyOffice': 'bg-emerald-500',
+    'private_equity': 'bg-violet-500',
+    'family_office': 'bg-emerald-500',
     'corporate': 'bg-blue-500',
-    'searchFund': 'bg-amber-500',
-    'independentSponsor': 'bg-cyan-500',
-    'individual': 'bg-rose-500',
+    'search_fund': 'bg-amber-500',
+    'independent_sponsor': 'bg-cyan-500',
+    'individual_buyer': 'bg-rose-500',
   };
   
   return colorMap[buyerType || ''] || 'bg-slate-500';
@@ -256,12 +256,12 @@ function getBuyerTypeColor(buyerType: string | null): string {
 function getTextColor(name: string, isAnonymous: boolean, buyerType: string | null): string {
   if (!isAnonymous) {
     const buyerColors: Record<string, string> = {
-      'privateEquity': '#a78bfa',
-      'familyOffice': '#34d399',
+      'private_equity': '#a78bfa',
+      'family_office': '#34d399',
       'corporate': '#60a5fa',
-      'searchFund': '#fbbf24',
-      'independentSponsor': '#22d3ee',
-      'individual': '#fb7185',
+      'search_fund': '#fbbf24',
+      'independent_sponsor': '#22d3ee',
+      'individual_buyer': '#fb7185',
     };
     return buyerColors[buyerType || ''] || '#94a3b8';
   }

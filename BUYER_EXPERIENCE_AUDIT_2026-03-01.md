@@ -9,7 +9,7 @@
 
 ## EXECUTIVE SUMMARY
 
-The SourceCo buyer experience is **substantially built and functional** across most journey phases. The core marketplace, deal pipeline, messaging, DocuSeal NDA integration, and connection request flows work end-to-end. However, there are **2 critical issues** (auth bypass, missing buyer document access), **several high-priority gaps** (no email notifications on admin messages, no rejection email idempotency, AI recommendations not buyer-facing), and a set of UX improvements that would meaningfully increase buyer engagement and reduce support burden.
+The SourceCo buyer experience is **substantially built and functional** across most journey phases. The core marketplace, deal pipeline, messaging, PandaDoc NDA integration, and connection request flows work end-to-end. However, there are **2 critical issues** (auth bypass, missing buyer document access), **several high-priority gaps** (no email notifications on admin messages, no rejection email idempotency, AI recommendations not buyer-facing), and a set of UX improvements that would meaningfully increase buyer engagement and reduce support burden.
 
 **Overall buyer journey completion rate: ~72%** of steps work end-to-end without friction.
 
@@ -78,7 +78,7 @@ The SourceCo buyer experience is **substantially built and functional** across m
 ## INCONSISTENT (Works But Confuses Buyers)
 
 ### 12. Fee Agreement Appears Only at Connection Request Time
-**Files:** `src/components/docuseal/FeeAgreementGate.tsx` (modal gate), `src/pages/PendingApproval.tsx` (NDA only)
+**Files:** `src/components/pandadoc/FeeAgreementGate.tsx` (modal gate), `src/pages/PendingApproval.tsx` (NDA only)
 **What's inconsistent:** NDA is presented during onboarding (PendingApproval page), but fee agreement only appears when buyer submits their first connection request. Buyer has no advance education about the fee structure during onboarding, then hits a blocking modal at the moment of highest engagement intent.
 **How to standardize:** Either (a) present fee agreement summary during onboarding (non-blocking education), or (b) include fee agreement signing alongside NDA on PendingApproval page. The OnboardingPopup (`src/components/onboarding/OnboardingPopup.tsx`) step 3 mentions "You Only Pay if a Deal Closes" but this is a walkthrough step, not a signing step.
 
@@ -121,9 +121,9 @@ The SourceCo buyer experience is **substantially built and functional** across m
 **What creates friction:** Email field is disabled with "Email cannot be changed." Buyers who change firms or email providers are stuck. No guidance on what to do (create new account? contact support?).
 **Recommended fix:** Add help text: "Need to change your email? Contact support@sourceco.com" or implement an email change flow with verification.
 
-### 20. DocuSeal Error Has No Retry Button
-**Files:** `src/pages/PendingApproval.tsx:440-452`, `src/components/docuseal/DocuSealSigningPanel.tsx`
-**What creates friction:** If `get-buyer-nda-embed` fails (timeout, DocuSeal unavailable), buyer sees "Failed to prepare NDA signing form" with no retry button. Must refresh the entire page.
+### 20. PandaDoc Error Has No Retry Button
+**Files:** `src/pages/PendingApproval.tsx:440-452`, `src/components/pandadoc/PandaDocSigningPanel.tsx`
+**What creates friction:** If `get-buyer-nda-embed` fails (timeout, PandaDoc unavailable), buyer sees "Failed to prepare NDA signing form" with no retry button. Must refresh the entire page.
 **Recommended fix:** Add "Try Again" button that re-invokes the embed fetch. Add fallback: "Having trouble? Email support@sourceco.com and we'll send the NDA directly."
 
 ### 21. No Explanation of Why Business Identity Is Hidden
@@ -143,12 +143,12 @@ The SourceCo buyer experience is **substantially built and functional** across m
 **Change:** After buyer submits connection request, show: "We'll review your request within 1-2 business days. You'll be notified by email."
 **Expected impact:** Sets expectations; reduces "did they get my request?" anxiety and support emails.
 
-### QW-3: Add Retry Button to DocuSeal Error State
+### QW-3: Add Retry Button to PandaDoc Error State
 **Change:** Replace static error message with: error message + "Try Again" button + support email link.
-**Expected impact:** Unblocks buyers when DocuSeal has transient issues.
+**Expected impact:** Unblocks buyers when PandaDoc has transient issues.
 
-### QW-4: Add Unload Warning During DocuSeal Signing
-**Change:** Add `beforeunload` event listener when DocuSeal form is in `ready` state to prevent accidental navigation.
+### QW-4: Add Unload Warning During PandaDoc Signing
+**Change:** Add `beforeunload` event listener when PandaDoc form is in `ready` state to prevent accidental navigation.
 **Expected impact:** Prevents lost signing progress from accidental refresh.
 
 ### QW-5: Show Sold/Closed Deal Status Clearly
@@ -156,7 +156,7 @@ The SourceCo buyer experience is **substantially built and functional** across m
 **Expected impact:** Prevents wasted effort and confusion.
 
 ### QW-6: Expose Signed Agreement Downloads to Buyers
-**Change:** The `ProfileDocuments.tsx` component already fetches and displays signed documents from `firm_agreements`. Verify it's working and the `nda_signed_document_url` / `fee_signed_document_url` fields are populated by the DocuSeal webhook handler.
+**Change:** The `ProfileDocuments.tsx` component already fetches and displays signed documents from `firm_agreements`. Verify it's working and the `nda_signed_document_url` / `fee_signed_document_url` fields are populated by the PandaDoc webhook handler.
 **Expected impact:** Compliance benefit; buyers can access their signed agreements for records.
 
 ---
@@ -170,7 +170,7 @@ The SourceCo buyer experience is **substantially built and functional** across m
 | 1 | Receive invite link / navigate to /welcome | ⚠ Partial | No invite link flow; self-registration only via /welcome → /signup |
 | 2 | Register / create account | ✓ Working | 5-step form with draft persistence, validation, and buyer-type-specific fields |
 | 3 | Complete firm profile | ✓ Working | Step 4-5 of signup; can skip and complete later at /profile |
-| 4 | Complete DocuSeal fee agreement | ⚠ Not in onboarding | Fee agreement only shown at first connection request, not during signup |
+| 4 | Complete PandaDoc fee agreement | ⚠ Not in onboarding | Fee agreement only shown at first connection request, not during signup |
 | 5 | Land on dashboard | ⚠ Partial | Lands on marketplace (/), not a dedicated dashboard. No welcome message. |
 | 6 | Browse marketplace listings | ✓ Working | FilterPanel with category, location, revenue, EBITDA. Analytics tracked. |
 | 7 | Filter listings by industry/geography | ✓ Working | Filters functional; URL state may not persist visibly in address bar |
@@ -179,7 +179,7 @@ The SourceCo buyer experience is **substantially built and functional** across m
 | 10 | See connection request status | ✓ Working | Pending/Approved/Rejected badges on deal cards and in My Deals pipeline |
 | 11 | Receive admin message in deal thread | ✓ Working | Messages appear in thread with realtime updates; system messages visually distinct |
 | 12 | Reply to message | ✓ Working | Text input with Enter-to-send; rejected deals disable compose |
-| 13 | Sign NDA via DocuSeal | ✓ Working | Embedded DocuSeal form on PendingApproval page; immediate webhook confirmation |
+| 13 | Sign NDA via PandaDoc | ✓ Working | Embedded PandaDoc form on PendingApproval page; immediate webhook confirmation |
 | 14 | Access full CIM/deal materials after NDA | ✓ Working | DealDocumentsTab filters by access flags; data room enforced server-side |
 | 15 | View deal status progress | ✓ Working | 6-stage pipeline progress in DealDetailHeader; DealProcessSteps component |
 
@@ -195,12 +195,12 @@ The SourceCo buyer experience is **substantially built and functional** across m
 
 | Journey Phase | Status | Issues Found |
 |---|---|---|
-| Onboarding | ⚠ Partial | ProtectedRoute disabled (CRITICAL); fee agreement not in flow; no guided orientation; DocuSeal error has no retry |
+| Onboarding | ⚠ Partial | ProtectedRoute disabled (CRITICAL); fee agreement not in flow; no guided orientation; PandaDoc error has no retry |
 | Dashboard | ⚠ Partial | No dedicated dashboard; no "What's New" section; no sorting within My Deals |
 | Marketplace Browsing | ✓ Working | Filters, search, deal cards, save/bookmark all functional; memo gate enforced server-side |
 | Connection Request | ✓ Working | Form with AI draft, status visibility, professional rejection emails; missing confirmation email to buyer and response SLA |
 | Messaging | ✓ Working | Per-deal threads, system messages distinct, realtime updates; missing email notifications for admin messages, no file attachments, no typing indicators |
-| NDA & Documents | ✓ Working | DocuSeal embedded signing, immediate webhook confirmation, data room gating; buyer document download needs verification |
+| NDA & Documents | ✓ Working | PandaDoc embedded signing, immediate webhook confirmation, data room gating; buyer document download needs verification |
 | AI Recommendations | ⚠ Partial | Fully built for admin; NOT exposed to buyers; client-side match scoring exists but uses simpler algorithm |
 | Profile & Settings | ⚠ Partial | Full profile editing works; missing team members, notification preferences, account deletion, email change |
 
@@ -219,7 +219,7 @@ The SourceCo buyer experience is **substantially built and functional** across m
 | Deal context tracking | ✓ | `src/pages/Signup/index.tsx:67-80` | Captures which deal buyer viewed before signup; stored in localStorage |
 | Email verification | ✓ | `src/pages/SignupSuccess.tsx` | Supabase auth email verification; resend with rate limiting |
 | Pending approval page | ✓ | `src/pages/PendingApproval.tsx` | Shows 3-state UI (email not verified / under review / rejected); auto-polls every 30s |
-| NDA during pending approval | ✓ | `src/pages/PendingApproval.tsx:408-482` | DocuSeal NDA embedded while waiting; "Sign before approval for immediate access" |
+| NDA during pending approval | ✓ | `src/pages/PendingApproval.tsx:408-482` | PandaDoc NDA embedded while waiting; "Sign before approval for immediate access" |
 | Firm auto-creation | ✓ | `src/pages/PendingApproval.tsx:46-69` | Fallback: if firm doesn't exist (edge function failed), creates on PendingApproval load |
 | Onboarding walkthrough | ✓ | `src/components/onboarding/OnboardingPopup.tsx` | 4-step walkthrough: Deal Types → Sourcing → Fees → How to Get Selected |
 | Post-approval redirect | ⚠ | `src/pages/PendingApproval.tsx:116-123` | Silent redirect to marketplace; no welcome toast or confirmation |
@@ -262,7 +262,7 @@ The SourceCo buyer experience is **substantially built and functional** across m
 | Rejection email | ✓ | `supabase/functions/notify-buyer-rejection/index.ts` | Professional tone; uses listing title (not real company name) |
 | Rejection idempotency | ✗ | Same function | `correlationId` logged but not checked before sending; duplicate sends possible |
 | Status updates in thread | ✓ | `src/components/deals/DealActivityLog.tsx` | System messages appear in Activity Log; visually distinct (italic, centered, cream background) |
-| Fee agreement gate | ✓ | `src/components/docuseal/FeeAgreementGate.tsx` | Full-screen modal blocks connection request if firm hasn't signed; inline DocuSeal signing |
+| Fee agreement gate | ✓ | `src/components/pandadoc/FeeAgreementGate.tsx` | Full-screen modal blocks connection request if firm hasn't signed; inline PandaDoc signing |
 
 ### PHASE 5 — MESSAGING & DEAL THREADS
 
@@ -278,22 +278,22 @@ The SourceCo buyer experience is **substantially built and functional** across m
 | File attachments | ✗ | Not implemented | Text-only messaging |
 | Typing indicator | ✗ | Not implemented | No typing indicators |
 | Read receipts | ✗ | Not implemented | `is_read_by_buyer`/`is_read_by_admin` flags exist but not surfaced to users |
-| Duplicate message prevention | ⚠ | DocuSeal webhook has idempotency; general sends do not | `docuseal_webhook_log` checks for duplicates; regular message creation has no dedup |
+| Duplicate message prevention | ⚠ | PandaDoc webhook has idempotency; general sends do not | `pandadoc_webhook_log` checks for duplicates; regular message creation has no dedup |
 | Document signing from messages | ✓ | `src/pages/BuyerMessages/MessageThread.tsx:527-805` | PendingAgreementBanner shows NDA/fee status with inline signing, download, and "Questions?" dialog |
 
 ### PHASE 6 — NDA & DOCUMENT ACCESS
 
 | Item | Status | File Location | Finding |
 |------|--------|---------------|---------|
-| NDA delivery | ✓ | `src/pages/PendingApproval.tsx` + `supabase/functions/get-buyer-nda-embed/` | Embedded DocuSeal form; auto-creates submission if none exists |
-| NDA confirmation | ✓ | `supabase/functions/docuseal-webhook-handler/` | Webhook fires on completion; updates `firm_agreements` + all firm members |
+| NDA delivery | ✓ | `src/pages/PendingApproval.tsx` + `supabase/functions/get-buyer-nda-embed/` | Embedded PandaDoc form; auto-creates submission if none exists |
+| NDA confirmation | ✓ | `supabase/functions/pandadoc-webhook-handler/` | Webhook fires on completion; updates `firm_agreements` + all firm members |
 | Deal thread update | ✓ | Same webhook handler | System message posted: "Your NDA has been signed successfully" |
 | Re-access signed NDA | ⚠ | `src/pages/Profile/ProfileDocuments.tsx` | Component exists to show signed docs; depends on `nda_signed_document_url` being populated |
 | Document access after NDA | ✓ | `src/components/deals/DealDocumentsTab.tsx` | Filters by `can_view_teaser`, `can_view_full_memo`, `can_view_data_room` |
 | Download vs view-only | ✓ | Same file | `allow_download` flag per document; admin configurable |
 | Document access log | ⚠ | `supabase/functions/record-data-room-view/` | Edge function logs doc access; not exposed to buyer |
 | Empty data room state | ✓ | `src/components/deals/DealDocumentsTab.tsx` | "The SourceCo team will share documents as the deal progresses" |
-| Self-healing NDA status | ✓ | `supabase/functions/get-buyer-nda-embed/index.ts:127-162` | Detects if DocuSeal says signed but DB doesn't, and corrects |
+| Self-healing NDA status | ✓ | `supabase/functions/get-buyer-nda-embed/index.ts:127-162` | Detects if PandaDoc says signed but DB doesn't, and corrects |
 
 ### PHASE 7 — AI RECOMMENDATIONS
 
@@ -328,12 +328,12 @@ The SourceCo buyer experience is **substantially built and functional** across m
 |----------|--------|---------|
 | Unauthorized URL access | ✓ (DB) / ✗ (Route) | RLS prevents data access; but ProtectedRoute bypass lets UI render |
 | Connection request for sold deal | ⚠ | ListingStatusTag shows status but ConnectionButton may still be active |
-| DocuSeal down during NDA | ⚠ | Generic error message; no retry button; no fallback |
-| Refresh mid-DocuSeal signing | ⚠ | No `beforeunload` warning; DocuSeal session may be lost |
+| PandaDoc down during NDA | ⚠ | Generic error message; no retry button; no fallback |
+| Refresh mid-PandaDoc signing | ⚠ | No `beforeunload` warning; PandaDoc session may be lost |
 | Session expiry during deal view | ⚠ | Session monitoring exists (`use-session-monitoring.ts`); no graceful "session expired" modal |
 | Mobile responsiveness | ✓ | Tailwind responsive grid; mobile detection hook; proper column stacking |
 | Deal cards on mobile | ✓ | No horizontal scrolling; proper text wrapping |
-| DocuSeal on mobile | ⚠ | Embedded iframe should scale; untested for touch interactions |
+| PandaDoc on mobile | ⚠ | Embedded iframe should scale; untested for touch interactions |
 | Messaging on mobile | ✓ | Two-pane collapses to single pane; back button on mobile; touch-friendly |
 
 ---
@@ -346,7 +346,7 @@ The SourceCo buyer experience is **substantially built and functional** across m
 | Deal detail page load | < 2s | ✓ Likely | Single listing fetch + connection status check |
 | Connection request submission | < 1s | ✓ Likely | Single RPC call with fire-and-forget scoring |
 | Message send and display | < 1s | ✓ Likely | Supabase realtime subscription; optimistic UI possible |
-| DocuSeal signing frame load | < 3s | ⚠ External | Depends on DocuSeal API; 15s timeout configured in edge function |
+| PandaDoc signing frame load | < 3s | ⚠ External | Depends on PandaDoc API; 15s timeout configured in edge function |
 
 ---
 
@@ -356,7 +356,7 @@ The SourceCo buyer experience is **substantially built and functional** across m
 |---|---|
 | Deal tabs were truncated text with colored dots — no status, no next action | ✓ FIXED — DealProcessSteps shows 6-stage pipeline with clear status and next actions |
 | Connection requests and messaging were two disconnected systems | ✓ FIXED — Unified into deal threads; messages and status updates share `connection_messages` table |
-| Same NDA and fee agreement notification sent twice in same thread | ⚠ PARTIALLY FIXED — DocuSeal webhook has dedup check; but rejection emails and general system messages lack idempotency |
+| Same NDA and fee agreement notification sent twice in same thread | ⚠ PARTIALLY FIXED — PandaDoc webhook has dedup check; but rejection emails and general system messages lack idempotency |
 | No consolidated action hub | ✓ FIXED — ActionHub component aggregates pending NDA, fee agreement, and unread messages |
 | No in-app guided orientation | ✓ EXISTS — OnboardingPopup with 4-step walkthrough (Deal Types → Sourcing → Fees → How to Get Selected) |
 | Save/bookmark feature not built | ✓ BUILT — Full save/unsave with SavedListings page |

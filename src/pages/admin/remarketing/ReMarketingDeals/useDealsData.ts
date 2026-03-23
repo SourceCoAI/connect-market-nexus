@@ -8,7 +8,7 @@ import { useFilterEngine } from '@/hooks/use-filter-engine';
 import { DEAL_LISTING_FIELDS } from '@/components/filters';
 import { useTimeframe } from '@/hooks/use-timeframe';
 import { useSavedViews } from '@/hooks/use-saved-views';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 import type { DealListing, ColumnWidths } from '../types';
 import { DEFAULT_COLUMN_WIDTHS } from '../types';
@@ -28,6 +28,7 @@ export function useDealsData() {
   const [employeeFilter] = useState<string>('all');
   const [referralPartnerFilter] = useState<string>('all');
   const [universeBuildFilter, setUniverseBuildFilter] = useState<boolean>(false);
+  const [hideNotAFit, setHideNotAFit] = useState<boolean>(true);
 
   const { data: adminProfiles } = useAdminProfiles();
 
@@ -86,7 +87,8 @@ export function useDealsData() {
             needs_buyer_search, needs_buyer_search_at,
             universe_build_flagged, universe_build_flagged_at, universe_build_flagged_by,
             is_internal_deal,
-            pushed_to_marketplace, pushed_to_marketplace_at, pushed_to_marketplace_by
+            pushed_to_marketplace, pushed_to_marketplace_at, pushed_to_marketplace_by,
+            not_a_fit, not_a_fit_reason
           `,
           )
           .is('deleted_at', null)
@@ -94,7 +96,7 @@ export function useDealsData() {
           .or('status.eq.active,status.is.null')
           .or(
             'deal_source.in.(marketplace,manual,referral,remarketing,salesforce_remarketing),' +
-              'and(deal_source.in.(captarget,valuation_calculator,valuation_lead,gp_partners),pushed_to_all_deals.eq.true)',
+              'and(deal_source.in.(captarget,valuation_calculator,valuation_lead,gp_partners,sourceco),pushed_to_all_deals.eq.true)',
           )
           .order('manual_rank_override', { ascending: true, nullsFirst: false })
           .order('deal_total_score', { ascending: false, nullsFirst: true })
@@ -289,6 +291,7 @@ export function useDealsData() {
           if (dateFilter === '90d' && daysDiff > 90) return false;
         }
       }
+      if (hideNotAFit && listing.not_a_fit) return false;
       if (universeBuildFilter && !listing.universe_build_flagged) return false;
       if (dealTab === 'marketplace') {
         if (listing.is_internal_deal !== false || listing.status !== 'active') return false;
@@ -320,6 +323,7 @@ export function useDealsData() {
     employeeFilter,
     referralPartnerFilter,
     scoreStats,
+    hideNotAFit,
     universeBuildFilter,
     dealTab,
     pipelineCounts,
@@ -470,6 +474,8 @@ export function useDealsData() {
     setShowCustomDatePicker,
     universeBuildFilter,
     setUniverseBuildFilter,
+    hideNotAFit,
+    setHideNotAFit,
     dealTab,
     setDealTab,
     filteredListings,

@@ -277,7 +277,7 @@ Deno.serve(async (req: Request) => {
     const emailResult = await sendViaBervo({
       to: emailTrimmed,
       toName: buyer_name,
-      subject: `Data Room Access — Project ${deal.project_name || deal.title || 'Confidential'}`,
+      subject: `Data room open — Project ${deal.project_name || deal.title || 'Confidential'}`,
       htmlContent: buildDataRoomEmailHtml(projectName, escapedBuyerName, dataRoomUrl),
       senderName: 'SourceCo Deal Team',
       replyToEmail: Deno.env.get('ADMIN_NOTIFICATION_EMAIL') || 'deals@sourcecodeals.com',
@@ -346,14 +346,11 @@ function buildDataRoomEmailHtml(
     <h1>Data Room Access — Project ${projectName}</h1>
   </div>
   <div class="content">
-    <p>Dear ${buyerName},</p>
-    <p>You have been granted access to the data room for <strong>Project ${projectName}</strong>. The data room contains detailed diligence materials for your review.</p>
-    <p>Please click the link below to access the data room:</p>
-    <p><a href="${dataRoomUrl}" class="cta-button">Access Data Room</a></p>
-    <div class="note">
-      This is a private, secure link generated exclusively for you. Please do not share or forward this link. All access and document views are tracked.
-    </div>
-    <p>If you have any questions about the materials or would like to discuss the opportunity further, please reply to this email.</p>
+    <p>Hi ${buyerName},</p>
+    <p>You've been granted access to the data room for <strong>Project ${projectName}</strong>.</p>
+    <p>The data room contains deal details, supporting documentation, and diligence materials. Your access link is personal — please don't share or forward it. All access is tracked.</p>
+    <p><a href="${dataRoomUrl}" class="cta-button">Open Data Room</a></p>
+    <p>If you have questions about the materials or want to discuss the opportunity, reply to this email — it goes directly to our deal team.</p>
   </div>
   <div class="signature">
     <p>SourceCo Deal Team<br>SourceCo</p>

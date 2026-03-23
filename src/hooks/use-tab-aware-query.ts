@@ -1,16 +1,18 @@
-
 /**
  * Tab Aware Query Hook (Phase 6)
- * 
+ *
  * Prevents infinite loading loops when switching tabs by managing query state intelligently.
  * Only refetches when truly necessary and tab has been visible for sufficient time.
  */
 
 import { useQuery, QueryKey, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { useTabVisibility } from '@/context/TabVisibilityContext';
+import { useTabVisibility } from '@/contexts/TabVisibilityContext';
 
-interface TabAwareQueryOptions<TData, TError> extends Omit<UseQueryOptions<TData, TError>, 'queryKey' | 'queryFn'> {
+interface TabAwareQueryOptions<TData, TError> extends Omit<
+  UseQueryOptions<TData, TError>,
+  'queryKey' | 'queryFn'
+> {
   // Custom options for tab awareness
   refetchOnVisibilityChange?: boolean;
   minVisibleTimeBeforeRefetch?: number; // ms
@@ -20,7 +22,7 @@ interface TabAwareQueryOptions<TData, TError> extends Omit<UseQueryOptions<TData
 export function useTabAwareQuery<TData = unknown, TError = Error>(
   queryKey: QueryKey,
   queryFn: () => Promise<TData>,
-  options: TabAwareQueryOptions<TData, TError> = {}
+  options: TabAwareQueryOptions<TData, TError> = {},
 ): UseQueryResult<TData, TError> {
   const tabVisibility = useTabVisibility();
   const [isTabVisible, setIsTabVisible] = useState(tabVisibility.getVisibility());
@@ -63,7 +65,7 @@ export function useTabAwareQuery<TData = unknown, TError = Error>(
     ...queryOptions,
     queryKey,
     queryFn,
-    enabled: (queryOptions.enabled !== false) && shouldRefetch(),
+    enabled: queryOptions.enabled !== false && shouldRefetch(),
     refetchOnWindowFocus: false, // We handle this manually with global config
     refetchOnMount: shouldRefetch(),
     refetchOnReconnect: shouldRefetch(),
@@ -75,7 +77,7 @@ export function useTabAwareQuery<TData = unknown, TError = Error>(
   useEffect(() => {
     if (refetchOnVisibilityChange && isTabVisible && queryResult.refetch) {
       const timeSinceVisible = Date.now() - lastVisibilityChange;
-      
+
       // Only refetch if explicitly requested and enough time has passed
       if (timeSinceVisible >= minVisibleTimeBeforeRefetch && !queryResult.isFetching) {
         // Small delay to avoid race conditions
@@ -86,7 +88,15 @@ export function useTabAwareQuery<TData = unknown, TError = Error>(
         return () => clearTimeout(timeoutId);
       }
     }
-  }, [isTabVisible, lastVisibilityChange, refetchOnVisibilityChange, minVisibleTimeBeforeRefetch, queryResult.refetch, queryResult.isFetching, queryKey]);
+  }, [
+    isTabVisible,
+    lastVisibilityChange,
+    refetchOnVisibilityChange,
+    minVisibleTimeBeforeRefetch,
+    queryResult.refetch,
+    queryResult.isFetching,
+    queryKey,
+  ]);
 
   return queryResult;
 }
@@ -95,7 +105,7 @@ export function useTabAwareQuery<TData = unknown, TError = Error>(
 export function useTabAwareMarketplaceQuery<TData = unknown, TError = Error>(
   queryKey: QueryKey,
   queryFn: () => Promise<TData>,
-  options: TabAwareQueryOptions<TData, TError> = {}
+  options: TabAwareQueryOptions<TData, TError> = {},
 ): UseQueryResult<TData, TError> {
   return useTabAwareQuery(queryKey, queryFn, {
     staleTime: 5 * 60 * 1000, // 5 minutes

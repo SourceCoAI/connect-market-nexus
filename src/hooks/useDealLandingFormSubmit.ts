@@ -22,6 +22,7 @@ export function useDealLandingFormSubmit(listingId: string) {
   const submissionTimestamps = useRef<number[]>([]);
 
   const submit = async (formData: FormData) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setError(null);
 
@@ -38,6 +39,33 @@ export function useDealLandingFormSubmit(listingId: string) {
     submissionTimestamps.current.push(now);
 
     try {
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setError('Please enter a valid email address.');
+        return;
+      }
+
+      // Validate message length
+      if (formData.message && formData.message.length > 2000) {
+        setError('Message must be under 2000 characters.');
+        return;
+      }
+      // Audit P2: Check for duplicate connection request by email + listing
+      const { data: existing } = await supabase
+        .from('connection_requests')
+        .select('id')
+        .eq('listing_id', listingId)
+        .eq('lead_email', formData.email)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        // Already submitted — treat as success to avoid confusing the user
+        setIsSuccess(true);
+        return;
+      }
+
       const { error: insertError } = await supabase.from('connection_requests').insert({
         listing_id: listingId,
         status: 'pending',

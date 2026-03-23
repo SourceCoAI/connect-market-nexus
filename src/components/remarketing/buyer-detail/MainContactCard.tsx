@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Star, Plus, Mail, Phone, Linkedin, Users } from "lucide-react";
+import { Star, Plus, Mail, Linkedin, Users } from "lucide-react";
+import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -129,13 +130,13 @@ export const MainContactCard = ({
                       </a>
                     )}
                     {selectedContact.phone && (
-                      <a 
-                        href={`tel:${selectedContact.phone}`}
-                        className="inline-flex items-center gap-1 text-xs hover:underline"
-                      >
-                        <Phone className="h-3 w-3" />
-                        Call
-                      </a>
+                      <ClickToDialPhone
+                        phone={selectedContact.phone}
+                        name={selectedContact.name || undefined}
+                        email={selectedContact.email || undefined}
+                        label="Call"
+                        size="xs"
+                      />
                     )}
                     {selectedContact.linkedin_url && (
                       <a 

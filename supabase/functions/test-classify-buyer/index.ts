@@ -89,6 +89,13 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    if (Deno.env.get('ENABLE_TEST_FUNCTIONS') !== 'true') {
+      return new Response(JSON.stringify({ error: 'Test functions are disabled in this environment' }), {
+        status: 404,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      });
+    }
+
     const body = await req.json();
     const mode = body.mode || 'random';
 

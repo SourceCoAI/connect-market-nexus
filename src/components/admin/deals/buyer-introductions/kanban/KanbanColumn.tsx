@@ -39,6 +39,8 @@ const COLUMN_CONFIG: Record<
 interface KanbanColumnProps {
   column: KanbanColumnType;
   buyers: BuyerIntroduction[];
+  resolvedBuyerIds?: Record<string, string | null>;
+  resolvedPeFirmNames?: Record<string, string | null>;
   onAddBuyer?: () => void;
   onIntroduce?: (buyer: BuyerIntroduction) => void;
   onMarkInterested?: (buyer: BuyerIntroduction) => void;
@@ -52,6 +54,8 @@ interface KanbanColumnProps {
 export function KanbanColumn({
   column,
   buyers,
+  resolvedBuyerIds,
+  resolvedPeFirmNames,
   onAddBuyer,
   onIntroduce,
   onMarkInterested,
@@ -152,6 +156,8 @@ export function KanbanColumn({
                 key={buyer.id}
                 buyer={buyer}
                 column={column}
+                resolvedBuyerId={resolvedBuyerIds?.[buyer.id] ?? null}
+                resolvedPeFirmName={resolvedPeFirmNames?.[buyer.id] ?? null}
                 onIntroduce={onIntroduce}
                 onMarkInterested={onMarkInterested}
                 onMarkPassed={onMarkPassed}

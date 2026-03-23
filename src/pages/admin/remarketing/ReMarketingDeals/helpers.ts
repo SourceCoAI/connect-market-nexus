@@ -27,7 +27,7 @@ export const formatGeographyBadges = (states: string[] | null): string | null =>
 };
 
 export const formatCurrency = (value: number | null) => {
-  if (!value) return '\u2014';
+  if (value === null || value === undefined) return '\u2014';
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
   return `$${value}`;

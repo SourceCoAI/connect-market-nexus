@@ -5,14 +5,12 @@ import { AdminConnectionRequest } from '@/types/admin';
 export type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'on_hold';
 export type BuyerTypeFilter =
   | 'all'
-  | 'privateEquity'
-  | 'familyOffice'
-  | 'searchFund'
+  | 'private_equity'
   | 'corporate'
-  | 'individual'
-  | 'independentSponsor'
-  | 'advisor'
-  | 'businessOwner';
+  | 'family_office'
+  | 'independent_sponsor'
+  | 'search_fund'
+  | 'individual_buyer';
 export type NdaFilter = 'all' | 'signed' | 'not_signed' | 'sent';
 export type FeeAgreementFilter = 'all' | 'signed' | 'not_signed' | 'sent';
 export type SortOption =
@@ -111,19 +109,17 @@ export function usePipelineFilters(requests: AdminConnectionRequest[]) {
   // Buyer type priority mapping (higher number = higher priority)
   const getBuyerPriority = (buyerType: string | undefined): number => {
     switch (buyerType) {
-      case 'privateEquity':
+      case 'private_equity':
         return 6;
-      case 'independentSponsor':
+      case 'independent_sponsor':
         return 5;
-      case 'familyOffice':
+      case 'family_office':
         return 4;
       case 'corporate':
         return 3;
-      case 'businessOwner':
+      case 'search_fund':
         return 2;
-      case 'individual':
-        return 1;
-      case 'advisor':
+      case 'individual_buyer':
         return 1;
       default:
         return 0;
@@ -143,37 +139,32 @@ export function usePipelineFilters(requests: AdminConnectionRequest[]) {
       filtered = filtered.filter((request) => request.user?.buyer_type === buyerTypeFilter);
     }
 
-    // Apply NDA filter
+    // Apply NDA filter — use only CR-level fields, never stale profile booleans
     if (ndaFilter !== 'all') {
       filtered = filtered.filter((request) => {
-        const ndaSigned = request.lead_nda_signed || request.user?.nda_signed;
-        const ndaSent = request.lead_nda_email_sent || request.user?.nda_email_sent;
         switch (ndaFilter) {
           case 'signed':
-            return !!ndaSigned;
+            return !!request.lead_nda_signed;
           case 'not_signed':
-            return !ndaSigned;
+            return !request.lead_nda_signed;
           case 'sent':
-            return !!ndaSent && !ndaSigned;
+            return !!request.lead_nda_email_sent && !request.lead_nda_signed;
           default:
             return true;
         }
       });
     }
 
-    // Apply Fee Agreement filter
+    // Apply Fee Agreement filter — use only CR-level fields, never stale profile booleans
     if (feeAgreementFilter !== 'all') {
       filtered = filtered.filter((request) => {
-        const feeSigned = request.lead_fee_agreement_signed || request.user?.fee_agreement_signed;
-        const feeSent =
-          request.lead_fee_agreement_email_sent || request.user?.fee_agreement_email_sent;
         switch (feeAgreementFilter) {
           case 'signed':
-            return !!feeSigned;
+            return !!request.lead_fee_agreement_signed;
           case 'not_signed':
-            return !feeSigned;
+            return !request.lead_fee_agreement_signed;
           case 'sent':
-            return !!feeSent && !feeSigned;
+            return !!request.lead_fee_agreement_email_sent && !request.lead_fee_agreement_signed;
           default:
             return true;
         }

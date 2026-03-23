@@ -1,15 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-
-type UntypedTable = Parameters<typeof supabase.from>[0];
+import { supabase, untypedFrom } from '@/integrations/supabase/client';
 
 interface AliasRow {
   id: string;
   profile_id: string;
   alias: string;
 }
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,9 +29,7 @@ export function TeamMemberRegistry() {
         .select('user_id, role, profiles!inner(id, first_name, last_name, email)')
         .in('role', ['owner', 'admin', 'moderator']);
 
-      const { data: aliases } = await supabase
-        .from('team_member_aliases' as UntypedTable)
-        .select('*');
+      const { data: aliases } = await untypedFrom('team_member_aliases').select('*');
 
       const aliasMap = new Map<string, { id: string; alias: string }[]>();
       for (const a of (aliases || []) as unknown as AliasRow[]) {
@@ -69,7 +65,7 @@ export function TeamMemberRegistry() {
   // Add alias mutation
   const addAlias = useMutation({
     mutationFn: async ({ profileId, alias }: { profileId: string; alias: string }) => {
-      const { error } = await (supabase.from('team_member_aliases' as UntypedTable).insert as any)({
+      const { error } = await untypedFrom('team_member_aliases').insert({
         profile_id: profileId,
         alias: alias.trim(),
         created_by: user?.id,
@@ -88,10 +84,7 @@ export function TeamMemberRegistry() {
   // Remove alias mutation
   const removeAlias = useMutation({
     mutationFn: async (aliasId: string) => {
-      const { error } = await supabase
-        .from('team_member_aliases' as UntypedTable)
-        .delete()
-        .eq('id', aliasId);
+      const { error } = await untypedFrom('team_member_aliases').delete().eq('id', aliasId);
       if (error) throw error;
     },
     onSuccess: () => {

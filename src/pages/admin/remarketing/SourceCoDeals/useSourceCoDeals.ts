@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useShiftSelect } from '@/hooks/useShiftSelect';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
@@ -12,7 +12,7 @@ import {
   useGlobalGateCheck,
   useGlobalActivityMutations,
 } from '@/hooks/remarketing/useGlobalActivityQueue';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAdminProfiles } from '@/hooks/admin/use-admin-profiles';
 import { useEnrichmentProgress } from '@/hooks/useEnrichmentProgress';
 import type { SourceCoDeal, SortColumn, SortDirection, NewDealForm } from './types';
@@ -127,7 +127,7 @@ export function useSourceCoDeals() {
             pushed_to_all_deals, pushed_to_all_deals_at, deal_source, status,
             created_at, enriched_at, deal_total_score, linkedin_employee_count,
             linkedin_employee_range, google_rating, google_review_count,
-            is_priority_target, need_buyer_universe, needs_owner_contact,
+            is_priority_target, needs_owner_contact,
             category, executive_summary, industry, revenue, ebitda, location,
             address_city, address_state, deal_owner_id, remarketing_status,
             deal_owner:profiles!listings_deal_owner_id_fkey(id, first_name, last_name, email)
@@ -240,10 +240,6 @@ export function useSourceCoDeals() {
     return filteredDeals.slice(start, start + PAGE_SIZE);
   }, [filteredDeals, safePage]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filterState, sortColumn, sortDirection, setCurrentPage]);
-
   const handleSort = (col: SortColumn) => {
     setSearchParams(
       (prev) => {
@@ -254,6 +250,8 @@ export function useSourceCoDeals() {
           next.set('sort', col);
           next.set('dir', 'asc');
         }
+        // Reset pagination when sort changes
+        next.delete('cp');
         return next;
       },
       { replace: true },
@@ -347,6 +345,10 @@ export function useSourceCoDeals() {
       }
       setIsEnriching(true);
 
+      // When mode='all', force re-enrichment even for already-enriched deals
+      // so notes analysis and other pipeline steps run again.
+      const forceReEnrich = mode === 'all';
+
       let activityItem: { id: string } | null = null;
       try {
         const result = await startOrQueueMajorOp({
@@ -374,6 +376,7 @@ export function useSourceCoDeals() {
           status: 'pending' as const,
           attempts: 0,
           queued_at: now,
+          ...(forceReEnrich ? { force: true } : {}),
         }));
 
       const CHUNK = 500;
@@ -399,14 +402,28 @@ export function useSourceCoDeals() {
           { body: { source: 'sourceco_bulk' } },
         );
         if (resultError) throw resultError;
-        if (result?.synced > 0 || result?.processed > 0) {
-          const totalDone = (result?.synced || 0) + (result?.processed || 0);
-          if (activityItem)
+
+        const synced = Number(result?.synced || 0);
+        const processed = Number(result?.processed || 0);
+        const remaining = Number(result?.remaining || 0);
+
+        if (synced > 0 || processed > 0) {
+          const totalDone = synced + processed;
+          if (activityItem) {
             updateProgress.mutate({ id: activityItem.id, completedItems: totalDone });
-          if (result?.processed === 0) {
-            sonnerToast.success(`All ${result.synced} deals were already enriched`);
-            if (activityItem)
-              completeOperation.mutate({ id: activityItem.id, finalStatus: 'completed' });
+          }
+
+          if (processed === 0 && synced > 0) {
+            if (remaining > 0) {
+              sonnerToast.info(
+                `${synced} deals were already enriched in the first batch. Continuing ${remaining} remaining in background.`,
+              );
+            } else {
+              sonnerToast.success(`All ${synced} deals were already enriched`);
+              if (activityItem) {
+                completeOperation.mutate({ id: activityItem.id, finalStatus: 'completed' });
+              }
+            }
           }
         }
       } catch {
@@ -464,9 +481,11 @@ export function useSourceCoDeals() {
 
   // Enrich selected deals
   const handleEnrichSelected = useCallback(
-    async (dealIds: string[]) => {
+    async (dealIds: string[], options?: { force?: boolean }) => {
       if (dealIds.length === 0) return;
       setIsEnriching(true);
+
+      const forceReEnrich = options?.force ?? false;
 
       let activityItem: { id: string } | null = null;
       try {
@@ -498,7 +517,13 @@ export function useSourceCoDeals() {
           seen.add(id);
           return true;
         })
-        .map((id) => ({ listing_id: id, status: 'pending' as const, attempts: 0, queued_at: now }));
+        .map((id) => ({
+          listing_id: id,
+          status: 'pending' as const,
+          attempts: 0,
+          queued_at: now,
+          ...(forceReEnrich ? { force: true } : {}),
+        }));
 
       const CHUNK = 500;
       for (let i = 0; i < rows.length; i += CHUNK) {
@@ -524,10 +549,22 @@ export function useSourceCoDeals() {
           { body: { source: 'sourceco_selected' } },
         );
         if (resultError) throw resultError;
-        if (result?.synced > 0 || result?.processed > 0) {
-          const totalDone = (result?.synced || 0) + (result?.processed || 0);
-          if (activityItem)
+
+        const synced = Number(result?.synced || 0);
+        const processed = Number(result?.processed || 0);
+        const remaining = Number(result?.remaining || 0);
+
+        if (synced > 0 || processed > 0) {
+          const totalDone = synced + processed;
+          if (activityItem) {
             updateProgress.mutate({ id: activityItem.id, completedItems: totalDone });
+          }
+
+          if (processed === 0 && synced > 0 && remaining > 0) {
+            sonnerToast.info(
+              `${synced} selected deals were already enriched in the first batch. Continuing ${remaining} remaining in background.`,
+            );
+          }
         }
       } catch {
         /* Non-blocking */

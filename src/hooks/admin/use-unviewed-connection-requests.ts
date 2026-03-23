@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
 
 // TODO: Phase 6 — migrate admin_view_state read to data access layer: getAdminLastViewed() from '@/lib/data-access'
@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 // The second query (.from('connection_requests') count) has no data access equivalent yet.
 export function useUnviewedConnectionRequests() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ['unviewed-connection-requests-count'],
@@ -27,9 +28,7 @@ export function useUnviewedConnectionRequests() {
 
       // If never viewed, count all requests
       // If viewed before, count requests created after that timestamp
-      let query = supabase
-        .from('connection_requests')
-        .select('id', { count: 'exact', head: true });
+      let query = supabase.from('connection_requests').select('id', { count: 'exact', head: true });
 
       if (lastViewedAt) {
         query = query.gt('created_at', lastViewedAt);
@@ -58,16 +57,15 @@ export function useUnviewedConnectionRequests() {
           table: 'connection_requests',
         },
         () => {
-          // Invalidate the query to refetch the count
-          query.refetch();
-        }
+          queryClient.invalidateQueries({ queryKey: ['unviewed-connection-requests-count'] });
+        },
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [user?.id, queryClient]);
 
   return {
     unviewedCount: query.data || 0,

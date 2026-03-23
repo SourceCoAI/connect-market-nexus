@@ -1,9 +1,9 @@
-import { useAuth } from '@/context/AuthContext';
-import { 
-  type ProtectedAuthContextType, 
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  type ProtectedAuthContextType,
   type SignupFlowState,
   SIGNUP_FLOW_STATES,
-  validateSignupStateTransition 
+  validateSignupStateTransition,
 } from '../types/auth.types';
 
 export const useProtectedAuth = (): ProtectedAuthContextType => {
@@ -11,7 +11,7 @@ export const useProtectedAuth = (): ProtectedAuthContextType => {
 
   // Protected signup flow state management
   const signupFlowState: SignupFlowState = SIGNUP_FLOW_STATES.IDLE; // This would be managed in context
-  
+
   const transitionSignupState = (newState: SignupFlowState) => {
     try {
       validateSignupStateTransition(signupFlowState, newState);
@@ -35,6 +35,6 @@ export const useProtectedAuth = (): ProtectedAuthContextType => {
     isBuyer: context.isBuyer,
     authChecked: context.authChecked,
     signupFlowState,
-    transitionSignupState
+    transitionSignupState,
   };
 };

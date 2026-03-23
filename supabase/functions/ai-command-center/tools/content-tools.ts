@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Content Generation Tools
  * Meeting prep briefs, outreach email drafts, pipeline reports.
@@ -134,9 +135,9 @@ async function generateMeetingPrep(
   const buyerId = args.buyer_id as string | undefined;
 
   // Parallel fetch: deal + tasks + transcripts + (optional) buyer + score
-  const queries: Promise<unknown>[] = [
-    supabase.from('listings').select('*').eq('id', dealId).single(),
-    supabase
+  const queries: Promise<any>[] = [
+    (supabase as any).from('listings').select('*').eq('id', dealId).single(),
+    (supabase as any)
       .from('daily_standup_tasks')
       .select('id, title, status, priority, due_date, assignee_id')
       .eq('entity_type', 'deal')
@@ -144,19 +145,19 @@ async function generateMeetingPrep(
       .in('status', ['pending', 'in_progress', 'pending_approval'])
       .order('due_date', { ascending: true, nullsFirst: false })
       .limit(10),
-    supabase
+    (supabase as any)
       .from('deal_transcripts')
       .select('id, title, call_date, extracted_data, meeting_attendees, duration_minutes')
       .eq('listing_id', dealId)
       .order('call_date', { ascending: false, nullsFirst: false })
       .limit(5),
-    supabase
+    (supabase as any)
       .from('call_transcripts')
       .select('id, created_at, call_type, ceo_detected, key_quotes, extracted_insights')
       .eq('listing_id', dealId)
       .order('created_at', { ascending: false })
       .limit(5),
-    supabase
+    (supabase as any)
       .from('deal_activities')
       .select('id, title, activity_type, description, created_at')
       .eq('deal_id', dealId)
@@ -167,14 +168,14 @@ async function generateMeetingPrep(
   // Add buyer-specific queries if buyer is specified
   if (buyerId) {
     queries.push(
-      supabase.from('buyers').select('*').eq('id', buyerId).single(),
-      supabase
+      (supabase as any).from('buyers').select('*').eq('id', buyerId).single(),
+      (supabase as any)
         .from('remarketing_scores')
         .select('*')
         .eq('buyer_id', buyerId)
         .eq('listing_id', dealId)
         .single(),
-      supabase
+      (supabase as any)
         .from('contacts')
         .select('*')
         .eq('remarketing_buyer_id', buyerId)
@@ -220,34 +221,34 @@ async function draftOutreachEmail(
 
   // Parallel fetch: deal + buyer + score + contacts + past outreach
   const [dealResult, buyerResult, scoreResult, contactsResult, accessResult] = await Promise.all([
-    supabase
+    (supabase as any)
       .from('listings')
       .select(
         'id, title, industry, services, revenue, ebitda, location, address_state, geographic_states, executive_summary, investment_thesis, business_model, number_of_locations, full_time_employees',
       )
       .eq('id', dealId)
       .single(),
-    supabase
+    (supabase as any)
       .from('buyers')
       .select(
         'id, company_name, pe_firm_name, buyer_type, target_services, target_geographies, target_revenue_min, target_revenue_max, thesis_summary, acquisition_appetite, business_summary',
       )
       .eq('id', buyerId)
       .single(),
-    supabase
+    (supabase as any)
       .from('remarketing_scores')
       .select('composite_score, geography_score, service_score, size_score, fit_reasoning')
       .eq('buyer_id', buyerId)
       .eq('listing_id', dealId)
       .single(),
-    supabase
+    (supabase as any)
       .from('contacts')
       .select('*')
       .eq('remarketing_buyer_id', buyerId)
       .eq('archived', false)
       .order('is_primary_at_firm', { ascending: false })
       .limit(3),
-    supabase
+    (supabase as any)
       .from('deal_data_room_access')
       .select('buyer_name, buyer_email, granted_at, is_active')
       .eq('deal_id', dealId)
@@ -281,26 +282,26 @@ async function generatePipelineReport(
   // Parallel fetch: current pipeline + recent activities + recent scoring + data room grants
   const [dealsResult, activitiesResult, scoresResult, accessResult, tasksResult] =
     await Promise.all([
-      supabase
+      (supabase as any)
         .from('listings')
         .select(
           'id, title, status, deal_source, industry, revenue, ebitda, deal_total_score, is_priority_target, remarketing_status, updated_at',
         )
         .is('deleted_at', null),
-      supabase
+      (supabase as any)
         .from('deal_activities')
         .select('deal_id, activity_type, title, created_at')
         .gte('created_at', cutoffDate)
         .order('created_at', { ascending: false }),
-      supabase
+      (supabase as any)
         .from('remarketing_scores')
         .select('buyer_id, listing_id, status, composite_score, updated_at')
         .gte('updated_at', cutoffDate),
-      supabase
+      (supabase as any)
         .from('deal_data_room_access')
         .select('deal_id, buyer_name, granted_at, is_active')
         .gte('granted_at', cutoffDate),
-      supabase
+      (supabase as any)
         .from('daily_standup_tasks')
         .select('entity_id, title, status, completed_at')
         .eq('entity_type', 'deal')
@@ -318,19 +319,19 @@ async function generatePipelineReport(
   const bySource: Record<string, number> = {};
   let totalRevenue = 0;
 
-  for (const d of deals) {
+  for (const d of deals as any[]) {
     byStatus[d.status] = (byStatus[d.status] || 0) + 1;
     bySource[d.deal_source || 'unknown'] = (bySource[d.deal_source || 'unknown'] || 0) + 1;
     totalRevenue += d.revenue || 0;
   }
 
   const activityByType: Record<string, number> = {};
-  for (const a of activities) {
+  for (const a of activities as any[]) {
     activityByType[a.activity_type] = (activityByType[a.activity_type] || 0) + 1;
   }
 
   const scoreStatusChanges: Record<string, number> = {};
-  for (const s of scores) {
+  for (const s of scores as any[]) {
     scoreStatusChanges[s.status] = (scoreStatusChanges[s.status] || 0) + 1;
   }
 
@@ -420,10 +421,9 @@ async function generateEodRecap(
   const endStr = endDate.toISOString();
 
   // Parallel: activities, tasks completed, tasks created, outreach, data room grants
-  const queries: Promise<unknown>[] = [
-    // Activities logged in period
+  const queries: Promise<any>[] = [
     (() => {
-      let q = supabase
+      let q = (supabase as any)
         .from('deal_activities')
         .select('deal_id, activity_type, title, description, created_at')
         .gte('created_at', startStr)
@@ -433,9 +433,8 @@ async function generateEodRecap(
       if (userId) q = q.eq('admin_id', userId);
       return q;
     })(),
-    // Tasks completed in period (from unified daily_standup_tasks)
     (() => {
-      let q = supabase
+      let q = (supabase as any)
         .from('daily_standup_tasks')
         .select('id, title, entity_id, priority, completed_at')
         .eq('status', 'completed')
@@ -446,9 +445,8 @@ async function generateEodRecap(
       if (userId) q = q.eq('completed_by', userId);
       return q;
     })(),
-    // Tasks still open (assigned to user, from unified daily_standup_tasks)
     (() => {
-      let q = supabase
+      let q = (supabase as any)
         .from('daily_standup_tasks')
         .select('id, title, entity_id, priority, due_date, status')
         .in('status', ['pending', 'in_progress', 'pending_approval', 'overdue'])
@@ -457,24 +455,21 @@ async function generateEodRecap(
       if (userId) q = q.eq('assignee_id', userId);
       return q;
     })(),
-    // Outreach records updated in period
-    supabase
+    (supabase as any)
       .from('outreach_records')
       .select('id, buyer_name, deal_id, stage, last_action_date')
       .gte('last_action_date', startStr)
       .lt('last_action_date', endStr)
       .order('last_action_date', { ascending: false })
       .limit(50),
-    // Data room grants in period
-    supabase
+    (supabase as any)
       .from('data_room_access')
       .select('deal_id, remarketing_buyer_id, granted_at')
       .gte('granted_at', startStr)
       .lt('granted_at', endStr)
       .limit(50),
-    // Call activities in period
     (() => {
-      const q = supabase
+      const q = (supabase as any)
         .from('contact_activities')
         .select('activity_type, call_outcome, talk_time_seconds, user_email')
         .gte('created_at', startStr)

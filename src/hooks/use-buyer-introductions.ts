@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { logDealActivity } from '@/lib/deal-activity-logger';
+import { findIntroductionContacts } from '@/lib/remarketing/findIntroductionContacts';
 import type {
   BuyerIntroduction,
   CreateBuyerIntroductionInput,
@@ -27,7 +28,59 @@ export function useBuyerIntroductions(listingId: string | undefined) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as unknown as BuyerIntroduction[];
+
+      const intros = (data || []) as unknown as BuyerIntroduction[];
+      const unresolvedCompanyNames = Array.from(
+        new Set(
+          intros
+            .filter((intro) => !intro.remarketing_buyer_id)
+            .flatMap((intro) => [intro.buyer_firm_name, intro.buyer_name])
+            .filter((value): value is string => !!value?.trim())
+            .map((value) => value.trim()),
+        ),
+      );
+
+      let resolvedBuyerIdsByCompany: Record<string, string> = {};
+      let resolvedPeFirmByCompany: Record<string, string> = {};
+
+      if (unresolvedCompanyNames.length > 0) {
+        const { data: buyers, error: buyersError } = await supabase
+          .from('buyers')
+          .select('id, company_name, pe_firm_name')
+          .eq('archived', false)
+          .in('company_name', unresolvedCompanyNames);
+
+        if (buyersError) throw buyersError;
+
+        resolvedBuyerIdsByCompany = Object.fromEntries(
+          (buyers || [])
+            .filter((buyer) => !!buyer.company_name)
+            .map((buyer) => [buyer.company_name.trim().toLowerCase(), buyer.id]),
+        );
+        resolvedPeFirmByCompany = Object.fromEntries(
+          (buyers || [])
+            .filter((buyer) => !!buyer.company_name && !!buyer.pe_firm_name)
+            .map((buyer) => [buyer.company_name.trim().toLowerCase(), buyer.pe_firm_name as string]),
+        );
+      }
+
+      return intros.map((intro) => {
+        const key = intro.buyer_firm_name?.trim().toLowerCase() || '';
+        const nameKey = intro.buyer_name?.trim().toLowerCase() || '';
+        return {
+          ...intro,
+          resolved_buyer_id:
+            intro.remarketing_buyer_id ||
+            resolvedBuyerIdsByCompany[key] ||
+            resolvedBuyerIdsByCompany[nameKey] ||
+            null,
+          resolved_pe_firm_name:
+            (intro.score_snapshot as ScoreSnapshot | null)?.pe_firm_name ||
+            resolvedPeFirmByCompany[key] ||
+            resolvedPeFirmByCompany[nameKey] ||
+            null,
+        };
+      }) as unknown as BuyerIntroduction[];
     },
     enabled: !!listingId,
   });
@@ -62,9 +115,28 @@ export function useBuyerIntroductions(listingId: string | undefined) {
       if (error) throw error;
       return data as unknown as BuyerIntroduction;
     },
-    onSuccess: () => {
+    onSuccess: (_data, input) => {
       queryClient.invalidateQueries({ queryKey });
       toast.success('Buyer added to introduction pipeline');
+
+      // Fire-and-forget: auto-discover contacts for this buyer
+      if (input.remarketing_buyer_id) {
+        findIntroductionContacts(input.remarketing_buyer_id)
+          .then((result) => {
+            if (result && result.total_saved > 0) {
+              queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts'] });
+              toast.success(
+                `${result.total_saved} contact${result.total_saved !== 1 ? 's' : ''} found at ${result.firmName} — see Contacts tab`,
+              );
+            } else if (result && result.total_saved === 0 && !result.message) {
+              toast.info(`No contacts found for ${result.firmName} — try manual search`);
+            }
+          })
+          .catch((err) => {
+            console.error('[findIntroductionContacts] Error:', err);
+            toast.error('Contact discovery failed — try manual search in the AI Command Center');
+          });
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message || 'Failed to add buyer');
@@ -164,16 +236,15 @@ export function useBuyerIntroductions(listingId: string | undefined) {
       // Upsert buyer contact if we have email
       let buyerContactId: string | null = null;
       if (buyer.buyer_email) {
-        const nameParts = buyer.buyer_name.split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-
+        // buyer_name is the company name, not a person name.
+        // Use the company/firm name as the contact company, and leave
+        // first/last name to be filled in by the user later if needed.
         const { data: contact } = await supabase
           .from('contacts')
           .upsert(
             {
-              first_name: firstName,
-              last_name: lastName,
+              first_name: buyer.buyer_name || '',
+              last_name: '',
               email: buyer.buyer_email.toLowerCase().trim(),
               phone: buyer.buyer_phone || null,
               contact_type: 'buyer',
@@ -200,7 +271,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
           nda_status: 'not_sent',
           fee_agreement_status: 'not_sent',
           buyer_contact_id: buyerContactId,
-          remarketing_buyer_id: buyer.id,
+          remarketing_buyer_id: buyer.remarketing_buyer_id || buyer.id,
           value: buyer.expected_deal_size_low || 0,
           probability: 25,
           priority: 'medium',

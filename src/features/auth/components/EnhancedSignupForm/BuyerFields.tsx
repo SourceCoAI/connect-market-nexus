@@ -53,7 +53,7 @@ export const BuyerFields: React.FC<BuyerFieldsProps> = ({ form, watch, setValue,
           </div>
 
           <div>
-            <Label htmlFor="deployingCapitalNow">Deploying Capital Now? *</Label>
+            <Label htmlFor="deployingCapitalNow">Active deal mandate? *</Label>
             <Select onValueChange={(value) => setValue('deployingCapitalNow', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select deployment status" />
@@ -67,7 +67,7 @@ export const BuyerFields: React.FC<BuyerFieldsProps> = ({ form, watch, setValue,
               </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground mt-1">
-              Are you actively deploying capital or between funds?
+              Lets us prioritize buyers who are ready to move on the right opportunity.
             </p>
           </div>
 
@@ -174,7 +174,7 @@ export const BuyerFields: React.FC<BuyerFieldsProps> = ({ form, watch, setValue,
       return (
         <div className="space-y-4">
           <div>
-            <Label htmlFor="discretionType">Decision Authority *</Label>
+            <Label htmlFor="discretionType">Your role in the deal decision *</Label>
             <Select onValueChange={(value) => setValue('discretionType', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select decision authority" />
@@ -188,7 +188,7 @@ export const BuyerFields: React.FC<BuyerFieldsProps> = ({ form, watch, setValue,
               </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground mt-1">
-              Do you have discretionary authority or are you advisory-only?
+              Helps us route introductions to the right person at your firm.
             </p>
           </div>
 

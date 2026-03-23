@@ -138,6 +138,15 @@ export function ValuationLeadDetailDrawer({
                     </a>
                   </div>
                 )}
+                {lead.work_email && lead.work_email !== lead.email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                    <a href={`mailto:${lead.work_email}`} className="text-primary hover:underline truncate">
+                      {lead.work_email}
+                    </a>
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Work</Badge>
+                  </div>
+                )}
                 {lead.phone && (
                   <div className="flex items-center gap-2">
                     <Phone className="h-3.5 w-3.5 text-muted-foreground" />

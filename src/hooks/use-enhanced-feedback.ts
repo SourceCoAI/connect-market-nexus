@@ -1,13 +1,12 @@
-
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 export interface EnhancedFeedbackData {
   message: string;
-  category?: "contact" | "general" | "bug" | "feature" | "ui" | "other";
-  priority?: "low" | "normal" | "high" | "urgent";
+  category?: 'contact' | 'general' | 'bug' | 'feature' | 'ui' | 'other';
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
   pageUrl?: string;
   userAgent?: string;
   threadId?: string;
@@ -49,63 +48,63 @@ export function useEnhancedFeedback() {
   const submitFeedback = async (feedbackData: EnhancedFeedbackData) => {
     if (!user) {
       toast({
-        title: "Authentication required",
-        description: "You must be logged in to submit feedback.",
-        variant: "destructive",
+        title: 'Authentication required',
+        description: 'You must be logged in to submit feedback.',
+        variant: 'destructive',
       });
-      throw new Error("User must be authenticated to submit feedback");
+      throw new Error('User must be authenticated to submit feedback');
     }
 
     if (!feedbackData.message?.trim()) {
       toast({
-        title: "Message required",
-        description: "Please enter a message before submitting.",
-        variant: "destructive",
+        title: 'Message required',
+        description: 'Please enter a message before submitting.',
+        variant: 'destructive',
       });
-      throw new Error("Message is required");
+      throw new Error('Message is required');
     }
 
     setIsLoading(true);
-    
+
     try {
       // Use category directly without complex mapping
       const category = feedbackData.category || 'general';
-      
+
       // Insert feedback into database
       const feedbackPayload = {
         user_id: user.id,
         message: feedbackData.message.trim(),
         category: category,
-        priority: feedbackData.priority || "normal",
+        priority: feedbackData.priority || 'normal',
         page_url: feedbackData.pageUrl || window?.location?.href,
         user_agent: feedbackData.userAgent || navigator?.userAgent,
-        status: "unread",
+        status: 'unread',
         thread_id: feedbackData.threadId || undefined,
         parent_message_id: feedbackData.parentMessageId || undefined,
       };
 
       const { data: feedback, error: insertError } = await supabase
-        .from("feedback_messages")
+        .from('feedback_messages')
         .insert(feedbackPayload)
         .select()
         .single();
 
       if (insertError) {
         toast({
-          title: "Submission failed",
-          description: "Failed to save your message. Please try again.",
-          variant: "destructive",
+          title: 'Submission failed',
+          description: 'Failed to save your message. Please try again.',
+          variant: 'destructive',
         });
         throw new Error(`Database error: ${insertError.message}`);
       }
 
       if (!feedback) {
         toast({
-          title: "Submission failed",
-          description: "Failed to save feedback. Please try again.",
-          variant: "destructive",
+          title: 'Submission failed',
+          description: 'Failed to save feedback. Please try again.',
+          variant: 'destructive',
         });
-        throw new Error("Failed to save feedback - no data returned");
+        throw new Error('Failed to save feedback - no data returned');
       }
 
       // Get user profile for email
@@ -118,16 +117,34 @@ export function useEnhancedFeedback() {
 
       const userName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : '';
       const userEmail = profile?.email || user.email;
-      
+
       // Simple success message based on category
       const getSuccessMessage = (category: string) => {
         const messages = {
-          'contact': { title: "Message sent!", description: "Thanks for reaching out! We'll get back to you soon." },
-          'bug': { title: "Bug report submitted!", description: "Thank you for reporting this issue. We'll investigate promptly." },
-          'feature': { title: "Feature request received!", description: "Thanks for the suggestion! We'll consider it for future updates." },
-          'ui': { title: "UI feedback submitted!", description: "Thank you for helping us improve the user experience." },
-          'general': { title: "Feedback submitted!", description: "Thank you for your feedback! We'll review it soon." },
-          'other': { title: "Message received!", description: "Thank you for your message! We'll get back to you." }
+          contact: {
+            title: 'Message sent!',
+            description: "Thanks for reaching out! We'll get back to you soon.",
+          },
+          bug: {
+            title: 'Bug report submitted!',
+            description: "Thank you for reporting this issue. We'll investigate promptly.",
+          },
+          feature: {
+            title: 'Feature request received!',
+            description: "Thanks for the suggestion! We'll consider it for future updates.",
+          },
+          ui: {
+            title: 'UI feedback submitted!',
+            description: 'Thank you for helping us improve the user experience.',
+          },
+          general: {
+            title: 'Feedback submitted!',
+            description: "Thank you for your feedback! We'll review it soon.",
+          },
+          other: {
+            title: 'Message received!',
+            description: "Thank you for your message! We'll get back to you.",
+          },
         };
         return messages[category as keyof typeof messages] || messages.general;
       };
@@ -140,11 +157,11 @@ export function useEnhancedFeedback() {
           content: feedbackData.message,
           feedbackId: feedback.id,
           userName: userName || undefined,
-          category: category
+          category: category,
         };
 
         const { error: emailError } = await supabase.functions.invoke('send-contact-response', {
-          body: emailPayload
+          body: emailPayload,
         });
 
         if (emailError) {
@@ -163,7 +180,7 @@ export function useEnhancedFeedback() {
 
       // Optional admin notification
       try {
-        await supabase.functions.invoke("send-feedback-notification", {
+        await supabase.functions.invoke('send-feedback-notification', {
           body: {
             feedbackId: feedback.id,
             message: feedbackData.message,
@@ -177,19 +194,18 @@ export function useEnhancedFeedback() {
           },
         });
       } catch (notificationError) {
-        console.warn("⚠️ Admin notification failed (non-critical)");
+        console.warn('⚠️ Admin notification failed (non-critical)');
       }
 
       return feedback;
-
     } catch (error: unknown) {
       // Generic error handling
       const message = error instanceof Error ? error.message : '';
-      if (!message.includes("Database error") && !message.includes("Message is required")) {
+      if (!message.includes('Database error') && !message.includes('Message is required')) {
         toast({
-          title: "Submission error",
-          description: "Something went wrong. Please try again.",
-          variant: "destructive",
+          title: 'Submission error',
+          description: 'Something went wrong. Please try again.',
+          variant: 'destructive',
         });
       }
       throw error;
@@ -201,24 +217,24 @@ export function useEnhancedFeedback() {
   const getFeedbackWithUserDetails = async (): Promise<FeedbackMessageWithUser[]> => {
     try {
       const { data: messages, error: messagesError } = await supabase
-        .from("feedback_messages")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .from('feedback_messages')
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (messagesError) {
         throw messagesError;
       }
 
       const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, email, first_name, last_name, company, phone_number");
+        .from('profiles')
+        .select('id, email, first_name, last_name, company, phone_number');
 
       if (profilesError) {
         throw profilesError;
       }
 
-      const result = (messages || []).map(msg => {
-        const profile = profiles?.find(p => p.id === msg.user_id);
+      const result = (messages || []).map((msg) => {
+        const profile = profiles?.find((p) => p.id === msg.user_id);
         const record = msg as Record<string, unknown>;
         return {
           ...msg,
@@ -239,7 +255,7 @@ export function useEnhancedFeedback() {
 
       return result as FeedbackMessageWithUser[];
     } catch (error) {
-      console.error("❌ Error fetching feedback with user details:", error);
+      console.error('❌ Error fetching feedback with user details:', error);
       return [];
     }
   };
@@ -249,30 +265,30 @@ export function useEnhancedFeedback() {
 
     try {
       const { data, error } = await supabase
-        .from("feedback_messages")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .from('feedback_messages')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error("Error fetching feedback history:", error);
+      console.error('Error fetching feedback history:', error);
       return [];
     }
   };
 
   const markAsRead = async (messageId: string, isUser: boolean = false) => {
     try {
-      const updateField = isUser ? "read_by_user" : "read_by_admin";
+      const updateField = isUser ? 'read_by_user' : 'read_by_admin';
       const { error } = await supabase
-        .from("feedback_messages")
+        .from('feedback_messages')
         .update({ [updateField]: true })
-        .eq("id", messageId);
+        .eq('id', messageId);
 
       if (error) throw error;
     } catch (error) {
-      console.error("Error marking message as read:", error);
+      console.error('Error marking message as read:', error);
     }
   };
 

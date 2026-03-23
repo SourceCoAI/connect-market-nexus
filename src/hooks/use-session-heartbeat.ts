@@ -67,16 +67,21 @@ export function useSessionHeartbeat(userId?: string | null) {
     // Handle before unload - mark session as inactive
     const handleBeforeUnload = async () => {
       try {
-        // Use sendBeacon for reliability during page unload
+        // Use sendBeacon for reliability during page unload.
+        // Pass the auth token via the payload since sendBeacon doesn't support
+        // custom headers — the edge function checks both Authorization header
+        // and body.access_token for authentication.
+        const { data: { session } } = await supabase.auth.getSession();
         const payload = JSON.stringify({
           session_id: sessionId,
           user_id: userId || null,
           ended: true,
+          access_token: session?.access_token || null,
         });
 
         navigator.sendBeacon?.(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/session-heartbeat`,
-          payload,
+          new Blob([payload], { type: 'application/json' }),
         );
       } catch (error) {
         console.error('Failed to send final heartbeat:', error);

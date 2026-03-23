@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Smartlead Tools
  * Tools for interacting with Smartlead cold email campaigns:
@@ -135,7 +136,7 @@ async function getSmartleadCampaigns(
   const dealId = args.deal_id as string | undefined;
   const limit = Math.min((args.limit as number) || 20, 50);
 
-  let query = supabase
+  let query = (supabase as any)
     .from('smartlead_campaigns')
     .select('*')
     .order('created_at', { ascending: false })
@@ -161,7 +162,7 @@ async function getSmartleadCampaigns(
 
   // Get latest stats for each campaign
   const campaignIds = campaigns.map((c: { id: string }) => c.id);
-  const { data: allStats } = await supabase
+  const { data: allStats } = await (supabase as any)
     .from('smartlead_campaign_stats')
     .select('*')
     .in('campaign_id', campaignIds)
@@ -190,7 +191,10 @@ async function getSmartleadCampaigns(
   ];
   const dealMap = new Map<string, string>();
   if (dealIds.length > 0) {
-    const { data: deals } = await supabase.from('listings').select('id, title').in('id', dealIds);
+    const { data: deals } = await (supabase as any)
+      .from('listings')
+      .select('id, title')
+      .in('id', dealIds);
     for (const d of deals || []) dealMap.set(d.id, d.title);
   }
 
@@ -237,7 +241,7 @@ async function getSmartleadCampaignStats(
   if (!campaignId) return { error: 'campaign_id is required' };
 
   // Get campaign info
-  const { data: campaign, error: campaignError } = await supabase
+  const { data: campaign, error: campaignError } = await (supabase as any)
     .from('smartlead_campaigns')
     .select('*')
     .eq('id', campaignId)
@@ -248,7 +252,7 @@ async function getSmartleadCampaignStats(
   }
 
   // Get latest stats snapshot
-  const { data: stats } = await supabase
+  const { data: stats } = await (supabase as any)
     .from('smartlead_campaign_stats')
     .select('*')
     .eq('campaign_id', campaignId)
@@ -257,7 +261,7 @@ async function getSmartleadCampaignStats(
     .maybeSingle();
 
   // Get lead count by category
-  const { data: leads } = await supabase
+  const { data: leads } = await (supabase as any)
     .from('smartlead_campaign_leads')
     .select('lead_status, lead_category')
     .eq('campaign_id', campaignId);
@@ -274,7 +278,7 @@ async function getSmartleadCampaignStats(
   }
 
   // Get recent webhook events for this campaign
-  const { data: recentEvents } = await supabase
+  const { data: recentEvents } = await (supabase as any)
     .from('smartlead_webhook_events')
     .select('event_type, lead_email, created_at')
     .eq('smartlead_campaign_id', campaign.smartlead_campaign_id)
@@ -335,7 +339,7 @@ async function getSmartleadEmailHistory(
 
   // Resolve contact_id to email if provided
   if (contactId && !email) {
-    const { data: contact } = await supabase
+    const { data: contact } = await (supabase as any)
       .from('contacts')
       .select('email, remarketing_buyer_id')
       .eq('id', contactId)
@@ -344,7 +348,7 @@ async function getSmartleadEmailHistory(
   }
 
   // Get campaigns the buyer/contact is in
-  let campaignLeadsQuery = supabase
+  let campaignLeadsQuery = (supabase as any)
     .from('smartlead_campaign_leads')
     .select('*, campaign:smartlead_campaigns(id, name, status, smartlead_campaign_id)');
 
@@ -371,7 +375,7 @@ async function getSmartleadEmailHistory(
 
   // Also look up emails from buyer contacts if we have a buyer ID
   if (buyerId && emails.length === 0) {
-    const { data: contacts } = await supabase
+    const { data: contacts } = await (supabase as any)
       .from('contacts')
       .select('email')
       .eq('remarketing_buyer_id', buyerId)
@@ -391,7 +395,7 @@ async function getSmartleadEmailHistory(
     smartlead_campaign_id: number;
   }> = [];
   if (emails.length > 0) {
-    const { data: webhookEvents } = await supabase
+    const { data: webhookEvents } = await (supabase as any)
       .from('smartlead_webhook_events')
       .select('event_type, lead_email, created_at, smartlead_campaign_id')
       .in('lead_email', emails)
@@ -403,7 +407,7 @@ async function getSmartleadEmailHistory(
   // Get buyer name for context
   let buyerName: string | null = null;
   if (buyerId) {
-    const { data: buyer } = await supabase
+    const { data: buyer } = await (supabase as any)
       .from('buyers')
       .select('company_name')
       .eq('id', buyerId)
@@ -469,7 +473,7 @@ async function pushToSmartlead(
   if (!entityIds?.length) return { error: 'entity_ids is required and must not be empty' };
 
   // Get campaign info
-  const { data: campaign, error: campaignError } = await supabase
+  const { data: campaign, error: campaignError } = await (supabase as any)
     .from('smartlead_campaigns')
     .select('*')
     .eq('id', campaignId)
@@ -491,7 +495,7 @@ async function pushToSmartlead(
   let contacts: SmartleadContact[] = [];
 
   if (entityType === 'contacts') {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('contacts')
       .select('id, first_name, last_name, email, company_name, remarketing_buyer_id')
       .in('id', entityIds)
@@ -515,14 +519,14 @@ async function pushToSmartlead(
     );
   } else if (entityType === 'buyers') {
     // Resolve contacts from buyers
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('contacts')
       .select('id, first_name, last_name, email, remarketing_buyer_id')
       .in('remarketing_buyer_id', entityIds)
       .eq('contact_type', 'buyer')
       .eq('archived', false);
 
-    const { data: buyers } = await supabase
+    const { data: buyers } = await (supabase as any)
       .from('buyers')
       .select('id, company_name')
       .in('id', entityIds);
@@ -608,12 +612,12 @@ async function pushToSmartlead(
     metadata: { source: 'ai_command_center', pushed_by: userId },
   }));
 
-  await supabase
+  await (supabase as any)
     .from('smartlead_campaign_leads')
     .upsert(leadsToInsert, { onConflict: 'campaign_id,email', ignoreDuplicates: true });
 
   // Update campaign lead count
-  await supabase
+  await (supabase as any)
     .from('smartlead_campaigns')
     .update({
       lead_count: (campaign.lead_count || 0) + eligible.length,

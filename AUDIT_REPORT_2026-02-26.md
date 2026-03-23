@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-The SourceCo platform is a substantial codebase with **1,478 TypeScript files**, **696 database migrations**, **153 edge functions**, **646 React components**, and **218 custom hooks**. The audit found one **critical security vulnerability** (RoleGate bypassed for development — now fixed), a **hardcoded Supabase URL** (now removed), and multiple architectural concerns including 9+ monolithic components over 1,000 lines. The unified contacts migration (February 2026) was verified as complete — all AI tool queries correctly reference the `contacts` table and `connection_messages`. The enrichment pipeline is well-architected with proper polling, deduplication, and rate limiting. Integration health is generally good with some gaps in AI chatbot visibility for PhoneBurner call history and DocuSeal signing status.
+The SourceCo platform is a substantial codebase with **1,478 TypeScript files**, **696 database migrations**, **153 edge functions**, **646 React components**, and **218 custom hooks**. The audit found one **critical security vulnerability** (RoleGate bypassed for development — now fixed), a **hardcoded Supabase URL** (now removed), and multiple architectural concerns including 9+ monolithic components over 1,000 lines. The unified contacts migration (February 2026) was verified as complete — all AI tool queries correctly reference the `contacts` table and `connection_messages`. The enrichment pipeline is well-architected with proper polling, deduplication, and rate limiting. Integration health is generally good with some gaps in AI chatbot visibility for PhoneBurner call history and PandaDoc signing status.
 
 ---
 
@@ -94,14 +94,14 @@ The SourceCo platform is a substantial codebase with **1,478 TypeScript files**,
 | Integration | Status | Issues Found | Actions Taken |
 |-------------|--------|--------------|---------------|
 | Fireflies | OK | No webhook handler (pull-based only); no scheduled sync; URL resolution could be slow | Documented |
-| DocuSeal | OK | Dual write pattern (webhook + frontend confirm) can race; document URL whitelist is hardcoded | Documented |
+| PandaDoc | OK | Dual write pattern (webhook + frontend confirm) can race; document URL whitelist is hardcoded | Documented |
 | PhoneBurner | WARN | Webhook signature verification is OPTIONAL (skipped if secret empty); AI chatbot cannot view call history | Documented |
 | Smartlead | WARN | Webhook secret is optional; no time-series stats tracking; no campaign-level webhooks | Documented |
 | CapTarget | OK | No scheduled sync (manual only); exclusion rules hardcoded; hash-based dedup fragile on format changes | Documented |
 
 **Key gaps identified:**
 1. PhoneBurner call history NOT exposed to AI chatbot
-2. DocuSeal signing status accessible via `get_firm_agreements` tool but not directly queryable
+2. PandaDoc signing status accessible via `get_firm_agreements` tool but not directly queryable
 3. Smartlead campaign stats not exposed as time-series
 4. No unified integration health dashboard
 

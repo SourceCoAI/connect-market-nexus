@@ -6,7 +6,7 @@ import {
   useGlobalGateCheck,
   useGlobalActivityMutations,
 } from '@/hooks/remarketing/useGlobalActivityQueue';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { SingleDealEnrichmentResult } from './types';
 
 interface PartnerRecord {

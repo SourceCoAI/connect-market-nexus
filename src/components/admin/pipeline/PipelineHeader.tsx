@@ -224,7 +224,7 @@ export function PipelineHeader({ pipeline, onOpenCreateDeal, onOpenBulkImport, o
               </TooltipProvider>
 
               <DropdownMenuItem>Export Pipeline</DropdownMenuItem>
-              <DropdownMenuItem onClick={onOpenBulkImport}>Bulk Import CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={onOpenBulkImport}>Bulk Import Spreadsheet</DropdownMenuItem>
               <DropdownMenuItem onClick={onOpenUndoImport}>Undo Import</DropdownMenuItem>
               <DropdownMenuItem>Pipeline Settings</DropdownMenuItem>
             </DropdownMenuContent>

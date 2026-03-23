@@ -114,11 +114,98 @@ export function useContactList(listId: string | undefined) {
         }
       }
 
+      // Fetch deal owners for all deal-type members
+      const DEAL_ENTITY_TYPES = ['deal', 'listing', 'sourceco_deal', 'gp_partner_deal', 'referral_deal'];
+      const dealMembers = (members ?? []).filter((m) => DEAL_ENTITY_TYPES.includes(m.entity_type));
+      const dealOwnerMap: Record<string, { name: string; id: string }> = {};
+
+      if (dealMembers.length > 0) {
+        // Collect ALL entity IDs — they could be listing IDs or deal_pipeline IDs
+        const allEntityIds = dealMembers.map((m) => m.entity_id).filter(Boolean);
+        const uniqueEntityIds = [...new Set(allEntityIds)];
+
+        const allOwnerIds = new Set<string>();
+
+        // First, try to resolve from listings table (covers all entity types including 'deal')
+        if (uniqueEntityIds.length > 0) {
+          const { data: listingRows } = await supabase
+            .from('listings')
+            .select('id, deal_owner_id, primary_owner_id')
+            .in('id', uniqueEntityIds);
+
+          const resolvedIds = new Set<string>();
+          const unownedListingIds: string[] = [];
+
+          for (const l of listingRows ?? []) {
+            resolvedIds.add(l.id);
+            const ownerId = l.deal_owner_id || l.primary_owner_id;
+            if (ownerId) {
+              allOwnerIds.add(ownerId);
+              dealOwnerMap[l.id] = { name: '', id: ownerId };
+            } else {
+              unownedListingIds.push(l.id);
+            }
+          }
+
+          // For IDs not found in listings, try deal_pipeline (true pipeline IDs)
+          const unresolvedIds = uniqueEntityIds.filter((id) => !resolvedIds.has(id));
+          if (unresolvedIds.length > 0) {
+            const { data: dealRows } = await supabase
+              .from('deal_pipeline')
+              .select('id, assigned_to')
+              .in('id', unresolvedIds);
+            for (const d of dealRows ?? []) {
+              if (d.assigned_to) {
+                allOwnerIds.add(d.assigned_to);
+                dealOwnerMap[d.id] = { name: '', id: d.assigned_to };
+              }
+            }
+          }
+
+          // Fallback: check deal_pipeline.assigned_to for listings without a direct owner
+          if (unownedListingIds.length > 0) {
+            const { data: pipelineForListings } = await supabase
+              .from('deal_pipeline')
+              .select('listing_id, assigned_to')
+              .in('listing_id', unownedListingIds)
+              .not('assigned_to', 'is', null)
+              .is('deleted_at', null)
+              .order('updated_at', { ascending: false });
+
+            for (const dp of pipelineForListings ?? []) {
+              if (dp.listing_id && dp.assigned_to && !dealOwnerMap[dp.listing_id]) {
+                allOwnerIds.add(dp.assigned_to);
+                dealOwnerMap[dp.listing_id] = { name: '', id: dp.assigned_to };
+              }
+            }
+          }
+        }
+
+        // Resolve owner names
+        const ownerIdArray = [...allOwnerIds];
+        if (ownerIdArray.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name')
+            .in('id', ownerIdArray);
+          const ownerNames: Record<string, string> = {};
+          for (const p of profiles ?? []) {
+            ownerNames[p.id] = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
+          }
+          for (const key of Object.keys(dealOwnerMap)) {
+            const entry = dealOwnerMap[key];
+            entry.name = ownerNames[entry.id] || '';
+          }
+        }
+      }
+
       const enrichedMembers: ContactListMember[] = (members ?? []).map((m) => ({
         ...m,
         last_call_date: callData[m.contact_email]?.last_call ?? null,
         total_calls: callData[m.contact_email]?.total_calls ?? 0,
         last_disposition: callData[m.contact_email]?.last_disposition ?? null,
+        deal_owner_name: dealOwnerMap[m.entity_id]?.name ?? null,
+        deal_owner_id: dealOwnerMap[m.entity_id]?.id ?? null,
       }));
 
       return {

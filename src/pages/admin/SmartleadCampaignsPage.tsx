@@ -35,7 +35,7 @@ import {
   useSyncSmartleadCampaigns,
   useSmartleadCampaignStats,
 } from '@/hooks/smartlead';
-import type { SmartleadCampaign, LocalSmartleadCampaign } from '@/types/smartlead';
+import type { SmartleadCampaign } from '@/types/smartlead';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
 
@@ -121,7 +121,7 @@ export default function SmartleadCampaignsPage() {
   });
 
   const remoteCampaigns = (campaignsData?.campaigns || []) as SmartleadCampaign[];
-  const localCampaigns = (campaignsData?.local_campaigns || []) as LocalSmartleadCampaign[];
+  const localCampaigns = (campaignsData?.local_campaigns || []) as Array<Record<string, unknown> & { smartlead_campaign_id: number }>;
 
   // Build a merged view: remote campaigns enriched with local data
   const localMap = new Map(localCampaigns.map((lc) => [lc.smartlead_campaign_id, lc]));
@@ -153,7 +153,7 @@ export default function SmartleadCampaignsPage() {
   // Aggregate stats
   const activeCount = remoteCampaigns.filter((c) => c.status === 'ACTIVE').length;
   const draftCount = remoteCampaigns.filter((c) => c.status === 'DRAFTED').length;
-  const totalLeads = localCampaigns.reduce((sum, lc) => sum + (lc.lead_count || 0), 0);
+  const totalLeads = localCampaigns.reduce((sum, lc) => sum + ((lc as Record<string, unknown>).lead_count as number || 0), 0);
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -315,7 +315,7 @@ export default function SmartleadCampaignsPage() {
                       <StatusBadge status={campaign.status} />
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">{campaign.local?.lead_count ?? '—'}</span>
+                      <span className="text-sm">{(campaign.local as Record<string, unknown>)?.lead_count as React.ReactNode ?? '—'}</span>
                     </TableCell>
                     <TableCell>
                       <CampaignStatsInline campaignId={campaign.id} />
@@ -331,8 +331,8 @@ export default function SmartleadCampaignsPage() {
                     </TableCell>
                     <TableCell>
                       <span className="text-xs text-muted-foreground">
-                        {campaign.local?.last_synced_at
-                          ? new Date(campaign.local.last_synced_at).toLocaleDateString()
+                        {(campaign.local as Record<string, unknown>)?.last_synced_at
+                          ? new Date(String((campaign.local as Record<string, unknown>).last_synced_at)).toLocaleDateString()
                           : '—'}
                       </span>
                     </TableCell>

@@ -1,6 +1,7 @@
 import React from "react";
 import { User } from "@/types/admin-users";
 import { User as BuyerMetricsUser } from "@/types";
+import { GENERIC_EMAIL_DOMAINS } from "@/lib/generic-email-domains";
 import {
   HoverCard,
   HoverCardContent,
@@ -49,7 +50,8 @@ export const BusinessCategoriesDisplay: React.FC<BusinessCategoriesDisplayProps>
 
 const getEmailDomainStatus = (email?: string | null) => {
   if (!email) return { status: 'missing', indicator: 'amber' };
-  if (email.includes('@gmail.com') || email.includes('@yahoo.com') || email.includes('@hotmail.com')) {
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (domain && GENERIC_EMAIL_DOMAINS.has(domain)) {
     return { status: 'personal', indicator: 'red' };
   }
   return { status: 'company', indicator: 'green' };

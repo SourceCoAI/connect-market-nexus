@@ -8,13 +8,10 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { User } from '@/types';
 import { useMarketplace } from '@/hooks/use-marketplace';
-import {
-  AlertCircle,
-  FileText,
-} from 'lucide-react';
+import { AlertCircle, FileText } from 'lucide-react';
 import { useUnreadBuyerMessageCounts } from '@/hooks/use-connection-messages';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getProfileCompletionDetails } from '@/lib/buyer-metrics';
@@ -43,7 +40,7 @@ import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
+import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
 
 /* ═══════════════════════════════════════════════════════════════════════
    Main Page Component
@@ -118,7 +115,10 @@ const MyRequests = () => {
         sorted.sort((a, b) => {
           const diff = actionScore(b) - actionScore(a);
           if (diff !== 0) return diff;
-          return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+          return (
+            new Date(b.updated_at || b.created_at).getTime() -
+            new Date(a.updated_at || a.created_at).getTime()
+          );
         });
         break;
       }
@@ -127,7 +127,10 @@ const MyRequests = () => {
         sorted.sort((a, b) => {
           const diff = (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3);
           if (diff !== 0) return diff;
-          return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+          return (
+            new Date(b.updated_at || b.created_at).getTime() -
+            new Date(a.updated_at || a.created_at).getTime()
+          );
         });
         break;
       }
@@ -206,9 +209,10 @@ const MyRequests = () => {
                 <FileText className="h-5 w-5 text-[#0E101A]/30" />
               </div>
             </div>
-            <h2 className="text-[15px] font-semibold text-[#0E101A]">No deals yet</h2>
+            <h2 className="text-[15px] font-semibold text-[#0E101A]">Your pipeline starts here.</h2>
             <p className="text-[13px] text-[#0E101A]/50 leading-relaxed">
-              Browse the marketplace to find opportunities and express interest.
+              Browse the marketplace and request an introduction when you find a fit. Every deal you
+              connect on will appear here — along with your messages, status, and next steps.
             </p>
           </div>
         </div>
@@ -224,15 +228,17 @@ const MyRequests = () => {
       </div>
 
       <div className="max-w-[1280px] mx-auto px-6 pb-8">
-      {/* Main container */}
+        {/* Main container */}
         <div className="rounded-xl border border-[#F0EDE6] overflow-hidden">
           {/* Two-column layout */}
           <div className={cn('flex', isMobile ? 'flex-col' : 'flex-row')}>
             {/* Sidebar */}
-            <div className={cn(
-              'shrink-0 border-r border-[#F0EDE6] bg-[#FAFAF8]',
-              isMobile ? 'w-full border-r-0 border-b' : 'w-[340px]',
-            )}>
+            <div
+              className={cn(
+                'shrink-0 border-r border-[#F0EDE6] bg-[#FAFAF8]',
+                isMobile ? 'w-full border-r-0 border-b' : 'w-[340px]',
+              )}
+            >
               <div className="px-4 py-3 border-b border-[#F0EDE6]">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-semibold text-[#0E101A]/30 uppercase tracking-[0.12em]">
@@ -245,7 +251,9 @@ const MyRequests = () => {
               </div>
               <div className="p-2 space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto">
                 {sortedRequests.map((request) => {
-                  const unreadForRequest = (unreadByRequest[request.id] || 0) + (unreadMsgCounts?.byRequest[request.id] || 0);
+                  const unreadForRequest =
+                    (unreadByRequest[request.id] || 0) +
+                    (unreadMsgCounts?.byRequest[request.id] || 0);
                   return (
                     <DealPipelineCard
                       key={request.id}
@@ -360,9 +368,7 @@ function DetailPanel({
               )}
             >
               Messages
-              {msgUnread > 0 && (
-                <div className="h-1.5 w-1.5 rounded-full bg-[#DEC76B]" />
-              )}
+              {msgUnread > 0 && <div className="h-1.5 w-1.5 rounded-full bg-[#DEC76B]" />}
             </TabsTrigger>
             <TabsTrigger
               value="activity"
@@ -437,7 +443,10 @@ function DetailPanel({
                     requestId={request.id}
                     initialMessage={request.user_message || ''}
                     onMessageUpdate={async (newMessage) => {
-                      await updateMessage.mutateAsync({ requestId: request.id, message: newMessage });
+                      await updateMessage.mutateAsync({
+                        requestId: request.id,
+                        message: newMessage,
+                      });
                     }}
                   />
                 </div>

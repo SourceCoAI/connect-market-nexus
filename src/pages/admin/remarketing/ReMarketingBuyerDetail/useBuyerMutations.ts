@@ -128,34 +128,84 @@ export function useBuyerMutations(
     },
   });
 
+  const findContactsMutation = useMutation({
+    mutationFn: async () => {
+      const { findIntroductionContacts } =
+        await import('@/lib/remarketing/findIntroductionContacts');
+      const result = await findIntroductionContacts(id!, 'manual');
+      if (!result) throw new Error('Contact discovery failed');
+
+      // Enrich existing contacts that are missing email or phone (what Prospeo can fill)
+      const { data: contactsToEnrich } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('remarketing_buyer_id', id!)
+        .eq('contact_type', 'buyer')
+        .eq('archived', false)
+        .or('email.is.null,phone.is.null');
+
+      let enrichedCount = 0;
+      if (contactsToEnrich && contactsToEnrich.length > 0) {
+        // enrich-list-contacts enforces a max of 50 contacts per request
+        const contactIds = contactsToEnrich.slice(0, 50).map((c: { id: string }) => c.id);
+        const { data: enrichData, error: enrichError } = await invokeWithTimeout<{
+          results: Array<{ source: string | null; email: string | null; phone: string | null }>;
+        }>('enrich-list-contacts', {
+          body: { contact_ids: contactIds },
+          timeoutMs: 120_000,
+        });
+        if (enrichError) {
+          console.error('[findContactsMutation] Enrichment failed:', enrichError.message);
+        } else if (enrichData?.results) {
+          enrichedCount = enrichData.results.filter(
+            (r) => r.source && r.source !== 'existing' && (r.email || r.phone),
+          ).length;
+        }
+      }
+
+      return { ...result, enrichedCount };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts', id] });
+      if (result.total_saved > 0 && result.enrichedCount > 0) {
+        toast.success(
+          `Found ${result.total_saved} new contact${result.total_saved === 1 ? '' : 's'} and enriched ${result.enrichedCount} existing contact${result.enrichedCount === 1 ? '' : 's'} at ${result.firmName}`,
+        );
+      } else if (result.total_saved > 0) {
+        toast.success(
+          `Found ${result.total_saved} contact${result.total_saved === 1 ? '' : 's'} at ${result.firmName}`,
+        );
+      } else if (result.enrichedCount > 0) {
+        toast.success(
+          `Enriched ${result.enrichedCount} contact${result.enrichedCount === 1 ? '' : 's'} at ${result.firmName}`,
+        );
+      } else {
+        toast.info('No new contacts found');
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`Contact discovery failed: ${error.message}`);
+    },
+  });
+
   const addContactMutation = useMutation({
     mutationFn: async () => {
-      // Split name into first_name / last_name for the unified contacts table
       const nameParts = newContact.name.trim().split(/\s+/);
       const firstName = nameParts[0] || 'Unknown';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      // Look up the firm_id from the buyer's marketplace_firm_id
-      let firmId: string | null = null;
-      if (buyer?.marketplace_firm_id) {
-        firmId = buyer.marketplace_firm_id;
-      }
-
-      const { error } = await supabase.from('contacts').insert([
-        {
-          first_name: firstName,
-          last_name: lastName,
-          email: newContact.email || null,
-          phone: newContact.phone || null,
-          title: newContact.role || null,
-          linkedin_url: newContact.linkedin_url || null,
-          is_primary_at_firm: newContact.is_primary,
-          contact_type: 'buyer' as const,
-          remarketing_buyer_id: id!,
-          firm_id: firmId,
-          source: 'remarketing_manual',
-        },
-      ]);
+      const { error } = await supabase.rpc('upsert_buyer_contact', {
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_email: newContact.email || null,
+        p_phone: newContact.phone || null,
+        p_title: newContact.role || null,
+        p_linkedin_url: newContact.linkedin_url || null,
+        p_is_primary_at_firm: newContact.is_primary,
+        p_remarketing_buyer_id: id!,
+        p_firm_id: buyer?.marketplace_firm_id ?? null,
+        p_source: 'remarketing_manual',
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -173,6 +223,39 @@ export function useBuyerMutations(
     },
     onError: () => {
       toast.error('Failed to add contact');
+    },
+  });
+
+  const updateContactMutation = useMutation({
+    mutationFn: async (contact: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      role: string;
+      linkedin_url: string;
+    }) => {
+      const nameParts = contact.name.trim().split(/\s+/);
+      const firstName = nameParts[0] || 'Unknown';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const { error } = await supabase.rpc('update_buyer_contact', {
+        p_contact_id: contact.id,
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_email: contact.email || null,
+        p_phone: contact.phone || null,
+        p_title: contact.role || null,
+        p_linkedin_url: contact.linkedin_url || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts', id] });
+      toast.success('Contact updated');
+    },
+    onError: () => {
+      toast.error('Failed to update contact');
     },
   });
 
@@ -297,6 +380,30 @@ export function useBuyerMutations(
     },
   });
 
+  const analyzeNotesMutation = useMutation({
+    mutationFn: async (notesText: string) => {
+      const { data, error } = await invokeWithTimeout<any>('analyze-buyer-notes', {
+        body: { buyerId: id, notesText },
+        timeoutMs: 120_000,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'buyer', id] });
+      const count = data?.fieldsUpdated?.length || 0;
+      const blocked = data?.blockedFields?.length || 0;
+      let msg = `Analyzed notes — ${count} fields updated`;
+      if (blocked > 0) {
+        msg += `, ${blocked} blocked by higher-priority sources`;
+      }
+      toast.success(msg);
+    },
+    onError: (error: Error) => {
+      toast.error(`Notes analysis failed: ${error.message}`);
+    },
+  });
+
   const deleteTranscriptMutation = useMutation({
     mutationFn: async (transcriptId: string) => {
       const { error } = await supabase.from('buyer_transcripts').delete().eq('id', transcriptId);
@@ -313,9 +420,12 @@ export function useBuyerMutations(
 
   return {
     enrichMutation,
+    findContactsMutation,
     updateBuyerMutation,
     updateFeeAgreementMutation,
+    analyzeNotesMutation,
     addContactMutation,
+    updateContactMutation,
     deleteContactMutation,
     addTranscriptMutation,
     extractTranscriptMutation,

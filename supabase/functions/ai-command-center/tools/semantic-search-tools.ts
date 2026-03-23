@@ -73,22 +73,21 @@ async function semanticTranscriptSearch(
   const _threshold = Number(args.threshold) || 0.65;
   const limit = Math.min(Number(args.limit) || 10, 25);
 
-  // Try to generate embedding for the query using Lovable AI
-  const apiKey = Deno.env.get('LOVABLE_API_KEY');
+  // Try to generate search terms using direct Gemini API
+  const apiKey = Deno.env.get('GEMINI_API_KEY');
   const _embedding: number[] | null = null;
 
   if (apiKey) {
     try {
-      // Use Gemini to generate a search-optimized embedding via a structured approach
-      // We'll use the AI gateway to get a condensed semantic representation
-      const embeddingResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      // Use Gemini to generate search-optimized terms via direct API
+      const embeddingResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-lite',
+          model: 'gemini-2.0-flash',
           messages: [
             {
               role: 'system',

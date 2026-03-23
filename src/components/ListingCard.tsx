@@ -1,8 +1,8 @@
 import { useContext, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMarketplace } from '@/hooks/use-marketplace';
-import { useAuth } from '@/context/AuthContext';
-import { useAnalytics } from '@/context/AnalyticsContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAnalyticsTracking } from '@/hooks/use-analytics-tracking';
 import { Card, CardContent } from '@/components/ui/card';
 import { RichTextDisplay } from '@/components/ui/rich-text-display';
@@ -42,7 +42,6 @@ const ListingCard = memo(function ListingCard({
   const { trackListingSave, trackConnectionRequest } = useAnalytics();
   const { trackSearchResultClick } = useAnalyticsTracking();
   const navigate = useNavigate();
-
 
   // Get search session context for tracking (returns undefined if not within provider)
   const searchSession = useContext(SearchSessionContext);
@@ -113,7 +112,6 @@ const ListingCard = memo(function ListingCard({
                 viewType={viewType}
               />
               <ListingStatusTag status={listing.status_tag ?? null} />
-
 
               {/* Approved badge - smaller pill at top of image, fully visible */}
               {connectionExists && connectionStatus?.status === 'approved' && (

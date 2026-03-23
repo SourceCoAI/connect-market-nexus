@@ -105,7 +105,8 @@ export function getFieldSourcePriority(
   let maxPriority = 0;
   let sourceType: string | null = null;
 
-  for (const src of extractionSources) {
+  for (const _src of extractionSources) {
+    const src = _src as Record<string, any>;
     // Handle the per-field source tracking record (type: 'field_sources')
     // This stores { fields: { fieldName: { source, priority, at } } }
     if (src.type === 'field_sources' && src.fields && typeof src.fields === 'object') {

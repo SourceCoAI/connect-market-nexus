@@ -1,10 +1,9 @@
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { requireAdmin, escapeHtml, escapeHtmlWithBreaks } from "../_shared/auth.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { requireAdmin, escapeHtml, escapeHtmlWithBreaks } from '../_shared/auth.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 interface UserNotificationRequest {
   email: string;
@@ -19,7 +18,7 @@ interface UserNotificationRequest {
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
 
@@ -27,7 +26,7 @@ const handler = async (req: Request): Promise<Response> => {
     // AUTH: Admin-only — sends arbitrary emails to arbitrary addresses
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
     const auth = await requireAdmin(req, supabase);
     if (!auth.isAdmin) {
@@ -44,11 +43,11 @@ const handler = async (req: Request): Promise<Response> => {
       type = 'info',
       actionUrl,
       actionText,
-      fromEmail
+      fromEmail,
     }: UserNotificationRequest = await req.json();
 
     const correlationId = crypto.randomUUID();
-    console.log("Sending user notification:", { email, subject, type });
+    console.log('Sending user notification:', { email, subject, type });
 
     // For connection_approved emails, use plain text format
     const isPlainText = type === 'connection_approved';
@@ -68,14 +67,14 @@ const handler = async (req: Request): Promise<Response> => {
         info: '#3b82f6',
         success: '#059669',
         warning: '#d97706',
-        error: '#dc2626'
+        error: '#dc2626',
       };
 
       const typeEmojis: Record<string, string> = {
         info: 'ℹ️',
         success: '✅',
         warning: '⚠️',
-        error: '❌'
+        error: '❌',
       };
 
       htmlContent = `
@@ -93,14 +92,18 @@ const handler = async (req: Request): Promise<Response> => {
             </div>
           </div>
 
-          ${actionUrl && actionText ? `
+          ${
+            actionUrl && actionText
+              ? `
           <div style="text-align: center; margin: 30px 0;">
             <a href="${escapeHtml(actionUrl)}"
                style="background: ${typeColors[type] || '#3b82f6'}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">
               ${escapeHtml(actionText)}
             </a>
           </div>
-          ` : ''}
+          `
+              : ''
+          }
 
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 14px;">
             <p>This notification was sent from SourceCo Marketplace.</p>
@@ -110,81 +113,102 @@ const handler = async (req: Request): Promise<Response> => {
       `;
     }
 
-    const brevoApiKey = Deno.env.get("BREVO_API_KEY");
+    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
     if (!brevoApiKey) {
-      throw new Error("BREVO_API_KEY not configured");
+      throw new Error('BREVO_API_KEY not configured');
     }
 
-    const emailResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
+    const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
       headers: {
-        "api-key": brevoApiKey,
-        "Content-Type": "application/json",
-        "Accept": "application/json"
+        'api-key': brevoApiKey,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
       body: JSON.stringify({
         sender: {
-          name: "SourceCo Marketplace",
-          email: fromEmail || Deno.env.get('ADMIN_EMAIL') || "adam.haile@sourcecodeals.com"
+          name: 'SourceCo Marketplace',
+          email: fromEmail || Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
         },
-        to: [{
-          email: email,
-          name: email.split('@')[0] // Use email prefix as name fallback
-        }],
+        to: [
+          {
+            email: email,
+            name: email.split('@')[0], // Use email prefix as name fallback
+          },
+        ],
         subject: subject,
         htmlContent: htmlContent,
         textContent: textContent,
         replyTo: {
-          email: fromEmail || Deno.env.get('ADMIN_EMAIL') || "adam.haile@sourcecodeals.com",
-          name: fromEmail?.includes('bill.martin') ? "Bill Martin - SourceCo" :
-                fromEmail?.includes('tomos.mughan') ? "Tomos Mughan - SourceCo" :
-                "Adam Haile - SourceCo"
+          email: fromEmail || Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
+          name: fromEmail?.includes('bill.martin')
+            ? 'Bill Martin - SourceCo'
+            : fromEmail?.includes('tomos.mughan')
+              ? 'Tomos Mughan - SourceCo'
+              : 'Adam Haile - SourceCo',
         },
         // Disable click tracking to prevent broken links
         params: {
           trackClicks: false,
-          trackOpens: true
-        }
-      })
+          trackOpens: true,
+        },
+      }),
     });
 
     if (!emailResponse.ok) {
       const errorText = await emailResponse.text();
-      console.error("Error sending email via Brevo:", errorText);
+      console.error('Error sending email via Brevo:', errorText);
       throw new Error(`Brevo API error: ${errorText}`);
     }
 
-    console.log("User notification sent successfully");
+    console.log('User notification sent successfully');
 
-    await logEmailDelivery(supabase, { email, emailType: 'user_notification', status: 'sent', correlationId });
+    await logEmailDelivery(supabase, {
+      email,
+      emailType: 'user_notification',
+      status: 'sent',
+      correlationId,
+    });
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "User notification sent successfully"
+        message: 'User notification sent successfully',
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200
-      }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
     );
-
   } catch (error: unknown) {
-    console.error("Error in send-user-notification function:", error);
+    console.error('Error in send-user-notification function:', error);
 
     try {
-      const sbClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-      await logEmailDelivery(sbClient, { email: 'unknown', emailType: 'user_notification', status: 'failed', errorMessage: error.message });
-    } catch (_) { /* logging best-effort */ }
+      const sbClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      );
+      await logEmailDelivery(sbClient, {
+        email: 'unknown',
+        emailType: 'user_notification',
+        status: 'failed',
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    } catch (_) {
+      /* logging best-effort */
+    }
 
     return new Response(
       JSON.stringify({
-        error: error.message || "Failed to send user notification"
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error) || 'Failed to send user notification',
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500
-      }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      },
     );
   }
 };

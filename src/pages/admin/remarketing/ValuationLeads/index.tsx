@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,7 +14,10 @@ import {
   EnrichmentProgressIndicator,
   DealEnrichmentSummaryDialog,
   DealBulkActionBar,
+  AddDealsToListDialog,
+  PushToHeyreachModal,
 } from '@/components/remarketing';
+import type { DealForList } from '@/components/remarketing';
 import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
 import { PushToSmartleadModal } from '@/components/remarketing/PushToSmartleadModal';
 import {
@@ -38,24 +41,23 @@ import { cn } from '@/lib/utils';
 import { useValuationLeadsData } from './useValuationLeadsData';
 import { ValuationLeadsTable } from './ValuationLeadsTable';
 import { ValuationLeadUploadDialog } from './ValuationLeadUploadDialog';
+import { ValuationLeadDetailDrawer } from './ValuationLeadDetailDrawer';
 import { exportLeadsToCSV } from './helpers';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
-import { ValuationLeadDetailDrawer } from './ValuationLeadDetailDrawer';
 import type { Operator, FilterRule } from '@/components/filters';
-import type { SortColumn } from './types';
-import type { ValuationLead } from './types';
+import type { SortColumn, ValuationLead } from './types';
 
 // Re-export formatAge for any external importers
 export { formatAge } from './helpers';
 
 export default function ValuationLeads() {
-  const navigate = useNavigate();
   const { setPageContext } = useAICommandCenterContext();
   const [dialerOpen, setDialerOpen] = useState(false);
   const [smartleadOpen, setSmartleadOpen] = useState(false);
+  const [heyreachOpen, setHeyreachOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [detailLead, setDetailLead] = useState<ValuationLead | null>(null);
+  const [addToListOpen, setAddToListOpen] = useState(false);
   const {
     leads,
     isLoading,
@@ -91,7 +93,8 @@ export default function ValuationLeads() {
     setHidePushed,
     hideNotFit,
     setHideNotFit,
-    handleRowClick: _handleRowClick,
+    handleRowClick,
+    handleOpenDeal,
     handlePushToAllDeals,
     handlePushAndEnrich,
     handleReEnrich,
@@ -101,12 +104,18 @@ export default function ValuationLeads() {
     handleRetryFailedEnrichment,
     handleScoreLeads,
     handleAssignOwner,
+    handleEnrichSelected,
+    handleDelete,
+    selectedLead,
+    drawerOpen,
+    setDrawerOpen,
     isPushing,
-    isPushEnriching,
-    isReEnriching,
+    isPushEnriching: _isPushEnriching,
+    isReEnriching: _isReEnriching,
     isScoring,
     isEnriching,
     isMarkingNotFit,
+    isDeleting,
     enrichmentProgress,
     enrichmentSummary,
     showEnrichmentSummary,
@@ -115,6 +124,19 @@ export default function ValuationLeads() {
     resumeEnrichment,
     cancelEnrichment,
   } = useValuationLeadsData();
+
+  const selectedDealsForList = useMemo((): DealForList[] => {
+    if (!filteredLeads || selectedIds.size === 0) return [];
+    return filteredLeads
+      .filter((l) => selectedIds.has(l.id))
+      .map((l) => ({
+        dealId: l.id,
+        dealName: l.business_name || l.display_name || 'Unknown Lead',
+        contactName: l.full_name,
+        contactEmail: l.email || l.work_email,
+        contactPhone: l.phone,
+      }));
+  }, [filteredLeads, selectedIds]);
 
   useEffect(() => {
     setPageContext({ page: 'valuation_leads', entity_type: 'leads' });
@@ -266,7 +288,7 @@ export default function ValuationLeads() {
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
-            {type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+            {type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
             <span className="ml-1.5 text-xs text-muted-foreground">
               ({(leads || []).filter((l) => l.calculator_type === type && !l.is_archived).length})
             </span>
@@ -400,20 +422,21 @@ export default function ValuationLeads() {
         onRefetch={refetch}
         onApproveToActiveDeals={(ids) => handlePushToAllDeals(ids)}
         isPushing={isPushing}
-        onPushAndEnrich={(ids) => handlePushAndEnrich(ids)}
-        isPushAndEnriching={isPushEnriching}
-        onReEnrichPushed={(ids) => handleReEnrich(ids)}
-        isReEnrichingPushed={isReEnriching}
+        onEnrichSelected={(dealIds) => handleEnrichSelected(dealIds)}
+        isEnriching={isEnriching}
         onExportCSV={() => {
           const selected = filteredLeads.filter((l) => selectedIds.has(l.id));
           exportLeadsToCSV(selected);
         }}
-        showPriorityToggle={false}
         onMarkNotFit={() => handleMarkNotFit(Array.from(selectedIds))}
         isMarkingNotFit={isMarkingNotFit}
         onArchive={() => handleArchive(Array.from(selectedIds))}
+        onDelete={() => handleDelete(Array.from(selectedIds))}
+        isDeleting={isDeleting}
         onPushToDialer={() => setDialerOpen(true)}
         onPushToSmartlead={() => setSmartleadOpen(true)}
+        onPushToHeyreach={() => setHeyreachOpen(true)}
+        onAddToList={() => setAddToListOpen(true)}
       />
       <PushToDialerModal
         open={dialerOpen}
@@ -429,18 +452,34 @@ export default function ValuationLeads() {
         contactCount={selectedIds.size}
         entityType="listings"
       />
+      <PushToHeyreachModal
+        open={heyreachOpen}
+        onOpenChange={setHeyreachOpen}
+        contactIds={Array.from(selectedIds)}
+        contactCount={selectedIds.size}
+        entityType="listings"
+      />
+      <AddDealsToListDialog
+        open={addToListOpen}
+        onOpenChange={setAddToListOpen}
+        selectedDeals={selectedDealsForList}
+        entityType="lead"
+      />
 
       {/* Upload Dialog */}
       <ValuationLeadUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} />
 
-      {/* Lead Detail Drawer */}
+      {/* Detail Drawer */}
       <ValuationLeadDetailDrawer
-        lead={detailLead}
-        open={!!detailLead}
-        onOpenChange={(open) => { if (!open) setDetailLead(null); }}
-        onPushToDeals={handlePushToAllDeals}
-        onMarkNotFit={handleMarkNotFit}
-        onViewDeal={(listingId) => navigate('/admin/deals/' + listingId, { state: { from: '/admin/remarketing/leads/valuation' } })}
+        lead={selectedLead}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        onPushToDeals={(ids) => handlePushToAllDeals(ids)}
+        onMarkNotFit={(ids) => handleMarkNotFit(ids)}
+        onViewDeal={(listingId) => {
+          setDrawerOpen(false);
+          handleOpenDeal({ pushed_listing_id: listingId, id: '' } as ValuationLead);
+        }}
         isPushing={isPushing}
       />
 
@@ -456,7 +495,8 @@ export default function ValuationLeads() {
         allSelected={allSelected}
         toggleSelectAll={toggleSelectAll}
         toggleSelect={toggleSelect}
-        handleRowClick={(lead: ValuationLead) => setDetailLead(lead)}
+        handleRowClick={handleRowClick}
+        handleOpenDeal={handleOpenDeal}
         handlePushToAllDeals={handlePushToAllDeals}
         handleReEnrich={handleReEnrich}
         handlePushAndEnrich={handlePushAndEnrich}

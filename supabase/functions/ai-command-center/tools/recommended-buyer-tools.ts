@@ -53,7 +53,7 @@ export const recommendedBuyerTools: ClaudeTool[] = [
   {
     name: 'get_recommended_buyers',
     description: `Get AI-ranked buyer recommendations for a deal with composite scoring, tier classification, fit signals, and engagement data.
-DATA SOURCE: Invokes the score-deal-buyers edge function which scores ALL active buyers against the deal across 4 dimensions: service/sector (40%), geography (30%), size/EBITDA (20%), and bonus factors (10%).
+DATA SOURCE: Invokes the score-deal-buyers edge function which scores ALL active buyers against the deal across 3 dimensions: service/sector (70%), geography (15%), and bonus factors (15%). EBITDA size scoring was removed in v3 as unreliable.
 RESPONSE: Returns buyers grouped by tier (move_now, strong, speculative) with composite_score, per-dimension scores, fit_signals, buyer profile data, and tier classification.
 USE WHEN: "Who should we target for this deal?", "Recommended buyers for [deal]", "Best fit buyers", "Buyer shortlist".
 NOTE: Also fetches deal details and buyer universe context for richer presentation.`,
@@ -87,7 +87,7 @@ NOTE: Also fetches deal details and buyer universe context for richer presentati
   },
   {
     name: 'generate_buyer_narrative',
-    description: `Generate a written strategy narrative for a deal's recommended buyers. Invokes scoring, then uses Gemini to produce a strategy paragraph referencing the deal's service type, geography, EBITDA range, and per-buyer rationale with tier summaries and recommended next actions.
+    description: `Generate a written strategy narrative for a deal's recommended buyers. Invokes scoring, then uses Gemini to produce a strategy paragraph referencing the deal's service type, geography, and per-buyer rationale with tier summaries and recommended next actions.
 USE WHEN: "Write a buyer strategy for [deal]", "Narrative buyer analysis", "Strategy memo for recommended buyers".
 RETURNS: A structured response with the narrative text, deal context, tier summaries, and the underlying scored buyer data.`,
     input_schema: {
@@ -320,7 +320,7 @@ async function generateBuyerNarrative(
   const buyerSummaries = buyers.slice(0, 25).map((b) => {
     const name = b.company_name || b.pe_firm_name || 'Unknown';
     const signals = b.fit_signals.length > 0 ? b.fit_signals.join('; ') : 'No specific signals';
-    return `- ${name} (${b.buyer_type || 'unknown type'}, ${b.hq_state || '??'}): score=${b.composite_score}, tier=${b.tier}, geo=${b.geography_score}, svc=${b.service_score}, size=${b.size_score}, signals=[${signals}]${b.has_fee_agreement ? ', FEE AGREEMENT' : ''}${b.acquisition_appetite === 'aggressive' ? ', AGGRESSIVE APPETITE' : ''}`;
+    return `- ${name} (${b.buyer_type || 'unknown type'}, ${b.hq_state || '??'}): score=${b.composite_score}, tier=${b.tier}, svc=${b.service_score}, geo=${b.geography_score}, signals=[${signals}]${b.has_fee_agreement ? ', FEE AGREEMENT' : ''}${b.acquisition_appetite === 'aggressive' ? ', AGGRESSIVE APPETITE' : ''}`;
   });
 
   // Call Gemini to generate the narrative
@@ -353,8 +353,8 @@ SCORED BUYERS (top ${buyerSummaries.length} of ${scoring.total_scored || scoring
 ${buyerSummaries.join('\n')}
 
 INSTRUCTIONS:
-1. Start with a 2-3 sentence deal framing paragraph that captures the service type, geography, EBITDA range, and what makes this deal attractive.
-2. For each tier that has buyers, write a paragraph summarizing the tier and calling out 2-3 specific buyers with their rationale (citing fit signals, geography match, EBITDA fit, fee agreements, appetite).
+1. Start with a 2-3 sentence deal framing paragraph that captures the service type, geography, and what makes this deal attractive.
+2. For each tier that has buyers, write a paragraph summarizing the tier and calling out 2-3 specific buyers with their rationale (citing fit signals, geography match, fee agreements, appetite).
 3. End with a short "Recommended Actions" paragraph suggesting next steps (e.g., prioritize Move Now buyers for immediate outreach, schedule intro calls with Strong Candidates, monitor Speculative for mandate changes).
 4. Keep the total narrative under 500 words.
 5. Do NOT use markdown headers or bullet points — write in flowing prose paragraphs.`;
@@ -381,7 +381,9 @@ INSTRUCTIONS:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[generate_buyer_narrative] Gemini API error ${response.status}: ${errorText.substring(0, 300)}`);
+      console.error(
+        `[generate_buyer_narrative] Gemini API error ${response.status}: ${errorText.substring(0, 300)}`,
+      );
       return {
         error: `Gemini API error (${response.status}): ${errorText.substring(0, 200)}`,
       };
@@ -389,9 +391,7 @@ INSTRUCTIONS:
 
     const geminiData = await response.json();
     const narrative =
-      geminiData.choices?.[0]?.message?.content ||
-      geminiData.choices?.[0]?.text ||
-      '';
+      geminiData.choices?.[0]?.message?.content || geminiData.choices?.[0]?.text || '';
 
     if (!narrative) {
       return { error: 'Gemini returned an empty narrative response' };

@@ -172,8 +172,8 @@ Deno.serve(async (req) => {
       // Check if already published
       if (listing.is_internal_deal === false && listing.published_at) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Listing is already published', listing }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error: 'Listing is already published' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
             error: 'Listing does not meet quality requirements',
             validationErrors: allErrors
           }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
       if (updateError) {
         console.error('Update error:', updateError);
         return new Response(
-          JSON.stringify({ error: 'Failed to publish listing', details: updateError.message }),
+          JSON.stringify({ error: 'Failed to publish listing' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -240,7 +240,7 @@ Deno.serve(async (req) => {
       if (updateError) {
         console.error('Update error:', updateError);
         return new Response(
-          JSON.stringify({ error: 'Failed to unpublish listing', details: updateError.message }),
+          JSON.stringify({ error: 'Failed to unpublish listing' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -266,7 +266,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Unexpected error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

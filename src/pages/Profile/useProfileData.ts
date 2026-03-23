@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
@@ -185,8 +185,8 @@ export function useProfileData() {
       setPasswordError("New passwords don't match");
       return;
     }
-    if (passwordData.newPassword.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
+    if (passwordData.newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
       return;
     }
 

@@ -1,21 +1,16 @@
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { ChevronDown, Settings, Gauge, MapPin, Target, Award } from "lucide-react";
-import type { ScoringBehavior } from "@/types/remarketing";
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown, Settings, MapPin, Target, Award } from 'lucide-react';
+import type { ScoringBehavior } from '@/types/remarketing';
 
 interface ScoringBehaviorPanelProps {
   scoringBehavior: ScoringBehavior;
   weights: {
     geography: number;
-    size: number;
     service: number;
     ownerGoals: number;
   };
@@ -30,7 +25,7 @@ export const ScoringBehaviorPanel = ({
   readOnly = false,
 }: ScoringBehaviorPanelProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const totalWeight = weights.geography + weights.size + weights.service + weights.ownerGoals;
+  const totalWeight = weights.geography + weights.service + weights.ownerGoals;
 
   const handleChange = (key: keyof ScoringBehavior, value: boolean | string) => {
     if (onScoringBehaviorChange) {
@@ -50,9 +45,7 @@ export const ScoringBehaviorPanel = ({
                 </div>
                 <div>
                   <CardTitle className="text-base">Scoring Configuration</CardTitle>
-                  <CardDescription>
-                    Weight distribution and scoring behavior
-                  </CardDescription>
+                  <CardDescription>Weight distribution and scoring behavior</CardDescription>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -62,11 +55,10 @@ export const ScoringBehaviorPanel = ({
                     <MapPin className="h-3 w-3 mr-1" />
                     {weights.geography}%
                   </Badge>
-                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                    <Gauge className="h-3 w-3 mr-1" />
-                    {weights.size}%
-                  </Badge>
-                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                  <Badge
+                    variant="outline"
+                    className="bg-purple-50 text-purple-700 border-purple-200"
+                  >
                     <Target className="h-3 w-3 mr-1" />
                     {weights.service}%
                   </Badge>
@@ -75,10 +67,12 @@ export const ScoringBehaviorPanel = ({
                     {weights.ownerGoals}%
                   </Badge>
                 </div>
-                <Badge variant={totalWeight === 100 ? "secondary" : "destructive"}>
+                <Badge variant={totalWeight === 100 ? 'secondary' : 'destructive'}>
                   Total: {totalWeight}%
                 </Badge>
-                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                />
               </div>
             </div>
           </CollapsibleTrigger>
@@ -86,20 +80,13 @@ export const ScoringBehaviorPanel = ({
         <CollapsibleContent>
           <CardContent className="pt-0 space-y-6">
             {/* Weight Breakdown */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="p-4 rounded-lg bg-blue-50 border border-blue-100">
                 <div className="flex items-center gap-2 mb-2">
                   <MapPin className="h-4 w-4 text-blue-600" />
                   <span className="text-sm font-medium text-blue-900">Geography</span>
                 </div>
                 <span className="text-2xl font-bold text-blue-700">{weights.geography}%</span>
-              </div>
-              <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <Gauge className="h-4 w-4 text-emerald-600" />
-                  <span className="text-sm font-medium text-emerald-900">Size Fit</span>
-                </div>
-                <span className="text-2xl font-bold text-emerald-700">{weights.size}%</span>
               </div>
               <div className="p-4 rounded-lg bg-purple-50 border border-purple-100">
                 <div className="flex items-center gap-2 mb-2">
@@ -123,8 +110,12 @@ export const ScoringBehaviorPanel = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                   <div>
-                    <Label htmlFor="boost_adjacency" className="text-sm font-medium">Boost Adjacent States</Label>
-                    <p className="text-xs text-muted-foreground">Buyers near target geography score higher</p>
+                    <Label htmlFor="boost_adjacency" className="text-sm font-medium">
+                      Boost Adjacent States
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Buyers near target geography score higher
+                    </p>
                   </div>
                   <Switch
                     id="boost_adjacency"
@@ -135,7 +126,9 @@ export const ScoringBehaviorPanel = ({
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                   <div>
-                    <Label htmlFor="penalize_distance" className="text-sm font-medium">Penalize Distance</Label>
+                    <Label htmlFor="penalize_distance" className="text-sm font-medium">
+                      Penalize Distance
+                    </Label>
                     <p className="text-xs text-muted-foreground">Reduce score for distant buyers</p>
                   </div>
                   <Switch
@@ -147,8 +140,12 @@ export const ScoringBehaviorPanel = ({
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                   <div>
-                    <Label htmlFor="require_thesis_match" className="text-sm font-medium">Require Thesis Match</Label>
-                    <p className="text-xs text-muted-foreground">Must match buyer's stated thesis</p>
+                    <Label htmlFor="require_thesis_match" className="text-sm font-medium">
+                      Require Thesis Match
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Must match buyer's stated thesis
+                    </p>
                   </div>
                   <Switch
                     id="require_thesis_match"

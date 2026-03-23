@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * AI Command Center — Task Management Tools (v3.1)
  *
@@ -181,10 +182,14 @@ CRITICAL: Every task MUST be linked to an entity (deal, listing, buyer, or conta
             'buyer_qualification',
             'seller_relationship',
             'buyer_ic_followup',
+            'call',
+            'email',
+            'find_buyers',
+            'contact_buyers',
             'other',
           ],
           description:
-            'Task type (default "follow_up_with_buyer"). contact_owner=reach out to seller, follow_up_with_buyer=buyer follow-up, send_materials=memo/teaser/docs, schedule_call=calls, nda_execution=NDA, ioi_loi_process=IOI/LOI, due_diligence=DD, buyer_qualification=qualify buyers, seller_relationship=seller rapport, buyer_ic_followup=IC committee',
+            'Task type (default "follow_up_with_buyer"). contact_owner=reach out to seller, follow_up_with_buyer=buyer follow-up, send_materials=memo/teaser/docs, schedule_call=calls, nda_execution=NDA, ioi_loi_process=IOI/LOI, due_diligence=DD, buyer_qualification=qualify buyers, seller_relationship=seller rapport, buyer_ic_followup=IC committee, call=phone call, email=send email, find_buyers=find buyers, contact_buyers=reach out to buyers',
         },
         entity_type: {
           type: 'string',
@@ -238,6 +243,78 @@ CRITICAL: Every task MUST be linked to an entity (deal, listing, buyer, or conta
     },
   },
   {
+    name: 'complete_task',
+    description: `Mark a task as completed. Logs the completion in activity log and deal activities.
+Use when the user says "mark task done", "complete task", "I finished the task", "task is done".`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'The task UUID to complete' },
+        notes: { type: 'string', description: 'Optional completion notes' },
+      },
+      required: ['task_id'],
+    },
+  },
+  {
+    name: 'bulk_create_tasks',
+    description: `Create the same task for multiple entities at once. REQUIRES CONFIRMATION.
+Use when the user says things like:
+- "Set a task to follow up with every restoration company in two weeks"
+- "Create a call task for all HVAC deals"
+- "Add a follow-up task for each buyer in this universe"
+The entity_ids should come from a prior query_deals, search_buyers, or similar search tool.
+All tasks are created as PENDING APPROVAL — a human must approve them.`,
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Task title — applied to all created tasks' },
+        description: { type: 'string', description: 'Optional task details' },
+        task_type: {
+          type: 'string',
+          enum: [
+            'contact_owner',
+            'build_buyer_universe',
+            'follow_up_with_buyer',
+            'send_materials',
+            'update_pipeline',
+            'schedule_call',
+            'nda_execution',
+            'ioi_loi_process',
+            'due_diligence',
+            'buyer_qualification',
+            'seller_relationship',
+            'buyer_ic_followup',
+            'call',
+            'email',
+            'find_buyers',
+            'contact_buyers',
+            'other',
+          ],
+          description: 'Task type (default "follow_up_with_buyer")',
+        },
+        entity_type: {
+          type: 'string',
+          enum: ['listing', 'deal', 'buyer', 'contact'],
+          description: 'REQUIRED — type of entities these tasks are linked to',
+        },
+        entity_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'REQUIRED — array of entity UUIDs to create tasks for',
+        },
+        due_date: {
+          type: 'string',
+          description: 'Due date in YYYY-MM-DD format (default: 2 weeks from today)',
+        },
+        assignee_id: {
+          type: 'string',
+          description: 'User ID to assign to. Use "CURRENT_USER" for the logged-in user.',
+        },
+      },
+      required: ['title', 'entity_type', 'entity_ids'],
+    },
+  },
+  {
     name: 'bulk_reassign_tasks',
     description:
       'Reassign all open tasks from one user to another. REQUIRES CONFIRMATION. Use when someone is out or responsibilities shift.',
@@ -279,8 +356,12 @@ export async function executeTaskTool(
       return confirmAITask(supabase, args, userId);
     case 'dismiss_ai_task':
       return dismissAITask(supabase, args, userId);
+    case 'complete_task':
+      return completeTask(supabase, args, userId);
     case 'add_task_comment':
       return addTaskComment(supabase, args, userId);
+    case 'bulk_create_tasks':
+      return bulkCreateTasks(supabase, args, userId);
     case 'bulk_reassign_tasks':
       return bulkReassignTasks(supabase, args, userId);
     default:
@@ -594,7 +675,7 @@ async function snoozeTask(
   if (error) return { error: error.message };
 
   // Log activity
-  await supabase.from('rm_task_activity_log').insert({
+  await (supabase as any).from('rm_task_activity_log').insert({
     task_id: taskId,
     user_id: userId,
     action: 'snoozed',
@@ -651,12 +732,24 @@ async function createTask(
   if (error) return { error: error.message };
 
   // Log activity
-  await supabase.from('rm_task_activity_log').insert({
+  await (supabase as any).from('rm_task_activity_log').insert({
     task_id: data.id,
     user_id: userId,
     action: 'created',
     new_value: { source: 'chatbot', entity_type: entityType, entity_id: entityId },
   });
+
+  // Log deal activity if linked to a deal
+  if (entityType === 'deal' && entityId) {
+    await (supabase as any).from('deal_activities').insert({
+      deal_id: entityId,
+      admin_id: userId,
+      activity_type: 'task_created',
+      title: `Task: ${data.title}`,
+      description: `Created via AI Command Center. Type: ${insertData.task_type}`,
+      metadata: { task_id: data.id, source: 'chatbot' },
+    });
+  }
 
   return {
     data: {
@@ -681,11 +774,14 @@ async function confirmAITask(
   };
   if (dueDate) updates.due_date = dueDate;
 
-  const { error } = await supabase.from('daily_standup_tasks').update(updates).eq('id', taskId);
+  const { error } = await (supabase as any)
+    .from('daily_standup_tasks')
+    .update(updates)
+    .eq('id', taskId);
 
   if (error) return { error: error.message };
 
-  await supabase.from('rm_task_activity_log').insert({
+  await (supabase as any).from('rm_task_activity_log').insert({
     task_id: taskId,
     user_id: userId,
     action: 'confirmed',
@@ -708,13 +804,62 @@ async function dismissAITask(
 
   if (error) return { error: error.message };
 
-  await supabase.from('rm_task_activity_log').insert({
+  await (supabase as any).from('rm_task_activity_log').insert({
     task_id: taskId,
     user_id: userId,
     action: 'dismissed',
   });
 
   return { data: { success: true, task_id: taskId } };
+}
+
+async function completeTask(
+  supabase: SupabaseClient,
+  args: Record<string, unknown>,
+  userId: string,
+): Promise<ToolResult> {
+  const taskId = args.task_id as string;
+  const notes = (args.notes as string) || null;
+
+  // Fetch task to get entity info
+  const { data: task, error: fetchError } = await supabase
+    .from('daily_standup_tasks')
+    .select('id, title, entity_type, entity_id, task_type')
+    .eq('id', taskId)
+    .single();
+
+  if (fetchError) return { error: fetchError.message };
+
+  const { error } = await supabase
+    .from('daily_standup_tasks')
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('id', taskId);
+
+  if (error) return { error: error.message };
+
+  // Log activity
+  await (supabase as any).from('rm_task_activity_log').insert({
+    task_id: taskId,
+    user_id: userId,
+    action: 'completed',
+    new_value: notes ? { notes } : {},
+  });
+
+  // Log deal activity if linked to a deal
+  if (task.entity_type === 'deal' && task.entity_id) {
+    await (supabase as any).from('deal_activities').insert({
+      deal_id: task.entity_id,
+      admin_id: userId,
+      activity_type: 'task_completed',
+      title: `Completed: ${task.title}`,
+      description: notes || `Task type: ${task.task_type}`,
+      metadata: { task_id: taskId },
+    });
+  }
+
+  return {
+    data: { success: true, task_id: taskId, message: `Task "${task.title}" marked as completed.` },
+  };
 }
 
 async function addTaskComment(
@@ -733,7 +878,7 @@ async function addTaskComment(
 
   if (error) return { error: error.message };
 
-  await supabase.from('rm_task_activity_log').insert({
+  await (supabase as any).from('rm_task_activity_log').insert({
     task_id: taskId,
     user_id: userId,
     action: 'commented',
@@ -741,6 +886,123 @@ async function addTaskComment(
   });
 
   return { data: { success: true, comment_id: data.id } };
+}
+
+async function bulkCreateTasks(
+  supabase: SupabaseClient,
+  args: Record<string, unknown>,
+  userId: string,
+): Promise<ToolResult> {
+  const entityType = args.entity_type as string;
+  const entityIds = args.entity_ids as string[];
+  const title = args.title as string;
+
+  if (!entityType || !entityIds || entityIds.length === 0) {
+    return { error: 'entity_type and entity_ids[] are required.' };
+  }
+
+  if (entityIds.length > 200) {
+    return { error: `Too many entities (${entityIds.length}). Maximum is 200 per bulk operation.` };
+  }
+
+  const twoWeeksFromNow = new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0];
+  const taskType = (args.task_type as string) || 'follow_up_with_buyer';
+  const dueDate = (args.due_date as string) || twoWeeksFromNow;
+  const assigneeId = (args.assignee_id as string) || userId;
+  const description = (args.description as string) || null;
+
+  // Fetch entity names for deal_reference (best-effort)
+  const entityNames: Map<string, string> = new Map();
+  if (entityType === 'listing' || entityType === 'deal') {
+    const table = entityType === 'deal' ? 'deal_pipeline' : 'listings';
+    const nameCol = entityType === 'deal' ? 'id, listings!inner(title)' : 'id, title';
+    const { data: entities } = await (supabase as any)
+      .from(table)
+      .select(nameCol)
+      .in('id', entityIds);
+    for (const e of entities || []) {
+      const name =
+        entityType === 'deal'
+          ? (e.listings as { title: string })?.title
+          : (e as { title: string }).title;
+      if (name) entityNames.set(e.id, name);
+    }
+  } else if (entityType === 'buyer') {
+    const { data: buyers } = await supabase
+      .from('buyers')
+      .select('id, company_name')
+      .in('id', entityIds);
+    for (const b of buyers || []) {
+      if (b.company_name) entityNames.set(b.id, b.company_name);
+    }
+  }
+
+  // Build task records
+  const taskRecords = entityIds.map((eid) => ({
+    title,
+    description,
+    task_type: taskType,
+    entity_type: entityType,
+    entity_id: eid,
+    deal_reference: entityNames.get(eid) || null,
+    due_date: dueDate,
+    assignee_id: assigneeId,
+    source: 'chatbot',
+    status: 'pending_approval',
+    is_manual: false,
+    priority_score: 50,
+    extraction_confidence: 'high',
+    needs_review: true,
+    created_by: userId,
+  }));
+
+  const { data: inserted, error } = await supabase
+    .from('daily_standup_tasks')
+    .insert(taskRecords)
+    .select('id, title, entity_type, entity_id, deal_reference');
+
+  if (error) return { error: error.message };
+
+  // Log activity for each task
+  const activityLogs = (inserted || []).map((t: { id: string }) => ({
+    task_id: t.id,
+    user_id: userId,
+    action: 'created',
+    new_value: { source: 'chatbot_bulk', entity_type: entityType },
+  }));
+  if (activityLogs.length > 0) {
+    await (supabase as any).from('rm_task_activity_log').insert(activityLogs);
+  }
+
+  // Log deal activities for deal-linked tasks
+  const dealType = entityType === 'deal' || entityType === 'listing';
+  if (dealType) {
+    const dealActivities = (inserted || []).map(
+      (t: { id: string; entity_id: string; deal_reference: string | null }) => ({
+        deal_id: t.entity_id,
+        admin_id: userId,
+        activity_type: 'task_created',
+        title: `Task: ${title}`,
+        description: `Bulk-created via AI Command Center. Type: ${taskType}`,
+        metadata: { task_id: t.id, source: 'chatbot_bulk' },
+      }),
+    );
+    if (dealActivities.length > 0) {
+      await (supabase as any).from('deal_activities').insert(dealActivities);
+    }
+  }
+
+  return {
+    data: {
+      created: (inserted || []).length,
+      due_date: dueDate,
+      task_type: taskType,
+      tasks: (inserted || []).slice(0, 10), // Return first 10 for display
+      total: (inserted || []).length,
+      message: `Created ${(inserted || []).length} tasks "${title}" — all sent for approval. Due: ${dueDate}.`,
+      requires_approval: true,
+    },
+  };
 }
 
 async function bulkReassignTasks(
@@ -779,7 +1041,7 @@ async function bulkReassignTasks(
     new_value: { assignee_id: toUserId },
   }));
 
-  await supabase.from('rm_task_activity_log').insert(logs);
+  await (supabase as any).from('rm_task_activity_log').insert(logs);
 
   return { data: { reassigned: tasks.length } };
 }

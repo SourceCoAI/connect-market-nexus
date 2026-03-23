@@ -1,13 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
-import { FileDown, Shield, FileSignature, CheckCircle, Loader2, AlertTriangle, ArrowRight } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  FileDown,
+  Shield,
+  FileSignature,
+  CheckCircle,
+  Loader2,
+  AlertTriangle,
+  ArrowRight,
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useState } from 'react';
-import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
+import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 
 interface DocumentItem {
@@ -28,65 +36,42 @@ function useAllDocuments() {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      // Deterministic firm resolution: connection_requests first, then firm_members
-      let firmId: string | null = null;
+      // Use canonical firm resolver RPC (deterministic: email domain → company name → latest member)
+      const { data: resolvedFirmId, error: resolveError } = await supabase.rpc('resolve_user_firm_id', {
+        p_user_id: user.id,
+      });
 
-      // Try connection_requests → firm_id
-      const { data: crData } = await (
-        supabase.from('connection_requests' as never) as unknown as ReturnType<typeof supabase.from>
-      )
-        .select('firm_id')
-        .eq('user_id', user.id)
-        .not('firm_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (crData) {
-        firmId = (crData as unknown as { firm_id: string }).firm_id;
+      if (resolveError) {
+        console.error('Failed to resolve firm:', resolveError);
+        return [];
       }
 
-      // Fallback: firm_members
-      if (!firmId) {
-        const { data: membership } = await (
-          supabase.from('firm_members' as never) as unknown as ReturnType<typeof supabase.from>
-        )
-          .select('firm_id')
-          .eq('user_id', user.id)
-          .order('added_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (membership) {
-          firmId = (membership as unknown as { firm_id: string }).firm_id;
-        }
-      }
-
+      const firmId = resolvedFirmId as string | null;
       if (!firmId) return [];
 
       const { data: firmRaw } = await (
         supabase.from('firm_agreements' as never) as unknown as ReturnType<typeof supabase.from>
       )
         .select(
-          'nda_signed, nda_signed_at, nda_signed_document_url, nda_document_url, nda_docuseal_submission_id, nda_docuseal_status, fee_agreement_signed, fee_agreement_signed_at, fee_signed_document_url, fee_agreement_document_url, fee_docuseal_submission_id, fee_docuseal_status',
+          'nda_status, nda_signed_at, nda_pandadoc_signed_url, nda_document_url, nda_pandadoc_document_id, nda_pandadoc_status, fee_agreement_status, fee_agreement_signed_at, fee_pandadoc_signed_url, fee_agreement_document_url, fee_pandadoc_document_id, fee_pandadoc_status',
         )
         .eq('id', firmId)
         .maybeSingle();
 
       if (!firmRaw) return [];
       const firm = firmRaw as unknown as {
-        nda_signed: boolean | null;
+        nda_status: string | null;
         nda_signed_at: string | null;
-        nda_signed_document_url: string | null;
+        nda_pandadoc_signed_url: string | null;
         nda_document_url: string | null;
-        nda_docuseal_submission_id: string | null;
-        nda_docuseal_status: string | null;
-        fee_agreement_signed: boolean | null;
+        nda_pandadoc_document_id: string | null;
+        nda_pandadoc_status: string | null;
+        fee_agreement_status: string | null;
         fee_agreement_signed_at: string | null;
-        fee_signed_document_url: string | null;
+        fee_pandadoc_signed_url: string | null;
         fee_agreement_document_url: string | null;
-        fee_docuseal_submission_id: string | null;
-        fee_docuseal_status: string | null;
+        fee_pandadoc_document_id: string | null;
+        fee_pandadoc_status: string | null;
       };
 
       const docs: DocumentItem[] = [];
@@ -95,22 +80,22 @@ function useAllDocuments() {
       docs.push({
         type: 'nda',
         label: 'Non-Disclosure Agreement (NDA)',
-        signed: !!firm.nda_signed,
+        signed: firm.nda_status === 'signed',
         signedAt: firm.nda_signed_at,
-        documentUrl: firm.nda_signed_document_url || firm.nda_document_url || null,
-        hasSubmission: !!firm.nda_docuseal_submission_id,
-        status: firm.nda_docuseal_status,
+        documentUrl: firm.nda_pandadoc_signed_url || firm.nda_document_url || null,
+        hasSubmission: !!firm.nda_pandadoc_document_id,
+        status: firm.nda_pandadoc_status,
       });
 
       // Always show Fee Agreement row if firm exists
       docs.push({
         type: 'fee_agreement',
         label: 'Fee Agreement',
-        signed: !!firm.fee_agreement_signed,
+        signed: firm.fee_agreement_status === 'signed',
         signedAt: firm.fee_agreement_signed_at,
-        documentUrl: firm.fee_signed_document_url || firm.fee_agreement_document_url || null,
-        hasSubmission: !!firm.fee_docuseal_submission_id,
-        status: firm.fee_docuseal_status,
+        documentUrl: firm.fee_pandadoc_signed_url || firm.fee_agreement_document_url || null,
+        hasSubmission: !!firm.fee_pandadoc_document_id,
+        status: firm.fee_pandadoc_status,
       });
 
       return docs;
@@ -128,7 +113,10 @@ export function ProfileDocuments() {
   // Realtime sync for agreement status changes
   useAgreementStatusSync();
 
-  const pendingDocs = documents?.filter(d => !d.signed && (d.hasSubmission || d.status === 'sent' || d.status === 'awaiting')) || [];
+  const pendingDocs =
+    documents?.filter(
+      (d) => !d.signed && (d.hasSubmission || d.status === 'sent' || d.status === 'awaiting'),
+    ) || [];
 
   const openSigning = (type: 'nda' | 'fee_agreement') => {
     setSigningType(type);
@@ -176,7 +164,8 @@ export function ProfileDocuments() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-foreground">
-                You have {pendingDocs.length} document{pendingDocs.length > 1 ? 's' : ''} ready for signing
+                You have {pendingDocs.length} document{pendingDocs.length > 1 ? 's' : ''} ready for
+                signing
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Sign below to unlock full deal access and data room materials.
@@ -189,9 +178,7 @@ export function ProfileDocuments() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Documents</CardTitle>
-          <CardDescription>
-            Your agreements and signing status
-          </CardDescription>
+          <CardDescription>Your agreements and signing status</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {documents.map((doc) => (
@@ -211,16 +198,25 @@ export function ProfileDocuments() {
                   <p className="text-sm font-medium text-foreground">{doc.label}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     {doc.signed ? (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50"
+                      >
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Signed
                       </Badge>
                     ) : doc.hasSubmission ? (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50"
+                      >
                         Ready to Sign
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted text-muted-foreground">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 border-muted text-muted-foreground"
+                      >
                         Not Sent
                       </Badge>
                     )}

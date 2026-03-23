@@ -18,7 +18,6 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { callClaude, CLAUDE_MODELS } from '../_shared/claude-client.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import {
-  VALID_BUYER_TYPES,
   buildClassificationSystemPrompt,
   isValidBuyerType,
 } from '../_shared/buyer-type-definitions.ts';
@@ -178,8 +177,17 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
+      // Audit P3: Flag low-confidence classifications for manual review
+      // Confidence < 70: always flag for review (never auto-apply)
+      // Confidence 70-84: stage for review
+      // Confidence >= 85: auto-apply
       const autoApply = classification.confidence >= 85;
-      const action = autoApply ? 'auto_applied' : 'staged_for_review';
+      const lowConfidence = classification.confidence < 70;
+      const action = autoApply
+        ? 'auto_applied'
+        : lowConfidence
+          ? 'flagged_low_confidence'
+          : 'staged_for_review';
 
       results.push({
         id: classification.id,
@@ -204,6 +212,7 @@ Deno.serve(async (req: Request) => {
           updateData.buyer_type_needs_review = false;
           autoApplied++;
         } else {
+          // Both low-confidence and medium-confidence go to review queue
           updateData.buyer_type_needs_review = true;
           stagedForReview++;
         }

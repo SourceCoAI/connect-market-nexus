@@ -17,6 +17,7 @@ import { EditorHeroDescriptionSection } from './editor-sections/EditorHeroDescri
 import { EditorVisualsSection } from './editor-sections/EditorVisualsSection';
 import { EditorInternalCard } from './editor-sections/EditorInternalCard';
 import { EditorLivePreview } from './editor-sections/EditorLivePreview';
+import { EditorFeaturedDealsSection } from './editor-sections/EditorFeaturedDealsSection';
 
 // Form schema - location accepts array from select component and transforms to string
 const listingFormSchema = z.object({
@@ -84,14 +85,12 @@ const listingFormSchema = z.object({
   visible_to_buyer_types: z
     .array(
       z.enum([
-        'privateEquity',
+        'private_equity',
         'corporate',
-        'familyOffice',
-        'searchFund',
-        'individual',
-        'independentSponsor',
-        'advisor',
-        'businessOwner',
+        'family_office',
+        'search_fund',
+        'individual_buyer',
+        'independent_sponsor',
       ]),
     )
     .nullable()
@@ -223,6 +222,9 @@ export function ImprovedListingEditor({
   const [imagePreview, setImagePreview] = useState<string | null>(listing?.image_url || null);
   const [isImageChanged, setIsImageChanged] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [featuredDealIds, setFeaturedDealIds] = useState<string[] | null>(
+    listing?.featured_deal_ids ?? null,
+  );
 
   // H-2 FIX: Wire up AI generation for hero description and body content.
   const [isGenerating, setIsGenerating] = useState(false);
@@ -397,14 +399,12 @@ export function ImprovedListingEditor({
           formData.status_tag && formData.status_tag !== 'none' ? formData.status_tag : null,
         visible_to_buyer_types: (formData.visible_to_buyer_types || null) as
           | (
-              | 'privateEquity'
+              | 'private_equity'
               | 'corporate'
-              | 'familyOffice'
-              | 'searchFund'
-              | 'individual'
-              | 'independentSponsor'
-              | 'advisor'
-              | 'businessOwner'
+              | 'family_office'
+              | 'search_fund'
+              | 'individual_buyer'
+              | 'independent_sponsor'
             )[]
           | null,
         custom_metric_label: formData.custom_metric_label || null,
@@ -435,6 +435,8 @@ export function ImprovedListingEditor({
         main_contact_linkedin: formData.main_contact_linkedin || null,
         // Content sections (populated by lead memo generator)
         custom_sections: formData.custom_sections || null,
+        // Featured deals for landing page
+        ...(featuredDealIds ? { featured_deal_ids: featuredDealIds } : {}),
       };
 
       await onSubmit(transformedData, isImageChanged ? selectedImage : undefined);
@@ -510,6 +512,8 @@ export function ImprovedListingEditor({
                 isGenerating={isGenerating}
                 generatingField={generatingField}
                 onAiGenerate={effectiveDealId ? handleAiGenerate : undefined}
+                dealId={effectiveDealId}
+                listingId={listing?.id || null}
               />
             </div>
 
@@ -520,6 +524,17 @@ export function ImprovedListingEditor({
                 isGenerating={isGenerating}
                 generatingField={generatingField}
                 onAiGenerate={effectiveDealId ? handleAiGenerate : undefined}
+                dealId={effectiveDealId}
+                listingId={listing?.id || null}
+              />
+            </div>
+
+            {/* Featured Deals (for landing page related-deals section) */}
+            <div className="mb-6">
+              <EditorFeaturedDealsSection
+                featuredDealIds={featuredDealIds}
+                onChange={setFeaturedDealIds}
+                currentListingId={listing?.id}
               />
             </div>
 
@@ -532,6 +547,7 @@ export function ImprovedListingEditor({
                   >['formValues']
                 }
                 imagePreview={imagePreview}
+                listingId={listing?.id}
               />
             </div>
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Clay Email Lookup Tool + Shared Helper
  *
@@ -13,13 +14,42 @@
  */
 
 import type { SupabaseClient, ClaudeTool, ToolResult } from './common.ts';
-import { sendToClayNameDomain, sendToClayLinkedIn, sendToClayPhone } from '../../../_shared/clay-client.ts';
+import {
+  sendToClayNameDomain,
+  sendToClayLinkedIn,
+  sendToClayPhone,
+} from '../../../_shared/clay-client.ts';
 
 const POLL_INTERVAL_MS = 3_000;
 const MAX_POLL_MS = 60_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function pickFirstPhoneValue(source: unknown): string | null {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return null;
+
+  const record = source as Record<string, unknown>;
+  const candidates = [
+    record.phone,
+    record.mobile,
+    record.mobile_phone,
+    record.mobileNumber,
+    record.mobile_number,
+    record.phone_number,
+    record.cell,
+    record.cell_phone,
+    record.direct_phone,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
 }
 
 // ---------- Shared helper: synchronous Clay email lookup ----------
@@ -71,7 +101,7 @@ export async function clayLookupEmail(
   const requestType = hasLinkedIn ? 'linkedin' : 'name_domain';
 
   // 1. Insert tracking row
-  const { error: insertErr } = await supabase.from('clay_enrichment_requests').insert({
+  const { error: insertErr } = await (supabase as any).from('clay_enrichment_requests').insert({
     request_id: requestId,
     request_type: requestType,
     status: 'pending',
@@ -110,7 +140,7 @@ export async function clayLookupEmail(
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL_MS);
 
-    const { data: row, error: pollErr } = await supabase
+    const { data: row, error: pollErr } = await (supabase as any)
       .from('clay_enrichment_requests')
       .select('status, result_email')
       .eq('request_id', requestId)
@@ -162,7 +192,7 @@ export async function clayBatchSend(
     const requestId = crypto.randomUUID();
     const requestType = hasLinkedIn ? 'linkedin' : 'name_domain';
 
-    const { error: insertErr } = await supabase.from('clay_enrichment_requests').insert({
+    const { error: insertErr } = await (supabase as any).from('clay_enrichment_requests').insert({
       request_id: requestId,
       request_type: requestType,
       status: 'pending',
@@ -219,7 +249,7 @@ export async function clayBatchPoll(
   while (pending.size > 0 && Date.now() < deadline) {
     await sleep(POLL_INTERVAL_MS);
 
-    const { data: rows } = await supabase
+    const { data: rows } = await (supabase as any)
       .from('clay_enrichment_requests')
       .select('request_id, status, result_email')
       .in('request_id', [...pending])
@@ -250,7 +280,15 @@ export interface ClayPhoneLookupResult {
 export async function clayLookupPhone(
   supabase: SupabaseClient,
   userId: string,
-  params: { linkedinUrl: string; company?: string; title?: string; firstName?: string; lastName?: string; sourceFunction?: string; sourceEntityId?: string },
+  params: {
+    linkedinUrl: string;
+    company?: string;
+    title?: string;
+    firstName?: string;
+    lastName?: string;
+    sourceFunction?: string;
+    sourceEntityId?: string;
+  },
 ): Promise<ClayPhoneLookupResult> {
   const linkedinUrl = params.linkedinUrl?.trim() || '';
 
@@ -260,7 +298,7 @@ export async function clayLookupPhone(
 
   const requestId = crypto.randomUUID();
 
-  const { error: insertErr } = await supabase.from('clay_enrichment_requests').insert({
+  const { error: insertErr } = await (supabase as any).from('clay_enrichment_requests').insert({
     request_id: requestId,
     request_type: 'phone',
     status: 'pending',
@@ -294,9 +332,9 @@ export async function clayLookupPhone(
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL_MS);
 
-    const { data: row, error: pollErr } = await supabase
+    const { data: row, error: pollErr } = await (supabase as any)
       .from('clay_enrichment_requests')
-      .select('status, result_phone')
+      .select('status, result_phone, result_data, raw_callback_payload')
       .eq('request_id', requestId)
       .maybeSingle();
 
@@ -307,9 +345,31 @@ export async function clayLookupPhone(
 
     if (!row || row.status === 'pending') continue;
 
-    if (row.status === 'completed' && row.result_phone) {
-      console.log(`[clayLookupPhone] Phone found: ${row.result_phone} for ${linkedinUrl}`);
-      return { phone: row.result_phone, source: 'clay_phone', requestId };
+    const resolvedPhone =
+      row.result_phone ||
+      pickFirstPhoneValue(row.result_data) ||
+      pickFirstPhoneValue(row.raw_callback_payload);
+
+    if (resolvedPhone) {
+      if (row.status !== 'completed' || row.result_phone !== resolvedPhone) {
+        const { error: repairErr } = await (supabase as any)
+          .from('clay_enrichment_requests')
+          .update({
+            status: 'completed',
+            result_phone: resolvedPhone,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('request_id', requestId);
+
+        if (repairErr) {
+          console.warn(
+            `[clayLookupPhone] Failed to repair result_phone for ${requestId}: ${repairErr.message}`,
+          );
+        }
+      }
+
+      console.log(`[clayLookupPhone] Phone found: ${resolvedPhone} for ${linkedinUrl}`);
+      return { phone: resolvedPhone, source: 'clay_phone', requestId };
     }
 
     console.log(`[clayLookupPhone] No phone found by Clay for ${linkedinUrl}`);
@@ -359,7 +419,8 @@ export const clayToolDefinitions: ClaudeTool[] = [
       properties: {
         linkedin_url: {
           type: 'string',
-          description: 'LinkedIn profile URL (e.g. https://www.linkedin.com/in/john-smith). Required.',
+          description:
+            'LinkedIn profile URL (e.g. https://www.linkedin.com/in/john-smith). Required.',
         },
       },
       required: ['linkedin_url'],

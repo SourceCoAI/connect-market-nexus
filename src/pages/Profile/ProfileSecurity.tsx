@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { AlertCircle, CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { OZ_ADMIN_ID } from '@/constants';
 import type { ProfileSecurityProps } from './types';

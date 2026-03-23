@@ -42,7 +42,6 @@ export function DealBuyerHistoryTab({ listingId, listingTitle }: DealBuyerHistor
   const { data: entries, isLoading } = useQuery({
     queryKey: ['deal-buyer-history', listingId],
     queryFn: async () => {
-       
       const { data, error } = (await supabase
         .from('deal_pipeline')
         .select(
@@ -66,7 +65,10 @@ export function DealBuyerHistoryTab({ listingId, listingTitle }: DealBuyerHistor
         )
         .eq('listing_id', listingId)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false })) as { data: any[] | null; error: any };
+        .order('created_at', { ascending: false })) as {
+        data: Record<string, unknown>[] | null;
+        error: { message: string } | null;
+      };
 
       if (error) throw error;
 

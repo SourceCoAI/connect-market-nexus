@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { markAdminViewAsViewed } from '@/lib/data-access';
 
 export function useMarkUsersViewed() {

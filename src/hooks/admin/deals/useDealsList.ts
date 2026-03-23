@@ -3,8 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Deal } from './types';
 
 /** Maps a single RPC row from get_deals_with_buyer_profiles to a Deal object. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapRpcRowToDeal(row: Record<string, any>) {
+export function mapRpcRowToDeal(row: Record<string, unknown>) {
   return {
     deal_id: row.deal_id,
     title: row.deal_title || row.listing_title || 'Deal',
@@ -108,6 +107,9 @@ export function mapRpcRowToDeal(row: Record<string, any>) {
 
     // Meeting scheduled
     meeting_scheduled: row.meeting_scheduled ?? false,
+
+    // Under LOI
+    under_loi: row.under_loi ?? false,
   };
 }
 
@@ -178,7 +180,7 @@ export function useDeals() {
       mapped.forEach((deal) => {
         deal.memo_sent = memoSentListings.has(deal.listing_id as string);
         deal.has_data_room = dataRoomListings.has(deal.listing_id as string);
-        const tc = taskCountMap.get(deal.deal_id);
+        const tc = taskCountMap.get(deal.deal_id as string);
         if (tc) {
           deal.total_tasks = tc.total;
           deal.pending_tasks = tc.pending;

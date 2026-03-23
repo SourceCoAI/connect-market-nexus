@@ -87,10 +87,14 @@ export interface AdminListing {
   google_rating?: number | null;
   google_review_count?: number | null;
   company_website?: string | null;
+  website?: string; // DB column (NOT NULL) — empty string for anonymous listings
   is_priority_target?: boolean | null;
 
   // Source deal linkage (marketplace listing created from a deal)
   source_deal_id?: string | null;
+
+  // Featured deals shown on landing page (if null, random/recent deals are shown)
+  featured_deal_ids?: string[] | null;
 
   // Content sections (populated by lead memo generator)
   custom_sections?: Array<{ title: string; description: string }> | null;
@@ -172,13 +176,14 @@ export interface CreateListingData {
 
   // Source deal linkage
   source_deal_id?: string | null;
+  featured_deal_ids?: string[] | null;
 }
 
 export interface AdminConnectionRequest {
   id: string;
   user_id: string | null;
   listing_id: string;
-  status: 'pending' | 'approved' | 'rejected' | 'on_hold';
+  status: import('./status-enums').ConnectionRequestStatus | 'on_hold';
   admin_comment?: string;
   user_message?: string;
   decision_notes?: string;

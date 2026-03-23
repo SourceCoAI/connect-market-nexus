@@ -458,7 +458,7 @@ export const AddDealToUniverseDialog = ({
   };
 
   const formatCurrency = (value: number | null) => {
-    if (!value) return '—';
+    if (value === null || value === undefined) return '—';
     if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
     if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
     return `$${value}`;

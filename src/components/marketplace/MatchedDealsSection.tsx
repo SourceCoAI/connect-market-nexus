@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useSimpleListings } from '@/hooks/use-simple-listings';
 import { useAllSavedListingIds } from '@/hooks/marketplace/use-saved-listings';
 import { useAllConnectionStatuses } from '@/hooks/marketplace/use-connections';
@@ -128,7 +128,9 @@ export function MatchedDealsSection() {
         <div className="flex items-center justify-between">
           <CollapsibleTrigger asChild>
             <button className="flex items-center gap-2 group cursor-pointer">
-              <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+              <ChevronRight
+                className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`}
+              />
               <Sparkles className="h-4 w-4 text-purple-600" />
               <h2 className="text-lg font-semibold">Matched for You ({matchedListings.length})</h2>
               {!isOpen && criteriaSummary && (
@@ -175,7 +177,8 @@ export function MatchedDealsSection() {
                       <ul className="space-y-1">
                         {reasons.map((r, i) => (
                           <li key={i} className="text-xs text-muted-foreground">
-                            <span className="font-medium text-foreground">{r.label}:</span> {r.detail}
+                            <span className="font-medium text-foreground">{r.label}:</span>{' '}
+                            {r.detail}
                           </li>
                         ))}
                       </ul>

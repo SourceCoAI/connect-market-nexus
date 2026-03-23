@@ -22,7 +22,7 @@ This report documents the results of a comprehensive platform audit of the Sourc
 | Supabase Integrity (S8)     | 5                  | 4            | 1            | 0            |
 | Prospeo Integration (S9)    | 6                  | 1            | 2            | 3            |
 | Fireflies Integration (S10) | 6                  | 2            | 2            | 2            |
-| DocuSeal Integration (S11)  | 5                  | 1            | 2            | 2            |
+| PandaDoc Integration (S11)  | 5                  | 1            | 2            | 2            |
 | Business Logic (S12)        | 4                  | 4            | 0            | 0            |
 | Concurrency (S13)           | 3                  | 1            | 1            | 1            |
 | Error Handling (S14)        | 3                  | 3            | 0            | 0            |
@@ -41,7 +41,7 @@ Duration:    35.07s
 
 **Pre-existing failures (not introduced by audit):**
 
-1. `DocuSealSigningPanel.test.tsx` - Text changed from "NDA signed -- you're in." to "Document signed successfully."
+1. `PandaDocSigningPanel.test.tsx` - Text changed from "NDA signed -- you're in." to "Document signed successfully."
 2. `ListingCardTitle.test.tsx` - Missing `BrowserRouter` context in test wrapper
 
 ---
@@ -160,7 +160,7 @@ Duration:    35.07s
 | Table structure (correct columns, types, constraints) | **IMPLEMENTED** | 170+ tables; profiles with 100+ fields; listings fully featured                                                      |
 | Foreign key relationships                             | **IMPLEMENTED** | 100+ verified FKs with explicit CASCADE/SET NULL policies                                                            |
 | Row Level Security (RLS)                              | **IMPLEMENTED** | 155+ tables with 691 CREATE POLICY statements                                                                        |
-| Audit trail / logging                                 | **IMPLEMENTED** | audit_logs, deal_activities, data_room_access_logs, docuseal_webhook_log                                             |
+| Audit trail / logging                                 | **IMPLEMENTED** | audit_logs, deal_activities, data_room_access_logs, pandadoc_webhook_log                                             |
 | Soft delete implementation                            | **PARTIAL**     | `deleted_at` on core tables (listings, connection_requests, remarketing); views filter active records; not universal |
 
 **Key files:**
@@ -233,11 +233,11 @@ Duration:    35.07s
 
 ---
 
-### SECTION 11: DocuSeal E-Signature Integration
+### SECTION 11: PandaDoc E-Signature Integration
 
 | Requirement                      | Status          | Details                                                                                             |
 | -------------------------------- | --------------- | --------------------------------------------------------------------------------------------------- |
-| Signature request creation       | **IMPLEMENTED** | `create-docuseal-submission` creates NDA/fee agreement signing requests                             |
+| Signature request creation       | **IMPLEMENTED** | `create-pandadoc-submission` creates NDA/fee agreement signing requests                             |
 | Webhook processing (completion)  | **PARTIAL**     | Handles form.completed, form.viewed, form.declined, form.expired; idempotency via unique constraint |
 | Signature expiration handling    | **PARTIAL**     | Expired docs marked in DB; no automatic re-send or pre-expiration warnings                          |
 | Document locking after signature | **MISSING**     | No explicit document locking mechanism post-signature                                               |
@@ -245,9 +245,9 @@ Duration:    35.07s
 
 **Key files:**
 
-- `supabase/functions/create-docuseal-submission/index.ts` - Submission creation
-- `supabase/functions/docuseal-webhook-handler/index.ts` - Webhook handler
-- `src/components/docuseal/DocuSealSigningPanel.tsx` - Embedded signing UI
+- `supabase/functions/create-pandadoc-submission/index.ts` - Submission creation
+- `supabase/functions/pandadoc-webhook-handler/index.ts` - Webhook handler
+- `src/components/pandadoc/PandaDocSigningPanel.tsx` - Embedded signing UI
 
 **Strengths:**
 
@@ -260,7 +260,7 @@ Duration:    35.07s
 
 - No pre-expiration notifications
 - Only stores latest signed document URL (no version history)
-- Metadata passed to DocuSeal not validated against template schema
+- Metadata passed to PandaDoc not validated against template schema
 
 ---
 
@@ -385,7 +385,7 @@ Duration:    35.07s
 | 8   | S4      | Concurrent session limits not enforced                        | MEDIUM   |
 | 9   | S10     | No Fireflies webhook handler for real-time notifications      | MEDIUM   |
 | 10  | S10     | Cannot initiate new Fireflies recordings from platform        | MEDIUM   |
-| 11  | S11     | No pre-expiration warnings for DocuSeal signatures            | MEDIUM   |
+| 11  | S11     | No pre-expiration warnings for PandaDoc signatures            | MEDIUM   |
 | 12  | S11     | No document locking after signature completion                | MEDIUM   |
 | 13  | S11     | Single signer only (no multi-party signing)                   | MEDIUM   |
 | 14  | S16     | N+1 query risk in buyer quality score calculation             | MEDIUM   |
@@ -417,14 +417,14 @@ Duration:    35.07s
 | Deal scoring v5                                        | 1     | ~80   | All pass           |
 | Financial parser                                       | 1     | ~30   | All pass           |
 | Criteria validation                                    | 1     | ~50   | All pass           |
-| UI components (badge, listing, docuseal)               | 10    | ~80   | 2 fail             |
+| UI components (badge, listing, pandadoc)               | 10    | ~80   | 2 fail             |
 | Utility functions (currency, location, URL, etc.)      | 15    | ~200  | All pass           |
 | Session security                                       | 1     | ~5    | All pass (stubbed) |
 | Other hooks and helpers                                | 14    | ~140  | All pass           |
 
 ### Pre-existing Test Failures
 
-**1. `DocuSealSigningPanel.test.tsx:74`**
+**1. `PandaDocSigningPanel.test.tsx:74`**
 
 - Test expects: `"NDA signed -- you're in."`
 - Actual text: `"Document signed successfully."`
@@ -480,13 +480,13 @@ This architectural difference means **Section 5 (Seller Deal Creation)** and rel
 
 4. **Enforce concurrent session limits** - Add session count check to auth middleware
 5. **Add Prospeo rate limit handling** - Detect 429 responses and implement exponential backoff
-6. **Fix pre-existing test failures** - Update DocuSealSigningPanel test text and add BrowserRouter to ListingCardTitle test
+6. **Fix pre-existing test failures** - Update PandaDocSigningPanel test text and add BrowserRouter to ListingCardTitle test
 7. **Add Fireflies webhook handler** - Enable real-time transcript notifications
 
 ### Priority 3: Post-Launch
 
 8. **Add persistent account lockout** - Track failed login count in DB; lock after threshold
-9. **Add DocuSeal pre-expiration warnings** - Scheduled function to warn 7 days before expiry
+9. **Add PandaDoc pre-expiration warnings** - Scheduled function to warn 7 days before expiry
 10. **Add document locking** - Prevent modifications to signed documents
 11. **Fix N+1 in buyer scoring** - Refactor nested loops to use JOINs
 12. **Expand audit logging** - Track all deal field modifications

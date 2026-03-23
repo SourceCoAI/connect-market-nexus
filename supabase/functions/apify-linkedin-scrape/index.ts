@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
@@ -31,11 +31,15 @@ serve(async (req) => {
 
     const APIFY_API_TOKEN = Deno.env.get('APIFY_API_TOKEN');
     const SERPER_API_KEY = Deno.env.get('SERPER_API_KEY');
+    const BLITZ_API_KEY = Deno.env.get('BLITZ_API_KEY');
 
-    if (!APIFY_API_TOKEN) {
-      console.error('APIFY_API_TOKEN not configured');
+    if (!BLITZ_API_KEY && !APIFY_API_TOKEN) {
+      console.error('Neither BLITZ_API_KEY nor APIFY_API_TOKEN configured');
       return new Response(
-        JSON.stringify({ success: false, error: 'Apify API token not configured' }),
+        JSON.stringify({
+          success: false,
+          error: 'No enrichment API keys configured (need BLITZ_API_KEY or APIFY_API_TOKEN)',
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
@@ -56,15 +60,54 @@ serve(async (req) => {
     let targetUrl = linkedinUrl;
     let foundViaSearch = false;
     let companyData: ApifyLinkedInResult | null = null;
+    let enrichmentSource: 'blitz' | 'apify' = 'apify';
 
-    // If we have a direct LinkedIn URL, use it directly
-    if (targetUrl) {
-      console.log(`Scraping provided LinkedIn URL: ${targetUrl}`);
+    // ── STEP 1: Try Blitz API first (primary source) ──
+    if (BLITZ_API_KEY) {
+      console.log('Attempting Blitz API enrichment (primary)...');
+
+      let blitzLinkedinUrl = linkedinUrl;
+
+      // If no LinkedIn URL, try to resolve from domain via Blitz
+      if (!blitzLinkedinUrl && companyWebsite) {
+        console.log(`No LinkedIn URL — trying Blitz domain-to-linkedin for: ${companyWebsite}`);
+        blitzLinkedinUrl = await blitzDomainToLinkedin(BLITZ_API_KEY, companyWebsite);
+        if (blitzLinkedinUrl) {
+          console.log(`Blitz resolved domain to LinkedIn URL: ${blitzLinkedinUrl}`);
+          foundViaSearch = true;
+        } else {
+          console.log('Blitz domain-to-linkedin returned no result');
+        }
+      }
+
+      // If we have a LinkedIn URL (provided or resolved), enrich via Blitz
+      if (blitzLinkedinUrl) {
+        const blitzResult = await enrichWithBlitz(BLITZ_API_KEY, blitzLinkedinUrl);
+        if (blitzResult) {
+          companyData = blitzResult;
+          targetUrl = blitzLinkedinUrl;
+          enrichmentSource = 'blitz';
+          console.log(
+            `Blitz enrichment succeeded: name="${blitzResult.name}", employees=${blitzResult.employeeCount}`,
+          );
+        } else {
+          console.log('Blitz company enrichment returned no data — falling back to Apify/Serper');
+        }
+      } else {
+        console.log('No LinkedIn URL available for Blitz — falling back to Apify/Serper');
+      }
+    }
+
+    // ── STEP 2: Apify/Serper fallback (only if Blitz didn't succeed) ──
+
+    // If we have a direct LinkedIn URL but Blitz didn't work, try Apify
+    if (!companyData && targetUrl && APIFY_API_TOKEN) {
+      console.log(`Scraping provided LinkedIn URL via Apify (fallback): ${targetUrl}`);
       companyData = await scrapeWithApify(APIFY_API_TOKEN, targetUrl);
     }
 
-    // If we don't have a direct LinkedIn URL (or it failed), search using Serper
-    if (!companyData && !targetUrl && companyName && SERPER_API_KEY) {
+    // If we still don't have data and no URL, search using Serper + Apify
+    if (!companyData && !targetUrl && companyName && SERPER_API_KEY && APIFY_API_TOKEN) {
       console.log(`No LinkedIn URL provided, searching for: ${companyName}`);
 
       const locationPart = city && state ? ` ${city} ${state}` : state ? ` ${state}` : '';
@@ -351,6 +394,7 @@ serve(async (req) => {
 
     // Build match signals object
     const matchSignals = {
+      enrichmentSource,
       foundViaSearch,
       websiteMatch,
       locationMatch: locationMatchResult
@@ -369,6 +413,7 @@ serve(async (req) => {
     const result = {
       success: true,
       scraped: true,
+      enrichmentSource,
       foundViaSearch,
       websiteVerified: websiteMatch,
       matchConfidence,
@@ -379,7 +424,7 @@ serve(async (req) => {
     };
 
     console.log(
-      `Apify scrape result: employeeCount=${employeeCount}, employeeRange=${employeeRange}, matchConfidence=${matchConfidence}`,
+      `Enrichment result (${enrichmentSource}): employeeCount=${employeeCount}, employeeRange=${employeeRange}, matchConfidence=${matchConfidence}`,
     );
 
     // If dealId is provided, update the listing directly
@@ -1024,4 +1069,114 @@ function verifyLocation(
     confidence: 'medium',
     reason: `Expected location "${expectedCity}, ${expectedState}" not found in HQ "${linkedinHeadquarters}"`,
   };
+}
+
+/**
+ * Enrich company data via Blitz API (/v2/enrichment/company).
+ * Returns normalized ApifyLinkedInResult or null on failure.
+ */
+async function enrichWithBlitz(
+  apiKey: string,
+  companyLinkedinUrl: string,
+): Promise<ApifyLinkedInResult | null> {
+  try {
+    const response = await fetch('https://api.blitz-api.ai/v2/enrichment/company', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ company_linkedin_url: companyLinkedinUrl }),
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn(
+        `Blitz company enrichment failed [${response.status}]:`,
+        errorText.substring(0, 300),
+      );
+      return null;
+    }
+
+    const data = await response.json();
+    if (!data || !data.found || !data.company) {
+      console.warn('Blitz returned no company:', data?.error || 'found=false or no company object');
+      return null;
+    }
+
+    const co = data.company;
+    console.log('Blitz company result keys:', Object.keys(co));
+
+    // Employee count from Blitz (employees_on_linkedin is the exact count)
+    const employeeCount =
+      typeof co.employees_on_linkedin === 'number' ? co.employees_on_linkedin : undefined;
+
+    // Build headquarters string from hq object (e.g. "Salonica, Central Macedonia, GR")
+    let headquarters: string | undefined = undefined;
+    if (co.hq && typeof co.hq === 'object') {
+      const parts = [co.hq.city, co.hq.state, co.hq.country_code].filter(Boolean);
+      headquarters = parts.length > 0 ? parts.join(', ') : undefined;
+    }
+
+    // Normalize to the same interface used by Apify results
+    return {
+      name: co.name,
+      tagline: co.about,
+      description: co.about,
+      website: co.website || (co.domain ? `https://${co.domain}` : undefined),
+      industry: co.industry,
+      companySize: co.size ? `${co.size} employees` : undefined,
+      employeeCount,
+      headquarters,
+      foundedYear: co.founded_year,
+      specialties: co.specialties,
+      logoUrl: undefined,
+      linkedinUrl: co.linkedin_url || companyLinkedinUrl,
+    };
+  } catch (error) {
+    console.warn('Blitz company enrichment error:', error);
+    return null;
+  }
+}
+
+/**
+ * Resolve a company domain to its LinkedIn URL via Blitz API (/v2/enrichment/domain-to-linkedin).
+ * Returns the LinkedIn URL string or null on failure.
+ */
+async function blitzDomainToLinkedin(apiKey: string, websiteUrl: string): Promise<string | null> {
+  try {
+    // Extract bare domain from URL
+    let domain = websiteUrl.toLowerCase().trim();
+    if (domain.startsWith('http://')) domain = domain.substring(7);
+    if (domain.startsWith('https://')) domain = domain.substring(8);
+    domain = domain.replace(/^www\./, '').replace(/\/.*$/, '');
+
+    const response = await fetch('https://api.blitz-api.ai/v2/enrichment/domain-to-linkedin', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ domain }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      console.warn(`Blitz domain-to-linkedin failed [${response.status}]`);
+      return null;
+    }
+
+    const data = await response.json();
+    const linkedinUrl = data.company_linkedin_url || data.linkedin_url || data.url;
+
+    if (linkedinUrl && typeof linkedinUrl === 'string' && linkedinUrl.includes('linkedin.com')) {
+      return linkedinUrl;
+    }
+
+    return null;
+  } catch (error) {
+    console.warn('Blitz domain-to-linkedin error:', error);
+    return null;
+  }
 }

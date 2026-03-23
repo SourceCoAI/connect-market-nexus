@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Integration Contact Tools
  * Save contacts to the CRM (unified contacts table) with buyer linkage.
@@ -90,7 +91,7 @@ export async function saveContactsToCrm(
 
     // Check for existing contact by email
     if (email) {
-      const { data: existing } = await supabase
+      const { data: existing } = await (supabase as any)
         .from('contacts')
         .select('id, first_name, last_name')
         .eq('email', email)
@@ -108,7 +109,7 @@ export async function saveContactsToCrm(
     }
 
     // Insert
-    const { data: inserted, error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await (supabase as any)
       .from('contacts')
       .insert({
         first_name: firstName,
@@ -142,7 +143,7 @@ export async function saveContactsToCrm(
 
   // Log activity — only if we can resolve a deal for this listing+buyer
   if (saved.length > 0 && listingId && buyerId) {
-    const { data: linkedDeal } = await supabase
+    const { data: linkedDeal } = await (supabase as any)
       .from('deal_pipeline')
       .select('id')
       .eq('listing_id', listingId)
@@ -151,7 +152,7 @@ export async function saveContactsToCrm(
       .maybeSingle();
 
     if (linkedDeal) {
-      await supabase.from('deal_activities').insert({
+      await (supabase as any).from('deal_activities').insert({
         deal_id: linkedDeal.id,
         activity_type: 'contacts_added',
         title: `${saved.length} contact(s) added via AI Command Center`,

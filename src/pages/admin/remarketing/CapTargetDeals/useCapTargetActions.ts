@@ -7,7 +7,7 @@ import {
   useGlobalGateCheck,
   useGlobalActivityMutations,
 } from '@/hooks/remarketing/useGlobalActivityQueue';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 import type { CapTargetDeal, SyncProgress, SyncSummary, CleanupResult } from './types';
 import { hasInvalidWebsite } from './helpers';
@@ -150,6 +150,9 @@ export function useCapTargetActions(
         /* Non-blocking */
       }
 
+      // When mode='all', force re-enrichment so notes analysis runs on already-enriched deals
+      const forceReEnrich = mode === 'all';
+
       const now = new Date().toISOString();
       const seen = new Set<string>();
       const rows = targets
@@ -163,6 +166,7 @@ export function useCapTargetActions(
           status: 'pending' as const,
           attempts: 0,
           queued_at: now,
+          ...(forceReEnrich ? { force: true } : {}),
         }));
 
       const CHUNK = 500;
@@ -281,6 +285,9 @@ export function useCapTargetActions(
       }
       setIsEnriching(true);
 
+      // Force re-enrichment when mode='all' so notes analysis runs on already-enriched deals
+      const forceReEnrich = mode === 'all';
+
       let activityItem: { id: string } | null = null;
       try {
         const result = await startOrQueueMajorOp({
@@ -311,7 +318,13 @@ export function useCapTargetActions(
           seen.add(id);
           return true;
         })
-        .map((id) => ({ listing_id: id, status: 'pending' as const, attempts: 0, queued_at: now }));
+        .map((id) => ({
+          listing_id: id,
+          status: 'pending' as const,
+          attempts: 0,
+          queued_at: now,
+          ...(forceReEnrich ? { force: true } : {}),
+        }));
 
       const CHUNK = 500;
       for (let i = 0; i < rows.length; i += CHUNK) {

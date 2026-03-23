@@ -115,7 +115,7 @@ Components are organized by feature domain:
 | `deals/` | Deal management components |
 | `buyers/` | Buyer profile components |
 | `deal-alerts/` | Deal alert configuration and display |
-| `docuseal/` | E-signature integration (DocuSeal) |
+| `pandadoc/` | E-signature integration (PandaDoc) |
 | `shared/` | Cross-feature shared components |
 | `security/` | Security-related components (MFA) |
 | `settings/` | Settings page components |

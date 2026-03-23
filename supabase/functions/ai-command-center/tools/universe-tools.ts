@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Buyer Universe & Outreach Tools
  * Query buyer universes, outreach records, and deal-universe mappings.
@@ -154,7 +155,7 @@ async function searchBuyerUniverses(
 ): Promise<ToolResult> {
   const limit = Math.min(Number(args.limit) || 50, 200);
 
-  let query = supabase
+  let query = (supabase as any)
     .from('buyer_universes')
     .select(
       'id, name, description, fit_criteria, size_criteria, geography_criteria, service_criteria, buyer_types_criteria, geography_weight, size_weight, service_weight, owner_goals_weight, archived, created_at, updated_at, ma_guide_content, ma_guide_generated_at',
@@ -217,13 +218,13 @@ async function getUniverseDetails(
   const universeId = args.universe_id as string;
 
   const [universeResult, dealsResult, buyerCountResult] = await Promise.all([
-    supabase.from('buyer_universes').select('*').eq('id', universeId).single(),
-    supabase
+    (supabase as any).from('buyer_universes').select('*').eq('id', universeId).single(),
+    (supabase as any)
       .from('remarketing_universe_deals')
       .select('id, listing_id, status, added_at, notes')
       .eq('universe_id', universeId)
       .eq('status', 'active'),
-    supabase
+    (supabase as any)
       .from('buyers')
       .select('id', { count: 'exact', head: true })
       .eq('universe_id', universeId)
@@ -260,7 +261,7 @@ async function getUniverseBuyerFits(
   const scoreThreshold = args.score_threshold as number | undefined;
 
   // 1. Fetch all buyers in this universe
-  const { data: buyers, error: buyersError } = await supabase
+  const { data: buyers, error: buyersError } = await (supabase as any)
     .from('buyers')
     .select('id, company_name, alignment_score, has_fee_agreement')
     .eq('universe_id', universeId)
@@ -279,7 +280,7 @@ async function getUniverseBuyerFits(
   const allScores: unknown[] = [];
   for (let i = 0; i < buyerIds.length; i += 100) {
     const chunk = buyerIds.slice(i, i + 100);
-    const { data: scores } = await supabase
+    const { data: scores } = await (supabase as any)
       .from('remarketing_scores')
       .select(
         'buyer_id, listing_id, composite_score, status, is_disqualified, pass_reason, disqualification_reason',
@@ -403,7 +404,7 @@ async function getOutreachRecordsUnified(
   // Query outreach_records table
   if (source === 'all' || source === 'outreach_records') {
     const now = new Date().toISOString();
-    let query = supabase
+    let query = (supabase as any)
       .from('outreach_records')
       .select(
         'id, listing_id, buyer_id, universe_id, contacted_at, nda_sent_at, nda_signed_at, cim_sent_at, meeting_scheduled_at, outcome, outcome_notes, outcome_at, last_contact_date, next_action, next_action_date, priority, notes, created_at, updated_at',
@@ -459,7 +460,7 @@ async function getOutreachRecordsUnified(
 
   // Query remarketing_outreach table
   if (source === 'all' || source === 'remarketing_outreach') {
-    let query = supabase
+    let query = (supabase as any)
       .from('remarketing_outreach')
       .select(
         'id, listing_id, buyer_id, status, contact_method, contacted_at, response_at, meeting_at, notes, created_at, updated_at',

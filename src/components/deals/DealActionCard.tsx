@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { ArrowRight, Clock, Shield, FileSignature, CheckCircle2, XCircle } from 'lucide-react';
-import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
+import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
 import { cn } from '@/lib/utils';
 
 interface DealActionCardProps {

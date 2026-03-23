@@ -43,13 +43,13 @@ Total checks run:           42 structural + 14 data checks (data checks require 
 ═══════════════════════════════════════════════════════════════
 ```
 
-### Section 4c | docuseal_webhook_log → contacts FK
+### Section 4c | pandadoc_webhook_log → contacts FK
 
-**Finding:** Migration `20260306100000_docuseal_webhook_contact_fk.sql` **adds
-a `contact_id` UUID FK** from `docuseal_webhook_log` to `contacts`. The audit
+**Finding:** Migration `20260306100000_pandadoc_webhook_contact_fk.sql` **adds
+a `contact_id` UUID FK** from `pandadoc_webhook_log` to `contacts`. The audit
 specification states this FK should **NOT exist** — the signing link should
-live on `firm_agreements` via `nda_docuseal_submission_id` and
-`fee_docuseal_submission_id` instead.
+live on `firm_agreements` via `nda_pandadoc_document_id` and
+`fee_pandadoc_document_id` instead.
 
 **Assessment:** This is an **intentional architectural decision** made during
 the Data Relationship Audit migration work. The migration adds the FK to enable
@@ -72,7 +72,7 @@ new architecture, this becomes a PASS.
 
 | # | Section | Finding | Recommended Action |
 |---|---------|---------|-------------------|
-| 1 | 4c | `docuseal_webhook_log.contact_id → contacts` FK exists (spec says it should be absent) | Review whether audit spec should be updated to reflect intentional addition |
+| 1 | 4c | `pandadoc_webhook_log.contact_id → contacts` FK exists (spec says it should be absent) | Review whether audit spec should be updated to reflect intentional addition |
 | 2 | 5a | `remarketing_scores` unique index is on `(listing_id, buyer_id, universe_id)` not `(listing_id, buyer_id)` | Expected — was deliberately extended in `20260207000000_fix_scores_unique_constraint.sql` to support multiple universes. Functionally equivalent for the audit's purpose. |
 
 ---
@@ -102,7 +102,7 @@ new architecture, this becomes a PASS.
 | deal_documents | ✅ PRESENT | `20260227000000_document_distribution_system.sql` |
 | document_release_log | ✅ PRESENT | `20260227000000_document_distribution_system.sql` |
 | document_tracked_links | ✅ PRESENT | `20260227000000_document_distribution_system.sql` |
-| docuseal_webhook_log | ✅ PRESENT | `20260224000000_docuseal_integration.sql` |
+| pandadoc_webhook_log | ✅ PRESENT | `20260224000000_pandadoc_integration.sql` |
 | connection_requests | ✅ PRESENT | Pre-existing |
 | inbound_leads | ✅ PRESENT | Pre-existing |
 
@@ -196,13 +196,13 @@ string vs NULL). The live DB check will confirm the actual state.
 | remarketing_scores | buyer_id | remarketing_buyers | CASCADE | ✅ |
 | remarketing_outreach | buyer_id | remarketing_buyers | CASCADE | ✅ |
 | remarketing_outreach | listing_id | listings | CASCADE | ✅ |
-| docuseal_webhook_log | contact_id | contacts | SET NULL | ⚠️ (see note) |
+| pandadoc_webhook_log | contact_id | contacts | SET NULL | ⚠️ (see note) |
 
-**docuseal_webhook_log → contacts (contact_id):** The audit spec says this FK
-should be ABSENT. However, migration `20260306100000_docuseal_webhook_contact_fk.sql`
+**pandadoc_webhook_log → contacts (contact_id):** The audit spec says this FK
+should be ABSENT. However, migration `20260306100000_pandadoc_webhook_contact_fk.sql`
 intentionally adds it. See CRITICAL FAILURES section above.
 
-**Result: ✅ 16/16 required FKs PASS, 1 ⚠️ WARN (docuseal contact_id FK is additive)**
+**Result: ✅ 16/16 required FKs PASS, 1 ⚠️ WARN (pandadoc contact_id FK is additive)**
 
 ---
 
@@ -262,7 +262,7 @@ during transition.
 
 ---
 
-### Section 11 — DocuSeal Signing Audit
+### Section 11 — PandaDoc Signing Audit
 
 **[REQUIRES LIVE DB]** — Run `scripts/audit_data_architecture.sql` Section 11.
 
@@ -307,7 +307,7 @@ respective migration files:
 | data_room_access | `20260223000000_data_room_and_lead_memos.sql` |
 | deal_documents | `20260227000000_document_distribution_system.sql` |
 | document_release_log | `20260227000000_document_distribution_system.sql` |
-| docuseal_webhook_log | `20260224000000_docuseal_integration.sql` |
+| pandadoc_webhook_log | `20260224000000_pandadoc_integration.sql` |
 | deals | `20250829140751_...sql` |
 | listings | Various migrations |
 | profiles | Various migrations |
@@ -384,7 +384,7 @@ Legacy remarketing_buyer_contacts:          [run audit script]
   Still missing from contacts:              [run audit script]
   Still receiving new writes:               [run audit script]
 
-DocuSeal webhook events (total):            [run audit script]
+PandaDoc webhook events (total):            [run audit script]
   Completed/signed:                         [run audit script]
   Joinable to firm_agreements:              [run audit script]
   Orphaned (no firm match):                 [run audit script]
@@ -470,7 +470,7 @@ Additionally, the following companion migrations exist:
 | Migration | Purpose |
 |-----------|---------|
 | `20260306000000_deals_contact_fk_columns.sql` | Adds buyer_contact_id + seller_contact_id to deals, with backfill |
-| `20260306100000_docuseal_webhook_contact_fk.sql` | Adds contact_id to docuseal_webhook_log (bonus: enables direct signer queries) |
+| `20260306100000_pandadoc_webhook_contact_fk.sql` | Adds contact_id to pandadoc_webhook_log (bonus: enables direct signer queries) |
 | `20260306200000_profiles_remarketing_buyer_fk.sql` | Adds remarketing_buyer_id to profiles (bonus: direct profile→org link) |
 | `20260306300000_remarketing_contacts_mirror_trigger.sql` | Mirror trigger for legacy writes |
 | `20260306400000_update_deal_creation_triggers.sql` | Updates deal auto-creation triggers to populate new FK columns |
@@ -491,8 +491,8 @@ Additionally, the following companion migrations exist:
    supabase db push --project-ref vhzipqarkmmfuqadefep
    ```
 
-3. **Review docuseal contact_id FK**: Decide whether to keep or drop the
-   `contact_id` FK on `docuseal_webhook_log` based on architectural preference.
+3. **Review pandadoc contact_id FK**: Decide whether to keep or drop the
+   `contact_id` FK on `pandadoc_webhook_log` based on architectural preference.
 
 4. **Update app code**: Transition writes from `remarketing_buyer_contacts` →
    `contacts` table. The mirror trigger catches legacy writes in the interim.

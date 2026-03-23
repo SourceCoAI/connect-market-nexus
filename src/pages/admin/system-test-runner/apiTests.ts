@@ -4,7 +4,7 @@
  * Categories 8-13:
  *  8. Marketplace Approval
  *  9. Fireflies Integration
- *  9b. DocuSeal Integration
+ *  9b. PandaDoc Integration
  *  10. Send Memo Flow
  *  11. Data Room Portal
  *  12. CapTarget Integration
@@ -234,7 +234,7 @@ export function buildApiTests(): TestDef[] {
   add(C9, 'deal_transcripts source values are valid', async () => {
     const { data, error } = await supabase.from('deal_transcripts').select('source').limit(100);
     if (error) throw new Error(error.message);
-    const validSources = ['fireflies', 'upload', 'file_upload', 'manual', null];
+    const validSources = ['fireflies', 'phoneburner', 'upload', 'file_upload', 'manual', 'link', null];
     const invalidSources = (data || [])
       .filter((t: { source: string | null }) => t.source && !validSources.includes(t.source))
       .map((t: { source: string | null }) => t.source);
@@ -332,6 +332,11 @@ export function buildApiTests(): TestDef[] {
       .select('id', { count: 'exact', head: true })
       .eq('source', 'fireflies');
 
+    const { count: pbCount } = await supabase
+      .from('deal_transcripts')
+      .select('id', { count: 'exact', head: true })
+      .eq('source', 'phoneburner');
+
     const { count: uploadCount } = await supabase
       .from('deal_transcripts')
       .select('id', { count: 'exact', head: true })
@@ -354,11 +359,11 @@ export function buildApiTests(): TestDef[] {
 
     // This is informational — log counts for visibility
     console.log(
-      `Transcript Stats: ${totalCount || 0} total, ${ffCount || 0} Fireflies, ${uploadCount || 0} uploads, ${noContentCount || 0} no-content, ${extractedCount || 0} extracted, ${appliedCount || 0} applied`,
+      `Transcript Stats: ${totalCount || 0} total, ${ffCount || 0} Fireflies, ${pbCount || 0} PhoneBurner, ${uploadCount || 0} uploads, ${noContentCount || 0} no-content, ${extractedCount || 0} extracted, ${appliedCount || 0} applied`,
     );
 
     if (!totalCount || totalCount === 0) {
-      throw new Error('No deal_transcripts found — Fireflies integration may not be in use yet');
+      throw new Error('No deal_transcripts found — transcript integrations may not be in use yet');
     }
   });
 
@@ -371,37 +376,143 @@ export function buildApiTests(): TestDef[] {
     console.log(`Buyer transcripts: ${count || 0}`);
   });
 
+  // --- 9h: PhoneBurner Transcript Integration ---
+  add(C9, 'PhoneBurner transcript columns exist in deal_transcripts', async () => {
+    const { data: _data, error } = await supabase
+      .from('deal_transcripts')
+      .select('id, phoneburner_call_id, recording_url, contact_activity_id, source')
+      .limit(1);
+    if (error) throw new Error(`PhoneBurner columns missing from deal_transcripts: ${error.message}`);
+    // Columns exist if query succeeded
+  });
+
+  add(C9, 'PhoneBurner transcripts have valid structure', async () => {
+    const { data, error } = await supabase
+      .from('deal_transcripts')
+      .select('id, phoneburner_call_id, listing_id, transcript_text, has_content, source')
+      .eq('source', 'phoneburner')
+      .limit(20);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) {
+      console.log('No PhoneBurner transcripts found yet (informational — not an error)');
+      return;
+    }
+    const issues: string[] = [];
+    for (const t of data) {
+      if (!t.phoneburner_call_id) issues.push(`${t.id}: missing phoneburner_call_id`);
+      if (!t.listing_id) issues.push(`${t.id}: missing listing_id`);
+      if (!t.transcript_text || t.transcript_text.trim().length === 0) issues.push(`${t.id}: empty transcript_text`);
+    }
+    if (issues.length > 0) {
+      throw new Error(`PhoneBurner transcript data issues:\n${issues.join('\n')}`);
+    }
+    console.log(`PhoneBurner transcripts: ${data.length} checked, all valid`);
+  });
+
+  add(C9, 'PhoneBurner transcripts are not duplicated', async () => {
+    const { data, error } = await supabase
+      .from('deal_transcripts')
+      .select('phoneburner_call_id')
+      .eq('source', 'phoneburner')
+      .not('phoneburner_call_id', 'is', null)
+      .limit(200);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return;
+    const callIds = data.map((t: { phoneburner_call_id: string | null }) => t.phoneburner_call_id);
+    const uniqueIds = new Set(callIds);
+    if (callIds.length !== uniqueIds.size) {
+      const dupeCount = callIds.length - uniqueIds.size;
+      throw new Error(`Found ${dupeCount} duplicate PhoneBurner transcript(s) by phoneburner_call_id`);
+    }
+  });
+
+  add(C9, 'PhoneBurner webhook log accessible and recent', async () => {
+    const { data, error } = await supabase
+      .from('phoneburner_webhooks_log')
+      .select('id, event_type, processing_status, received_at')
+      .order('received_at', { ascending: false })
+      .limit(5);
+    if (error) throw new Error(`phoneburner_webhooks_log not accessible: ${error.message}`);
+    if (!data || data.length === 0) {
+      console.log('No PhoneBurner webhook events found (informational)');
+      return;
+    }
+    const failed = data.filter((e: { processing_status: string }) => e.processing_status === 'failed');
+    if (failed.length > 0) {
+      console.warn(`${failed.length} of last ${data.length} PhoneBurner webhooks failed`);
+    }
+    console.log(`PhoneBurner webhook log: ${data.length} recent events, ${failed.length} failed`);
+  });
+
+  add(C9, 'PhoneBurner contact_activities have transcripts linked to deals', async () => {
+    // Check if there are call_completed activities with transcripts but no deal_transcript
+    const { data: activities, error: actError } = await supabase
+      .from('contact_activities')
+      .select('id, phoneburner_call_id, listing_id')
+      .eq('source_system', 'phoneburner')
+      .eq('activity_type', 'call_completed')
+      .not('call_transcript', 'is', null)
+      .not('listing_id', 'is', null)
+      .limit(50);
+    if (actError) throw new Error(actError.message);
+    if (!activities || activities.length === 0) {
+      console.log('No PhoneBurner activities with transcripts and listing_id found (informational)');
+      return;
+    }
+
+    const callIds = activities
+      .map((a: { phoneburner_call_id: string | null }) => a.phoneburner_call_id)
+      .filter(Boolean) as string[];
+
+    if (callIds.length === 0) return;
+
+    const { data: linked } = await supabase
+      .from('deal_transcripts')
+      .select('phoneburner_call_id')
+      .in('phoneburner_call_id', callIds);
+
+    const linkedIds = new Set((linked || []).map((l: { phoneburner_call_id: string | null }) => l.phoneburner_call_id));
+    const unlinked = callIds.filter((id) => !linkedIds.has(id));
+    if (unlinked.length > 0) {
+      console.warn(
+        `${unlinked.length} of ${callIds.length} PhoneBurner activities with transcripts not yet in deal_transcripts — consider running sync-phoneburner-transcripts`,
+      );
+    } else {
+      console.log(`All ${callIds.length} PhoneBurner activities with transcripts are linked to deal_transcripts`);
+    }
+  });
+
   // ═══════════════════════════════════════════
-  // CATEGORY 9b: DocuSeal Integration
+  // CATEGORY 9b: PandaDoc Integration
   // ═══════════════════════════════════════════
-  const C9b = '9b. DocuSeal Integration';
+  const C9b = '9b. PandaDoc Integration';
 
   add(C9b, 'firm_agreements table accessible', async () => {
     await tableReadable('firm_agreements');
   });
 
-  add(C9b, 'firm_agreements has nda_docuseal_submission_id column', async () => {
-    await columnExists('firm_agreements', 'nda_docuseal_submission_id');
+  add(C9b, 'firm_agreements has nda_pandadoc_document_id column', async () => {
+    await columnExists('firm_agreements', 'nda_pandadoc_document_id');
   });
 
-  add(C9b, 'firm_agreements has nda_docuseal_status column', async () => {
-    await columnExists('firm_agreements', 'nda_docuseal_status');
+  add(C9b, 'firm_agreements has nda_pandadoc_status column', async () => {
+    await columnExists('firm_agreements', 'nda_pandadoc_status');
   });
 
-  add(C9b, 'firm_agreements has nda_signed_document_url column', async () => {
-    await columnExists('firm_agreements', 'nda_signed_document_url');
+  add(C9b, 'firm_agreements has nda_pandadoc_signed_url column', async () => {
+    await columnExists('firm_agreements', 'nda_pandadoc_signed_url');
   });
 
-  add(C9b, 'firm_agreements has fee_docuseal_submission_id column', async () => {
-    await columnExists('firm_agreements', 'fee_docuseal_submission_id');
+  add(C9b, 'firm_agreements has fee_pandadoc_document_id column', async () => {
+    await columnExists('firm_agreements', 'fee_pandadoc_document_id');
   });
 
-  add(C9b, 'firm_agreements has fee_docuseal_status column', async () => {
-    await columnExists('firm_agreements', 'fee_docuseal_status');
+  add(C9b, 'firm_agreements has fee_pandadoc_status column', async () => {
+    await columnExists('firm_agreements', 'fee_pandadoc_status');
   });
 
-  add(C9b, 'firm_agreements has fee_signed_document_url column', async () => {
-    await columnExists('firm_agreements', 'fee_signed_document_url');
+  add(C9b, 'firm_agreements has fee_pandadoc_signed_url column', async () => {
+    await columnExists('firm_agreements', 'fee_pandadoc_signed_url');
   });
 
   add(C9b, 'firm_agreements has nda_status column', async () => {
@@ -412,12 +523,12 @@ export function buildApiTests(): TestDef[] {
     await columnExists('firm_agreements', 'fee_agreement_status');
   });
 
-  add(C9b, 'docuseal-webhook-handler edge function reachable', async () => {
-    await invokeEdgeFunction('docuseal-webhook-handler', {});
+  add(C9b, 'pandadoc-webhook-handler edge function reachable', async () => {
+    await invokeEdgeFunction('pandadoc-webhook-handler', {});
   });
 
-  add(C9b, 'create-docuseal-submission edge function reachable', async () => {
-    await invokeEdgeFunction('create-docuseal-submission', {
+  add(C9b, 'create-pandadoc-document edge function reachable', async () => {
+    await invokeEdgeFunction('create-pandadoc-document', {
       firmId: '00000000-0000-0000-0000-000000000000',
       documentType: 'nda',
       signerEmail: 'qa-test@sourceco-test.local',
@@ -442,8 +553,8 @@ export function buildApiTests(): TestDef[] {
     });
   });
 
-  add(C9b, 'agreement_audit_log table accessible', async () => {
-    await tableReadable('agreement_audit_log');
+  add(C9b, 'pandadoc_webhook_log table accessible', async () => {
+    await tableReadable('pandadoc_webhook_log');
   });
 
   add(C9b, 'update_firm_agreement_status RPC exists', async () => {

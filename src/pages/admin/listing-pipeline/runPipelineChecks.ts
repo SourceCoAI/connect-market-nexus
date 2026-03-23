@@ -56,16 +56,16 @@ export async function runPipelineChecks(dealId: string): Promise<PipelineReport>
     detail: `${deal.internal_company_name || deal.title || dealId}`,
   });
 
-  // 2. Push-to-marketplace gate checks
+  // 2. Push-to-marketplace gate checks (must match publish-listing edge function requirements)
   const gateFields: Array<{ label: string; check: () => boolean }> = [
-    { label: 'Website', check: () => !!deal.website },
-    { label: 'Revenue', check: () => deal.revenue != null },
+    { label: 'Revenue', check: () => typeof deal.revenue === 'number' && deal.revenue > 0 },
     { label: 'EBITDA', check: () => deal.ebitda != null },
-    { label: 'Location', check: () => !!(deal.address_state || deal.location) },
+    { label: 'Location / Geography', check: () => !!(deal.address_state || deal.location) },
     { label: 'Category / Industry', check: () => !!(deal.category || deal.industry) },
     { label: 'Description', check: () => !!(deal.executive_summary || deal.description) },
     { label: 'Main contact name', check: () => !!deal.main_contact_name },
     { label: 'Main contact email', check: () => !!deal.main_contact_email },
+    { label: 'Hero description', check: () => !!deal.hero_description },
   ];
 
   const failedGates = gateFields.filter((g) => !g.check());
@@ -77,6 +77,16 @@ export async function runPipelineChecks(dealId: string): Promise<PipelineReport>
         ? 'All 8 required deal fields are present'
         : `Missing: ${failedGates.map((g) => g.label).join(', ')}`,
   });
+
+  // EBITDA range advisory (not enforced by publish-listing gate)
+  const ebitdaInRange = typeof deal.ebitda === 'number' && deal.ebitda >= 500000 && deal.ebitda <= 10000000;
+  if (!ebitdaInRange && deal.ebitda != null) {
+    checks.push({
+      name: 'EBITDA range advisory',
+      status: 'warn',
+      detail: `EBITDA (${deal.ebitda}) is outside typical range ($500K–$10M). Publishing is still allowed.`,
+    });
+  }
 
   // 3. Memo PDFs (data_room_documents)
   const { data: memoDocs, error: memoErr } = await supabase

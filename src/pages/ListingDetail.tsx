@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMarketplace } from '@/hooks/use-marketplace';
-import { useAuth } from '@/context/AuthContext';
-import { useAnalytics } from '@/context/AnalyticsContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAnalytics } from '@/contexts/AnalyticsContext';
 import { useClickTracking } from '@/hooks/use-click-tracking';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
@@ -27,8 +27,8 @@ import { InvestmentFitScore } from '@/components/listing-detail/InvestmentFitSco
 import { InternalCompanyInfoDisplay } from '@/components/admin/InternalCompanyInfoDisplay';
 import { BuyerDataRoom } from '@/components/marketplace/BuyerDataRoom';
 import { MFAGate } from '@/components/auth/MFAGate';
-import { NdaGateModal } from '@/components/docuseal/NdaGateModal';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
+import { NdaGateModal } from '@/components/pandadoc/NdaGateModal';
+import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
 import { AgreementStatusBanner } from '@/components/marketplace/AgreementStatusBanner';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 
@@ -343,10 +343,10 @@ const ListingDetail = () => {
               <div className="bg-white/50 border border-slate-200/60 rounded-lg p-6 shadow-sm">
                 <div className="text-center mb-6">
                   <h3 className="text-base font-medium text-foreground mb-2">
-                    Interested in This Deal?
+                    Request an Introduction
                   </h3>
                   <p className="text-xs text-foreground/70 leading-relaxed">
-                    Get full access to detailed financials and business metrics
+                    Our team will make a direct introduction to the business owner.
                   </p>
                 </div>
 

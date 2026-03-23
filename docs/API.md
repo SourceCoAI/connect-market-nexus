@@ -479,12 +479,12 @@ All functions are in `supabase/functions/`. Shared modules are in `supabase/func
 | `validate-criteria` | POST | Admin | Validate buyer criteria |
 | `validate-referral-access` | POST | Admin | Validate referral access |
 
-### DocuSeal Functions
+### PandaDoc Functions
 
 | Function | Method | Auth | Description |
 |---|---|---|---|
-| `create-docuseal-submission` | POST | Auth | Create a DocuSeal e-signature submission |
-| `docuseal-webhook-handler` | POST | None | Handle DocuSeal webhook events |
+| `create-pandadoc-document` | POST | Auth | Create a PandaDoc e-signature document |
+| `pandadoc-webhook-handler` | POST | None | Handle PandaDoc webhook events |
 
 ### Notification Functions
 

@@ -38,6 +38,7 @@ import {
   Info,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { BUYER_TYPE_SHORT_LABELS } from '@/constants';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -109,14 +110,7 @@ const BUYER_TYPE_COLORS: Record<string, string> = {
   individual_buyer: 'bg-[#4A4A4A]/10 text-[#4A4A4A] border-[#4A4A4A]/20',
 };
 
-const BUYER_TYPE_LABELS: Record<string, string> = {
-  private_equity: 'Private Equity',
-  corporate: 'Corporate',
-  family_office: 'Family Office',
-  search_fund: 'Search Fund',
-  independent_sponsor: 'Ind. Sponsor',
-  individual_buyer: 'Individual',
-};
+// Uses BUYER_TYPE_SHORT_LABELS imported from @/constants
 
 function TypeBadge({ type }: { type: string }) {
   return (
@@ -124,7 +118,7 @@ function TypeBadge({ type }: { type: string }) {
       variant="outline"
       className={`text-[10px] ${BUYER_TYPE_COLORS[type] || 'bg-gray-100 text-gray-600 border-gray-200'}`}
     >
-      {BUYER_TYPE_LABELS[type] || type}
+      {BUYER_TYPE_SHORT_LABELS[type] || type}
     </Badge>
   );
 }

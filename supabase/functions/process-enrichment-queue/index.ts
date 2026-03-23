@@ -22,7 +22,7 @@
  * LAST UPDATED: 2026-02-26
  * AUDIT REF: CTO Audit February 2026
  */
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { runListingEnrichmentPipeline } from './enrichmentPipeline.ts';
 import {
@@ -38,13 +38,14 @@ import { logEnrichmentEvent } from '../_shared/enrichment-events.ts';
 // Moderate parallelism to avoid rate limits across concurrent queue processors.
 // Each deal enrichment makes 1 Firecrawl + 1 Gemini + optional LinkedIn/Google calls.
 const BATCH_SIZE = 10; // Fetch 10 items per run
-const CONCURRENCY_LIMIT = 5; // Process 5 items in parallel (LinkedIn/Google removed — only enrich-deal now)
+const CONCURRENCY_LIMIT = 3; // Process 3 items in parallel — enrich-deal now includes notes analysis (30s+)
 const MAX_ATTEMPTS = 3; // Maximum retry attempts
-const PROCESSING_TIMEOUT_MS = 25000; // 25s per item — leaves adequate headroom for function overhead within the 50s runtime budget
+const PROCESSING_TIMEOUT_MS = 120000; // 120s per item — enrich-deal processes transcripts + notes + website
 const INTER_CHUNK_DELAY_MS = 1000; // 1s between parallel chunks
 
 // Stop early to avoid the platform killing the function mid-item.
-const MAX_FUNCTION_RUNTIME_MS = 50000; // 50s — must stay well under the 58s edge function hard-kill limit
+// enrich-deal uses 140s budget internally, so this worker needs at least that long.
+const MAX_FUNCTION_RUNTIME_MS = 140000; // 140s — matches enrich-deal's internal budget
 
 // N06 FIX: Maximum number of self-continuations to prevent infinite loops.
 // Each invocation processes BATCH_SIZE items, so 50 continuations = up to 500 items.
@@ -251,14 +252,21 @@ serve(async (req) => {
       );
       const { data: enrichedListings } = await supabase
         .from('listings')
-        .select('id, enriched_at, executive_summary, industry')
+        .select('id, enriched_at, executive_summary, industry, notes_analyzed_at, general_notes, owner_notes, internal_notes, owner_response, captarget_call_notes, description')
         .in('id', nonForceListingIds)
         .not('enriched_at', 'is', null);
 
       // Only consider a listing "already enriched" if it has enriched_at AND
-      // meaningful data (executive_summary or industry populated).
+      // meaningful data (executive_summary or industry populated) AND
+      // notes have been analyzed (or there are no notes to analyze).
       const alreadyEnrichedIds = new Set(
-        (enrichedListings || []).filter((l) => l.executive_summary || l.industry).map((l) => l.id),
+        (enrichedListings || []).filter((l) => {
+          if (!l.executive_summary && !l.industry) return false;
+          // If listing has notes content but notes haven't been analyzed, it needs re-enrichment
+          const hasNotes = !!(l.general_notes || l.owner_notes || l.internal_notes || l.owner_response || l.captarget_call_notes || l.description);
+          if (hasNotes && !l.notes_analyzed_at) return false;
+          return true;
+        }).map((l) => l.id),
       );
 
       const partiallyEnrichedCount = (enrichedListings || []).length - alreadyEnrichedIds.size;
@@ -295,6 +303,14 @@ serve(async (req) => {
           }
         }
 
+        // BUG-9 FIX: Update global queue progress for auto-completed items.
+        // Previously this was skipped, causing the global queue to show incorrect counts.
+        if (itemsToComplete.length > 0) {
+          await updateGlobalQueueProgress(supabase, 'deal_enrichment', {
+            completedDelta: itemsToComplete.length,
+          });
+        }
+
         // Remove completed non-force items, keep force items
         const nonForceRemaining = nonForceItems.filter(
           (item: { listing_id: string }) => !alreadyEnrichedIds.has(item.listing_id),
@@ -302,13 +318,61 @@ serve(async (req) => {
         queueItems = [...forceItems, ...nonForceRemaining];
 
         if (queueItems.length === 0) {
-          console.log('All items were already enriched — nothing to process');
+          console.log(
+            `All ${alreadyEnrichedIds.size} items in this batch were already enriched — checking for remaining queue items`,
+          );
+
+          // BUG-9 FIX: Don't return early! Check for remaining pending items
+          // and trigger self-continuation so the full queue gets processed.
+          const { count: remainingPendingCount } = await supabase
+            .from('enrichment_queue')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending');
+
+          const remainingPending = remainingPendingCount ?? 0;
+
+          if (remainingPending > 0) {
+            const continuationCount =
+              typeof body.continuationCount === 'number' ? body.continuationCount : 0;
+
+            if (continuationCount < MAX_CONTINUATIONS) {
+              console.log(
+                `${remainingPending} items still pending — triggering continuation ${continuationCount + 1}/${MAX_CONTINUATIONS}...`,
+              );
+              const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+              // Fire-and-forget self-continuation
+              fetch(`${supabaseUrl}/functions/v1/process-enrichment-queue`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${supabaseServiceKey}`,
+                  apikey: anonKey,
+                },
+                body: JSON.stringify({
+                  source: 'self-continuation',
+                  continuationCount: continuationCount + 1,
+                }),
+                signal: AbortSignal.timeout(30_000),
+              }).catch((err: unknown) => {
+                console.warn('[process-enrichment-queue] Continuation trigger failed:', err);
+              });
+            } else {
+              console.error(
+                `MAX_CONTINUATIONS reached — ${remainingPending} items still pending`,
+              );
+              await completeGlobalQueueOperation(supabase, 'deal_enrichment', 'failed');
+            }
+          } else {
+            await completeGlobalQueueOperation(supabase, 'deal_enrichment');
+          }
+
           return new Response(
             JSON.stringify({
               success: true,
               message: `Synced ${alreadyEnrichedIds.size} already-enriched items to completed`,
               processed: 0,
               synced: alreadyEnrichedIds.size,
+              remaining: remainingPending,
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
           );
@@ -619,12 +683,11 @@ serve(async (req) => {
     if (remainingPending === 0) {
       await completeGlobalQueueOperation(supabase, 'deal_enrichment');
     } else if (remainingPendingCount === 0 && (remainingProcessingCount ?? 0) > 0) {
-      // No pending items, but some still in 'processing' — likely stuck from a crashed invocation.
-      // Mark complete; stale recovery at the start of the next run will reset them if needed.
-      console.warn(
-        `No pending items but ${remainingProcessingCount} items stuck in 'processing' — marking queue complete. Stale recovery will handle them on next invocation.`,
+      // No pending items, but some still in 'processing' — don't complete yet,
+      // they may finish and trigger self-continuation. Only log for observability.
+      console.log(
+        `No pending items but ${remainingProcessingCount} items still processing — skipping completion, will resolve on next invocation.`,
       );
-      await completeGlobalQueueOperation(supabase, 'deal_enrichment');
     } else if (remainingPending > 0) {
       // N06 FIX: Track continuation count to prevent infinite loops
       const continuationCount =

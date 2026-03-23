@@ -96,6 +96,7 @@ export function PipelineListView({ pipeline }: PipelineListViewProps) {
             className={`
               cursor-pointer hover:shadow-md transition-all duration-200
               ${pipeline.selectedDeals.includes(deal.deal_id) ? 'ring-2 ring-primary' : ''}
+              ${deal.under_loi ? 'ring-2 ring-purple-500 bg-purple-50/50' : ''}
             `}
             onClick={() => pipeline.handleDealSelect(deal)}
           >
@@ -196,6 +197,11 @@ export function PipelineListView({ pipeline }: PipelineListViewProps) {
                       {deal.fee_agreement_status === 'signed' && (
                         <Badge variant="outline" className="h-4 px-1 text-xs bg-blue-50 text-blue-700 border-blue-200">
                           Fee
+                        </Badge>
+                      )}
+                      {deal.under_loi && (
+                        <Badge variant="outline" className="h-4 px-1 text-xs bg-purple-50 text-purple-700 border-purple-200 font-semibold">
+                          Under LOI
                         </Badge>
                       )}
                       {deal.pending_tasks > 0 && (

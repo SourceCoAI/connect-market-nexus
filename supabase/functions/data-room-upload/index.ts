@@ -15,6 +15,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireAdmin } from "../_shared/auth.ts";
+import { isExtractableType, extractAndStoreDocumentText } from "../_shared/document-text-extractor.ts";
 
 const BUCKET_NAME = "deal-data-rooms";
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -140,7 +141,7 @@ Deno.serve(async (req: Request) => {
     if (uploadError) {
       console.error("Storage upload error:", uploadError);
       return new Response(
-        JSON.stringify({ error: "Failed to upload file", details: uploadError.message }),
+        JSON.stringify({ error: "Failed to upload file" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -167,7 +168,7 @@ Deno.serve(async (req: Request) => {
       await supabaseAdmin.storage.from(BUCKET_NAME).remove([storagePath]);
       console.error("Document record error:", docError);
       return new Response(
-        JSON.stringify({ error: "Failed to create document record", details: docError.message }),
+        JSON.stringify({ error: "Failed to create document record" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -189,6 +190,22 @@ Deno.serve(async (req: Request) => {
       p_user_agent: req.headers.get("user-agent") || null,
     });
 
+    // Extract text content from the document (non-blocking for the upload response).
+    // Text is stored on the document record for use in deal enrichment and memo generation.
+    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+    if (geminiApiKey && documentCategory === "data_room" && isExtractableType(file.type)) {
+      // Run text extraction in the background — don't block the upload response
+      extractAndStoreDocumentText(
+        supabaseAdmin,
+        doc.id,
+        storagePath,
+        file.type,
+        geminiApiKey,
+      ).catch((err) => {
+        console.error("Background text extraction failed (non-blocking):", err);
+      });
+    }
+
     return new Response(JSON.stringify({ success: true, document: doc }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -196,7 +213,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error("Upload error:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: (error as Error).message }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

@@ -85,22 +85,6 @@ export type BuyerUniverseRow = TableRow<'buyer_universes'>;
 export type BuyerUniverseInsert = TableInsert<'buyer_universes'>;
 export type BuyerUniverseUpdate = TableUpdate<'buyer_universes'>;
 
-// Admin Notifications
-export type AdminNotificationRow = TableRow<'admin_notifications'>;
-export type AdminNotificationInsert = TableInsert<'admin_notifications'>;
-
-// User Events
-export type UserEventRow = TableRow<'user_events'>;
-export type UserEventInsert = TableInsert<'user_events'>;
-
-// Deal Activities
-export type DealActivityRow = TableRow<'deal_activities'>;
-export type DealActivityInsert = TableInsert<'deal_activities'>;
-
-// Connection Messages
-export type ConnectionMessageRow = TableRow<'connection_messages'>;
-export type ConnectionMessageInsert = TableInsert<'connection_messages'>;
-
 // Firm Agreements
 export type FirmAgreementRow = TableRow<'firm_agreements'>;
 export type FirmAgreementInsert = TableInsert<'firm_agreements'>;
@@ -110,13 +94,6 @@ export type FirmAgreementUpdate = TableUpdate<'firm_agreements'>;
 export type InboundLeadRow = TableRow<'inbound_leads'>;
 export type InboundLeadInsert = TableInsert<'inbound_leads'>;
 export type InboundLeadUpdate = TableUpdate<'inbound_leads'>;
-
-// Saved Listings
-export type SavedListingRow = TableRow<'saved_listings'>;
-export type SavedListingInsert = TableInsert<'saved_listings'>;
-
-// Categories
-export type CategoryRow = TableRow<'categories'>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Generic type utilities

@@ -6,7 +6,7 @@
  * connection health check function.
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, untypedFrom } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
 // ---------------------------------------------------------------------------
@@ -411,7 +411,7 @@ export async function writeAuditLog(entry: {
   newData?: Record<string, unknown>;
 }): Promise<DatabaseResult<unknown>> {
   return safeQuery(async () => {
-    return (supabase.from('audit_logs' as any) as any).insert({
+    return untypedFrom('audit_logs').insert({
       table_name: entry.tableName,
       record_id: entry.recordId ?? null,
       action: entry.action,

@@ -63,7 +63,7 @@ class ErrorManager {
     this.showUserNotification(errorMessage, context, severity);
 
     // Send to error tracking service in production
-    if (process.env.NODE_ENV === 'production' && severity !== 'low') {
+    if (!import.meta.env.DEV && severity !== 'low') {
       this.reportToExternalService(error, context, severity);
     }
 

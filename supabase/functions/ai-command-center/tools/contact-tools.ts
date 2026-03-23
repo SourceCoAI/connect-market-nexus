@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Contact & Document Tools
  * Unified contacts table (buyer + seller), data room documents, deal memos.
@@ -223,7 +224,7 @@ async function searchPeContacts(
     const firmWords = firmTerm.split(/\s+/).filter((w) => w.length > 2);
 
     // Search firm_agreements for matching company names (with fuzzy matching)
-    const { data: firms } = await supabase
+    const { data: firms } = await (supabase as any)
       .from('firm_agreements')
       .select('id, primary_company_name')
       .limit(500);
@@ -242,7 +243,7 @@ async function searchPeContacts(
     }
 
     // Also search buyers for matching company/PE firm names (with fuzzy matching)
-    const { data: buyers } = await supabase
+    const { data: buyers } = await (supabase as any)
       .from('buyers')
       .select('id, company_name, pe_firm_name')
       .eq('archived', false)
@@ -282,7 +283,7 @@ async function searchPeContacts(
     }
   }
 
-  let query = supabase
+  let query = (supabase as any)
     .from('contacts')
     .select(contactFields)
     .eq('contact_type', 'buyer')
@@ -437,7 +438,7 @@ async function searchEnrichedContacts(
 
   if (orConditions.length === 0) return [];
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('enriched_contacts')
     .select(
       'id, full_name, first_name, last_name, email, phone, title, company_name, linkedin_url, confidence, source, enriched_at',
@@ -502,7 +503,7 @@ async function resolveCompanyName(
   const matchedNames: string[] = [];
 
   // Search listings (deals) by title, internal_company_name, project_name, deal_identifier
-  const { data: listings } = await supabase
+  const { data: listings } = await (supabase as any)
     .from('listings')
     .select('id, title, internal_company_name, project_name, deal_identifier')
     .is('deleted_at', null)
@@ -539,7 +540,7 @@ async function resolveCompanyName(
   }
 
   // Search buyers by company_name and pe_firm_name
-  const { data: buyers } = await supabase
+  const { data: buyers } = await (supabase as any)
     .from('buyers')
     .select('id, company_name, pe_firm_name')
     .eq('archived', false)
@@ -617,7 +618,7 @@ async function searchContacts(
     }
   }
 
-  let query = supabase
+  let query = (supabase as any)
     .from('contacts')
     .select(contactFields)
     .eq('archived', false)
@@ -705,7 +706,7 @@ async function searchContacts(
     const buyerMap: Record<string, string> = {};
 
     if (listingIds.length > 0) {
-      const { data: listings } = await supabase
+      const { data: listings } = await (supabase as any)
         .from('listings')
         .select('id, title')
         .in('id', listingIds);
@@ -717,7 +718,7 @@ async function searchContacts(
     }
 
     if (buyerIds.length > 0) {
-      const { data: buyers } = await supabase
+      const { data: buyers } = await (supabase as any)
         .from('buyers')
         .select('id, company_name, pe_firm_name')
         .in('id', buyerIds);
@@ -775,7 +776,7 @@ async function getDealDocuments(
 ): Promise<ToolResult> {
   const limit = Math.min(Number(args.limit) || 50, 200);
 
-  let query = supabase
+  let query = (supabase as any)
     .from('data_room_documents')
     .select(
       'id, deal_id, folder_name, file_name, file_type, file_size_bytes, document_category, is_generated, version, allow_download, uploaded_by, created_at, updated_at',
@@ -792,7 +793,7 @@ async function getDealDocuments(
   const docs = data || [];
   const byCategory: Record<string, number> = {};
   const byFolder: Record<string, number> = {};
-  for (const d of docs) {
+  for (const d of docs as any[]) {
     byCategory[d.document_category] = (byCategory[d.document_category] || 0) + 1;
     byFolder[d.folder_name] = (byFolder[d.folder_name] || 0) + 1;
   }
@@ -814,7 +815,7 @@ async function getDealMemos(
   const limit = Math.min(Number(args.limit) || 10, 50);
   const memoType = (args.memo_type as string) || 'all';
 
-  let query = supabase
+  let query = (supabase as any)
     .from('lead_memos')
     .select(
       'id, deal_id, memo_type, branding, status, version, pdf_storage_path, published_at, created_at, updated_at',
@@ -843,7 +844,7 @@ async function getFirmAgreements(
 ): Promise<ToolResult> {
   const limit = Math.min(Number(args.limit) || 50, 500);
 
-  let query = supabase
+  let query = (supabase as any)
     .from('firm_agreements')
     .select(
       'id, primary_company_name, normalized_company_name, website_domain, email_domain, fee_agreement_signed, fee_agreement_signed_at, nda_signed, nda_signed_at, nda_email_sent, nda_email_sent_at, fee_agreement_email_sent, fee_agreement_email_sent_at, member_count, created_at, updated_at',
@@ -892,7 +893,7 @@ async function getNdaLogs(
   const days = Number(args.days) || 90;
   const cutoff = new Date(Date.now() - days * 86400000).toISOString();
 
-  let query = supabase
+  let query = (supabase as any)
     .from('nda_logs')
     .select(
       'id, user_id, admin_id, admin_name, admin_email, action_type, email_sent_to, firm_id, notes, metadata, created_at',
@@ -909,7 +910,7 @@ async function getNdaLogs(
 
   const logs = data || [];
   const byAction: Record<string, number> = {};
-  for (const l of logs) {
+  for (const l of logs as any[]) {
     byAction[l.action_type] = (byAction[l.action_type] || 0) + 1;
   }
 

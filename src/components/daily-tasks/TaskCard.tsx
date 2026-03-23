@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { formatDistanceToNow, format, isToday, isTomorrow, isPast, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -29,12 +30,13 @@ import {
   Building2,
   Calendar,
   AlarmClock,
-  Phone,
+  
   Mail,
   User,
 } from 'lucide-react';
 import type { DailyStandupTaskWithRelations } from '@/types/daily-tasks';
-import { TASK_TYPE_LABELS, TASK_TYPE_COLORS } from '@/types/daily-tasks';
+import { TASK_TYPE_LABELS, TASK_TYPE_COLORS, TASK_CATEGORY_LABELS, TASK_CATEGORY_COLORS } from '@/types/daily-tasks';
+import type { TaskCategory } from '@/types/daily-tasks';
 import { useToggleTaskComplete, useReassignTask, useEditTask } from '@/hooks/useDailyTasks';
 import { useSnoozeTask } from '@/hooks/useTaskActions';
 import { useAdminProfiles } from '@/hooks/admin/use-admin-profiles';
@@ -255,7 +257,38 @@ export function TaskCard({
           </Badge>
         )}
 
-        {/* Due date */}
+        {/* Task category badge */}
+        {task.task_category && task.task_category !== 'deal_task' && (
+          <Badge
+            variant="outline"
+            className={cn('shrink-0 text-[9px] px-1.5 py-0 h-4', TASK_CATEGORY_COLORS[task.task_category as TaskCategory])}
+          >
+            {TASK_CATEGORY_LABELS[task.task_category as TaskCategory]}
+          </Badge>
+        )}
+
+        {/* Carried over indicator */}
+        {task.carried_over && (
+          <Badge
+            variant="outline"
+            className="shrink-0 text-[9px] px-1.5 py-0 h-4 border-amber-300 text-amber-700 bg-amber-50"
+            title={`Carried over ${task.carry_count || 1} time${(task.carry_count || 1) > 1 ? 's' : ''}`}
+          >
+            Carried {task.carry_count || 1}x
+          </Badge>
+        )}
+
+        {/* Source meeting badge */}
+        {task.source_meeting?.meeting_title && (
+          <Badge
+            variant="outline"
+            className="shrink-0 text-[9px] px-1.5 py-0 h-4 border-sky-300 text-sky-700 bg-sky-50 max-w-[160px] truncate"
+            title={task.source_meeting.meeting_title}
+          >
+            {task.source_meeting.meeting_title}
+          </Badge>
+        )}
+
         <span
           className={cn(
             'inline-flex items-center gap-1 text-[11px] shrink-0 tabular-nums',
@@ -458,6 +491,24 @@ export function TaskCard({
                 </Select>
               </div>
 
+              {/* Task category */}
+              {task.task_category && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Category</p>
+                  <Badge
+                    variant="outline"
+                    className={cn('text-xs', TASK_CATEGORY_COLORS[task.task_category as TaskCategory])}
+                  >
+                    {TASK_CATEGORY_LABELS[task.task_category as TaskCategory] || task.task_category}
+                  </Badge>
+                  {task.carried_over && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Carried over {task.carry_count || 1} time{(task.carry_count || 1) > 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Due date */}
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Due</p>
@@ -502,14 +553,12 @@ export function TaskCard({
                 </div>
                 {sellerContact.phone && (
                   <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-3.5 w-3.5 text-green-700 shrink-0" />
-                    <a
-                      href={`tel:${sellerContact.phone}`}
-                      className="text-blue-600 hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {sellerContact.phone}
-                    </a>
+                    <ClickToDialPhone
+                      phone={sellerContact.phone}
+                      name={`${sellerContact.first_name} ${sellerContact.last_name}`.trim() || undefined}
+                      email={sellerContact.email || undefined}
+                      size="sm"
+                    />
                   </div>
                 )}
                 {sellerContact.email && (
@@ -551,10 +600,26 @@ export function TaskCard({
 
             {/* Source meeting */}
             {task.source_meeting && (
-              <p className="text-xs text-muted-foreground">
-                From: {task.source_meeting.meeting_title}
-                {task.source_timestamp && ` (at ${task.source_timestamp})`}
-              </p>
+              <div className="rounded-md bg-sky-50 border border-sky-200 px-3 py-2 space-y-0.5">
+                <p className="text-xs font-medium text-sky-800">
+                  Source: {task.source_meeting.meeting_title}
+                </p>
+                {task.source_meeting.meeting_date && (
+                  <p className="text-xs text-sky-700">
+                    Meeting date:{' '}
+                    {(() => {
+                      const d = new Date(task.source_meeting.meeting_date);
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, '0');
+                      const day = String(d.getDate()).padStart(2, '0');
+                      return `${month}/${day}/${year}`;
+                    })()}
+                  </p>
+                )}
+                {task.source_timestamp && (
+                  <p className="text-xs text-sky-600">Timestamp: {task.source_timestamp}</p>
+                )}
+              </div>
             )}
 
             {/* AI source + confidence indicator */}

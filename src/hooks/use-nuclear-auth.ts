@@ -158,7 +158,6 @@ export function useNuclearAuth() {
 
   const logout = useCallback(async () => {
     try {
-      setUser(null);
       setIsLoading(true);
 
       const { cleanupAuthState } = await import('@/lib/auth-cleanup');
@@ -171,10 +170,14 @@ export function useNuclearAuth() {
         console.warn('Supabase signOut failed, continuing with cleanup:', signOutError);
       }
 
+      // Clear state after signOut to avoid session/state mismatch
+      setUser(null);
+      setTeamRole(null);
       window.location.href = '/login';
     } catch (error) {
       console.error('Logout error:', error);
       setUser(null);
+      setTeamRole(null);
       window.location.href = '/login';
     }
   }, []);
@@ -399,6 +402,8 @@ export function useNuclearAuth() {
         'role',
         'id',
         'email',
+        'company',
+        'buyer_type',
       ];
       for (const field of PRIVILEGED_FIELDS) {
         delete dbPayload[field];

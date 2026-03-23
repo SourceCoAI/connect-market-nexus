@@ -2,7 +2,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import type { BuyerScore, ScoreRequest, ScoreWeights } from '../_shared/scoring/types.ts';
-import { SCORE_WEIGHTS, getScoreWeights } from '../_shared/scoring/types.ts';
+import {
+  SCORE_WEIGHTS,
+  getScoreWeights,
+  getServiceGateMultiplier,
+  getBuyerTypePriority,
+} from '../_shared/scoring/types.ts';
 import {
   norm,
   normArray,
@@ -10,12 +15,12 @@ import {
   extractDealKeywords,
   scoreService,
   scoreGeography,
-  scoreSize,
   scoreBonus,
   classifyTier,
 } from '../_shared/scoring/scorers.ts';
 
-const MAX_RESULTS = 50;
+const MAX_INTERNAL = 50;
+const MAX_EXTERNAL = 25;
 const CACHE_HOURS = 4;
 
 // ── Main handler ──
@@ -102,46 +107,114 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // H-1 FIX: Fetch universe-specific weights if the deal belongs to a universe.
-    // If no universe weights are found, fall back to DEFAULT_SCORE_WEIGHTS.
-    let weights: ScoreWeights = { ...SCORE_WEIGHTS };
-    const { data: universeLink } = await supabase
+    // ── Fetch deal's universe(s) ──
+    const { data: universeLinks } = await supabase
       .from('remarketing_universe_deals')
       .select('universe_id')
       .eq('listing_id', listingId)
-      .limit(1)
-      .maybeSingle();
+      .eq('status', 'active');
 
-    if (universeLink?.universe_id) {
+    const universeIds = (universeLinks || []).map((l) => l.universe_id);
+
+    // H-1 FIX: Fetch universe-specific weights if the deal belongs to a universe.
+    // If no universe weights are found, fall back to DEFAULT_SCORE_WEIGHTS.
+    let weights: ScoreWeights = { ...SCORE_WEIGHTS };
+    if (universeIds.length > 0) {
       const { data: universe } = await supabase
         .from('buyer_universes')
-        .select('service_weight, geography_weight, size_weight, owner_goals_weight')
-        .eq('id', universeLink.universe_id)
+        .select('service_weight, geography_weight, owner_goals_weight')
+        .eq('id', universeIds[0])
         .single();
 
       if (universe) {
         weights = getScoreWeights(universe);
         console.log(
-          `[score-deal-buyers] Using universe weights for ${universeLink.universe_id}:`,
+          `[score-deal-buyers] Using universe weights for ${universeIds[0]}:`,
           weights,
         );
       }
     }
 
-    // ── Fetch ALL active, non-archived buyers ──
-    // Explicit limit required: Supabase config max_rows=1000 silently truncates without it
-    const { data: buyers, error: buyerError } = await supabase
-      .from('buyers')
-      .select(
-        'id, company_name, company_website, pe_firm_name, pe_firm_id, buyer_type, is_pe_backed, hq_state, hq_city, ' +
-          'target_services, target_industries, industry_vertical, ' +
-          'target_geographies, geographic_footprint, ' +
-          'target_ebitda_min, target_ebitda_max, ' +
-          'has_fee_agreement, acquisition_appetite, total_acquisitions, ' +
-          'thesis_summary, ai_seeded, ai_seeded_from_deal_id, ai_seeded_at, marketplace_firm_id',
-      )
-      .eq('archived', false)
-      .limit(10000);
+    // ── Fetch buyers (active, non-archived, scoped to deal's universes when available) ──
+    const BUYER_SELECT =
+      'id, company_name, company_website, platform_website, pe_firm_name, pe_firm_id, buyer_type, is_pe_backed, hq_state, hq_city, ' +
+      'target_services, target_industries, industry_vertical, ' +
+      'target_geographies, geographic_footprint, ' +
+      'target_ebitda_min, target_ebitda_max, ' +
+      'has_fee_agreement, acquisition_appetite, total_acquisitions, ' +
+      'thesis_summary, ai_seeded, ai_seeded_from_deal_id, ai_seeded_at, marketplace_firm_id, is_publicly_traded';
+
+    // deno-lint-ignore no-explicit-any
+    let fetchedBuyers: any[] | null = null;
+    // deno-lint-ignore no-explicit-any
+    let buyerError: any = null;
+
+    if (universeIds.length > 0) {
+      // Scope internal buyers to the deal's universe(s).
+      // Also fetch AI-seeded buyers and buyers with no universe (manually added)
+      // separately so they aren't excluded by the universe filter.
+      const [internalResult, aiSeededResult, noUniverseResult] = await Promise.all([
+        supabase
+          .from('buyers')
+          .select(BUYER_SELECT)
+          .eq('archived', false)
+          .in('universe_id', universeIds)
+          .order('created_at', { ascending: false })
+          .limit(10000),
+        supabase
+          .from('buyers')
+          .select(BUYER_SELECT)
+          .eq('archived', false)
+          .eq('ai_seeded', true)
+          .order('created_at', { ascending: false })
+          .limit(5000),
+        // Include manually-added buyers with no universe assignment
+        supabase
+          .from('buyers')
+          .select(BUYER_SELECT)
+          .eq('archived', false)
+          .is('universe_id', null)
+          .neq('ai_seeded', true)
+          .order('created_at', { ascending: false })
+          .limit(5000),
+      ]);
+
+      buyerError = internalResult.error || aiSeededResult.error || noUniverseResult.error;
+
+      if (internalResult.data?.length === 10000) {
+        console.warn(`Buyer pool hit 10,000 limit for universes ${universeIds}. Some buyers may be excluded from scoring.`);
+      }
+      if (aiSeededResult.data?.length === 5000) {
+        console.warn(`AI-seeded buyer pool hit 5,000 limit. Some buyers may be excluded from scoring.`);
+      }
+      if (noUniverseResult.data?.length === 5000) {
+        console.warn(`No-universe buyer pool hit 5,000 limit. Some buyers may be excluded from scoring.`);
+      }
+
+      // Merge and deduplicate by buyer id
+      const seen = new Set<string>();
+      // deno-lint-ignore no-explicit-any
+      const merged: any[] = [];
+      for (const b of [
+        ...(internalResult.data || []),
+        ...(aiSeededResult.data || []),
+        ...(noUniverseResult.data || []),
+      ]) {
+        if (!seen.has(b.id)) {
+          seen.add(b.id);
+          merged.push(b);
+        }
+      }
+      fetchedBuyers = merged;
+    } else {
+      // No universes connected — fall back to unfiltered behavior (all buyers)
+      const result = await supabase.from('buyers').select(BUYER_SELECT).eq('archived', false).order('created_at', { ascending: false }).limit(10000);
+      fetchedBuyers = result.data;
+      buyerError = result.error;
+      if (result.data?.length === 10000) {
+        console.warn(`Buyer pool hit 10,000 limit (no universes). Some buyers may be excluded from scoring.`);
+      }
+    }
 
     if (buyerError) {
       return new Response(
@@ -150,6 +223,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const buyers = fetchedBuyers;
     if (!buyers || buyers.length === 0) {
       const emptyResult = {
         buyers: [],
@@ -162,14 +236,12 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ── Fetch seed log data (why_relevant is deal-specific; known_acquisitions spans all deals) ──
+    // ── Fetch seed log data ──
     const { data: seedLogRows } = await supabase
       .from('buyer_seed_log')
       .select('remarketing_buyer_id, why_relevant, known_acquisitions')
       .eq('source_deal_id', listingId);
 
-    // Also fetch known_acquisitions across ALL deals so we can surface them even when
-    // a buyer was seeded from a different deal (why_relevant is still deal-specific above)
     const { data: allAcquisitionRows } = await supabase
       .from('buyer_seed_log')
       .select('remarketing_buyer_id, known_acquisitions')
@@ -177,19 +249,44 @@ Deno.serve(async (req: Request) => {
       .order('created_at', { ascending: false })
       .limit(2000);
 
+    // ── Fetch rejected buyers from discovery feedback ──
+    const { data: rejectedRows } = await supabase
+      .from('buyer_discovery_feedback')
+      .select('buyer_id')
+      .eq('listing_id', listingId)
+      .eq('action', 'rejected');
+
+    const rejectedBuyerIds = new Set<string>(
+      (rejectedRows || []).map((r) => r.buyer_id),
+    );
+
     const seedLogMap = new Map<string, string>();
     const seedLogAcquisitionsMap = new Map<string, string[]>();
+    // Track which buyer IDs have seed log entries for this deal
+    const seedLogBuyerIds = new Set<string>();
     for (const row of seedLogRows || []) {
+      seedLogBuyerIds.add(row.remarketing_buyer_id);
       if (row.why_relevant) seedLogMap.set(row.remarketing_buyer_id, row.why_relevant);
       if (row.known_acquisitions?.length)
         seedLogAcquisitionsMap.set(row.remarketing_buyer_id, row.known_acquisitions);
     }
-    // Merge in acquisitions from other deals (don't overwrite deal-specific ones)
     for (const row of allAcquisitionRows || []) {
       if (!seedLogAcquisitionsMap.has(row.remarketing_buyer_id) && row.known_acquisitions?.length) {
         seedLogAcquisitionsMap.set(row.remarketing_buyer_id, row.known_acquisitions);
       }
     }
+
+    // ── Filter out stale AI-seeded buyers and rejected buyers ──
+    // AI-seeded buyers should only appear if they have a seed log entry for
+    // THIS deal (i.e., they came from the most recent AI search for this deal).
+    // Buyers rejected via "Not a Fit" feedback are also excluded.
+    const filteredBuyers = buyers.filter((buyer) => {
+      // Always exclude rejected buyers
+      if (rejectedBuyerIds.has(buyer.id)) return false;
+      // AI-seeded buyers must have a seed log entry for this deal
+      if (buyer.ai_seeded && !seedLogBuyerIds.has(buyer.id)) return false;
+      return true;
+    });
 
     // ── Normalize deal fields ──
     const richKeywords = extractDealKeywords(deal);
@@ -200,18 +297,21 @@ Deno.serve(async (req: Request) => {
     const dealIndustry = norm(deal.industry);
     const dealState = norm(deal.address_state);
     const dealGeoStates = normArray(deal.geographic_states);
-    const dealEbitda = deal.ebitda;
-
     // ── Score each buyer ──
     const scored: BuyerScore[] = [];
 
-    for (const buyer of buyers) {
+    for (const buyer of filteredBuyers) {
       const buyerServices = normArray(buyer.target_services);
       const buyerIndustries = normArray(buyer.target_industries);
       const buyerIndustryVertical = norm(buyer.industry_vertical);
       const buyerGeos = normArray(buyer.target_geographies);
       const buyerFootprint = normArray(buyer.geographic_footprint);
       const buyerHqState = norm(buyer.hq_state);
+
+      // AI-seeded buyers get +20 service_score bonus from seed log why_relevant
+      const seedLogReason = seedLogMap.get(buyer.id);
+      const AI_SEED_BONUS = 20;
+      const aiSeedBoost = seedLogReason ? AI_SEED_BONUS : 0;
 
       const svc = scoreService(
         dealCategories,
@@ -220,19 +320,30 @@ Deno.serve(async (req: Request) => {
         buyerIndustries,
         buyerIndustryVertical,
       );
+      // Apply AI-seeded bonus: cap at 100
+      svc.score = Math.min(svc.score + aiSeedBoost, 100);
+      if (aiSeedBoost > 0) svc.signals.push(`AI-seeded +${AI_SEED_BONUS} (why_relevant)`);
+
       const geo = scoreGeography(dealState, dealGeoStates, buyerGeos, buyerFootprint, buyerHqState);
-      const size = scoreSize(dealEbitda, buyer.target_ebitda_min, buyer.target_ebitda_max);
       const bonus = scoreBonus(buyer);
 
-      // H-1 FIX: Use dynamic weights (universe-specific or defaults)
-      const composite = Math.round(
+      // H-1 FIX: Use dynamic weights (universe-specific or defaults), v3: no EBITDA size
+      const rawComposite = Math.round(
         svc.score * weights.service +
           geo.score * weights.geography +
-          size.score * weights.size +
           bonus.score * weights.bonus,
       );
 
-      const fitSignals = [...svc.signals, ...geo.signals, ...size.signals, ...bonus.signals];
+      // Apply service fit gate multiplier — crushes composite for bad service fits
+      const gateMultiplier = getServiceGateMultiplier(svc.score, svc.noData);
+      const composite = Math.round(rawComposite * gateMultiplier);
+
+      const fitSignals = [...svc.signals, ...geo.signals, ...bonus.signals];
+
+      // Add gate signal if it reduced the score
+      if (gateMultiplier < 1.0) {
+        fitSignals.push(`Service gate: ${Math.round(gateMultiplier * 100)}% (low service fit)`);
+      }
 
       // Derive source from buyer origin
       const source: BuyerScore['source'] = buyer.ai_seeded
@@ -241,13 +352,14 @@ Deno.serve(async (req: Request) => {
           ? 'marketplace'
           : 'scored';
 
+      const isPeBacked = !!buyer.is_pe_backed;
+      const buyerTypePriority = getBuyerTypePriority(buyer.buyer_type, isPeBacked);
+
       const tier = classifyTier(composite, !!buyer.has_fee_agreement, buyer.acquisition_appetite);
 
-      // Build fit_reason: seed log why_relevant (best) > thesis + deal context (good) > generated sentence
-      const seedLogReason = seedLogMap.get(buyer.id);
+      // Build fit_reason (seedLogReason already fetched above for AI boost)
       const seedLogAcquisitions = seedLogAcquisitionsMap.get(buyer.id);
       const rawThesis = (buyer.thesis_summary || '').trim();
-      // Strip signal-like suffixes that may have been appended to thesis_summary by previous code
       const thesisCleaned = rawThesis
         .replace(
           /\.?\s*(Exact industry match:[^.]*|Adjacent industry:[^.]*|State match:[^.]*|Region match:[^.]*|National buyer|EBITDA [^.]*|Fee agreement signed|Aggressive [^.]*|\d+ acquisitions)\.?\s*/gi,
@@ -255,7 +367,6 @@ Deno.serve(async (req: Request) => {
         )
         .trim();
 
-      // Shared helpers for richer descriptions
       const _rawBuyerServices = ((buyer.target_services as string[]) || []).filter(Boolean);
       const _rawBuyerIndustriesList = ((buyer.target_industries as string[]) || []).filter(Boolean);
       const _buyerTypeLabel =
@@ -276,22 +387,6 @@ Deno.serve(async (req: Request) => {
         buyer.hq_city && buyer.hq_state
           ? `${buyer.hq_city}, ${buyer.hq_state}`
           : buyer.hq_state || '';
-      const ebitdaMinStr = buyer.target_ebitda_min
-        ? `$${(buyer.target_ebitda_min / 1_000_000).toFixed(1)}M`
-        : null;
-      const ebitdaMaxStr = buyer.target_ebitda_max
-        ? `$${(buyer.target_ebitda_max / 1_000_000).toFixed(1)}M`
-        : null;
-      const ebitdaRangeStr =
-        ebitdaMinStr && ebitdaMaxStr
-          ? `${ebitdaMinStr}\u2013${ebitdaMaxStr}`
-          : ebitdaMinStr
-            ? `${ebitdaMinStr}+`
-            : ebitdaMaxStr
-              ? `up to ${ebitdaMaxStr}`
-              : null;
-
-      // Extract specific matching terms from scoring signals for use in descriptions
       const matchingServiceTerms = svc.signals
         .map((s) => {
           const m = s.match(/^(?:Exact industry match|Adjacent industry):\s*(.+)/i);
@@ -299,13 +394,11 @@ Deno.serve(async (req: Request) => {
         })
         .filter(Boolean) as string[];
 
-      // Collect buyer's geographic coverage for richer geographic descriptions
       const rawBuyerGeos = [
         ...((buyer.target_geographies as string[]) || []),
         ...((buyer.geographic_footprint as string[]) || []),
       ].filter(Boolean);
       const uniqueGeos = [...new Set(rawBuyerGeos.map((g) => g.toUpperCase()))];
-      // States the buyer covers beyond the deal state (for "also covers X, Y" detail)
       const otherCoveredStates = uniqueGeos
         .filter((g) => g.length === 2 && g !== dealState?.toUpperCase())
         .slice(0, 4);
@@ -314,9 +407,7 @@ Deno.serve(async (req: Request) => {
       if (seedLogReason) {
         fit_reason = seedLogReason;
       } else if (thesisCleaned) {
-        // Use full thesis and append rich deal-specific scoring context
         let reason = thesisCleaned.endsWith('.') ? thesisCleaned : `${thesisCleaned}.`;
-        // Append detailed deal-specific match analysis
         const matchDetails: string[] = [];
         if (svc.score >= 100) {
           if (matchingServiceTerms.length > 0) {
@@ -348,13 +439,6 @@ Deno.serve(async (req: Request) => {
         } else if (geo.score >= 60) {
           matchDetails.push('regional geographic overlap');
         }
-        if (size.score >= 100 && ebitdaRangeStr) {
-          matchDetails.push(`targets ${ebitdaRangeStr} EBITDA (deal is in range)`);
-        } else if (size.score >= 100) {
-          matchDetails.push('EBITDA range aligns with deal');
-        } else if (size.score >= 60) {
-          matchDetails.push('EBITDA near target range');
-        }
         if (buyer.total_acquisitions && buyer.total_acquisitions > 0) {
           matchDetails.push(
             `${buyer.total_acquisitions} completed acquisition${buyer.total_acquisitions > 1 ? 's' : ''}`,
@@ -371,7 +455,6 @@ Deno.serve(async (req: Request) => {
         }
         fit_reason = reason;
       } else {
-        // Generate a human-readable sentence from buyer context and scoring signals
         const buyerTypeLabel =
           buyer.buyer_type === 'private_equity'
             ? 'PE firm'
@@ -400,7 +483,6 @@ Deno.serve(async (req: Request) => {
           parts.push(`active in ${dealState?.toUpperCase() || 'target geography'}`);
         else if (geo.score >= 80) parts.push('national acquisition footprint');
         else if (geo.score >= 60) parts.push('regional geographic overlap');
-        if (size.score >= 60) parts.push('EBITDA range matches deal size');
         if (buyer.has_fee_agreement) parts.push('has existing fee agreement');
         if (norm(buyer.acquisition_appetite) === 'aggressive') parts.push('actively acquiring');
         const detail = parts.length > 0 ? ` that ${parts.join(', ')}` : '';
@@ -418,23 +500,37 @@ Deno.serve(async (req: Request) => {
         has_fee_agreement: !!buyer.has_fee_agreement,
         acquisition_appetite: buyer.acquisition_appetite,
         company_website: buyer.company_website || null,
+        platform_website: buyer.platform_website || null,
         composite_score: composite,
         service_score: svc.score,
         geography_score: geo.score,
-        size_score: size.score,
         bonus_score: bonus.score,
         fit_signals: fitSignals,
         fit_reason,
         tier,
         source,
+        buyer_type_priority: buyerTypePriority,
+        is_pe_backed: isPeBacked,
+        is_publicly_traded: buyer.is_publicly_traded ?? null,
       });
     }
 
-    // ── Rank and cap ──
-    scored.sort((a, b) => b.composite_score - a.composite_score);
-    const topBuyers = scored.slice(0, MAX_RESULTS);
+    // ── Rank: primary by composite score, secondary by buyer type priority ──
+    scored.sort((a, b) => {
+      const scoreDiff = b.composite_score - a.composite_score;
+      if (scoreDiff !== 0) return scoreDiff;
+      // Among equal scores, PE-backed platforms rank first
+      return (a.buyer_type_priority || 5) - (b.buyer_type_priority || 5);
+    });
 
-    // ── Write to cache (non-blocking -- scoring still succeeds if cache write fails) ──
+    // Split into internal (pool) and external (AI-discovered) pools with independent caps.
+    // This ensures AI-seeded buyers always surface in the External tab rather than
+    // competing with the entire buyer pool for a single capped list.
+    const internalBuyers = scored.filter((b) => b.source !== 'ai_seeded').slice(0, MAX_INTERNAL);
+    const externalBuyers = scored.filter((b) => b.source === 'ai_seeded').slice(0, MAX_EXTERNAL);
+    const topBuyers = [...internalBuyers, ...externalBuyers];
+
+    // ── Write to cache ──
     const now = new Date();
     const expiresAt = new Date(now.getTime() + CACHE_HOURS * 60 * 60 * 1000);
 
@@ -445,7 +541,7 @@ Deno.serve(async (req: Request) => {
         expires_at: expiresAt.toISOString(),
         buyer_count: topBuyers.length,
         results: topBuyers,
-        score_version: 'v1',
+        score_version: 'v3',
       },
       { onConflict: 'listing_id' },
     );

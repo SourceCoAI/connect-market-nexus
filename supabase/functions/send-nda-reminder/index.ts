@@ -7,7 +7,7 @@ import { logEmailDelivery } from '../_shared/email-logger.ts';
  * Daily cron job that sends NDA signing reminders via Brevo.
  * - 3-day reminder: first nudge after NDA was sent
  * - 7-day reminder: second nudge with escalation tone
- * Only targets firms with pending DocuSeal NDA status.
+ * Only targets firms with pending PandaDoc NDA status.
  */
 
 serve(async (req: Request) => {
@@ -47,10 +47,10 @@ serve(async (req: Request) => {
       .select(
         `
         id, primary_company_name, email_domain,
-        nda_docuseal_status, nda_email_sent_at
+        nda_pandadoc_status, nda_email_sent_at
       `,
       )
-      .eq('nda_docuseal_status', 'pending')
+      .in('nda_pandadoc_status', ['pending', 'not_sent', 'sent'])
       .eq('nda_email_sent', true)
       .not('nda_email_sent_at', 'is', null)
       .eq('nda_signed', false);
@@ -83,7 +83,7 @@ serve(async (req: Request) => {
 
       // M3: Check if we already sent this reminder (dedup)
       const { data: existingLog } = await supabase
-        .from('docuseal_webhook_log')
+        .from('pandadoc_webhook_log')
         .select('id')
         .eq('external_id', firm.id)
         .eq('event_type', `nda_reminder_${reminderType}`)
@@ -123,27 +123,26 @@ serve(async (req: Request) => {
 
       const subject =
         reminderType === '3-day'
-          ? `Your NDA is still unsigned — here's the link`
-          : `Still waiting on your NDA — can we help?`;
+          ? `You're approved — the pipeline is locked until you sign.`
+          : `A week in — your deal pipeline is still waiting.`;
 
       const htmlContent =
         reminderType === '3-day'
           ? `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <p>Hi ${safeRecipientName},</p>
-              <p>You were approved for SourceCo a few days ago but your NDA hasn't been signed yet. Until it is, you can't view deal details or request introductions.</p>
-              <p>It takes about 60 seconds.</p>
-              <p style="margin: 24px 0;"><a href="${siteUrl}/pending-approval" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Sign your NDA</a></p>
-              <p>If you have questions about the agreement or want to modify any terms, just reply to this email.</p>
-              <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-            </div>`
+  <p>Hi ${safeRecipientName},</p>
+  <p>You were approved for SourceCo three days ago, but your NDA isn't signed yet — which means the deal pipeline is still locked for you.</p>
+  <p>One signature covers every deal on the platform, now and in the future. Takes about 60 seconds.</p>
+  <p style="margin: 24px 0;"><a href="${siteUrl}/pending-approval" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Sign Your NDA</a></p>
+  <p>If you have questions about the agreement or want to discuss any specific terms before signing, just reply to this email.</p>
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
+</div>`
           : `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <p>Hi ${safeRecipientName},</p>
-              <p>It's been a week since your account was approved and your NDA is still unsigned. We want to make sure nothing slipped through.</p>
-              <p>If the agreement looks fine, sign it here (60 seconds):</p>
-              <p style="margin: 24px 0;"><a href="${siteUrl}/pending-approval" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Sign your NDA</a></p>
-              <p>If you have concerns about specific language or want to discuss the terms, reply to this email &mdash; we can work through it.</p>
-              <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-            </div>`;
+  <p>Hi ${safeRecipientName},</p>
+  <p>It's been a week since you were approved and the pipeline is still locked for you.</p>
+  <p>If something's holding you back — questions about the agreement, concerns about specific language, or you just haven't had the 60 seconds to do it — reply to this email and we'll get it sorted.</p>
+  <p style="margin: 24px 0;"><a href="${siteUrl}/pending-approval" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Sign Your NDA</a></p>
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
+</div>`;
 
       try {
         // M1: Timeout on external API call
@@ -180,11 +179,11 @@ serve(async (req: Request) => {
           remindersSent++;
 
           // Log the reminder (dedup key for future checks)
-          await supabase.from('docuseal_webhook_log').insert({
+          await supabase.from('pandadoc_webhook_log').insert({
             event_type: `nda_reminder_${reminderType}`,
             external_id: firm.id,
             document_type: 'nda',
-            submission_id: 'reminder',
+            document_id: firm.id,
             raw_payload: { reminder_type: reminderType },
             processed_at: new Date().toISOString(),
           });

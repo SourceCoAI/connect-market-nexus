@@ -37,6 +37,7 @@ const CATEGORY_ICONS: Record<SearchCategory, React.ReactNode> = {
   owner_leads: <ClipboardList className="h-4 w-4 shrink-0" />,
   referral_partners: <Handshake className="h-4 w-4 shrink-0" />,
   buyers: <Users className="h-4 w-4 shrink-0" />,
+  buyer_contacts: <Users className="h-4 w-4 shrink-0" />,
 };
 
 interface UniversalSearchDialogProps {
@@ -66,15 +67,17 @@ export function UniversalSearchDialog({ open, onOpenChange }: UniversalSearchDia
     'all_deals',
     'captarget',
     'gp_partners',
+    'sourceco',
     'valuation_leads',
     'inbound_leads',
     'owner_leads',
     'referral_partners',
     'buyers',
+    'buyer_contacts',
   ];
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
       <CommandInput
         placeholder="Search across all deals, leads, buyers, partners..."
         value={query}

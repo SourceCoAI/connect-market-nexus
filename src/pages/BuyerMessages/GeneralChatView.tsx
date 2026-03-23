@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, ArrowLeft, Loader2, CheckCheck } from 'lucide-react';
-import { useConnectionMessages } from '@/hooks/use-connection-messages';
-import { useAuth } from '@/context/AuthContext';
+import { useConnectionMessages, useMarkMessagesReadByBuyer } from '@/hooks/use-connection-messages';
+import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +53,19 @@ export function GeneralChatView({
   const threadId = resolvedThread?.connection_request_id;
 
   const { data: existingMessages = [] } = useConnectionMessages(threadId || '');
+  const markRead = useMarkMessagesReadByBuyer();
+
+  // Mark admin messages as read when the thread is opened / new messages arrive
+  const unreadCount = existingMessages.filter(
+    (m) => m.sender_role === 'admin' && !m.is_read_by_buyer,
+  ).length;
+
+  useEffect(() => {
+    if (threadId && unreadCount > 0) {
+      markRead.mutate(threadId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId, unreadCount]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -78,22 +91,27 @@ export function GeneralChatView({
           .upload(bucketPath, attachment);
 
         if (uploadError) {
-          body = body
-            ? `${body}\n[📎 ${attachment.name}](attachment://${attachment.name})`
-            : `[📎 ${attachment.name}](attachment://${attachment.name})`;
+          toast({
+            title: 'Upload failed',
+            description: `Could not upload ${attachment.name}. Message sent without attachment.`,
+            variant: 'destructive',
+          });
         } else {
           const { data: urlData } = supabase.storage
             .from('message-attachments')
             .getPublicUrl(bucketPath);
-          const publicUrl = urlData?.publicUrl || `attachment://${attachment.name}`;
-          body = body
-            ? `${body}\n[📎 ${attachment.name}](${publicUrl})`
-            : `[📎 ${attachment.name}](${publicUrl})`;
+          if (urlData?.publicUrl) {
+            body = body
+              ? `${body}\n[📎 ${attachment.name}](${urlData.publicUrl})`
+              : `[📎 ${attachment.name}](${urlData.publicUrl})`;
+          }
         }
       } catch {
-        body = body
-          ? `${body}\n[📎 ${attachment.name}](attachment://${attachment.name})`
-          : `[📎 ${attachment.name}](attachment://${attachment.name})`;
+        toast({
+          title: 'Upload failed',
+          description: `Could not upload ${attachment.name}. Message sent without attachment.`,
+          variant: 'destructive',
+        });
       } finally {
         setUploading(false);
       }
@@ -105,13 +123,24 @@ export function GeneralChatView({
     }
 
     try {
-      const { error } = await (supabase.from('connection_messages') as any).insert({
+      const { error } = await supabase.from('connection_messages').insert({
         connection_request_id: threadId,
         sender_id: user.id,
         body,
         sender_role: 'buyer',
+        is_read_by_buyer: true,
       });
       if (error) throw error;
+
+      // Notify admin of new buyer message (fire-and-forget)
+      supabase.functions
+        .invoke('notify-admin-new-message', {
+          body: {
+            connection_request_id: threadId,
+            message_preview: body.substring(0, 200),
+          },
+        })
+        .catch(console.error);
 
       setNewMessage('');
       setAttachment(null);
@@ -134,7 +163,9 @@ export function GeneralChatView({
     return (
       <div className="flex flex-col h-full items-center justify-center gap-2">
         <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#CBCBCB' }} />
-        <p className="text-xs" style={{ color: '#9A9A9A' }}>Loading...</p>
+        <p className="text-xs" style={{ color: '#9A9A9A' }}>
+          Loading...
+        </p>
       </div>
     );
   }
@@ -173,7 +204,7 @@ export function GeneralChatView({
               </div>
             </div>
           ) : (
-            existingMessages.map((msg: any) => {
+            existingMessages.map((msg) => {
               const isBuyer = msg.sender_role === 'buyer';
               return (
                 <div
@@ -207,10 +238,7 @@ export function GeneralChatView({
                     }
                   >
                     <div className="text-sm leading-relaxed">
-                      <MessageBody
-                        body={msg.body}
-                        variant={isBuyer ? 'buyer' : 'admin'}
-                      />
+                      <MessageBody body={msg.body} variant={isBuyer ? 'buyer' : 'admin'} />
                     </div>
                   </div>
 

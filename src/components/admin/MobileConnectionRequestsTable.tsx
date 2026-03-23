@@ -73,16 +73,16 @@ const MobileRequestCard = ({
         <div className="flex items-center gap-3 text-xs">
           <div className="flex items-center gap-1">
             <span className="font-medium">Fee Agreement:</span>
-            <Badge variant={request.user?.fee_agreement_signed ? "success" : "secondary"} className="text-xs">
-              {request.user?.fee_agreement_signed ? "Signed" : "Not Signed"}
+            <Badge variant={request.lead_fee_agreement_signed ? "success" : "secondary"} className="text-xs">
+              {request.lead_fee_agreement_signed ? "Signed" : "Not Signed"}
             </Badge>
           </div>
           <div className="flex items-center gap-1">
             <span className="font-medium">NDA:</span>
-            <Badge variant={request.user?.nda_signed ? "success" : "secondary"} className="text-xs">
-              {request.user?.nda_signed ? "Signed" : "Not Signed"}
+            <Badge variant={request.lead_nda_signed ? "success" : "secondary"} className="text-xs">
+              {request.lead_nda_signed ? "Signed" : "Not Signed"}
             </Badge>
-            {request.user?.nda_email_sent && (
+            {request.lead_nda_email_sent && (
               <Badge variant="outline" className="text-xs ml-1">
                 Email Sent
               </Badge>

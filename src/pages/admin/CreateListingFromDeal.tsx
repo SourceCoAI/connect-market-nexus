@@ -6,6 +6,7 @@ import { ImprovedListingEditor } from '@/components/admin/ImprovedListingEditor'
 import { useRobustListingCreation } from '@/hooks/admin/listings/use-robust-listing-creation';
 import {
   anonymizeDealToListing,
+  descriptionToHtml,
   type DealData as DealForAnonymizer,
 } from '@/lib/deal-to-listing-anonymizer';
 import { AdminListing } from '@/types/admin';
@@ -50,7 +51,9 @@ export default function CreateListingFromDeal() {
           main_contact_name, main_contact_email, main_contact_phone, main_contact_title,
           geographic_states, internal_deal_memo_link,
           founded_year, number_of_locations,
-          customer_geography, customer_types, end_market_description
+          customer_geography, customer_types, end_market_description,
+          investment_thesis, competitive_position, ownership_structure,
+          seller_motivation, business_model, revenue_model, growth_drivers
         `,
         )
         .eq('id', dealId!)
@@ -88,6 +91,7 @@ export default function CreateListingFromDeal() {
         id: '', // New listing, no ID yet
         title: anonymized.title,
         description: anonymized.description,
+        description_html: descriptionToHtml(anonymized.description),
         hero_description: anonymized.hero_description,
         categories: anonymized.categories,
         location: anonymized.location,
@@ -96,7 +100,11 @@ export default function CreateListingFromDeal() {
         full_time_employees: anonymized.full_time_employees,
         internal_company_name: anonymized.internal_company_name,
         internal_notes: anonymized.internal_notes,
-        internal_deal_memo_link: deal.internal_deal_memo_link || '',
+        // Use deal website as Company URL, falling back to deal memo link
+        internal_deal_memo_link:
+          ((deal as Record<string, unknown>).website as string) ||
+          deal.internal_deal_memo_link ||
+          '',
         company_website: anonymized.company_website || null,
         // Custom metrics
         metric_3_type: anonymized.metric_3_type,
@@ -112,6 +120,36 @@ export default function CreateListingFromDeal() {
         main_contact_last_name: anonymized.main_contact_last_name || null,
         main_contact_email: anonymized.main_contact_email || null,
         main_contact_phone: anonymized.main_contact_phone || null,
+        // Deal enrichment fields (passed through to listing for structured data)
+        customer_geography:
+          ((deal as Record<string, unknown>).customer_geography as string) || null,
+        customer_types: ((deal as Record<string, unknown>).customer_types as string) || null,
+        end_market_description:
+          ((deal as Record<string, unknown>).end_market_description as string) || null,
+        investment_thesis:
+          ((deal as Record<string, unknown>).investment_thesis as string) ?? undefined,
+        competitive_position:
+          ((deal as Record<string, unknown>).competitive_position as string) ?? undefined,
+        ownership_structure:
+          ((deal as Record<string, unknown>).ownership_structure as string) ?? undefined,
+        seller_motivation:
+          ((deal as Record<string, unknown>).seller_motivation as string) ?? undefined,
+        business_model: ((deal as Record<string, unknown>).business_model as string) ?? undefined,
+        revenue_model: ((deal as Record<string, unknown>).revenue_model as string) ?? undefined,
+        growth_drivers: ((deal as Record<string, unknown>).growth_drivers as string[]) || null,
+        services:
+          anonymized.services.length > 0
+            ? anonymized.services
+            : ((deal as Record<string, unknown>).services as string[]) || null,
+        service_mix: (() => {
+          const mix =
+            anonymized.service_mix || ((deal as Record<string, unknown>).service_mix as string);
+          return mix ? [mix] : null;
+        })(),
+        geographic_states:
+          anonymized.geographic_states.length > 0
+            ? anonymized.geographic_states
+            : ((deal as Record<string, unknown>).geographic_states as string[]) || null,
         custom_sections: [],
         tags: [],
         status: 'active',
@@ -121,73 +159,127 @@ export default function CreateListingFromDeal() {
     }
   }, [deal, prefilled]);
 
-  // Auto-trigger AI content generation when prefilled data is ready
+  // Tracks whether the description is the mechanical anonymizer fallback
+  // (low quality) vs. an AI-generated teaser (buyer-grade).
+  const [descriptionSource, setDescriptionSource] = useState<'loading' | 'teaser' | 'anonymizer'>(
+    'loading',
+  );
+
+  // Auto-trigger AI content generation when prefilled data is ready.
+  // Priority: 1) Call generate-marketplace-listing (dedicated, buyer-grade)  2) Anonymizer fallback
   useEffect(() => {
     if (!prefilled || !dealId || contentGenerationTriggered.current) return;
-    // Only trigger if custom_sections is empty (no content yet)
     if (prefilled.custom_sections && (prefilled.custom_sections as unknown[]).length > 0) return;
     contentGenerationTriggered.current = true;
     setIsGeneratingContent(true);
 
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('generate-lead-memo', {
-          body: { deal_id: dealId, memo_type: 'anonymous_teaser' },
-        });
-        if (error) {
-          console.error('AI content generation failed:', error);
-          // Parse the error for a more specific message
-          const errorMsg =
-            typeof error === 'object' && error !== null && 'message' in error
-              ? (error as { message: string }).message
-              : '';
-          if (errorMsg.includes('Final PDF') || errorMsg.includes('Full Lead Memo')) {
-            toast.info(
-              'AI content requires a Full Lead Memo PDF to be uploaded first. You can fill in content manually.',
-            );
-          } else {
-            toast.info(
-              'AI content generation could not complete. You can fill in content manually.',
-            );
-          }
+        // Step 1: Check that content sources exist to generate a listing.
+        // Priority: Final PDFs in data_room_documents (reviewed) > completed
+        // lead memos in lead_memos table > anonymizer fallback.
+        const { data: finalPdfs } = await supabase
+          .from('data_room_documents')
+          .select('document_category')
+          .eq('deal_id', dealId)
+          .in('document_category', ['full_memo', 'anonymous_teaser'])
+          .eq('status', 'active');
+
+        const hasFinalLeadMemo = finalPdfs?.some((d) => d.document_category === 'full_memo');
+        const hasFinalTeaser = finalPdfs?.some((d) => d.document_category === 'anonymous_teaser');
+
+        // If Final PDFs are missing, check if completed lead memos exist
+        // (the lead memo content is sufficient for AI listing generation)
+        let hasLeadMemoContent = false;
+        if (!hasFinalLeadMemo || !hasFinalTeaser) {
+          const { data: leadMemos } = await supabase
+            .from('lead_memos')
+            .select('memo_type')
+            .eq('deal_id', dealId)
+            .in('memo_type', ['full_memo', 'anonymous_teaser'])
+            .in('status', ['completed', 'published']);
+
+          const hasFullMemoContent = leadMemos?.some((m) => m.memo_type === 'full_memo');
+          const hasTeaserContent = leadMemos?.some((m) => m.memo_type === 'anonymous_teaser');
+          hasLeadMemoContent = !!(hasFullMemoContent || hasTeaserContent);
+        }
+
+        if (!hasFinalLeadMemo && !hasFinalTeaser && !hasLeadMemoContent) {
+          setDescriptionSource('anonymizer');
+          toast.warning(
+            `No lead memos found. Generate a Full Lead Memo from the Data Room before creating a listing.`,
+            { duration: 8000 },
+          );
           return;
         }
 
-        // Extract sections from the anonymous teaser memo response.
-        // Response shape: { success: true, memos: { anonymous_teaser: { content: { sections: [...] } } } }
-        const teaserMemo = data?.memos?.anonymous_teaser;
-        const sections = teaserMemo?.content?.sections;
+        // Step 2: Call the dedicated marketplace listing generator
+        const { data, error } = await supabase.functions.invoke('generate-marketplace-listing', {
+          body: { deal_id: dealId },
+        });
 
-        if (sections && Array.isArray(sections) && sections.length > 0) {
-          // Merge all AI sections into the body description with clear section headings.
-          // This replaces the old custom_sections approach — everything goes into
-          // the description for a single, easy-to-edit rich text block.
-          const contentSections = sections.filter(
-            (s: { key: string }) => s.key !== 'header_block' && s.key !== 'contact_information',
+        if (error || !data?.success) {
+          let errorDetail = '';
+          try {
+            if (error && typeof error === 'object' && 'context' in error) {
+              const ctx = (error as { context: unknown }).context;
+              if (ctx instanceof Response) {
+                const body = await ctx.json();
+                errorDetail = body?.error || '';
+              } else if (
+                typeof ctx === 'object' &&
+                ctx !== null &&
+                'error' in (ctx as Record<string, unknown>)
+              ) {
+                errorDetail = (ctx as { error: string }).error;
+              }
+            }
+            if (!errorDetail) {
+              errorDetail =
+                typeof error === 'object' && error !== null && 'message' in error
+                  ? (error as { message: string }).message
+                  : String(error);
+            }
+          } catch {
+            errorDetail = String(error);
+          }
+
+          console.error(
+            '[CreateListingFromDeal] generate-marketplace-listing failed:',
+            errorDetail,
           );
+          setDescriptionSource('anonymizer');
+          toast.info('AI content generation could not complete. You can fill in content manually.');
+          return;
+        }
 
-          // Build a formatted description with section headings and content
-          const formattedDescription = contentSections
-            .map((s: { title: string; content: string }) => `${s.title}\n\n${s.content}`)
-            .join('\n\n');
+        // Step 3: Set the HTML description in the editor
+        setPrefilled((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            title: data.title || prev.title,
+            description_html: data.description_html,
+            description: data.description_markdown,
+            hero_description: data.hero_description || prev.hero_description,
+            location: data.location || prev.location,
+            custom_sections: [],
+          };
+        });
+        setDescriptionSource('teaser');
 
-          setPrefilled((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              custom_sections: [],
-              description: formattedDescription || prev.description,
-            };
-          });
-          toast.success('AI content generated — review and edit before saving.');
+        const validation = data?.validation;
+        if (validation && !validation.pass) {
+          toast.warning(
+            'AI listing generated with validation warnings — review carefully before saving.',
+          );
         } else {
-          toast.info(
-            'AI generation returned no content sections. You can fill in content manually.',
-          );
+          toast.success('AI content generated — review and edit before saving.');
         }
       } catch (err) {
-        console.error('AI content generation error:', err);
-        toast.info('AI content generation could not complete. You can fill in content manually.');
+        console.error('[CreateListingFromDeal] AI content generation error:', err);
+        setDescriptionSource('anonymizer');
+        toast.warning('AI listing generation failed — using placeholder description.');
       } finally {
         setIsGeneratingContent(false);
       }
@@ -196,14 +288,100 @@ export default function CreateListingFromDeal() {
 
   const handleSubmit = async (data: Record<string, unknown>, image?: File | null) => {
     try {
+      // Merge form data with enrichment fields from prefilled that don't
+      // survive the form (they're not in the Zod schema / ListingFormInput).
+      // These fields are on the prefilled AdminListing but get stripped by
+      // the form's getValues() since they're not registered form fields.
+      const enrichmentFields = prefilled
+        ? {
+            customer_geography: prefilled.customer_geography || null,
+            customer_types: prefilled.customer_types || null,
+            end_market_description: prefilled.end_market_description || null,
+            investment_thesis: prefilled.investment_thesis || null,
+            competitive_position: prefilled.competitive_position || null,
+            ownership_structure: prefilled.ownership_structure || null,
+            seller_motivation: prefilled.seller_motivation || null,
+            business_model: prefilled.business_model || null,
+            revenue_model: prefilled.revenue_model || null,
+            growth_drivers: prefilled.growth_drivers || null,
+            services: prefilled.services || null,
+            service_mix: (prefilled as unknown as Record<string, unknown>).service_mix || null,
+            geographic_states:
+              (prefilled as unknown as Record<string, unknown>).geographic_states || null,
+          }
+        : {};
+
       const listingData = {
         ...data,
+        ...enrichmentFields,
         source_deal_id: dealId,
         // Ensure it's created as an internal draft
         is_internal_deal: true,
+        // website is NOT NULL in DB — empty for anonymous marketplace listings
+        website: '',
       };
 
-      await createListing({ listing: listingData as never, image });
+      const newListing = await createListing({ listing: listingData as never, image });
+
+      // Auto-sync teaser content if a teaser memo draft already exists for the source deal.
+      // This handles the case where the admin generated the teaser before creating the listing.
+      if (newListing?.id && dealId) {
+        try {
+          const { data: existingTeaser } = await supabase
+            .from('lead_memos')
+            .select('id, content')
+            .eq('deal_id', dealId)
+            .eq('memo_type', 'anonymous_teaser')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (existingTeaser?.content) {
+            const teaserContent = existingTeaser.content as { sections?: unknown[] };
+            const sections = Array.isArray(teaserContent.sections) ? teaserContent.sections : [];
+            // Validate each section has the expected shape before using it
+            const validSections = sections.filter(
+              (s): s is { key: string; title: string; content: string } =>
+                typeof s === 'object' &&
+                s !== null &&
+                typeof (s as Record<string, unknown>).key === 'string' &&
+                typeof (s as Record<string, unknown>).title === 'string' &&
+                typeof (s as Record<string, unknown>).content === 'string',
+            );
+            if (validSections.length > 0) {
+              const contentSections = validSections.filter(
+                (s) => s.key !== 'header_block' && s.key !== 'contact_information',
+              );
+              const customSections = contentSections.map((s) => ({
+                title: s.title,
+                description: s.content,
+              }));
+              const unifiedDescription = contentSections
+                .map((s) => `**${s.title}**\n\n${s.content}`)
+                .join('\n\n---\n\n');
+
+              const { error: syncUpdateError } = await supabase
+                .from('listings')
+                .update({
+                  custom_sections: customSections,
+                  description: unifiedDescription,
+                })
+                .eq('id', newListing.id);
+
+              if (syncUpdateError) {
+                console.warn(
+                  '[CreateListingFromDeal] Teaser sync update failed:',
+                  syncUpdateError.message,
+                );
+              } else {
+                // teaser content synced successfully
+              }
+            }
+          }
+        } catch (syncErr) {
+          console.warn('[CreateListingFromDeal] Failed to auto-sync teaser content:', syncErr);
+        }
+      }
 
       // Invalidate relevant queries — the deal stays in the queue so the
       // "Listing Created" badge appears. The source_deal_id link is the
@@ -310,6 +488,20 @@ export default function CreateListingFromDeal() {
           <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 mb-4">
             <Loader2 className="h-4 w-4 animate-spin" />
             AI is generating listing content (title, description, teaser)...
+          </div>
+        </div>
+      )}
+      {descriptionSource === 'anonymizer' && !isGeneratingContent && (
+        <div className="max-w-[1920px] mx-auto px-12">
+          <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 mb-4">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <strong>Placeholder description — not buyer-grade.</strong> The body below was
+              auto-generated from deal fields and is not suitable for publication. To get a
+              professional AI teaser: generate a <strong>Full Lead Memo</strong> from the Data Room
+              first, then re-create this listing. The teaser will be written from the memo
+              automatically.
+            </div>
           </div>
         </div>
       )}

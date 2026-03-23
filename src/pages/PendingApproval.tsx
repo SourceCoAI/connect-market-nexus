@@ -20,13 +20,13 @@ import {
   Shield,
   XCircle,
 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { cleanupAuthState } from '@/lib/auth-helpers';
 import { APP_CONFIG } from '@/config/app';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
-import { DocuSealSigningPanel } from '@/components/docuseal/DocuSealSigningPanel';
+import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
+import { PandaDocSigningPanel } from '@/components/pandadoc/PandaDocSigningPanel';
 
 const PendingApproval = () => {
   const navigate = useNavigate();
@@ -84,9 +84,9 @@ const PendingApproval = () => {
 
         if (fnError) {
           setNdaError('Failed to prepare NDA signing form');
-          console.error('DocuSeal error:', fnError);
-        } else if (data?.embedSrc) {
-          setNdaEmbedSrc(data.embedSrc);
+          console.error('PandaDoc error:', fnError);
+        } else if (data?.embedUrl) {
+          setNdaEmbedSrc(data.embedUrl);
         } else if (data?.ndaSigned) {
           setNdaSigned(true);
         }
@@ -276,14 +276,14 @@ const PendingApproval = () => {
               {uiState === 'rejected'
                 ? 'Application Not Approved'
                 : uiState === 'approved_pending'
-                  ? 'Your Application Is Under Review'
-                  : 'Check Your Email'}
+                  ? "You're in the queue — sign your NDA for immediate access"
+                  : 'Almost there — verify your email to continue'}
             </CardTitle>
             <CardDescription className="text-center">
               {uiState === 'rejected'
                 ? 'Unfortunately, your application was not approved at this time'
                 : uiState === 'approved_pending'
-                  ? "We typically review applications within one business day. You'll get an email the moment you're approved."
+                  ? "Our team reviews applications same day. Sign your NDA now so you have immediate access the moment you're cleared."
                   : `We've sent a verification link to ${user.email}. Click it to continue — check your spam folder if you don't see it within a few minutes.`}
             </CardDescription>
           </CardHeader>
@@ -320,12 +320,11 @@ const PendingApproval = () => {
                     <Clock className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="text-amber-800 text-sm font-medium">
-                        While you wait — sign your NDA below.
+                        Sign your NDA to unlock the full deal pipeline
                       </p>
                       <p className="text-amber-700 text-xs mt-1">
-                        It covers every deal on the platform and takes about 60 seconds. Buyers who
-                        sign before approval get immediate access the moment their account is
-                        approved.
+                        One signature covers every deal on SourceCo — now and in the future. The
+                        sooner it's signed, the sooner you're in.
                       </p>
                     </div>
                   </div>
@@ -414,29 +413,26 @@ const PendingApproval = () => {
                     <div className="text-center">
                       <div className="flex items-center gap-2 justify-center">
                         <Shield className="h-4 w-4 text-primary" />
-                        <h4 className="text-sm font-semibold">One Last Step Before You're In</h4>
+                        <h4 className="text-sm font-semibold">Sign your NDA</h4>
                       </div>
                     </div>
 
                     {/* NDA Education Cards */}
                     <div className="bg-muted/40 border border-border rounded-md p-4">
-                      <h5 className="text-xs font-semibold mb-1">Why we require an NDA</h5>
+                      <h5 className="text-xs font-semibold mb-1">What your NDA unlocks</h5>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        Every deal on SourceCo contains confidential information — real financials,
-                        real business names, real owner details. Sellers share this with us
-                        specifically because we control access carefully. Your NDA is the agreement
-                        that allows us to share that information with you. It covers every deal on
-                        the platform, so you only need to sign it once.
+                        Every deal on SourceCo is live, real, and confidential — actual financials,
+                        real business names, real owner details that sellers have shared with us
+                        under strict access controls. Your NDA opens the door to all of it.
                       </p>
                     </div>
 
                     <div className="bg-muted/40 border border-border rounded-md p-4">
                       <h5 className="text-xs font-semibold mb-1">What you're agreeing to</h5>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        You agree to keep deal information confidential and not use it outside of
-                        your evaluation of a potential acquisition. Standard language — most buyers
-                        sign in under a minute. If you have questions or need to redline anything,
-                        reply to your approval email and we'll work through it.
+                        You agree to keep deal details confidential and only use them to evaluate a
+                        potential acquisition. One signature covers every deal on SourceCo — you'll
+                        never be asked to sign another one.
                       </p>
                     </div>
 
@@ -477,8 +473,8 @@ const PendingApproval = () => {
                       </div>
                     )}
                     {ndaEmbedSrc && (
-                      <DocuSealSigningPanel
-                        embedSrc={ndaEmbedSrc}
+                      <PandaDocSigningPanel
+                        embedUrl={ndaEmbedSrc}
                         onCompleted={() => setNdaSigned(true)}
                         title=""
                         description=""
@@ -503,12 +499,13 @@ const PendingApproval = () => {
                     <div className="flex items-center justify-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <p className="text-sm font-semibold text-green-800">
-                        NDA signed — you're in.
+                        NDA signed. You're ready.
                       </p>
                     </div>
                     <p className="text-xs text-green-700">
-                      Full access to every deal on the platform — we'll notify you by email the
-                      moment your account is approved.
+                      The moment your account is approved, you'll have full access to every deal in
+                      the pipeline — real financials, owner details, and the ability to request
+                      introductions. We'll email you the second you're cleared.
                     </p>
                   </div>
                 )}
@@ -559,12 +556,33 @@ const PendingApproval = () => {
                     <div>
                       <p className="text-sm font-medium">After you verify:</p>
                       <ol className="text-xs text-muted-foreground mt-2 space-y-1 list-decimal list-inside">
-                        <li>We review your profile — usually within one business day</li>
-                        <li>If approved, you'll sign your NDA (takes 60 seconds)</li>
-                        <li>Full access to browse deals and request introductions</li>
+                        <li>Our team reviews your application — usually same day</li>
+                        <li>You'll sign a single NDA that covers every deal on the platform</li>
+                        <li>Full access to off-market deals the moment you're cleared</li>
                       </ol>
                     </div>
                   </div>
+                </div>
+
+                <div className="bg-muted/40 border border-border rounded-md p-4">
+                  <h4 className="text-sm font-medium mb-2">What you're getting access to</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    SourceCo works exclusively with off-market, founder-led businesses. Every deal
+                    in the pipeline has been sourced, qualified, and reviewed by our team before it
+                    reaches you. You're not browsing a listing aggregator — you're accessing curated
+                    deal flow.
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-2">
+                    Want deals sourced directly for your specific thesis?{' '}
+                    <a
+                      href="https://www.sourcecodeals.com/private-equity"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      Learn about our retained search →
+                    </a>
+                  </p>
                 </div>
               </>
             )}

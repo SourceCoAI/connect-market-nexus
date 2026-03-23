@@ -68,7 +68,7 @@ export const dealExtraTools: ClaudeTool[] = [
   {
     name: 'get_deal_scoring_adjustments',
     description:
-      "Get scoring weight adjustments and custom AI instructions for a deal — geography/size/service weight multipliers, custom scoring instructions, and historical pass/approve counts by dimension. Use to understand why a deal's buyer scoring is tuned differently from defaults.",
+      "Get scoring weight adjustments and custom AI instructions for a deal — geography/service weight multipliers, custom scoring instructions, and historical pass/approve counts by dimension. Use to understand why a deal's buyer scoring is tuned differently from defaults. Note: size_weight_mult is legacy and has no effect on v3 scoring.",
     input_schema: {
       type: 'object',
       properties: {

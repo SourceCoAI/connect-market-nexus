@@ -3,41 +3,17 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
 import { sendViaBervo } from '../_shared/brevo-sender.ts';
+import { selfHealFirm } from '../_shared/firm-self-heal.ts';
 
 /**
  * confirm-agreement-signed
  *
- * Called by the frontend after DocuSeal onCompleted fires.
- * Uses deterministic firm resolution and retry polling for DocuSeal status.
+ * Called by the frontend after PandaDoc signing completes.
+ * Uses deterministic firm resolution and retry polling for PandaDoc status.
  * Sends confirmation emails to buyer and admins.
  */
 
-async function resolveFirmId(
-  supabaseAdmin: SupabaseClient,
-  userId: string,
-): Promise<string | null> {
-  const { data: reqFirm } = await supabaseAdmin
-    .from('connection_requests')
-    .select('firm_id')
-    .eq('user_id', userId)
-    .not('firm_id', 'is', null)
-    .in('status', ['approved', 'pending', 'on_hold'])
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (reqFirm?.firm_id) return reqFirm.firm_id;
-
-  const { data: membership } = await supabaseAdmin
-    .from('firm_members')
-    .select('firm_id')
-    .eq('user_id', userId)
-    .order('added_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return membership?.firm_id || null;
-}
+// resolveFirmId removed — uses canonical resolve_user_firm_id RPC
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -82,26 +58,44 @@ serve(async (req: Request) => {
     }
 
     const isNda = documentType === 'nda';
+    const _isFeeAgreement = documentType === 'fee_agreement';
     const docLabel = isNda ? 'NDA' : 'Fee Agreement';
 
-    // Deterministic firm resolution
-    const firmId = await resolveFirmId(supabaseAdmin, userId);
-
-    if (!firmId) {
-      return new Response(JSON.stringify({ error: 'No firm found', confirmed: false }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
+    // Canonical firm resolution via DB function
+    const { data: firmId, error: resolveErr } = await supabaseAdmin.rpc('resolve_user_firm_id', {
+      p_user_id: userId,
+    });
+    if (resolveErr) {
+      console.error('❌ resolve_user_firm_id error:', resolveErr);
     }
 
-    console.log(`🔍 Resolved firm ${firmId} for user ${userId} (${docLabel})`);
+    let resolvedFirmId = firmId;
+    if (!resolvedFirmId) {
+      const { data: profileForHeal } = await supabaseAdmin
+        .from('profiles')
+        .select('email, company')
+        .eq('id', userId)
+        .single();
+      if (profileForHeal) {
+        const result = await selfHealFirm(supabaseAdmin, userId, profileForHeal);
+        if (result) resolvedFirmId = result.firmId;
+      }
+      if (!resolvedFirmId) {
+        return new Response(JSON.stringify({ error: 'No firm found', confirmed: false }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+    }
+
+    console.log(`🔍 Resolved firm ${resolvedFirmId} for user ${userId} (${docLabel})`);
 
     const signedCol = isNda ? 'nda_signed' : 'fee_agreement_signed';
-    const submissionCol = isNda ? 'nda_docuseal_submission_id' : 'fee_docuseal_submission_id';
+    const documentCol = isNda ? 'nda_pandadoc_document_id' : 'fee_pandadoc_document_id';
     const { data: firm } = await supabaseAdmin
       .from('firm_agreements')
-      .select(`id, primary_company_name, ${signedCol}, ${submissionCol}`)
-      .eq('id', firmId)
+      .select(`id, primary_company_name, ${signedCol}, ${documentCol}`)
+      .eq('id', resolvedFirmId)
       .single();
 
     if (!firm) {
@@ -109,42 +103,42 @@ serve(async (req: Request) => {
         JSON.stringify({
           error: 'Firm agreement not found',
           confirmed: false,
-          resolvedFirmId: firmId,
+          resolvedFirmId,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
     // If already marked signed
-    if (firm[signedCol]) {
+    if ((firm as any)[signedCol]) {
       const docUrlCol = isNda ? 'nda_signed_document_url' : 'fee_signed_document_url';
       const { data: docData } = await supabaseAdmin
         .from('firm_agreements')
         .select(docUrlCol)
-        .eq('id', firmId)
+        .eq('id', resolvedFirmId)
         .single();
       return new Response(
         JSON.stringify({
           confirmed: true,
           alreadySigned: true,
-          signedDocumentUrl: docData?.[docUrlCol] || null,
-          resolvedFirmId: firmId,
+          signedDocumentUrl: (docData as any)?.[docUrlCol] || null,
+          resolvedFirmId,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    const submissionId = firm[submissionCol];
-    if (!submissionId) {
+    const documentId = (firm as any)[documentCol];
+    if (!documentId) {
       return new Response(
-        JSON.stringify({ confirmed: false, error: 'No submission found', resolvedFirmId: firmId }),
+        JSON.stringify({ confirmed: false, error: 'No document found', resolvedFirmId }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
-    if (!docusealApiKey) {
-      return new Response(JSON.stringify({ error: 'DocuSeal not configured' }), {
+    const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
+    if (!pandadocApiKey) {
+      return new Response(JSON.stringify({ error: 'PandaDoc not configured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
@@ -160,10 +154,9 @@ serve(async (req: Request) => {
     const signerName =
       `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Unknown';
 
-    // Retry polling: check DocuSeal status with retries (0s, 1.5s, 3s)
+    // Retry polling: check PandaDoc document status with retries (0s, 1.5s, 3s)
     const retryDelays = [0, 1500, 3000];
-    let submitter: { status?: string; documents?: { url?: string }[]; email?: string } | null =
-      null;
+    let docStatus: string | null = null;
 
     for (const delay of retryDelays) {
       if (delay > 0) await sleep(delay);
@@ -171,89 +164,74 @@ serve(async (req: Request) => {
       const fetchController = new AbortController();
       const fetchTimeout = setTimeout(() => fetchController.abort(), 10000);
       try {
-        const submitterRes = await fetch(
-          `https://api.docuseal.com/submitters?submission_id=${submissionId}`,
+        const statusRes = await fetch(
+          `https://api.pandadoc.com/public/v1/documents/${documentId}`,
           {
-            headers: { 'X-Auth-Token': docusealApiKey },
+            headers: { Authorization: `API-Key ${pandadocApiKey}` },
             signal: fetchController.signal,
           },
         );
 
-        if (submitterRes.ok) {
-          const submitters = await submitterRes.json();
-          const data = Array.isArray(submitters?.data)
-            ? submitters.data
-            : Array.isArray(submitters)
-              ? submitters
-              : [];
-          submitter = data.find((s: { email?: string }) => s.email === profile?.email) || data[0];
+        if (statusRes.ok) {
+          const docData = await statusRes.json();
+          docStatus = docData.status;
 
-          if (submitter?.status === 'completed') {
+          if (docStatus === 'document.completed') {
             console.log(
-              `✅ DocuSeal confirmed completed on attempt ${retryDelays.indexOf(delay) + 1}`,
+              `✅ PandaDoc confirmed completed on attempt ${retryDelays.indexOf(delay) + 1}`,
             );
             break;
           }
         }
       } catch (e) {
-        console.warn(`DocuSeal check attempt failed:`, e);
+        console.warn(`PandaDoc check attempt failed:`, e);
       } finally {
         clearTimeout(fetchTimeout);
       }
     }
 
-    if (!submitter || submitter.status !== 'completed') {
+    if (docStatus !== 'document.completed') {
       return new Response(
         JSON.stringify({
           confirmed: false,
-          status: submitter?.status || 'unknown',
-          resolvedFirmId: firmId,
-          reason: 'DocuSeal not yet confirmed',
+          status: docStatus || 'unknown',
+          resolvedFirmId,
+          reason: 'PandaDoc not yet confirmed',
         }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    // ─── DocuSeal confirmed completed — update everything ───
+    // ─── PandaDoc confirmed completed — update everything ───
 
     const now = new Date().toISOString();
-    const rawSignedDocUrl = submitter.documents?.[0]?.url || null;
-    const signedDocUrl =
-      rawSignedDocUrl && rawSignedDocUrl.startsWith('https://') ? rawSignedDocUrl : null;
     const firmName = firm.primary_company_name || 'Unknown Firm';
 
+    // PDF URLs are fetched fresh on demand via get-agreement-document — no caching here
     const updates: Record<string, unknown> = { updated_at: now };
     if (isNda) {
       updates.nda_signed = true;
       updates.nda_signed_at = now;
-      updates.nda_docuseal_status = 'completed';
+      updates.nda_pandadoc_status = 'completed';
       updates.nda_status = 'signed';
       updates.nda_signed_by_name = signerName;
-      if (signedDocUrl) {
-        updates.nda_signed_document_url = signedDocUrl;
-        updates.nda_document_url = signedDocUrl;
-      }
     } else {
       updates.fee_agreement_signed = true;
       updates.fee_agreement_signed_at = now;
-      updates.fee_docuseal_status = 'completed';
+      updates.fee_pandadoc_status = 'completed';
       updates.fee_agreement_status = 'signed';
       updates.fee_agreement_signed_by_name = signerName;
-      if (signedDocUrl) {
-        updates.fee_signed_document_url = signedDocUrl;
-        updates.fee_agreement_document_url = signedDocUrl;
-      }
     }
 
-    await supabaseAdmin.from('firm_agreements').update(updates).eq('id', firmId);
+    await supabaseAdmin.from('firm_agreements').update(updates).eq('id', resolvedFirmId);
 
     // Dedup log
     await supabaseAdmin
-      .from('docuseal_webhook_log')
+      .from('pandadoc_webhook_log')
       .insert({
-        event_type: 'form.completed',
-        submission_id: String(submissionId),
-        external_id: firmId,
+        event_type: 'document.completed',
+        document_id: String(documentId),
+        external_id: resolvedFirmId,
         raw_payload: { confirmed_by_frontend: userId, document_type: documentType },
         processed_at: now,
       })
@@ -263,40 +241,33 @@ serve(async (req: Request) => {
         }
       });
 
-    // Sync to profiles
+    // firm_agreements is the single source of truth — no profile-level writes
+    // Fetch members for notifications only
     const { data: members } = await supabaseAdmin
       .from('firm_members')
       .select('user_id')
-      .eq('firm_id', firmId);
+      .eq('firm_id', resolvedFirmId);
 
     if (members?.length) {
-      const profileUpdates = isNda
-        ? { nda_signed: true, nda_signed_at: now, updated_at: now }
-        : { fee_agreement_signed: true, fee_agreement_signed_at: now, updated_at: now };
-
-      for (const member of members) {
-        await supabaseAdmin.from('profiles').update(profileUpdates).eq('id', member.user_id);
-      }
-
-      await sendBuyerSignedDocNotification(supabaseAdmin, members, firmId, docLabel, signedDocUrl);
+      await sendBuyerSignedDocNotification(supabaseAdmin, members, resolvedFirmId, docLabel, null);
     }
 
     // Send confirmation emails
     await sendSigningConfirmationEmails(supabaseAdmin, {
-      firmId,
+      firmId: resolvedFirmId,
       firmName,
       docLabel,
       signerName,
       signerEmail: profile?.email || '',
-      signedDocUrl,
+      signedDocUrl: null,
     });
 
-    await createAdminNotification(supabaseAdmin, firmId, firmName, docLabel);
+    await createAdminNotification(supabaseAdmin, resolvedFirmId, firmName, docLabel);
 
-    console.log(`✅ Confirmed ${docLabel} signed for firm ${firmId} (buyer ${userId})`);
+    console.log(`✅ Confirmed ${docLabel} signed for firm ${resolvedFirmId} (buyer ${userId})`);
 
     return new Response(
-      JSON.stringify({ confirmed: true, signedDocumentUrl: signedDocUrl, resolvedFirmId: firmId }),
+      JSON.stringify({ confirmed: true, signedDocumentUrl: null, resolvedFirmId }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   } catch (error: unknown) {
@@ -325,6 +296,7 @@ async function sendSigningConfirmationEmails(
   },
 ) {
   const { firmId: _firmId, firmName, docLabel, signerName, signerEmail, signedDocUrl } = opts;
+  const isNda = docLabel === 'NDA';
   const senderEmail = Deno.env.get('SENDER_EMAIL') || 'notifications@sourcecodeals.com';
   const senderName = Deno.env.get('SENDER_NAME') || 'SourceCo';
 
@@ -343,7 +315,18 @@ async function sendSigningConfirmationEmails(
   <h1 style="color:#0E101A;font-size:20px;font-weight:700;margin:0 0 24px 0;line-height:1.4;">✅ ${docLabel} Signed Successfully</h1>
   <div style="color:#3A3A3A;font-size:15px;line-height:1.7;">
     <p style="margin:0 0 16px 0;">Hi ${signerName},</p>
-    <p style="margin:0 0 16px 0;">Your <strong>${docLabel}</strong> has been signed and recorded successfully. Thank you for completing this step.</p>
+    ${
+      isNda
+        ? `<p style="margin:0 0 16px 0;">Your NDA is signed and on file. That's the only signature you'll ever need on the platform — it covers every deal on SourceCo, now and in the future.</p>
+<h3 style="color: #0e101a; font-size: 16px; margin: 24px 0 8px 0;">What to do next</h3>
+<ul style="padding-left: 20px; color: #374151; margin: 0 0 24px 0;">
+  <li>Browse every deal in the pipeline — deal summaries and business details are now visible</li>
+  <li>When you find a fit, request an introduction — our team reviews every request and selects based on fit</li>
+  <li>Tell us specifically why you're a strong match when you submit — it makes a difference</li>
+</ul>`
+        : `<p style="margin:0 0 16px 0;">Your fee agreement is signed and on file. You're fully set up — every deal on SourceCo is open to you and your introduction request is now being reviewed.</p>
+<p style="margin:0 0 16px 0;">Our fee is success-only — nothing owed unless a deal closes.</p>`
+    }
     ${downloadLine}
   </div>
   <div style="text-align:center;margin:32px 0;">
@@ -354,10 +337,14 @@ async function sendSigningConfirmationEmails(
   </div>
 </div></body></html>`;
 
+      const buyerSubject = isNda
+        ? `NDA signed — the full pipeline is open.`
+        : `Fee agreement signed — you're fully set up.`;
+
       await sendViaBervo({
         to: signerEmail,
         toName: signerName,
-        subject: `✅ Your ${docLabel} Has Been Signed — SourceCo`,
+        subject: buyerSubject,
         htmlContent: buyerHtml,
         senderName,
         senderEmail,
@@ -528,7 +515,7 @@ async function createAdminNotification(
       metadata: {
         firm_id: firmId,
         document_type: docLabel.toLowerCase().replace(/ /g, '_'),
-        docuseal_status: 'completed',
+        pandadoc_status: 'completed',
       },
       is_read: false,
     }));

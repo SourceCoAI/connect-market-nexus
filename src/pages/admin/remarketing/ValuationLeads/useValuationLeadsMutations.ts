@@ -12,7 +12,7 @@ import {
   useGlobalGateCheck,
   useGlobalActivityMutations,
 } from '@/hooks/remarketing/useGlobalActivityQueue';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { ValuationLead } from './types';
 import { inferWebsite, buildListingFromLead } from './helpers';
 
@@ -23,11 +23,19 @@ interface MutationDeps {
   setSelectedIds: (ids: Set<string>) => void;
   enrichmentSummary: { errors: Array<{ listingId: string }> } | null;
   dismissSummary: () => void;
+  setHideNotFit?: (v: boolean) => void;
 }
 
 export function useValuationLeadsMutations(deps: MutationDeps) {
-  const { leads, filteredLeads, selectedIds: _selectedIds, setSelectedIds, enrichmentSummary, dismissSummary } =
-    deps;
+  const {
+    leads,
+    filteredLeads,
+    selectedIds: _selectedIds,
+    setSelectedIds,
+    enrichmentSummary,
+    dismissSummary,
+    setHideNotFit,
+  } = deps;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -41,55 +49,73 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
   const [isScoring, setIsScoring] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   const [isMarkingNotFit, setIsMarkingNotFit] = useState(false);
+  const [isDeleting, _setIsDeleting] = useState(false);
 
-  const handleRowClick = useCallback(
+  // Drawer state
+  const [selectedLead, setSelectedLead] = useState<ValuationLead | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  /** Open the detail drawer on row click (non-destructive) */
+  const handleRowClick = useCallback((lead: ValuationLead) => {
+    setSelectedLead(lead);
+    setDrawerOpen(true);
+  }, []);
+
+  /** Navigate to deal page — creates listing if needed (with error handling) */
+  const handleOpenDeal = useCallback(
     async (lead: ValuationLead) => {
-      if (lead.pushed_listing_id) {
-        navigate('/admin/deals/' + lead.pushed_listing_id, {
-          state: { from: '/admin/remarketing/leads/valuation' },
-        });
-        return;
-      }
-
-      const dealIdentifier = `vlead_${lead.id.slice(0, 8)}`;
-      const { data: existing, error: existingError } = await supabase
-        .from('listings')
-        .select('id')
-        .eq('deal_identifier', dealIdentifier)
-        .maybeSingle();
-      if (existingError) throw existingError;
-
-      let listingId: string;
-
-      if (existing?.id) {
-        listingId = existing.id;
-        await supabase
-          .from('valuation_leads')
-          .update({ pushed_listing_id: listingId } as never)
-          .eq('id', lead.id);
-      } else {
-        const { data: listing, error: insertError } = await supabase
-          .from('listings')
-          .insert(buildListingFromLead(lead, false))
-          .select('id')
-          .single();
-
-        if (insertError || !listing) {
-          // Failed to create listing for lead — toast shown to user
-          sonnerToast.error('Failed to open deal page');
+      try {
+        if (lead.pushed_listing_id) {
+          navigate('/admin/deals/' + lead.pushed_listing_id, {
+            state: { from: '/admin/remarketing/leads/valuation' },
+          });
           return;
         }
-        listingId = listing.id;
-        await supabase
-          .from('valuation_leads')
-          .update({ pushed_listing_id: listingId } as never)
-          .eq('id', lead.id);
-      }
 
-      queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
-      navigate('/admin/deals/' + listingId, {
-        state: { from: '/admin/remarketing/leads/valuation' },
-      });
+        const dealIdentifier = `vlead_${lead.id.slice(0, 8)}`;
+        const { data: existing, error: existingError } = await supabase
+          .from('listings')
+          .select('id')
+          .eq('deal_identifier', dealIdentifier)
+          .maybeSingle();
+        if (existingError) throw existingError;
+
+        let listingId: string;
+
+        if (existing?.id) {
+          listingId = existing.id;
+          await supabase
+            .from('valuation_leads')
+            .update({ pushed_listing_id: listingId } as never)
+            .eq('id', lead.id);
+        } else {
+          const { data: listing, error: insertError } = await supabase
+            .from('listings')
+            .insert(buildListingFromLead(lead, false))
+            .select('id')
+            .single();
+
+          if (insertError || !listing) {
+            console.error('handleOpenDeal insert error:', insertError);
+            sonnerToast.error(insertError?.message || 'Failed to create deal listing');
+            return;
+          }
+          listingId = listing.id;
+          await supabase
+            .from('valuation_leads')
+            .update({ pushed_listing_id: listingId } as never)
+            .eq('id', lead.id);
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
+        navigate('/admin/deals/' + listingId, {
+          state: { from: '/admin/remarketing/leads/valuation' },
+        });
+      } catch (err: unknown) {
+        console.error('handleOpenDeal error:', err);
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        sonnerToast.error(`Failed to open deal page: ${message}`);
+      }
     },
     [navigate, queryClient],
   );
@@ -306,6 +332,150 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
     [leads, startOrQueueMajorOp, completeOperation, updateProgress, queryClient, setSelectedIds],
   );
 
+  const handleEnrichSelected = useCallback(
+    async (dealIds: string[], mode?: 'all' | 'unenriched') => {
+      if (dealIds.length === 0) return;
+      setIsEnriching(true);
+
+      // For valuation leads, we need to resolve pushed_listing_ids
+      const selectedLeads = (leads || []).filter((l) => dealIds.includes(l.id));
+
+      // Ensure all leads have listings (create if needed)
+      const leadsNeedingListing = selectedLeads.filter((l) => !l.pushed_listing_id);
+      if (leadsNeedingListing.length > 0) {
+        const LISTING_BATCH = 50;
+        for (let i = 0; i < leadsNeedingListing.length; i += LISTING_BATCH) {
+          const batch = leadsNeedingListing.slice(i, i + LISTING_BATCH);
+          await Promise.all(
+            batch.map(async (lead) => {
+              try {
+                const dealIdentifier = `vlead_${lead.id.slice(0, 8)}`;
+                const { data: existing, error: existingError } = await supabase
+                  .from('listings')
+                  .select('id')
+                  .eq('deal_identifier', dealIdentifier)
+                  .maybeSingle();
+                if (existingError) throw existingError;
+                let listingId: string;
+                if (existing?.id) {
+                  listingId = existing.id;
+                } else {
+                  const { data: listing, error: insertError } = await supabase
+                    .from('listings')
+                    .insert(buildListingFromLead(lead, false))
+                    .select('id')
+                    .single();
+                  if (insertError || !listing) return;
+                  listingId = listing.id;
+                }
+                await supabase
+                  .from('valuation_leads')
+                  .update({ pushed_listing_id: listingId } as never)
+                  .eq('id', lead.id);
+                lead.pushed_listing_id = listingId;
+              } catch {
+                /* Non-blocking per-lead */
+              }
+            }),
+          );
+        }
+      }
+
+      const forceReEnrich = mode === 'all';
+      const targets = selectedLeads.filter((l) => !!l.pushed_listing_id);
+      if (!targets.length) {
+        sonnerToast.info('No leads with websites to enrich');
+        setIsEnriching(false);
+        return;
+      }
+
+      let activityItem: { id: string } | null = null;
+      try {
+        const result = await startOrQueueMajorOp({
+          operationType: 'deal_enrichment',
+          totalItems: targets.length,
+          description: `Enriching ${targets.length} valuation leads`,
+          userId: user?.id || '',
+          contextJson: { source: 'valuation_leads_selected' },
+        });
+        activityItem = result.item;
+      } catch {
+        /* Non-blocking */
+      }
+
+      const now = new Date().toISOString();
+      const seen = new Set<string>();
+      const rows = targets
+        .filter((l) => {
+          if (!l.pushed_listing_id || seen.has(l.pushed_listing_id)) return false;
+          seen.add(l.pushed_listing_id!);
+          return true;
+        })
+        .map((l) => ({
+          listing_id: l.pushed_listing_id!,
+          status: 'pending' as const,
+          attempts: 0,
+          queued_at: now,
+          ...(forceReEnrich ? { force: true } : {}),
+          completed_at: null,
+          last_error: null,
+          started_at: null,
+        }));
+
+      const CHUNK = 500;
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const chunk = rows.slice(i, i + CHUNK);
+        const { error } = await supabase
+          .from('enrichment_queue')
+          .upsert(chunk, { onConflict: 'listing_id' });
+        if (error) {
+          sonnerToast.error('Failed to queue enrichment');
+          if (activityItem)
+            completeOperation.mutate({ id: activityItem.id, finalStatus: 'failed' });
+          setIsEnriching(false);
+          return;
+        }
+      }
+
+      sonnerToast.success(
+        `Queued ${rows.length} lead${rows.length !== 1 ? 's' : ''} for enrichment`,
+      );
+      try {
+        await supabase.functions.invoke('process-enrichment-queue', {
+          body: { source: 'valuation_leads_selected' },
+        });
+      } catch {
+        /* Non-blocking */
+      }
+
+      setSelectedIds(new Set());
+      setIsEnriching(false);
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [leads, user?.id, startOrQueueMajorOp, completeOperation, queryClient, setSelectedIds],
+  );
+
+  const handleDelete = useCallback(
+    async (leadIds: string[]) => {
+      if (leadIds.length === 0) return;
+      const { error } = await supabase
+        .from('valuation_leads')
+        .delete()
+        .in('id', leadIds);
+      if (error) {
+        sonnerToast.error('Failed to delete leads');
+        return;
+      }
+      sonnerToast.success(
+        `Deleted ${leadIds.length} lead${leadIds.length !== 1 ? 's' : ''}`,
+      );
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
+    },
+    [queryClient, setSelectedIds],
+  );
+
   const handleArchive = useCallback(
     async (leadIds: string[]) => {
       if (leadIds.length === 0) return;
@@ -341,6 +511,8 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
           `Marked ${leadIds.length} lead${leadIds.length !== 1 ? 's' : ''} as not a fit`,
         );
         setSelectedIds(new Set());
+        // Show greyed-out rows instead of hiding them
+        if (setHideNotFit) setHideNotFit(false);
         queryClient.invalidateQueries({ queryKey: ['remarketing', 'valuation-leads'] });
       } finally {
         setIsMarkingNotFit(false);
@@ -533,7 +705,7 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
       }
       setIsScoring(true);
       try {
-        const { queueValuationLeadScoring } = await import("@/lib/remarketing/queueScoring");
+        const { queueValuationLeadScoring } = await import('@/lib/remarketing/queueScoring');
         await queueValuationLeadScoring(mode);
       } catch {
         // Scoring failed — toast shown by queue utility
@@ -569,6 +741,7 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
   return {
     // Actions
     handleRowClick,
+    handleOpenDeal,
     handlePushToAllDeals,
     handlePushAndEnrich,
     handleReEnrich,
@@ -578,6 +751,13 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
     handleRetryFailedEnrichment,
     handleScoreLeads,
     handleAssignOwner,
+    handleEnrichSelected,
+    handleDelete,
+    // Drawer state
+    selectedLead,
+    setSelectedLead,
+    drawerOpen,
+    setDrawerOpen,
     // Action states
     isPushing,
     isPushEnriching,
@@ -585,5 +765,6 @@ export function useValuationLeadsMutations(deps: MutationDeps) {
     isScoring,
     isEnriching,
     isMarkingNotFit,
+    isDeleting,
   };
 }

@@ -7,6 +7,8 @@ export interface SingleDealEnrichmentResult {
   success: boolean;
   message?: string;
   fieldsUpdated?: string[];
+  rejectedFields?: string[];
+  rejectedFieldCount?: number;
   error?: string;
   extracted?: Record<string, unknown>;
   scrapeReport?: {
@@ -24,6 +26,12 @@ export interface SingleDealEnrichmentResult {
     appliedFromExisting?: number; // Fields applied from already-extracted transcripts
     appliedFromExistingTranscripts?: number; // Count of transcripts that contributed fields
     errors: string[];
+  };
+  notesReport?: {
+    status: 'analyzed' | 'skipped_empty' | 'skipped_timeout' | 'failed';
+    fieldsUpdated: number;
+    notesLength: number;
+    error?: string;
   };
 }
 
@@ -183,6 +191,48 @@ export const SingleDealEnrichmentDialog = ({
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notes Analysis Report */}
+          {isSuccess && result.notesReport && (
+            <div className="flex items-center gap-3 p-3 rounded-lg border text-sm">
+              <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <div>
+                {result.notesReport.status === 'analyzed' && (
+                  <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                    Notes analyzed — {result.notesReport.fieldsUpdated} field{result.notesReport.fieldsUpdated !== 1 ? 's' : ''} extracted
+                  </span>
+                )}
+                {result.notesReport.status === 'skipped_empty' && (
+                  <span className="text-muted-foreground">No general notes to analyze</span>
+                )}
+                {result.notesReport.status === 'skipped_timeout' && (
+                  <span className="text-amber-600 dark:text-amber-400">
+                    Notes analysis skipped — not enough time remaining. Use "Analyze Notes" button directly.
+                  </span>
+                )}
+                {result.notesReport.status === 'failed' && (
+                  <span className="text-destructive">
+                    Notes analysis failed{result.notesReport.error ? `: ${result.notesReport.error}` : ''}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Rejected Fields (blocked by source priority) */}
+          {isSuccess && (result.rejectedFieldCount ?? 0) > 0 && (
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 text-sm">
+              <FileText className="h-4 w-4 text-amber-600 flex-shrink-0" />
+              <div>
+                <span className="font-medium text-amber-700 dark:text-amber-400">
+                  {result.rejectedFieldCount} financial field{result.rejectedFieldCount !== 1 ? 's' : ''} skipped
+                </span>
+                <span className="text-amber-600 dark:text-amber-500 ml-1">
+                  — financials must come from call transcripts
+                </span>
               </div>
             </div>
           )}

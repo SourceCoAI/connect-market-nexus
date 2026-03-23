@@ -73,13 +73,18 @@ GRANT EXECUTE ON FUNCTION trigger_standup_meeting_sync() TO service_role;
 COMMENT ON FUNCTION trigger_standup_meeting_sync IS 'Triggers the standup meeting sync edge function to catch any missed <ds>-tagged meetings from Fireflies';
 
 -- =============================================================
--- SCHEDULE: Run every 30 minutes
+-- SCHEDULE: Run at 12 PM ET and 5 PM ET daily
 -- =============================================================
--- Every 30 minutes is frequent enough to catch missed meetings
--- quickly while not hammering the Fireflies API.
+-- Two daily syncs aligned with the team's meeting schedule.
+-- Times are in UTC: 16:00 = 12 PM EDT / 17:00 = 12 PM EST
+--                   21:00 = 5 PM EDT  / 22:00 = 5 PM EST
+-- We schedule both UTC offsets so it works year-round regardless
+-- of daylight saving time.
+
+SELECT cron.unschedule('sync-standup-meetings');
 
 SELECT cron.schedule(
   'sync-standup-meetings',
-  '*/30 * * * *',
+  '0 16,17,21,22 * * *',
   $$SELECT trigger_standup_meeting_sync()$$
 );

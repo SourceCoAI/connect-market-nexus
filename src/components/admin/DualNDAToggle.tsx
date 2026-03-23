@@ -31,12 +31,12 @@ export const DualNDAToggle = ({ user, onSendEmail, size = 'default' }: DualNDATo
     | null
     | undefined;
 
-  // Use firm-level status if available, fallback to profile
-  const isSigned = firm?.nda_signed ?? Boolean(user.nda_signed);
-  const signedAt = firm?.nda_signed_at ?? user.nda_signed_at;
+  // Only use firm-level status — never fall back to stale profile-level booleans
+  const isSigned = firm?.nda_signed ?? false;
+  const signedAt = firm?.nda_signed_at ?? null;
   const signedByName = firm?.nda_signed_by_name;
-  const emailSent = firm?.nda_email_sent ?? Boolean(user.nda_email_sent);
-  const emailSentAt = firm?.nda_email_sent_at ?? user.nda_email_sent_at;
+  const emailSent = firm?.nda_email_sent ?? false;
+  const emailSentAt = firm?.nda_email_sent_at ?? null;
   const firmName = firm?.primary_company_name;
 
   const handleSignedToggleChange = async (checked: boolean) => {

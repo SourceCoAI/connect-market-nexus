@@ -281,18 +281,18 @@ function PushToMarketplaceButton({
   }
 
   /**
-   * Informational: items still needed before a listing can be created.
-   * These no longer block pushing to the queue.
+   * Informational checks: show warnings for missing fields but allow push.
+   * Missing fields will still need to be completed before creating a listing.
    */
   const gaps: string[] = [];
 
   if (!deal?.website) gaps.push('Website');
 
-  if (deal?.revenue == null) gaps.push('Revenue');
+  if (deal?.revenue == null || deal?.revenue <= 0) gaps.push('Revenue');
 
   if (deal?.ebitda == null) gaps.push('EBITDA');
 
-  if (!deal?.address_state && !deal?.location) gaps.push('Location');
+  if (!deal?.address_state && !deal?.location) gaps.push('Location / Geography');
 
   if (!deal?.category && !deal?.industry) gaps.push('Category / Industry');
 
@@ -303,44 +303,59 @@ function PushToMarketplaceButton({
   if (!deal?.main_contact_email) gaps.push('Main contact email');
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            className="gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-500"
-            onClick={async () => {
-              const {
-                data: { user: authUser },
-              } = await supabase.auth.getUser();
-              const { error } = await supabase
-                .from('listings')
-                .update({
-                  pushed_to_marketplace: true,
-                  pushed_to_marketplace_at: new Date().toISOString(),
-                  pushed_to_marketplace_by: authUser?.id || null,
-                })
-                .eq('id', dealId);
-              if (error) {
-                toast.error('Failed to push to marketplace queue');
-              } else {
-                toast.success('Deal pushed to Marketplace Queue');
-                queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', dealId] });
-                queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
-                queryClient.invalidateQueries({ queryKey: ['marketplace-queue'] });
-              }
-            }}
-          >
-            <Store className="h-4 w-4" />
-            Push to Marketplace
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs">
-          {gaps.length === 0
-            ? 'Push this deal to the Marketplace Queue for review and publishing.'
-            : `Push to queue — note: these are still needed before a listing can be created:\n${gaps.map((g) => `• ${g}`).join('\n')}`}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div className="flex flex-col gap-1">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              className="gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-500"
+              onClick={async () => {
+                if (gaps.length > 0) {
+                  toast.warning(
+                    `Pushed to queue, but still missing: ${gaps.join(', ')}. These must be completed before creating a listing.`,
+                    { duration: 5000 },
+                  );
+                }
+                const {
+                  data: { user: authUser },
+                } = await supabase.auth.getUser();
+                const { error } = await supabase
+                  .from('listings')
+                  .update({
+                    pushed_to_marketplace: true,
+                    pushed_to_marketplace_at: new Date().toISOString(),
+                    pushed_to_marketplace_by: authUser?.id || null,
+                  })
+                  .eq('id', dealId);
+                if (error) {
+                  toast.error('Failed to push to marketplace queue');
+                } else {
+                  if (gaps.length === 0) {
+                    toast.success('Deal pushed to Marketplace Queue');
+                  }
+                  queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', dealId] });
+                  queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
+                  queryClient.invalidateQueries({ queryKey: ['marketplace-queue'] });
+                }
+              }}
+            >
+              <Store className="h-4 w-4" />
+              Push to Marketplace
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            {gaps.length === 0
+              ? 'Push this deal to the Marketplace Queue for review and publishing.'
+              : `Push to queue for review. Missing fields (needed before listing):\n${gaps.map((g) => `• ${g}`).join('\n')}`}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {gaps.length > 0 && (
+        <span className="text-xs text-amber-600 ml-1">
+          Missing for listing: {gaps.join(', ')}
+        </span>
+      )}
+    </div>
   );
 }

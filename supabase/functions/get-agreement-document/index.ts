@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
+import { selfHealFirm } from '../_shared/firm-self-heal.ts';
 
 /**
  * get-agreement-document
@@ -49,22 +50,34 @@ serve(async (req: Request) => {
       p_user_id: userId,
     });
 
-    if (resolveErr || !firmId) {
-      return new Response(
-        JSON.stringify({ error: 'No firm found' }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
+    let resolvedFirmId = firmId;
+    if (resolveErr || !resolvedFirmId) {
+      // Self-heal
+      const { data: profileForHeal } = await supabaseAdmin
+        .from('profiles')
+        .select('email, company')
+        .eq('id', userId)
+        .single();
+      if (profileForHeal) {
+        const result = await selfHealFirm(supabaseAdmin, userId, profileForHeal);
+        if (result) resolvedFirmId = result.firmId;
+      }
+      if (!resolvedFirmId) {
+        return new Response(
+          JSON.stringify({ error: 'No firm found' }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        );
+      }
     }
 
-    // Get submission ID and signed status
-    const submissionCol = isNda ? 'nda_docuseal_submission_id' : 'fee_docuseal_submission_id';
-    const signedCol = isNda ? 'nda_signed' : 'fee_agreement_signed';
-    const signedUrlCol = isNda ? 'nda_signed_document_url' : 'fee_signed_document_url';
+    // Get document ID and signed status — use canonical nda_status / fee_agreement_status
+    const documentCol = isNda ? 'nda_pandadoc_document_id' : 'fee_pandadoc_document_id';
+    const statusCol = isNda ? 'nda_status' : 'fee_agreement_status';
 
     const { data: firm } = await supabaseAdmin
       .from('firm_agreements')
-      .select(`${submissionCol}, ${signedCol}, ${signedUrlCol}`)
-      .eq('id', firmId)
+      .select(`${documentCol}, ${statusCol}`)
+      .eq('id', resolvedFirmId)
       .single();
 
     if (!firm) {
@@ -75,29 +88,22 @@ serve(async (req: Request) => {
     }
 
     const firmRecord = firm as Record<string, unknown>;
-    const isSigned = !!firmRecord[signedCol];
+    const isSigned = firmRecord[statusCol] === 'signed';
 
-    // If signed and we already have the URL cached, return it directly
-    if (isSigned && firmRecord[signedUrlCol]) {
+    // Always fetch fresh from PandaDoc — cached PDF URLs can expire
+    const documentId = firmRecord[documentCol];
+    if (!documentId) {
       return new Response(
-        JSON.stringify({ documentUrl: firmRecord[signedUrlCol], isSigned: true }),
+        JSON.stringify({ error: 'No document exists for this agreement' }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    const submissionId = firmRecord[submissionCol];
-    if (!submissionId) {
+    // Fetch document from PandaDoc API
+    const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
+    if (!pandadocApiKey) {
       return new Response(
-        JSON.stringify({ error: 'No submission exists for this document' }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
-    }
-
-    // Fetch document from DocuSeal API
-    const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
-    if (!docusealApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'DocuSeal not configured' }),
+        JSON.stringify({ error: 'PandaDoc not configured' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
@@ -107,9 +113,9 @@ serve(async (req: Request) => {
     let docRes: Response;
     try {
       docRes = await fetch(
-        `https://api.docuseal.com/submissions/${submissionId}/documents`,
+        `https://api.pandadoc.com/public/v1/documents/${documentId}/download`,
         {
-          headers: { 'X-Auth-Token': docusealApiKey },
+          headers: { 'Authorization': `API-Key ${pandadocApiKey}` },
           signal: fetchController.signal,
         },
       );
@@ -119,44 +125,27 @@ serve(async (req: Request) => {
 
     if (!docRes.ok) {
       const errText = await docRes.text();
-      console.error('DocuSeal documents API error:', docRes.status, errText);
+      console.error('PandaDoc download API error:', docRes.status, errText);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch document' }),
         { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    const documents = await docRes.json();
-    const docList = Array.isArray(documents) ? documents : [];
-    const firstDoc = docList[0];
+    // PandaDoc download returns the PDF directly; use the redirect URL as the document URL
+    const docUrl = docRes.url || `https://api.pandadoc.com/public/v1/documents/${documentId}/download`;
 
-    if (!firstDoc?.url) {
+    if (!docUrl) {
       return new Response(
         JSON.stringify({ error: 'Document not available' }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    // Cache the URL in firm_agreements if signed
-    if (isSigned && firstDoc.url) {
-      const cacheUpdate: Record<string, string> = {};
-      if (isNda) {
-        cacheUpdate.nda_signed_document_url = firstDoc.url;
-        cacheUpdate.nda_document_url = firstDoc.url;
-      } else {
-        cacheUpdate.fee_signed_document_url = firstDoc.url;
-        cacheUpdate.fee_agreement_document_url = firstDoc.url;
-      }
-      await supabaseAdmin
-        .from('firm_agreements')
-        .update(cacheUpdate)
-        .eq('id', firmId);
-    }
-
     return new Response(
       JSON.stringify({
-        documentUrl: firstDoc.url,
-        documentName: firstDoc.name || (isNda ? 'NDA' : 'Fee Agreement'),
+        documentUrl: docUrl,
+        documentName: isNda ? 'NDA' : 'Fee Agreement',
         isSigned,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },

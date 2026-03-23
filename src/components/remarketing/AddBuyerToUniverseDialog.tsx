@@ -39,8 +39,11 @@ export function AddBuyerToUniverseDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!companyName.trim() && !peFirmName.trim()) {
-      toast.error('Company name or PE Firm name is required');
+    const hasCompanyPair = companyName.trim() && companyWebsite.trim();
+    const hasPeFirmPair = peFirmName.trim() && peFirmWebsite.trim();
+
+    if (!hasCompanyPair && !hasPeFirmPair) {
+      toast.error('Please provide both a name and website for either the Company or PE Firm');
       return;
     }
 

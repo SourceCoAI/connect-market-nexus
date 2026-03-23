@@ -13,13 +13,14 @@
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-export type AIProviderName = 'gemini' | 'firecrawl' | 'apify' | 'serper';
+export type AIProviderName = 'anthropic' | 'gemini' | 'firecrawl' | 'apify' | 'serper';
 
 // Per-provider concurrency limits (requests per minute we target staying under)
 const PROVIDER_LIMITS: Record<
   AIProviderName,
   { maxConcurrent: number; cooldownMs: number; softLimitRpm: number }
 > = {
+  anthropic: { maxConcurrent: 8, cooldownMs: 15000, softLimitRpm: 40 },
   gemini: { maxConcurrent: 10, cooldownMs: 10000, softLimitRpm: 30 },
   firecrawl: { maxConcurrent: 5, cooldownMs: 10000, softLimitRpm: 20 },
   apify: { maxConcurrent: 3, cooldownMs: 30000, softLimitRpm: 10 },

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import ConnectionRequestDialog from '@/components/connection/ConnectionRequestDialog';
-import { FeeAgreementGate } from '@/components/docuseal/FeeAgreementGate';
+import { FeeAgreementGate } from '@/components/pandadoc/FeeAgreementGate';
 import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
-import { useAuth } from '@/context/AuthContext';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-docuseal';
+import { useAuth } from '@/contexts/AuthContext';
+import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
 import { useRealtime } from '@/components/realtime/RealtimeProvider';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { Send, XCircle, AlertCircle } from 'lucide-react';
@@ -107,7 +107,7 @@ const ConnectionButton = ({
   }
 
   // Block business owners (sellers) from requesting connections
-  if (user?.buyer_type === 'businessOwner') {
+  if (user?.buyer_type === 'businessOwner' || user?.buyer_type === 'business_owner') {
     return (
       <div className="w-full px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
         <p className="text-sm font-medium text-amber-900">Seller Account</p>
@@ -195,9 +195,10 @@ const ConnectionButton = ({
     return (
       <div className="space-y-3">
         <div className="w-full px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-center">
-          <p className="text-sm font-semibold text-red-700">Not Selected</p>
+          <p className="text-sm font-semibold text-red-700">Owner selected another buyer</p>
           <p className="text-xs text-red-600 mt-0.5">
-            The owner has made their selection for this opportunity
+            The business owner has moved forward with another buyer on this one. Browse other deals
+            — our team sources new opportunities regularly.
           </p>
         </div>
         <Button

@@ -5,11 +5,11 @@
  * for backwards compatibility.
  */
 
-export { useValuationLeadsQueries, PAGE_SIZE } from './useValuationLeadsQueries';
-export { useValuationLeadsMutations } from './useValuationLeadsMutations';
-
-import { useValuationLeadsQueries } from './useValuationLeadsQueries';
+import { useValuationLeadsQueries, PAGE_SIZE } from './useValuationLeadsQueries';
 import { useValuationLeadsMutations } from './useValuationLeadsMutations';
+
+export { PAGE_SIZE };
+export { useValuationLeadsMutations };
 
 export function useValuationLeadsData() {
   const queries = useValuationLeadsQueries();
@@ -21,6 +21,7 @@ export function useValuationLeadsData() {
     setSelectedIds: queries.setSelectedIds,
     enrichmentSummary: queries.enrichmentSummary,
     dismissSummary: queries.dismissSummary,
+    setHideNotFit: queries.setHideNotFit,
   });
 
   return {

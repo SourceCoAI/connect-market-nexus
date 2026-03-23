@@ -4,7 +4,7 @@ import { toast } from '@/hooks/use-toast';
 import { createUserObject } from '@/lib/auth-helpers';
 import { createListingFromData } from '@/utils/user-helpers';
 import { createQueryKey } from '@/lib/query-keys';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTabAwareQuery } from '@/hooks/use-tab-aware-query';
 
 // TODO: Phase 6 — migrate to data access layer once connection_requests queries are centralized.
@@ -100,24 +100,37 @@ export function useConnectionRequestsQuery() {
         ).filter((id): id is string => id !== null);
 
         // Batch fetch related data in parallel
-        const emptyResult = { data: [] as Record<string, unknown>[], error: null };
+        // Chunk large ID arrays to avoid exceeding PostgREST URL length limits
+        const CHUNK_SIZE = 100;
+        const fetchInChunks = async (
+          table: 'profiles' | 'listings',
+          select: string,
+          ids: string[],
+        ): Promise<{ data: Record<string, unknown>[]; error: unknown }> => {
+          if (ids.length === 0) return { data: [], error: null };
+          const chunks: string[][] = [];
+          for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+            chunks.push(ids.slice(i, i + CHUNK_SIZE));
+          }
+          const results = await Promise.all(
+            chunks.map((chunk) => supabase.from(table).select(select).in('id', chunk)),
+          );
+          const allData: Record<string, unknown>[] = [];
+          let firstError: unknown = null;
+          for (const res of results) {
+            if (res.error && !firstError) firstError = res.error;
+            if (res.data) allData.push(...(res.data as unknown as Record<string, unknown>[]));
+          }
+          return { data: allData, error: firstError };
+        };
+
         const [profilesRes, listingsRes] = await Promise.all([
-          profileIds.length
-            ? supabase
-                .from('profiles')
-                .select(
-                  'id, first_name, last_name, email, company_name, approval_status, is_admin, avatar_url, user_type',
-                )
-                .in('id', profileIds)
-            : emptyResult,
-          listingIds.length
-            ? supabase
-                .from('listings')
-                .select(
-                  'id, title, category, status, revenue, ebitda, asking_price, image_url, location, user_id',
-                )
-                .in('id', listingIds)
-            : emptyResult,
+          fetchInChunks('profiles', '*', profileIds),
+          fetchInChunks(
+            'listings',
+            'id, title, category, status, revenue, ebitda, image_url, location, internal_company_name, deal_identifier',
+            listingIds,
+          ),
         ]);
 
         if (profilesRes.error) console.error('Error fetching profiles batch:', profilesRes.error);

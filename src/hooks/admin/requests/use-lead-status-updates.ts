@@ -38,9 +38,9 @@ const getVisitorIdForRequest = async (requestId: string): Promise<string | null>
       .eq('id', requestId)
       .single();
     if (requestError) throw requestError;
-    
+
     if (!request?.user_id) return null;
-    
+
     // Try to find visitor_id in user_journeys for this user
     const { data: journey, error: journeyError } = await supabase
       .from('user_journeys')
@@ -48,7 +48,7 @@ const getVisitorIdForRequest = async (requestId: string): Promise<string | null>
       .eq('user_id', request.user_id)
       .maybeSingle();
     if (journeyError) throw journeyError;
-    
+
     return journey?.visitor_id || null;
   } catch {
     return null;
@@ -75,30 +75,48 @@ export const useUpdateLeadNDAStatus = () => {
     onMutate: async ({ requestId, value }) => {
       await queryClient.cancelQueries({ queryKey: ['connection-requests'] });
       await queryClient.cancelQueries({ queryKey: ['deals'] });
-      
-      const previousRequests = queryClient.getQueryData<CachedConnectionRequest[]>(['connection-requests']);
+
+      const previousRequests = queryClient.getQueryData<CachedConnectionRequest[]>([
+        'connection-requests',
+      ]);
       const previousDeals = queryClient.getQueryData<CachedDeal[]>(['deals']);
 
-      queryClient.setQueryData<CachedConnectionRequest[] | undefined>(['connection-requests'], (old) => {
-        if (!old) return old;
-        return old.map((r) => r.id === requestId ? { ...r, lead_nda_signed: value, lead_nda_signed_at: value ? new Date().toISOString() : null } : r);
-      });
+      queryClient.setQueryData<CachedConnectionRequest[] | undefined>(
+        ['connection-requests'],
+        (old) => {
+          if (!old) return old;
+          return old.map((r) =>
+            r.id === requestId
+              ? {
+                  ...r,
+                  lead_nda_signed: value,
+                  lead_nda_signed_at: value ? new Date().toISOString() : null,
+                }
+              : r,
+          );
+        },
+      );
 
       queryClient.setQueryData<CachedDeal[] | undefined>(['deals'], (old) => {
         if (!old) return old;
         return old.map((deal) =>
           deal.connection_request_id === requestId
             ? { ...deal, nda_status: value ? 'signed' : 'not_sent' }
-            : deal
+            : deal,
         );
       });
 
       return { previousRequests, previousDeals };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.previousRequests) queryClient.setQueryData(['connection-requests'], ctx.previousRequests);
+      if (ctx?.previousRequests)
+        queryClient.setQueryData(['connection-requests'], ctx.previousRequests);
       if (ctx?.previousDeals) queryClient.setQueryData(['deals'], ctx.previousDeals);
-      toast({ variant: 'destructive', title: 'Update failed', description: 'Could not update lead NDA signed status' });
+      toast({
+        variant: 'destructive',
+        title: 'Update failed',
+        description: 'Could not update lead NDA signed status',
+      });
     },
     onSuccess: async (_, { requestId, value }) => {
       queryClient.invalidateQueries({ queryKey: ['connection-requests'] });
@@ -108,28 +126,31 @@ export const useUpdateLeadNDAStatus = () => {
       queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
       queryClient.invalidateQueries({ queryKey: ['firm-members'] });
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      
+
       // Log activity if this connection request has a deal
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: deal, error: dealError } = await supabase
+
+      const { data: deal, error: dealError } = (await supabase
         .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
-        .maybeSingle() as { data: any; error: any };
+        .maybeSingle()) as {
+        data: { id: string; contact_name: string | null } | null;
+        error: { message: string } | null;
+      };
       if (dealError) throw dealError;
-      
+
       if (deal) {
         await logDealActivity({
           dealId: deal.id,
           activityType: 'nda_status_changed',
           title: value ? 'NDA Signed' : 'NDA Status Revoked',
-          description: value 
+          description: value
             ? `NDA marked as signed for ${deal.contact_name || 'contact'}`
             : `NDA signature revoked for ${deal.contact_name || 'contact'}`,
-          metadata: { document_type: 'nda', signed: value }
+          metadata: { document_type: 'nda', signed: value },
         });
       }
-      
+
       // Record journey milestone for NDA signed
       if (value) {
         const visitorId = await getVisitorIdForRequest(requestId);
@@ -137,11 +158,11 @@ export const useUpdateLeadNDAStatus = () => {
           await supabase.rpc('update_journey_milestone', {
             p_visitor_id: visitorId,
             p_milestone_key: 'nda_signed_at',
-            p_milestone_time: new Date().toISOString()
+            p_milestone_time: new Date().toISOString(),
           });
         }
       }
-      
+
       toast({ title: 'Lead NDA status updated' });
     },
   });
@@ -162,30 +183,48 @@ export const useUpdateLeadNDAEmailStatus = () => {
     onMutate: async ({ requestId, value }) => {
       await queryClient.cancelQueries({ queryKey: ['connection-requests'] });
       await queryClient.cancelQueries({ queryKey: ['deals'] });
-      
-      const previousRequests = queryClient.getQueryData<CachedConnectionRequest[]>(['connection-requests']);
+
+      const previousRequests = queryClient.getQueryData<CachedConnectionRequest[]>([
+        'connection-requests',
+      ]);
       const previousDeals = queryClient.getQueryData<CachedDeal[]>(['deals']);
 
-      queryClient.setQueryData<CachedConnectionRequest[] | undefined>(['connection-requests'], (old) => {
-        if (!old) return old;
-        return old.map((r) => r.id === requestId ? { ...r, lead_nda_email_sent: value, lead_nda_email_sent_at: value ? new Date().toISOString() : null } : r);
-      });
+      queryClient.setQueryData<CachedConnectionRequest[] | undefined>(
+        ['connection-requests'],
+        (old) => {
+          if (!old) return old;
+          return old.map((r) =>
+            r.id === requestId
+              ? {
+                  ...r,
+                  lead_nda_email_sent: value,
+                  lead_nda_email_sent_at: value ? new Date().toISOString() : null,
+                }
+              : r,
+          );
+        },
+      );
 
       queryClient.setQueryData<CachedDeal[] | undefined>(['deals'], (old) => {
         if (!old) return old;
         return old.map((deal) =>
           deal.connection_request_id === requestId
             ? { ...deal, nda_status: value ? 'sent' : 'not_sent' }
-            : deal
+            : deal,
         );
       });
 
       return { previousRequests, previousDeals };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.previousRequests) queryClient.setQueryData(['connection-requests'], ctx.previousRequests);
+      if (ctx?.previousRequests)
+        queryClient.setQueryData(['connection-requests'], ctx.previousRequests);
       if (ctx?.previousDeals) queryClient.setQueryData(['deals'], ctx.previousDeals);
-      toast({ variant: 'destructive', title: 'Update failed', description: 'Could not update lead NDA email status' });
+      toast({
+        variant: 'destructive',
+        title: 'Update failed',
+        description: 'Could not update lead NDA email status',
+      });
     },
     onSuccess: async (_, { requestId, value }) => {
       queryClient.invalidateQueries({ queryKey: ['connection-requests'] });
@@ -194,27 +233,30 @@ export const useUpdateLeadNDAEmailStatus = () => {
       queryClient.invalidateQueries({ queryKey: ['deal-activities'] });
       queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
       queryClient.invalidateQueries({ queryKey: ['firm-members'] });
-      
+
       // Log activity if this connection request has a deal
-      const { data: deal, error: dealError } = await supabase
+      const { data: deal, error: dealError } = (await supabase
         .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
-        .maybeSingle() as { data: any; error: any };
+        .maybeSingle()) as {
+        data: { id: string; contact_name: string | null } | null;
+        error: { message: string } | null;
+      };
       if (dealError) throw dealError;
-      
+
       if (deal) {
         await logDealActivity({
           dealId: deal.id,
           activityType: 'nda_email_sent',
           title: value ? 'NDA Email Sent' : 'NDA Email Status Revoked',
-          description: value 
+          description: value
             ? `NDA email sent to ${deal.contact_name || 'contact'}`
             : `NDA email status revoked for ${deal.contact_name || 'contact'}`,
-          metadata: { document_type: 'nda', email_sent: value }
+          metadata: { document_type: 'nda', email_sent: value },
         });
       }
-      
+
       toast({ title: 'Lead NDA email status updated' });
     },
   });
@@ -235,30 +277,48 @@ export const useUpdateLeadFeeAgreementStatus = () => {
     onMutate: async ({ requestId, value }) => {
       await queryClient.cancelQueries({ queryKey: ['connection-requests'] });
       await queryClient.cancelQueries({ queryKey: ['deals'] });
-      
-      const previousRequests = queryClient.getQueryData<CachedConnectionRequest[]>(['connection-requests']);
+
+      const previousRequests = queryClient.getQueryData<CachedConnectionRequest[]>([
+        'connection-requests',
+      ]);
       const previousDeals = queryClient.getQueryData<CachedDeal[]>(['deals']);
 
-      queryClient.setQueryData<CachedConnectionRequest[] | undefined>(['connection-requests'], (old) => {
-        if (!old) return old;
-        return old.map((r) => r.id === requestId ? { ...r, lead_fee_agreement_signed: value, lead_fee_agreement_signed_at: value ? new Date().toISOString() : null } : r);
-      });
+      queryClient.setQueryData<CachedConnectionRequest[] | undefined>(
+        ['connection-requests'],
+        (old) => {
+          if (!old) return old;
+          return old.map((r) =>
+            r.id === requestId
+              ? {
+                  ...r,
+                  lead_fee_agreement_signed: value,
+                  lead_fee_agreement_signed_at: value ? new Date().toISOString() : null,
+                }
+              : r,
+          );
+        },
+      );
 
       queryClient.setQueryData<CachedDeal[] | undefined>(['deals'], (old) => {
         if (!old) return old;
         return old.map((deal) =>
           deal.connection_request_id === requestId
             ? { ...deal, fee_agreement_status: value ? 'signed' : 'not_sent' }
-            : deal
+            : deal,
         );
       });
 
       return { previousRequests, previousDeals };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.previousRequests) queryClient.setQueryData(['connection-requests'], ctx.previousRequests);
+      if (ctx?.previousRequests)
+        queryClient.setQueryData(['connection-requests'], ctx.previousRequests);
       if (ctx?.previousDeals) queryClient.setQueryData(['deals'], ctx.previousDeals);
-      toast({ variant: 'destructive', title: 'Update failed', description: 'Could not update lead fee agreement signed status' });
+      toast({
+        variant: 'destructive',
+        title: 'Update failed',
+        description: 'Could not update lead fee agreement signed status',
+      });
     },
     onSuccess: async (_, { requestId, value }) => {
       queryClient.invalidateQueries({ queryKey: ['connection-requests'] });
@@ -268,27 +328,30 @@ export const useUpdateLeadFeeAgreementStatus = () => {
       queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
       queryClient.invalidateQueries({ queryKey: ['firm-members'] });
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      
+
       // Log activity if this connection request has a deal
-      const { data: deal, error: dealError } = await supabase
+      const { data: deal, error: dealError } = (await supabase
         .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
-        .maybeSingle() as { data: any; error: any };
+        .maybeSingle()) as {
+        data: { id: string; contact_name: string | null } | null;
+        error: { message: string } | null;
+      };
       if (dealError) throw dealError;
-      
+
       if (deal) {
         await logDealActivity({
           dealId: deal.id,
           activityType: 'fee_agreement_status_changed',
           title: value ? 'Fee Agreement Signed' : 'Fee Agreement Status Revoked',
-          description: value 
+          description: value
             ? `Fee Agreement marked as signed for ${deal.contact_name || 'contact'}`
             : `Fee Agreement signature revoked for ${deal.contact_name || 'contact'}`,
-          metadata: { document_type: 'fee_agreement', signed: value }
+          metadata: { document_type: 'fee_agreement', signed: value },
         });
       }
-      
+
       // Record journey milestone for fee agreement signed
       if (value) {
         const visitorId = await getVisitorIdForRequest(requestId);
@@ -296,11 +359,11 @@ export const useUpdateLeadFeeAgreementStatus = () => {
           await supabase.rpc('update_journey_milestone', {
             p_visitor_id: visitorId,
             p_milestone_key: 'fee_agreement_at',
-            p_milestone_time: new Date().toISOString()
+            p_milestone_time: new Date().toISOString(),
           });
         }
       }
-      
+
       toast({ title: 'Lead fee agreement status updated' });
     },
   });
@@ -321,30 +384,48 @@ export const useUpdateLeadFeeAgreementEmailStatus = () => {
     onMutate: async ({ requestId, value }) => {
       await queryClient.cancelQueries({ queryKey: ['connection-requests'] });
       await queryClient.cancelQueries({ queryKey: ['deals'] });
-      
-      const previousRequests = queryClient.getQueryData<CachedConnectionRequest[]>(['connection-requests']);
+
+      const previousRequests = queryClient.getQueryData<CachedConnectionRequest[]>([
+        'connection-requests',
+      ]);
       const previousDeals = queryClient.getQueryData<CachedDeal[]>(['deals']);
 
-      queryClient.setQueryData<CachedConnectionRequest[] | undefined>(['connection-requests'], (old) => {
-        if (!old) return old;
-        return old.map((r) => r.id === requestId ? { ...r, lead_fee_agreement_email_sent: value, lead_fee_agreement_email_sent_at: value ? new Date().toISOString() : null } : r);
-      });
+      queryClient.setQueryData<CachedConnectionRequest[] | undefined>(
+        ['connection-requests'],
+        (old) => {
+          if (!old) return old;
+          return old.map((r) =>
+            r.id === requestId
+              ? {
+                  ...r,
+                  lead_fee_agreement_email_sent: value,
+                  lead_fee_agreement_email_sent_at: value ? new Date().toISOString() : null,
+                }
+              : r,
+          );
+        },
+      );
 
       queryClient.setQueryData<CachedDeal[] | undefined>(['deals'], (old) => {
         if (!old) return old;
         return old.map((deal) =>
           deal.connection_request_id === requestId
             ? { ...deal, fee_agreement_status: value ? 'sent' : 'not_sent' }
-            : deal
+            : deal,
         );
       });
 
       return { previousRequests, previousDeals };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.previousRequests) queryClient.setQueryData(['connection-requests'], ctx.previousRequests);
+      if (ctx?.previousRequests)
+        queryClient.setQueryData(['connection-requests'], ctx.previousRequests);
       if (ctx?.previousDeals) queryClient.setQueryData(['deals'], ctx.previousDeals);
-      toast({ variant: 'destructive', title: 'Update failed', description: 'Could not update lead fee agreement email status' });
+      toast({
+        variant: 'destructive',
+        title: 'Update failed',
+        description: 'Could not update lead fee agreement email status',
+      });
     },
     onSuccess: async (_, { requestId, value }) => {
       queryClient.invalidateQueries({ queryKey: ['connection-requests'] });
@@ -353,27 +434,30 @@ export const useUpdateLeadFeeAgreementEmailStatus = () => {
       queryClient.invalidateQueries({ queryKey: ['deal-activities'] });
       queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
       queryClient.invalidateQueries({ queryKey: ['firm-members'] });
-      
+
       // Log activity if this connection request has a deal
-      const { data: deal, error: dealError } = await supabase
+      const { data: deal, error: dealError } = (await supabase
         .from('deal_pipeline')
         .select('id, contact_name')
         .eq('connection_request_id', requestId)
-        .maybeSingle() as { data: any; error: any };
+        .maybeSingle()) as {
+        data: { id: string; contact_name: string | null } | null;
+        error: { message: string } | null;
+      };
       if (dealError) throw dealError;
-      
+
       if (deal) {
         await logDealActivity({
           dealId: deal.id,
           activityType: 'fee_agreement_email_sent',
           title: value ? 'Fee Agreement Email Sent' : 'Fee Agreement Email Status Revoked',
-          description: value 
+          description: value
             ? `Fee Agreement email sent to ${deal.contact_name || 'contact'}`
             : `Fee Agreement email status revoked for ${deal.contact_name || 'contact'}`,
-          metadata: { document_type: 'fee_agreement', email_sent: value }
+          metadata: { document_type: 'fee_agreement', email_sent: value },
         });
       }
-      
+
       toast({ title: 'Lead fee agreement email status updated' });
     },
   });

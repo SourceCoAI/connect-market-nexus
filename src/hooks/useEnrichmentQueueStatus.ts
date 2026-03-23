@@ -40,9 +40,11 @@ export function useEnrichmentQueueStatus({
     startedAtRef.current = Date.now();
 
     const poll = async () => {
-      // Stop after max duration
+      // Stop after max duration with user notification
       if (startedAtRef.current && Date.now() - startedAtRef.current > MAX_POLL_DURATION_MS) {
         stopPolling();
+        toast.warning('Enrichment is taking longer than expected. Refresh the page to check status.', { duration: 8000 });
+        onComplete?.('failed');
         return;
       }
 

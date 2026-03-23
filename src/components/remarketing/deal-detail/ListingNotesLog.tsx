@@ -43,12 +43,14 @@ interface ListingNote {
   };
 }
 
-interface FirefliesTranscript {
+interface CallTranscript {
   id: string;
   title: string | null;
+  source: string | null;
   call_date: string | null;
   duration_minutes: number | null;
   transcript_url: string | null;
+  recording_url: string | null;
   has_content: boolean | null;
   extracted_data: {
     fireflies_summary?: string;
@@ -59,7 +61,7 @@ interface FirefliesTranscript {
 
 type TimelineItem =
   | { type: 'note'; id: string; date: string; data: ListingNote }
-  | { type: 'meeting'; id: string; date: string; data: FirefliesTranscript };
+  | { type: 'meeting'; id: string; date: string; data: CallTranscript };
 
 /** Truncate a summary to at most 2 sentences. */
 function twoSentenceSummary(summary: string): string {
@@ -96,21 +98,21 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
     staleTime: 30_000,
   });
 
-  // Fetch Fireflies transcripts
-  const { data: transcripts = [], isLoading: transcriptsLoading } = useQuery<FirefliesTranscript[]>(
+  // Fetch call transcripts (Fireflies + PhoneBurner + all sources)
+  const { data: transcripts = [], isLoading: transcriptsLoading } = useQuery<CallTranscript[]>(
     {
       queryKey: ['deal-meeting-summaries', listingId],
       queryFn: async () => {
         const { data, error } = await supabase
           .from('deal_transcripts')
           .select(
-            'id, title, call_date, duration_minutes, transcript_url, has_content, extracted_data, created_at',
+            'id, title, source, call_date, duration_minutes, transcript_url, recording_url, has_content, extracted_data, created_at',
           )
           .eq('listing_id', listingId)
-          .eq('source', 'fireflies')
+          .in('source', ['fireflies', 'phoneburner'])
           .order('call_date', { ascending: false, nullsFirst: false });
         if (error) throw error;
-        return (data || []) as unknown as FirefliesTranscript[];
+        return (data || []) as unknown as CallTranscript[];
       },
       enabled: !!listingId,
       staleTime: 60_000,
@@ -362,9 +364,11 @@ function NoteItem({
   );
 }
 
-function MeetingItem({ transcript }: { transcript: FirefliesTranscript }) {
+function MeetingItem({ transcript }: { transcript: CallTranscript }) {
   const summary = transcript.extracted_data?.fireflies_summary;
   const displayDate = transcript.call_date || transcript.created_at;
+  const isPhoneBurner = transcript.source === 'phoneburner';
+  const linkUrl = transcript.transcript_url || transcript.recording_url;
 
   return (
     <div className="rounded-lg border border-violet-200 dark:border-violet-800 p-3 space-y-1.5 bg-violet-50/50 dark:bg-violet-950/20">
@@ -373,6 +377,14 @@ function MeetingItem({ transcript }: { transcript: FirefliesTranscript }) {
           <Mic className="h-3.5 w-3.5" />
           Call: {transcript.title || 'Untitled Meeting'}
         </span>
+        {isPhoneBurner && (
+          <Badge
+            variant="outline"
+            className="text-[10px] gap-1 shrink-0 border-green-300 text-green-600"
+          >
+            PB
+          </Badge>
+        )}
         {transcript.duration_minutes != null && transcript.duration_minutes > 0 && (
           <Badge
             variant="outline"
@@ -389,13 +401,13 @@ function MeetingItem({ transcript }: { transcript: FirefliesTranscript }) {
           <span className="text-muted-foreground/50">·</span>
           <span>{formatDistanceToNow(new Date(displayDate), { addSuffix: true })}</span>
         </span>
-        {transcript.transcript_url && (
+        {linkUrl && (
           <a
-            href={transcript.transcript_url}
+            href={linkUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted-foreground hover:text-violet-600 transition-colors"
-            title="Open in Fireflies"
+            title={isPhoneBurner ? 'Open recording' : 'Open in Fireflies'}
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </a>

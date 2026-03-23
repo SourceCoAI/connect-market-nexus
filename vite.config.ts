@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: 'es2020',
     minify: 'esbuild',
+    sourcemap: mode !== 'production',
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
@@ -43,6 +44,7 @@ export default defineConfig(({ mode }) => ({
             // Date utilities
             if (id.includes('date-fns')) return 'vendor-date-fns';
           }
+          return undefined;
         },
       },
     },

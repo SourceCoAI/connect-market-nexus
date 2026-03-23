@@ -12,7 +12,7 @@
  * 4. Usage tracking
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import { routeIntent } from './router.ts';
@@ -85,8 +85,12 @@ Deno.serve(async (req: Request) => {
         );
       }
     } catch (rateLimitErr) {
-      // Non-critical: if rate limit check fails, allow the request
-      console.warn('[ai-cc] Rate limit check failed:', rateLimitErr);
+      // Fail closed: if rate limit check fails, reject the request
+      console.error('[ai-cc] Rate limit check failed:', rateLimitErr);
+      return new Response(
+        JSON.stringify({ error: 'Rate limit check failed. Please try again shortly.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     // Parse request body
@@ -163,7 +167,7 @@ Deno.serve(async (req: Request) => {
 // ---------- Main processing ----------
 
 async function processChat(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   userId: string,
   body: ChatRequest,
   writer: { write: (chunk: string) => Promise<void>; close: () => Promise<void> },
@@ -277,13 +281,13 @@ interface UsageData {
 }
 
 async function trackUsage(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   userId: string,
   conversationId: string | undefined,
   usage: UsageData,
 ): Promise<void> {
   try {
-    await supabase.from('ai_command_center_usage').insert({
+    await (supabase as any).from('ai_command_center_usage').insert({
       user_id: userId,
       conversation_id: conversationId || null,
       query: usage.query.substring(0, 500),

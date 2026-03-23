@@ -8,11 +8,13 @@ import { IntroductionPipelineTab } from './tabs/IntroductionPipelineTab';
 interface BuyerIntroductionPageProps {
   listingId: string;
   listingTitle: string;
+  listingIndustry?: string;
+  listingCategories?: string[];
 }
 
 type TabValue = 'recommended' | 'pipeline';
 
-export function BuyerIntroductionPage({ listingId, listingTitle }: BuyerIntroductionPageProps) {
+export function BuyerIntroductionPage({ listingId, listingTitle, listingIndustry, listingCategories }: BuyerIntroductionPageProps) {
   const [activeTab, setActiveTab] = useState<TabValue>('recommended');
   const { introductionIds } = useIntroductionPipeline(listingId);
 
@@ -51,6 +53,8 @@ export function BuyerIntroductionPage({ listingId, listingTitle }: BuyerIntroduc
         <RecommendedBuyersTab
           listingId={listingId}
           listingTitle={listingTitle}
+          listingIndustry={listingIndustry}
+          listingCategories={listingCategories}
           pipelineBuyerIds={introductionIds}
         />
       )}

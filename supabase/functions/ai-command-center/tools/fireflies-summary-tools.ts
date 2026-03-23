@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Fireflies Auto-Summary Tools (Feature 3)
  *
@@ -101,7 +102,7 @@ async function summarizeTranscriptToNotes(
   const autoCreateTasks = args.auto_create_tasks === true;
 
   // 1. Fetch the transcript
-  const { data: transcript, error: txError } = await supabase
+  const { data: transcript, error: txError } = await (supabase as any)
     .from('deal_transcripts')
     .select(
       `id, title, listing_id, transcript_text, duration_minutes,
@@ -188,7 +189,7 @@ async function summarizeTranscriptToNotes(
   const noteContent = noteParts.join('\n');
 
   // 4. Save as a deal comment/note
-  const { data: savedNote, error: noteError } = await supabase
+  const { data: savedNote, error: noteError } = await (supabase as any)
     .from('deal_comments')
     .insert({
       deal_id: dealId,
@@ -206,7 +207,7 @@ async function summarizeTranscriptToNotes(
   }
 
   // 5. Mark transcript as processed
-  await supabase
+  await (supabase as any)
     .from('deal_transcripts')
     .update({
       extracted_data: {
@@ -221,7 +222,7 @@ async function summarizeTranscriptToNotes(
   let tasksCreated = 0;
   if (autoCreateTasks && summary.action_items.length > 0) {
     for (const item of summary.action_items.slice(0, 5)) {
-      const { error: taskError } = await supabase.from('daily_standup_tasks').insert({
+      const { error: taskError } = await (supabase as any).from('daily_standup_tasks').insert({
         title: item.text,
         entity_type: 'listing',
         entity_id: dealId,
@@ -263,7 +264,7 @@ async function getUnprocessedTranscripts(
 ): Promise<ToolResult> {
   const limit = Math.min(Number(args.limit) || 10, 25);
 
-  let query = supabase
+  let query = (supabase as any)
     .from('deal_transcripts')
     .select(
       `id, title, listing_id, source, duration_minutes,

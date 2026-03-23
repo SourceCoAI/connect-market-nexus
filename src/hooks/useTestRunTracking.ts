@@ -16,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 export type TestRunType =
   | 'run_all'
   | 'system'
-  | 'docuseal'
+  | 'pandadoc'
   | 'chatbot_infra'
   | 'chatbot_scenarios'
   | '30q'

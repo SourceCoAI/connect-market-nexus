@@ -36,19 +36,46 @@ interface ThreadContextPanelProps {
   buyerCompany: string | null;
 }
 
-const STATUS_CONFIG: Record<AgreementDisplayStatus, {
-  label: string;
-  className: string;
-  icon: typeof Check;
-}> = {
-  signed: { label: 'Signed', className: 'border-emerald-500/20 bg-emerald-50 text-emerald-700', icon: Check },
-  declined: { label: 'Declined', className: 'border-red-500/20 bg-red-50 text-red-700', icon: AlertCircle },
+const STATUS_CONFIG: Record<
+  AgreementDisplayStatus,
+  {
+    label: string;
+    className: string;
+    icon: typeof Check;
+  }
+> = {
+  signed: {
+    label: 'Signed',
+    className: 'border-emerald-500/20 bg-emerald-50 text-emerald-700',
+    icon: Check,
+  },
+  declined: {
+    label: 'Declined',
+    className: 'border-red-500/20 bg-red-50 text-red-700',
+    icon: AlertCircle,
+  },
   expired: { label: 'Expired', className: 'border-red-500/20 bg-red-50 text-red-700', icon: Ban },
-  viewed: { label: 'Viewed', className: 'border-amber-500/20 bg-amber-50 text-amber-700', icon: Eye },
+  viewed: {
+    label: 'Viewed',
+    className: 'border-amber-500/20 bg-amber-50 text-amber-700',
+    icon: Eye,
+  },
   sent: { label: 'Sent', className: 'border-blue-500/20 bg-blue-50 text-blue-700', icon: Send },
-  pending: { label: 'Pending', className: 'border-blue-500/20 bg-blue-50 text-blue-700', icon: Clock },
-  not_sent: { label: 'Not Sent', className: 'border-border/40 bg-muted/30 text-muted-foreground', icon: Clock },
-  no_firm: { label: 'No Firm', className: 'border-border/40 bg-muted/30 text-muted-foreground', icon: Clock },
+  pending: {
+    label: 'Pending',
+    className: 'border-blue-500/20 bg-blue-50 text-blue-700',
+    icon: Clock,
+  },
+  not_sent: {
+    label: 'Not Sent',
+    className: 'border-border/40 bg-muted/30 text-muted-foreground',
+    icon: Clock,
+  },
+  no_firm: {
+    label: 'No Firm',
+    className: 'border-border/40 bg-muted/30 text-muted-foreground',
+    icon: Clock,
+  },
 };
 
 // ─── Data hooks ───
@@ -70,7 +97,7 @@ function useThreadBuyerFirm(userId: string | null) {
       const { data: firm } = await supabase
         .from('firm_agreements')
         .select(
-          'id, primary_company_name, nda_signed, nda_signed_at, nda_docuseal_status, nda_signed_document_url, nda_document_url, fee_agreement_signed, fee_agreement_signed_at, fee_docuseal_status, fee_signed_document_url, fee_agreement_document_url',
+          'id, primary_company_name, nda_signed, nda_signed_at, nda_status, nda_document_url, fee_agreement_signed, fee_agreement_signed_at, fee_agreement_status, fee_agreement_document_url',
         )
         .eq('id', firmId)
         .maybeSingle();
@@ -87,14 +114,15 @@ function useUserAllThreads(userId: string | null) {
     queryKey: ['user-all-threads', userId],
     queryFn: async () => {
       if (!userId) return [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('connection_requests')
-        .select(`
+        .select(
+          `
           id, status, listing_id, user_message, created_at,
           last_message_at, last_message_preview, last_message_sender_role, conversation_state,
           listing:listings!connection_requests_listing_id_fkey(title)
-        `)
+        `,
+        )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -125,7 +153,8 @@ function useUserActivityTimeline(userId: string | null) {
           id: `signup-${userId}`,
           type: 'signup',
           title: 'Account Created',
-          description: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() + ' signed up',
+          description:
+            `${profile.first_name || ''} ${profile.last_name || ''}`.trim() + ' signed up',
           timestamp: profile.created_at,
         });
       }
@@ -165,7 +194,7 @@ function useUserActivityTimeline(userId: string | null) {
       });
 
       // 3. Messages (last 20)
-      const requestIds = (requests || []).map(r => r.id);
+      const requestIds = (requests || []).map((r) => r.id);
       if (requestIds.length > 0) {
         const { data: messages } = await supabase
           .from('connection_messages')
@@ -179,7 +208,8 @@ function useUserActivityTimeline(userId: string | null) {
             id: `msg-${m.id}`,
             type: m.sender_role === 'buyer' ? 'message_sent' : 'message_received',
             title: m.sender_role === 'buyer' ? 'Buyer Message' : 'Admin Reply',
-            description: (m.body as string)?.substring(0, 80) + ((m.body as string)?.length > 80 ? '...' : ''),
+            description:
+              (m.body as string)?.substring(0, 80) + ((m.body as string)?.length > 80 ? '...' : ''),
             timestamp: m.created_at,
           });
         });
@@ -205,7 +235,14 @@ function useUserActivityTimeline(userId: string | null) {
           const byAdmin = log.changed_by_name ? ` by ${log.changed_by_name}` : '';
           events.push({
             id: `audit-${log.id}`,
-            type: log.new_status === 'signed' ? (isNda ? 'nda_signed' : 'fee_signed') : (isNda ? 'nda_sent' : 'fee_sent'),
+            type:
+              log.new_status === 'signed'
+                ? isNda
+                  ? 'nda_signed'
+                  : 'fee_signed'
+                : isNda
+                  ? 'nda_sent'
+                  : 'fee_sent',
             title: `${label}: ${log.new_status}`,
             description: log.notes || `${log.old_status || 'n/a'} → ${log.new_status}${byAdmin}`,
             timestamp: log.created_at || '',
@@ -213,7 +250,9 @@ function useUserActivityTimeline(userId: string | null) {
         });
       }
 
-      return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      return events.sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      );
     },
     enabled: !!userId,
     staleTime: 30_000,
@@ -249,63 +288,103 @@ const TIMELINE_ICONS: Record<string, { icon: typeof Check; color: string }> = {
 
 // ─── Main component ───
 
-export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany }: ThreadContextPanelProps) {
+export function ThreadContextPanel({
+  userId,
+  buyerName,
+  buyerEmail,
+  buyerCompany,
+}: ThreadContextPanelProps) {
   useAgreementStatusSync();
   const { data: firm, isLoading: firmLoading } = useThreadBuyerFirm(userId);
   const { data: allThreads = [], isLoading: threadsLoading } = useUserAllThreads(userId);
   const { data: timeline = [], isLoading: timelineLoading } = useUserActivityTimeline(userId);
   const navigate = useNavigate();
 
-  const ndaStatus = firm ? resolveAgreementStatus(!!firm.nda_signed, firm.nda_docuseal_status) : null;
-  const feeStatus = firm ? resolveAgreementStatus(!!firm.fee_agreement_signed, firm.fee_docuseal_status) : null;
+  const ndaStatus = firm ? resolveAgreementStatus(firm.nda_status, null) : null;
+  const feeStatus = firm
+    ? resolveAgreementStatus(firm.fee_agreement_status, null)
+    : null;
 
   return (
-    <div className="w-[280px] flex-shrink-0 flex flex-col min-h-0" style={{ borderLeft: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}>
+    <div
+      className="w-[280px] flex-shrink-0 flex flex-col min-h-0"
+      style={{ borderLeft: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}
+    >
       <ScrollArea className="flex-1">
         {/* Header */}
         <div className="px-4 py-3" style={{ borderBottom: '1px solid #F0EDE6' }}>
-          <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#CBCBCB' }}>Buyer Profile</p>
+          <p
+            className="text-[10px] font-bold uppercase tracking-wider"
+            style={{ color: '#CBCBCB' }}
+          >
+            Buyer Profile
+          </p>
         </div>
 
         <div className="px-4 py-3 space-y-5">
           {/* Buyer info */}
           <div>
-            <p className="text-sm font-semibold" style={{ color: '#0E101A' }}>{buyerName}</p>
+            <p className="text-sm font-semibold" style={{ color: '#0E101A' }}>
+              {buyerName}
+            </p>
             {buyerCompany && (
-              <p className="text-[11px] flex items-center gap-1 mt-0.5" style={{ color: '#5A5A5A' }}>
-                <Building2 className="h-3 w-3" />{buyerCompany}
+              <p
+                className="text-[11px] flex items-center gap-1 mt-0.5"
+                style={{ color: '#5A5A5A' }}
+              >
+                <Building2 className="h-3 w-3" />
+                {buyerCompany}
               </p>
             )}
             {buyerEmail && (
-              <p className="text-[11px] mt-0.5 truncate" style={{ color: '#5A5A5A' }}>{buyerEmail}</p>
+              <p className="text-[11px] mt-0.5 truncate" style={{ color: '#5A5A5A' }}>
+                {buyerEmail}
+              </p>
             )}
           </div>
 
           {/* ── Agreements Section ── */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#CBCBCB' }}>Agreements</p>
+            <p
+              className="text-[10px] font-bold uppercase tracking-wider mb-2"
+              style={{ color: '#CBCBCB' }}
+            >
+              Agreements
+            </p>
             {firmLoading ? (
               <div className="space-y-2">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : !firm ? (
-              <div className="rounded-lg p-2.5" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA' }}>
-                <p className="text-[11px] font-medium" style={{ color: '#991B1B' }}>No firm linked</p>
+              <div
+                className="rounded-lg p-2.5"
+                style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA' }}
+              >
+                <p className="text-[11px] font-medium" style={{ color: '#991B1B' }}>
+                  No firm linked
+                </p>
                 <p className="text-[10px] mt-0.5" style={{ color: '#B91C1C' }}>
                   Buyer has no firm record.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-[11px] font-medium" style={{ color: '#0E101A' }}>{firm.primary_company_name}</p>
+                <p className="text-[11px] font-medium" style={{ color: '#0E101A' }}>
+                  {firm.primary_company_name}
+                </p>
 
                 {/* NDA row */}
-                <div className="rounded-lg p-2.5" style={{ border: '1px solid #E5DDD0', backgroundColor: '#FFFFFF' }}>
+                <div
+                  className="rounded-lg p-2.5"
+                  style={{ border: '1px solid #E5DDD0', backgroundColor: '#FFFFFF' }}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <Shield className="h-3.5 w-3.5" style={{ color: '#5A5A5A' }} />
-                      <span className="text-[11px] font-semibold" style={{ color: '#0E101A' }}>NDA</span>
+                      <span className="text-[11px] font-semibold" style={{ color: '#0E101A' }}>
+                        NDA
+                      </span>
                     </div>
                     {ndaStatus && <StatusBadge status={ndaStatus} />}
                   </div>
@@ -314,26 +393,31 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
                       Signed {format(new Date(firm.nda_signed_at), 'MMM d, yyyy')}
                     </p>
                   )}
-                  {ndaStatus === 'signed' && firm.nda_signed_document_url && (
-                    <a href={firm.nda_signed_document_url} target="_blank" rel="noopener noreferrer"
-                      className="text-[10px] underline flex items-center gap-1 mt-1" style={{ color: '#5A5A5A' }}>
-                      Download signed NDA <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  )}
-                  {ndaStatus !== 'signed' && firm.nda_document_url && (
-                    <a href={firm.nda_document_url} target="_blank" rel="noopener noreferrer"
-                      className="text-[10px] underline flex items-center gap-1 mt-1" style={{ color: '#5A5A5A' }}>
-                      View draft <ExternalLink className="h-2.5 w-2.5" />
+                  {firm.nda_document_url && (
+                    <a
+                      href={firm.nda_document_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] underline flex items-center gap-1 mt-1"
+                      style={{ color: '#5A5A5A' }}
+                    >
+                      {ndaStatus === 'signed' ? 'Download signed NDA' : 'View draft'}{' '}
+                      <ExternalLink className="h-2.5 w-2.5" />
                     </a>
                   )}
                 </div>
 
                 {/* Fee Agreement row */}
-                <div className="rounded-lg p-2.5" style={{ border: '1px solid #E5DDD0', backgroundColor: '#FFFFFF' }}>
+                <div
+                  className="rounded-lg p-2.5"
+                  style={{ border: '1px solid #E5DDD0', backgroundColor: '#FFFFFF' }}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <FileSignature className="h-3.5 w-3.5" style={{ color: '#5A5A5A' }} />
-                      <span className="text-[11px] font-semibold" style={{ color: '#0E101A' }}>Fee Agreement</span>
+                      <span className="text-[11px] font-semibold" style={{ color: '#0E101A' }}>
+                        Fee Agreement
+                      </span>
                     </div>
                     {feeStatus && <StatusBadge status={feeStatus} />}
                   </div>
@@ -342,16 +426,16 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
                       Signed {format(new Date(firm.fee_agreement_signed_at), 'MMM d, yyyy')}
                     </p>
                   )}
-                  {feeStatus === 'signed' && firm.fee_signed_document_url && (
-                    <a href={firm.fee_signed_document_url} target="_blank" rel="noopener noreferrer"
-                      className="text-[10px] underline flex items-center gap-1 mt-1" style={{ color: '#5A5A5A' }}>
-                      Download signed Fee Agmt <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  )}
-                  {feeStatus !== 'signed' && firm.fee_agreement_document_url && (
-                    <a href={firm.fee_agreement_document_url} target="_blank" rel="noopener noreferrer"
-                      className="text-[10px] underline flex items-center gap-1 mt-1" style={{ color: '#5A5A5A' }}>
-                      View draft <ExternalLink className="h-2.5 w-2.5" />
+                  {firm.fee_agreement_document_url && (
+                    <a
+                      href={firm.fee_agreement_document_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] underline flex items-center gap-1 mt-1"
+                      style={{ color: '#5A5A5A' }}
+                    >
+                      {feeStatus === 'signed' ? 'Download signed Fee Agmt' : 'View draft'}{' '}
+                      <ExternalLink className="h-2.5 w-2.5" />
                     </a>
                   )}
                 </div>
@@ -361,7 +445,10 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
 
           {/* ── All Threads Section ── */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#CBCBCB' }}>
+            <p
+              className="text-[10px] font-bold uppercase tracking-wider mb-2"
+              style={{ color: '#CBCBCB' }}
+            >
               All Threads ({allThreads.length})
             </p>
             {threadsLoading ? (
@@ -370,34 +457,47 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
                 <Skeleton className="h-8 w-full" />
               </div>
             ) : allThreads.length === 0 ? (
-              <p className="text-[10px]" style={{ color: '#9A9A9A' }}>No threads found</p>
+              <p className="text-[10px]" style={{ color: '#9A9A9A' }}>
+                No threads found
+              </p>
             ) : (
               <div className="space-y-1.5">
                 {allThreads.map((t) => {
                   const listing = t.listing as Record<string, unknown> | null;
                   return (
-                    <div key={t.id as string}
+                    <div
+                      key={t.id as string}
                       className="py-2 cursor-pointer hover:bg-accent/20 transition-colors"
                       style={{ borderBottom: '1px solid #F0EDE6' }}
                     >
                       <div className="flex items-center gap-1.5">
                         <FileText className="h-3 w-3 flex-shrink-0" style={{ color: '#DEC76B' }} />
-                        <p className="text-[11px] font-medium truncate" style={{ color: '#0E101A' }}>
+                        <p
+                          className="text-[11px] font-medium truncate"
+                          style={{ color: '#0E101A' }}
+                        >
                           {(listing?.title as string) || 'Untitled'}
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 mt-1">
-                        <span className="text-[9px] px-1 py-0 rounded font-medium"
+                        <span
+                          className="text-[9px] px-1 py-0 rounded font-medium"
                           style={
-                            t.status === 'approved' ? { backgroundColor: '#DEC76B', color: '#0E101A' } :
-                            t.status === 'rejected' ? { backgroundColor: '#8B0000', color: '#FFFFFF' } :
-                            t.status === 'pending' ? { backgroundColor: '#F7F4DD', color: '#5A5A5A' } :
-                            { backgroundColor: '#E8E8E8', color: '#5A5A5A' }
-                          }>
+                            t.status === 'approved'
+                              ? { backgroundColor: '#DEC76B', color: '#0E101A' }
+                              : t.status === 'rejected'
+                                ? { backgroundColor: '#8B0000', color: '#FFFFFF' }
+                                : t.status === 'pending'
+                                  ? { backgroundColor: '#F7F4DD', color: '#5A5A5A' }
+                                  : { backgroundColor: '#E8E8E8', color: '#5A5A5A' }
+                          }
+                        >
                           {t.status as string}
                         </span>
                         <span className="text-[9px]" style={{ color: '#9A9A9A' }}>
-                          {formatDistanceToNow(new Date(t.created_at as string), { addSuffix: true })}
+                          {formatDistanceToNow(new Date(t.created_at as string), {
+                            addSuffix: true,
+                          })}
                         </span>
                       </div>
                     </div>
@@ -409,35 +509,56 @@ export function ThreadContextPanel({ userId, buyerName, buyerEmail, buyerCompany
 
           {/* ── Activity Timeline ── */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#CBCBCB' }}>
+            <p
+              className="text-[10px] font-bold uppercase tracking-wider mb-2"
+              style={{ color: '#CBCBCB' }}
+            >
               Activity Timeline
             </p>
             {timelineLoading ? (
               <div className="space-y-2">
-                {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
               </div>
             ) : timeline.length === 0 ? (
-              <p className="text-[10px]" style={{ color: '#9A9A9A' }}>No activity recorded</p>
+              <p className="text-[10px]" style={{ color: '#9A9A9A' }}>
+                No activity recorded
+              </p>
             ) : (
               <div className="relative">
                 {/* Timeline line */}
-                <div className="absolute left-[7px] top-2 bottom-2 w-px" style={{ backgroundColor: '#F0EDE6' }} />
+                <div
+                  className="absolute left-[7px] top-2 bottom-2 w-px"
+                  style={{ backgroundColor: '#F0EDE6' }}
+                />
                 <div className="space-y-2.5">
                   {timeline.slice(0, 30).map((event) => {
                     const iconConfig = TIMELINE_ICONS[event.type] || TIMELINE_ICONS.status_change;
                     const Icon = iconConfig.icon;
                     return (
                       <div key={event.id} className="flex items-start gap-2.5 relative">
-                        <div className="flex-shrink-0 z-10 w-[15px] h-[15px] rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: '#FFFFFF', border: `1.5px solid ${iconConfig.color}` }}>
+                        <div
+                          className="flex-shrink-0 z-10 w-[15px] h-[15px] rounded-full flex items-center justify-center"
+                          style={{
+                            backgroundColor: '#FFFFFF',
+                            border: `1.5px solid ${iconConfig.color}`,
+                          }}
+                        >
                           <Icon className="w-2 h-2" style={{ color: iconConfig.color }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-medium leading-tight" style={{ color: '#0E101A' }}>
+                          <p
+                            className="text-[11px] font-medium leading-tight"
+                            style={{ color: '#0E101A' }}
+                          >
                             {event.title}
                           </p>
                           {event.description && (
-                            <p className="text-[10px] truncate leading-tight mt-0.5" style={{ color: '#5A5A5A' }}>
+                            <p
+                              className="text-[10px] truncate leading-tight mt-0.5"
+                              style={{ color: '#5A5A5A' }}
+                            >
                               {event.description}
                             </p>
                           )}

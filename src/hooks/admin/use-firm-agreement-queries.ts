@@ -90,7 +90,7 @@ export function useFirmAgreements() {
         lead_count: leadCounts[firm.id] || 0,
         request_count: requestCounts[firm.id] || 0,
         deal_count: dealCounts[firm.id] || 0,
-      })) as FirmAgreement[];
+      })) as unknown as FirmAgreement[];
     },
   });
 }

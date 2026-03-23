@@ -67,7 +67,6 @@ interface BuyerMatchCardProps {
     id: string;
     composite_score: number;
     geography_score: number;
-    size_score: number;
     service_score: number;
     owner_goals_score: number;
     size_multiplier?: number | null;
@@ -89,9 +88,13 @@ interface BuyerMatchCardProps {
   isSelected?: boolean;
   isHighlighted?: boolean;
   onSelect?: (id: string, selected: boolean) => void;
-  onApprove: (scoreId: string, scoreData: any) => void;
-  onPass: (scoreId: string, buyerName: string, scoreData: any) => void;
-  onToggleInterested?: (scoreId: string, interested: boolean, scoreData: any) => void;
+  onApprove: (scoreId: string, scoreData: Record<string, unknown>) => void;
+  onPass: (scoreId: string, buyerName: string, scoreData: Record<string, unknown>) => void;
+  onToggleInterested?: (
+    scoreId: string,
+    interested: boolean,
+    scoreData: Record<string, unknown>,
+  ) => void;
   onMarkInterested?: (scoreId: string, buyerId: string, listingId: string) => Promise<void>;
   onOutreachUpdate?: (scoreId: string, status: OutreachStatus, notes: string) => Promise<void>;
   onViewed?: (scoreId: string) => void;
@@ -405,7 +408,7 @@ export const BuyerMatchCard = ({
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Intelligence Badge with missing fields */}
             <IntelligenceBadge
-              hasTranscript={!!buyer?.extraction_sources?.some((s: any) => s.type === 'transcript')}
+              hasTranscript={!!buyer?.extraction_sources?.some((s) => s.type === 'transcript')}
               missingFields={missingData}
               size="sm"
             />
@@ -439,29 +442,31 @@ export const BuyerMatchCard = ({
           {/* Right: Status badges + actions */}
           <div className="flex items-center gap-2">
             {/* Approve / Pass buttons for pending buyers */}
-            {score.status !== 'approved' && score.status !== 'passed' && score.status !== 'interested' && (
-              <>
-                <Button
-                  size="sm"
-                  className="h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={() => onApprove(score.id, score)}
-                  disabled={isPending}
-                >
-                  <Check className="h-3 w-3 mr-1" />
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-3 text-xs text-red-600 border-red-200 hover:bg-red-50"
-                  onClick={() => onPass(score.id, buyer?.company_name || 'Unknown', score)}
-                  disabled={isPending}
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Remove
-                </Button>
-              </>
-            )}
+            {score.status !== 'approved' &&
+              score.status !== 'passed' &&
+              score.status !== 'interested' && (
+                <>
+                  <Button
+                    size="sm"
+                    className="h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => onApprove(score.id, score)}
+                    disabled={isPending}
+                  >
+                    <Check className="h-3 w-3 mr-1" />
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-3 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={() => onPass(score.id, buyer?.company_name || 'Unknown', score)}
+                    disabled={isPending}
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Remove
+                  </Button>
+                </>
+              )}
 
             {score.status === 'approved' && (
               <>
@@ -553,7 +558,9 @@ export const BuyerMatchCard = ({
       />
 
       {/* Score Breakdown Panel - Colored background based on tier */}
-      <div className={cn('border-t p-4', getReasoningBackground(score.composite_score, disqualified))}>
+      <div
+        className={cn('border-t p-4', getReasoningBackground(score.composite_score, disqualified))}
+      >
         <ScoreBreakdownPanel
           score={score}
           disqualified={disqualified}

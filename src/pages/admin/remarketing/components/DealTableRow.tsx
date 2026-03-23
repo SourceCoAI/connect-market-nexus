@@ -34,6 +34,8 @@ import {
   Network,
   GitBranch,
   GripVertical,
+  Ban,
+  Undo2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSortable } from '@dnd-kit/sortable';
@@ -60,6 +62,8 @@ export const DealTableRow = ({
   onToggleUniverseBuild,
   onToggleBuyerSearch,
   onUpdateRank,
+  onMarkNotAFit,
+  onRemoveNotAFit,
   adminProfiles,
   onAssignOwner,
   universesByListing,
@@ -87,6 +91,8 @@ export const DealTableRow = ({
   onToggleUniverseBuild: (dealId: string, currentStatus: boolean) => void;
   onToggleBuyerSearch: (dealId: string, currentStatus: boolean) => void;
   onUpdateRank: (dealId: string, newRank: number) => Promise<void> | void;
+  onMarkNotAFit?: (dealId: string, dealName: string) => void;
+  onRemoveNotAFit?: (dealId: string) => void;
   adminProfiles?: Record<
     string,
     { id: string; email: string; first_name: string; last_name: string; displayName: string }
@@ -126,7 +132,9 @@ export const DealTableRow = ({
       className={cn(
         'cursor-pointer hover:bg-muted/50',
         isDragging && 'bg-muted/80 opacity-80 shadow-lg z-50',
-        listing.is_priority_target &&
+        listing.not_a_fit && 'opacity-50 bg-muted/30',
+        !listing.not_a_fit &&
+          listing.is_priority_target &&
           'bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/30 dark:hover:bg-amber-950/50',
       )}
       onClick={() => navigate(`/admin/deals/${listing.id}`, { state: { from: '/admin/deals' } })}
@@ -182,6 +190,19 @@ export const DealTableRow = ({
           {/* Name + inline status icons */}
           <div className="flex items-center gap-1.5">
             <p className="font-medium text-foreground leading-tight">{displayName}</p>
+            {listing.not_a_fit && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 border border-orange-200 shrink-0">
+                    <Ban className="h-2.5 w-2.5" />
+                    Not a Fit
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">{listing.not_a_fit_reason || 'No reason provided'}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             {isEnriched && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -574,6 +595,28 @@ export const DealTableRow = ({
               />
               {listing.needs_buyer_search ? 'Remove Find Buyer Flag' : 'Flag: Find Buyer'}
             </DropdownMenuItem>
+            {listing.not_a_fit && onRemoveNotAFit ? (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveNotAFit(listing.id);
+                }}
+                className="text-green-600"
+              >
+                <Undo2 className="h-4 w-4 mr-2" />
+                Remove Not a Fit
+              </DropdownMenuItem>
+            ) : onMarkNotAFit ? (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMarkNotAFit(listing.id, displayName || 'Unknown Deal');
+                }}
+              >
+                <Ban className="h-4 w-4 mr-2" />
+                Mark as Not a Fit
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={(e) => {

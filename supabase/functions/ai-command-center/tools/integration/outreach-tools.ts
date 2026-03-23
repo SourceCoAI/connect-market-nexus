@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Integration Outreach Tools
  * Push contacts to PhoneBurner dialer for calling.
@@ -48,7 +49,7 @@ async function getPhoneBurnerToken(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<string | null> {
-  const { data: tokenRow } = await supabase
+  const { data: tokenRow } = await (supabase as any)
     .from('phoneburner_oauth_tokens')
     .select('access_token')
     .eq('user_id', userId)
@@ -92,7 +93,7 @@ export async function pushToPhoneBurner(
   let contacts: PBContact[] = [];
 
   if (entityType === 'contacts') {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('contacts')
       .select('id, first_name, last_name, email, phone, title, remarketing_buyer_id')
       .in('id', entityIds)
@@ -109,7 +110,7 @@ export async function pushToPhoneBurner(
       ];
       const buyerMap = new Map<string, string>();
       if (buyerIds.length > 0) {
-        const { data: buyers } = await supabase
+        const { data: buyers } = await (supabase as any)
           .from('buyers')
           .select('id, company_name')
           .in('id', buyerIds);
@@ -137,14 +138,14 @@ export async function pushToPhoneBurner(
     }
   } else if (entityType === 'buyers') {
     // Resolve contacts from buyers
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('contacts')
       .select('id, first_name, last_name, email, phone, title, remarketing_buyer_id')
       .in('remarketing_buyer_id', entityIds)
       .eq('contact_type', 'buyer')
       .eq('archived', false);
 
-    const { data: buyers } = await supabase
+    const { data: buyers } = await (supabase as any)
       .from('buyers')
       .select('id, company_name')
       .in('id', entityIds);
@@ -184,7 +185,7 @@ export async function pushToPhoneBurner(
 
   // Check recent activity
   const contactIds = contacts.map((c) => c.id);
-  const { data: recentActivity } = await supabase
+  const { data: recentActivity } = await (supabase as any)
     .from('contact_activities')
     .select('contact_id')
     .in('contact_id', contactIds)
@@ -257,7 +258,7 @@ export async function pushToPhoneBurner(
   }
 
   // Log session
-  await supabase.from('phoneburner_sessions').insert({
+  await (supabase as any).from('phoneburner_sessions').insert({
     session_name: (args.session_name as string) || `AI Push - ${new Date().toLocaleDateString()}`,
     session_type: 'buyer_outreach',
     total_contacts_added: added,

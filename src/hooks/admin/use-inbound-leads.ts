@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { GENERIC_EMAIL_DOMAINS } from '@/lib/generic-email-domains';
 
 export interface InboundLead {
   id: string;
@@ -117,8 +118,7 @@ const calculateLeadScore = (lead: Partial<CreateInboundLeadData>): number => {
   // Email domain scoring (corporate domains get bonus)
   if (lead.email) {
     const domain = getEmailDomain(lead.email);
-    const freeDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com'];
-    if (!freeDomains.includes(domain)) {
+    if (!GENERIC_EMAIL_DOMAINS.has(domain)) {
       score += 15; // Corporate email bonus
     }
   }
@@ -184,7 +184,7 @@ export function useCheckDuplicates() {
         
         const isSameFirm = (
           (normalizedLeadCompany && normalizedExistingCompany && normalizedLeadCompany === normalizedExistingCompany) ||
-          (leadDomain && existingDomain && leadDomain === existingDomain && !['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'].includes(leadDomain))
+          (leadDomain && existingDomain && leadDomain === existingDomain && !GENERIC_EMAIL_DOMAINS.has(leadDomain))
         );
         
         if (isSameFirm) {

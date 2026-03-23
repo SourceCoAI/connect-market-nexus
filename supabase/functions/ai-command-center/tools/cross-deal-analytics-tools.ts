@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Cross-Deal Analytics Tools
  * Aggregate analytics across universes, deals, and buyers for strategic insights.
@@ -175,7 +176,7 @@ async function universeComparison(
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
   // Fetch all universes with their stats
-  let query = supabase
+  let query = (supabase as any)
     .from('buyer_universes')
     .select('id, name, description, buyer_count, deal_count, created_at')
     .eq('archived', false)
@@ -193,15 +194,15 @@ async function universeComparison(
   // Fetch scoring stats per universe
   const universeIds = universes.map((u: { id: string }) => u.id);
   const [scoresResult, outreachResult, decisionsResult] = await Promise.all([
-    supabase
+    (supabase as any)
       .from('remarketing_scores')
-      .select('buyer_id, listing_id, composite_score, status, tier')
+      .select('buyer_id, listing_id, composite_score, status, tier, universe_id')
       .in('universe_id', universeIds),
-    supabase
+    (supabase as any)
       .from('outreach_records')
       .select('id, deal_id, stage, universe_id')
       .in('universe_id', universeIds),
-    supabase
+    (supabase as any)
       .from('buyer_approve_decisions')
       .select('id, buyer_id, listing_id, created_at')
       .limit(2000),
@@ -274,7 +275,7 @@ async function dealComparison(
   supabase: SupabaseClient,
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
-  let query = supabase
+  let query = (supabase as any)
     .from('listings')
     .select(
       'id, title, industry, category, services, revenue, ebitda, status, deal_total_score, deal_source, address_state, remarketing_status, created_at',
@@ -327,12 +328,12 @@ async function dealComparison(
   // Fetch score counts per deal
   const dealIds = deals.map((d: { id: string }) => d.id);
   const [scoresResult, outreachResult, tasksResult] = await Promise.all([
-    supabase
+    (supabase as any)
       .from('remarketing_scores')
       .select('listing_id, composite_score, status')
       .in('listing_id', dealIds),
-    supabase.from('outreach_records').select('deal_id, stage').in('deal_id', dealIds),
-    supabase
+    (supabase as any).from('outreach_records').select('deal_id, stage').in('deal_id', dealIds),
+    (supabase as any)
       .from('daily_standup_tasks')
       .select('entity_id, status')
       .eq('entity_type', 'deal')
@@ -408,7 +409,7 @@ async function buyerTypeAnalysis(
   supabase: SupabaseClient,
   _args: Record<string, unknown>,
 ): Promise<ToolResult> {
-  const { data: buyers, error } = await supabase
+  const { data: buyers, error } = await (supabase as any)
     .from('buyers')
     .select(
       'id, buyer_type, alignment_score, has_fee_agreement, total_acquisitions, acquisition_appetite',
@@ -462,7 +463,7 @@ async function sourceAnalysis(
   const days = Number(args.days) || 90;
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: rawDeals, error } = await supabase
+  const { data: rawDeals, error } = await (supabase as any)
     .from('listings')
     .select(
       'id, title, industry, category, services, deal_source, status, revenue, ebitda, deal_total_score, is_priority_target, created_at',
@@ -546,13 +547,16 @@ async function conversionFunnel(
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
   const [scoresResult, outreachResult, approvalsResult, passResult] = await Promise.all([
-    supabase
+    (supabase as any)
       .from('remarketing_scores')
       .select('id, status, composite_score')
       .gte('updated_at', cutoff),
-    supabase.from('outreach_records').select('id, stage').gte('created_at', cutoff),
-    supabase.from('buyer_approve_decisions').select('id').gte('created_at', cutoff),
-    supabase.from('buyer_pass_decisions').select('id, pass_category').gte('created_at', cutoff),
+    (supabase as any).from('outreach_records').select('id, stage').gte('created_at', cutoff),
+    (supabase as any).from('buyer_approve_decisions').select('id').gte('created_at', cutoff),
+    (supabase as any)
+      .from('buyer_pass_decisions')
+      .select('id, pass_category')
+      .gte('created_at', cutoff),
   ]);
 
   const scores = scoresResult.data || [];
@@ -611,8 +615,11 @@ async function geographyHeatmap(
   _args: Record<string, unknown>,
 ): Promise<ToolResult> {
   const [buyersResult, dealsResult] = await Promise.all([
-    supabase.from('buyers').select('hq_state, geographic_footprint').eq('archived', false),
-    supabase.from('listings').select('address_state, geographic_states').is('deleted_at', null),
+    (supabase as any).from('buyers').select('hq_state, geographic_footprint').eq('archived', false),
+    (supabase as any)
+      .from('listings')
+      .select('address_state, geographic_states')
+      .is('deleted_at', null),
   ]);
 
   const buyers = buyersResult.data || [];

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Proactive Operations Tools
  * Data quality monitoring, buyer conflict detection, deal health analysis,
@@ -130,7 +131,7 @@ async function getDataQualityReport(
 
   // Buyer profile quality
   if (focusArea === 'all' || focusArea === 'buyers') {
-    const { data: buyers } = await supabase
+    const { data: buyers } = await (supabase as any)
       .from('buyers')
       .select(
         'id, company_name, data_completeness, geographic_footprint, target_services, target_revenue_min, target_revenue_max, website_url, buyer_type',
@@ -192,16 +193,16 @@ async function getDataQualityReport(
   // Deal data quality
   if (focusArea === 'all' || focusArea === 'deals') {
     const [dealsResult, unownedResult, unscoredResult] = await Promise.all([
-      supabase
+      (supabase as any)
         .from('listings')
         .select('id, title, primary_owner_id, revenue, ebitda, industry, remarketing_status')
         .is('deleted_at', null),
-      supabase
+      (supabase as any)
         .from('listings')
         .select('id, title')
         .is('deleted_at', null)
         .is('primary_owner_id', null),
-      supabase.rpc('count_unscored_deals').catch(() => ({ data: null })),
+      (supabase as any).rpc('count_unscored_deals').catch(() => ({ data: null })),
     ]);
 
     const deals = dealsResult.data || [];
@@ -224,7 +225,7 @@ async function getDataQualityReport(
 
   // Contact data quality
   if (focusArea === 'all' || focusArea === 'contacts') {
-    const { data: contacts } = await supabase
+    const { data: contacts } = await (supabase as any)
       .from('contacts')
       .select('id, email, phone, title, remarketing_buyer_id, contact_type')
       .eq('archived', false);
@@ -259,12 +260,16 @@ async function getDataQualityReport(
   // Transcript quality
   if (focusArea === 'all' || focusArea === 'transcripts') {
     const [transcriptsResult, noInsightsResult] = await Promise.all([
-      supabase
+      (supabase as any)
         .from('deal_transcripts')
         .select('id, has_content, extracted_data')
         .order('created_at', { ascending: false })
         .limit(500),
-      supabase.from('call_transcripts').select('id').is('extracted_insights', null).limit(100),
+      (supabase as any)
+        .from('call_transcripts')
+        .select('id')
+        .is('extracted_insights', null)
+        .limit(100),
     ]);
 
     const transcripts = transcriptsResult.data || [];
@@ -299,7 +304,7 @@ async function detectBuyerConflicts(
   const includeClosed = args.include_closed === true;
 
   // Get all active deals with industry/geography
-  let dealsQuery = supabase
+  let dealsQuery = (supabase as any)
     .from('listings')
     .select(
       'id, title, internal_company_name, industry, category, address_state, remarketing_status',
@@ -329,7 +334,7 @@ async function detectBuyerConflicts(
 
   // Get buyer scores across active deals
   const dealIds = deals.map((d: { id: string }) => d.id);
-  const { data: scores } = await supabase
+  const { data: scores } = await (supabase as any)
     .from('remarketing_scores')
     .select('buyer_id, listing_id, composite_score, status, tier')
     .in('listing_id', dealIds)
@@ -361,7 +366,7 @@ async function detectBuyerConflicts(
 
   // Get buyer names
   const buyerIds = multiBuyers.map(([id]) => id);
-  const { data: buyerNames } = await supabase
+  const { data: buyerNames } = await (supabase as any)
     .from('buyers')
     .select('id, company_name, pe_firm_name')
     .in('id', buyerIds);
@@ -459,7 +464,7 @@ async function getDealHealth(
   const riskThresholdDays = (args.risk_threshold_days as number) || 7;
 
   // Get active deals
-  let dealsQuery = supabase
+  let dealsQuery = (supabase as any)
     .from('listings')
     .select(
       'id, title, internal_company_name, remarketing_status, updated_at, created_at, industry, revenue, address_state',
@@ -480,18 +485,18 @@ async function getDealHealth(
 
   // Parallel: activities, tasks, outreach for all deals
   const [activitiesResult, tasksResult, outreachResult] = await Promise.all([
-    supabase
+    (supabase as any)
       .from('deal_activities')
       .select('deal_id, created_at, activity_type')
       .in('deal_id', dealIds)
       .order('created_at', { ascending: false })
       .limit(2000),
-    supabase
+    (supabase as any)
       .from('daily_standup_tasks')
       .select('entity_id, status, due_date, completed_at')
       .eq('entity_type', 'deal')
       .in('entity_id', dealIds),
-    supabase
+    (supabase as any)
       .from('outreach_records')
       .select('deal_id, last_action_date, stage')
       .in('deal_id', dealIds),
@@ -656,7 +661,7 @@ async function matchLeadsToDeals(
   const cutoff = new Date(Date.now() - days * 86400000).toISOString();
 
   // Get active deals
-  let dealsQuery = supabase
+  let dealsQuery = (supabase as any)
     .from('listings')
     .select(
       'id, title, internal_company_name, industry, category, address_state, revenue, ebitda, services',
@@ -673,13 +678,13 @@ async function matchLeadsToDeals(
 
   // Get recent leads
   const [inboundResult, valuationResult] = await Promise.all([
-    supabase
+    (supabase as any)
       .from('inbound_leads')
       .select('id, company_name, industry, revenue, state, source, status, created_at')
       .gte('created_at', cutoff)
       .order('created_at', { ascending: false })
       .limit(200),
-    supabase
+    (supabase as any)
       .from('valuation_leads')
       .select('id, company_name, industry, revenue, state, lead_type, status, created_at')
       .gte('created_at', cutoff)

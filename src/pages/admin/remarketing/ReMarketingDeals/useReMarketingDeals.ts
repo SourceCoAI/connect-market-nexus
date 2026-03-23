@@ -10,6 +10,7 @@ export function useReMarketingDeals() {
     sortedListingsRef: data.sortedListingsRef,
     refetchListings: data.refetchListings,
     adminProfiles: data.adminProfiles,
+    setHideNotAFit: data.setHideNotAFit,
   });
 
   return {

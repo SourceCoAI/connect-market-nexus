@@ -412,8 +412,8 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
     id: '20260204_buyer_fit_criteria_extraction',
     date: '2026-02-04',
     purpose:
-      'Create buyer_type_profiles, criteria_extraction_sources, criteria_extraction_history tables',
-    tables: ['buyer_type_profiles', 'criteria_extraction_sources', 'criteria_extraction_history'],
+      'Create criteria_extraction_sources, criteria_extraction_history tables (buyer_type_profiles dropped in 20260604)',
+    tables: ['criteria_extraction_sources', 'criteria_extraction_history'],
   },
   {
     id: '20260207_chatbot_complete_v2',
@@ -542,8 +542,8 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20260224000000',
     date: '2026-02-24',
-    purpose: 'DocuSeal integration: create docuseal_webhook_log table',
-    tables: ['docuseal_webhook_log'],
+    purpose: 'PandaDoc integration: create pandadoc_webhook_log table',
+    tables: ['pandadoc_webhook_log'],
   },
   {
     id: '20260225000000',
@@ -656,7 +656,7 @@ export const KEY_TABLES = {
     'fee_agreement_logs',
     'firm_agreements',
     'firm_members',
-    'docuseal_webhook_log',
+    'pandadoc_webhook_log',
     'captarget_sync_log',
     'captarget_sync_exclusions',
   ],
@@ -744,7 +744,7 @@ export const TABLES_WITH_RLS: string[] = [
   'firm_members',
   'admin_signature_preferences',
   'admin_notifications',
-  'docuseal_webhook_log',
+  'pandadoc_webhook_log',
   'captarget_sync_log',
   'captarget_sync_exclusions',
   // Remarketing
@@ -812,7 +812,6 @@ export const TABLES_WITH_RLS: string[] = [
   'ma_guide_generations',
   'tracker_activity_logs',
   'buyer_criteria_extractions',
-  'buyer_type_profiles',
   'criteria_extraction_sources',
   'criteria_extraction_history',
   'referral_partners',

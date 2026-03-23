@@ -8,13 +8,13 @@
  *   - DealImportPreview   -- data preview UI
  *   - useDealImportSubmit  -- import/merge logic
  */
-import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
@@ -22,26 +22,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Upload,
-  FileSpreadsheet,
-  Loader2,
-  Check,
-  AlertCircle,
-  Sparkles,
-} from "lucide-react";
-import { toast } from "sonner";
-import { parseSpreadsheet, SPREADSHEET_ACCEPT } from "@/lib/parseSpreadsheet";
+} from '@/components/ui/dialog';
+import { Upload, FileSpreadsheet, Loader2, Check, AlertCircle, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
+import { parseSpreadsheet, SPREADSHEET_ACCEPT } from '@/lib/parseSpreadsheet';
 import {
   type ColumnMapping,
   type MergeStats,
   normalizeHeader,
   mergeColumnMappings,
-} from "@/lib/deal-csv-import";
-import { DealImportMapping } from "./deal-import/DealImportMapping";
-import { DealImportPreview } from "./deal-import/DealImportPreview";
-import { handleImport, type ImportResults, type ExistingDealRef } from "./deal-import/useDealImportSubmit";
+} from '@/lib/deal-csv-import';
+import { DealImportMapping } from './deal-import/DealImportMapping';
+import { DealImportPreview } from './deal-import/DealImportPreview';
+import { handleImport, type ImportResults } from './deal-import/useDealImportSubmit';
 
 interface DealImportDialogProps {
   open: boolean;
@@ -55,29 +48,7 @@ interface DealImportDialogProps {
   hideFromAllDeals?: boolean;
 }
 
-type ImportStep = "upload" | "mapping" | "preview" | "importing" | "complete";
-
-const SOURCE_LABELS: Record<string, { label: string; path: string }> = {
-  marketplace: { label: 'Active Deals', path: '/admin/remarketing' },
-  manual: { label: 'Active Deals', path: '/admin/remarketing' },
-  referral: { label: 'Active Deals', path: '/admin/remarketing' },
-  remarketing: { label: 'Active Deals', path: '/admin/remarketing' },
-  salesforce_remarketing: { label: 'Active Deals', path: '/admin/remarketing' },
-  sourceco: { label: 'SourceCo Deals', path: '/admin/remarketing/sourceco' },
-  captarget: { label: 'CapTarget Deals', path: '/admin/remarketing/captarget' },
-  gp_partners: { label: 'GP Partners', path: '/admin/remarketing/gp-partners' },
-  valuation_calculator: { label: 'Active Deals', path: '/admin/remarketing' },
-  valuation_lead: { label: 'Active Deals', path: '/admin/remarketing' },
-};
-
-function groupBySource(deals: ExistingDealRef[]) {
-  const groups: Record<string, ExistingDealRef[]> = {};
-  for (const d of deals) {
-    const src = d.deal_source || 'unknown';
-    (groups[src] ??= []).push(d);
-  }
-  return groups;
-}
+type ImportStep = 'upload' | 'mapping' | 'preview' | 'importing' | 'complete';
 
 export function DealImportDialog({
   open,
@@ -88,7 +59,7 @@ export function DealImportDialog({
   dealSource,
   hideFromAllDeals,
 }: DealImportDialogProps) {
-  const [step, setStep] = useState<ImportStep>("upload");
+  const [step, setStep] = useState<ImportStep>('upload');
   const [, setFile] = useState<File | null>(null);
   const [csvData, setCsvData] = useState<Record<string, string>[]>([]);
   const [columnMappings, setColumnMappings] = useState<ColumnMapping[]>([]);
@@ -98,7 +69,7 @@ export function DealImportDialog({
   const [importProgress, setImportProgress] = useState(0);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [isImporting, setIsImporting] = useState(false);
-  const [columnFilter, setColumnFilter] = useState("");
+  const [columnFilter, setColumnFilter] = useState('');
   // Track if any import was ever started so we can always refresh on close
   const [importWasStarted, setImportWasStarted] = useState(false);
 
@@ -114,7 +85,8 @@ export function DealImportDialog({
 
       if (columns.length === 0) {
         toast.error('Could not detect headers', {
-          description: 'Please verify the file has a header row and is a valid CSV, XLS, or XLSX file.'
+          description:
+            'Please verify the file has a header row and is a valid CSV, XLS, or XLSX file.',
         });
         reset();
         return;
@@ -123,19 +95,16 @@ export function DealImportDialog({
       const sampleData = data.slice(0, 3);
 
       setIsMapping(true);
-      setStep("mapping");
+      setStep('mapping');
 
       try {
-        const { data: mappingResult, error } = await supabase.functions.invoke(
-          "map-csv-columns",
-          {
-            body: {
-              columns,
-              targetType: "deal",
-              sampleData
-            },
-          }
-        );
+        const { data: mappingResult, error } = await supabase.functions.invoke('map-csv-columns', {
+          body: {
+            columns,
+            targetType: 'deal',
+            sampleData,
+          },
+        });
 
         if (error) throw error;
 
@@ -158,16 +127,12 @@ export function DealImportDialog({
 
   const updateMapping = (csvColumn: string, targetField: string | null) => {
     setColumnMappings((prev) =>
-      prev.map((m) =>
-        m.csvColumn === csvColumn
-          ? { ...m, targetField, aiSuggested: false }
-          : m
-      )
+      prev.map((m) => (m.csvColumn === csvColumn ? { ...m, targetField, aiSuggested: false } : m)),
     );
   };
 
   const doImport = async () => {
-    setStep("importing");
+    setStep('importing');
     setIsImporting(true);
     setImportProgress(0);
     setImportWasStarted(true);
@@ -183,17 +148,17 @@ export function DealImportDialog({
       });
 
       setImportResults(results);
-      setStep("complete");
+      setStep('complete');
     } catch (error) {
       toast.error(`Import failed: ${(error as Error).message}`);
-      setStep("preview");
+      setStep('preview');
     } finally {
       setIsImporting(false);
     }
   };
 
   const reset = () => {
-    setStep("upload");
+    setStep('upload');
     setFile(null);
     setCsvData([]);
     setColumnMappings([]);
@@ -209,7 +174,7 @@ export function DealImportDialog({
 
     // If import reached the complete screen with results, fire the
     // detailed completion callback too.
-    if (step === "complete" && importResults) {
+    if (step === 'complete' && importResults) {
       if (onImportCompleteWithIds && importResults.importedIds.length > 0) {
         onImportCompleteWithIds(importResults.importedIds);
       }
@@ -227,24 +192,34 @@ export function DealImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl h-[85vh] max-h-[85vh] flex flex-col">
+      <DialogContent
+        className="max-w-4xl h-[85vh] max-h-[85vh] flex flex-col"
+        onInteractOutside={(e) => {
+          // Prevent closing the dialog by clicking outside when past the upload step
+          if (step !== 'upload') e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          // Block Escape while importing
+          if (isImporting) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
             Import Deals from Spreadsheet
           </DialogTitle>
           <DialogDescription>
-            {step === "upload" && "Upload a CSV, XLS, or XLSX file with your deal data"}
-            {step === "mapping" && "Review and confirm column mappings"}
-            {step === "preview" && "Preview the data before importing"}
-            {step === "importing" && "Importing deals..."}
-            {step === "complete" && "Import complete"}
+            {step === 'upload' && 'Upload a CSV, XLS, or XLSX file with your deal data'}
+            {step === 'mapping' && 'Review and confirm column mappings'}
+            {step === 'preview' && 'Preview the data before importing'}
+            {step === 'importing' && 'Importing deals...'}
+            {step === 'complete' && 'Import complete'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           {/* Step: Upload */}
-          {step === "upload" && (
+          {step === 'upload' && (
             <div className="flex-1 flex flex-col items-center justify-center py-12">
               <div className="border-2 border-dashed rounded-lg p-12 text-center w-full max-w-md">
                 <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -272,8 +247,8 @@ export function DealImportDialog({
           )}
 
           {/* Step: Column Mapping */}
-          {step === "mapping" && (
-            isMapping ? (
+          {step === 'mapping' &&
+            (isMapping ? (
               <div className="flex-1 flex flex-col items-center justify-center">
                 <Sparkles className="h-8 w-8 mb-4 text-primary animate-pulse" />
                 <p className="font-medium">AI is analyzing your columns...</p>
@@ -289,23 +264,22 @@ export function DealImportDialog({
                 onColumnFilterChange={setColumnFilter}
                 onUpdateMapping={updateMapping}
                 onBack={reset}
-                onNext={() => setStep("preview")}
+                onNext={() => setStep('preview')}
               />
-            )
-          )}
+            ))}
 
           {/* Step: Preview */}
-          {step === "preview" && (
+          {step === 'preview' && (
             <DealImportPreview
               csvData={csvData}
               columnMappings={columnMappings}
-              onBack={() => setStep("mapping")}
+              onBack={() => setStep('mapping')}
               onImport={doImport}
             />
           )}
 
           {/* Step: Importing */}
-          {step === "importing" && (
+          {step === 'importing' && (
             <div className="flex-1 flex flex-col items-center justify-center">
               <Loader2 className="h-8 w-8 mb-4 text-primary animate-spin" />
               <p className="font-medium">Importing deals...</p>
@@ -319,11 +293,11 @@ export function DealImportDialog({
           )}
 
           {/* Step: Complete */}
-          {step === "complete" && importResults && (
+          {step === 'complete' && importResults && (
             <div className="flex-1 flex flex-col items-center justify-center">
               <div className="text-center">
                 <div className="mb-4">
-                  {(importResults.imported > 0 || importResults.merged > 0) ? (
+                  {importResults.imported > 0 || importResults.merged > 0 ? (
                     <Check className="h-12 w-12 mx-auto text-primary" />
                   ) : (
                     <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -333,11 +307,17 @@ export function DealImportDialog({
                   {importResults.imported > 0 || importResults.merged > 0
                     ? (() => {
                         const parts: string[] = [];
-                        if (importResults.imported > 0) parts.push(`${importResults.imported} new deal${importResults.imported !== 1 ? 's' : ''} imported`);
-                        if (importResults.merged > 0) parts.push(`${importResults.merged} existing deal${importResults.merged !== 1 ? 's' : ''} updated`);
+                        if (importResults.imported > 0)
+                          parts.push(
+                            `${importResults.imported} new deal${importResults.imported !== 1 ? 's' : ''} imported`,
+                          );
+                        if (importResults.merged > 0)
+                          parts.push(
+                            `${importResults.merged} existing deal${importResults.merged !== 1 ? 's' : ''} updated`,
+                          );
                         return parts.join(', ');
                       })()
-                    : "No deals were imported"}
+                    : 'No deals were imported'}
                 </p>
                 {importResults.merged > 0 && (
                   <p className="text-sm text-muted-foreground mt-1">
@@ -349,21 +329,34 @@ export function DealImportDialog({
                   <div className="mt-4 text-left max-w-lg">
                     <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3">
                       <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-                        {importResults.duplicates.length} deal{importResults.duplicates.length !== 1 ? 's' : ''} already existed in the system
+                        {importResults.duplicates.length} deal
+                        {importResults.duplicates.length !== 1 ? 's' : ''} already existed in the
+                        system
                       </p>
                       <ScrollArea className="max-h-60">
                         <div className="space-y-2">
                           {importResults.duplicates.map((dup) => (
-                            <div key={dup.existingId} className="text-xs text-blue-700 dark:text-blue-300">
+                            <div
+                              key={dup.existingId}
+                              className="text-xs text-blue-700 dark:text-blue-300"
+                            >
                               <div className="flex items-start gap-1">
                                 <span className="shrink-0">&bull;</span>
                                 <span>
                                   <strong>{dup.csvCompanyName}</strong>
                                   {dup.csvCompanyName !== dup.existingTitle && (
-                                    <> matched <strong>{dup.existingTitle}</strong></>
+                                    <>
+                                      {' '}
+                                      matched <strong>{dup.existingTitle}</strong>
+                                    </>
+                                  )}{' '}
+                                  (by {dup.matchedBy})
+                                  {dup.wasMerged && (
+                                    <span className="text-green-700 dark:text-green-400">
+                                      {' '}
+                                      — fields updated
+                                    </span>
                                   )}
-                                  {' '}(by {dup.matchedBy})
-                                  {dup.wasMerged && <span className="text-green-700 dark:text-green-400"> — fields updated</span>}
                                 </span>
                               </div>
                               {dup.locations.length > 0 && (
@@ -394,11 +387,12 @@ export function DealImportDialog({
                   <div className="mt-3 text-left max-w-lg">
                     <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3">
                       <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">
-                        {importResults.skippedGenericDomains.length} skipped — personal email domains
+                        {importResults.skippedGenericDomains.length} skipped — personal email
+                        domains
                       </p>
                       <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
-                        These rows had a personal email domain (e.g. gmail.com) instead of a company website.
-                        Re-import with company websites mapped to the Website field.
+                        These rows had a personal email domain (e.g. gmail.com) instead of a company
+                        website. Re-import with company websites mapped to the Website field.
                       </p>
                       <ScrollArea className="max-h-32">
                         <div className="space-y-0.5">
@@ -419,47 +413,47 @@ export function DealImportDialog({
                 )}
 
                 {/* Other errors */}
-                {importResults.errors.length > 0 && (() => {
-                  // Filter out generic-domain errors (already shown above) and duplicate errors (shown in duplicates panel)
-                  const otherErrors = importResults.errors.filter(e =>
-                    !e.includes('personal email domain') &&
-                    !e.includes('duplicate key') &&
-                    !e.includes('unique constraint') &&
-                    !e.includes('idx_listings_unique')
-                  );
+                {importResults.errors.length > 0 &&
+                  (() => {
+                    // Filter out generic-domain errors (already shown above) and duplicate errors (shown in duplicates panel)
+                    const otherErrors = importResults.errors.filter(
+                      (e) =>
+                        !e.includes('personal email domain') &&
+                        !e.includes('duplicate key') &&
+                        !e.includes('unique constraint') &&
+                        !e.includes('idx_listings_unique'),
+                    );
 
-                  if (otherErrors.length === 0) return null;
+                    if (otherErrors.length === 0) return null;
 
-                  return (
-                    <div className="mt-3 text-left max-w-lg">
-                      <p className="text-sm font-medium text-destructive mb-2">
-                        {otherErrors.length} failed to import:
-                      </p>
-                      <ScrollArea className="h-32 border rounded p-2">
-                        {otherErrors.slice(0, 10).map((err) => (
-                          <p key={err} className="text-xs text-muted-foreground">
-                            {err}
-                          </p>
-                        ))}
-                        {otherErrors.length > 10 && (
-                          <p className="text-xs text-muted-foreground mt-2">
-                            ...and {otherErrors.length - 10} more
-                          </p>
-                        )}
-                      </ScrollArea>
-                    </div>
-                  );
-                })()}
+                    return (
+                      <div className="mt-3 text-left max-w-lg">
+                        <p className="text-sm font-medium text-destructive mb-2">
+                          {otherErrors.length} failed to import:
+                        </p>
+                        <ScrollArea className="h-32 border rounded p-2">
+                          {otherErrors.slice(0, 10).map((err) => (
+                            <p key={err} className="text-xs text-muted-foreground">
+                              {err}
+                            </p>
+                          ))}
+                          {otherErrors.length > 10 && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                              ...and {otherErrors.length - 10} more
+                            </p>
+                          )}
+                        </ScrollArea>
+                      </div>
+                    );
+                  })()}
               </div>
             </div>
           )}
         </div>
 
         <DialogFooter className="mt-4">
-          {step === "complete" ? (
-            <Button onClick={handleClose}>
-              Close
-            </Button>
+          {step === 'complete' ? (
+            <Button onClick={handleClose}>Close</Button>
           ) : (
             <Button variant="ghost" onClick={handleClose} disabled={isImporting}>
               Cancel

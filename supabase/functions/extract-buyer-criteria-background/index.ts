@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
@@ -263,16 +263,9 @@ async function processExtractionInBackground(
       })
       .eq('id', sourceId);
 
-    // Update the universe with the extracted criteria
-    await supabase
-      .from('buyer_universes')
-      .update({
-        size_criteria: extractedCriteria.size_criteria,
-        service_criteria: extractedCriteria.service_criteria,
-        geography_criteria: extractedCriteria.geography_criteria,
-        buyer_types_criteria: extractedCriteria.buyer_types_criteria,
-      })
-      .eq('id', universeId);
+    // NOTE: The HTTP call to extract-buyer-criteria already updates the universe
+    // with source-priority-aware logic (guide data won't overwrite transcript data).
+    // Do NOT duplicate the update here — it would bypass source priority checks.
 
     console.log(
       `[processExtractionInBackground] Extraction ${extractionId} completed successfully`,

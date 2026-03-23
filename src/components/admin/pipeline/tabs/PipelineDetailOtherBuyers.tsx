@@ -32,8 +32,8 @@ export function PipelineDetailOtherBuyers({ deal }: PipelineDetailOtherBuyersPro
     queryFn: async () => {
       if (!deal.listing_id) return [];
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await supabase
+       
+      const { data, error } = (await supabase
         .from('deal_pipeline')
         .select(
           `
@@ -55,27 +55,34 @@ export function PipelineDetailOtherBuyers({ deal }: PipelineDetailOtherBuyersPro
         .neq('id', deal.deal_id)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
-        .limit(50) as { data: any[] | null; error: any };
+        .limit(50)) as {
+        data: Record<string, unknown>[] | null;
+        error: { message: string } | null;
+      };
 
       if (error) throw error;
 
-      return (data || []).map((d: any) => ({
-        id: d.id,
-        title: d.title,
-        contact_name: d.contact_name,
-        contact_company: d.contact_company,
-        contact_email: d.contact_email,
-        nda_status: d.nda_status,
-        fee_agreement_status: d.fee_agreement_status,
-        assigned_to: d.assigned_to,
-        updated_at: d.updated_at,
-        created_at: d.created_at,
-        stage_name: d.deal_stages?.name || null,
-        stage_color: d.deal_stages?.color || null,
-        owner_name: d.profiles
-          ? `${d.profiles.first_name || ''} ${d.profiles.last_name || ''}`.trim() || null
-          : null,
-      })) as OtherBuyerDeal[];
+      return (data || []).map((d: Record<string, unknown>) => {
+        const stages = d.deal_stages as Record<string, unknown> | null;
+        const profiles = d.profiles as Record<string, unknown> | null;
+        return {
+          id: d.id,
+          title: d.title,
+          contact_name: d.contact_name,
+          contact_company: d.contact_company,
+          contact_email: d.contact_email,
+          nda_status: d.nda_status,
+          fee_agreement_status: d.fee_agreement_status,
+          assigned_to: d.assigned_to,
+          updated_at: d.updated_at,
+          created_at: d.created_at,
+          stage_name: stages?.name || null,
+          stage_color: stages?.color || null,
+          owner_name: profiles
+            ? `${profiles.first_name || ''} ${profiles.last_name || ''}`.trim() || null
+            : null,
+        };
+      }) as OtherBuyerDeal[];
     },
     enabled: !!deal.listing_id,
     staleTime: 30_000,

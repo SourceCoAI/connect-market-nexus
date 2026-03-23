@@ -16,7 +16,7 @@ const DesktopNavItems = ({ isAdmin, isApproved, onNavigateToAdmin }: DesktopNavI
   const location = useLocation();
   const { unreadCount } = useUserNotifications();
   const { data: unreadMessages } = useUnreadBuyerMessageCounts();
-  const totalDealsUnread = unreadCount + (unreadMessages?.total || 0);
+  const totalDealsUnread = unreadCount + (unreadMessages?.dealTotal || 0);
 
   if (!isApproved) {
     return null;
@@ -47,7 +47,7 @@ const DesktopNavItems = ({ isAdmin, isApproved, onNavigateToAdmin }: DesktopNavI
       label: "Messages",
       icon: MessagesIcon,
       isActive: location.pathname === "/messages",
-      ...((unreadMessages?.total || 0) > 0 && { badge: unreadMessages?.total }),
+      ...((unreadMessages?.messagesTotal || 0) > 0 && { badge: unreadMessages?.messagesTotal }),
       highlight: true,
     },
     {

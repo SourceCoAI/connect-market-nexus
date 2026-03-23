@@ -435,3 +435,10 @@
 .prose a {
   @apply text-sourceco-accent underline hover:text-sourceco-accent/80 transition-colors;
 }
+
+/* Neutralize blockquote styling so stray <blockquote> tags from AI-generated
+   content render as normal text rather than highlighted grey boxes */
+.prose blockquote {
+  @apply border-none bg-transparent m-0 p-0 text-slate-700;
+  font-style: normal;
+}

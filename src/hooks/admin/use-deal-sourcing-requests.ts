@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTabAwareQuery } from '@/hooks/use-tab-aware-query';
 import { toast } from '@/hooks/use-toast';
 

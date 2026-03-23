@@ -1,0 +1,1 @@
+DELETE FROM standup_meetings WHERE fireflies_transcript_id = '01KJGCDZ1DYZ1AFV2PMSMQD9FT';

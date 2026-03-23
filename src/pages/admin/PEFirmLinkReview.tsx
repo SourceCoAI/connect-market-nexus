@@ -15,7 +15,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  
   ArrowRight,
   Building2,
   Check,
@@ -87,14 +86,19 @@ export default function PEFirmLinkReview() {
   const { data: stats } = useQuery({
     queryKey: ['pe-link-review-stats'],
     queryFn: async () => {
-      const [
-        { count: pending },
-        { count: approved },
-        { count: skipped },
-      ] = await Promise.all([
-        supabase.from('pe_backfill_review_queue').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('pe_backfill_review_queue').select('id', { count: 'exact', head: true }).eq('status', 'approved'),
-        supabase.from('pe_backfill_review_queue').select('id', { count: 'exact', head: true }).eq('status', 'skipped'),
+      const [{ count: pending }, { count: approved }, { count: skipped }] = await Promise.all([
+        supabase
+          .from('pe_backfill_review_queue')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending'),
+        supabase
+          .from('pe_backfill_review_queue')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'approved'),
+        supabase
+          .from('pe_backfill_review_queue')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'skipped'),
       ]);
       return { pending: pending || 0, approved: approved || 0, skipped: skipped || 0 };
     },
@@ -102,7 +106,11 @@ export default function PEFirmLinkReview() {
 
   // Select candidate mutation
   const selectMutation = useMutation({
-    mutationFn: async ({ queueId, platformBuyerId, peFirmId }: {
+    mutationFn: async ({
+      queueId,
+      platformBuyerId,
+      peFirmId,
+    }: {
       queueId: string;
       platformBuyerId: string;
       peFirmId: string;
@@ -143,7 +151,13 @@ export default function PEFirmLinkReview() {
 
   // Skip mutation
   const skipMutation = useMutation({
-    mutationFn: async ({ queueId, platformBuyerId }: { queueId: string; platformBuyerId: string }) => {
+    mutationFn: async ({
+      queueId,
+      platformBuyerId,
+    }: {
+      queueId: string;
+      platformBuyerId: string;
+    }) => {
       await supabase
         .from('pe_backfill_review_queue')
         .update({ status: 'skipped', resolved_at: new Date().toISOString() })
@@ -151,7 +165,7 @@ export default function PEFirmLinkReview() {
 
       await supabase
         .from('remarketing_buyers')
-        .update({ backfill_status: 'unresolvable' } as any)
+        .update({ backfill_status: 'unresolvable' } as never)
         .eq('id', platformBuyerId);
     },
     onSuccess: () => {
@@ -163,7 +177,11 @@ export default function PEFirmLinkReview() {
 
   // Create new PE firm + link mutation
   const createAndLinkMutation = useMutation({
-    mutationFn: async ({ queueId, platformBuyerId, firmName }: {
+    mutationFn: async ({
+      queueId,
+      platformBuyerId,
+      firmName,
+    }: {
       queueId: string;
       platformBuyerId: string;
       firmName: string;
@@ -229,7 +247,9 @@ export default function PEFirmLinkReview() {
       return data;
     },
     onSuccess: (data) => {
-      toast.success(`Backfill complete: ${data?.stats?.auto_linked || 0} linked, ${data?.stats?.flagged_for_review || 0} flagged`);
+      toast.success(
+        `Backfill complete: ${data?.stats?.auto_linked || 0} linked, ${data?.stats?.flagged_for_review || 0} flagged`,
+      );
       queryClient.invalidateQueries({ queryKey: ['pe-link-review-queue'] });
       queryClient.invalidateQueries({ queryKey: ['pe-link-review-stats'] });
     },
@@ -365,10 +385,12 @@ export default function PEFirmLinkReview() {
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs text-muted-foreground"
-                      onClick={() => skipMutation.mutate({
-                        queueId: item.id,
-                        platformBuyerId: item.platform_buyer_id,
-                      })}
+                      onClick={() =>
+                        skipMutation.mutate({
+                          queueId: item.id,
+                          platformBuyerId: item.platform_buyer_id,
+                        })
+                      }
                       disabled={skipMutation.isPending}
                     >
                       <SkipForward className="h-3 w-3 mr-1" />
@@ -384,11 +406,13 @@ export default function PEFirmLinkReview() {
                       <button
                         key={candidate.id}
                         className="flex items-center gap-2 px-3 py-1.5 rounded-md border hover:bg-muted transition-colors"
-                        onClick={() => selectMutation.mutate({
-                          queueId: item.id,
-                          platformBuyerId: item.platform_buyer_id,
-                          peFirmId: candidate.id,
-                        })}
+                        onClick={() =>
+                          selectMutation.mutate({
+                            queueId: item.id,
+                            platformBuyerId: item.platform_buyer_id,
+                            peFirmId: candidate.id,
+                          })
+                        }
                         disabled={selectMutation.isPending}
                       >
                         <Building2 className="h-3.5 w-3.5 text-muted-foreground" />

@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { formatCompactCurrency } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useShiftSelect } from '@/hooks/useShiftSelect';
@@ -80,6 +79,7 @@ interface ValuationLeadsTableProps {
   toggleSelectAll: () => void;
   toggleSelect: (id: string, e?: React.MouseEvent) => void;
   handleRowClick: (lead: ValuationLead) => void;
+  handleOpenDeal: (lead: ValuationLead) => void;
   handlePushToAllDeals: (leadIds: string[]) => void;
   handleReEnrich: (leadIds: string[]) => void;
   handlePushAndEnrich: (leadIds: string[]) => void;
@@ -103,6 +103,7 @@ export function ValuationLeadsTable({
   toggleSelectAll,
   toggleSelect: _toggleSelect,
   handleRowClick,
+  handleOpenDeal,
   handlePushToAllDeals,
   handleReEnrich,
   handlePushAndEnrich,
@@ -113,7 +114,7 @@ export function ValuationLeadsTable({
   PAGE_SIZE,
   refetch,
 }: ValuationLeadsTableProps) {
-  const navigate = useNavigate();
+  
   const queryClient = useQueryClient();
 
   const orderedIds = useMemo(() => paginatedLeads.map((l) => l.id), [paginatedLeads]);
@@ -323,9 +324,15 @@ export function ValuationLeadsTable({
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium text-foreground leading-tight">
+                        <button
+                          className="font-medium text-foreground leading-tight hover:text-primary hover:underline text-left"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDeal(lead);
+                          }}
+                        >
                           {extractBusinessName(lead)}
-                        </p>
+                        </button>
                         {inferWebsite(lead) && (
                           <a
                             href={`https://${inferWebsite(lead)}`}
@@ -493,16 +500,10 @@ export function ValuationLeadsTable({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => {
-                              if (lead.pushed_listing_id)
-                                navigate('/admin/deals/' + lead.pushed_listing_id, {
-                                  state: { from: '/admin/remarketing/leads/valuation' },
-                                });
-                              else handleRowClick(lead);
-                            }}
+                            onClick={() => handleOpenDeal(lead)}
                           >
                             <ExternalLink className="h-4 w-4 mr-2" />
-                            View Deal
+                            Open Deal Page
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {

@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AdminListing } from '@/types/admin';
 import { toast } from '@/hooks/use-toast';
 import { withPerformanceMonitoring } from '@/lib/performance-monitor';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTabAwareQuery } from '@/hooks/use-tab-aware-query';
 
 // TODO: Phase 6 — migrate to data access layer: getAdminListings() from '@/lib/data-access'

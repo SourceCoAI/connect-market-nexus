@@ -4,19 +4,6 @@
  * Types for the Apify LinkedIn scraping + Prospeo email enrichment pipeline.
  */
 
-// ---------- Apify LinkedIn Scrape ----------
-
-export interface ApifyEmployee {
-  fullName: string;
-  firstName?: string;
-  lastName?: string;
-  title: string;
-  profileUrl: string;
-  companyName?: string;
-  location?: string;
-  connectionDegree?: string;
-}
-
 // ---------- Prospeo Enrichment ----------
 
 export interface ProspeoResult {
@@ -53,15 +40,7 @@ export interface EnrichedContact {
   updated_at?: string;
 }
 
-// ---------- Search Request / Response ----------
-
-export interface ContactSearchRequest {
-  company_name: string;
-  title_filter?: string[];
-  target_count?: number;
-  company_linkedin_url?: string;
-  company_domain?: string;
-}
+// ---------- Search Response ----------
 
 export interface ContactSearchResult {
   contacts: EnrichedContact[];

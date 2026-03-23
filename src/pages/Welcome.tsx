@@ -1,10 +1,9 @@
-
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { useEffect } from "react";
-import { ArrowRight } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { AuthLayout } from "@/components/layout/AuthLayout";
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEffect } from 'react';
+import { ArrowRight } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { AuthLayout } from '@/components/layout/AuthLayout';
 import bradDaughertyImage from '@/assets/brad-daugherty.png';
 import sfcLogo from '@/assets/sfc-logo.png';
 
@@ -16,7 +15,7 @@ const Welcome = () => {
   // Redirect authenticated users away
   useEffect(() => {
     if (authChecked && user) {
-      const redirectPath = user.is_admin ? "/admin" : "/";
+      const redirectPath = user.is_admin ? '/admin' : '/';
       navigate(redirectPath, { replace: true });
     }
   }, [user, authChecked, navigate]);
@@ -29,13 +28,13 @@ const Welcome = () => {
           Welcome to SourceCo
         </h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          SourceCo is a private marketplace connecting qualified acquirers with off-market 
-          business opportunities in the $1M-$50M revenue range.
+          SourceCo is a private marketplace connecting qualified acquirers with off-market business
+          opportunities in the $1M-$50M revenue range.
         </p>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          We source deals directly from owners considering an exit - before they go to brokers 
-          or public listings. Whether you're looking to acquire a company or exploring what 
-          your business might be worth, our network provides access without the noise.
+          We source deals directly from owners considering an exit - before they go to brokers or
+          public listings. Whether you're looking to acquire a company or exploring what your
+          business might be worth, our network provides access without the noise.
         </p>
       </div>
 
@@ -44,26 +43,25 @@ const Welcome = () => {
         <CardContent className="p-5 space-y-3">
           <div className="flex items-start space-x-3">
             <div className="w-9 h-9 rounded-full overflow-hidden bg-muted flex-shrink-0">
-              <img 
-                src={bradDaughertyImage} 
+              <img
+                src={bradDaughertyImage}
                 alt="Brad Daughterty"
                 className="w-full h-full object-cover"
               />
             </div>
             <div className="space-y-2 flex-1 relative">
               <blockquote className="text-xs text-foreground leading-relaxed italic">
-                "SourceCo's technology-driven sourcing process consistently delivered a 
-                robust pipeline of qualified opportunities, resulting in multiple LOIs and 
-                a closed deal with more to come."
+                "SourceCo's technology-driven sourcing process consistently delivered a robust
+                pipeline of qualified opportunities, resulting in multiple LOIs and a closed deal
+                with more to come."
               </blockquote>
               <div className="space-y-0.5">
-                <div className="text-xs font-medium text-foreground">
-                  Brad Daughterty
-                </div>
+                <div className="text-xs font-medium text-foreground">Brad Daughterty</div>
                 <div className="text-[11px] text-muted-foreground">
-                  CFO, <a 
-                    href="https://sportsfacilities.com/" 
-                    target="_blank" 
+                  CFO,{' '}
+                  <a
+                    href="https://sportsfacilities.com/"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="hover:underline"
                   >
@@ -72,8 +70,8 @@ const Welcome = () => {
                 </div>
               </div>
               <div className="absolute bottom-0 right-0">
-                <img 
-                  src={sfcLogo} 
+                <img
+                  src={sfcLogo}
                   alt="Sports Facilities Companies"
                   className="h-5 w-auto opacity-60"
                 />
@@ -110,17 +108,15 @@ const Welcome = () => {
             Access Off-Market Businesses Before They Go to Market
           </h1>
           <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
-            SourceCo sources deals directly from owners in the $1M–$50M revenue range — before they engage a broker or list publicly. Qualified buyers get exclusive, early access.
+            SourceCo sources deals directly from owners in the $1M–$50M revenue range — before they
+            engage a broker or list publicly. Qualified buyers get exclusive, early access.
           </p>
         </div>
 
         {/* Persona Selection Cards */}
         <div className="space-y-3">
           {/* Buyer Card */}
-          <Link 
-            to={`/signup${location.search}`}
-            className="group block"
-          >
+          <Link to={`/signup${location.search}`} className="group block">
             <Card className="border border-border/60 hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
@@ -129,7 +125,9 @@ const Welcome = () => {
                       I'm Looking to Acquire
                     </h3>
                     <p className="text-xs text-muted-foreground leading-relaxed max-w-sm">
-                      Curated deal flow from 2,000+ business owners — verified financials, complete data rooms, no auction process. Apply for access and we'll review your profile within one business day.
+                      Curated deal flow from 2,000+ business owners — verified financials, complete
+                      data rooms, no auction process. Apply for access and we'll review your profile
+                      within one business day.
                     </p>
                   </div>
                   <div className="flex-shrink-0 ml-4">
@@ -143,10 +141,7 @@ const Welcome = () => {
           </Link>
 
           {/* Seller Card */}
-          <Link 
-            to={`/sell${location.search}`}
-            className="group block"
-          >
+          <Link to={`/sell${location.search}`} className="group block">
             <Card className="border border-border/60 hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
@@ -155,8 +150,8 @@ const Welcome = () => {
                       I'm a Business Owner
                     </h3>
                     <p className="text-xs text-muted-foreground leading-relaxed max-w-sm">
-                      Explore your options confidentially. Connect with vetted buyers 
-                      who understand your industry and can close.
+                      Explore your options confidentially. Connect with vetted buyers who understand
+                      your industry and can close.
                     </p>
                   </div>
                   <div className="flex-shrink-0 ml-4">
@@ -178,8 +173,11 @@ const Welcome = () => {
 
         {/* Bottom Link */}
         <div className="text-xs text-muted-foreground">
-          Already have an account?{" "}
-          <Link to={`/login${location.search}`} className="text-primary font-medium hover:underline">
+          Already have an account?{' '}
+          <Link
+            to={`/login${location.search}`}
+            className="text-primary font-medium hover:underline"
+          >
             Sign in
           </Link>
         </div>

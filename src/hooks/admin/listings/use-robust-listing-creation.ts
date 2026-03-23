@@ -113,6 +113,16 @@ interface DatabaseListingInsert {
   customer_types?: string | null;
   revenue_model?: string | null;
   end_market_description?: string | null;
+
+  // Deal enrichment detail fields
+  service_mix?: string | null;
+  geographic_states?: string[] | null;
+
+  // REQUIRED by DB (NOT NULL, no default) — marketplace listings use empty string
+  website: string;
+
+  // Computed financial metric
+  ebitda_margin?: number | null;
 }
 
 /**
@@ -226,10 +236,30 @@ export function useRobustListingCreation() {
           // Content sections (populated by lead memo generator)
           custom_sections: listing.custom_sections || null,
 
+          // REQUIRED by DB (NOT NULL, no default) — empty for anonymous listings
+          website: (listing as Record<string, unknown>).website
+            ? sanitizeStringField((listing as Record<string, unknown>).website)
+            : '',
+
+          // Computed financial metric
+          ebitda_margin:
+            listing.revenue && listing.ebitda && sanitizeNumericField(listing.revenue) > 0
+              ? Math.round(
+                  (sanitizeNumericField(listing.ebitda) / sanitizeNumericField(listing.revenue)) *
+                    100,
+                )
+              : null,
+
           // Deal detail fields
+          service_mix: (listing as Record<string, unknown>).service_mix
+            ? sanitizeStringField((listing as Record<string, unknown>).service_mix)
+            : null,
+          geographic_states: (listing as Record<string, unknown>).geographic_states
+            ? sanitizeArrayField((listing as Record<string, unknown>).geographic_states)
+            : null,
           investment_thesis: listing.investment_thesis || null,
-          services: listing.services || null,
-          growth_drivers: listing.growth_drivers || null,
+          services: sanitizeArrayField(listing.services) || null,
+          growth_drivers: sanitizeArrayField(listing.growth_drivers) || null,
           competitive_position: listing.competitive_position || null,
           ownership_structure: listing.ownership_structure || null,
           seller_motivation: listing.seller_motivation || null,
@@ -345,6 +375,7 @@ async function _triggerDealAlertsForListing(listing: Record<string, unknown>): P
     });
 
     if (error) {
+      console.error('Failed to match deal alerts with listing:', error.message);
       return;
     }
 
@@ -353,12 +384,16 @@ async function _triggerDealAlertsForListing(listing: Record<string, unknown>): P
       for (const alert of matchingAlerts) {
         if (alert.alert_frequency === 'instant') {
           // Log delivery attempt
-          await supabase.from('alert_delivery_logs').insert({
+          const { error: logInsertError } = await supabase.from('alert_delivery_logs').insert({
             alert_id: alert.alert_id as string,
             listing_id: listing.id as string,
             user_id: alert.user_id as string,
             delivery_status: 'pending',
           });
+
+          if (logInsertError) {
+            console.error('Failed to insert alert delivery log:', logInsertError.message);
+          }
 
           // Trigger edge function
           try {
@@ -377,12 +412,18 @@ async function _triggerDealAlertsForListing(listing: Record<string, unknown>): P
               throw functionError;
             }
           } catch (emailError) {
-            // Deal alert email failed for this user
+            console.error(
+              `Deal alert email failed for user ${alert.user_id}:`,
+              emailError instanceof Error ? emailError.message : emailError,
+            );
           }
         }
       }
     }
-  } catch (_triggerError) {
-    // Silently fail deal alerts - they should not block listing creation
+  } catch (triggerError) {
+    console.error(
+      'Deal alert trigger failed:',
+      triggerError instanceof Error ? triggerError.message : triggerError,
+    );
   }
 }

@@ -46,8 +46,58 @@ export const VALID_US_STATE_CODES = new Set([
   'AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN',
   'IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH',
   'NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT',
-  'VT','VA','WA','WV','WI','WY',
+  'VT','VA','WA','WV','WI','WY','PR','GU','VI','AS','MP',
 ]);
+
+// State code to full name (canonical, US + DC)
+export const STATE_CODE_TO_NAME: Record<string, string> = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas',
+  CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware',
+  FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho',
+  IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas',
+  KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
+  MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi',
+  MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada',
+  NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York',
+  NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma',
+  OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah',
+  VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia',
+  WI: 'Wisconsin', WY: 'Wyoming', DC: 'Washington D.C.',
+  // Canadian provinces
+  AB: 'Alberta', BC: 'British Columbia', MB: 'Manitoba', NB: 'New Brunswick',
+  NL: 'Newfoundland and Labrador', NS: 'Nova Scotia', NT: 'Northwest Territories',
+  NU: 'Nunavut', ON: 'Ontario', PE: 'Prince Edward Island', QC: 'Quebec',
+  SK: 'Saskatchewan', YT: 'Yukon',
+};
+
+// Reverse: full state name to code
+export const STATE_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(STATE_CODE_TO_NAME).map(([code, name]) => [name, code]),
+);
+
+// State code to anonymous regional descriptor (for anonymization in teasers/listings)
+export const STATE_CODE_TO_REGION: Record<string, string> = {
+  AL: 'Southeast', AK: 'Pacific Northwest', AZ: 'Southwest', AR: 'South Central',
+  CA: 'West Coast', CO: 'Mountain West', CT: 'New England', DE: 'Mid-Atlantic',
+  FL: 'Southeast', GA: 'Southeast', HI: 'Pacific', ID: 'Mountain West',
+  IL: 'Midwest', IN: 'Midwest', IA: 'Midwest', KS: 'Great Plains',
+  KY: 'Southeast', LA: 'Gulf Coast', ME: 'New England', MD: 'Mid-Atlantic',
+  MA: 'New England', MI: 'Great Lakes', MN: 'Upper Midwest', MS: 'Gulf Coast',
+  MO: 'Great Plains', MT: 'Mountain West', NE: 'Great Plains', NV: 'Mountain West',
+  NH: 'New England', NJ: 'Mid-Atlantic', NM: 'Southwest', NY: 'Mid-Atlantic',
+  NC: 'Southeast', ND: 'Upper Midwest', OH: 'Great Lakes', OK: 'South Central',
+  OR: 'Pacific Northwest', PA: 'Mid-Atlantic', RI: 'New England', SC: 'Southeast',
+  SD: 'Upper Midwest', TN: 'Southeast', TX: 'South Central', UT: 'Mountain West',
+  VT: 'New England', VA: 'Mid-Atlantic', WA: 'Pacific Northwest', WV: 'Mid-Atlantic',
+  WI: 'Great Lakes', WY: 'Mountain West', DC: 'Mid-Atlantic',
+  // Canadian provinces
+  AB: 'Western Canada', BC: 'Western Canada', MB: 'Central Canada',
+  NB: 'Atlantic Canada', NL: 'Atlantic Canada', NS: 'Atlantic Canada',
+  NT: 'Northern Canada', NU: 'Northern Canada', ON: 'Central Canada',
+  PE: 'Atlantic Canada', QC: 'Central Canada', SK: 'Western Canada',
+  YT: 'Northern Canada',
+};
 
 // Major city to state mapping for local context detection
 export const CITY_TO_STATE: Record<string, string> = {

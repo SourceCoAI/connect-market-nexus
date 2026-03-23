@@ -71,9 +71,12 @@ const ReMarketingBuyerDetail = () => {
 
   const {
     enrichMutation,
+    findContactsMutation,
     updateBuyerMutation,
     updateFeeAgreementMutation,
+    analyzeNotesMutation,
     addContactMutation,
+    updateContactMutation,
     deleteContactMutation,
     addTranscriptMutation,
     extractTranscriptMutation,
@@ -83,6 +86,17 @@ const ReMarketingBuyerDetail = () => {
     newContact,
     setNewContact,
   } = useBuyerMutations(id, buyer, transcripts, setActiveEditDialog);
+
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editContact, setEditContact] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: '',
+    linkedin_url: '',
+    is_primary: false,
+  });
 
   const {
     extractionProgress,
@@ -140,6 +154,7 @@ const ReMarketingBuyerDetail = () => {
             isPeBacked={buyer?.is_pe_backed || false}
             peFirmName={buyer?.pe_firm_name}
             peFirmId={peFirmRecord?.id || null}
+            peFirmWebsite={peFirmRecord?.company_website || null}
             platformWebsite={buyer?.platform_website || buyer?.company_website}
             hqCity={buyer?.hq_city}
             hqState={buyer?.hq_state}
@@ -251,6 +266,10 @@ const ReMarketingBuyerDetail = () => {
             onSave={async (notes) => {
               await updateBuyerMutation.mutateAsync({ notes });
             }}
+            onAnalyze={async (notes) => {
+              await analyzeNotesMutation.mutateAsync(notes);
+            }}
+            isAnalyzing={analyzeNotesMutation.isPending}
           />
           {/* Two-Column Grid Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -368,7 +387,18 @@ const ReMarketingBuyerDetail = () => {
 
         {/* Deal History Tab */}
         <TabsContent value="history">
-          <DealHistoryTab recentScores={recentScores as any} />
+          <DealHistoryTab
+            recentScores={
+              (recentScores ?? []) as {
+                id: string;
+                listing?: { id: string; title?: string } | null;
+                composite_score: number;
+                tier: string | null;
+                status: string;
+                created_at: string;
+              }[]
+            }
+          />
         </TabsContent>
 
         {/* Contacts Tab */}
@@ -376,7 +406,21 @@ const ReMarketingBuyerDetail = () => {
           <ContactsTab
             contacts={contacts}
             onAddContact={() => setIsContactDialogOpen(true)}
+            onEditContact={(contact) => {
+              setEditingContact(contact);
+              setEditContact({
+                name: contact.name,
+                email: contact.email || '',
+                phone: contact.phone || '',
+                role: contact.role || '',
+                linkedin_url: contact.linkedin_url || '',
+                is_primary: contact.is_primary || false,
+              });
+              setIsEditDialogOpen(true);
+            }}
             onDeleteContact={(contactId) => deleteContactMutation.mutate(contactId)}
+            onEnrichContacts={() => findContactsMutation.mutate()}
+            isEnrichingContacts={findContactsMutation.isPending}
           />
         </TabsContent>
 
@@ -407,6 +451,31 @@ const ReMarketingBuyerDetail = () => {
         onContactChange={setNewContact}
         onSubmit={() => addContactMutation.mutate()}
         isPending={addContactMutation.isPending}
+      />
+
+      {/* Edit Contact Dialog */}
+      <AddContactDialog
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) setEditingContact(null);
+        }}
+        newContact={editContact}
+        onContactChange={setEditContact}
+        onSubmit={() => {
+          if (!editingContact) return;
+          updateContactMutation.mutate(
+            { id: editingContact.id, ...editContact },
+            {
+              onSuccess: () => {
+                setIsEditDialogOpen(false);
+                setEditingContact(null);
+              },
+            },
+          );
+        }}
+        isPending={updateContactMutation.isPending}
+        editMode
       />
 
       {/* Edit Dialogs */}

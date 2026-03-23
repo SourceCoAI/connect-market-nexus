@@ -2,11 +2,11 @@ import { useState, useCallback, useMemo } from 'react';
 import { useShiftSelect } from '@/hooks/useShiftSelect';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, untypedFrom } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useEnrichmentProgress } from '@/hooks/useEnrichmentProgress';
 import { useGlobalGateCheck } from '@/hooks/remarketing/useGlobalActivityQueue';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 
@@ -21,6 +21,7 @@ interface UseDealsActionsParams {
   adminProfiles:
     | Record<string, { id: string; first_name: string; last_name: string; email: string }>
     | undefined;
+  setHideNotAFit?: (v: boolean) => void;
 }
 
 export function useDealsActions({
@@ -30,6 +31,7 @@ export function useDealsActions({
   sortedListingsRef,
   refetchListings,
   adminProfiles,
+  setHideNotAFit,
 }: UseDealsActionsParams) {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -342,6 +344,61 @@ export function useDealsActions({
     [toast, user?.id, setLocalOrder],
   );
 
+  const handleMarkNotAFit = useCallback(
+    async (dealId: string, reason: string) => {
+      const { error } = await supabase
+        .from('listings')
+        .update({ not_a_fit: true, not_a_fit_reason: reason })
+        .eq('id', dealId);
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Marked as Not a Fit', description: reason });
+      // Show greyed-out rows instead of hiding them
+      if (setHideNotAFit) setHideNotAFit(false);
+      refetchListings();
+    },
+    [toast, refetchListings, setHideNotAFit],
+  );
+
+  const handleBulkMarkNotAFit = useCallback(async () => {
+    const ids = Array.from(selectedDeals);
+    if (ids.length === 0) return;
+    const { error } = await supabase
+      .from('listings')
+      .update({ not_a_fit: true, not_a_fit_reason: 'Bulk marked' })
+      .in('id', ids);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({
+      title: 'Marked as Not a Fit',
+      description: `${ids.length} deal(s) marked as not a fit`,
+    });
+    setSelectedDeals(new Set());
+    // Show greyed-out rows instead of hiding them
+    if (setHideNotAFit) setHideNotAFit(false);
+    refetchListings();
+  }, [selectedDeals, toast, refetchListings, setHideNotAFit]);
+
+  const handleRemoveNotAFit = useCallback(
+    async (dealId: string) => {
+      const { error } = await supabase
+        .from('listings')
+        .update({ not_a_fit: false, not_a_fit_reason: null })
+        .eq('id', dealId);
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Not a Fit flag removed' });
+      refetchListings();
+    },
+    [toast, refetchListings],
+  );
+
   const handleAssignOwner = useCallback(
     async (dealId: string, ownerId: string | null) => {
       const ownerProfile = ownerId && adminProfiles ? adminProfiles[ownerId] : null;
@@ -452,28 +509,41 @@ export function useDealsActions({
     try {
       const ids = Array.from(selectedDeals);
       for (const dealId of ids) {
-        await supabase.from('alert_delivery_logs').delete().eq('listing_id', dealId);
-        await supabase.from('buyer_approve_decisions').delete().eq('listing_id', dealId);
-        await supabase.from('buyer_learning_history').delete().eq('listing_id', dealId);
-        await supabase.from('buyer_pass_decisions').delete().eq('listing_id', dealId);
-        await supabase.from('chat_conversations').delete().eq('listing_id', dealId);
-        await supabase.from('collection_items').delete().eq('listing_id', dealId);
-        await supabase.from('connection_requests').delete().eq('listing_id', dealId);
-        await supabase.from('deal_ranking_history').delete().eq('listing_id', dealId);
-        await supabase.from('deal_referrals').delete().eq('listing_id', dealId);
-        await supabase.from('deal_pipeline').delete().eq('listing_id', dealId);
-        await supabase.from('deal_scoring_adjustments').delete().eq('listing_id', dealId);
-        await supabase.from('deal_transcripts').delete().eq('listing_id', dealId);
-        await supabase.from('enrichment_queue').delete().eq('listing_id', dealId);
-        await supabase.from('listing_analytics').delete().eq('listing_id', dealId);
-        await supabase.from('listing_conversations').delete().eq('listing_id', dealId);
-        await supabase.from('outreach_records').delete().eq('listing_id', dealId);
-        await supabase.from('owner_intro_notifications').delete().eq('listing_id', dealId);
-        await supabase.from('remarketing_outreach').delete().eq('listing_id', dealId);
-        await supabase.from('remarketing_scores').delete().eq('listing_id', dealId);
-        await supabase.from('remarketing_universe_deals').delete().eq('listing_id', dealId);
-        await supabase.from('saved_listings').delete().eq('listing_id', dealId);
-        await supabase.from('similar_deal_alerts').delete().eq('source_listing_id', dealId);
+        // Delete dependent records from all related tables before deleting the listing.
+        // Each delete is checked — a failure here stops the cascade to prevent
+        // orphaned listing rows (the listing FK delete would fail anyway).
+        const dependentTables: Array<{ table: string; column: string }> = [
+          { table: 'alert_delivery_logs', column: 'listing_id' },
+          { table: 'buyer_approve_decisions', column: 'listing_id' },
+          { table: 'buyer_learning_history', column: 'listing_id' },
+          { table: 'buyer_pass_decisions', column: 'listing_id' },
+          { table: 'chat_conversations', column: 'listing_id' },
+          { table: 'collection_items', column: 'listing_id' },
+          { table: 'connection_requests', column: 'listing_id' },
+          { table: 'deal_ranking_history', column: 'listing_id' },
+          { table: 'deal_referrals', column: 'listing_id' },
+          { table: 'deal_pipeline', column: 'listing_id' },
+          { table: 'deal_scoring_adjustments', column: 'listing_id' },
+          { table: 'deal_transcripts', column: 'listing_id' },
+          { table: 'enrichment_queue', column: 'listing_id' },
+          { table: 'listing_analytics', column: 'listing_id' },
+          { table: 'listing_conversations', column: 'listing_id' },
+          { table: 'outreach_records', column: 'listing_id' },
+          { table: 'owner_intro_notifications', column: 'listing_id' },
+          { table: 'remarketing_outreach', column: 'listing_id' },
+          { table: 'remarketing_scores', column: 'listing_id' },
+          { table: 'remarketing_universe_deals', column: 'listing_id' },
+          { table: 'saved_listings', column: 'listing_id' },
+          { table: 'similar_deal_alerts', column: 'source_listing_id' },
+        ];
+
+        for (const { table, column } of dependentTables) {
+          const { error: depError } = await untypedFrom(table).delete().eq(column, dealId);
+          if (depError) {
+            throw new Error(`Failed to delete from ${table}: ${depError.message}`);
+          }
+        }
+
         const { error } = await supabase.from('listings').delete().eq('id', dealId);
         if (error) throw error;
       }
@@ -619,6 +689,9 @@ export function useDealsActions({
     handleTogglePriority,
     handleToggleUniverseBuild,
     handleToggleBuyerSearch,
+    handleMarkNotAFit,
+    handleBulkMarkNotAFit,
+    handleRemoveNotAFit,
     handleAssignOwner,
     handleBulkAssignOwner,
     handleBulkArchive,

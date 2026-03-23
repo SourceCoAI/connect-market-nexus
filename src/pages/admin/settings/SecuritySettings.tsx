@@ -1,5 +1,5 @@
-import { MFAEnrollment } from "@/components/admin/MFAEnrollment";
-import { useAuth } from "@/context/AuthContext";
+import { MFAEnrollment } from '@/components/admin/MFAEnrollment';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SecuritySettings() {
   const { user } = useAuth();
@@ -17,7 +17,9 @@ export default function SecuritySettings() {
 
       <div className="text-xs text-muted-foreground border-t pt-4">
         <p>Signed in as: {user?.email}</p>
-        <p>Admin accounts with MFA enabled will be prompted for a verification code on each sign-in.</p>
+        <p>
+          Admin accounts with MFA enabled will be prompted for a verification code on each sign-in.
+        </p>
       </div>
     </div>
   );

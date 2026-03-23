@@ -213,7 +213,6 @@ export function useContactHistory(
   const { data: associatedBuyers = [], isLoading: buyersLoading } = useQuery({
     queryKey: ['contact-history-tracker-buyers', listingId],
     queryFn: async () => {
-       
       const { data, error } = (await supabase
         .from('deal_pipeline')
         .select(
@@ -228,11 +227,14 @@ export function useContactHistory(
         )
         .eq('listing_id', listingId)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false })) as { data: any[] | null; error: any };
+        .order('created_at', { ascending: false })) as {
+        data: Record<string, unknown>[] | null;
+        error: { message: string } | null;
+      };
 
       if (error) throw error;
 
-      return (data || []).map((d: any) => ({
+      return (data || []).map((d: Record<string, unknown>) => ({
         id: d.id as string,
         buyerName:
           ((d.buyers as Record<string, unknown> | null)?.company_name as string) ||

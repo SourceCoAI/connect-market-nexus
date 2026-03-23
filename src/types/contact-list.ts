@@ -30,6 +30,9 @@ export interface ContactListMember {
   entity_id: string;
   added_at: string;
   removed_at: string | null;
+  // Joined deal owner fields
+  deal_owner_name?: string | null;
+  deal_owner_id?: string | null;
   // Joined call tracking fields
   last_call_date?: string | null;
   total_calls?: number;

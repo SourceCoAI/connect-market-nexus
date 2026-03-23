@@ -7,7 +7,7 @@ import { DollarSign, Pencil } from 'lucide-react';
 import { formatCurrency } from './helpers';
 
 interface FinancialOverviewCardProps {
-  deal: any;
+  deal: Record<string, any>;
   onEditClick: () => void;
 }
 

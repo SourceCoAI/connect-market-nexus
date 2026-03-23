@@ -626,7 +626,7 @@ export async function extractPEIntelligence(
 
 export function validateGeography(extracted: AIExtractionResult): AIExtractionResult {
   if (!extracted?.data) return extracted;
-  const data = extracted.data;
+  const data = extracted.data as Record<string, any>;
 
   // Anti-hallucination check — only flag if service_regions is suspiciously large
   // with NO supporting evidence (no footprint, no operating locations, no HQ)
@@ -895,7 +895,7 @@ export function buildBuyerUpdateObject(
 
     // Handle state code normalization for geographic fields
     if (field === 'hq_state') {
-      const normalized = normalizeStateCode(value);
+      const normalized = normalizeStateCode(value as string);
       if (VALID_STATE_CODES.has(normalized)) {
         updateData[field] = normalized;
         fieldsUpdated++;

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Unified Follow-Up Queue Tool
  * Aggregates all pending follow-ups: overdue tasks, stale outreach,
@@ -117,7 +118,7 @@ async function getFollowUpQueue(
     unreadMessagesResult,
   ] = await Promise.all([
     // 1. Overdue tasks (from unified daily_standup_tasks)
-    supabase
+    (supabase as any)
       .from('daily_standup_tasks')
       .select('id, title, entity_id, status, priority, due_date')
       .eq('assignee_id', targetUserId)
@@ -129,7 +130,7 @@ async function getFollowUpQueue(
 
     // 2. Upcoming tasks (next 7 days, from unified daily_standup_tasks)
     includeUpcoming
-      ? supabase
+      ? (supabase as any)
           .from('daily_standup_tasks')
           .select('id, title, entity_id, status, priority, due_date')
           .eq('assignee_id', targetUserId)
@@ -142,7 +143,7 @@ async function getFollowUpQueue(
       : Promise.resolve({ data: [], error: null }),
 
     // 3. Stale outreach (no update in staleDays)
-    supabase
+    (supabase as any)
       .from('outreach_records')
       .select('id, buyer_name, deal_id, stage, last_action_date, next_action, next_action_date')
       .in('stage', ['nda_sent', 'intro_sent', 'cim_sent', 'meeting_scheduled'])
@@ -151,7 +152,7 @@ async function getFollowUpQueue(
       .limit(limit),
 
     // 4. Pending NDAs/fee agreements
-    supabase
+    (supabase as any)
       .from('firm_agreements')
       .select('id, primary_company_name, nda_signed, fee_agreement_signed, created_at')
       .eq('nda_signed', false)
@@ -159,7 +160,7 @@ async function getFollowUpQueue(
       .limit(limit),
 
     // 5. Unread connection request messages
-    supabase
+    (supabase as any)
       .from('connection_messages')
       .select('id, body, sender_role, created_at, connection_request_id')
       .eq('is_read_by_admin', false)
@@ -317,7 +318,7 @@ async function getStaleDealsTool(
   const cutoffDate = new Date(Date.now() - days * 86400000).toISOString();
 
   // 1. Get deals
-  let dealsQuery = supabase
+  let dealsQuery = (supabase as any)
     .from('listings')
     .select(
       'id, title, internal_company_name, industry, category, revenue, ebitda, address_state, remarketing_status, updated_at, created_at',
@@ -339,7 +340,7 @@ async function getStaleDealsTool(
   const dealIds = deals.map((d: { id: string }) => d.id);
 
   // 2. Get latest activity per deal
-  const { data: activities } = await supabase
+  const { data: activities } = await (supabase as any)
     .from('deal_activities')
     .select('deal_id, created_at')
     .in('deal_id', dealIds)
@@ -348,23 +349,23 @@ async function getStaleDealsTool(
   const activeDeals = new Set((activities || []).map((a: { deal_id: string }) => a.deal_id));
 
   // 3. Also check daily_standup_tasks for recent updates on deals
-  const { data: tasks } = await supabase
+  const { data: tasks } = await (supabase as any)
     .from('daily_standup_tasks')
     .select('entity_id, created_at')
     .eq('entity_type', 'deal')
     .in('entity_id', dealIds)
     .gte('created_at', cutoffDate);
 
-  for (const t of tasks || []) activeDeals.add(t.entity_id);
+  for (const t of (tasks || []) as any[]) activeDeals.add(t.entity_id);
 
   // 4. Check outreach_records for recent action
-  const { data: outreach } = await supabase
+  const { data: outreach } = await (supabase as any)
     .from('outreach_records')
     .select('deal_id, last_action_date')
     .in('deal_id', dealIds)
     .gte('last_action_date', cutoffDate);
 
-  for (const o of outreach || []) activeDeals.add(o.deal_id);
+  for (const o of (outreach || []) as any[]) activeDeals.add(o.deal_id);
 
   // 5. Filter to stale deals
   const staleDealsList = deals

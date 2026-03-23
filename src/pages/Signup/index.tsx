@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import bradDaughertyImage from '@/assets/brad-daugherty.png';
 import sfcLogo from '@/assets/sfc-logo.png';
@@ -98,8 +98,9 @@ const Signup = () => {
   }, [searchParams]);
 
   const [currentStep, setCurrentStep] = useState(() => {
-    const saved = localStorage.getItem(DRAFT_STEP_KEY);
-    return saved ? Math.min(Number(saved), STEPS.length - 1) : 0;
+    // Always start at step 0 so the user re-enters their password
+    // (passwords are never persisted to the draft for security)
+    return 0;
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -167,6 +168,12 @@ const Signup = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
+    if (!formData.password || formData.password.length < 8) {
+      setValidationErrors(['Your password was lost. Please re-enter your password.']);
+      setCurrentStep(0);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setIsSubmitting(true);
     try {
       await doSubmit();
@@ -174,12 +181,14 @@ const Signup = () => {
     } catch (error: unknown) {
       console.error('Signup error:', error);
       let errorMessage = 'An unexpected error occurred. Please try again.';
-      if ((error as Error).message?.includes('User already registered'))
+      const msg = (error as Error).message || '';
+      const msgLower = msg.toLowerCase();
+      if (msgLower.includes('user already registered'))
         errorMessage = 'An account with this email already exists.';
-      else if ((error as Error).message?.includes('Password'))
-        errorMessage = 'Password requirements not met.';
-      else if ((error as Error).message?.includes('Email')) errorMessage = 'Invalid email address.';
-      else if ((error as Error).message) errorMessage = (error as Error).message;
+      else if (msgLower.includes('password'))
+        errorMessage = 'Password requirements not met. Please use at least 8 characters.';
+      else if (msgLower.includes('email')) errorMessage = 'Invalid email address.';
+      else if (msg) errorMessage = msg;
       toast({ variant: 'destructive', title: 'Signup failed', description: errorMessage });
     } finally {
       setIsSubmitting(false);

@@ -21,6 +21,8 @@ import {
   getAnthropicHeaders,
   fetchWithAutoRetry,
 } from '../_shared/ai-providers.ts';
+import { logAICallCost } from '../_shared/cost-tracker.ts';
+import { sanitizeAnonymityBreaches } from '../_shared/anonymization.ts';
 
 // ─── Types ───
 
@@ -289,7 +291,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { deal_id: dealId, project_name: requestProjectName } = await req.json();
+    const { deal_id: dealId, project_name: requestProjectName, branding: requestBranding } = await req.json();
 
     if (!dealId) {
       return new Response(JSON.stringify({ error: 'deal_id is required' }), {
@@ -470,11 +472,29 @@ Verify before returning: search your output for any proper noun that is not the 
     }
 
     const result = await response.json();
-    const teaserText = result.content?.[0]?.text;
+
+    // Log AI cost (non-blocking)
+    if (result.usage) {
+      logAICallCost(
+        supabaseAdmin,
+        'generate-teaser',
+        'anthropic',
+        DEFAULT_CLAUDE_MODEL,
+        { inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens },
+        undefined,
+        { deal_id: dealId },
+      ).catch(console.error);
+    }
+
+    let teaserText = result.content?.[0]?.text;
 
     if (!teaserText) {
       throw new Error('No content returned from AI');
     }
+
+    // Post-process: strip any state names or location-identifying patterns
+    // the AI may have leaked despite instructions
+    teaserText = sanitizeAnonymityBreaches(teaserText);
 
     // Step 5: Gather identifying info for validation
     const companyName = (deal.internal_company_name || deal.title || '') as string;
@@ -509,7 +529,7 @@ Verify before returning: search your output for any proper noun that is not the 
     const teaserContent: MemoContent = {
       sections: teaserSections,
       memo_type: 'anonymous_teaser',
-      branding: 'sourceco',
+      branding: requestBranding || 'sourceco',
       generated_at: new Date().toISOString(),
       company_name: projectName,
       company_address: '',
@@ -565,7 +585,6 @@ Verify before returning: search your output for any proper noun that is not the 
     return new Response(
       JSON.stringify({
         error: 'Failed to generate teaser',
-        details: error instanceof Error ? error.message : String(error),
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );

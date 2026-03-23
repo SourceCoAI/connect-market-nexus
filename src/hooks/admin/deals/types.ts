@@ -110,6 +110,9 @@ export interface Deal {
 
   // Meeting scheduled flag
   meeting_scheduled?: boolean;
+
+  // Under LOI flag
+  under_loi?: boolean;
 }
 
 export interface DealStage {
@@ -191,4 +194,5 @@ interface _DealRpcRow {
   negative_followed_up: boolean | null;
   negative_followed_up_at: string | null;
   meeting_scheduled: boolean | null;
+  under_loi: boolean | null;
 }

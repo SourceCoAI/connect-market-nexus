@@ -20,6 +20,9 @@ import {
   getAnthropicHeaders,
   fetchWithAutoRetry,
 } from '../_shared/ai-providers.ts';
+import { STATE_CODE_TO_NAME, STATE_CODE_TO_REGION } from '../_shared/geography.ts';
+import { logAICallCost } from '../_shared/cost-tracker.ts';
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Memo section structure
 interface MemoSection {
@@ -137,8 +140,48 @@ Deno.serve(async (req: Request) => {
       .eq('pushed_listing_id', deal_id)
       .maybeSingle();
 
+    // Fetch data room documents with extracted text
+    const { data: dataRoomDocs } = await supabaseAdmin
+      .from('data_room_documents')
+      .select('file_name, text_content')
+      .eq('deal_id', deal_id)
+      .eq('document_category', 'data_room')
+      .eq('status', 'active')
+      .not('text_content', 'is', null)
+      .order('created_at', { ascending: false });
+
+    // Listing completeness check: require minimum data before generating memos
+    // (Audit P1: prevent blank-context memo generation)
+    const missingCritical: string[] = [];
+    if (!deal.industry && !deal.category) missingCritical.push('industry/category');
+    if (deal.ebitda == null) missingCritical.push('EBITDA');
+    if (deal.revenue == null) missingCritical.push('revenue');
+    if (!deal.description && !deal.executive_summary && !(transcripts && transcripts.length > 0)) {
+      missingCritical.push('description or transcripts');
+    }
+    if (missingCritical.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: `Listing is missing critical data for memo generation: ${missingCritical.join(', ')}. Please populate these fields before generating memos.`,
+          missing_fields: missingCritical,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Additional completeness warning for anonymous teasers: flag thin data sources
+    if (memo_type === 'anonymous_teaser' || memo_type === 'both') {
+      const hasTranscripts = transcripts && transcripts.length > 0;
+      const hasInternalNotes = deal.internal_notes && (deal.internal_notes as string).trim().length > 0;
+      if (!hasTranscripts && !hasInternalNotes) {
+        console.warn(
+          `Deal ${deal_id}: Anonymous teaser generating from enrichment data only (no transcripts or internal notes). Output quality may be low.`,
+        );
+      }
+    }
+
     // Build data context for AI
-    const dataContext = buildDataContext(deal, transcripts || [], valuationData);
+    const dataContext = buildDataContext(deal, transcripts || [], valuationData, dataRoomDocs || []);
 
     // Generate memo(s)
     const results: Record<string, Record<string, unknown>> = {};
@@ -170,6 +213,7 @@ Deno.serve(async (req: Request) => {
         branding,
         anonCompanyMeta,
         resolvedProjectName,
+        supabaseAdmin,
       );
 
       // Save to lead_memos
@@ -239,16 +283,10 @@ Deno.serve(async (req: Request) => {
           .map((s: MemoSection) => `**${s.title}**\n\n${s.content}`)
           .join('\n\n---\n\n');
 
-        // Build unified HTML
+        // Build unified HTML using markdownToHtml for proper list/table rendering
         const unifiedHtml = contentSections
           .map((s: MemoSection) => {
-            const sectionContent = s.content
-              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-              .replace(/\*(.*?)\*/g, '<em>$1</em>')
-              .replace(/\n\n/g, '</p><p>')
-              .replace(/^/, '<p>')
-              .replace(/$/, '</p>');
-            return `<h3 style="font-size:16px;font-weight:bold;color:#1a1a2e;margin:24px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #e0e0e0;">${s.title}</h3>${sectionContent}`;
+            return `<h3 style="font-size:16px;font-weight:bold;color:#1a1a2e;margin:24px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #e0e0e0;">${s.title}</h3>${markdownToHtml(s.content)}`;
           })
           .join('');
 
@@ -258,10 +296,11 @@ Deno.serve(async (req: Request) => {
           description_html: `<div class="unified-memo">${unifiedHtml}</div>`,
         };
 
-        // Generate a compelling hero_description from the memo content.
+        // Generate a compelling hero_description from the memo content via AI.
         // The hero is the first thing buyers see on cards and landing pages —
-        // it must be a concise 2-3 sentence elevator pitch, not just a data dump.
-        listingUpdate.hero_description = buildHeroFromMemo(teaserContent.sections, deal);
+        // it must be a concise 2-3 sentence elevator pitch, fully anonymized,
+        // free of transcript language, with financials as approximate ranges.
+        listingUpdate.hero_description = await buildHeroFromMemo(anthropicApiKey, teaserContent.sections, deal, supabaseAdmin);
 
         const { error: syncError } = await supabaseAdmin
           .from('listings')
@@ -270,6 +309,10 @@ Deno.serve(async (req: Request) => {
         if (syncError) {
           console.error('Failed to sync teaser sections to marketplace listing:', syncError);
         }
+      } else {
+        console.warn(
+          `No marketplace listing found for deal ${deal_id} — custom_sections sync skipped. Re-generate teaser after creating the listing.`,
+        );
       }
     }
 
@@ -281,6 +324,7 @@ Deno.serve(async (req: Request) => {
         branding,
         fullCompanyMeta,
         resolvedProjectName,
+        supabaseAdmin,
       );
 
       const { data: fullMemo, error: fullError } = await supabaseAdmin
@@ -331,7 +375,6 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         error: 'Failed to generate memo',
-        details: error instanceof Error ? error.message : String(error),
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
@@ -346,6 +389,7 @@ interface DataContext {
   enrichmentData: string;
   manualEntries: string;
   valuationData: string;
+  dataRoomContent: string;
   sources: string[];
 }
 
@@ -353,6 +397,7 @@ function buildDataContext(
   deal: Record<string, unknown>,
   transcripts: Record<string, unknown>[],
   valuationData: Record<string, unknown> | null,
+  dataRoomDocs: Record<string, unknown>[] = [],
 ): DataContext {
   const sources: string[] = [];
 
@@ -383,9 +428,18 @@ function buildDataContext(
   }
 
   // Enrichment data (website scrape + LinkedIn)
+  // NOTE: The audit identified that "business_description" was referenced but
+  // does not exist as a column. The canonical fields are "description" and
+  // "executive_summary". We also include investment_thesis, business_model,
+  // growth_drivers, competitive_position, and other rich-text fields that
+  // were previously missing from the memo context.
   const enrichmentFields = [
     'description',
     'executive_summary',
+    'investment_thesis',
+    'business_model',
+    'growth_drivers',
+    'competitive_position',
     'services',
     'service_mix',
     'geographic_states',
@@ -401,6 +455,11 @@ function buildDataContext(
     'ebitda_margin',
     'full_time_employees',
     'number_of_locations',
+    'customer_types',
+    'revenue_model',
+    'growth_trajectory',
+    'ownership_structure',
+    'management_depth',
   ];
   const enrichmentData = enrichmentFields
     .filter((f) => deal[f] != null && deal[f] !== '')
@@ -447,6 +506,20 @@ function buildDataContext(
       .join('\n');
   }
 
+  // Data room documents (high-priority due diligence material)
+  let dataRoomContent = '';
+  if (dataRoomDocs.length > 0) {
+    sources.push('data_room_documents');
+    dataRoomContent = dataRoomDocs
+      .filter((d) => d.text_content)
+      .map((d) => {
+        // Cap each document at 25K chars
+        const text = String(d.text_content).substring(0, 25_000);
+        return `--- Document: ${d.file_name} ---\n${text}`;
+      })
+      .join('\n\n');
+  }
+
   return {
     deal,
     transcriptExcerpts,
@@ -454,6 +527,7 @@ function buildDataContext(
     manualEntries:
       manualEntries + (notesExcerpt ? `\n\n--- GENERAL NOTES ---\n${notesExcerpt}` : ''),
     valuationData: valuationStr,
+    dataRoomContent,
     sources,
   };
 }
@@ -461,71 +535,141 @@ function buildDataContext(
 // ─── Hero Description Builder ───
 
 /**
- * Build a hero_description (max 500 chars) from the generated memo sections.
- * Uses the unified teaser section keys: business_overview and deal_snapshot.
+ * AI-generate a hero_description from the teaser sections and deal metadata.
+ *
+ * The hero is a 2-3 sentence elevator pitch (max 150 words) shown at the top
+ * of listing cards and pages. It must be:
+ *   - Clean, factual, professional
+ *   - Fully anonymized (no company name, city, state, owner name)
+ *   - Free of transcript language ("the owner clarified", "they mentioned", etc.)
+ *   - Financial figures as approximate ranges
+ *   - Regional descriptors for geography, never state abbreviations or names
  */
-function buildHeroFromMemo(sections: MemoSection[], _deal: Record<string, unknown>): string {
-  const businessOverview = sections.find((s) => s.key === 'business_overview');
-  const dealSnapshot = sections.find((s) => s.key === 'deal_snapshot');
+async function buildHeroFromMemo(
+  apiKey: string,
+  sections: MemoSection[],
+  deal: Record<string, unknown>,
+  supabase?: SupabaseClient,
+): Promise<string> {
+  // Gather section text for context
+  const sectionText = sections
+    .filter((s) => s.key !== 'header_block' && s.key !== 'contact_information')
+    .map((s) => `## ${s.title}\n${s.content}`)
+    .join('\n\n');
 
-  let hero = '';
+  // Build deal metrics
+  const revenue = typeof deal.revenue === 'number' ? deal.revenue : null;
+  const ebitda = typeof deal.ebitda === 'number' ? deal.ebitda : null;
+  const industry = (deal.industry || deal.category || 'Services') as string;
+  const state = (deal.address_state || '') as string;
 
-  // Use the business overview as the primary hero text
-  if (businessOverview?.content) {
-    const plainText = businessOverview.content
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/\*(.*?)\*/g, '$1')
-      .replace(/^[-•]\s*/gm, '')
-      .trim();
-    // Get first 2 sentences
-    const sentences = plainText.match(/[^.!?]+[.!?]+/g) || [];
-    if (sentences.length >= 2) {
-      hero = sentences.slice(0, 2).join('').trim();
-    } else if (sentences.length === 1) {
-      hero = sentences[0].trim();
-    } else if (plainText.length > 0) {
-      hero = plainText.substring(0, 200).trim() + '.';
+  const metricsLines = [
+    revenue ? `Revenue: ~$${(revenue * 0.9 / 1_000_000).toFixed(1)}M-$${(revenue * 1.1 / 1_000_000).toFixed(1)}M` : null,
+    ebitda ? `EBITDA: ~$${(ebitda * 0.9 / 1_000).toFixed(0)}K-$${(ebitda * 1.1 / 1_000).toFixed(0)}K` : null,
+    `Industry: ${industry}`,
+    state ? `Geography: ${state} (convert to regional descriptor — never use state name)` : null,
+  ].filter(Boolean).join('\n');
+
+  const heroPrompt = `Generate a hero description for a marketplace listing. This is a 2-3 sentence elevator pitch shown at the top of the listing card. It is the first thing a buyer reads.
+
+RULES:
+- 2-3 sentences maximum, 150 words maximum
+- No company name, no state names, no city names, no owner name — EVER
+- No transcript language — nothing that sounds like it came from a call ("the owner clarified", "the owner stated", "they mentioned", "during the call")
+- Only statements of fact derived from the memo content below
+- Financial figures as approximate ranges (e.g., "~$4.3M-$5.8M")
+- Use a regional descriptor for geography (e.g., "South Central region"), never a state abbreviation or name
+- No banned filler words: established, strong, robust, impressive, attractive, compelling, well-positioned, proven, turnkey, world-class, industry-leading, notable, solid, substantial, considerable
+- Professional, factual tone — written by a sell-side M&A analyst, not a marketer
+
+EXAMPLE OUTPUT:
+"Multi-location automotive maintenance and repair operator in the South Central region generating ~$4.3M-$5.8M in annual revenue and ~$680K-$920K EBITDA. The business serves a retail consumer base across six locations with diversified service lines including maintenance, repair, and tire services. Owner-operated with store-level management running day-to-day; seller seeking a 100% buyout to pursue other ventures."
+
+=== DEAL METRICS ===
+${metricsLines}
+
+=== MEMO SECTIONS ===
+${sectionText}
+
+Return ONLY the hero description text. No preamble, no quotes, no explanation.`;
+
+  try {
+    const response = await fetchWithAutoRetry(
+      ANTHROPIC_API_URL,
+      {
+        method: 'POST',
+        headers: getAnthropicHeaders(apiKey),
+        body: JSON.stringify({
+          model: DEFAULT_CLAUDE_MODEL,
+          messages: [{ role: 'user', content: heroPrompt }],
+          temperature: 0.2,
+          max_tokens: 512,
+        }),
+      },
+      { callerName: 'generate-lead-memo:hero', maxRetries: 1 },
+    );
+
+    if (!response.ok) {
+      console.error(`Hero generation API error ${response.status}`);
+      return buildHeroFallback(sections);
+    }
+
+    const result = await response.json();
+
+    // Log AI cost (non-blocking)
+    if (supabase && result.usage) {
+      logAICallCost(
+        supabase,
+        'generate-lead-memo:hero',
+        'anthropic',
+        DEFAULT_CLAUDE_MODEL,
+        { inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens },
+      ).catch(console.error);
+    }
+
+    let hero = (result.content?.[0]?.text || '').trim();
+
+    // Strip any wrapping quotes the model may have added
+    if ((hero.startsWith('"') && hero.endsWith('"')) || (hero.startsWith("'") && hero.endsWith("'"))) {
+      hero = hero.slice(1, -1).trim();
+    }
+
+    // Final safety: strip any company name that leaked through
+    const companyName = (deal.internal_company_name || '') as string;
+    if (companyName && companyName.length >= 3) {
+      const escaped = companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      hero = hero.replace(new RegExp(escaped, 'gi'), 'the Company');
+    }
+
+    return hero || buildHeroFallback(sections);
+  } catch (err) {
+    console.error('Hero generation failed, using fallback:', err);
+    try {
+      return buildHeroFallback(sections);
+    } catch (fallbackErr) {
+      console.error('Hero fallback also failed:', fallbackErr);
+      return '';
     }
   }
+}
 
-  // Append key financial highlights from deal snapshot if not already present
-  if (dealSnapshot?.content) {
-    const revenueMatch = dealSnapshot.content.match(/\*?\*?Revenue\*?\*?:.*$/m);
-    const ebitdaMatch = dealSnapshot.content.match(/\*?\*?EBITDA[^:]*\*?\*?:.*$/m);
+/**
+ * Minimal fallback hero — used only if AI generation fails.
+ * Extracts first 2 sentences from business_overview, strips markdown.
+ */
+function buildHeroFallback(sections: MemoSection[]): string {
+  const overview = sections.find((s) => s.key === 'business_overview');
+  if (!overview?.content) return '';
 
-    const hasRevenue = /\$[\d.]+[MKB]/i.test(hero) || /revenue/i.test(hero);
-    if (!hasRevenue && (revenueMatch || ebitdaMatch)) {
-      const financialParts: string[] = [];
-      if (revenueMatch) {
-        financialParts.push(
-          revenueMatch[0]
-            .replace(/\*\*/g, '')
-            .replace(/^[-•*]\s*/, '')
-            .trim(),
-        );
-      }
-      if (ebitdaMatch) {
-        financialParts.push(
-          ebitdaMatch[0]
-            .replace(/\*\*/g, '')
-            .replace(/^[-•*]\s*/, '')
-            .trim(),
-        );
-      }
-      if (financialParts.length > 0 && hero.length + financialParts.join('. ').length + 3 <= 500) {
-        hero += ' ' + financialParts.join('. ') + '.';
-      }
-    }
-  }
+  const plainText = overview.content
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/^[-•]\s*/gm, '')
+    .trim();
 
-  // Enforce 500 char limit — trim to last complete sentence
-  if (hero.length > 500) {
-    const trimmed = hero.substring(0, 500);
-    const lastPeriod = trimmed.lastIndexOf('.');
-    hero = lastPeriod > 100 ? trimmed.substring(0, lastPeriod + 1).trim() : trimmed.trim();
-  }
-
-  return hero.trim();
+  const sentences = plainText.match(/[^.!?]+[.!?]+/g) || [];
+  const hero = sentences.slice(0, 2).join('').trim();
+  return hero.length > 500 ? hero.substring(0, 500).replace(/\.[^.]*$/, '.').trim() : hero;
 }
 
 // ─── AI Memo Generation ───
@@ -661,6 +805,14 @@ function enforceAnonymization(
       }
     }
   }
+  // Generate and add company acronym (e.g., "Advanced Manufacturing Services" → "AMS")
+  if (companyName) {
+    const words = companyName.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(w => w.length > 0);
+    if (words.length >= 2) {
+      const acronym = words.map(w => w[0]).join('').toUpperCase();
+      if (acronym.length >= 2 && acronym.length <= 6) identifyingTerms.push(acronym);
+    }
+  }
   if (title && title !== companyName) identifyingTerms.push(title);
 
   if (website) {
@@ -690,60 +842,6 @@ function enforceAnonymization(
   }
   if (addressCity && addressCity.length >= 3) identifyingTerms.push(addressCity);
 
-  // Build state-specific terms to replace
-  const stateNames: Record<string, string> = {
-    AL: 'Alabama',
-    AK: 'Alaska',
-    AZ: 'Arizona',
-    AR: 'Arkansas',
-    CA: 'California',
-    CO: 'Colorado',
-    CT: 'Connecticut',
-    DE: 'Delaware',
-    FL: 'Florida',
-    GA: 'Georgia',
-    HI: 'Hawaii',
-    ID: 'Idaho',
-    IL: 'Illinois',
-    IN: 'Indiana',
-    IA: 'Iowa',
-    KS: 'Kansas',
-    KY: 'Kentucky',
-    LA: 'Louisiana',
-    ME: 'Maine',
-    MD: 'Maryland',
-    MA: 'Massachusetts',
-    MI: 'Michigan',
-    MN: 'Minnesota',
-    MS: 'Mississippi',
-    MO: 'Missouri',
-    MT: 'Montana',
-    NE: 'Nebraska',
-    NV: 'Nevada',
-    NH: 'New Hampshire',
-    NJ: 'New Jersey',
-    NM: 'New Mexico',
-    NY: 'New York',
-    NC: 'North Carolina',
-    ND: 'North Dakota',
-    OH: 'Ohio',
-    OK: 'Oklahoma',
-    OR: 'Oregon',
-    PA: 'Pennsylvania',
-    RI: 'Rhode Island',
-    SC: 'South Carolina',
-    SD: 'South Dakota',
-    TN: 'Tennessee',
-    TX: 'Texas',
-    UT: 'Utah',
-    VT: 'Vermont',
-    VA: 'Virginia',
-    WA: 'Washington',
-    WV: 'West Virginia',
-    WI: 'Wisconsin',
-    WY: 'Wyoming',
-    DC: 'Washington D.C.',
-  };
   // Collect specific states from the deal's geographic_states and address_state
   const statesInDeal: string[] = [];
   if (addressState) statesInDeal.push(addressState.toUpperCase());
@@ -756,7 +854,7 @@ function enforceAnonymization(
   const uniqueStates = [...new Set(statesInDeal)];
   const stateNamesToReplace: string[] = [];
   for (const abbr of uniqueStates) {
-    if (stateNames[abbr]) stateNamesToReplace.push(stateNames[abbr]);
+    if (STATE_CODE_TO_NAME[abbr]) stateNamesToReplace.push(STATE_CODE_TO_NAME[abbr]);
     stateNamesToReplace.push(abbr);
   }
 
@@ -767,9 +865,13 @@ function enforceAnonymization(
   return sections.map((s) => {
     let content = s.content;
 
-    // Replace identifying company/contact terms
+    // Replace identifying company/contact terms (including possessive forms)
     for (const term of uniqueTerms) {
       const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Match possessive form first (e.g., "John's" → "the Company's") to avoid
+      // broken "'s" fragments after replacing the base term
+      const possessiveRegex = new RegExp(`${escaped}'s\\b`, 'gi');
+      content = content.replace(possessiveRegex, `${projectCodename}'s`);
       const regex = new RegExp(escaped, 'gi');
       content = content.replace(regex, projectCodename);
     }
@@ -1034,6 +1136,7 @@ async function generateFullMemo(
     company_website: string;
     company_phone: string;
   },
+  supabase?: SupabaseClient,
 ): Promise<MemoContent> {
   const systemPrompt = `You are a senior analyst at a tech-enabled investment bank writing an internal lead memo. Your audience: partners and deal team members who evaluate opportunities. A partner should read this in under 5 minutes and know whether to pursue the deal.
 
@@ -1048,9 +1151,10 @@ CORE RULES
 
 SOURCE PRIORITY (highest to lowest)
 1. Financial statements / tax returns (for financial figures only)
-2. Call transcripts (most recent first)
-3. General notes and manual entries
-4. Enrichment data (website, LinkedIn)
+2. Data room documents (uploaded due diligence material)
+3. Call transcripts (most recent first)
+4. General notes and manual entries
+5. Enrichment data (website, LinkedIn)
 
 Conflict rules:
 * When two sources give specific, different values for the same data point, use the highest-priority source and note: "Owner stated $X; [other source] shows $Y."
@@ -1107,6 +1211,8 @@ IMPORTANT: Transcripts may include SourceCo associates and the business owner. E
 
 === VALUATION CALCULATOR DATA === ${context.valuationData || 'No valuation data.'}
 
+=== DATA ROOM DOCUMENTS (authoritative due diligence material) === ${context.dataRoomContent || 'No data room documents available.'}
+
 Return the memo as markdown with ## headers. Headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES. Omit sections with no data (except COMPANY OVERVIEW). Present financial data as simple labeled lines. Do not use tables. Include all identifying information. Flag conflicts between sources.`;
 
   // Regeneration loop: up to 3 retries for blocking validation failures
@@ -1134,10 +1240,25 @@ Return the memo as markdown with ## headers. Headers must exactly match: COMPANY
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Claude API error ${response.status}: ${errorText}`);
+      console.error(`Claude API error ${response.status}:`, errorText);
+      throw new Error(`AI generation failed (status ${response.status})`);
     }
 
     const result = await response.json();
+
+    // Log AI cost (non-blocking)
+    if (supabase && result.usage) {
+      logAICallCost(
+        supabase,
+        'generate-lead-memo:full',
+        'anthropic',
+        DEFAULT_CLAUDE_MODEL,
+        { inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens },
+        undefined,
+        { attempt },
+      ).catch(console.error);
+    }
+
     const rawContent = result.content?.[0]?.text;
 
     if (!rawContent) {
@@ -1246,6 +1367,7 @@ async function generateAnonymousTeaser(
   },
   projectCodename: string,
   regionName: string,
+  supabase?: SupabaseClient,
 ): Promise<MemoContent> {
   // Build banned terms list for anonymity enforcement in the prompt
   const companyName = (context.deal.internal_company_name || context.deal.title || '') as string;
@@ -1324,7 +1446,7 @@ After Rules 1-8, do a final anonymity audit. Could an industry expert identify t
 BANNED IDENTIFYING TERMS: ${bannedTermsLine}
 
 SOURCE HIERARCHY
-Financial statements/tax returns > Transcripts > General Notes > Enrichment/Website > Manual entries. Most recent transcript takes priority. If no call transcript is provided, note: "Based on enrichment data only."
+Financial statements/tax returns > Data room documents > Transcripts > General Notes > Enrichment/Website > Manual entries. Most recent transcript takes priority. If no call transcript is provided, note: "Based on enrichment data only."
 
 SECTIONS — use only these headers, in this order:
 
@@ -1371,7 +1493,9 @@ IMPORTANT: Call transcripts may include conversations between SourceCo associate
 
 === VALUATION CALCULATOR DATA === ${context.valuationData || 'No valuation data.'}
 
-DATA SOURCE PRIORITY: Financial statements > Transcripts > General Notes > Enrichment > Manual entries. When sources conflict, use the highest-priority source. When data is absent, omit the topic entirely.
+=== DATA ROOM DOCUMENTS (authoritative due diligence material) === ${context.dataRoomContent || 'No data room documents available.'}
+
+DATA SOURCE PRIORITY: Financial statements > Data room documents > Transcripts > General Notes > Enrichment > Manual entries. When sources conflict, use the highest-priority source. When data is absent, omit the topic entirely.
 
 Return as markdown with ## headers. Must exactly match: BUSINESS OVERVIEW, DEAL SNAPSHOT, KEY FACTS, GROWTH CONTEXT, OWNER OBJECTIVES. Omit GROWTH CONTEXT if no growth plans were stated.
 
@@ -1402,10 +1526,25 @@ FINAL ANONYMITY CHECK: Before returning, re-read every sentence. Confirm no comb
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Claude API error ${response.status}: ${errorText}`);
+      console.error(`Claude API error ${response.status}:`, errorText);
+      throw new Error(`AI generation failed (status ${response.status})`);
     }
 
     const result = await response.json();
+
+    // Log AI cost (non-blocking)
+    if (supabase && result.usage) {
+      logAICallCost(
+        supabase,
+        'generate-lead-memo:teaser',
+        'anthropic',
+        DEFAULT_CLAUDE_MODEL,
+        { inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens },
+        undefined,
+        { attempt },
+      ).catch(console.error);
+    }
+
     const rawContent = result.content?.[0]?.text;
 
     if (!rawContent) {
@@ -1472,72 +1611,20 @@ async function generateMemo(
     company_phone: string;
   },
   projectName?: string,
+  supabase?: SupabaseClient,
 ): Promise<MemoContent> {
   const isAnonymous = memoType === 'anonymous_teaser';
 
   // Derive the actual region/state for anonymous codename
   const dealState =
     typeof context.deal.address_state === 'string' ? context.deal.address_state : '';
-  const stateToRegion: Record<string, string> = {
-    AL: 'Southeast',
-    AK: 'Pacific Northwest',
-    AZ: 'Southwest',
-    AR: 'South Central',
-    CA: 'West Coast',
-    CO: 'Mountain West',
-    CT: 'Northeast',
-    DE: 'Mid-Atlantic',
-    FL: 'Southeast',
-    GA: 'Southeast',
-    HI: 'Pacific',
-    ID: 'Mountain West',
-    IL: 'Midwest',
-    IN: 'Midwest',
-    IA: 'Midwest',
-    KS: 'Central',
-    KY: 'Southeast',
-    LA: 'Gulf Coast',
-    ME: 'New England',
-    MD: 'Mid-Atlantic',
-    MA: 'New England',
-    MI: 'Great Lakes',
-    MN: 'Upper Midwest',
-    MS: 'Gulf Coast',
-    MO: 'Central',
-    MT: 'Mountain West',
-    NE: 'Central',
-    NV: 'Mountain West',
-    NH: 'New England',
-    NJ: 'Mid-Atlantic',
-    NM: 'Southwest',
-    NY: 'Northeast',
-    NC: 'Southeast',
-    ND: 'Upper Midwest',
-    OH: 'Great Lakes',
-    OK: 'South Central',
-    OR: 'Pacific Northwest',
-    PA: 'Mid-Atlantic',
-    RI: 'New England',
-    SC: 'Southeast',
-    SD: 'Upper Midwest',
-    TN: 'Southeast',
-    TX: 'South Central',
-    UT: 'Mountain West',
-    VT: 'New England',
-    VA: 'Mid-Atlantic',
-    WA: 'Pacific Northwest',
-    WV: 'Appalachian',
-    WI: 'Great Lakes',
-    WY: 'Mountain West',
-    DC: 'Mid-Atlantic',
-  };
-  const regionName = stateToRegion[dealState.toUpperCase()] || 'Central';
+  const regionName = STATE_CODE_TO_REGION[dealState.toUpperCase()] || 'Central';
   // Use user-provided project name if available, otherwise generate from region
   const projectCodename = projectName?.trim() || `Project ${regionName}`;
 
   // Route to the appropriate generation pipeline
   if (!isAnonymous) {
-    return await generateFullMemo(apiKey, context, branding, companyMeta);
+    return await generateFullMemo(apiKey, context, branding, companyMeta, supabase);
   }
 
   return await generateAnonymousTeaser(
@@ -1547,6 +1634,7 @@ async function generateMemo(
     companyMeta,
     projectCodename,
     regionName,
+    supabase,
   );
 }
 
@@ -1701,5 +1789,10 @@ function markdownToHtml(text: string): string {
 }
 
 function applyInlineFormatting(text: string): string {
-  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
+  // Extract bold/italic markers, escape everything else, then re-apply formatting
+  // This prevents XSS from content like **<script>alert(1)</script>**
+  const escaped = escapeHtmlForMemo(text);
+  return escaped
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 }

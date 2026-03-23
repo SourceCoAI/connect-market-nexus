@@ -363,6 +363,35 @@ export function sanitizeStringArray(
     .map((item) => sanitizeString(item, maxItemLength));
 }
 
+// ============= TIMING-SAFE COMPARISON =============
+
+/**
+ * Timing-safe string comparison to prevent timing attacks on secret verification.
+ * Always compares all characters regardless of where a mismatch occurs.
+ */
+export function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+// ============= HTML ESCAPING =============
+
+/**
+ * Escape HTML special characters to prevent XSS in rendered templates.
+ */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ============= RESPONSE HELPERS =============
 
 /**

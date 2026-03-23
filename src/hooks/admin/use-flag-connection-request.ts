@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { invalidateConnectionRequests } from '@/lib/query-client-helpers';
 import { QUERY_KEYS } from '@/lib/query-keys';
 
@@ -39,23 +39,28 @@ export function useFlagConnectionRequest() {
     onMutate: async ({ requestId, flagged, assignedTo }) => {
       await queryClient.cancelQueries({ queryKey: QUERY_KEYS.admin.connectionRequests });
 
-      const prev = queryClient.getQueryData<Record<string, unknown>[]>(QUERY_KEYS.admin.connectionRequests);
+      const prev = queryClient.getQueryData<Record<string, unknown>[]>(
+        QUERY_KEYS.admin.connectionRequests,
+      );
 
-      queryClient.setQueryData<Record<string, unknown>[]>(QUERY_KEYS.admin.connectionRequests, (old) => {
-        if (!old) return [];
-        const now = new Date().toISOString();
-        return old.map((req) =>
-          req.id === requestId
-            ? {
-                ...req,
-                flagged_for_review: flagged,
-                flagged_for_review_at: flagged ? now : null,
-                flagged_for_review_by: flagged ? user?.id : null,
-                flagged_for_review_assigned_to: flagged ? (assignedTo ?? null) : null,
-              }
-            : req
-        );
-      });
+      queryClient.setQueryData<Record<string, unknown>[]>(
+        QUERY_KEYS.admin.connectionRequests,
+        (old) => {
+          if (!old) return [];
+          const now = new Date().toISOString();
+          return old.map((req) =>
+            req.id === requestId
+              ? {
+                  ...req,
+                  flagged_for_review: flagged,
+                  flagged_for_review_at: flagged ? now : null,
+                  flagged_for_review_by: flagged ? user?.id : null,
+                  flagged_for_review_assigned_to: flagged ? (assignedTo ?? null) : null,
+                }
+              : req,
+          );
+        },
+      );
 
       return { prev };
     },

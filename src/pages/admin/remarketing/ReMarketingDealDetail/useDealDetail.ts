@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +15,7 @@ export function useDealDetail() {
   const queryClient = useQueryClient();
 
   const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichStartedAt, setEnrichStartedAt] = useState<string | null>(null);
   const [isAnalyzingNotes, setIsAnalyzingNotes] = useState(false);
   const [buyerHistoryOpen, setBuyerHistoryOpen] = useState(false);
   const [editFinancialsOpen, setEditFinancialsOpen] = useState(false);
@@ -34,7 +35,46 @@ export function useDealDetail() {
       return data;
     },
     enabled: !!dealId,
+    // Poll every 10s while enrichment is in progress so deal data refreshes automatically
+    refetchInterval: enrichStartedAt ? 10_000 : false,
   });
+
+  // Resolve deal owner name from deal_owner_id or primary_owner_id
+  const dealOwnerId = deal?.deal_owner_id || deal?.primary_owner_id || null;
+  const { data: dealOwnerProfile } = useQuery({
+    queryKey: ['profile', dealOwnerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .eq('id', dealOwnerId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!dealOwnerId,
+    staleTime: 60_000,
+  });
+  const dealOwnerName = dealOwnerProfile
+    ? `${dealOwnerProfile.first_name ?? ''} ${dealOwnerProfile.last_name ?? ''}`.trim()
+    : null;
+
+  // Stop polling once enriched_at has advanced past when we started enrichment,
+  // or after 3 minutes as a safety timeout to prevent infinite polling.
+  useEffect(() => {
+    if (!enrichStartedAt) return;
+
+    if (deal?.enriched_at && deal.enriched_at > enrichStartedAt) {
+      setEnrichStartedAt(null);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setEnrichStartedAt(null);
+    }, 180_000); // 3 minute safety timeout
+
+    return () => clearTimeout(timeout);
+  }, [enrichStartedAt, deal?.enriched_at]);
 
   // Score stats decommissioned — old scoring engine removed.
   // Downstream components (DataRoomTab, OverviewTab, WebsiteActionsCard) accept
@@ -87,6 +127,7 @@ export function useDealDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
     },
   });
 
@@ -164,9 +205,7 @@ export function useDealDetail() {
     onSuccess: (_, flagged) => {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', dealId] });
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
-      toast.success(
-        flagged ? 'Flagged: Need to find a buyer' : 'Find buyer flag cleared',
-      );
+      toast.success(flagged ? 'Flagged: Need to find a buyer' : 'Find buyer flag cleared');
     },
     onError: () => toast.error('Failed to update flag'),
   });
@@ -211,7 +250,9 @@ export function useDealDetail() {
     try {
       const { queueDealEnrichment } = await import('@/lib/remarketing/queueEnrichment');
       await queueDealEnrichment([dealId!]);
-      toast.success('Queued for background enrichment');
+      // Start polling for deal data refresh until enriched_at advances
+      setEnrichStartedAt(new Date().toISOString());
+      toast.success('Queued for background enrichment — data will refresh automatically');
     } catch (error: unknown) {
       toast.error((error instanceof Error ? error.message : null) || 'Failed to queue enrichment');
     } finally {
@@ -266,6 +307,7 @@ export function useDealDetail() {
     pipelineStats,
     transcripts,
     transcriptsLoading,
+    dealOwnerName,
     // Mutations
     updateDealMutation,
     toggleUniverseFlagMutation,

@@ -34,14 +34,17 @@ export function SignupStepPersonal({ formData, onChange }: Props) {
           <Input id="jobTitle" name="jobTitle" placeholder="e.g., Partner, VP" value={formData.jobTitle || ""} onChange={onChange} />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="website" className="text-xs text-muted-foreground">Website</Label>
-          <Input id="website" name="website" placeholder="example.com" value={formData.website} onChange={onChange} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="linkedinProfile" className="text-xs text-muted-foreground">LinkedIn</Label>
-          <Input id="linkedinProfile" name="linkedinProfile" placeholder="linkedin.com/in/..." value={formData.linkedinProfile} onChange={onChange} />
+      <div className="space-y-1.5">
+        <p className="text-xs text-muted-foreground">Please provide at least one of the following so we can verify your credibility</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="website" className="text-xs text-muted-foreground">Website</Label>
+            <Input id="website" name="website" placeholder="example.com" value={formData.website} onChange={onChange} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="linkedinProfile" className="text-xs text-muted-foreground">LinkedIn</Label>
+            <Input id="linkedinProfile" name="linkedinProfile" placeholder="linkedin.com/in/..." value={formData.linkedinProfile} onChange={onChange} />
+          </div>
         </div>
       </div>
     </div>

@@ -9,6 +9,7 @@ export interface ValuationLead {
   business_name: string | null;
   website: string | null;
   phone: string | null;
+  work_email: string | null;
   linkedin_url: string | null;
   industry: string | null;
   region: string | null;

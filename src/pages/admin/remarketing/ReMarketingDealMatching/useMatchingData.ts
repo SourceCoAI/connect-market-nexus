@@ -274,7 +274,6 @@ export function useMatchingData(listingId: string | undefined) {
 
       // Use individual scores to find the weakest dimension (more accurate than keywords)
       const dimensions = [
-        { name: 'size mismatch', score: s.size_score ?? 100 },
         { name: 'no nearby presence', score: s.geography_score ?? 100 },
         { name: 'service mismatch', score: s.service_score ?? 100 },
         { name: 'owner goals mismatch', score: s.owner_goals_score ?? 100 },

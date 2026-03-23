@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
@@ -7,11 +7,8 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
  * Fireflies webhook handler for meeting task extraction.
  *
  * When Fireflies finishes processing a meeting, it sends a webhook.
- * This function triggers the extract-standup-tasks function to pull
- * actionable tasks from the meeting transcript.
- *
- * All meetings are processed. Meetings tagged with `<ds>` in the title
- * are logged as known standup meetings but the tag is NOT required.
+ * Only meetings tagged with `<ds>` in the title are processed for
+ * task extraction. All other meetings are acknowledged but skipped.
  */
 
 const STANDUP_TITLE_TAG = '<ds>';
@@ -95,11 +92,22 @@ serve(async (req) => {
       console.log(`Fetched title from API: "${meetingTitle}"`);
     }
 
-    // Log standup tag status (informational — no longer required)
+    // Only process meetings with the <ds> tag
     const isTaggedStandup = hasStandupTag(meetingTitle);
-    if (isTaggedStandup) {
-      console.log(`Meeting "${meetingTitle}" has <ds> standup tag`);
+    if (!isTaggedStandup) {
+      console.log(`Skipping non-<ds> meeting: "${meetingTitle}" (${transcriptId})`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: 'Not a <ds> tagged meeting',
+          transcript_id: transcriptId,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
+
+    console.log(`Processing <ds> meeting: "${meetingTitle}" (${transcriptId})`);
 
     // Check if we've already processed this transcript
     const { data: existing } = await supabase

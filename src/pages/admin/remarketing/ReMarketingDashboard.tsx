@@ -281,7 +281,7 @@ const ReMarketingDashboard = () => {
               return (
                 <div className="space-y-3 max-h-64 overflow-y-auto">
                   {entries.map((item: any) => {
-                    const oid = item.owner_id;
+                    const oid = item.owner_id as string;
                     const profile =
                       oid !== '__unassigned' && adminProfiles ? adminProfiles[oid] : null;
                     const name = profile ? profile.displayName : 'Unassigned';
@@ -342,8 +342,8 @@ const ReMarketingDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {topDeals.map((deal: any, i: number) => (
-                  <tr key={deal.id} className="border-b border-gray-50 last:border-0">
+                {topDeals.map((deal: Record<string, unknown>, i: number) => (
+                  <tr key={String(deal.id)} className="border-b border-gray-50 last:border-0">
                     <td className="py-2.5 pr-2 text-gray-400 font-medium">{i + 1}</td>
                     <td className="py-2.5 pr-3">
                       <Link
@@ -351,31 +351,31 @@ const ReMarketingDashboard = () => {
                         state={{ from: '/admin' }}
                         className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
                       >
-                        {deal.internal_company_name || deal.title || '—'}
+                        {String(deal.internal_company_name || deal.title || '—')}
                       </Link>
                     </td>
                     <td className="py-2.5 pr-3">
-                      <DealSourceBadge source={deal.deal_source} />
+                      <DealSourceBadge source={deal.deal_source as string | undefined} />
                     </td>
                     <td className="py-2.5 pr-3 text-gray-600 truncate max-w-[120px]">
-                      {deal.category || '—'}
+                      {String(deal.category || '—')}
                     </td>
                     <td className="py-2.5 pr-3 text-right text-gray-700">
-                      {formatCurrency(deal.revenue)}
+                      {formatCurrency(deal.revenue as number | null | undefined)}
                     </td>
                     <td className="py-2.5 pr-3 text-right text-gray-700">
-                      {formatCurrency(deal.ebitda)}
+                      {formatCurrency(deal.ebitda as number | null | undefined)}
                     </td>
                     <td className="py-2.5 pr-3 text-center">
                       <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${scorePillClass(deal.deal_total_score)}`}
+                        className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${scorePillClass(deal.deal_total_score as number | null)}`}
                       >
-                        {deal.deal_total_score}
+                        {String(deal.deal_total_score ?? '')}
                       </span>
                     </td>
-                    <td className="py-2.5 pr-3 text-gray-600">{deal.address_state || '—'}</td>
+                    <td className="py-2.5 pr-3 text-gray-600">{String(deal.address_state || '—')}</td>
                     <td className="py-2.5 text-right text-gray-500 text-xs">
-                      {formatDistanceToNow(new Date(deal.created_at), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(deal.created_at as string), { addSuffix: true })}
                     </td>
                   </tr>
                 ))}

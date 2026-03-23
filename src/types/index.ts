@@ -6,7 +6,13 @@ export type UserRole = 'admin' | 'buyer';
 /** Internal team role for admin-panel access control. */
 export type TeamRole = 'owner' | 'admin' | 'moderator' | 'viewer';
 
-export type BuyerType =
+/**
+ * Marketplace signup buyer type — camelCase values stored in the profiles table.
+ * NOTE: The remarketing/buyers table uses the canonical snake_case BuyerType
+ * defined in src/types/remarketing.ts and src/types/status-enums.ts.
+ * A future migration should align profiles.buyer_type to the canonical enum.
+ */
+export type SignupBuyerType =
   | 'corporate'
   | 'privateEquity'
   | 'familyOffice'
@@ -14,12 +20,28 @@ export type BuyerType =
   | 'individual'
   | 'independentSponsor'
   | 'advisor'
-  | 'businessOwner';
+  | 'businessOwner'
+  // Snake-case variants (used in admin/remarketing contexts and legacy DB rows)
+  | 'private_equity'
+  | 'family_office'
+  | 'search_fund'
+  | 'independent_sponsor'
+  | 'business_owner'
+  | 'individual_buyer';
 
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+/** @deprecated Use SignupBuyerType (marketplace) or BuyerType from @/types/remarketing (canonical). */
+export type BuyerType = SignupBuyerType;
+
+/** @deprecated Import ApprovalStatus from '@/types/status-enums' instead. */
+import type { ApprovalStatus } from './status-enums';
+export type { ApprovalStatus } from './status-enums';
 
 export type ListingStatus = 'active' | 'inactive';
 
+/**
+ * Simplified connection request status for marketplace-facing code.
+ * The canonical 5-value type is ConnectionRequestStatus from status-enums.ts.
+ */
 export type ConnectionRequestStatus = 'pending' | 'approved' | 'rejected';
 
 /** Severity levels used by the error handling subsystem. */
@@ -114,7 +136,7 @@ export interface User {
   equity_source?: string[];
   // Canonical DB column name
   flex_subxm_ebitda?: boolean;
-  // Back-compat alias used in some components
+  /** @deprecated Use flex_subxm_ebitda instead */
   flex_subXm_ebitda?: boolean;
   backers_summary?: string;
   deployment_timing?: string;
@@ -346,3 +368,21 @@ export type {
 } from './analytics';
 export type { NonMarketplaceUser, NonMarketplaceUserFilters } from './non-marketplace-user';
 export type { Transcript, WebhookConfig, WebhookDelivery, TranscriptHealth } from './transcript';
+export type {
+  ListingPipelineStatus,
+  ConnectionRequestStatus as FullConnectionRequestStatus,
+  IntroductionStatus as FullIntroductionStatus,
+  MemoStatus,
+  MarketplaceListingStatus,
+  EnrichmentJobStatus,
+  GlobalActivityStatus,
+} from './status-enums';
+export {
+  LISTING_PIPELINE_STATUSES,
+  CONNECTION_REQUEST_STATUSES,
+  INTRODUCTION_STATUSES,
+  MEMO_STATUSES,
+  MARKETPLACE_LISTING_STATUSES,
+  ENRICHMENT_JOB_STATUSES,
+  GLOBAL_ACTIVITY_STATUSES,
+} from './status-enums';

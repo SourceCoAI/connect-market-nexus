@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type AppRole = 'owner' | 'admin' | 'moderator' | 'viewer';
 
@@ -29,9 +29,9 @@ export const usePermissions = () => {
     queryFn: async () => {
       if (!user?.id) return null;
 
-      const { data, error } = await supabase.rpc('get_user_role', {
-        _user_id: user.id
-      });
+      // Use get_my_role() which has explicit GRANT EXECUTE to authenticated,
+      // unlike get_user_role() which may lack the grant and silently fail.
+      const { data, error } = await supabase.rpc('get_my_role');
 
       if (error) {
         console.error('Error fetching user role:', error);

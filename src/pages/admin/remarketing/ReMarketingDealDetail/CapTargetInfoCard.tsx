@@ -1,14 +1,14 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Check, ExternalLink, Target } from "lucide-react";
-import { format } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Check, ExternalLink, Target } from 'lucide-react';
+import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 interface CapTargetInfoCardProps {
-  deal: any;
+  deal: Record<string, any>;
   dealId: string;
 }
 
@@ -29,34 +29,54 @@ export function CapTargetInfoCard({ deal, dealId }: CapTargetInfoCardProps) {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {deal.captarget_client_name && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Client</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                Client
+              </p>
               <p className="text-sm font-medium">{deal.captarget_client_name}</p>
             </div>
           )}
           {deal.captarget_contact_date && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Contact Date</p>
-              <p className="text-sm">{format(new Date(deal.captarget_contact_date), 'MMM d, yyyy')}</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                Contact Date
+              </p>
+              <p className="text-sm">
+                {format(new Date(deal.captarget_contact_date), 'MMM d, yyyy')}
+              </p>
             </div>
           )}
           {deal.captarget_outreach_channel && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Outreach Channel</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                Outreach Channel
+              </p>
               <p className="text-sm">{deal.captarget_outreach_channel}</p>
             </div>
           )}
           {deal.captarget_interest_type && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Interest Type</p>
-              <Badge variant="outline" className={
-                deal.captarget_interest_type === 'interest' ? 'bg-green-50 text-green-700 border-green-200' :
-                deal.captarget_interest_type === 'no_interest' ? 'bg-red-50 text-red-700 border-red-200' :
-                deal.captarget_interest_type === 'keep_in_mind' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                'bg-gray-50 text-gray-600 border-gray-200'
-              }>
-                {deal.captarget_interest_type === 'interest' ? 'Interest' :
-                 deal.captarget_interest_type === 'no_interest' ? 'No Interest' :
-                 deal.captarget_interest_type === 'keep_in_mind' ? 'Keep in Mind' : 'Unknown'}
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                Interest Type
+              </p>
+              <Badge
+                variant="outline"
+                className={
+                  deal.captarget_interest_type === 'interest'
+                    ? 'bg-green-50 text-green-700 border-green-200'
+                    : deal.captarget_interest_type === 'no_interest'
+                      ? 'bg-red-50 text-red-700 border-red-200'
+                      : deal.captarget_interest_type === 'keep_in_mind'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-gray-50 text-gray-600 border-gray-200'
+                }
+              >
+                {deal.captarget_interest_type === 'interest'
+                  ? 'Interest'
+                  : deal.captarget_interest_type === 'no_interest'
+                    ? 'No Interest'
+                    : deal.captarget_interest_type === 'keep_in_mind'
+                      ? 'Keep in Mind'
+                      : 'Unknown'}
               </Badge>
             </div>
           )}

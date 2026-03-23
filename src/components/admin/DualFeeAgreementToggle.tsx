@@ -35,12 +35,12 @@ export function DualFeeAgreementToggle({
     | null
     | undefined;
 
-  // Use firm-level status if available, fallback to profile
-  const isSigned = firm?.fee_agreement_signed ?? (user.fee_agreement_signed || false);
-  const signedAt = firm?.fee_agreement_signed_at ?? user.fee_agreement_signed_at;
+  // Only use firm-level status — never fall back to stale profile-level booleans
+  const isSigned = firm?.fee_agreement_signed ?? false;
+  const signedAt = firm?.fee_agreement_signed_at ?? null;
   const signedByName = firm?.fee_agreement_signed_by_name;
-  const emailSent = firm?.fee_agreement_email_sent ?? (user.fee_agreement_email_sent || false);
-  const emailSentAt = firm?.fee_agreement_email_sent_at ?? user.fee_agreement_email_sent_at;
+  const emailSent = firm?.fee_agreement_email_sent ?? false;
+  const emailSentAt = firm?.fee_agreement_email_sent_at ?? null;
   const firmName = firm?.primary_company_name;
 
   const handleSignedToggleChange = async (checked: boolean) => {

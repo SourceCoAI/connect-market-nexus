@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageSquare, Send, Loader2, Trash2 } from 'lucide-react';
 import { useTaskComments, useAddTaskComment, useDeleteTaskComment } from '@/hooks/useTaskComments';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 interface TaskCommentsPanelProps {

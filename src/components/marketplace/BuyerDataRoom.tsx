@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { DataRoomOrientation } from './DataRoomOrientation';
 

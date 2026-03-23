@@ -1,13 +1,13 @@
 /**
  * Source Priority System for Deal Enrichment
  * Implements field-level source tracking per Whispers spec:
- * Priority: Transcript (100) > Notes (80) > Website (60) > CSV (40) > Manual (20)
+ * Priority: Transcript (100) > Data Room (90) > Notes (80) > Website (60) > CSV (40) > Manual (20)
  *
  * Higher priority sources can overwrite lower priority sources.
  * Prevents low-quality data from corrupting high-quality extractions.
  */
 
-export type ExtractionSource = 'transcript' | 'notes' | 'website' | 'csv' | 'manual';
+export type ExtractionSource = 'transcript' | 'data_room' | 'notes' | 'website' | 'csv' | 'manual';
 
 export interface FieldSource {
   source: ExtractionSource;
@@ -20,9 +20,10 @@ export interface FieldSource {
 export type ExtractionSources = Record<string, FieldSource>;
 
 // Source priority scores (higher number = higher priority)
-// Whispers spec: transcript:100 > notes:80 > website:60 > csv:40 > manual:20
+// Whispers spec: transcript:100 > data_room:90 > notes:80 > website:60 > csv:40 > manual:20
 const SOURCE_PRIORITY: Record<ExtractionSource, number> = {
   'transcript': 100, // Highest - call transcripts are most authoritative
+  'data_room': 90,   // Data room documents (CIMs, financials, legal docs)
   'notes': 80,       // Broker notes and internal memos
   'website': 60,     // Website scraping
   'csv': 40,         // CSV imports
@@ -33,6 +34,7 @@ const SOURCE_PRIORITY: Record<ExtractionSource, number> = {
 const PROTECTED_FIELDS = new Set([
   'revenue',
   'ebitda',
+  'asking_price',
   'owner_goals',
   'transition_preferences',
   'key_quotes',
@@ -97,6 +99,10 @@ export function getFieldSource(
   fieldName: string
 ): FieldSource | null {
   if (!extractionSources || typeof extractionSources !== 'object') {
+    return null;
+  }
+  // Guard against legacy array-format extraction_sources (buyers)
+  if (Array.isArray(extractionSources)) {
     return null;
   }
   return extractionSources[fieldName] || null;

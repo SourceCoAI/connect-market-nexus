@@ -31,6 +31,7 @@ interface AddContactDialogProps {
   }) => void;
   onSubmit: () => void;
   isPending: boolean;
+  editMode?: boolean;
 }
 
 export const AddContactDialog = ({
@@ -40,13 +41,16 @@ export const AddContactDialog = ({
   onContactChange,
   onSubmit,
   isPending,
+  editMode = false,
 }: AddContactDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Contact</DialogTitle>
-          <DialogDescription>Add a new contact for this buyer</DialogDescription>
+          <DialogTitle>{editMode ? 'Edit Contact' : 'Add Contact'}</DialogTitle>
+          <DialogDescription>
+            {editMode ? 'Update contact details' : 'Add a new contact for this buyer'}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -101,7 +105,7 @@ export const AddContactDialog = ({
             onClick={onSubmit}
             disabled={!newContact.name || isPending}
           >
-            Add Contact
+            {editMode ? 'Save Changes' : 'Add Contact'}
           </Button>
         </DialogFooter>
       </DialogContent>

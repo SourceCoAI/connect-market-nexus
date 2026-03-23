@@ -1,11 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
-import { User, ApprovalStatus } from "@/types";
-import { createUserObject } from "@/lib/auth-helpers";
-import { useAuth } from "@/context/AuthContext";
-import { adminErrorHandler } from "@/lib/error-handler";
-import { useRetry, retryConditions } from "@/hooks/use-retry";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+import { User, ApprovalStatus } from '@/types';
+import { createUserObject } from '@/lib/auth-helpers';
+import { useAuth } from '@/contexts/AuthContext';
+import { adminErrorHandler } from '@/lib/error-handler';
+import { useRetry, retryConditions } from '@/hooks/use-retry';
 
 export function useAdminUsers() {
   const queryClient = useQueryClient();
@@ -29,7 +29,7 @@ export function useAdminUsers() {
 
         // createUserObject NEVER throws - always returns valid User
         // Users with _hasDataIssues flag will still be visible in admin
-        return profilesData?.map(profile => createUserObject(profile)) || [];
+        return profilesData?.map((profile) => createUserObject(profile)) || [];
       },
       enabled: authChecked && !!user && isAdmin,
       retry: 3,
@@ -48,7 +48,7 @@ export function useAdminUsers() {
           .from('profiles')
           .update({
             approval_status: status,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
           .eq('id', userId)
           .select('id')
@@ -68,7 +68,7 @@ export function useAdminUsers() {
       {
         maxRetries: 3,
         retryCondition: retryConditions.networkOnly,
-      }
+      },
     );
 
     return useMutation({
@@ -94,7 +94,7 @@ export function useAdminUsers() {
         const rpcFunction = isAdmin ? 'promote_user_to_admin' : 'demote_admin_user';
 
         const { data, error } = await supabase.rpc(rpcFunction, {
-          target_user_id: userId
+          target_user_id: userId,
         });
 
         if (error) {
@@ -106,13 +106,15 @@ export function useAdminUsers() {
       {
         maxRetries: 2,
         retryCondition: retryConditions.nonAuthErrors,
-      }
+      },
     );
 
     return useMutation({
       mutationFn: execute,
       onSuccess: ({ isAdmin, userId }) => {
-        const message = isAdmin ? 'User has been granted admin privileges.' : 'User no longer has admin privileges.';
+        const message = isAdmin
+          ? 'User has been granted admin privileges.'
+          : 'User no longer has admin privileges.';
         toast({
           title: isAdmin ? 'User promoted to admin' : 'Admin privileges revoked',
           description: message,
@@ -120,11 +122,7 @@ export function useAdminUsers() {
         // Optimistically update the user in cache
         queryClient.setQueryData(['admin-users'], (old: User[] | undefined) => {
           if (!old) return old;
-          return old.map(user => 
-            user.id === userId 
-              ? { ...user, is_admin: isAdmin }
-              : user
-          );
+          return old.map((user) => (user.id === userId ? { ...user, is_admin: isAdmin } : user));
         });
         // Also invalidate to ensure fresh data from server
         queryClient.invalidateQueries({ queryKey: ['admin-users'] });
@@ -149,7 +147,7 @@ export function useAdminUsers() {
       async (userId: string) => {
         // Use the new RPC function for complete user deletion
         const { data, error } = await supabase.rpc('delete_user_completely', {
-          target_user_id: userId
+          target_user_id: userId,
         });
 
         if (error) {
@@ -161,7 +159,7 @@ export function useAdminUsers() {
       {
         maxRetries: 2,
         retryCondition: retryConditions.networkOnly,
-      }
+      },
     );
 
     return useMutation({
@@ -174,7 +172,7 @@ export function useAdminUsers() {
         // Optimistically remove the user from cache
         queryClient.setQueryData(['admin-users'], (old: User[] | undefined) => {
           if (!old) return old;
-          return old.filter(user => user.id !== userId);
+          return old.filter((user) => user.id !== userId);
         });
         // Also invalidate to ensure fresh data from server
         queryClient.invalidateQueries({ queryKey: ['admin-users'] });
@@ -198,7 +196,7 @@ export function useAdminUsers() {
     return useMutation({
       mutationFn: async (userId: string) => {
         const { data, error } = await supabase.rpc('promote_user_to_admin', {
-          target_user_id: userId
+          target_user_id: userId,
         });
 
         if (error) {
@@ -229,7 +227,7 @@ export function useAdminUsers() {
     return useMutation({
       mutationFn: async (userId: string) => {
         const { data, error } = await supabase.rpc('demote_admin_user', {
-          target_user_id: userId
+          target_user_id: userId,
         });
 
         if (error) {

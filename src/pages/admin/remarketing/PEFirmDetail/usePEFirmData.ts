@@ -220,21 +220,18 @@ export const usePEFirmData = () => {
       const firstName = nameParts[0] || 'Unknown';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      const { error } = await supabase.from('contacts').insert([
-        {
-          first_name: firstName,
-          last_name: lastName,
-          email: newContact.email || null,
-          phone: newContact.phone || null,
-          title: newContact.role || null,
-          linkedin_url: newContact.linkedin_url || null,
-          is_primary_at_firm: newContact.is_primary,
-          contact_type: 'buyer' as const,
-          remarketing_buyer_id: id!,
-          firm_id: firm?.marketplace_firm_id ?? null,
-          source: 'remarketing_manual',
-        },
-      ]);
+      const { error } = await supabase.rpc('upsert_buyer_contact', {
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_email: newContact.email || null,
+        p_phone: newContact.phone || null,
+        p_title: newContact.role || null,
+        p_linkedin_url: newContact.linkedin_url || null,
+        p_is_primary_at_firm: newContact.is_primary,
+        p_remarketing_buyer_id: id!,
+        p_firm_id: firm?.marketplace_firm_id ?? null,
+        p_source: 'remarketing_manual',
+      });
       if (error) throw error;
     },
     onSuccess: () => {

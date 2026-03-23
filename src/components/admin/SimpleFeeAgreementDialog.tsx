@@ -8,10 +8,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText, X, User, Mail, Send, Loader2 } from 'lucide-react';
 import { User as UserType, Listing } from '@/types';
-import { useAuth } from '@/context/AuthContext';
+import { useUserFirm } from '@/hooks/admin/use-firm-agreement-actions';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { EditableSignature } from '@/components/admin/EditableSignature';
 // Hook removed - edge function handles both email sending and database logging
+
+/** Small helper that resolves firm-level Fee Agreement status badges */
+function FirmFeeStatusBadges({ userId }: { userId: string }) {
+  const { data: firm } = useUserFirm(userId);
+  const f = firm as { fee_agreement_signed?: boolean; fee_agreement_email_sent?: boolean } | null | undefined;
+  return (
+    <div className="flex gap-2">
+      <Badge variant={f?.fee_agreement_signed ? 'default' : 'secondary'}>
+        {f?.fee_agreement_signed ? 'Signed' : 'Pending'}
+      </Badge>
+      <Badge variant={f?.fee_agreement_email_sent ? 'default' : 'outline'}>
+        {f?.fee_agreement_email_sent ? 'Email Sent' : 'Not Sent'}
+      </Badge>
+    </div>
+  );
+}
 
 interface SimpleFeeAgreementDialogProps {
   user: UserType | null;
@@ -217,14 +234,7 @@ export function SimpleFeeAgreementDialog({
                   <span className="text-sm">{user.email}</span>
                   <span className="text-sm text-muted-foreground">({userName})</span>
                 </div>
-                <div className="flex gap-2">
-                  <Badge variant={user.fee_agreement_signed ? 'default' : 'secondary'}>
-                    {user.fee_agreement_signed ? 'Signed' : 'Pending'}
-                  </Badge>
-                  <Badge variant={user.fee_agreement_email_sent ? 'default' : 'outline'}>
-                    {user.fee_agreement_email_sent ? 'Email Sent' : 'Not Sent'}
-                  </Badge>
-                </div>
+                <FirmFeeStatusBadges userId={user.id} />
               </div>
             </CardContent>
           </Card>

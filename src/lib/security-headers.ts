@@ -56,9 +56,8 @@ export const CSP_DIRECTIVES = {
   ],
   'frame-src': [
     "'self'",
-    // DocuSeal embeds
-    'https://docuseal.com',
-    'https://*.docuseal.com',
+    // PandaDoc embedded signing
+    'https://app.pandadoc.com',
   ],
   'object-src': ["'none'"],
   'base-uri': ["'self'"],

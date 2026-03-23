@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { callGeminiWithTool, DEFAULT_GEMINI_MODEL } from "../_shared/ai-providers.ts";
 
 import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
@@ -143,7 +143,7 @@ Return questions as JSON matching this schema exactly.`;
       throw new Error(result.error.message);
     }
 
-    let questions: ClarifyQuestion[] = result.data?.questions || [];
+    let questions: ClarifyQuestion[] = (result.data?.questions as ClarifyQuestion[]) || [];
 
     if (questions.length === 0) {
       questions = getDefaultQuestions(industry_name);

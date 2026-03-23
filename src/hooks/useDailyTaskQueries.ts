@@ -4,7 +4,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { DailyStandupTaskWithRelations } from '@/types/daily-tasks';
 
 export const DAILY_TASKS_QUERY_KEY = 'daily-standup-tasks';
@@ -15,8 +15,8 @@ export const DAILY_TASKS_QUERY_KEY = 'daily-standup-tasks';
 const FULL_SELECT = `
   *,
   assignee:profiles!daily_standup_tasks_assignee_id_fkey(id, first_name, last_name, email),
-  deal:deal_pipeline!daily_standup_tasks_deal_id_fkey(id, listing_id, listings(title, internal_company_name, ebitda), deal_stages(name)),
-  source_meeting:standup_meetings(id, meeting_title, meeting_date, transcript_url)
+  deal:deal_pipeline!daily_standup_tasks_deal_id_fkey(id, listing_id, listings!deals_listing_id_fkey(title, internal_company_name, ebitda), deal_stages!deals_stage_id_fkey(name)),
+  source_meeting:standup_meetings!daily_standup_tasks_source_meeting_id_fkey(id, meeting_title, meeting_date, transcript_url)
 `;
 
 // Minimal select without nested relation joins (fallback when FK joins fail)
@@ -69,7 +69,13 @@ export function useDailyTasks(options: UseDailyTasksOptions) {
         }
 
         if (!options.includeCompleted) {
-          query = query.in('status', ['pending_approval', 'pending', 'in_progress', 'overdue']);
+          query = query.in('status', [
+            'pending_approval',
+            'pending',
+            'in_progress',
+            'overdue',
+            'snoozed',
+          ]);
         }
 
         if (options.dateFrom) {
@@ -92,12 +98,14 @@ export function useDailyTasks(options: UseDailyTasksOptions) {
             retried = true;
             continue;
           }
-          throw error;
+          throw new Error(error.message);
         }
 
         return (data || []) as unknown as DailyStandupTaskWithRelations[];
       }
     },
     staleTime: 30_000,
+    // Poll every hour so tasks created by cron/webhook appear automatically
+    refetchInterval: 3_600_000,
   });
 }

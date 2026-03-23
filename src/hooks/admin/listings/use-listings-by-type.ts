@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AdminListing } from '@/types/admin';
 import { toast } from '@/hooks/use-toast';
 import { withPerformanceMonitoring } from '@/lib/performance-monitor';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTabAwareQuery } from '@/hooks/use-tab-aware-query';
 
 export type ListingType = 'marketplace' | 'research';
@@ -42,7 +42,7 @@ export function useListingsByType(
           let query = supabase
             .from('listings')
             .select(
-              'id, title, description, category, categories, status, revenue, ebitda, asking_price, image_url, is_internal_deal, created_at, updated_at, location, user_id, business_type, employee_count, year_established',
+              'id, title, description, category, categories, status, revenue, ebitda, image_url, is_internal_deal, created_at, updated_at, location, internal_company_name, deal_owner_id',
             )
             .is('deleted_at', null);
 

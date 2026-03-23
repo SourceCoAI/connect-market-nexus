@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/pagination';
 import { toast } from '@/hooks/use-toast';
 import { useRealtime } from '@/components/realtime/RealtimeProvider';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Wifi } from 'lucide-react';
 import { CreateDealAlertDialog } from '@/components/deal-alerts/CreateDealAlertDialog';
 
@@ -89,7 +89,8 @@ const MarketplaceContent = () => {
       if (!hasSeenWelcome) {
         toast({
           title: 'Welcome to SourceCo',
-          description: 'Browse deals, save listings, and request access when you see a fit.',
+          description:
+            'Every deal here has been sourced and qualified by our team. Request an introduction when you find a fit — we handle the rest.',
         });
         localStorage.setItem('sourceco_shown_welcome', 'true');
       }
@@ -181,7 +182,6 @@ const MarketplaceContent = () => {
       )}
 
       <div className="container mx-auto px-4 py-8">
-
         <div className="flex flex-col gap-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-3">

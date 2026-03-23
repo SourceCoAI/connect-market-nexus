@@ -3,8 +3,8 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import { supabase, untypedFrom } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import type { DailyStandupTask, TaskStatus } from '@/types/daily-tasks';
 import { logDealActivity } from '@/lib/deal-activity-logger';
 import { DAILY_TASKS_QUERY_KEY } from './useDailyTaskQueries';
@@ -184,7 +184,7 @@ export function useApproveTask() {
 
       // Log approval to activity log
       try {
-        await (supabase.from('rm_task_activity_log' as any) as any).insert({
+        await untypedFrom('rm_task_activity_log').insert({
           task_id: taskId,
           user_id: user?.id ?? '',
           action: 'status_changed',
@@ -261,7 +261,7 @@ export function useApproveAllTasks() {
       // Log approval activity for each task
       if (pendingTasks.length > 0) {
         try {
-          await (supabase.from('rm_task_activity_log' as any) as any).insert(
+          await untypedFrom('rm_task_activity_log').insert(
             pendingTasks.map((t) => ({
               task_id: t.id,
               user_id: user?.id ?? '',
@@ -468,7 +468,7 @@ export function useAddManualTask() {
         .insert({
           ...task,
           is_manual: true,
-          status: 'pending_approval',
+          status: 'pending',
           priority_score: 50, // default mid-range for manual tasks
           extraction_confidence: 'high',
           needs_review: false,
@@ -541,7 +541,7 @@ export function usePinTask() {
       if (error) throw error;
 
       // Log the action
-      await (supabase.from('task_pin_log' as any) as any).insert({
+      await untypedFrom('task_pin_log').insert({
         task_id: taskId,
         action: isPinning ? 'pinned' : 'unpinned',
         pinned_rank: rank,

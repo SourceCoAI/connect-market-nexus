@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Action Tools (Write-Back)
  * Create tasks, add notes, update stages, grant data room access.
@@ -194,7 +195,7 @@ async function createDealTask(
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
   // Write to the unified daily_standup_tasks table (single source of truth)
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('daily_standup_tasks')
     .insert({
       title: args.title as string,
@@ -221,7 +222,7 @@ async function createDealTask(
   if (error) return { error: error.message };
 
   // Log the activity
-  await supabase.from('deal_activities').insert({
+  await (supabase as any).from('deal_activities').insert({
     deal_id: dealId,
     activity_type: 'task_created',
     title: `Task created: ${args.title}`,
@@ -244,7 +245,7 @@ async function completeDealTask(
   args: Record<string, unknown>,
   userId: string,
 ): Promise<ToolResult> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('daily_standup_tasks')
     .update({
       status: 'completed',
@@ -259,7 +260,7 @@ async function completeDealTask(
 
   // Log the activity (entity_id is the deal_id for deal tasks)
   if (data.entity_id) {
-    await supabase.from('deal_activities').insert({
+    await (supabase as any).from('deal_activities').insert({
       deal_id: data.entity_id,
       activity_type: 'task_completed',
       title: `Task completed: ${data.title}`,
@@ -283,7 +284,7 @@ async function addDealNote(
 ): Promise<ToolResult> {
   const activityType = (args.activity_type as string) || 'note';
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('deal_activities')
     .insert({
       deal_id: args.deal_id as string,
@@ -311,7 +312,7 @@ async function logDealActivity(
   args: Record<string, unknown>,
   userId: string,
 ): Promise<ToolResult> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('deal_activities')
     .insert({
       deal_id: args.deal_id as string,
@@ -351,7 +352,7 @@ async function updateDealStage(
   const newStage = args.new_stage as string;
 
   // Look up the target stage in deal_stages
-  const { data: stageRecord, error: stageError } = await supabase
+  const { data: stageRecord, error: stageError } = await (supabase as any)
     .from('deal_stages')
     .select('id, name')
     .ilike('name', newStage)
@@ -360,7 +361,7 @@ async function updateDealStage(
 
   if (stageError || !stageRecord) {
     // Fetch valid stage names to return a helpful error
-    const { data: validStages } = await supabase
+    const { data: validStages } = await (supabase as any)
       .from('deal_stages')
       .select('name')
       .order('display_order', { ascending: true });
@@ -371,7 +372,7 @@ async function updateDealStage(
   }
 
   // Get current deal info including current stage
-  const { data: current } = await supabase
+  const { data: current } = await (supabase as any)
     .from('deal_pipeline')
     .select('stage_id, title')
     .eq('id', dealId)
@@ -381,7 +382,7 @@ async function updateDealStage(
   let dealTitle = current?.title;
   const oldStageId = current?.stage_id;
   if (!current) {
-    const { data: listing } = await supabase
+    const { data: listing } = await (supabase as any)
       .from('listings')
       .select('title, remarketing_status')
       .eq('id', dealId)
@@ -392,7 +393,7 @@ async function updateDealStage(
   // Look up old stage name for logging
   let oldStageName = 'unknown';
   if (oldStageId) {
-    const { data: oldStageRecord } = await supabase
+    const { data: oldStageRecord } = await (supabase as any)
       .from('deal_stages')
       .select('name')
       .eq('id', oldStageId)
@@ -401,7 +402,7 @@ async function updateDealStage(
   }
 
   // Update deals.stage_id
-  const { error: updateError } = await supabase
+  const { error: updateError } = await (supabase as any)
     .from('deal_pipeline')
     .update({ stage_id: stageRecord.id, updated_at: new Date().toISOString() })
     .eq('id', dealId);
@@ -409,7 +410,7 @@ async function updateDealStage(
   if (updateError) return { error: updateError.message };
 
   // Log the activity
-  await supabase.from('deal_activities').insert({
+  await (supabase as any).from('deal_activities').insert({
     deal_id: dealId,
     activity_type: 'status_change',
     title: `Stage changed: ${oldStageName} → ${stageRecord.name}`,
@@ -456,7 +457,7 @@ async function grantDataRoomAccess(
   // Look up contact_id from unified contacts table
   // Try matching by remarketing_buyer_id + is_primary_at_firm first, fall back to email match
   let contactId: string | null = null;
-  const { data: primaryContact } = await supabase
+  const { data: primaryContact } = await (supabase as any)
     .from('contacts')
     .select('id')
     .eq('remarketing_buyer_id', buyerId)
@@ -469,7 +470,7 @@ async function grantDataRoomAccess(
     contactId = primaryContact.id;
   } else if (buyerEmail) {
     // Fall back to email match
-    const { data: emailContact } = await supabase
+    const { data: emailContact } = await (supabase as any)
       .from('contacts')
       .select('id')
       .eq('email', buyerEmail)
@@ -481,7 +482,7 @@ async function grantDataRoomAccess(
   }
 
   // Write to data_room_access (the authoritative table)
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('data_room_access')
     .insert({
       deal_id: dealId,
@@ -501,7 +502,7 @@ async function grantDataRoomAccess(
   if (error) return { error: error.message };
 
   // Log activity — resolve actual deal from listing+buyer
-  const { data: linkedDeal } = await supabase
+  const { data: linkedDeal } = await (supabase as any)
     .from('deal_pipeline')
     .select('id')
     .eq('listing_id', dealId)
@@ -510,7 +511,7 @@ async function grantDataRoomAccess(
     .maybeSingle();
 
   if (linkedDeal) {
-    await supabase.from('deal_activities').insert({
+    await (supabase as any).from('deal_activities').insert({
       deal_id: linkedDeal.id,
       activity_type: 'data_room',
       title: `Data room access granted to ${args.buyer_name}`,
@@ -549,7 +550,7 @@ async function reassignDealTask(
 
   // Look up by email if ID not provided
   if (!newAssigneeId && args.new_assignee_email) {
-    const { data: user } = await supabase
+    const { data: user } = await (supabase as any)
       .from('profiles')
       .select('id, full_name, email')
       .eq('email', args.new_assignee_email as string)
@@ -563,7 +564,7 @@ async function reassignDealTask(
   if (!newAssigneeId) return { error: 'Either new_assignee_id or new_assignee_email is required' };
 
   // Get the task from unified table
-  const { data: task, error: taskError } = await supabase
+  const { data: task, error: taskError } = await (supabase as any)
     .from('daily_standup_tasks')
     .select('id, title, entity_id, entity_type, assignee_id')
     .eq('id', taskId)
@@ -574,7 +575,7 @@ async function reassignDealTask(
   // Get old assignee name
   let oldAssigneeName = 'unassigned';
   if (task.assignee_id) {
-    const { data: oldUser } = await supabase
+    const { data: oldUser } = await (supabase as any)
       .from('profiles')
       .select('full_name')
       .eq('id', task.assignee_id)
@@ -583,7 +584,7 @@ async function reassignDealTask(
   }
 
   // Get new assignee name
-  const { data: newUser } = await supabase
+  const { data: newUser } = await (supabase as any)
     .from('profiles')
     .select('full_name, email')
     .eq('id', newAssigneeId)
@@ -591,7 +592,7 @@ async function reassignDealTask(
   const newAssigneeName = newUser?.full_name || newUser?.email || 'Unknown';
 
   // Update the task
-  const { error: updateError } = await supabase
+  const { error: updateError } = await (supabase as any)
     .from('daily_standup_tasks')
     .update({
       assignee_id: newAssigneeId,
@@ -602,7 +603,7 @@ async function reassignDealTask(
 
   // Log activity if this is a deal task
   if (task.entity_type === 'deal' && task.entity_id) {
-    await supabase.from('deal_activities').insert({
+    await (supabase as any).from('deal_activities').insert({
       deal_id: task.entity_id,
       activity_type: 'task_reassigned',
       title: `Task reassigned: "${task.title}"`,
@@ -644,7 +645,7 @@ async function convertToPipelineDeal(
   }
 
   // Verify listing exists
-  const { data: listing, error: listingError } = await supabase
+  const { data: listing, error: listingError } = await (supabase as any)
     .from('listings')
     .select('id, title, internal_company_name, industry, revenue, ebitda')
     .eq('id', listingId)
@@ -653,7 +654,7 @@ async function convertToPipelineDeal(
   if (listingError || !listing) return { error: `Listing not found: ${listingId}` };
 
   // Verify buyer exists
-  const { data: buyer, error: buyerError } = await supabase
+  const { data: buyer, error: buyerError } = await (supabase as any)
     .from('buyers')
     .select('id, company_name, pe_firm_name, buyer_type')
     .eq('id', buyerId)
@@ -662,7 +663,7 @@ async function convertToPipelineDeal(
   if (buyerError || !buyer) return { error: `Buyer not found: ${buyerId}` };
 
   // Check if deal already exists for this buyer+listing combo
-  const { data: existingDeal } = await supabase
+  const { data: existingDeal } = await (supabase as any)
     .from('deal_pipeline')
     .select('id')
     .eq('listing_id', listingId)
@@ -677,7 +678,7 @@ async function convertToPipelineDeal(
   }
 
   // Look up the stage
-  const { data: stageRecord } = await supabase
+  const { data: stageRecord } = await (supabase as any)
     .from('deal_stages')
     .select('id, name')
     .ilike('name', initialStage)
@@ -686,7 +687,7 @@ async function convertToPipelineDeal(
 
   // Create the deal
   const now = new Date().toISOString();
-  const { data: deal, error: dealError } = await supabase
+  const { data: deal, error: dealError } = await (supabase as any)
     .from('deal_pipeline')
     .insert({
       listing_id: listingId,
@@ -703,7 +704,7 @@ async function convertToPipelineDeal(
   if (dealError) return { error: `Failed to create deal: ${dealError.message}` };
 
   // Create firm agreement record if one doesn't exist
-  const { data: existingAgreement } = await supabase
+  const { data: existingAgreement } = await (supabase as any)
     .from('firm_agreements')
     .select('id')
     .eq('remarketing_buyer_id', buyerId)
@@ -711,7 +712,7 @@ async function convertToPipelineDeal(
     .maybeSingle();
 
   if (!existingAgreement) {
-    await supabase.from('firm_agreements').insert({
+    await (supabase as any).from('firm_agreements').insert({
       remarketing_buyer_id: buyerId,
       primary_company_name: buyer.company_name || buyer.pe_firm_name,
       nda_signed: false,
@@ -721,14 +722,14 @@ async function convertToPipelineDeal(
   }
 
   // Update remarketing_scores status to 'pipeline'
-  await supabase
+  await (supabase as any)
     .from('remarketing_scores')
     .update({ status: 'pipeline', updated_at: now })
     .eq('buyer_id', buyerId)
     .eq('listing_id', listingId);
 
   // Log activity
-  await supabase.from('deal_activities').insert({
+  await (supabase as any).from('deal_activities').insert({
     deal_id: deal.id,
     activity_type: 'deal_created',
     title: `Pipeline deal created: ${deal.title}`,

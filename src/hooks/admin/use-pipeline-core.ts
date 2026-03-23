@@ -1,6 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useDeals, useDealStages, Deal } from '@/hooks/admin/use-deals';
-import { useDealFilters, DealStatusFilter, DocumentStatusFilter, BuyerTypeFilter, SortOption } from '@/hooks/admin/use-deal-filters';
+import {
+  useDealFilters,
+  DealStatusFilter,
+  DocumentStatusFilter,
+  BuyerTypeFilter,
+  SortOption,
+} from '@/hooks/admin/use-deal-filters';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { usePipelineViews } from './use-pipeline-views';
@@ -23,42 +29,49 @@ export function usePipelineCore() {
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [currentAdminId, setCurrentAdminId] = useState<string | undefined>(undefined);
   const [currentViewId, setCurrentViewId] = useState<string | null>(null);
-  
+
   const isMobile = useIsMobile();
-  
+
   // Get current admin ID
   useEffect(() => {
+    let active = true;
     const getCurrentUser = async () => {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
       if (authError) throw authError;
-      setCurrentAdminId(user?.id);
+      if (active) setCurrentAdminId(user?.id);
     };
     getCurrentUser();
+    return () => {
+      active = false;
+    };
   }, []);
-  
+
   // Data fetching - include all stages (including closed won/lost)
   const { data: deals, isLoading: dealsLoading, error: _dealsError } = useDeals();
   const { data: allStages, isLoading: stagesLoading, error: _stagesError } = useDealStages(true); // Include all stages
   const { data: pipelineViews = [] } = usePipelineViews();
-  
+
   // Filter stages based on current view with custom ordering
   const stages = useMemo(() => {
     if (!allStages) return [];
-    
+
     // If no view selected or views not loaded, show all stages in default order
     if (!currentViewId || pipelineViews.length === 0) {
       return [...allStages].sort((a, b) => a.position - b.position);
     }
-    
+
     // Find the selected view
-    const selectedView = pipelineViews.find(v => v.id === currentViewId);
+    const selectedView = pipelineViews.find((v) => v.id === currentViewId);
     if (!selectedView || !selectedView.stage_config || selectedView.stage_config.length === 0) {
       return [...allStages].sort((a, b) => a.position - b.position);
     }
-    
+
     // Filter and sort stages based on view's stage_config
     const stageIds = selectedView.stage_config.map((config) => config.stageId);
-    const filteredStages = allStages.filter(stage => stageIds.includes(stage.id));
+    const filteredStages = allStages.filter((stage) => stageIds.includes(stage.id));
 
     // Sort by view's custom position
     return filteredStages.sort((a, b) => {
@@ -67,7 +80,7 @@ export function usePipelineCore() {
       return (aConfig?.position || 0) - (bConfig?.position || 0);
     });
   }, [allStages, currentViewId, pipelineViews]);
-  
+
   // Filtering
   const filterHook = useDealFilters(deals || [], currentAdminId);
   const { filteredAndSortedDeals } = filterHook;
@@ -75,22 +88,25 @@ export function usePipelineCore() {
   // Load filter config when view changes
   useEffect(() => {
     if (!currentViewId || pipelineViews.length === 0) return;
-    
-    const selectedView = pipelineViews.find(v => v.id === currentViewId);
+
+    const selectedView = pipelineViews.find((v) => v.id === currentViewId);
     if (!selectedView?.filter_config) return;
-    
+
     const config = selectedView.filter_config;
-    
+
     // Apply saved filters with proper type casting and null checks
     try {
       if (config.searchQuery !== undefined) filterHook.setSearchQuery(config.searchQuery);
       if (config.statusFilter) filterHook.setStatusFilter(config.statusFilter as DealStatusFilter);
-      if (config.documentStatusFilter) filterHook.setDocumentStatusFilter(config.documentStatusFilter as DocumentStatusFilter);
-      if (config.buyerTypeFilter) filterHook.setBuyerTypeFilter(config.buyerTypeFilter as BuyerTypeFilter);
-      if (config.companyFilter && Array.isArray(config.companyFilter)) filterHook.setCompanyFilter(config.companyFilter);
+      if (config.documentStatusFilter)
+        filterHook.setDocumentStatusFilter(config.documentStatusFilter as DocumentStatusFilter);
+      if (config.buyerTypeFilter)
+        filterHook.setBuyerTypeFilter(config.buyerTypeFilter as BuyerTypeFilter);
+      if (config.companyFilter && Array.isArray(config.companyFilter))
+        filterHook.setCompanyFilter(config.companyFilter);
       if (config.adminFilter) filterHook.setAdminFilter(config.adminFilter);
       if (config.listingFilter) filterHook.setListingFilter(config.listingFilter);
-      
+
       // Parse dates from strings
       if (config.createdDateRange) {
         filterHook.setCreatedDateRange({
@@ -113,20 +129,23 @@ export function usePipelineCore() {
   // Derive selected deal from id for absolute correctness
   const selectedDeal = useMemo(() => {
     if (!filteredAndSortedDeals || !selectedDealId) return null;
-    const found = filteredAndSortedDeals.find(d => d.deal_id === selectedDealId);
+    const found = filteredAndSortedDeals.find((d) => d.deal_id === selectedDealId);
     return found || null;
   }, [filteredAndSortedDeals, selectedDealId]);
-  
+
   // Group deals by stage
   const dealsByStage = useMemo(() => {
     if (!filteredAndSortedDeals || !stages) return {};
-    
-    return stages.reduce((acc, stage) => {
-      acc[stage.id] = filteredAndSortedDeals.filter(deal => deal.stage_id === stage.id);
-      return acc;
-    }, {} as Record<string, Deal[]>);
+
+    return stages.reduce(
+      (acc, stage) => {
+        acc[stage.id] = filteredAndSortedDeals.filter((deal) => deal.stage_id === stage.id);
+        return acc;
+      },
+      {} as Record<string, Deal[]>,
+    );
   }, [filteredAndSortedDeals, stages]);
-  
+
   // Calculate metrics
   const metrics = useMemo((): PipelineMetrics => {
     if (!filteredAndSortedDeals) {
@@ -139,32 +158,39 @@ export function usePipelineCore() {
         avgDaysInStage: 0,
       };
     }
-    
+
     const totalValue = filteredAndSortedDeals.reduce((sum, deal) => sum + deal.deal_value, 0);
-    const avgProbability = filteredAndSortedDeals.length > 0 
-      ? filteredAndSortedDeals.reduce((sum, deal) => sum + deal.deal_probability, 0) / filteredAndSortedDeals.length 
-      : 0;
+    const avgProbability =
+      filteredAndSortedDeals.length > 0
+        ? filteredAndSortedDeals.reduce((sum, deal) => sum + deal.deal_probability, 0) /
+          filteredAndSortedDeals.length
+        : 0;
     const pendingTasks = filteredAndSortedDeals.reduce((sum, deal) => sum + deal.pending_tasks, 0);
-    
+
     // Calculate conversion rate (deals in final stages)
-    const finalStageDeals = filteredAndSortedDeals.filter(deal => 
-      deal.stage_name?.toLowerCase().includes('closed') || 
-      deal.stage_name?.toLowerCase().includes('won')
+    const finalStageDeals = filteredAndSortedDeals.filter(
+      (deal) =>
+        deal.stage_name?.toLowerCase().includes('closed') ||
+        deal.stage_name?.toLowerCase().includes('won'),
     );
-    const conversionRate = filteredAndSortedDeals.length > 0 
-      ? (finalStageDeals.length / filteredAndSortedDeals.length) * 100 
-      : 0;
-    
+    const conversionRate =
+      filteredAndSortedDeals.length > 0
+        ? (finalStageDeals.length / filteredAndSortedDeals.length) * 100
+        : 0;
+
     // Calculate average days in current stage
-    const avgDaysInStage = filteredAndSortedDeals.length > 0
-      ? filteredAndSortedDeals.reduce((sum, deal) => {
-          const stageEnteredAt = new Date(deal.deal_stage_entered_at);
-          const now = new Date();
-          const daysInStage = Math.floor((now.getTime() - stageEnteredAt.getTime()) / (1000 * 60 * 60 * 24));
-          return sum + daysInStage;
-        }, 0) / filteredAndSortedDeals.length
-      : 0;
-    
+    const avgDaysInStage =
+      filteredAndSortedDeals.length > 0
+        ? filteredAndSortedDeals.reduce((sum, deal) => {
+            const stageEnteredAt = new Date(deal.deal_stage_entered_at);
+            const now = new Date();
+            const daysInStage = Math.floor(
+              (now.getTime() - stageEnteredAt.getTime()) / (1000 * 60 * 60 * 24),
+            );
+            return sum + daysInStage;
+          }, 0) / filteredAndSortedDeals.length
+        : 0;
+
     return {
       totalDeals: filteredAndSortedDeals.length,
       totalValue,
@@ -174,18 +200,19 @@ export function usePipelineCore() {
       avgDaysInStage,
     };
   }, [filteredAndSortedDeals]);
-  
+
   // Stage metrics
   const stageMetrics = useMemo(() => {
     if (!stages || !dealsByStage) return [];
-    
-    return stages.map(stage => {
+
+    return stages.map((stage) => {
       const stageDeals = dealsByStage[stage.id] || [];
       const totalValue = stageDeals.reduce((sum, deal) => sum + deal.deal_value, 0);
-      const avgProbability = stageDeals.length > 0 
-        ? stageDeals.reduce((sum, deal) => sum + deal.deal_probability, 0) / stageDeals.length 
-        : 0;
-      
+      const avgProbability =
+        stageDeals.length > 0
+          ? stageDeals.reduce((sum, deal) => sum + deal.deal_probability, 0) / stageDeals.length
+          : 0;
+
       return {
         ...stage,
         dealCount: stageDeals.length,
@@ -195,16 +222,16 @@ export function usePipelineCore() {
       };
     });
   }, [stages, dealsByStage]);
-  
+
   // Actions
   const handleDealSelect = (deal: Deal) => {
     setSelectedDealId(deal.deal_id);
   };
-  
+
   const handleMultiSelect = (dealIds: string[]) => {
     setSelectedDeals(dealIds);
   };
-  
+
   const toggleFilterPanel = () => {
     setIsFilterPanelOpen(!isFilterPanelOpen);
   };
@@ -246,9 +273,9 @@ export function usePipelineCore() {
     selectedDeals,
     isFilterPanelOpen,
     currentViewId,
-    
+
     isMobile,
-    
+
     // Data
     deals: filteredAndSortedDeals || [],
     stages: stages || [],
@@ -256,17 +283,17 @@ export function usePipelineCore() {
     metrics,
     stageMetrics,
     isLoading: dealsLoading || stagesLoading,
-    
+
     // Filters
     ...filterHook,
-    
+
     // Actions
     setViewMode,
     setSelectedDeal,
     setSelectedDeals,
     setIsFilterPanelOpen,
     setCurrentViewId,
-    
+
     handleDealSelect,
     handleMultiSelect,
     toggleFilterPanel,

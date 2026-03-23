@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +17,10 @@ export default function AuthCallback() {
       try {
         // SECURITY: Use getUser() for server-side validation instead of getSession()
         // getSession() trusts the local JWT; getUser() verifies with Supabase Auth server
-        const { data: { user: authUser }, error } = await supabase.auth.getUser();
+        const {
+          data: { user: authUser },
+          error,
+        } = await supabase.auth.getUser();
 
         if (error) {
           throw error;
@@ -33,20 +35,25 @@ export default function AuthCallback() {
             .single();
 
           // Self-healing: if profile missing, create one from auth metadata
-          const profile = (!fetchedProfile && (profileError?.code === 'PGRST116' || !profileError))
-            ? await selfHealProfile(authUser, 'email_verified, approval_status, is_admin, first_name, last_name, email')
-            : fetchedProfile;
+          const profile =
+            !fetchedProfile && (profileError?.code === 'PGRST116' || !profileError)
+              ? await selfHealProfile(
+                  authUser,
+                  'email_verified, approval_status, is_admin, first_name, last_name, email',
+                )
+              : fetchedProfile;
 
-          // Check if this is a fresh email verification (user just verified their email)
-          const userJustVerified = authUser.email_confirmed_at && profile?.email_verified;
-          
+          // Check if this is a fresh email verification — use authUser as source of truth
+          // since profile.email_verified may lag behind Supabase Auth
+          const emailConfirmed = !!authUser.email_confirmed_at;
+
           // Send verification success email if user just verified their email
-          if (userJustVerified && profile) {
+          if (emailConfirmed && profile) {
             try {
               await sendVerificationSuccessEmail({
                 email: profile.email as string,
                 firstName: (profile.first_name || '') as string,
-                lastName: (profile.last_name || '') as string
+                lastName: (profile.last_name || '') as string,
               });
             } catch (emailError) {
               // Don't block the flow if email fails - just log it
@@ -54,20 +61,23 @@ export default function AuthCallback() {
             }
 
             // Also send branded email_verified notification via user-journey-notifications
-            const userName = `${(profile.first_name || '')} ${(profile.last_name || '')}`.trim() || 'there';
-            supabase.functions.invoke('user-journey-notifications', {
-              body: {
-                event_type: 'email_verified',
-                user_id: authUser.id,
-                user_email: profile.email as string,
-                user_name: userName,
-              },
-            }).catch((err) => {
-              console.error('Failed to send email_verified journey notification:', err);
-            });
+            const userName =
+              `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'there';
+            supabase.functions
+              .invoke('user-journey-notifications', {
+                body: {
+                  event_type: 'email_verified',
+                  user_id: authUser.id,
+                  user_email: profile.email as string,
+                  user_name: userName,
+                },
+              })
+              .catch((err) => {
+                console.error('Failed to send email_verified journey notification:', err);
+              });
           }
 
-          if (profile?.email_verified && profile?.approval_status === 'approved') {
+          if (emailConfirmed && profile?.approval_status === 'approved') {
             // Fully approved user - go to app
             navigate(profile.is_admin ? '/admin' : '/');
           } else {
@@ -92,9 +102,7 @@ export default function AuthCallback() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="text-red-500 mb-4">Authentication error: {error}</div>
-        <Button onClick={() => navigate('/login')}>
-          Back to Login
-        </Button>
+        <Button onClick={() => navigate('/login')}>Back to Login</Button>
       </div>
     );
   }

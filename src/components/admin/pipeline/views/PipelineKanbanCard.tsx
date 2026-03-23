@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { CalendarCheck, ListChecks } from 'lucide-react';
+import { CalendarCheck, ListChecks, FileSignature } from 'lucide-react';
 import { Deal } from '@/hooks/admin/use-deals';
 import { cn } from '@/lib/utils';
 import { useAdminProfile } from '@/hooks/admin/use-admin-profiles';
@@ -9,23 +9,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useUnreadMessageCounts } from '@/hooks/use-connection-messages';
+import { BUYER_TYPE_SHORT_LABELS } from '@/constants';
 
 interface PipelineKanbanCardProps {
   deal: Deal;
   onDealClick: (deal: Deal) => void;
   isDragging?: boolean;
 }
-
-const BUYER_TYPE_LABELS: Record<string, string> = {
-  privateEquity: 'PE Firm',
-  corporate: 'Corporate',
-  familyOffice: 'Family Office',
-  searchFund: 'Search Fund',
-  individual: 'Individual',
-  independentSponsor: 'Ind. Sponsor',
-  advisor: 'Advisor',
-  businessOwner: 'Biz Owner',
-};
 
 const TIER_CONFIG: Record<number, { label: string; style: React.CSSProperties }> = {
   1: { label: 'T1', style: { backgroundColor: '#DEC76B', color: '#0E101A' } },
@@ -50,7 +40,7 @@ export function PipelineKanbanCard({ deal, onDealClick, isDragging }: PipelineKa
   const companyName = deal.listing_real_company_name || deal.listing_title || 'Unnamed Company';
   const contactName = deal.contact_name || deal.buyer_name || 'Unknown';
   const buyerCompany = deal.contact_company || deal.buyer_company;
-  const buyerTypeLabel = deal.buyer_type ? (BUYER_TYPE_LABELS[deal.buyer_type] || deal.buyer_type) : null;
+  const buyerTypeLabel = deal.buyer_type ? (BUYER_TYPE_SHORT_LABELS[deal.buyer_type] || deal.buyer_type) : null;
 
   const fmt = (val: number) => {
     if (!val) return '—';
@@ -86,6 +76,15 @@ export function PipelineKanbanCard({ deal, onDealClick, isDragging }: PipelineKa
     queryClient.invalidateQueries({ queryKey: ['deals'] });
   };
 
+  const handleLoiToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !deal.under_loi;
+    const { error } = await supabase.from('deal_pipeline').update({ under_loi: next }).eq('id', deal.deal_id);
+    if (error) { toast.error('Failed to update'); return; }
+    toast.success(next ? 'Marked Under LOI' : 'LOI removed');
+    queryClient.invalidateQueries({ queryKey: ['deals'] });
+  };
+
   const statusDot = (status: string) => {
     if (status === 'signed') return 'bg-emerald-500';
     if (status === 'sent') return 'bg-amber-500';
@@ -108,11 +107,12 @@ export function PipelineKanbanCard({ deal, onDealClick, isDragging }: PipelineKa
   return (
     <div
       ref={setNodeRef} {...listeners} {...attributes}
-      style={{ ...style, fontFamily: 'Montserrat, Inter, sans-serif', borderColor: '#CBCBCB' }}
+      style={{ ...style, fontFamily: 'Montserrat, Inter, sans-serif', borderColor: deal.under_loi ? '#9333EA' : '#CBCBCB' }}
       className={cn(
         "group relative mb-3 cursor-pointer rounded-[10px] overflow-hidden transition-all duration-200 border-2",
         isBeingDragged && "shadow-2xl scale-[1.02] z-50 opacity-95",
-        !isBeingDragged && "hover:shadow-[0_4px_16px_rgba(222,199,107,0.25)] hover:-translate-y-px"
+        !isBeingDragged && !deal.under_loi && "hover:shadow-[0_4px_16px_rgba(222,199,107,0.25)] hover:-translate-y-px",
+        !isBeingDragged && deal.under_loi && "hover:shadow-[0_4px_16px_rgba(147,51,234,0.3)] hover:-translate-y-px"
       )}
       onClick={handleCardClick}
     >
@@ -120,8 +120,8 @@ export function PipelineKanbanCard({ deal, onDealClick, isDragging }: PipelineKa
       <div
         className="px-4 pt-3.5 pb-2.5"
         style={{
-          backgroundColor: deal.needs_owner_contact ? '#FFF0F0' : deal.needs_buyer_search ? '#EFF6FF' : '#FCF9F0',
-          borderBottom: '1px solid #E5DDD0',
+          backgroundColor: deal.under_loi ? '#F3E8FF' : deal.needs_owner_contact ? '#FFF0F0' : deal.needs_buyer_search ? '#EFF6FF' : '#FCF9F0',
+          borderBottom: deal.under_loi ? '1px solid #C084FC' : '1px solid #E5DDD0',
         }}
       >
         <div className="flex items-start justify-between gap-3">
@@ -183,6 +183,11 @@ export function PipelineKanbanCard({ deal, onDealClick, isDragging }: PipelineKa
               Fee
             </span>
           )}
+          {deal.under_loi && (
+            <span className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded" style={{ backgroundColor: '#9333EA', color: '#FFFFFF' }}>
+              Under LOI
+            </span>
+          )}
         </div>
 
       {/* Financials */}
@@ -232,6 +237,9 @@ export function PipelineKanbanCard({ deal, onDealClick, isDragging }: PipelineKa
         </span>
         <button type="button" onClick={handleMeetingToggle} className="inline-flex items-center gap-1 rounded transition-colors hover:bg-accent p-0.5 -ml-0.5" title={`Meeting: ${deal.meeting_scheduled ? 'Yes' : 'No'}`}>
           Mtg <CalendarCheck className={cn('w-3 h-3', deal.meeting_scheduled ? 'text-emerald-500' : 'text-muted-foreground/30')} />
+        </button>
+        <button type="button" onClick={handleLoiToggle} className="inline-flex items-center gap-1 rounded transition-colors hover:bg-accent p-0.5" title={`Under LOI: ${deal.under_loi ? 'Yes' : 'No'}`}>
+          LOI <FileSignature className={cn('w-3 h-3', deal.under_loi ? 'text-purple-600' : 'text-muted-foreground/30')} />
         </button>
         {deal.pending_tasks > 0 && (
           <span className="inline-flex items-center gap-1 ml-auto font-bold" style={{ color: '#8B0000' }} title={`${deal.pending_tasks} open task${deal.pending_tasks !== 1 ? 's' : ''}`}>

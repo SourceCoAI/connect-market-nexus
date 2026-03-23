@@ -1,6 +1,8 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { requireAdmin } from '../_shared/auth.ts';
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -10,6 +12,19 @@ serve(async (req) => {
   }
 
   try {
+    // Auth
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    const auth = await requireAdmin(req, supabaseAdmin);
+    if (!auth.authenticated || !auth.isAdmin) {
+      return new Response(JSON.stringify({ error: auth.error || 'Unauthorized' }), {
+        status: auth.authenticated ? 403 : 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { url, options = {} } = await req.json();
 
     if (!url) {

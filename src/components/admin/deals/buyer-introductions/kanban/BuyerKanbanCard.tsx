@@ -1,8 +1,10 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +26,7 @@ import {
   Linkedin,
   MessageSquare,
   Clock,
+  GripVertical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -42,6 +45,8 @@ const CHANNEL_ICONS: Record<string, typeof Mail> = {
 interface BuyerKanbanCardProps {
   buyer: BuyerIntroduction;
   column: KanbanColumn;
+  resolvedBuyerId?: string | null;
+  resolvedPeFirmName?: string | null;
   onIntroduce?: (buyer: BuyerIntroduction) => void;
   onMarkInterested?: (buyer: BuyerIntroduction) => void;
   onMarkPassed?: (buyer: BuyerIntroduction) => void;
@@ -54,6 +59,8 @@ interface BuyerKanbanCardProps {
 export function BuyerKanbanCard({
   buyer,
   column,
+  resolvedBuyerId,
+  resolvedPeFirmName,
   onIntroduce,
   onMarkInterested,
   onMarkPassed,
@@ -68,11 +75,14 @@ export function BuyerKanbanCard({
   const buyerType = snap?.buyer_type ?? null;
   const isPeBacked = snap?.is_pe_backed ?? false;
   const source = snap?.source ?? null;
+  const peFirmName = resolvedPeFirmName || snap?.pe_firm_name || null;
+  const navigate = useNavigate();
 
   const {
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -95,27 +105,104 @@ export function BuyerKanbanCard({
 
   const isStale = column === 'introduced' && daysSinceIntroduction != null && daysSinceIntroduction >= 7;
 
-  const buyerLink = buyer.remarketing_buyer_id
-    ? `/admin/buyers/${buyer.remarketing_buyer_id}`
+  const effectiveBuyerId = buyer.remarketing_buyer_id || resolvedBuyerId || null;
+  const buyerLink = effectiveBuyerId
+    ? `/admin/buyers/${effectiveBuyerId}`
     : buyer.contact_id
       ? `/admin/buyers/${buyer.contact_id}`
       : null;
+
+  /** Fire-and-forget: ensure a contact record exists on the buyer for this introduction's person */
+  const ensureContactOnBuyer = async (buyerId: string) => {
+    try {
+      // Parse name into first/last
+      const parts = (buyer.buyer_name || '').trim().split(/\s+/);
+      const firstName = parts[0] || '';
+      const lastName = parts.slice(1).join(' ') || '';
+      const email = buyer.buyer_email?.toLowerCase().trim();
+
+      // Skip if no meaningful data
+      if (!firstName && !email) return;
+
+      // Check if contact already exists on this buyer (by email or name match)
+      const { data: existing } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('remarketing_buyer_id', buyerId)
+        .eq('contact_type', 'buyer')
+        .eq('archived', false)
+        .or(
+          [
+            email ? `email.eq.${email}` : null,
+            `and(first_name.ilike.${firstName},last_name.ilike.${lastName})`,
+          ]
+            .filter(Boolean)
+            .join(','),
+        )
+        .limit(1);
+
+      if (existing && existing.length > 0) return; // already exists
+
+      await supabase.from('contacts').insert({
+        remarketing_buyer_id: buyerId,
+        first_name: firstName,
+        last_name: lastName,
+        email: email || null,
+        phone: buyer.buyer_phone || null,
+        linkedin_url: buyer.buyer_linkedin_url || null,
+        contact_type: 'buyer',
+        source: 'introduction_auto_link',
+      } as never);
+    } catch (err) {
+      console.warn('[BuyerKanbanCard] Failed to auto-create contact:', err);
+    }
+  };
+
+  const handleCardClick = async () => {
+    if (buyerLink && !isDragging) {
+      // Fire-and-forget: ensure contact exists on the buyer
+      if (effectiveBuyerId && buyer.buyer_name) {
+        ensureContactOnBuyer(effectiveBuyerId);
+      }
+      // Backfill remarketing_buyer_id if we resolved it but it wasn't stored
+      if (effectiveBuyerId && !buyer.remarketing_buyer_id) {
+        supabase
+          .from('buyer_introductions' as never)
+          .update({ remarketing_buyer_id: effectiveBuyerId } as never)
+          .eq('id', buyer.id)
+          .then(() => {});
+      }
+      navigate(buyerLink);
+    }
+  };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      {...listeners}
       className={cn(
-        'bg-white rounded-lg border p-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing',
+        'bg-white rounded-lg border p-3 shadow-sm hover:shadow-md transition-shadow',
         isDragging && 'opacity-50 shadow-lg ring-2 ring-blue-300',
         isStale && 'border-l-4 border-l-amber-400',
-        isInPipeline && 'cursor-default opacity-90',
+        isInPipeline && 'opacity-90',
+        buyerLink && !isDragging ? 'cursor-pointer' : 'cursor-default',
       )}
+      onClick={handleCardClick}
     >
-      {/* Header: Name + Type */}
+      {/* Drag handle + Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
+        {/* Drag handle */}
+        {!isInPipeline && (
+          <div
+            ref={setActivatorNodeRef}
+            {...listeners}
+            className="shrink-0 mt-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground/40 hover:text-muted-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
+        )}
         <div className="min-w-0">
           {buyerLink ? (
             <Link
@@ -123,16 +210,20 @@ export function BuyerKanbanCard({
               className="font-semibold text-sm hover:underline truncate block"
               onClick={(e) => e.stopPropagation()}
             >
-              {buyer.buyer_firm_name || buyer.buyer_name}
+              {buyer.buyer_name}
             </Link>
           ) : (
             <span className="font-semibold text-sm truncate block">
-              {buyer.buyer_firm_name || buyer.buyer_name}
+              {buyer.buyer_name}
             </span>
           )}
-          {buyer.buyer_name !== buyer.buyer_firm_name && (
-            <p className="text-xs text-muted-foreground truncate">{buyer.buyer_name}</p>
-          )}
+          {peFirmName ? (
+            <p className="text-xs text-muted-foreground truncate">
+              {peFirmName} → {buyer.buyer_firm_name}
+            </p>
+          ) : buyer.buyer_firm_name && buyer.buyer_firm_name !== buyer.buyer_name ? (
+            <p className="text-xs text-muted-foreground truncate">{buyer.buyer_firm_name}</p>
+          ) : null}
         </div>
 
         {/* Overflow menu */}
@@ -178,6 +269,49 @@ export function BuyerKanbanCard({
         <ScoreBadge score={compositeScore} />
         <SourceBadge source={source} />
       </div>
+
+      {/* Contact quick-actions: email, phone, linkedin */}
+      {(buyer.buyer_email || buyer.buyer_phone || buyer.buyer_linkedin_url) && (
+        <div className="flex items-center gap-1 mb-2">
+          {buyer.buyer_email && (
+            <a
+              href={`mailto:${buyer.buyer_email}`}
+              onClick={(e) => e.stopPropagation()}
+              title={buyer.buyer_email}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+            >
+              <Mail className="h-2.5 w-2.5" />
+              Email
+            </a>
+          )}
+          {buyer.buyer_phone && (
+            <ClickToDialPhone
+              phone={buyer.buyer_phone}
+              name={buyer.buyer_name}
+              email={buyer.buyer_email || undefined}
+              company={buyer.buyer_firm_name}
+              entityType={buyer.remarketing_buyer_id ? 'buyers' : undefined}
+              entityId={buyer.remarketing_buyer_id || undefined}
+              label="Call"
+              size="xs"
+              className="px-1.5 py-0.5 rounded bg-green-50 hover:bg-green-100"
+            />
+          )}
+          {buyer.buyer_linkedin_url && (
+            <a
+              href={buyer.buyer_linkedin_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="LinkedIn Profile"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-sky-50 text-sky-700 hover:bg-sky-100 transition-colors"
+            >
+              <Linkedin className="h-2.5 w-2.5" />
+              LinkedIn
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Column-specific content */}
       {column === 'to_introduce' && (
@@ -334,6 +468,18 @@ export function BuyerKanbanCard({
             </p>
           )}
         </>
+      )}
+
+      {/* View Profile link at bottom */}
+      {buyerLink && (
+        <Link
+          to={buyerLink}
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center justify-center gap-1 mt-2 pt-2 border-t text-[11px] font-medium text-blue-600 hover:text-blue-800 transition-colors"
+        >
+          <ExternalLink className="h-3 w-3" />
+          View Buyer Profile
+        </Link>
       )}
     </div>
   );

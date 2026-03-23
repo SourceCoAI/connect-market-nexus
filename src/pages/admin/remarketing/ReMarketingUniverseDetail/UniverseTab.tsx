@@ -250,6 +250,7 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
           buyerId={singleApproval.buyerId}
           buyerName={singleApproval.buyerName}
           currentListingId=""
+          universeId={id}
         />
 
         {/* Bulk buyer approval dialog */}
@@ -258,6 +259,7 @@ export function UniverseTab({ data, handlers }: UniverseTabProps) {
           onOpenChange={(open) => setBulkApproval((prev) => ({ ...prev, open }))}
           buyerIds={bulkApproval.buyerIds}
           buyerCount={bulkApproval.buyerIds.length}
+          universeId={id}
         />
       </TabsContent>
 

@@ -1,5 +1,5 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { errorResponse } from '../_shared/error-response.ts';
@@ -10,6 +10,7 @@ function getErrorMessage(e: unknown): string {
 }
 
 interface ImportData {
+  [key: string]: unknown;
   universes: Record<string, unknown>[];
   buyers: Record<string, unknown>[];
   contacts: Record<string, unknown>[];
@@ -195,7 +196,7 @@ serve(async (req) => {
         .from('buyer_transcripts')
         .select('*', { count: 'exact', head: true });
       const { count: contactCount } = await supabase
-        .from('remarketing_buyer_contacts')
+        .from('contacts')
         .select('*', { count: 'exact', head: true });
       const { count: buyerCount } = await supabase
         .from('buyers')
@@ -252,8 +253,9 @@ serve(async (req) => {
       }
 
       const { error: contactsError } = await supabase
-        .from('remarketing_buyer_contacts')
+        .from('contacts')
         .delete()
+        .eq('contact_type', 'buyer')
         .neq('id', '00000000-0000-0000-0000-000000000000');
       if (contactsError) {
         console.error('Failed to delete contacts:', contactsError);
@@ -410,7 +412,7 @@ serve(async (req) => {
             archived: row.archived === 'true',
           };
 
-          const { data: inserted, error } = await supabase
+      const { data: inserted, error } = await supabase
             .from('buyer_universes')
             .insert(universeData)
             .select('id')
@@ -421,6 +423,14 @@ serve(async (req) => {
           } else {
             universeIdMap[String(row.id)] = inserted.id;
             results.universes.imported++;
+
+            // Auto-generate description (non-blocking)
+            const uName = String(row.industry_name || 'Unknown');
+            if (uName !== 'Unknown') {
+              generateDescription(supabase as any, inserted.id, uName).catch((e: unknown) =>
+                console.warn(`Description gen failed for ${uName}:`, e)
+              );
+            }
           }
         } catch (e) {
           results.universes.errors.push(`Universe ${row.industry_name}: ${getErrorMessage(e)}`);
@@ -577,25 +587,26 @@ serve(async (req) => {
             continue;
           }
 
+          const nameParts = String(row.name || 'Unknown').trim().split(/\s+/);
           const contactData = {
-            buyer_id: mappedBuyerId,
-            name: row.name || 'Unknown',
+            remarketing_buyer_id: mappedBuyerId,
+            first_name: nameParts[0] || 'Unknown',
+            last_name: nameParts.slice(1).join(' ') || '',
             email: row.email || null,
             phone: row.phone || null,
-            role: row.title || null,
+            title: row.title || null,
             linkedin_url: row.linkedin_url || null,
-            is_primary: row.is_primary_contact === 'true',
-            notes: null,
-            company_type: row.company_type || null,
-            priority_level: parseInt(String(row.priority_level)) || 3,
-            email_confidence: row.email_confidence || null,
-            is_deal_team: row.is_deal_team === 'true',
-            role_category: row.role_category || null,
-            source: row.source || null,
-            source_url: row.source_url || null,
+            is_primary_at_firm: row.is_primary_contact === 'true',
+            contact_type: 'buyer',
+            source: row.source || 'import',
           };
 
-          const { error } = await supabase.from('remarketing_buyer_contacts').insert(contactData);
+          const { error } = await supabase
+            .from('contacts')
+            .upsert(contactData, {
+              onConflict: 'remarketing_buyer_id,first_name,last_name',
+              ignoreDuplicates: false,
+            });
 
           if (error) {
             results.contacts.errors.push(`Contact ${row.name}: ${error.message}`);
@@ -854,4 +865,28 @@ function calculateTier(score: number): string {
   if (score >= 60) return 'B';
   if (score >= 40) return 'C';
   return 'D';
+}
+
+async function generateDescription(supabase: ReturnType<typeof createClient>, universeId: string, name: string) {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const response = await fetch(`${supabaseUrl}/functions/v1/clarify-industry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ industry_name: name, generate_description: true }),
+    });
+    if (response.ok) {
+      const result = await response.json();
+      if (result.description) {
+        await (supabase as any).from('buyer_universes').update({ description: result.description }).eq('id', universeId);
+        console.log(`Generated description for universe: ${name}`);
+      }
+    }
+  } catch (e) {
+    console.warn(`Description generation failed for ${name}:`, e);
+  }
 }

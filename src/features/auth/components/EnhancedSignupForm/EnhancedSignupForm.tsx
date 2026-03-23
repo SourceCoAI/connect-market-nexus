@@ -22,7 +22,10 @@ export const EnhancedSignupForm: React.FC = () => {
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Create Your Account</CardTitle>
+        <CardTitle>Apply for Access to the SourceCo Deal Pipeline</CardTitle>
+        <CardDescription>
+          Off-market, founder-led businesses. $500K–$10M EBITDA. Reviewed by our team before they reach you.
+        </CardDescription>
         <CardDescription>
           Step {currentStep + 1} of {STEPS.length}: {STEPS[currentStep]}
         </CardDescription>

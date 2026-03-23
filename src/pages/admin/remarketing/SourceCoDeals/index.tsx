@@ -19,7 +19,7 @@ import {
   ThumbsDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, untypedFrom } from '@/integrations/supabase/client';
 import { DealImportDialog } from '@/components/remarketing/DealImportDialog';
 import { FilterBar, TimeframeSelector, SOURCECO_FIELDS } from '@/components/filters';
 import { EnrichmentProgressIndicator } from '@/components/remarketing/EnrichmentProgressIndicator';
@@ -55,7 +55,9 @@ export default function SourceCoDeals() {
   // Navigation blocking via beforeunload when import dialog is open
   useEffect(() => {
     if (!hook.csvUploadOpen) return;
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [hook.csvUploadOpen]);
@@ -90,7 +92,7 @@ export default function SourceCoDeals() {
       for (const dealId of dealIds) {
         await supabase.from('enrichment_queue').delete().eq('listing_id', dealId);
         await supabase.from('remarketing_scores').delete().eq('listing_id', dealId);
-        await (supabase.from('buyer_deal_scores' as any) as any).delete().eq('deal_id', dealId);
+        await untypedFrom('buyer_deal_scores').delete().eq('deal_id', dealId);
       }
       const { error } = await supabase.from('listings').delete().in('id', dealIds);
       if (error) throw error;
@@ -125,6 +127,8 @@ export default function SourceCoDeals() {
         description: `${dealIds.length} deal(s) marked as not a fit`,
       });
       hook.setSelectedIds(new Set());
+      // Show greyed-out rows instead of hiding them
+      hook.setHideNotFit(false);
       hook.queryClient.invalidateQueries({ queryKey: ['remarketing', 'sourceco-deals'] });
     } catch (err: unknown) {
       hook.toast({
@@ -135,7 +139,7 @@ export default function SourceCoDeals() {
     } finally {
       setIsMarkingNotFit(false);
     }
-  }, [hook.selectedIds, hook.toast, hook.queryClient, hook.setSelectedIds]);
+  }, [hook.selectedIds, hook.toast, hook.queryClient, hook.setSelectedIds, hook.setHideNotFit]);
 
   const handleMarkNotFitSingle = useCallback(
     async (dealId: string) => {
@@ -146,6 +150,8 @@ export default function SourceCoDeals() {
           .eq('id', dealId);
         if (error) throw error;
         hook.toast({ title: 'Marked as Not a Fit', description: '1 deal marked as not a fit' });
+        // Show greyed-out rows instead of hiding them
+        hook.setHideNotFit(false);
         hook.queryClient.invalidateQueries({ queryKey: ['remarketing', 'sourceco-deals'] });
       } catch (err: unknown) {
         hook.toast({
@@ -155,7 +161,7 @@ export default function SourceCoDeals() {
         });
       }
     },
-    [hook.toast, hook.queryClient],
+    [hook.toast, hook.queryClient, hook.setHideNotFit],
   );
 
   const selectedDealsForList = useMemo((): DealForList[] => {
@@ -263,7 +269,7 @@ export default function SourceCoDeals() {
           </Button>
           <Button variant="outline" size="sm" onClick={() => hook.setCsvUploadOpen(true)}>
             <FileSpreadsheet className="h-4 w-4 mr-1" />
-            Import CSV
+            Import Spreadsheet
           </Button>
 
           <DropdownMenu>
@@ -348,8 +354,8 @@ export default function SourceCoDeals() {
         filteredCount={hook.filteredCount}
       />
 
-      {/* Hide Pushed Toggle */}
-      <div className="flex items-center gap-2">
+      {/* Hide Pushed Toggle + Bulk Actions */}
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => hook.setHidePushed(!hook.hidePushed)}
           className={cn(
@@ -374,29 +380,27 @@ export default function SourceCoDeals() {
           <ThumbsDown className="h-3.5 w-3.5" />
           {hook.hideNotFit ? 'Not Fit Hidden' : 'Show Not Fit'}
         </button>
+        <DealBulkActionBar
+          selectedIds={hook.selectedIds}
+          deals={hook.filteredDeals}
+          onClearSelection={() => hook.setSelectedIds(new Set())}
+          onRefetch={hook.refetch}
+          onApproveToActiveDeals={hook.handlePushToAllDeals}
+          isPushing={hook.isPushing}
+          onEnrichSelected={(dealIds) => hook.handleEnrichSelected(dealIds)}
+          isEnriching={hook.isEnriching}
+          onPushToDialer={() => setDialerOpen(true)}
+          onPushToSmartlead={() => setSmartleadOpen(true)}
+          onPushToHeyreach={() => setHeyreachOpen(true)}
+          onAddToList={() => setAddToListOpen(true)}
+          onMarkNotFit={handleMarkNotFit}
+          isMarkingNotFit={isMarkingNotFit}
+          onArchive={handleBulkArchive}
+          isArchiving={isArchiving}
+          onDelete={handleBulkDelete}
+          isDeleting={isDeleting}
+        />
       </div>
-
-      {/* Bulk Actions */}
-      <DealBulkActionBar
-        selectedIds={hook.selectedIds}
-        deals={hook.filteredDeals}
-        onClearSelection={() => hook.setSelectedIds(new Set())}
-        onRefetch={hook.refetch}
-        onApproveToActiveDeals={hook.handlePushToAllDeals}
-        isPushing={hook.isPushing}
-        onEnrichSelected={(dealIds) => hook.handleEnrichSelected(dealIds)}
-        isEnriching={hook.isEnriching}
-        onPushToDialer={() => setDialerOpen(true)}
-        onPushToSmartlead={() => setSmartleadOpen(true)}
-        onPushToHeyreach={() => setHeyreachOpen(true)}
-        onAddToList={() => setAddToListOpen(true)}
-        onMarkNotFit={handleMarkNotFit}
-        isMarkingNotFit={isMarkingNotFit}
-        onArchive={handleBulkArchive}
-        isArchiving={isArchiving}
-        onDelete={handleBulkDelete}
-        isDeleting={isDeleting}
-      />
       <PushToDialerModal
         open={dialerOpen}
         onOpenChange={setDialerOpen}

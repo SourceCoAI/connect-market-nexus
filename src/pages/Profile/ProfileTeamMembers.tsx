@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,8 +45,7 @@ function useTeamMembers() {
       if (!membershipData?.firm_id) return [];
 
       // Then get all members of that firm, joined with profiles
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: members, error } = await (supabase as any)
+      const { data: members, error } = await supabase
         .from('firm_members')
         .select(
           `

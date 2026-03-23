@@ -193,6 +193,7 @@ export function addLeadsToCampaign(
       companyName?: string;
       emailAddress?: string;
     };
+    customUserFields?: Array<{ fieldName: string; fieldValue: string }>;
   }>,
 ) {
   return heyreachRequest({

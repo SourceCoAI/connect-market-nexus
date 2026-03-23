@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Proactive Deal Alerts Tools (Feature 2)
  *
@@ -147,7 +148,7 @@ async function getProactiveAlerts(
   const dealIdFilter = args.deal_id as string | undefined;
 
   // 1. Load dismissed/snoozed alerts for this user
-  const { data: dismissedData } = await supabase
+  const { data: dismissedData } = await (supabase as any)
     .from('admin_notifications')
     .select('metadata, read_at')
     .eq('admin_id', userId)
@@ -188,7 +189,7 @@ async function getProactiveAlerts(
 
   const staleQueryPromise = shouldFetch('stale_deal')
     ? (() => {
-        let q = supabase
+        let q = (supabase as any)
           .from('listings')
           .select('id, title, internal_company_name, updated_at, status')
           .in('status', ['active', 'new', 'under_review'])
@@ -201,7 +202,7 @@ async function getProactiveAlerts(
     : Promise.resolve({ data: null });
 
   const overdueQueryPromise = shouldFetch('overdue_tasks')
-    ? supabase
+    ? (supabase as any)
         .from('daily_standup_tasks')
         .select('id, title, due_date, entity_type, entity_id, deal_reference')
         .eq('assignee_id', userId)
@@ -212,7 +213,7 @@ async function getProactiveAlerts(
 
   const coldBuyerQueryPromise = shouldFetch('cold_buyer')
     ? (() => {
-        let q = supabase
+        let q = (supabase as any)
           .from('remarketing_scores')
           .select(
             `buyer_id, listing_id, composite_score,
@@ -229,7 +230,7 @@ async function getProactiveAlerts(
 
   const transcriptQueryPromise = shouldFetch('unprocessed_transcript')
     ? (() => {
-        let q = supabase
+        let q = (supabase as any)
           .from('deal_transcripts')
           .select('id, title, listing_id, created_at, duration_minutes, extracted_data')
           .eq('has_content', true)
@@ -242,7 +243,7 @@ async function getProactiveAlerts(
 
   const unsignedQueryPromise = shouldFetch('unsigned_agreement')
     ? (() => {
-        let q = supabase
+        let q = (supabase as any)
           .from('remarketing_scores')
           .select(
             `buyer_id, listing_id, composite_score,
@@ -258,7 +259,7 @@ async function getProactiveAlerts(
     : Promise.resolve({ data: null });
 
   const signalQueryPromise = shouldFetch('critical_signal')
-    ? supabase
+    ? (supabase as any)
         .from('rm_deal_signals')
         .select('id, signal_type, signal_category, summary, listing_id, created_at')
         .in('signal_type', ['critical', 'warning'])
@@ -340,7 +341,7 @@ async function getProactiveAlerts(
   if (highScorers && highScorers.length > 0) {
     const buyerIds = highScorers.map((s: Record<string, unknown>) => s.buyer_id as string);
 
-    const { data: recentEngagements } = await supabase
+    const { data: recentEngagements } = await (supabase as any)
       .from('connection_requests')
       .select('buyer_profile_id')
       .in('buyer_profile_id', buyerIds)
@@ -505,7 +506,7 @@ async function dismissAlert(
   const reason = (args.reason as string) || null;
 
   // Store dismissal in admin_notifications
-  const { error } = await supabase.from('admin_notifications').insert({
+  const { error } = await (supabase as any).from('admin_notifications').insert({
     admin_id: userId,
     title: `Alert dismissed: ${alertKey}`,
     message: reason || 'Alert dismissed by user',
@@ -539,7 +540,7 @@ async function snoozeAlert(
   const days = Math.min(Math.max(Number(args.days) || 3, 1), 30);
   const snoozedUntil = new Date(Date.now() + days * 86400000).toISOString();
 
-  const { error } = await supabase.from('admin_notifications').insert({
+  const { error } = await (supabase as any).from('admin_notifications').insert({
     admin_id: userId,
     title: `Alert snoozed: ${alertKey}`,
     message: `Snoozed for ${days} days until ${snoozedUntil.split('T')[0]}`,

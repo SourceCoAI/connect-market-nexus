@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSessionHeartbeat } from '@/hooks/use-session-heartbeat';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HeartbeatProviderProps {
   children: React.ReactNode;
@@ -8,7 +8,7 @@ interface HeartbeatProviderProps {
 
 /**
  * HeartbeatProvider - Sends periodic heartbeats to track session activity
- * 
+ *
  * Features:
  * - Sends heartbeat every 30 seconds when tab is active
  * - Pauses when tab is hidden (saves resources)
@@ -18,7 +18,7 @@ interface HeartbeatProviderProps {
  */
 const HeartbeatTracker: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  
+
   // Initialize heartbeat tracking
   useSessionHeartbeat(user?.id);
 
@@ -26,11 +26,7 @@ const HeartbeatTracker: React.FC<{ children: React.ReactNode }> = ({ children })
 };
 
 export const HeartbeatProvider: React.FC<HeartbeatProviderProps> = ({ children }) => {
-  return (
-    <HeartbeatTracker>
-      {children}
-    </HeartbeatTracker>
-  );
+  return <HeartbeatTracker>{children}</HeartbeatTracker>;
 };
 
 export default HeartbeatProvider;

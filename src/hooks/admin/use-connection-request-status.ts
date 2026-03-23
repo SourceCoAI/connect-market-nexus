@@ -3,7 +3,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { invalidateConnectionRequests } from '@/lib/query-client-helpers';
 import { QUERY_KEYS } from '@/lib/query-keys';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface UpdateConnectionRequestStatusParams {
   requestId: string;

@@ -4,6 +4,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 interface AdminNotificationRequest {
   first_name: string;
   last_name: string;
@@ -49,7 +53,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { first_name, last_name, email, company }: AdminNotificationRequest = await req.json();
 
     // N08 FIX: Use env var for admin notification email instead of hardcoded address
-    const adminEmail = Deno.env.get('ADMIN_NOTIFICATION_EMAIL') || 'admin@sourcecoconnect.com';
+    const adminEmail = Deno.env.get('ADMIN_NOTIFICATION_EMAIL') || 'admin@sourcecodeals.com';
 
     console.log(`Sending admin notification for new user: ${email}`);
 
@@ -89,16 +93,16 @@ const handler = async (req: Request): Promise<Response> => {
                     <h2 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">New User Registration</h2>
                     <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
                       <h3 style="color: #007bff; margin-top: 0;">User Details</h3>
-                      <p><strong>Name:</strong> ${first_name} ${last_name}</p>
-                      <p><strong>Email:</strong> ${email}</p>
-                      <p><strong>Company:</strong> ${company || 'Not provided'}</p>
+                      <p><strong>Name:</strong> ${escapeHtml(first_name || '')} ${escapeHtml(last_name || '')}</p>
+                      <p><strong>Email:</strong> ${escapeHtml(email || '')}</p>
+                      <p><strong>Company:</strong> ${escapeHtml(company || '') || 'Not provided'}</p>
                       <p><strong>Registration Time:</strong> ${new Date().toLocaleString()}</p>
                     </div>
                     <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
                       <p style="margin: 0; color: #856404;"><strong>Action Required:</strong> Please review and approve/reject this user registration in the admin panel.</p>
                     </div>
                     <div style="text-align: center; margin: 30px 0;">
-                      <a href="${req.headers.get('origin')}/admin/marketplace/users" 
+                      <a href="${req.headers.get('origin')}/admin/marketplace/users"
                          style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
                         Review User Registration
                       </a>
@@ -135,16 +139,16 @@ const handler = async (req: Request): Promise<Response> => {
                     <h2 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">New User Registration</h2>
                     <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
                       <h3 style="color: #007bff; margin-top: 0;">User Details</h3>
-                      <p><strong>Name:</strong> ${first_name} ${last_name}</p>
-                      <p><strong>Email:</strong> ${email}</p>
-                      <p><strong>Company:</strong> ${company || 'Not provided'}</p>
+                      <p><strong>Name:</strong> ${escapeHtml(first_name || '')} ${escapeHtml(last_name || '')}</p>
+                      <p><strong>Email:</strong> ${escapeHtml(email || '')}</p>
+                      <p><strong>Company:</strong> ${escapeHtml(company || '') || 'Not provided'}</p>
                       <p><strong>Registration Time:</strong> ${new Date().toLocaleString()}</p>
                     </div>
                     <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
                       <p style="margin: 0; color: #856404;"><strong>Action Required:</strong> Please review and approve/reject this user registration in the admin panel.</p>
                     </div>
                     <div style="text-align: center; margin: 30px 0;">
-                      <a href="${req.headers.get('origin')}/admin/marketplace/users" 
+                      <a href="${req.headers.get('origin')}/admin/marketplace/users"
                          style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
                         Review User Registration
                       </a>

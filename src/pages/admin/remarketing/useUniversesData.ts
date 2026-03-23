@@ -118,7 +118,7 @@ export function useUniversesData() {
     queryFn: async () => {
       const { data: buyers, error: buyersError } = await supabase
         .from('buyers')
-        .select('id, universe_id')
+        .select('id, universe_id, data_last_updated')
         .eq('archived', false)
         .limit(10000);
 
@@ -141,6 +141,10 @@ export function useUniversesData() {
           stats[buyer.universe_id] = { total: 0, enriched: 0, withTranscripts: 0 };
         }
         stats[buyer.universe_id].total++;
+
+        if (buyer.data_last_updated) {
+          stats[buyer.universe_id].enriched++;
+        }
 
         if (buyersWithTranscripts.has(buyer.id)) {
           stats[buyer.universe_id].withTranscripts++;
@@ -370,6 +374,42 @@ export function useUniversesData() {
         .single();
 
       if (error) throw error;
+
+      // Auto-generate description if none was provided
+      if (!newDescription && newName.trim()) {
+        (async () => {
+          try {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            const response = await fetch(`${SUPABASE_URL}/functions/v1/clarify-industry`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session?.access_token}`,
+              },
+              body: JSON.stringify({
+                industry_name: newName.trim(),
+                generate_description: true,
+              }),
+            });
+            if (response.ok) {
+              const result = await response.json();
+              const desc =
+                result.description ||
+                `Buyer universe targeting companies in the ${newName.trim()} industry. Includes PE firms, strategic acquirers, and family offices actively seeking acquisitions in this space.`;
+              await supabase
+                .from('buyer_universes')
+                .update({ description: desc })
+                .eq('id', data.id);
+              queryClient.invalidateQueries({ queryKey: ['remarketing'] });
+            }
+          } catch (e) {
+            console.warn('Auto-generate description failed:', e);
+          }
+        })();
+      }
+
       return data;
     },
     onSuccess: (data) => {
@@ -531,6 +571,53 @@ export function useUniversesData() {
     [queryClient],
   );
 
+  // Backfill missing descriptions
+  const [isBackfillingDescriptions, setIsBackfillingDescriptions] = useState(false);
+  const backfillMissingDescriptions = useCallback(async () => {
+    if (!universes) return;
+    const missing = universes.filter((u) => !u.description);
+    if (missing.length === 0) {
+      toast.info('All universes already have descriptions');
+      return;
+    }
+    setIsBackfillingDescriptions(true);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    let success = 0;
+    for (const universe of missing) {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/clarify-industry`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            industry_name: universe.name,
+            generate_description: true,
+          }),
+        });
+        if (response.ok) {
+          const result = await response.json();
+          const desc =
+            result.description ||
+            `Buyer universe targeting companies in the ${universe.name} industry.`;
+          await supabase
+            .from('buyer_universes')
+            .update({ description: desc })
+            .eq('id', universe.id);
+          success++;
+        }
+      } catch (e) {
+        console.warn(`Failed to generate description for ${universe.name}:`, e);
+      }
+    }
+    setIsBackfillingDescriptions(false);
+    queryClient.invalidateQueries({ queryKey: ['remarketing'] });
+    toast.success(`Generated descriptions for ${success} of ${missing.length} universes`);
+  }, [universes, queryClient]);
+
   return {
     // Query data
     universes,
@@ -588,5 +675,9 @@ export function useUniversesData() {
 
     // Flagged deal removal
     removeFlaggedDeal,
+
+    // Description backfill
+    isBackfillingDescriptions,
+    backfillMissingDescriptions,
   };
 }

@@ -110,7 +110,7 @@ The chatbot's **data query layer** (Section 4) is excellent — 47 tools with st
 |-----------|--------|---------|
 | Deal stages tracking | Working | `query_deals`, `get_deal_details`, `update_deal_stage` all functional. |
 | Buyer scoring system | Working | 5 dimensions, fully explainable, historical snapshots. |
-| DocuSeal integration | Working | `send_document` for NDA/fee agreements with confirmation flow. |
+| PandaDoc integration | Working | `send_document` for NDA/fee agreements with confirmation flow. |
 | Follow-up queue | Working | `get_follow_up_queue` surfaces overdue tasks, stale outreach, unsigned NDAs, unread messages. |
 | Connection requests | Working | Buyer intake pipeline with NDA/fee status tracking. |
 
@@ -123,7 +123,7 @@ The chatbot's **data query layer** (Section 4) is excellent — 47 tools with st
 | **3.2.1** Seller profile assessment | FAIL | No seller readiness framework. Cannot assess fitness for institutional buyers, identify red flags, or suggest deal prep. |
 | **3.2.2** Valuation misalignment | FAIL | Blocked by GAP 2.2 — cannot calculate realistic multiples or explain why $4M for $200K EBITDA is unrealistic. |
 | **3.3.1** Deal status timeline | FAIL | No M&A timeline knowledge. Cannot explain typical durations for interest → diligence → LOI → close. |
-| **3.3.2** Closing docs coordination | PARTIAL PASS | DocuSeal tools work (`get_firm_agreements`, `get_nda_logs`). Can track document status. May miss explaining the broader closing process. |
+| **3.3.2** Closing docs coordination | PARTIAL PASS | PandaDoc tools work (`get_firm_agreements`, `get_nda_logs`). Can track document status. May miss explaining the broader closing process. |
 
 ### Gaps
 

@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
@@ -97,7 +97,7 @@ async function importUniverses(
       // Map from SourceCo schema to our schema
       const universe = {
         name: row.industry_name || row.name,
-        description: `Industry tracker for ${row.industry_name || row.name}`,
+        description: null,
         fit_criteria: row.fit_criteria || null,
         size_criteria: parseJsonField(row.size_criteria),
         geography_criteria: parseJsonField(row.geography_criteria),
@@ -129,6 +129,14 @@ async function importUniverses(
         idMapping[row.id] = inserted.id;
         imported++;
         console.log(`Imported universe: ${row.industry_name} (${row.id} -> ${inserted.id})`);
+
+        // Auto-generate description via clarify-industry (non-blocking)
+        const universeName = String(row.industry_name || row.name || '');
+        if (universeName) {
+          generateUniverseDescription(supabase, inserted.id, universeName).catch((e) =>
+            console.warn(`Failed to generate description for ${universeName}:`, e)
+          );
+        }
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
@@ -137,6 +145,32 @@ async function importUniverses(
   }
 
   return { imported, errors, idMapping };
+}
+
+async function generateUniverseDescription(supabase: SupabaseClient, universeId: string, name: string) {
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) return;
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const response = await fetch(`${supabaseUrl}/functions/v1/clarify-industry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ industry_name: name, generate_description: true }),
+    });
+    if (response.ok) {
+      const result = await response.json();
+      if (result.description) {
+        await supabase.from('buyer_universes').update({ description: result.description }).eq('id', universeId);
+      }
+    }
+  } catch (e) {
+    console.warn(`Description generation failed for ${name}:`, e);
+  }
 }
 
 async function importBuyers(
@@ -242,29 +276,26 @@ async function importContacts(
         continue;
       }
 
+      const nameParts = (row.name || 'Unknown').trim().split(/\s+/);
       const contact = {
-        buyer_id: mappedBuyerId,
-        name: row.name || 'Unknown',
+        remarketing_buyer_id: mappedBuyerId,
+        first_name: nameParts[0] || 'Unknown',
+        last_name: nameParts.slice(1).join(' ') || '',
         email: row.email || null,
         phone: row.phone || null,
-        role: row.title || null,
+        title: row.title || null,
         linkedin_url: row.linkedin_url || null,
-        is_primary: row.is_primary_contact === 'true' || row.is_primary_contact === true,
-        notes: null,
-        // New columns
-        company_type: row.company_type || null,
-        priority_level: parseInt(row.priority_level) || 3,
-        email_confidence: row.email_confidence || null,
-        salesforce_id: row.salesforce_id || null,
-        is_deal_team: row.is_deal_team === 'true' || row.is_deal_team === true,
-        role_category: row.role_category || null,
-        is_primary_contact: row.is_primary_contact === 'true' || row.is_primary_contact === true,
-        source: row.source || null,
-        source_url: row.source_url || null,
-        created_at: row.created_at || new Date().toISOString(),
+        is_primary_at_firm: row.is_primary_contact === 'true' || row.is_primary_contact === true,
+        contact_type: 'buyer',
+        source: row.source || 'import',
       };
 
-      const { error } = await supabase.from('remarketing_buyer_contacts').insert(contact);
+      const { error } = await supabase
+        .from('contacts')
+        .upsert(contact, {
+          onConflict: 'remarketing_buyer_id,first_name,last_name',
+          ignoreDuplicates: false,
+        });
 
       if (error) {
         console.error(`Error inserting contact ${row.name}:`, error);

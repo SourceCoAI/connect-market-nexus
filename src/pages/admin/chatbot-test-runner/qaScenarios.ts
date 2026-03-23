@@ -1908,10 +1908,10 @@ export function getChatbotTestScenarios(): TestScenario[] {
       },
     },
 
-    // DocuSeal - Send NDA
+    // PandaDoc - Send NDA
     {
       id: 'int-send-nda',
-      category: 'Integration — DocuSeal',
+      category: 'Integration — PandaDoc',
       name: 'Send NDA to buyer contact',
       description: 'Tests send_document tool routing and confirmation flow.',
       userMessage: 'Send the NDA to John Smith at Trivest Partners',
@@ -1931,7 +1931,7 @@ export function getChatbotTestScenarios(): TestScenario[] {
     },
     {
       id: 'int-send-fee-agreement',
-      category: 'Integration — DocuSeal',
+      category: 'Integration — PandaDoc',
       name: 'Send fee agreement',
       description: 'Tests fee agreement variant of send_document.',
       userMessage: 'Send the fee agreement to the primary contact at Audax Private Equity',
@@ -2780,27 +2780,27 @@ export function getChatbotTestScenarios(): TestScenario[] {
       category: 'CTO Audit — Platform Operations',
       name: '3.3.2 Closing document coordination',
       description:
-        'Tests DocuSeal integration awareness, document tracking, bottleneck identification, and workflow clarity.',
+        'Tests PandaDoc integration awareness, document tracking, bottleneck identification, and workflow clarity.',
       userMessage:
         "Where are we in the closing document process? What's outstanding and who needs to approve?",
       expectedBehavior: [
-        'References DocuSeal integration for NDA/fee agreement signing',
+        'References PandaDoc integration for NDA/fee agreement signing',
         'Can track status: docs generated → sent to parties → signed → executed',
         "Identifies bottlenecks: seller hasn't signed NDA, buyer delayed, counsel reviewing",
         'Shows what is ready: asset purchase agreement templates available',
-        'Notes integration dependency: "Once DocuSeal completes, next step is formal SPA negotiation"',
+        'Notes integration dependency: "Once PandaDoc completes, next step is formal SPA negotiation"',
         'Explains role clarity: buyer counsel handles SPA, our role is coordination',
       ],
       edgeCases: [
         'Cannot explain document workflow',
-        'No mention of DocuSeal integration',
+        'No mention of PandaDoc integration',
         'Unclear on who has what document',
         'No bottleneck identification',
       ],
       severity: 'high',
       autoValidation: {
         expectedTools: ['get_firm_agreements', 'get_nda_logs'],
-        mustContainAny: ['document', 'NDA', 'sign', 'DocuSeal', 'agreement', 'status'],
+        mustContainAny: ['document', 'NDA', 'sign', 'PandaDoc', 'agreement', 'status'],
         requiresToolCalls: true,
         minResponseLength: 150,
       },

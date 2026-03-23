@@ -8,13 +8,10 @@ import { toast } from '@/hooks/use-toast';
 import type { Json } from '@/integrations/supabase/types';
 
 function getFunctionsBaseUrl(): string {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const resolvedUrl =
-    supabaseUrl || (projectId ? `https://${projectId}.supabase.co` : '') || SUPABASE_URL;
+  const resolvedUrl = import.meta.env.VITE_SUPABASE_URL || SUPABASE_URL;
 
   if (!resolvedUrl) {
-    throw new Error('Supabase URL is not configured');
+    throw new Error('Supabase URL is not configured. Set VITE_SUPABASE_URL in your .env file.');
   }
 
   return `${resolvedUrl}/functions/v1`;

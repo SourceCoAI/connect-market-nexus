@@ -44,7 +44,7 @@ export function BuyerThreadView({
   const { data: messages = [], isLoading } = useConnectionMessages(thread.connection_request_id);
   const sendMsg = useSendMessage();
   const markRead = useMarkMessagesReadByBuyer();
-  useToast();
+  const { toast } = useToast();
   const [newMessage, setNewMessage] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -145,22 +145,27 @@ export function BuyerThreadView({
           .upload(filePath, attachment);
 
         if (uploadError) {
-          body = body
-            ? `${body}\n[📎 ${attachment.name}](attachment://${attachment.name})`
-            : `[📎 ${attachment.name}](attachment://${attachment.name})`;
+          toast({
+            title: 'Upload failed',
+            description: `Could not upload ${attachment.name}. Message sent without attachment.`,
+            variant: 'destructive',
+          });
         } else {
           const { data: urlData } = supabase.storage
             .from('message-attachments')
             .getPublicUrl(filePath);
-          const publicUrl = urlData?.publicUrl || `attachment://${attachment.name}`;
-          body = body
-            ? `${body}\n[📎 ${attachment.name}](${publicUrl})`
-            : `[📎 ${attachment.name}](${publicUrl})`;
+          if (urlData?.publicUrl) {
+            body = body
+              ? `${body}\n[📎 ${attachment.name}](${urlData.publicUrl})`
+              : `[📎 ${attachment.name}](${urlData.publicUrl})`;
+          }
         }
       } catch {
-        body = body
-          ? `${body}\n[📎 ${attachment.name}](attachment://${attachment.name})`
-          : `[📎 ${attachment.name}](attachment://${attachment.name})`;
+        toast({
+          title: 'Upload failed',
+          description: `Could not upload ${attachment.name}. Message sent without attachment.`,
+          variant: 'destructive',
+        });
       } finally {
         setUploading(false);
       }
@@ -204,7 +209,7 @@ export function BuyerThreadView({
 
       {/* Messages */}
       <MessageList
-        messages={messages.map(m => ({
+        messages={messages.map((m) => ({
           ...m,
           sender: m.sender ? { first_name: m.sender.first_name ?? undefined } : undefined,
         }))}
@@ -244,10 +249,7 @@ export function BuyerThreadView({
 
 export function BuyerMessagesSkeleton() {
   return (
-    <div
-      className="flex min-h-[500px]"
-      style={{ backgroundColor: '#FFFFFF' }}
-    >
+    <div className="flex min-h-[500px]" style={{ backgroundColor: '#FFFFFF' }}>
       <div className="w-[300px] p-5 space-y-5" style={{ borderRight: '1px solid #F0EDE6' }}>
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="flex items-center gap-3">

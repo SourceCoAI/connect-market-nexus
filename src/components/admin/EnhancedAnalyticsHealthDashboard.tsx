@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useAnalytics } from '@/context/AnalyticsContext';
+import { useAnalytics } from '@/contexts/AnalyticsContext';
 import {
   Loader2,
   CheckCircle,
@@ -151,7 +151,7 @@ export function EnhancedAnalyticsHealthDashboard() {
     setIsTestingRunning(true);
     setTestResults([]);
 
-    const logTestResult = (testName: string, success: boolean, details?: any) => {
+    const logTestResult = (testName: string, success: boolean, details?: unknown) => {
       setTestResults((prev) => [...prev, { test: testName, success, details }]);
     };
 
@@ -462,7 +462,7 @@ export function EnhancedAnalyticsHealthDashboard() {
                     key={result.test}
                     className="flex items-center justify-between p-2 border rounded"
                   >
-                    <span className="text-sm">{result.test}</span>
+                    <span className="text-sm">{String(result.test)}</span>
                     <div className="flex items-center gap-2">
                       {result.success ? (
                         <CheckCircle className="h-4 w-4 text-green-500" />
@@ -473,7 +473,7 @@ export function EnhancedAnalyticsHealthDashboard() {
                         <span className="text-xs text-muted-foreground">
                           {typeof result.details === 'object'
                             ? JSON.stringify(result.details).slice(0, 50) + '...'
-                            : result.details}
+                            : String(result.details)}
                         </span>
                       )}
                     </div>

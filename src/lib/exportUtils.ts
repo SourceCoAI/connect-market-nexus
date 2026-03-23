@@ -87,6 +87,8 @@ interface DealExportRow {
   main_contact_phone: string | null;
   enriched_at: string | null;
   created_at: string;
+  not_a_fit: boolean;
+  not_a_fit_reason: string | null;
   referral_partner_id: string | null;
   referral_partners: { name: string } | null;
   deal_owner: { first_name: string | null; last_name: string | null } | null;
@@ -125,6 +127,8 @@ const DEAL_EXPORT_COLUMNS: { key: string; label: string }[] = [
   { key: "main_contact_phone", label: "Contact Phone" },
   { key: "enriched_at", label: "Enriched At" },
   { key: "created_at", label: "Added" },
+  { key: "not_a_fit", label: "Not a Fit" },
+  { key: "not_a_fit_reason", label: "Not a Fit Reason" },
 ];
 
 export async function exportDealsToCSV(dealIds: string[]): Promise<{ success: boolean; count: number; error?: string }> {
@@ -143,6 +147,7 @@ export async function exportDealsToCSV(dealIds: string[]): Promise<{ success: bo
       deal_owner_id,
       main_contact_name, main_contact_title, main_contact_email, main_contact_phone,
       enriched_at, created_at,
+      not_a_fit, not_a_fit_reason,
       referral_partner_id,
       referral_partners(name),
       deal_owner:profiles!listings_deal_owner_id_fkey(first_name, last_name)
@@ -159,6 +164,7 @@ export async function exportDealsToCSV(dealIds: string[]): Promise<{ success: bo
       ? [d.deal_owner.first_name, d.deal_owner.last_name].filter(Boolean).join(" ")
       : "",
     is_priority_target: d.is_priority_target ? "Yes" : "No",
+    not_a_fit: d.not_a_fit ? "Yes" : "No",
     created_at: d.created_at ? new Date(d.created_at).toLocaleDateString() : "",
     enriched_at: d.enriched_at ? new Date(d.enriched_at).toLocaleDateString() : "",
   }));

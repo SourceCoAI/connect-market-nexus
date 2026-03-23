@@ -18,7 +18,7 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 const PB_API_BASE = 'https://www.phoneburner.com/rest/1';
 
-type EntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
+type EntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads' | 'contact_list';
 
 interface PushRequest {
   entity_type?: EntityType;
@@ -448,6 +448,82 @@ async function resolveFromLeads(
   );
 }
 
+async function resolveFromContactListMembers(
+  supabase: ReturnType<typeof createClient>,
+  memberIds: string[],
+): Promise<ResolvedContact[]> {
+  const { data: members } = await supabase
+    .from('contact_list_members')
+    .select(
+      'id, contact_name, contact_email, contact_phone, contact_company, contact_role, entity_type, entity_id',
+    )
+    .in('id', memberIds)
+    .is('removed_at', null);
+
+  if (!members?.length) return [];
+
+  // Collect listing IDs from deal-type members for deal data enrichment
+  const LISTING_ENTITY_TYPES = ['sourceco_deal', 'gp_partner_deal', 'referral_deal', 'listing'];
+  const listingIds = [
+    ...new Set(
+      members
+        .filter((m: { entity_type: string }) => LISTING_ENTITY_TYPES.includes(m.entity_type))
+        .map((m: { entity_id: string }) => m.entity_id)
+        .filter(Boolean),
+    ),
+  ] as string[];
+
+  let listingMap = new Map<string, ListingDealData>();
+  if (listingIds.length) {
+    const { data: listings } = await supabase
+      .from('listings')
+      .select(`id, ${LISTING_DEAL_COLUMNS}`)
+      .in('id', listingIds);
+    listingMap = new Map((listings || []).map((l: ListingDealData & { id: string }) => [l.id, l]));
+  }
+
+  return members.map(
+    (m: {
+      id: string;
+      contact_name: string | null;
+      contact_email: string;
+      contact_phone: string | null;
+      contact_company: string | null;
+      contact_role: string | null;
+      entity_type: string;
+      entity_id: string;
+    }) => {
+      const listing = LISTING_ENTITY_TYPES.includes(m.entity_type)
+        ? listingMap.get(m.entity_id)
+        : null;
+
+      const customFields: PbCustomField[] = [
+        { name: 'SourceCo ID', type: 1, value: m.id },
+        { name: 'Company', type: 1, value: m.contact_company || '' },
+      ].filter((f) => f.value);
+
+      if (listing) {
+        customFields.push(...buildDealCustomFields(listing));
+      }
+
+      return {
+        id: m.id,
+        name: m.contact_name || 'Unknown',
+        phone: m.contact_phone,
+        email: m.contact_email,
+        title: m.contact_role,
+        company: m.contact_company,
+        source_entity: `contact_list:${m.entity_type}`,
+        last_contacted_date: null,
+        contact_id: null,
+        listing_id: LISTING_ENTITY_TYPES.includes(m.entity_type) ? m.entity_id : null,
+        remarketing_buyer_id: null,
+        extra_context: customFields,
+      };
+    },
+  );
+}
+
 // ─── Main handler ───
 
 Deno.serve(async (req: Request) => {
@@ -535,6 +611,9 @@ Deno.serve(async (req: Request) => {
     case 'leads':
       contacts = await resolveFromLeads(supabase, entityIds);
       break;
+    case 'contact_list':
+      contacts = await resolveFromContactListMembers(supabase, entityIds);
+      break;
     default:
       return new Response(JSON.stringify({ error: `Unknown entity_type: ${entityType}` }), {
         status: 400,
@@ -579,16 +658,22 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  const sessionContacts = eligible.map((contact) => ({
-    source_id: contact.id,
-    source_entity: contact.source_entity,
-    name: contact.name,
-    phone: normalizePhone(contact.phone),
-    contact_email: contact.email?.toLowerCase() || null,
-    contact_id: contact.contact_id || null,
-    listing_id: contact.listing_id || null,
-    remarketing_buyer_id: contact.remarketing_buyer_id || null,
-  }));
+  const sessionContacts = eligible.map((contact) => {
+    const primaryPhone = normalizePhone(contact.phone);
+    return {
+      source_id: contact.id,
+      source_entity: contact.source_entity,
+      name: contact.name,
+      phone: primaryPhone,
+      // Store all known phones to improve webhook matching when PhoneBurner
+      // returns a different primary phone than the one we pushed.
+      phones: primaryPhone ? [primaryPhone] : [],
+      contact_email: contact.email?.toLowerCase() || null,
+      contact_id: contact.contact_id || null,
+      listing_id: contact.listing_id || null,
+      remarketing_buyer_id: contact.remarketing_buyer_id || null,
+    };
+  });
 
   // Build contacts array for PhoneBurner dial session
   const pbContacts = eligible.map((contact) => {
@@ -682,6 +767,8 @@ Deno.serve(async (req: Request) => {
     created_by_user_id: user.id,
     started_at: new Date().toISOString(),
     session_contacts: sessionContacts,
+    source_entity_type: entityType,
+    source_entity_ids: entityIds,
   });
 
   return new Response(

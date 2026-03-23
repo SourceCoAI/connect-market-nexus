@@ -126,42 +126,72 @@ export function AddBuyerIntroductionDialog({
     return buyers.find((b) => b.id === selectedBuyerId) || null;
   }, [selectedBuyerId, buyers]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const isExisting = tab === 'existing';
 
-    const buyerName =
-      contactFirstName.trim() && contactLastName.trim()
-        ? `${contactFirstName.trim()} ${contactLastName.trim()}`
-        : contactFirstName.trim() || contactLastName.trim() || '';
+    const firstName = contactFirstName.trim();
+    const lastName = contactLastName.trim();
 
-    let firmName = '';
+    let companyName = '';
+    let peFirmName = '';
     if (isExisting) {
       if (!selectedBuyerId || !selectedBuyer) {
         toast.error('Please select a buyer');
         return;
       }
-      firmName = selectedBuyer.company_name;
+      companyName = selectedBuyer.company_name;
+      peFirmName = selectedBuyer.pe_firm_name || selectedBuyer.company_name;
     } else {
       if (!newCompanyName.trim()) {
         toast.error('Company name is required');
         return;
       }
-      firmName = newCompanyName.trim();
+      companyName = newCompanyName.trim();
+      peFirmName = companyName;
     }
 
-    if (!buyerName) {
+    if (!firstName) {
       toast.error('Contact first name is required');
       return;
     }
 
+    // Create a contact record for the person so they appear in Buyer Outreach
+    let contactId: string | undefined;
+    const remarkBuyerId = isExisting ? selectedBuyerId : undefined;
+    const email = contactEmail.trim() || null;
+
+    try {
+      const { data: newContact } = await supabase
+        .from('contacts')
+        .insert({
+          first_name: firstName,
+          last_name: lastName,
+          email,
+          company_name: peFirmName,
+          contact_type: 'buyer' as const,
+          source: 'buyer_introduction',
+          remarketing_buyer_id: remarkBuyerId || null,
+        })
+        .select('id')
+        .single();
+      if (newContact) contactId = newContact.id;
+    } catch {
+      // Non-fatal — contact may already exist (duplicate email)
+    }
+
     createIntroduction(
       {
-        buyer_name: buyerName,
-        buyer_firm_name: firmName,
-        buyer_email: contactEmail.trim() || undefined,
+        // buyer_name = company/platform name (displayed as primary on card)
+        // buyer_firm_name = PE firm name (displayed as secondary on card)
+        // This matches the data model used by createBuyerIntroductionFromApproval
+        buyer_name: companyName,
+        buyer_firm_name: peFirmName,
+        buyer_email: email || undefined,
         buyer_linkedin_url: isExisting
           ? selectedBuyer?.company_website || undefined
           : newCompanyWebsite.trim() || undefined,
+        remarketing_buyer_id: remarkBuyerId,
+        contact_id: contactId,
         targeting_reason: targetingReason.trim() || undefined,
         listing_id: listingId,
         company_name: listingTitle,
@@ -196,7 +226,11 @@ export function AddBuyerIntroductionDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !isCreating && onOpenChange(v)}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent
+        className="max-w-lg max-h-[85vh] overflow-y-auto"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />

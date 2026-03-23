@@ -162,17 +162,6 @@ export interface TargetBuyerTypeConfig {
   enabled: boolean;
 }
 
-// Industry KPI for scoring bonuses
-export interface IndustryKPI {
-  id: string;
-  name: string;
-  description?: string;
-  weight: number;
-  threshold_min?: number;
-  threshold_max?: number;
-  unit?: string;
-}
-
 export interface DocumentReference {
   id: string;
   name: string;
@@ -342,64 +331,6 @@ export interface ScoreBreakdown {
   tier: ScoreTier;
 }
 
-// For bulk scoring operations
-export interface BulkScoringResult {
-  success: boolean;
-  scores: ReMarketingScore[];
-  errors?: string[];
-  totalProcessed: number;
-  totalBuyers: number;
-}
-
-// For CSV import
-export interface CSVColumnMapping {
-  sourceColumn: string;
-  targetField: keyof ReMarketingBuyer | null;
-  matchScore: number;
-}
-
-// Dashboard stats
-export interface ReMarketingStats {
-  totalUniverses: number;
-  totalBuyers: number;
-  totalScores: number;
-  recentActivity: ActivityItem[];
-  tierDistribution: {
-    A: number;
-    B: number;
-    C: number;
-    D: number;
-    F: number;
-  };
-}
-
-export interface ActivityItem {
-  id: string;
-  type: 'score' | 'buyer_added' | 'universe_created' | 'match_approved';
-  description: string;
-  timestamp: string;
-  metadata?: Record<string, unknown>;
-}
-
-// Referral Partner types
-export interface ReferralPartner {
-  id: string;
-  name: string;
-  company: string | null;
-  email: string | null;
-  phone: string | null;
-  notes: string | null;
-  deal_count: number;
-  is_active: boolean;
-  share_token: string;
-  share_password_protected: boolean;
-  last_viewed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export type ReferralSubmissionStatus = 'pending' | 'approved' | 'rejected';
-
 export interface ReferralSubmission {
   id: string;
   referral_partner_id: string;
@@ -413,7 +344,7 @@ export interface ReferralSubmission {
   contact_email: string | null;
   contact_phone: string | null;
   notes: string | null;
-  status: ReferralSubmissionStatus;
+  status: 'pending' | 'approved' | 'rejected';
   listing_id: string | null;
   reviewed_at: string | null;
   reviewed_by: string | null;
@@ -434,13 +365,8 @@ export type GlobalActivityOperationType =
 
 export type GlobalActivityClassification = 'major' | 'minor';
 
-export type GlobalActivityStatus =
-  | 'queued'
-  | 'running'
-  | 'paused'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
+import type { GlobalActivityStatus } from './status-enums';
+export type { GlobalActivityStatus };
 
 export interface GlobalActivityErrorEntry {
   itemId: string;

@@ -12,7 +12,7 @@
  */
 
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { meetsRole, type TeamRole } from '@/config/role-permissions';
 
 interface RoleGateProps {
@@ -22,11 +22,20 @@ interface RoleGateProps {
 }
 
 export function RoleGate({ children, min }: RoleGateProps) {
-  const { teamRole, isLoading, authChecked } = useAuth();
+  const { teamRole, isLoading, authChecked, isAdmin } = useAuth();
 
-  // While auth is loading or role hasn't resolved yet, show nothing to prevent
-  // flash redirect to /unauthorized before teamRole is available
-  if (isLoading || !authChecked || teamRole === null) return null;
+  // While auth is still loading, show nothing to prevent flash redirect
+  if (isLoading || !authChecked) return null;
+
+  // Non-admin users have no team role — redirect immediately
+  // Admin users whose role RPC hasn't resolved yet: teamRole is null briefly,
+  // but isAdmin is already true from the profile. Wait for role to resolve.
+  if (!isAdmin) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  // Admin user but role not yet resolved from RPC — wait
+  if (teamRole === null) return null;
 
   if (!meetsRole(teamRole, min)) {
     return <Navigate to="/unauthorized" replace />;

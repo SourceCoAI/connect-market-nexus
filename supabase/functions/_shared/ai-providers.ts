@@ -348,15 +348,34 @@ export async function callGeminiWithRetry(
   body: Record<string, unknown>,
   timeoutMs: number = 45000,
   callerName: string = 'Gemini',
+  rateLimitConfig?: RateLimitConfig,
 ): Promise<Response> {
-  return fetchWithAutoRetry(
-    url,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-    },
-    { maxRetries: 3, baseDelayMs: 2000, callerName },
-  );
+  // Wait for rate limiter slot if configured
+  if (rateLimitConfig?.supabase) {
+    await waitForProviderSlot(rateLimitConfig.supabase, 'gemini');
+  }
+
+  const doFetch = async () => {
+    const response = await fetchWithAutoRetry(
+      url,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      },
+      { maxRetries: 3, baseDelayMs: 2000, callerName },
+    );
+
+    if (response.status === 429 && rateLimitConfig?.supabase) {
+      await reportRateLimit(rateLimitConfig.supabase, 'gemini');
+    }
+
+    return response;
+  };
+
+  if (rateLimitConfig?.supabase) {
+    return await withConcurrencyTracking(rateLimitConfig.supabase, 'gemini', doFetch);
+  }
+  return await doFetch();
 }

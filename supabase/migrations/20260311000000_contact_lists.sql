@@ -76,9 +76,7 @@ CREATE TRIGGER update_contact_lists_updated_at
     BEFORE UPDATE ON public.contact_lists
     FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-CREATE TRIGGER update_contact_list_members_updated_at
-    BEFORE UPDATE ON public.contact_list_members
-    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+-- NOTE: contact_list_members has no updated_at column, so no updated_at trigger here.
 
 -- 6. Function to auto-update contact_count on list membership changes
 CREATE OR REPLACE FUNCTION public.update_contact_list_count()

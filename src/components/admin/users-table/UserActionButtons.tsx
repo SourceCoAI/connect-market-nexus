@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { usePermissions } from '@/hooks/permissions/usePermissions';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRoleManagement } from '@/hooks/permissions/useRoleManagement';
 import { RoleBadge } from '../permissions/RoleBadge';
 import { RoleSelector } from '../permissions/RoleSelector';

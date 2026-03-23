@@ -542,7 +542,6 @@ export default function BuyerRecommendationTest() {
                             <th className="text-center p-2 font-medium">Score</th>
                             <th className="text-center p-2 font-medium">Svc</th>
                             <th className="text-center p-2 font-medium">Geo</th>
-                            <th className="text-center p-2 font-medium">Size</th>
                             <th className="text-left p-2 font-medium">Tier</th>
                             <th className="text-left p-2 font-medium">Signals</th>
                           </tr>
@@ -566,7 +565,6 @@ export default function BuyerRecommendationTest() {
                               <td className="p-2 text-center font-mono">
                                 {String(b.geography_score)}
                               </td>
-                              <td className="p-2 text-center font-mono">{String(b.size_score)}</td>
                               <td className="p-2">
                                 <TierBadge tier={String(b.tier)} />
                               </td>

@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -12,9 +13,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { useNewRecommendedBuyers, type BuyerScore } from '@/hooks/admin/use-new-recommended-buyers';
 import { useSeedBuyers, type SeedBuyerResult } from '@/hooks/admin/use-seed-buyers';
+import { useBuyerSearchJob } from '@/hooks/admin/use-buyer-search-job';
+import { BuyerSearchSummaryDialog } from '@/components/admin/deals/buyer-introductions/BuyerSearchSummaryDialog';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
+import { untypedFrom } from '@/integrations/supabase/client';
 import {
   RefreshCw,
   Users,
@@ -36,6 +47,8 @@ import {
   ExternalLink,
   MoreHorizontal,
   ArrowRight,
+  Ban,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -43,24 +56,75 @@ import { cn } from '@/lib/utils';
 interface RecommendedBuyersTabProps {
   listingId: string;
   listingTitle?: string;
+  listingIndustry?: string;
+  listingCategories?: string[];
   pipelineBuyerIds: Set<string>;
 }
 
-const PAGE_SIZE = 10;
+const REJECTION_REASONS = [
+  { value: 'wrong_industry', label: 'Wrong Industry' },
+  { value: 'not_pe_backed', label: 'Not PE-Backed' },
+  { value: 'pe_firm_not_platform', label: 'PE Firm, Not Platform' },
+  { value: 'too_small', label: 'Too Small' },
+  { value: 'too_large', label: 'Too Large' },
+  { value: 'wrong_geography', label: 'Wrong Geography' },
+  { value: 'no_longer_active', label: 'No Longer Active' },
+  { value: 'already_contacted', label: 'Already Contacted' },
+  { value: 'not_a_fit_other', label: 'Other' },
+] as const;
 
-const TIER_CONFIG: Record<BuyerScore['tier'], { label: string; color: string; icon: typeof Zap }> = {
-  move_now: {
-    label: 'Move Now',
-    color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    icon: Zap,
-  },
-  strong: { label: 'Strong', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: Star },
-  speculative: {
-    label: 'Speculative',
-    color: 'bg-amber-100 text-amber-800 border-amber-200',
-    icon: HelpCircle,
-  },
-};
+/** Record buyer discovery feedback to the database for the feedback loop */
+async function recordFeedback(params: {
+  listingId: string;
+  buyer: BuyerScore;
+  action: 'accepted' | 'rejected';
+  reason?: string;
+  reasonCategory?: string;
+  nicheCategory: string;
+  dealIndustry?: string;
+  dealCategories?: string[];
+}) {
+  try {
+    await untypedFrom('buyer_discovery_feedback').upsert(
+      {
+        listing_id: params.listingId,
+        buyer_id: params.buyer.buyer_id,
+        buyer_name: params.buyer.company_name,
+        pe_firm_name: params.buyer.pe_firm_name,
+        action: params.action,
+        reason: params.reason || null,
+        reason_category: params.reasonCategory || null,
+        niche_category: params.nicheCategory,
+        deal_industry: params.dealIndustry || null,
+        deal_categories: params.dealCategories || null,
+        buyer_type: params.buyer.buyer_type,
+        buyer_source: params.buyer.source,
+        composite_score: params.buyer.composite_score,
+        service_score: params.buyer.service_score,
+      },
+      { onConflict: 'listing_id,buyer_id,action' },
+    );
+  } catch (err) {
+    console.error('Failed to record buyer feedback (non-fatal):', err);
+  }
+}
+
+const PAGE_SIZE = 5;
+
+const TIER_CONFIG: Record<BuyerScore['tier'], { label: string; color: string; icon: typeof Zap }> =
+  {
+    move_now: {
+      label: 'Move Now',
+      color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      icon: Zap,
+    },
+    strong: { label: 'Strong', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: Star },
+    speculative: {
+      label: 'Speculative',
+      color: 'bg-amber-100 text-amber-800 border-amber-200',
+      icon: HelpCircle,
+    },
+  };
 
 const SOURCE_BADGE: Record<BuyerScore['source'], { label: string; color: string }> = {
   ai_seeded: { label: 'AI Search', color: 'bg-purple-100 text-purple-700' },
@@ -104,6 +168,7 @@ function TierSummary({ buyers }: { buyers: BuyerScore[] }) {
 function BuyerCard({
   buyer,
   onAccept,
+  onDismiss,
   isAccepting,
   isInPipeline,
   isSelected,
@@ -111,6 +176,7 @@ function BuyerCard({
 }: {
   buyer: BuyerScore;
   onAccept: (buyer: BuyerScore) => void;
+  onDismiss: (buyer: BuyerScore) => void;
   isAccepting?: boolean;
   isInPipeline?: boolean;
   isSelected: boolean;
@@ -119,6 +185,10 @@ function BuyerCard({
   const tier = TIER_CONFIG[buyer.tier];
   const TierIcon = tier.icon;
   const sourceBadge = SOURCE_BADGE[buyer.source] || SOURCE_BADGE.scored;
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const websiteUrl = buyer.platform_website || buyer.company_website;
 
   return (
     <div
@@ -141,26 +211,34 @@ function BuyerCard({
         {/* Name + location */}
         <div className="shrink-0 min-w-[180px]">
           <div className="flex items-center gap-1.5">
-            <Link to={`/admin/buyers/${buyer.buyer_id}`}>
-              <span className="font-semibold text-[15px] hover:underline truncate">
-                {buyer.company_name}
-              </span>
-            </Link>
-            {buyer.pe_firm_name && (
+            {buyer.pe_firm_name ? (
               <>
-                <span className="text-muted-foreground text-[13px]">/</span>
                 {buyer.pe_firm_id ? (
                   <Link to={`/admin/buyers/pe-firms/${buyer.pe_firm_id}`}>
-                    <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
+                    <span className="font-semibold text-[15px] hover:underline truncate">
                       {buyer.pe_firm_name}
                     </span>
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-muted-foreground truncate">
+                  <span className="font-semibold text-[15px] truncate">
                     {buyer.pe_firm_name}
                   </span>
                 )}
+                <span className="text-muted-foreground text-[13px]">/</span>
+                <span
+                  className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate cursor-pointer"
+                  onClick={() => navigate(`/admin/buyers/${buyer.buyer_id}`, { state: { from: location.pathname } })}
+                >
+                  {buyer.company_name}
+                </span>
               </>
+            ) : (
+              <span
+                className="font-semibold text-[15px] hover:underline truncate cursor-pointer"
+                onClick={() => navigate(`/admin/buyers/${buyer.buyer_id}`, { state: { from: location.pathname } })}
+              >
+                {buyer.company_name}
+              </span>
             )}
             {isInPipeline && (
               <Badge
@@ -183,13 +261,9 @@ function BuyerCard({
                 Fee
               </span>
             )}
-            {buyer.company_website && (
+            {websiteUrl && (
               <a
-                href={
-                  buyer.company_website.startsWith('http')
-                    ? buyer.company_website
-                    : `https://${buyer.company_website}`
-                }
+                href={websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
@@ -251,8 +325,18 @@ function BuyerCard({
                 onClick={() => onAccept(buyer)}
                 disabled={isAccepting}
               >
-                <Plus className="h-3.5 w-3.5" />
-                Add to Pipeline
+                <Check className="h-3.5 w-3.5" />
+                Approve Introduction
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2.5 text-xs gap-1 bg-red-50 border-red-300 text-red-700 hover:bg-red-100 hover:border-red-500"
+                onClick={() => onDismiss(buyer)}
+              >
+                <Ban className="h-3.5 w-3.5" />
+                Not a Fit
               </Button>
 
               {/* Overflow menu */}
@@ -263,11 +347,9 @@ function BuyerCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link to={`/admin/buyers/${buyer.buyer_id}`}>
-                      <ExternalLink className="h-3.5 w-3.5 mr-2" />
-                      View Profile
-                    </Link>
+                  <DropdownMenuItem onClick={() => navigate(`/admin/buyers/${buyer.buyer_id}`, { state: { from: location.pathname } })}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                    View Profile
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -349,18 +431,37 @@ function SeedResultsSummary({ results }: { results: SeedBuyerResult[] }) {
 export function RecommendedBuyersTab({
   listingId,
   listingTitle,
+  listingIndustry,
+  listingCategories,
   pipelineBuyerIds,
 }: RecommendedBuyersTabProps) {
   const { data, isLoading, isError, error, refresh } = useNewRecommendedBuyers(listingId);
   const seedMutation = useSeedBuyers();
+  const { job, createJob, dismiss: dismissJob } = useBuyerSearchJob(listingId);
   const { createIntroduction } = useBuyerIntroductions(listingId);
   const [refreshing, setRefreshing] = useState(false);
   const [seedResults, setSeedResults] = useState<SeedBuyerResult[] | null>(null);
   const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(`dismissed-buyers-${listingId}`);
+      return stored ? new Set(JSON.parse(stored) as string[]) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [internalVisible, setInternalVisible] = useState(PAGE_SIZE);
-  const [externalVisible, setExternalVisible] = useState(PAGE_SIZE);
+  const [internalPage, setInternalPage] = useState(0);
+  const [externalPage, setExternalPage] = useState(0);
+  // Rejection dialog state
+  const [rejectingBuyer, setRejectingBuyer] = useState<BuyerScore | null>(null);
+  // Search summary dialog state
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summaryCached, setSummaryCached] = useState(false);
+
+  const nicheCategory = listingIndustry || listingCategories?.[0] || 'general';
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -376,21 +477,26 @@ export function RecommendedBuyersTab({
 
   const handleSeedBuyers = async () => {
     setSeedResults(null);
+    setSummaryError(null);
+    setSummaryCached(false);
     try {
+      // Create a job for progress tracking
+      const jobId = await createJob(listingTitle);
+
       // forceRefresh: true ensures clicking this button always runs a fresh Claude search instead
       // of returning stale cached results from a previous run.
-      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: true });
+      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: true, jobId });
       setSeedResults(result.seeded_buyers);
-      if (result.cached) {
-        toast.info(`Found ${result.total} cached AI-seeded buyers`);
-      } else {
-        toast.success(
-          `AI seeded ${result.total} buyers: ${result.inserted || 0} new, ${result.enriched_existing || 0} updated`,
-        );
-      }
+      setSummaryCached(!!result.cached);
+      setSummaryDialogOpen(true);
+      // Reset pagination so user sees newly seeded buyers
+      setInternalPage(0);
+      setExternalPage(0);
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to seed buyers');
+      const msg = err instanceof Error ? err.message : 'Failed to seed buyers';
+      setSummaryError(msg);
+      setSummaryDialogOpen(true);
     }
   };
 
@@ -426,6 +532,7 @@ export function RecommendedBuyersTab({
                 pe_firm_id: buyer.pe_firm_id,
                 acquisition_appetite: buyer.acquisition_appetite,
                 company_website: buyer.company_website,
+                platform_website: buyer.platform_website,
                 is_publicly_traded: buyer.is_publicly_traded ?? null,
                 is_pe_backed: buyer.is_pe_backed ?? false,
               },
@@ -442,6 +549,15 @@ export function RecommendedBuyersTab({
           next.delete(buyer.buyer_id);
           return next;
         });
+        // Record acceptance feedback for the feedback loop
+        recordFeedback({
+          listingId,
+          buyer,
+          action: 'accepted',
+          nicheCategory,
+          dealIndustry: listingIndustry,
+          dealCategories: listingCategories,
+        });
       } catch {
         // toast already shown by mutation
       } finally {
@@ -452,7 +568,15 @@ export function RecommendedBuyersTab({
         });
       }
     },
-    [acceptingIds, createIntroduction, listingId, listingTitle],
+    [
+      acceptingIds,
+      createIntroduction,
+      listingId,
+      listingTitle,
+      nicheCategory,
+      listingIndustry,
+      listingCategories,
+    ],
   );
 
   const handleBatchAdd = async () => {
@@ -477,6 +601,45 @@ export function RecommendedBuyersTab({
     }
   };
 
+  const handleDismissClick = useCallback((buyer: BuyerScore) => {
+    setRejectingBuyer(buyer);
+  }, []);
+
+  const handleDismissConfirm = useCallback(
+    (reasonCategory?: string, reason?: string) => {
+      if (!rejectingBuyer) return;
+      const buyer = rejectingBuyer;
+      setDismissedIds((prev) => {
+        const next = new Set([...prev, buyer.buyer_id]);
+        try {
+          localStorage.setItem(`dismissed-buyers-${listingId}`, JSON.stringify([...next]));
+        } catch {
+          // localStorage full or unavailable
+        }
+        return next;
+      });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(buyer.buyer_id);
+        return next;
+      });
+      // Record rejection feedback for the feedback loop
+      recordFeedback({
+        listingId,
+        buyer,
+        action: 'rejected',
+        reason,
+        reasonCategory,
+        nicheCategory,
+        dealIndustry: listingIndustry,
+        dealCategories: listingCategories,
+      });
+      toast.success(`${buyer.company_name} marked as not a fit`);
+      setRejectingBuyer(null);
+    },
+    [rejectingBuyer, listingId, nicheCategory, listingIndustry, listingCategories],
+  );
+
   const toggleSelect = useCallback((buyerId: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -488,12 +651,20 @@ export function RecommendedBuyersTab({
 
   const allBuyers = data?.buyers || [];
   const available = allBuyers.filter(
-    (b) => !acceptedIds.has(b.buyer_id),
+    (b) => !acceptedIds.has(b.buyer_id) && !dismissedIds.has(b.buyer_id),
   );
   const allInternal = available.filter(isInternal);
   const allExternal = available.filter((b) => !isInternal(b));
-  const internalBuyers = allInternal.slice(0, internalVisible);
-  const externalBuyers = allExternal.slice(0, externalVisible);
+  const internalBuyers = allInternal.slice(
+    internalPage * PAGE_SIZE,
+    (internalPage + 1) * PAGE_SIZE,
+  );
+  const externalBuyers = allExternal.slice(
+    externalPage * PAGE_SIZE,
+    (externalPage + 1) * PAGE_SIZE,
+  );
+  const internalTotalPages = Math.max(1, Math.ceil(allInternal.length / PAGE_SIZE));
+  const externalTotalPages = Math.max(1, Math.ceil(allExternal.length / PAGE_SIZE));
   const buyers = [...allInternal, ...allExternal];
 
   if (isLoading) {
@@ -558,6 +729,51 @@ export function RecommendedBuyersTab({
         </div>
       </div>
 
+      {/* AI Search Progress Bar */}
+      {job && (
+        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {job.status === 'failed' ? (
+                <AlertCircle className="h-4 w-4 text-destructive" />
+              ) : job.status === 'completed' ? (
+                <CheckCircle className="h-4 w-4 text-emerald-600" />
+              ) : (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              )}
+              <span className="text-sm font-medium text-foreground">
+                {job.status === 'completed'
+                  ? 'Search Complete'
+                  : job.status === 'failed'
+                    ? 'Search Failed'
+                    : 'AI Buyer Search'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{job.progress_pct}%</span>
+              {(job.status === 'completed' || job.status === 'failed') && (
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={dismissJob}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+          <Progress value={job.progress_pct} className="h-1.5" />
+          {job.status === 'failed' && job.progress_message && (
+            <p className="text-xs text-destructive">{job.progress_message}</p>
+          )}
+          {job.status !== 'failed' && job.progress_message && (
+            <p className="text-xs text-muted-foreground">{job.progress_message}</p>
+          )}
+          {job.status === 'completed' && job.buyers_found > 0 && (
+            <p className="text-xs text-emerald-600">
+              Found {job.buyers_found} buyers ({job.buyers_inserted} new, {job.buyers_updated}{' '}
+              updated)
+            </p>
+          )}
+        </div>
+      )}
+
       {seedResults && seedResults.length > 0 && <SeedResultsSummary results={seedResults} />}
 
       {/* Batch action bar */}
@@ -582,7 +798,7 @@ export function RecommendedBuyersTab({
               onClick={handleBatchAdd}
             >
               <ArrowRight className="h-3.5 w-3.5" />
-              Add {selectedIds.size} Selected to Pipeline
+              Approve {selectedIds.size} Selected
             </Button>
           </div>
         </div>
@@ -630,21 +846,37 @@ export function RecommendedBuyersTab({
                     key={buyer.buyer_id}
                     buyer={buyer}
                     onAccept={handleAccept}
+                    onDismiss={handleDismissClick}
                     isAccepting={acceptingIds.has(buyer.buyer_id)}
                     isInPipeline={pipelineBuyerIds.has(buyer.buyer_id)}
                     isSelected={selectedIds.has(buyer.buyer_id)}
                     onToggleSelect={toggleSelect}
                   />
                 ))}
-                {allInternal.length > internalVisible && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => setInternalVisible((prev) => Math.min(prev + PAGE_SIZE, allInternal.length))}
-                  >
-                    Show More ({Math.max(0, allInternal.length - internalVisible)} remaining)
-                  </Button>
+                {internalTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setInternalPage((p) => p - 1)}
+                      disabled={internalPage === 0}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Page {internalPage + 1} of {internalTotalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setInternalPage((p) => p + 1)}
+                      disabled={internalPage >= internalTotalPages - 1}
+                    >
+                      Next
+                    </Button>
+                  </div>
                 )}
               </>
             )}
@@ -665,21 +897,37 @@ export function RecommendedBuyersTab({
                     key={buyer.buyer_id}
                     buyer={buyer}
                     onAccept={handleAccept}
+                    onDismiss={handleDismissClick}
                     isAccepting={acceptingIds.has(buyer.buyer_id)}
                     isInPipeline={pipelineBuyerIds.has(buyer.buyer_id)}
                     isSelected={selectedIds.has(buyer.buyer_id)}
                     onToggleSelect={toggleSelect}
                   />
                 ))}
-                {allExternal.length > externalVisible && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => setExternalVisible((prev) => Math.min(prev + PAGE_SIZE, allExternal.length))}
-                  >
-                    Show More ({Math.max(0, allExternal.length - externalVisible)} remaining)
-                  </Button>
+                {externalTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setExternalPage((p) => p - 1)}
+                      disabled={externalPage === 0}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Page {externalPage + 1} of {externalTotalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setExternalPage((p) => p + 1)}
+                      disabled={externalPage >= externalTotalPages - 1}
+                    >
+                      Next
+                    </Button>
+                  </div>
                 )}
               </>
             )}
@@ -692,6 +940,49 @@ export function RecommendedBuyersTab({
           )}
         </Tabs>
       )}
+
+      {/* Rejection Reason Dialog */}
+      <Dialog open={!!rejectingBuyer} onOpenChange={(open) => !open && setRejectingBuyer(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              Why isn't {rejectingBuyer?.company_name} a fit?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2 py-3">
+            {REJECTION_REASONS.map((reason) => (
+              <Button
+                key={reason.value}
+                variant="outline"
+                size="sm"
+                className="h-9 text-xs justify-start"
+                onClick={() => handleDismissConfirm(reason.value, reason.label)}
+              >
+                {reason.label}
+              </Button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              onClick={() => handleDismissConfirm()}
+            >
+              Skip — just dismiss
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Search Summary Dialog */}
+      <BuyerSearchSummaryDialog
+        open={summaryDialogOpen}
+        onOpenChange={setSummaryDialogOpen}
+        results={seedResults}
+        cached={summaryCached}
+        error={summaryError}
+      />
     </div>
   );
 }

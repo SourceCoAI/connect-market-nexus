@@ -18,23 +18,6 @@ export interface HeyReachCampaign {
 
 export type HeyReachCampaignStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'STOPPED';
 
-// ─── Local campaign tracking ────────────────────────────────────────────────
-
-export interface LocalHeyReachCampaign {
-  id: string;
-  heyreach_campaign_id: number;
-  name: string;
-  status: string;
-  deal_id: string | null;
-  universe_id: string | null;
-  created_by: string | null;
-  settings: Record<string, unknown>;
-  lead_count: number;
-  last_synced_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 // ─── Lead types ─────────────────────────────────────────────────────────────
 
 export interface HeyReachLead {
@@ -46,25 +29,6 @@ export interface HeyReachLead {
   title?: string;
   phone?: string;
   customFields?: Record<string, string>;
-}
-
-export interface HeyReachCampaignLead {
-  id: string;
-  campaign_id: string;
-  heyreach_lead_id: string | null;
-  buyer_contact_id: string | null;
-  remarketing_buyer_id: string | null;
-  linkedin_url: string;
-  email: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  company_name: string | null;
-  lead_status: string;
-  lead_category: string | null;
-  last_activity_at: string | null;
-  metadata: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
 }
 
 // ─── Statistics types ───────────────────────────────────────────────────────
@@ -115,20 +79,6 @@ export interface HeyReachWebhookEvent {
   created_at: string;
 }
 
-export type HeyReachEventType =
-  | 'CONNECTION_REQUEST_SENT'
-  | 'CONNECTION_REQUEST_ACCEPTED'
-  | 'MESSAGE_SENT'
-  | 'MESSAGE_RECEIVED'
-  | 'INMAIL_SENT'
-  | 'INMAIL_RECEIVED'
-  | 'PROFILE_VIEWED'
-  | 'FOLLOW_SENT'
-  | 'LIKE_SENT'
-  | 'LEAD_REPLIED'
-  | 'LEAD_INTERESTED'
-  | 'LEAD_NOT_INTERESTED';
-
 // ─── API request/response types ─────────────────────────────────────────────
 
 export type HeyReachEntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads';
@@ -155,7 +105,18 @@ export interface CreateCampaignRequest {
 
 export interface ListCampaignsResponse {
   campaigns: HeyReachCampaign[];
-  local_campaigns: LocalHeyReachCampaign[];
+  local_campaigns: {
+    id: string;
+    heyreach_campaign_id: number;
+    name: string;
+    status: string;
+    deal_id: string | null;
+    universe_id: string | null;
+    lead_count: number;
+    last_synced_at: string | null;
+    created_at: string;
+    updated_at: string;
+  }[];
 }
 
 export interface CampaignStatsResponse {

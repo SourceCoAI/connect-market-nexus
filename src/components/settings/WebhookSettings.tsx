@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { untypedFrom } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +27,7 @@ import {
 import { Plus, Trash2, TestTube, Check, X, Loader2, Webhook } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Tables not yet in generated types — use `as any` for supabase.from() calls
+// Tables not yet in generated types — use untypedFrom() helper
 
 type WebhookConfig = {
   id: string;
@@ -64,8 +64,7 @@ export function WebhookSettings({ universeId }: WebhookSettingsProps) {
   const { data: webhooks = [], isLoading } = useQuery({
     queryKey: ['webhooks', universeId],
     queryFn: async () => {
-      let query = (supabase
-        .from('webhook_configs' as any) as any)
+      let query = untypedFrom('webhook_configs')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -82,7 +81,7 @@ export function WebhookSettings({ universeId }: WebhookSettingsProps) {
   // Add webhook mutation
   const addMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase.from('webhook_configs' as any) as any).insert({
+      const { error } = await untypedFrom('webhook_configs').insert({
         universe_id: universeId || null,
         name: formData.name,
         webhook_url: formData.webhook_url,
@@ -107,7 +106,7 @@ export function WebhookSettings({ universeId }: WebhookSettingsProps) {
   // Delete webhook mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase.from('webhook_configs' as any) as any).delete().eq('id', id);
+      const { error } = await untypedFrom('webhook_configs').delete().eq('id', id);
 
       if (error) throw error;
     },
@@ -123,7 +122,7 @@ export function WebhookSettings({ universeId }: WebhookSettingsProps) {
   // Toggle webhook enabled/disabled
   const toggleMutation = useMutation({
     mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const { error } = await (supabase.from('webhook_configs' as any) as any).update({ enabled }).eq('id', id);
+      const { error } = await untypedFrom('webhook_configs').update({ enabled }).eq('id', id);
 
       if (error) throw error;
     },

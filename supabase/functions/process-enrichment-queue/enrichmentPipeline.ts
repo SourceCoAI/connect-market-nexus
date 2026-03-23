@@ -39,9 +39,9 @@ async function callFn(
     throw new Error('SUPABASE_ANON_KEY is not set — cannot make internal function calls');
   }
 
-  // Hard cap at 45s to stay below edge runtime constraints while allowing
-  // slower enrich-deal transcript/website extraction runs to finish.
-  const timeoutMs = Math.min(Math.max(options?.timeoutMs ?? input.timeoutMs, 1000), 45000);
+  // Cap at 130s — enrich-deal processes transcripts + notes + website and needs up to 120s.
+  // The edge function runtime limit is 150s; this cap leaves a safety margin.
+  const timeoutMs = Math.min(Math.max(options?.timeoutMs ?? input.timeoutMs, 1000), 130000);
 
   const res = await fetch(`${input.supabaseUrl}/functions/v1/${fnName}`, {
     method: 'POST',
@@ -86,7 +86,7 @@ export async function runListingEnrichmentPipeline(
     input,
     'enrich-deal',
     { dealId: input.listingId, skipExternalEnrichment: true, forceReExtract: input.force === true },
-    { timeoutMs: 38000 },
+    { timeoutMs: 120000 },
   );
 
   // 409 = concurrent modification (another process enriched this deal) — treat as success

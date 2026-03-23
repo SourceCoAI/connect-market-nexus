@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { GENERIC_EMAIL_DOMAINS as SHARED_GENERIC_DOMAINS } from '../_shared/generic-email-domains.ts';
 
 /**
  * auto-create-firm-on-signup
@@ -95,30 +96,8 @@ serve(async (req: Request) => {
 
     // Generic/free email providers — never use these for firm matching because
     // unrelated companies sharing gmail.com would be grouped together.
-    const GENERIC_EMAIL_DOMAINS = new Set([
-      'gmail.com',
-      'googlemail.com',
-      'yahoo.com',
-      'yahoo.co.uk',
-      'outlook.com',
-      'hotmail.com',
-      'live.com',
-      'msn.com',
-      'aol.com',
-      'icloud.com',
-      'me.com',
-      'mac.com',
-      'protonmail.com',
-      'proton.me',
-      'mail.com',
-      'zoho.com',
-      'yandex.com',
-      'gmx.com',
-      'gmx.net',
-      'fastmail.com',
-    ]);
     const isGenericDomain = emailDomain
-      ? GENERIC_EMAIL_DOMAINS.has(emailDomain.toLowerCase())
+      ? SHARED_GENERIC_DOMAINS.has(emailDomain.toLowerCase())
       : false;
 
     // Find or create firm

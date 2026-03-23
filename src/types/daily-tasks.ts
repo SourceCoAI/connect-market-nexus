@@ -48,6 +48,7 @@ export interface StandupMeeting {
   meeting_date: string;
   meeting_duration_minutes: number | null;
   transcript_url: string | null;
+  is_ds_meeting: boolean;
   tasks_extracted: number;
   tasks_unassigned: number;
   extraction_confidence_avg: number | null;
@@ -115,6 +116,12 @@ export interface DailyStandupTask {
 
   // v3.2 — Free-form tags
   tags: string[];
+
+  // v3.3 — Recurring task dedup & categories
+  task_category: 'deal_task' | 'platform_task' | 'operations_task';
+  carried_over: boolean;
+  carry_count: number;
+  source_timestamp_seconds: number | null;
 }
 
 export interface DailyStandupTaskWithRelations extends DailyStandupTask {
@@ -137,24 +144,6 @@ export interface DailyStandupTaskWithRelations extends DailyStandupTask {
     } | null;
   } | null;
   source_meeting?: StandupMeeting | null;
-}
-
-export interface TeamMemberAlias {
-  id: string;
-  profile_id: string;
-  alias: string;
-  created_at: string;
-  created_by: string | null;
-}
-
-export interface TaskPinLog {
-  id: string;
-  task_id: string;
-  action: 'pinned' | 'unpinned';
-  pinned_rank: number | null;
-  reason: string | null;
-  performed_by: string;
-  performed_at: string;
 }
 
 // ─── Task Type Metadata ───
@@ -250,6 +239,20 @@ export const PRIORITY_COLORS: Record<TaskPriority, string> = {
   high: 'bg-red-100 text-red-800 border-red-200',
   medium: 'bg-amber-100 text-amber-800 border-amber-200',
   low: 'bg-gray-100 text-gray-800 border-gray-200',
+};
+
+export type TaskCategory = 'deal_task' | 'platform_task' | 'operations_task';
+
+export const TASK_CATEGORY_LABELS: Record<TaskCategory, string> = {
+  deal_task: 'Deal',
+  platform_task: 'Platform',
+  operations_task: 'Operations',
+};
+
+export const TASK_CATEGORY_COLORS: Record<TaskCategory, string> = {
+  deal_task: 'bg-blue-50 text-blue-700 border-blue-200',
+  platform_task: 'bg-violet-50 text-violet-700 border-violet-200',
+  operations_task: 'bg-orange-50 text-orange-700 border-orange-200',
 };
 
 // ─── Priority Scoring Constants ───
@@ -550,7 +553,11 @@ export const BUYER_ENGAGEMENT_TEMPLATES: TaskTemplateStage[] = [
     description: 'First contact and introduction with buyer',
     tasks: [
       { title: 'Send teaser to buyer', task_type: 'send_materials', due_offset_days: 1 },
-      { title: 'Follow up on teaser review', task_type: 'follow_up_with_buyer', due_offset_days: 5 },
+      {
+        title: 'Follow up on teaser review',
+        task_type: 'follow_up_with_buyer',
+        due_offset_days: 5,
+      },
       { title: 'Schedule intro call with buyer', task_type: 'schedule_call', due_offset_days: 7 },
     ],
   },

@@ -1,25 +1,24 @@
 /**
- * DocumentsPanel: Data room file upload, organization, and management
+ * DocumentsPanel: Data room file upload and management
  *
  * Handles supporting documents only (financials, legal, ops, etc.).
  * Memo PDFs (teaser + full memo) are managed by the MemosTab.
  *
  * Features:
  * - Drag-and-drop file upload
- * - Folder organization (Financials, Legal, Operations, etc.)
+ * - Flat file list (no folders)
  * - File preview via signed URLs
+ * - Files are used for deal enrichment and memo generation
  */
 
 import { useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import {
   Upload, FileText, File, FileSpreadsheet, FileImage,
-  Trash2, Download, Eye, FolderPlus, Loader2, EyeOff,
+  Trash2, Download, Eye, Loader2, EyeOff,
 } from 'lucide-react';
 import {
   useDataRoomDocuments,
@@ -28,8 +27,6 @@ import {
   useDocumentUrl,
   DataRoomDocument,
 } from '@/hooks/admin/data-room/use-data-room';
-
-const DEFAULT_FOLDERS = ['Financials', 'Legal', 'Operations', 'Marketing', 'General'];
 
 interface DocumentsPanelProps {
   dealId: string;
@@ -41,34 +38,18 @@ export function DocumentsPanel({ dealId }: DocumentsPanelProps) {
   const deleteMutation = useDeleteDocument();
   const documentUrlMutation = useDocumentUrl();
 
-  const [selectedFolder, setSelectedFolder] = useState('General');
-  const [customFolder, setCustomFolder] = useState('');
-  const [showNewFolder, setShowNewFolder] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Only show data room files — memo PDFs are managed by the MemosTab
   const dataRoomDocs = documents.filter(d => d.document_category === 'data_room');
 
-  // Get unique folders from existing data room documents
-  const existingFolders = [...new Set(dataRoomDocs.map(d => d.folder_name))];
-  const allFolders = [...new Set([...DEFAULT_FOLDERS, ...existingFolders])].sort();
-
-  // Group documents by folder
-  const documentsByFolder = dataRoomDocs.reduce((acc, doc) => {
-    if (!acc[doc.folder_name]) acc[doc.folder_name] = [];
-    acc[doc.folder_name].push(doc);
-    return acc;
-  }, {} as Record<string, DataRoomDocument[]>);
-
   const handleFileUpload = useCallback(async (files: FileList | File[]) => {
-    const folder = showNewFolder && customFolder ? customFolder : selectedFolder;
-
     for (const file of Array.from(files)) {
       await uploadMutation.mutateAsync({
         file,
         dealId,
-        folderName: folder,
+        folderName: 'General',
         documentCategory: 'data_room',
       });
     }
@@ -76,7 +57,7 @@ export function DocumentsPanel({ dealId }: DocumentsPanelProps) {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, [dealId, selectedFolder, customFolder, showNewFolder, uploadMutation]);
+  }, [dealId, uploadMutation]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -145,46 +126,10 @@ export function DocumentsPanel({ dealId }: DocumentsPanelProps) {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Data Room Files</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Supporting documents for due diligence (financials, legal, operations, etc.)
+            Supporting documents for due diligence. Uploaded files are used to enrich the company profile and generate lead memos.
           </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Folder Selection */}
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Folder</label>
-              {showNewFolder ? (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="New folder name"
-                    value={customFolder}
-                    onChange={(e) => setCustomFolder(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button variant="ghost" size="sm" onClick={() => setShowNewFolder(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Select value={selectedFolder} onValueChange={setSelectedFolder}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allFolders.map(f => (
-                        <SelectItem key={f} value={f}>{f}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" size="icon" onClick={() => setShowNewFolder(true)} title="New folder">
-                    <FolderPlus className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-
+        <CardContent>
           {/* Drop Zone */}
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer
@@ -221,7 +166,7 @@ export function DocumentsPanel({ dealId }: DocumentsPanelProps) {
         </CardContent>
       </Card>
 
-      {/* Document List by Folder */}
+      {/* Document List */}
       {dataRoomDocs.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
@@ -230,89 +175,85 @@ export function DocumentsPanel({ dealId }: DocumentsPanelProps) {
           </CardContent>
         </Card>
       ) : (
-        Object.entries(documentsByFolder)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([folder, docs]) => (
-            <Card key={folder}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  {folder}
-                  <Badge variant="secondary" className="ml-1">{docs.length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="divide-y">
-                  {docs.map(doc => (
-                    <div key={doc.id} className="flex items-center gap-3 py-2 group">
-                      {getFileIcon(doc.file_type)}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{doc.file_name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatFileSize(doc.file_size_bytes)}
-                          {' · '}
-                          {new Date(doc.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      {!doc.allow_download && (
-                        <Badge variant="outline" className="text-xs">
-                          <EyeOff className="h-3 w-3 mr-1" />
-                          View only
-                        </Badge>
-                      )}
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => handleViewDocument(doc)}
-                          title="View"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Documents
+              <Badge variant="secondary" className="ml-1">{dataRoomDocs.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {dataRoomDocs.map(doc => (
+                <div key={doc.id} className="flex items-center gap-3 py-2 group">
+                  {getFileIcon(doc.file_type)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{doc.file_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatFileSize(doc.file_size_bytes)}
+                      {' · '}
+                      {new Date(doc.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {!doc.allow_download && (
+                    <Badge variant="outline" className="text-xs">
+                      <EyeOff className="h-3 w-3 mr-1" />
+                      View only
+                    </Badge>
+                  )}
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleViewDocument(doc)}
+                      title="View"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                    {doc.allow_download && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleDownloadDocument(doc)}
+                        title="Download"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
-                        {doc.allow_download && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => handleDownloadDocument(doc)}
-                            title="Download"
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete document?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete "{doc.file_name}" from the data room.
+                            Buyers who had access will no longer be able to view it.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteMutation.mutate({ documentId: doc.id, dealId })}
+                            className="bg-destructive text-destructive-foreground"
                           >
-                            <Download className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete document?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete "{doc.file_name}" from the data room.
-                                Buyers who had access will no longer be able to view it.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => deleteMutation.mutate({ documentId: doc.id, dealId })}
-                                className="bg-destructive text-destructive-foreground"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-                  ))}
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
@@ -116,15 +116,32 @@ function transcriptHasContent(t: {
   return true;
 }
 
-function extractExternalParticipants(attendees: unknown[]): { name: string; email: string }[] {
+interface FirefliesAttendee {
+  email?: string;
+  displayName?: string;
+  name?: string;
+}
+
+interface FirefliesTranscript {
+  id?: string;
+  title?: string;
+  date?: number | string;
+  transcript_url?: string;
+  meeting_attendees?: FirefliesAttendee[];
+  meeting_info?: { silent_meeting?: boolean; summary_status?: string };
+  summary?: { short_summary?: string; keywords?: string[] };
+  duration?: number;
+}
+
+function extractExternalParticipants(attendees: FirefliesAttendee[]): { name: string; email: string }[] {
   if (!Array.isArray(attendees)) return [];
   return attendees
-    .filter((a: { email?: string; displayName?: string; name?: string }) => {
+    .filter((a) => {
       const email = (a.email || '').toLowerCase();
       if (!email) return false;
       return !INTERNAL_DOMAINS.some((domain) => email.endsWith(`@${domain}`));
     })
-    .map((a: { email?: string; displayName?: string; name?: string }) => ({
+    .map((a) => ({
       name: a.displayName || a.name || a.email?.split('@')[0] || 'Unknown',
       email: a.email || '',
     }));
@@ -169,15 +186,15 @@ serve(async (req) => {
     // 1. Load database records we need for matching
     // ------------------------------------------------------------------
 
-    // a) Buyer contacts: email → buyer_id[]
+    // a) Buyer contacts: email → buyer_id[] AND name → buyer_id[]
     const emailToBuyerIds = new Map<string, Set<string>>();
+    const contactNameToBuyerIds = new Map<string, Set<string>>();
     {
       let contactQuery = supabase
         .from('contacts')
-        .select('email, remarketing_buyer_id')
+        .select('email, first_name, last_name, remarketing_buyer_id')
         .eq('contact_type', 'buyer')
         .eq('archived', false)
-        .not('email', 'is', null)
         .not('remarketing_buyer_id', 'is', null);
 
       if (body.buyerIds?.length) {
@@ -186,13 +203,24 @@ serve(async (req) => {
 
       const { data: contacts } = await contactQuery;
       for (const c of contacts || []) {
-        if (!c.email || !c.remarketing_buyer_id) continue;
-        const email = c.email.toLowerCase().trim();
-        if (!emailToBuyerIds.has(email)) emailToBuyerIds.set(email, new Set());
-        emailToBuyerIds.get(email)!.add(c.remarketing_buyer_id);
+        if (!c.remarketing_buyer_id) continue;
+
+        // Email match
+        if (c.email) {
+          const email = c.email.toLowerCase().trim();
+          if (!emailToBuyerIds.has(email)) emailToBuyerIds.set(email, new Set());
+          emailToBuyerIds.get(email)!.add(c.remarketing_buyer_id);
+        }
+
+        // Name match: build "first last" normalized key
+        const fullName = [c.first_name, c.last_name].filter(Boolean).join(' ').trim().toLowerCase();
+        if (fullName.length >= 3) {
+          if (!contactNameToBuyerIds.has(fullName)) contactNameToBuyerIds.set(fullName, new Set());
+          contactNameToBuyerIds.get(fullName)!.add(c.remarketing_buyer_id);
+        }
       }
     }
-    console.log(`Loaded ${emailToBuyerIds.size} unique buyer contact emails`);
+    console.log(`Loaded ${emailToBuyerIds.size} unique buyer contact emails, ${contactNameToBuyerIds.size} unique contact names`);
 
     // b) Buyers: company_name (normalised) → buyer_id
     const nameToBuyerIds = new Map<string, Set<string>>();
@@ -283,7 +311,7 @@ serve(async (req) => {
     // ------------------------------------------------------------------
     // 2. Fetch all recent Fireflies transcripts
     // ------------------------------------------------------------------
-    const allTranscripts: unknown[] = [];
+    const allTranscripts: FirefliesTranscript[] = [];
     const batchSize = 50;
     const maxPages = Math.ceil(maxTranscripts / batchSize);
 
@@ -354,6 +382,21 @@ serve(async (req) => {
                 matchedBuyerIds.add(bid);
                 buyerMatchTypes.set(bid, 'keyword');
               }
+            }
+          }
+        }
+      }
+
+      // Phase 3: Participant name match against buyer contact names
+      for (const participant of externalParticipants) {
+        const pName = participant.name?.toLowerCase().trim();
+        if (!pName || pName.length < 3 || pName === 'unknown') continue;
+        const buyerIds = contactNameToBuyerIds.get(pName);
+        if (buyerIds) {
+          for (const bid of buyerIds) {
+            if (!matchedBuyerIds.has(bid)) {
+              matchedBuyerIds.add(bid);
+              buyerMatchTypes.set(bid, 'keyword');
             }
           }
         }
@@ -434,7 +477,7 @@ serve(async (req) => {
 
         try {
           const attendeeEmails = (transcript.meeting_attendees || [])
-            .map((a: { email?: string }) => a.email)
+            .map((a) => a.email)
             .filter(Boolean);
 
           const { error: insertErr } = await supabase.from('deal_transcripts').insert({

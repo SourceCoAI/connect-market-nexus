@@ -130,8 +130,6 @@ verify_jwt = true
 verify_jwt = true
 [functions.notify-remarketing-match]
 verify_jwt = false
-[functions.suggest-universe]
-verify_jwt = true
 [functions.analyze-tracker-notes]
 verify_jwt = true
 [functions.parse-tracker-documents]
@@ -139,7 +137,7 @@ verify_jwt = true
 [functions.clarify-industry]
 verify_jwt = true
 [functions.analyze-deal-notes]
-verify_jwt = true
+verify_jwt = false
 [functions.enrich-deal]
 verify_jwt = false
 [functions.track-session]
@@ -172,8 +170,6 @@ verify_jwt = false
 verify_jwt = false
 [functions.process-buyer-enrichment-queue]
 verify_jwt = false
-[functions.find-buyer-contacts]
-verify_jwt = true
 [functions.sync-captarget-sheet]
 verify_jwt = false
 [functions.enrich-external-only]
@@ -194,10 +190,12 @@ verify_jwt = false
 verify_jwt = false
 [functions.draft-outreach-email]
 verify_jwt = false
-[functions.create-docuseal-submission]
+[functions.create-pandadoc-document]
 verify_jwt = true
-[functions.docuseal-webhook-handler]
+[functions.pandadoc-webhook-handler]
 verify_jwt = false
+[functions.pandadoc-integration-test]
+verify_jwt = true
 [functions.auto-create-firm-on-approval]
 verify_jwt = true
 [functions.send-nda-reminder]
@@ -257,4 +255,18 @@ verify_jwt = false
 [functions.clay-webhook-phone]
 verify_jwt = false
 [functions.receive-valuation-lead]
+verify_jwt = false
+[functions.analyze-buyer-notes]
+verify_jwt = false
+[functions.sync-phoneburner-transcripts]
+verify_jwt = false
+[functions.auto-pair-all-fireflies]
+verify_jwt = false
+[functions.find-contacts]
+verify_jwt = false
+[functions.find-introduction-contacts]
+verify_jwt = false
+[functions.trigger-contact-discovery]
+verify_jwt = false
+[functions.smartlead-inbox-webhook]
 verify_jwt = false

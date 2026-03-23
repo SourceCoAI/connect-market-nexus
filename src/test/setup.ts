@@ -61,10 +61,18 @@ const sessionStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
     getItem: vi.fn((key: string) => store[key] || null),
-    setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-    removeItem: vi.fn((key: string) => { delete store[key]; }),
-    clear: vi.fn(() => { store = {}; }),
-    get length() { return Object.keys(store).length; },
+    setItem: vi.fn((key: string, value: string) => {
+      store[key] = value;
+    }),
+    removeItem: vi.fn((key: string) => {
+      delete store[key];
+    }),
+    clear: vi.fn(() => {
+      store = {};
+    }),
+    get length() {
+      return Object.keys(store).length;
+    },
     key: vi.fn((index: number) => Object.keys(store)[index] || null),
   };
 })();
@@ -78,10 +86,18 @@ const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
     getItem: vi.fn((key: string) => store[key] || null),
-    setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-    removeItem: vi.fn((key: string) => { delete store[key]; }),
-    clear: vi.fn(() => { store = {}; }),
-    get length() { return Object.keys(store).length; },
+    setItem: vi.fn((key: string, value: string) => {
+      store[key] = value;
+    }),
+    removeItem: vi.fn((key: string) => {
+      delete store[key];
+    }),
+    clear: vi.fn(() => {
+      store = {};
+    }),
+    get length() {
+      return Object.keys(store).length;
+    },
     key: vi.fn((index: number) => Object.keys(store)[index] || null),
   };
 })();
@@ -99,7 +115,9 @@ vi.mock('@/integrations/supabase/client', () => ({
       signInWithPassword: vi.fn().mockResolvedValue({ data: {}, error: null }),
       signUp: vi.fn().mockResolvedValue({ data: {}, error: null }),
       signOut: vi.fn().mockResolvedValue({ error: null }),
-      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      onAuthStateChange: vi
+        .fn()
+        .mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
     },
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnThis(),
@@ -122,7 +140,9 @@ vi.mock('@/integrations/supabase/client', () => ({
     storage: {
       from: vi.fn().mockReturnValue({
         upload: vi.fn().mockResolvedValue({ data: { path: 'test.jpg' }, error: null }),
-        getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://example.com/test.jpg' } }),
+        getPublicUrl: vi
+          .fn()
+          .mockReturnValue({ data: { publicUrl: 'https://example.com/test.jpg' } }),
         list: vi.fn().mockResolvedValue({ data: [], error: null }),
         remove: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
@@ -147,7 +167,7 @@ vi.mock('@/lib/error-logger', () => ({
 }));
 
 // Mock analytics context
-vi.mock('@/context/AnalyticsContext', () => ({
+vi.mock('@/contexts/AnalyticsContext', () => ({
   useAnalytics: vi.fn().mockReturnValue({
     trackListingSave: vi.fn(),
     trackConnectionRequest: vi.fn(),

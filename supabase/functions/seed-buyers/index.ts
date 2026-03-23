@@ -1,24 +1,35 @@
 /**
- * seed-buyers – AI Buyer Seeding Engine
+ * seed-buyers – AI Buyer Discovery Engine (v2 — Two-Pass PE-Backed Platform Discovery)
  *
- * Uses Claude to discover PE firms, platform companies, and strategic acquirers
- * that match a deal's criteria, then inserts them into the buyers table.
+ * Discovers PE-backed platform companies that are actively consolidating a specific
+ * niche through add-on acquisitions. Uses a two-pass approach:
+ *
+ * Pass 1: Define the ideal buyer profile (what to look for + what to exclude)
+ * Pass 2: Find and verify specific PE-backed platform companies matching the profile
  *
  * Flow:
  * 1. Auth guard (admin only)
  * 2. Fetch deal details from listings table
- * 3. Check buyer_seed_cache for recent results (90-day TTL)
- * 4. Call Claude to discover matching buyers
- * 5. Deduplicate against existing buyers (by company name / website domain)
- * 6. Insert new buyers with ai_seeded=true
- * 7. Log each action to buyer_seed_log
- * 8. Update buyer_seed_cache
- * 9. Return results
+ * 3. Validate critical deal fields are populated (Phase 0)
+ * 4. Check buyer_seed_cache for recent results (90-day TTL)
+ * 5. Pass 1: Call Claude to define the ideal PE-backed platform buyer profile
+ * 6. Pass 2: Call Claude to find specific companies matching the profile
+ * 7. Deduplicate against existing buyers (by website domain)
+ * 8. Insert new buyers with ai_seeded=true
+ * 9. Log each action to buyer_seed_log (with buyer profile for debugging)
+ * 10. Update buyer_seed_cache
+ * 11. Return results
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { callClaude, CLAUDE_MODELS } from '../_shared/claude-client.ts';
+import { googleSearch } from '../_shared/serper-client.ts';
+// Wall-time budget for the edge function. Supabase hard-kills edge functions
+// based on plan (60s free, 150s Pro, 400s Enterprise). We track elapsed time
+// and dynamically cap Claude API timeouts to avoid being killed mid-response.
+const WALL_TIME_LIMIT_MS = 150_000;
+const WALL_TIME_SAFETY_MARGIN_MS = 5_000; // stop 5s before limit to send response
 
 // ── Types ──
 
@@ -27,6 +38,8 @@ interface SeedRequest {
   maxBuyers?: number;
   forceRefresh?: boolean;
   buyerCategory?: 'sponsors' | 'operating_companies';
+  /** Optional job ID for progress tracking in buyer_search_jobs table */
+  jobId?: string;
 }
 
 interface AISuggestedBuyer {
@@ -50,6 +63,7 @@ interface AISuggestedBuyer {
   known_acquisitions: string[];
   estimated_ebitda_min: number | null;
   estimated_ebitda_max: number | null;
+  verification_status?: 'verified' | 'unverified';
 }
 
 interface SeedResult {
@@ -72,10 +86,6 @@ function buildCacheKey(
   },
   buyerCategory?: string,
 ): string {
-  // Use listing ID as the primary cache key so each deal has its own seed results.
-  // Previously this was keyed on deal characteristics (industry+state+ebitda bucket),
-  // which caused cache collisions where buyers seeded for deal A would appear for
-  // unrelated deal B that happened to share the same profile.
   const catSuffix = buyerCategory ? `:${buyerCategory}` : '';
   return `seed:v2:${deal.id}${catSuffix}`;
 }
@@ -90,45 +100,96 @@ function extractDomain(url: string | null): string | null {
   }
 }
 
-function normalizeCompanyName(name: string): string {
-  // NOTE: Must stay in sync with:
-  //  - dedupe-buyers/index.ts normalizeCompanyName()
-  //  - DB function normalize_buyer_name() in migration 20260517100000
-  let normalized = name
-    .toLowerCase()
-    .replace(/[^a-z0-9 ]/g, '') // strip non-alphanumeric but keep spaces
-    .trim();
-  // Strip trailing corporate suffixes (one pass covers >99% of real names)
-  normalized = normalized.replace(
-    /\s+(inc|llc|corp|ltd|lp|group|partners|capital|holdings|company|co|management|investments|advisors|advisory|ventures|equity|fund|funds|associates)\s*$/,
-    '',
-  ).trim();
-  return normalized;
+/**
+ * Attempt to find a company website via Google search when Claude didn't provide one.
+ * Returns the first plausible URL or null.
+ */
+async function lookupCompanyWebsite(companyName: string): Promise<string | null> {
+  try {
+    const results = await googleSearch(`${companyName} official website`, 5);
+    for (const result of results) {
+      const url = result.url;
+      // Skip social media, directories, and news sites
+      if (
+        url.includes('linkedin.com') ||
+        url.includes('facebook.com') ||
+        url.includes('twitter.com') ||
+        url.includes('yelp.com') ||
+        url.includes('bbb.org') ||
+        url.includes('crunchbase.com') ||
+        url.includes('wikipedia.org') ||
+        url.includes('bloomberg.com') ||
+        url.includes('pitchbook.com') ||
+        url.includes('zoominfo.com')
+      ) {
+        continue;
+      }
+      // Return the first non-directory result as the likely company website
+      return url;
+    }
+    return null;
+  } catch (e) {
+    console.warn(`Website lookup failed for ${companyName} (non-fatal):`, e);
+    return null;
+  }
 }
 
-function buildSystemPrompt(): string {
-  return `You are an elite M&A buyer discovery specialist who deeply understands private equity roll-ups, platform strategies, and strategic acquisitions across niche industry verticals.
+/**
+ * Sanitize PE firm names that Claude sometimes returns as full sentences.
+ * Extracts just the firm name from strings like:
+ * "MYR Group acquired Pike; formerly Lindsay Goldberg — now publicly traded via MYR Group"
+ */
+function sanitizePeFirmName(raw: string): string {
+  // Take the part before any semicolons, em-dashes, or long-dashes
+  let name = raw.split(/[;—–]/)[0].trim();
+  // Remove common sentence prefixes like "Backed by " or "Owned by "
+  name = name.replace(/^(backed by|owned by|sponsored by|portfolio of)\s+/i, '').trim();
+  // If still too long (>60 chars), it's probably a sentence — take first 3 words
+  if (name.length > 60) {
+    name = name.split(/\s+/).slice(0, 3).join(' ');
+  }
+  return name;
+}
 
-YOUR MISSION: Find the BEST-FIT acquirers for a specific deal — not the most obvious or largest, but the ones whose strategy, portfolio, and acquisition history make them a genuinely compelling match.
+/**
+ * Phase 0: Validate critical deal fields before running AI discovery.
+ * Returns a list of missing fields. If any are missing, the caller should
+ * surface a warning instead of running the AI on incomplete data.
+ */
+function validateDealFields(deal: Record<string, unknown>): string[] {
+  const missing: string[] = [];
 
-CRITICAL RULES:
-- Only suggest REAL companies that actually exist. Never fabricate names.
-- Prioritize NICHE, SPECIALIZED buyers over large generalist firms. A $200M PE fund with three portfolio companies in the exact sub-sector is far more valuable than a $10B fund that occasionally invests in the broad industry.
-- Look for firms actively executing "buy-and-build" or roll-up strategies in the deal's specific vertical. Platform companies doing add-on acquisitions in the same niche are the highest-value finds.
-- Include firms that have made RECENT, VERIFIABLE acquisitions in the specific sub-sector — not firms that might theoretically be interested.
-- Think about the full ecosystem: Who are the PE-backed platforms rolling up this space? Which strategic acquirers are on acquisition sprees in this niche? Which infrastructure funds or specialty PE firms have thesis overlap?
-- For each buyer, explain specifically WHY they are a uniquely good fit for THIS deal — reference their portfolio companies, known acquisitions, stated thesis, or geographic strategy.
-- Include the company's website if you know it.
-- Quality over quantity: 5 highly relevant buyers beats 10 generic ones.
+  // At least one description field must be populated
+  const hasDescription =
+    (deal.executive_summary as string)?.trim() ||
+    (deal.description as string)?.trim() ||
+    (deal.hero_description as string)?.trim();
+  if (!hasDescription)
+    missing.push('description (executive_summary, description, or hero_description)');
+
+  // Industry and categories are alternatives — only flag if NEITHER is present
+  const dealCats = deal.categories as string[] | null;
+  const dealCat = (deal.category as string) || '';
+  const hasIndustryOrCategory =
+    (deal.industry as string)?.trim() ||
+    (dealCats && dealCats.length > 0) ||
+    dealCat?.trim();
+  if (!hasIndustryOrCategory) missing.push('industry or categories');
+
+  return missing;
+}
+
+// ── Two-Pass Prompt System ──
+
+function buildPass1SystemPrompt(): string {
+  return `You are an M&A advisor specializing in lower-middle market acquisitions ($500K–$10M EBITDA). Your job is to define the EXACT buyer profile for this deal. The buyers you're looking for are PE-BACKED PLATFORM COMPANIES — operating businesses with private equity sponsors behind them that are actively acquiring companies in this niche as part of a buy-and-build strategy.
+
+CRITICAL: You are defining what to LOOK FOR, not finding specific companies yet. Be precise and specific about the niche — generic descriptions lead to wrong-industry results.
 
 You must respond with valid JSON only. No markdown, no code fences, no explanatory text outside the JSON.`;
 }
 
-function buildUserPrompt(
-  deal: Record<string, unknown>,
-  maxBuyers: number,
-  buyerCategory?: string,
-): string {
+function buildPass1UserPrompt(deal: Record<string, unknown>): string {
   const ebitdaNum = deal.ebitda as number | null;
   const ebitdaStr = ebitdaNum ? `$${(ebitdaNum / 1_000_000).toFixed(1)}M` : 'Not disclosed';
 
@@ -140,7 +201,6 @@ function buildUserPrompt(
     ? (deal.geographic_states as string[]).join(', ')
     : (deal.address_state as string) || 'Not specified';
 
-  // Use the richest available description field — in order of preference
   const description =
     (deal.executive_summary as string) ||
     (deal.description as string) ||
@@ -149,30 +209,9 @@ function buildUserPrompt(
 
   const thesis = (deal.investment_thesis as string) || '';
   const endMarket = (deal.end_market_description as string) || '';
-  const bizModel = (deal.business_model as string) || (deal.revenue_model as string) || '';
-  const ownerGoals = (deal.owner_goals as string) || (deal.seller_motivation as string) || '';
 
-  let categoryInstruction = '';
-  if (buyerCategory === 'sponsors') {
-    categoryInstruction = `
-BUYER TYPE FILTER: ONLY return financial sponsors — PE firms, growth equity firms, infrastructure funds, family offices, independent sponsors, and search funds that invest in this vertical.
-- Prioritize PE firms actively building platforms via buy-and-build strategies in this exact niche
-- Include specialty funds focused on this industry (e.g., infrastructure funds for utility deals, healthcare-focused PE for medical deals)
-- Look for firms that have backed portfolio companies making add-on acquisitions in this space
-- Do NOT include operating companies or strategic acquirers
-`;
-  } else if (buyerCategory === 'operating_companies') {
-    categoryInstruction = `
-BUYER TYPE FILTER: ONLY return operating companies and strategic acquirers — real businesses that operate in the same or adjacent industries.
-- Prioritize PE-backed platform companies actively doing add-on acquisitions to consolidate this niche
-- Include regional or national operators that compete in or serve the same end market
-- Look for companies that have recently acquired similar businesses as part of a roll-up strategy
-- Do NOT include PE firms, financial sponsors, family offices, or investment funds (the PE backer can be listed as pe_firm_name but the company_name must be the operating company)
-`;
-  }
+  return `Define the EXACT buyer profile for this deal. The buyers I'm looking for are PE-BACKED PLATFORM COMPANIES — operating businesses with private equity sponsors behind them that are actively acquiring companies in this niche.
 
-  return `Find up to ${maxBuyers} potential acquirers for this business. Focus on finding the BEST strategic fits — firms whose acquisition thesis, portfolio, and track record directly align with this deal.
-${categoryInstruction}
 DEAL OVERVIEW:
 Title: ${(deal.title as string) || 'Not provided'}
 Industry: ${(deal.industry as string) || 'Not specified'}
@@ -186,39 +225,111 @@ ${description}
 
 ${thesis ? `INVESTMENT THESIS:\n${thesis}\n` : ''}
 ${endMarket ? `END MARKET / CUSTOMERS:\n${endMarket}\n` : ''}
-${bizModel ? `BUSINESS MODEL:\n${bizModel}\n` : ''}
-${ownerGoals ? `SELLER GOALS:\n${ownerGoals}\n` : ''}
 
-DISCOVERY GUIDANCE:
-- Think about who is ACTIVELY acquiring in this specific sub-sector right now
-- Consider the full buyer ecosystem: PE-backed platforms doing add-ons, specialty PE funds, regional consolidators, national strategic acquirers expanding into this geography
-- Prioritize buyers with VERIFIABLE recent acquisitions in this niche over firms that are merely tangentially related
-- A small specialized firm with 3 acquisitions in this exact space is more valuable than a Fortune 500 with broad interests
+Respond with a JSON object containing:
+{
+  "ideal_buyer_description": "2-3 sentences describing the type of PE-backed platform that acquires this business. Name the operating company type, not the PE firm type.",
+  "must_have_criteria": ["3-5 specific criteria the platform company must have. Be precise — e.g. 'fleet maintenance and DOT inspection services' not 'vehicle services'. One criterion must always be: 'Backed by a private equity firm with a stated buy-and-build thesis in this vertical.'"],
+  "exclusion_list": [{"type": "description of excluded company type", "reason": "why they're excluded"}],
+  "search_terms": ["3-5 specific search queries to find PE-backed platforms in this niche"]
+}
+
+EXCLUSION LIST MUST ALWAYS INCLUDE:
+- Standalone operators without PE backing (they lack acquisition capital and won't pay advisory fees)
+- PE firms themselves (we want the platform company name, with the PE backer listed separately)
+- Adjacent-but-different industries (explain why they're different)
+
+Return ONLY the JSON object. No markdown, no explanation.`;
+}
+
+function buildPass2SystemPrompt(): string {
+  return `You are an M&A buyer sourcing specialist. Your job is to find real PE-BACKED PLATFORM COMPANIES that match a specific buyer profile. Every company you return must be a real, operating business with an identifiable private equity sponsor.
+
+CRITICAL RULES:
+- Every company must be a PE-BACKED PLATFORM — an operating business with a private equity sponsor. You MUST name the PE firm.
+- Return the PLATFORM COMPANY name as the primary result, never the PE firm. The PE firm goes in the pe_firm_name field.
+- If you find a great company but cannot confirm PE backing, do NOT include it.
+- The ONE exception to the PE requirement: a large strategic acquirer ($500M+ revenue) with a documented, active acquisition program in this exact niche. Flag these explicitly with buyer_type "corporate" and a note in why_relevant.
+- Quality over quantity: 5 verified PE-backed platforms beats 10 unverified or marginal matches.
+- Only suggest REAL companies that actually exist. Never fabricate names.
+- Check each result against the exclusion list. If a company matches an exclusion, drop it.
+- Do NOT pad the list with non-PE companies to hit the target count.
+
+You must respond with valid JSON only. No markdown, no code fences, no explanatory text outside the JSON.`;
+}
+
+function buildPass2UserPrompt(
+  deal: Record<string, unknown>,
+  buyerProfile: Record<string, unknown>,
+  maxBuyers: number,
+  buyerCategory?: string,
+): string {
+  const ebitdaNum = deal.ebitda as number | null;
+  const ebitdaStr = ebitdaNum ? `$${(ebitdaNum / 1_000_000).toFixed(1)}M` : 'Not disclosed';
+
+  let categoryInstruction = '';
+  if (buyerCategory === 'sponsors') {
+    categoryInstruction = `
+BUYER TYPE FILTER: ONLY return financial sponsors — PE firms with portfolio platform companies in this niche.
+- Return the platform company name, not the PE firm name
+- The PE firm goes in pe_firm_name
+- Do NOT include standalone operating companies without PE backing
+`;
+  } else if (buyerCategory === 'operating_companies') {
+    categoryInstruction = `
+BUYER TYPE FILTER: ONLY return PE-backed operating companies (platform companies doing add-on acquisitions).
+- These are real businesses that operate in the same industry as the deal
+- They MUST have an identifiable PE sponsor (listed in pe_firm_name)
+- Do NOT include PE firms themselves — only the operating platforms they back
+`;
+  }
+
+  return `Using the buyer profile below, find real PE-BACKED PLATFORM COMPANIES that match ALL must-have criteria.
+${categoryInstruction}
+BUYER PROFILE:
+${JSON.stringify(buyerProfile, null, 2)}
+
+DEAL CONTEXT:
+Title: ${(deal.title as string) || 'Not provided'}
+Industry: ${(deal.industry as string) || 'Not specified'}
+EBITDA: ${ebitdaStr}
+Location: ${(deal.address_state as string) || 'Not specified'}
+
+Instructions:
+1. Find PE-backed platforms matching the must-have criteria.
+2. For each result, verify: (a) they exist and are in the right business, (b) they have an identifiable PE sponsor, (c) evidence of acquisition activity.
+3. Check each result against the exclusion list. If a company matches an exclusion, drop it.
+4. Return ${maxBuyers} companies max. If fewer than ${maxBuyers} are genuine PE-backed matches, return fewer. Do NOT pad the list.
+5. For each company, classify verification_status as "verified" (you're confident in PE backing and service match) or "unverified" (you believe it's a fit but aren't fully certain).
 
 Return a JSON array of up to ${maxBuyers} buyers. Each object must have:
 {
-  "company_name": "exact legal/common name",
+  "company_name": "exact legal/common name of the PLATFORM COMPANY (not the PE firm)",
   "company_website": "url or null",
-  "buyer_type": "private_equity" | "corporate" | "family_office" | "independent_sponsor" | "search_fund" | "individual_buyer",
-  "pe_firm_name": "PE sponsor name or null (for platform companies, name the PE backer)",
+  "buyer_type": "corporate",
+  "pe_firm_name": "PE sponsor name — REQUIRED for every result (or null only for rare large strategics)",
   "hq_city": "city or null",
   "hq_state": "2-letter state code or null",
-  "thesis_summary": "their acquisition thesis in 1-2 sentences — what they invest in and why",
-  "why_relevant": "1-2 sentences explaining why this buyer is a uniquely good fit for THIS specific deal — reference their portfolio, acquisitions, thesis overlap, or geographic strategy",
-  "target_services": ["service types they acquire"],
+  "thesis_summary": "1-2 sentences — what this platform does and their acquisition strategy",
+  "why_relevant": "1-2 sentences explaining why this PE-backed platform is a fit for THIS deal — reference their services, acquisitions, and PE sponsor's thesis",
+  "target_services": ["service types they operate in"],
   "target_industries": ["industries they invest in"],
   "target_geographies": ["states or regions they cover"],
-  "known_acquisitions": ["names of recent acquisitions in this or adjacent spaces"],
-  "estimated_ebitda_min": number or null,
-  "estimated_ebitda_max": number or null
+  "known_acquisitions": ["names of specific companies they've acquired"],
+  "estimated_ebitda_min": null,
+  "estimated_ebitda_max": null,
+  "verification_status": "verified or unverified"
 }
 
 Return ONLY the JSON array. No markdown, no explanation.`;
 }
 
+// ── JSON Parsing (robust) ──
+
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS_RE = /[\x00-\x1F\x7F]/g;
+
 function findLastCompleteObject(text: string): number {
-  // Walk backward through the string to find the last '}' that is NOT inside
-  // an unterminated string literal. We track whether we're inside a string.
   let inString = false;
   let lastGoodClose = -1;
   for (let i = 0; i < text.length; i++) {
@@ -227,7 +338,7 @@ function findLastCompleteObject(text: string): number {
       if (ch === '\\') {
         i++;
         continue;
-      } // skip escaped char
+      }
       if (ch === '"') inString = false;
     } else {
       if (ch === '"') inString = true;
@@ -238,56 +349,131 @@ function findLastCompleteObject(text: string): number {
 }
 
 function repairAndParseJson(raw: string): unknown {
-  // Remove markdown code fences
   let cleaned = raw
     .replace(/```json\s*/gi, '')
     .replace(/```\s*/g, '')
     .trim();
 
-  // Find JSON array boundaries
   const jsonStart = cleaned.indexOf('[');
-  if (jsonStart === -1) throw new Error('No JSON array found in response');
+  const objStart = cleaned.indexOf('{');
+
+  // If '{' appears before '[' (or no '[' exists), try object parsing first.
+  // This handles Pass 1 responses like {"key": "val", "arr": ["a", "b"]}
+  // where the first '[' is inside the object, not a top-level array.
+  if (objStart !== -1 && (jsonStart === -1 || objStart < jsonStart)) {
+    const objEnd = cleaned.lastIndexOf('}');
+    const objSlice =
+      objEnd > objStart ? cleaned.substring(objStart, objEnd + 1) : cleaned.substring(objStart);
+    const objCleaned = objSlice.replace(CONTROL_CHARS_RE, ' ');
+    try {
+      return JSON.parse(objCleaned);
+    } catch {
+      // If object parsing fails, fall through to array parsing
+      // (the '{' might be inside a preamble before the actual array)
+    }
+  }
+
+  if (jsonStart === -1) {
+    if (objStart === -1) throw new Error('No JSON found in response');
+    throw new Error(`Cannot parse Claude response as JSON (length=${raw.length})`);
+  }
 
   const jsonEnd = cleaned.lastIndexOf(']');
   cleaned =
-    jsonEnd > jsonStart ? cleaned.substring(jsonStart, jsonEnd + 1) : cleaned.substring(jsonStart); // truncated — no closing bracket
+    jsonEnd > jsonStart ? cleaned.substring(jsonStart, jsonEnd + 1) : cleaned.substring(jsonStart);
 
-  // Remove control chars that break JSON (use RegExp constructor to satisfy no-control-regex)
-  // eslint-disable-next-line no-control-regex
-  cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, ' ');
+  cleaned = cleaned.replace(CONTROL_CHARS_RE, ' ');
 
-  // First attempt: direct parse
+  // Attempt 1: direct parse
   try {
     return JSON.parse(cleaned);
   } catch {
     /* continue */
   }
 
-  // Second attempt: strip trailing commas
+  // Attempt 2: strip trailing commas
   let repaired = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-
   try {
     return JSON.parse(repaired);
   } catch {
     /* continue */
   }
 
-  // Third attempt: find the last properly-closed object (not inside a string)
-  // This handles truncated output where a string literal is unterminated
+  // Attempt 3: find the last properly-closed object and truncate there
   const lastGood = findLastCompleteObject(cleaned);
   if (lastGood > 0) {
     repaired = cleaned.substring(0, lastGood + 1);
-    // Remove trailing comma before we close
     repaired = repaired.replace(/,\s*$/, '');
     if (!repaired.endsWith(']')) repaired += ']';
     if (!repaired.startsWith('[')) repaired = '[' + repaired;
     repaired = repaired.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-
     try {
       return JSON.parse(repaired);
     } catch {
       /* continue */
     }
+  }
+
+  // Attempt 4: aggressive repair
+  let inStr = false;
+  let depth = 0;
+  let arrDepth = 0;
+  let lastCompleteObjEnd = -1;
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (inStr) {
+      if (ch === '\\') {
+        i++;
+        continue;
+      }
+      if (ch === '"') inStr = false;
+    } else {
+      if (ch === '"') inStr = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0 && arrDepth === 1) lastCompleteObjEnd = i;
+      } else if (ch === '[') arrDepth++;
+      else if (ch === ']') arrDepth--;
+    }
+  }
+
+  if (lastCompleteObjEnd > 0) {
+    repaired = cleaned.substring(0, lastCompleteObjEnd + 1);
+    repaired = repaired.replace(/,\s*$/, '');
+    const firstBracket = repaired.indexOf('[');
+    if (firstBracket >= 0) {
+      repaired = repaired.substring(firstBracket);
+    }
+    if (!repaired.endsWith(']')) repaired += ']';
+    repaired = repaired.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+    try {
+      const result = JSON.parse(repaired);
+      console.log(
+        `JSON repair attempt 4 succeeded — recovered ${Array.isArray(result) ? result.length : '?'} items from truncated response`,
+      );
+      return result;
+    } catch {
+      /* continue */
+    }
+  }
+
+  // Attempt 5: extract individual objects with regex as last resort
+  const objectMatches: unknown[] = [];
+  const objRegex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+  let match;
+  while ((match = objRegex.exec(cleaned)) !== null) {
+    try {
+      const obj = JSON.parse(match[0]);
+      if (obj.company_name) objectMatches.push(obj);
+    } catch {
+      /* skip malformed */
+    }
+  }
+  if (objectMatches.length > 0) {
+    console.log(`JSON repair attempt 5 (regex) recovered ${objectMatches.length} buyer objects`);
+    return objectMatches;
   }
 
   throw new Error(`Cannot parse Claude response as JSON (length=${raw.length})`);
@@ -299,7 +485,6 @@ function parseClaudeResponse(responseText: string): AISuggestedBuyer[] {
     throw new Error('Expected JSON array from Claude');
   }
 
-  // Validate and clean each buyer
   return parsed
     .map((b: Record<string, unknown>) => ({
       company_name: String(b.company_name || '').trim(),
@@ -331,8 +516,19 @@ function parseClaudeResponse(responseText: string): AISuggestedBuyer[] {
         typeof b.estimated_ebitda_min === 'number' ? b.estimated_ebitda_min : null,
       estimated_ebitda_max:
         typeof b.estimated_ebitda_max === 'number' ? b.estimated_ebitda_max : null,
+      verification_status: (b.verification_status === 'verified' ? 'verified' : 'unverified') as
+        | 'verified'
+        | 'unverified',
     }))
     .filter((b) => b.company_name.length > 0);
+}
+
+function parseBuyerProfile(responseText: string): Record<string, unknown> {
+  const parsed = repairAndParseJson(responseText);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Expected JSON object from Claude for buyer profile');
+  }
+  return parsed as Record<string, unknown>;
 }
 
 // ── Main handler ──
@@ -343,6 +539,13 @@ Deno.serve(async (req: Request) => {
   }
 
   const headers = getCorsHeaders(req);
+  let _jobId: string | undefined; // hoisted for error handler access
+  const fnStartTime = Date.now();
+
+  /** Returns remaining ms before the edge function should stop work */
+  function remainingMs(): number {
+    return Math.max(0, WALL_TIME_LIMIT_MS - WALL_TIME_SAFETY_MARGIN_MS - (Date.now() - fnStartTime));
+  }
 
   try {
     // ── Auth guard (mirrors score-deal-buyers pattern) ──
@@ -383,7 +586,21 @@ Deno.serve(async (req: Request) => {
     // ── End auth guard ──
 
     const body: SeedRequest = await req.json();
-    const { listingId, maxBuyers = 10, forceRefresh = false, buyerCategory } = body;
+    const { listingId, maxBuyers = 8, forceRefresh = false, buyerCategory, jobId } = body;
+    _jobId = jobId; // hoist for catch block
+
+    // Helper to update job progress (non-fatal if it fails)
+    async function updateJobProgress(updates: Record<string, unknown>) {
+      if (!jobId) return;
+      try {
+        await supabase.from('buyer_search_jobs').update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        }).eq('id', jobId);
+      } catch (e) {
+        console.warn('Job progress update failed (non-fatal):', e);
+      }
+    }
 
     if (!listingId) {
       return new Response(JSON.stringify({ error: 'listingId is required' }), {
@@ -411,6 +628,64 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // ── Phase 0a: AI inference fallback for missing industry/categories ──
+    const dealIndustry = (deal.industry as string)?.trim();
+    const dealCats = deal.categories as string[] | null;
+    const dealCat = (deal.category as string)?.trim();
+    const hasIndustryOrCat = dealIndustry || (dealCats && dealCats.length > 0) || dealCat;
+
+    if (!hasIndustryOrCat) {
+      const descText =
+        (deal.executive_summary as string)?.trim() ||
+        (deal.description as string)?.trim() ||
+        (deal.hero_description as string)?.trim() ||
+        '';
+      if (descText) {
+        try {
+          console.log('[seed-buyers] No industry/categories — inferring via AI…');
+          const inferResult = await callClaude({
+            model: CLAUDE_MODELS.haiku,
+            maxTokens: 256,
+            systemPrompt: 'You classify businesses. Return ONLY a JSON object with two keys: "industry" (string, e.g. "HVAC Services") and "categories" (array of 1-3 short category strings). No markdown, no explanation.',
+            messages: [{ role: 'user', content: `Classify this business:\n\n${descText.slice(0, 1500)}` }],
+            timeoutMs: Math.min(15_000, remainingMs() - 120_000), // reserve time for main passes
+          });
+
+          // Extract text from ContentBlock[]
+          const textBlock = inferResult?.content?.find((b: any) => b.type === 'text');
+          const rawText = (textBlock as any)?.text || '';
+          if (rawText) {
+            const cleaned = rawText.replace(/```json\s*/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleaned);
+            if (parsed.industry && !dealIndustry) {
+              (deal as Record<string, unknown>).industry = parsed.industry;
+              console.log(`[seed-buyers] Inferred industry: ${parsed.industry}`);
+            }
+            if (Array.isArray(parsed.categories) && parsed.categories.length > 0 && !dealCats?.length && !dealCat) {
+              (deal as Record<string, unknown>).categories = parsed.categories;
+              console.log(`[seed-buyers] Inferred categories: ${parsed.categories.join(', ')}`);
+            }
+          }
+        } catch (inferErr) {
+          console.warn('[seed-buyers] AI inference for industry/categories failed:', inferErr);
+          // Continue — validation below will catch if still missing
+        }
+      }
+    }
+
+    // ── Phase 0b: Validate critical deal fields ──
+    const missingFields = validateDealFields(deal);
+    if (missingFields.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: 'Deal is missing critical fields required for AI buyer discovery',
+          missing_fields: missingFields,
+          details: `The following fields must be populated before running AI discovery: ${missingFields.join(', ')}. Please update the deal record and try again.`,
+        }),
+        { status: 422, headers: { ...headers, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // ── Check seed cache ──
     const cacheKey = buildCacheKey(deal, buyerCategory);
 
@@ -423,7 +698,6 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       if (cached && cached.buyer_ids?.length > 0) {
-        // Return the cached buyer IDs with their details
         const { data: cachedBuyers } = await supabase
           .from('buyers')
           .select('id, company_name, buyer_type, hq_state, hq_city, ai_seeded, thesis_summary')
@@ -449,8 +723,6 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Fetch existing buyers for deduplication ──
-    // Website domain is the canonical unique identifier — only fetch buyers with websites.
-    // Explicit limit required: Supabase config max_rows=1000 silently truncates without it.
     const { data: existingBuyers } = await supabase
       .from('buyers')
       .select('id, company_name, company_website')
@@ -463,7 +735,6 @@ Deno.serve(async (req: Request) => {
         .map((b) => extractDomain(b.company_website))
         .filter(Boolean) as string[],
     );
-    // Map domain → existing buyer id for enrichment on domain match
     const domainToId = new Map(
       (existingBuyers || [])
         .map((b) => {
@@ -473,47 +744,160 @@ Deno.serve(async (req: Request) => {
         .filter(Boolean) as [string, string][],
     );
 
-    // ── Call Claude to discover buyers ──
-    const cappedMax = Math.min(maxBuyers, 15);
-    const claudeResponse = await callClaude({
-      model: CLAUDE_MODELS.opus,
-      maxTokens: 8192,
-      systemPrompt: buildSystemPrompt(),
-      messages: [{ role: 'user', content: buildUserPrompt(deal, cappedMax, buyerCategory) }],
-      timeoutMs: 90000,
+    // ── Fetch past feedback for this niche (for calibration) ──
+    const dealIndustry = (deal.industry as string) || '';
+    const dealCategories = (deal.categories as string[]) || [];
+    let feedbackSection = '';
+    if (dealIndustry || dealCategories.length > 0) {
+      const { data: feedbackRows } = await supabase
+        .from('buyer_discovery_feedback')
+        .select('buyer_name, pe_firm_name, action, reason, niche_category')
+        .in('niche_category', [dealIndustry, ...dealCategories].filter(Boolean))
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (feedbackRows && feedbackRows.length > 0) {
+        const accepted = feedbackRows.filter((f) => f.action === 'accepted');
+        const rejected = feedbackRows.filter((f) => f.action === 'rejected');
+
+        if (accepted.length > 0 || rejected.length > 0) {
+          feedbackSection = '\n\nCALIBRATION FROM PAST DEALS IN THIS NICHE:\n';
+          if (accepted.length > 0) {
+            feedbackSection += '\nAccepted buyers (these set the quality bar):\n';
+            for (const a of accepted.slice(0, 5)) {
+              feedbackSection += `• ${a.buyer_name}${a.pe_firm_name ? ` (backed by ${a.pe_firm_name})` : ''}\n`;
+            }
+          }
+          if (rejected.length > 0) {
+            feedbackSection += '\nRejected buyers (do NOT suggest similar companies):\n';
+            for (const r of rejected.slice(0, 5)) {
+              feedbackSection += `• ${r.buyer_name}${r.reason ? ` — Rejected because: ${r.reason}` : ''}\n`;
+            }
+          }
+          feedbackSection += '\nEvery buyer you suggest should look like the accepted examples.\n';
+        }
+      }
+    }
+
+    // ── Pass 1: Define the buyer profile ──
+    await updateJobProgress({ status: 'searching', progress_pct: 10, progress_message: 'Defining ideal buyer profile (Pass 1)…' });
+    console.log('Pass 1: Defining buyer profile...');
+    // Cap timeout to remaining wall time (need to save time for Pass 2 + inserts)
+    const pass1Timeout = Math.min(30_000, remainingMs() - 100_000); // reserve 100s for Pass 2 + post-processing
+    if (pass1Timeout < 10_000) {
+      throw new Error('Insufficient wall time remaining for AI buyer search. Please try again.');
+    }
+    const pass1Response = await callClaude({
+      model: CLAUDE_MODELS.sonnet,
+      maxTokens: 2048,
+      systemPrompt: buildPass1SystemPrompt(),
+      messages: [{ role: 'user', content: buildPass1UserPrompt(deal) }],
+      timeoutMs: pass1Timeout,
     });
 
-    // Extract text from response
-    const responseText = claudeResponse.content
+    const pass1Text = pass1Response.content
       .filter((b) => b.type === 'text')
       .map((b) => b.text)
       .join('');
 
-    if (!responseText) {
+    if (!pass1Text) {
       return new Response(
         JSON.stringify({
-          error: 'Claude returned empty response',
-          usage: claudeResponse.usage,
+          error: 'Claude returned empty response for buyer profile (Pass 1)',
+          usage: pass1Response.usage,
         }),
         { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } },
       );
     }
 
-    const suggestedBuyers = parseClaudeResponse(responseText);
+    const buyerProfile = parseBuyerProfile(pass1Text);
+    console.log(
+      'Pass 1 complete. Buyer profile defined:',
+      JSON.stringify(buyerProfile).slice(0, 500),
+    );
+
+    // ── Pass 2: Find PE-backed platforms matching the profile ──
+    await updateJobProgress({ status: 'searching', progress_pct: 35, progress_message: 'Searching for PE-backed platform companies (Pass 2)…' });
+    console.log('Pass 2: Finding PE-backed platform companies...');
+    const cappedMax = Math.min(maxBuyers, 8);
+
+    // Append feedback calibration to the pass 2 prompt
+    let pass2Prompt = buildPass2UserPrompt(deal, buyerProfile, cappedMax, buyerCategory);
+    if (feedbackSection) {
+      pass2Prompt += feedbackSection;
+    }
+
+    // Cap Pass 2 timeout to remaining wall time minus time needed for post-processing
+    const pass2Timeout = Math.min(90_000, remainingMs() - 20_000); // reserve 20s for inserts/Serper
+    if (pass2Timeout < 15_000) {
+      throw new Error('Insufficient wall time remaining for buyer discovery. Please try again.');
+    }
+    console.log(`Pass 2: using ${pass2Timeout}ms timeout (${remainingMs()}ms wall time remaining)`);
+    const pass2Response = await callClaude({
+      model: CLAUDE_MODELS.opus,
+      maxTokens: 8192,
+      systemPrompt: buildPass2SystemPrompt(),
+      messages: [{ role: 'user', content: pass2Prompt }],
+      timeoutMs: pass2Timeout,
+    });
+
+    const pass2Text = pass2Response.content
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('');
+
+    if (!pass2Text) {
+      return new Response(
+        JSON.stringify({
+          error: 'Claude returned empty response for buyer discovery (Pass 2)',
+          usage: pass2Response.usage,
+        }),
+        { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    const suggestedBuyers = parseClaudeResponse(pass2Text);
 
     // ── Deduplicate and insert ──
+    await updateJobProgress({ status: 'scoring', progress_pct: 65, progress_message: `Found ${suggestedBuyers.length} candidates. Deduplicating & inserting…` });
     const results: SeedResult[] = [];
     const newBuyerIds: string[] = [];
     const seedLogEntries: Record<string, unknown>[] = [];
     const now = new Date().toISOString();
 
     for (const suggested of suggestedBuyers) {
+      // If Claude didn't provide a website, attempt a Google search to find one
+      // (skip if running low on wall time — the buyer can be enriched later)
+      if (!suggested.company_website && remainingMs() > 8_000) {
+        console.info(`${suggested.company_name} — no website from AI, attempting Serper lookup…`);
+        try {
+          const foundUrl = await lookupCompanyWebsite(suggested.company_name);
+          if (foundUrl) {
+            suggested.company_website = foundUrl;
+            console.info(`  → Found website via Serper: ${foundUrl}`);
+          }
+        } catch (serperErr) {
+          console.warn(`  → Serper lookup failed for ${suggested.company_name}:`, serperErr);
+        }
+      } else if (!suggested.company_website) {
+        console.info(`${suggested.company_name} — skipping Serper lookup (low wall time: ${remainingMs()}ms)`);
+      }
+
       const domain = extractDomain(suggested.company_website);
 
-      // Website is required — skip buyers Claude returned without one.
+      // Website is still required after lookup — skip if we couldn't find one.
       if (!domain || !suggested.company_website) {
-        console.info(`Skipping ${suggested.company_name} — no website provided by AI`);
+        console.info(`Skipping ${suggested.company_name} — no website found (AI or Serper)`);
         continue;
+      }
+
+      // Sanitize PE firm name if present (Claude sometimes returns full sentences)
+      if (suggested.pe_firm_name) {
+        const cleaned = sanitizePeFirmName(suggested.pe_firm_name);
+        if (cleaned !== suggested.pe_firm_name) {
+          console.info(`Sanitized PE firm name: "${suggested.pe_firm_name}" → "${cleaned}"`);
+          suggested.pe_firm_name = cleaned;
+        }
       }
 
       let action: SeedResult['action'];
@@ -524,7 +908,6 @@ Deno.serve(async (req: Request) => {
       const existingId = domainToId.get(domain);
 
       if (existingId) {
-        // Existing buyer with same domain — enrich with AI context
         action = 'enriched_existing';
         buyerId = existingId;
 
@@ -537,16 +920,12 @@ Deno.serve(async (req: Request) => {
           })
           .eq('id', buyerId);
       } else {
-        // New buyer — insert
         action = 'inserted';
         wasNew = true;
 
         // ── Resolve PE firm parent (lookup or auto-create) ──
-        // PE firms are internal reference records auto-created without websites,
-        // so we look them up by name rather than domain.
         let resolvedPeFirmId: string | null = null;
         if (suggested.pe_firm_name && suggested.buyer_type !== 'private_equity') {
-          // Look up existing PE firm buyer by name (case-insensitive)
           const { data: existingPeFirm } = await supabase
             .from('buyers')
             .select('id')
@@ -558,7 +937,6 @@ Deno.serve(async (req: Request) => {
           if (existingPeFirm) {
             resolvedPeFirmId = existingPeFirm.id;
           } else {
-            // Auto-create the PE firm. On concurrent conflict, re-query for the winner.
             const { data: newFirm, error: firmError } = await supabase
               .from('buyers')
               .insert({
@@ -574,7 +952,6 @@ Deno.serve(async (req: Request) => {
 
             if (firmError) {
               if (firmError.code === '23505') {
-                // Race: another concurrent call inserted it first — re-query
                 const { data: raced } = await supabase
                   .from('buyers')
                   .select('id')
@@ -583,7 +960,10 @@ Deno.serve(async (req: Request) => {
                   .maybeSingle();
                 if (raced) resolvedPeFirmId = raced.id;
               } else {
-                console.error(`Failed to auto-create PE firm ${suggested.pe_firm_name}:`, firmError);
+                console.error(
+                  `Failed to auto-create PE firm ${suggested.pe_firm_name}:`,
+                  firmError,
+                );
               }
             } else if (newFirm) {
               resolvedPeFirmId = newFirm.id;
@@ -611,31 +991,33 @@ Deno.serve(async (req: Request) => {
             ai_seeded_at: now,
             ai_seeded_from_deal_id: listingId,
             verification_status: 'pending',
+            is_pe_backed: !!suggested.pe_firm_name,
           })
           .select('id')
           .single();
 
         if (insertError) {
-          // Unique constraint violation (code 23505): a concurrent seed-buyers call
-          // inserted the same buyer between our domain-snapshot fetch and this INSERT.
-          // Re-query by domain to get the winner's ID.
           if (insertError.code === '23505') {
+            // Re-find by exact domain match (not ilike which could match wrong rows)
             const { data: raced } = await supabase
               .from('buyers')
-              .select('id')
+              .select('id, company_website')
               .eq('archived', false)
-              .ilike('company_website', `%${domain}%`)
-              .maybeSingle();
+              .or(`company_website.ilike.%${domain}%,company_website.ilike.%www.${domain}%`)
+              .limit(10);
 
-            if (raced) {
+            // Filter to exact domain match in application code
+            const exactMatch = (raced || []).find(r => extractDomain(r.company_website) === domain);
+
+            if (exactMatch) {
               action = 'enriched_existing';
               wasNew = false;
-              buyerId = raced.id;
+              buyerId = exactMatch.id;
               existingDomainSet.add(domain);
-              domainToId.set(domain, raced.id);
+              domainToId.set(domain, exactMatch.id);
             } else {
               console.warn(
-                `Unique conflict inserting ${suggested.company_name} but couldn't re-find by domain — skipping`,
+                `Unique conflict inserting ${suggested.company_name} but couldn't re-find by domain "${domain}" — skipping`,
               );
               continue;
             }
@@ -650,14 +1032,18 @@ Deno.serve(async (req: Request) => {
           buyerId = inserted.id;
         }
 
-        // Track in dedup sets for subsequent iterations within this seeding call
         existingDomainSet.add(domain);
         domainToId.set(domain, buyerId);
       }
 
+      // De-duplicate: skip if we already processed this buyerId in this run
+      if (newBuyerIds.includes(buyerId)) {
+        console.log(`Skipping duplicate buyerId ${buyerId} (${suggested.company_name})`);
+        continue;
+      }
+
       newBuyerIds.push(buyerId);
 
-      // Collect log entry for batch insert after the loop
       seedLogEntries.push({
         remarketing_buyer_id: buyerId,
         source_deal_id: listingId,
@@ -667,6 +1053,8 @@ Deno.serve(async (req: Request) => {
         action,
         seed_model: CLAUDE_MODELS.opus,
         category_cache_key: cacheKey,
+        buyer_profile: buyerProfile,
+        verification_status: suggested.verification_status || 'unverified',
       });
 
       results.push({
@@ -678,22 +1066,29 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ── Batch insert seed log entries (delete stale entries for this deal first) ──
+    // ── Batch upsert seed log entries (resilient to duplicates) ──
     if (seedLogEntries.length > 0) {
-      const buyerIdsToLog = seedLogEntries.map((e) => e.remarketing_buyer_id as string);
-      // Remove previous seed log entries for these buyer+deal pairs to prevent unbounded growth
-      const { error: deleteError } = await supabase
+      const { error: logError } = await supabase
         .from('buyer_seed_log')
-        .delete()
-        .eq('source_deal_id', listingId)
-        .in('remarketing_buyer_id', buyerIdsToLog);
-      if (deleteError) {
-        console.error('Seed log cleanup failed (non-fatal):', deleteError.message);
-      }
-
-      const { error: logError } = await supabase.from('buyer_seed_log').insert(seedLogEntries);
+        .upsert(seedLogEntries, {
+          onConflict: 'remarketing_buyer_id,source_deal_id',
+          ignoreDuplicates: false,
+        });
       if (logError) {
-        console.error('Batch seed log insert failed (non-fatal):', logError.message);
+        console.error('Seed log upsert failed:', logError.message);
+        // Mark job with warning so UI knows
+        await updateJobProgress({
+          status: 'failed',
+          progress_pct: 95,
+          progress_message: `Buyers found but audit log write failed: ${logError.message}`,
+          error: `Seed log write failed: ${logError.message}`,
+          buyers_found: results.length,
+          completed_at: new Date().toISOString(),
+        });
+        return new Response(
+          JSON.stringify({ error: 'Seed log write failed', details: logError.message }),
+          { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } },
+        );
       }
     }
 
@@ -712,6 +1107,20 @@ Deno.serve(async (req: Request) => {
     const enriched = results.filter((r) => r.action === 'enriched_existing').length;
     const dupes = results.filter((r) => r.action === 'probable_duplicate').length;
 
+    // Note: score-deal-buyers refresh is handled by the frontend after seed completes
+    // (RecommendedBuyersTab calls refresh() which invokes score-deal-buyers with forceRefresh).
+
+    // Mark job as completed
+    await updateJobProgress({
+      status: 'completed',
+      progress_pct: 100,
+      progress_message: `Done! Found ${results.length} buyers (${inserted} new, ${enriched} updated)`,
+      buyers_found: results.length,
+      buyers_inserted: inserted,
+      buyers_updated: enriched,
+      completed_at: new Date().toISOString(),
+    });
+
     return new Response(
       JSON.stringify({
         seeded_buyers: results,
@@ -723,15 +1132,74 @@ Deno.serve(async (req: Request) => {
         seeded_at: now,
         cache_key: cacheKey,
         model: CLAUDE_MODELS.opus,
-        usage: claudeResponse.usage,
+        usage: {
+          pass1: pass1Response.usage,
+          pass2: pass2Response.usage,
+          total_input_tokens: pass1Response.usage.input_tokens + pass2Response.usage.input_tokens,
+          total_output_tokens:
+            pass1Response.usage.output_tokens + pass2Response.usage.output_tokens,
+        },
+        buyer_profile: buyerProfile,
       }),
       { headers: { ...headers, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
     console.error('seed-buyers error:', error);
+
+    // Categorize the error for a user-friendly message
+    const rawMsg = error instanceof Error ? error.message : String(error);
+    const lowerMsg = rawMsg.toLowerCase();
+
+    let userMessage: string;
+    let errorCode: string;
+    let statusCode = 500;
+
+    if (lowerMsg.includes('timeout') || lowerMsg.includes('timed out') || lowerMsg.includes('aborterror') || (error instanceof Error && error.name === 'TimeoutError')) {
+      userMessage = 'The AI search timed out. This can happen with complex deals. Please try again.';
+      errorCode = 'ai_timeout';
+    } else if (lowerMsg.includes('rate limit') || lowerMsg.includes('429') || lowerMsg.includes('too many requests')) {
+      userMessage = 'The AI service is currently rate-limited. Please wait a minute and try again.';
+      errorCode = 'rate_limited';
+      statusCode = 429;
+    } else if (lowerMsg.includes('anthropic_api_key') || lowerMsg.includes('api key') || lowerMsg.includes('not configured')) {
+      userMessage = 'The AI service is not configured. Please contact your administrator.';
+      errorCode = 'config_error';
+    } else if (lowerMsg.includes('claude api error 5') || lowerMsg.includes('service unavailable') || lowerMsg.includes('bad gateway') || lowerMsg.includes('502') || lowerMsg.includes('503')) {
+      userMessage = 'The AI service is temporarily unavailable. Please try again in a few minutes.';
+      errorCode = 'ai_unavailable';
+    } else if (lowerMsg.includes('claude api error 4')) {
+      userMessage = 'The AI service rejected the request. Please contact your administrator.';
+      errorCode = 'ai_request_error';
+    } else if (lowerMsg.includes('json') || lowerMsg.includes('parse') || lowerMsg.includes('unexpected response')) {
+      userMessage = 'The AI returned an unexpected response format. Please try again.';
+      errorCode = 'parse_error';
+    } else if (lowerMsg.includes('network') || lowerMsg.includes('fetch') || lowerMsg.includes('econnrefused') || lowerMsg.includes('econnreset')) {
+      userMessage = 'A network error occurred while contacting the AI service. Please check your connection and try again.';
+      errorCode = 'network_error';
+    } else {
+      userMessage = 'An unexpected error occurred during AI buyer search. Please try again or contact support.';
+      errorCode = 'internal_error';
+    }
+
+    // Mark job as failed if we have a jobId
+    if (_jobId) {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const errClient = createClient(supabaseUrl, supabaseServiceKey);
+        await errClient.from('buyer_search_jobs').update({
+          status: 'failed',
+          progress_pct: 0,
+          progress_message: userMessage,
+          error: `[${errorCode}] ${rawMsg}`.slice(0, 500),
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq('id', _jobId);
+      } catch { /* best effort */ }
+    }
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: String(error) }),
-      { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } },
+      JSON.stringify({ error: userMessage, code: errorCode, details: rawMsg.slice(0, 500) }),
+      { status: statusCode, headers: { ...headers, 'Content-Type': 'application/json' } },
     );
   }
 });

@@ -5,7 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Search,
   Send,
@@ -18,12 +24,12 @@ import {
   Calendar,
   FileText,
   Reply,
-  BarChart
+  BarChart,
 } from 'lucide-react';
 import { FeedbackMetricsOverview } from './FeedbackMetricsOverview';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface FeedbackMessage {
   id: string;
@@ -56,7 +62,7 @@ export function EnhancedFeedbackManagement() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [isProcessing, setIsProcessing] = useState(false);
-  
+
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -71,14 +77,20 @@ export function EnhancedFeedbackManagement() {
       if (error) throw error;
 
       // Batch-fetch all user profiles in one query instead of N+1
-      const userIds = [...new Set((messages || []).filter(m => m.user_id).map(m => m.user_id))].filter((id): id is string => id !== null);
-      const { data: profiles } = userIds.length > 0
-        ? await supabase.from('profiles').select('id, email, first_name, last_name').in('id', userIds)
-        : { data: [] };
+      const userIds = [
+        ...new Set((messages || []).filter((m) => m.user_id).map((m) => m.user_id)),
+      ].filter((id): id is string => id !== null);
+      const { data: profiles } =
+        userIds.length > 0
+          ? await supabase
+              .from('profiles')
+              .select('id, email, first_name, last_name')
+              .in('id', userIds)
+          : { data: [] };
 
-      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+      const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
 
-      const messagesWithProfiles: FeedbackMessage[] = (messages || []).map(msg => {
+      const messagesWithProfiles: FeedbackMessage[] = (messages || []).map((msg) => {
         const userProfile = msg.user_id ? profileMap.get(msg.user_id) : null;
         return {
           id: msg.id,
@@ -92,20 +104,21 @@ export function EnhancedFeedbackManagement() {
           created_at: msg.created_at,
           updated_at: msg.updated_at,
           page_url: msg.page_url,
-          satisfaction_rating: (msg as Record<string, unknown>).satisfaction_rating as number | null ?? null,
+          satisfaction_rating:
+            ((msg as Record<string, unknown>).satisfaction_rating as number | null) ?? null,
           user_email: userProfile?.email || 'Unknown',
           user_first_name: userProfile?.first_name || 'Unknown',
           user_last_name: userProfile?.last_name || 'User',
-          read_by_admin: (msg as Record<string, unknown>).read_by_admin as boolean ?? false
+          read_by_admin: ((msg as Record<string, unknown>).read_by_admin as boolean) ?? false,
         };
       });
 
       setFeedbackMessages(messagesWithProfiles);
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to load feedback messages.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to load feedback messages.',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -121,11 +134,11 @@ export function EnhancedFeedbackManagement() {
         {
           event: '*',
           schema: 'public',
-          table: 'feedback_messages'
+          table: 'feedback_messages',
         },
         () => {
           loadFeedbackMessages();
-        }
+        },
       )
       .subscribe();
 
@@ -138,24 +151,25 @@ export function EnhancedFeedbackManagement() {
     let filtered = feedbackMessages;
 
     if (searchQuery) {
-      filtered = filtered.filter(msg =>
-        msg.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        msg.user_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        msg.user_first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        msg.user_last_name?.toLowerCase().includes(searchQuery.toLowerCase())
+      filtered = filtered.filter(
+        (msg) =>
+          msg.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          msg.user_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          msg.user_first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          msg.user_last_name?.toLowerCase().includes(searchQuery.toLowerCase()),
       );
     }
 
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(msg => msg.status === statusFilter);
+      filtered = filtered.filter((msg) => msg.status === statusFilter);
     }
 
     if (categoryFilter !== 'all') {
-      filtered = filtered.filter(msg => msg.category === categoryFilter);
+      filtered = filtered.filter((msg) => msg.category === categoryFilter);
     }
 
     if (priorityFilter !== 'all') {
-      filtered = filtered.filter(msg => msg.priority === priorityFilter);
+      filtered = filtered.filter((msg) => msg.priority === priorityFilter);
     }
 
     setFilteredMessages(filtered);
@@ -172,8 +186,8 @@ export function EnhancedFeedbackManagement() {
           to: selectedMessage.user_email,
           subject: `Re: Your feedback - ${selectedMessage.category}`,
           content: responseText,
-          feedbackId: selectedMessage.id
-        }
+          feedbackId: selectedMessage.id,
+        },
       });
 
       if (error) throw error;
@@ -185,26 +199,24 @@ export function EnhancedFeedbackManagement() {
           admin_response: responseText,
           admin_id: user?.id,
           status: 'responded',
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', selectedMessage.id);
 
       // Create notification for admin
       if (user?.id) {
-        await supabase
-          .from('admin_notifications')
-          .insert({
-            admin_id: user.id,
-            feedback_id: selectedMessage.id,
-            notification_type: 'response_sent',
-            title: 'Response Sent',
-            message: `Response sent to ${selectedMessage.user_first_name} ${selectedMessage.user_last_name}`
-          });
+        await supabase.from('admin_notifications').insert({
+          admin_id: user.id,
+          feedback_id: selectedMessage.id,
+          notification_type: 'response_sent',
+          title: 'Response Sent',
+          message: `Response sent to ${selectedMessage.user_first_name} ${selectedMessage.user_last_name}`,
+        });
       }
 
       toast({
-        title: "Response sent",
-        description: "Your response has been sent successfully.",
+        title: 'Response sent',
+        description: 'Your response has been sent successfully.',
       });
 
       setIsResponseDialogOpen(false);
@@ -212,9 +224,9 @@ export function EnhancedFeedbackManagement() {
       loadFeedbackMessages();
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to send response. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to send response. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsProcessing(false);
@@ -227,7 +239,7 @@ export function EnhancedFeedbackManagement() {
         .from('feedback_messages')
         .update({ status: 'read' } as never)
         .eq('id', messageId);
-      
+
       loadFeedbackMessages();
     } catch (error) {
       console.error('Error marking as read:', error);
@@ -280,19 +292,26 @@ export function EnhancedFeedbackManagement() {
   }
 
   // Calculate analytics data
-  const respondedCount = feedbackMessages.filter(m => m.status === 'responded').length;
-  const responseRate = feedbackMessages.length > 0 ? (respondedCount / feedbackMessages.length) * 100 : 0;
-  
-  const categoryBreakdown = feedbackMessages.reduce((acc, msg) => {
-    acc[msg.category] = (acc[msg.category] || 0) + 1;
-    return acc;
-  }, {} as { [key: string]: number });
-  
-  const priorityBreakdown = feedbackMessages.reduce((acc, msg) => {
-    acc[msg.priority] = (acc[msg.priority] || 0) + 1;
-    return acc;
-  }, {} as { [key: string]: number });
-  
+  const respondedCount = feedbackMessages.filter((m) => m.status === 'responded').length;
+  const responseRate =
+    feedbackMessages.length > 0 ? (respondedCount / feedbackMessages.length) * 100 : 0;
+
+  const categoryBreakdown = feedbackMessages.reduce(
+    (acc, msg) => {
+      acc[msg.category] = (acc[msg.category] || 0) + 1;
+      return acc;
+    },
+    {} as { [key: string]: number },
+  );
+
+  const priorityBreakdown = feedbackMessages.reduce(
+    (acc, msg) => {
+      acc[msg.priority] = (acc[msg.priority] || 0) + 1;
+      return acc;
+    },
+    {} as { [key: string]: number },
+  );
+
   const averageResponseTime = 12; // Could calculate from actual data
 
   return (
@@ -300,14 +319,12 @@ export function EnhancedFeedbackManagement() {
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <h2 className="text-2xl font-bold">Feedback Management</h2>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">
-            Total: {feedbackMessages.length}
-          </Badge>
+          <Badge variant="outline">Total: {feedbackMessages.length}</Badge>
           <Badge variant="destructive">
-            Unread: {feedbackMessages.filter(m => m.status === 'unread').length}
+            Unread: {feedbackMessages.filter((m) => m.status === 'unread').length}
           </Badge>
           <Badge variant="default">
-            Pending: {feedbackMessages.filter(m => m.status === 'read').length}
+            Pending: {feedbackMessages.filter((m) => m.status === 'read').length}
           </Badge>
         </div>
       </div>
@@ -320,7 +337,7 @@ export function EnhancedFeedbackManagement() {
         </div>
         <FeedbackMetricsOverview
           totalFeedback={feedbackMessages.length}
-          unreadCount={feedbackMessages.filter(m => m.status === 'unread').length}
+          unreadCount={feedbackMessages.filter((m) => m.status === 'unread').length}
           responseRate={responseRate}
           averageResponseTime={averageResponseTime}
           categoryBreakdown={categoryBreakdown}
@@ -341,7 +358,7 @@ export function EnhancedFeedbackManagement() {
                 className="pl-9"
               />
             </div>
-            
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
                 <SelectValue placeholder="Status" />
@@ -381,12 +398,15 @@ export function EnhancedFeedbackManagement() {
               </SelectContent>
             </Select>
 
-            <Button variant="outline" onClick={() => {
-              setSearchQuery('');
-              setStatusFilter('all');
-              setCategoryFilter('all');
-              setPriorityFilter('all');
-            }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchQuery('');
+                setStatusFilter('all');
+                setCategoryFilter('all');
+                setPriorityFilter('all');
+              }}
+            >
               Clear Filters
             </Button>
           </div>
@@ -396,8 +416,8 @@ export function EnhancedFeedbackManagement() {
       {/* Messages List */}
       <div className="grid gap-4">
         {filteredMessages.map((message) => (
-          <Card 
-            key={message.id} 
+          <Card
+            key={message.id}
             className={`cursor-pointer transition-colors hover:bg-accent ${
               message.status === 'unread' ? 'border-l-4 border-l-red-500' : ''
             }`}
@@ -431,9 +451,9 @@ export function EnhancedFeedbackManagement() {
                   </span>
                 </div>
               </div>
-              
+
               <p className="text-sm mb-3 line-clamp-2">{message.message}</p>
-              
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   {message.page_url && (
@@ -449,7 +469,7 @@ export function EnhancedFeedbackManagement() {
                     </span>
                   )}
                 </div>
-                
+
                 <div className="flex gap-2">
                   {message.status !== 'responded' && (
                     <Button
@@ -477,9 +497,12 @@ export function EnhancedFeedbackManagement() {
             <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No feedback messages found</h3>
             <p className="text-muted-foreground">
-              {searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' || priorityFilter !== 'all'
-                ? "Try adjusting your filters to see more messages."
-                : "New feedback messages will appear here."}
+              {searchQuery ||
+              statusFilter !== 'all' ||
+              categoryFilter !== 'all' ||
+              priorityFilter !== 'all'
+                ? 'Try adjusting your filters to see more messages.'
+                : 'New feedback messages will appear here.'}
             </p>
           </CardContent>
         </Card>
@@ -491,7 +514,7 @@ export function EnhancedFeedbackManagement() {
           <DialogHeader>
             <DialogTitle>Respond to Feedback</DialogTitle>
           </DialogHeader>
-          
+
           {selectedMessage && (
             <div className="space-y-4">
               <div className="bg-muted p-4 rounded-lg">

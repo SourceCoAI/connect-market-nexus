@@ -1,15 +1,14 @@
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Skeleton } from '@/components/ui/skeleton';
 
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { Skeleton } from "@/components/ui/skeleton";
-
-import NavbarLogo from "./navbar/NavbarLogo";
-import DesktopNavItems from "./navbar/DesktopNavItems";
-import UserMenu from "./navbar/UserMenu";
-import AuthButtons from "./navbar/AuthButtons";
-import { AdminNotificationBell } from "./admin/AdminNotificationBell";
-import { BuyerNotificationBell } from "./buyer/BuyerNotificationBell";
+import NavbarLogo from './navbar/NavbarLogo';
+import DesktopNavItems from './navbar/DesktopNavItems';
+import UserMenu from './navbar/UserMenu';
+import AuthButtons from './navbar/AuthButtons';
+import { AdminNotificationBell } from './admin/AdminNotificationBell';
+import { BuyerNotificationBell } from './buyer/BuyerNotificationBell';
 
 const Navbar = () => {
   const { user, isLoading, logout, isAdmin } = useAuth();
@@ -19,20 +18,20 @@ const Navbar = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate("/login");
+      navigate('/login');
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error('Logout error:', error);
     }
   };
 
   // Determine where the logo should navigate to
   const getLogoDestination = () => {
-    if (!user) return "/login";
-    if (user.approval_status !== 'approved') return "/pending-approval";
-    return "/";
+    if (!user) return '/login';
+    if (user.approval_status !== 'approved') return '/pending-approval';
+    return '/';
   };
 
-  const handleNavigateToAdmin = () => navigate("/admin");
+  const handleNavigateToAdmin = () => navigate('/admin');
 
   return (
     <header className="bg-background border-b border-border">
@@ -57,16 +56,16 @@ const Navbar = () => {
             ) : user ? (
               <>
                 {!isMobile && (
-                  <DesktopNavItems 
-                    isAdmin={isAdmin} 
-                    isApproved={user.approval_status === 'approved'} 
+                  <DesktopNavItems
+                    isAdmin={isAdmin}
+                    isApproved={user.approval_status === 'approved'}
                     onNavigateToAdmin={handleNavigateToAdmin}
                   />
                 )}
 
                 {isAdmin ? <AdminNotificationBell /> : <BuyerNotificationBell />}
 
-                <UserMenu 
+                <UserMenu
                   user={user}
                   isAdmin={isAdmin}
                   isMobile={isMobile}

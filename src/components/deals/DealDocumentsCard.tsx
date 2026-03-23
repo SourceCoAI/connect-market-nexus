@@ -17,10 +17,10 @@ import {
   BarChart3,
   Building2,
 } from 'lucide-react';
-import { AgreementSigningModal } from '@/components/docuseal/AgreementSigningModal';
+import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 interface DealDocumentsCardProps {

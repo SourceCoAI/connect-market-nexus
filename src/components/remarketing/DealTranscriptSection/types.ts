@@ -14,10 +14,12 @@ export interface DealTranscript {
   updated_at?: string;
   title?: string | null;
   transcript_url?: string | null;
+  recording_url?: string | null;
   call_date?: string | null;
   has_content?: boolean | null;
   match_type?: string | null;
   external_participants?: { name: string; email: string }[] | null;
+  phoneburner_call_id?: string | null;
 }
 
 export interface DealTranscriptSectionProps {

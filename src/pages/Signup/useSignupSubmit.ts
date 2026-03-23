@@ -1,10 +1,10 @@
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { toast } from "@/hooks/use-toast";
-import { BuyerType, User } from "@/types";
-import { processUrl, processLinkedInUrl } from "@/lib/url-utils";
-import { parseCurrency } from "@/lib/currency-utils";
-import type { SignupFormData } from "./types";
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/hooks/use-toast';
+import { BuyerType, User } from '@/types';
+import { processUrl, processLinkedInUrl } from '@/lib/url-utils';
+import { parseCurrency } from '@/lib/currency-utils';
+import type { SignupFormData } from './types';
 
 export function useSignupSubmit(formData: SignupFormData) {
   const { signup } = useAuth();
@@ -12,26 +12,63 @@ export function useSignupSubmit(formData: SignupFormData) {
 
   const handleSubmit = async () => {
     const {
-      firstName, lastName, email, company, website, linkedinProfile, phoneNumber,
-      buyerType, estimatedRevenue, fundSize, investmentSize, aum,
-      isFunded, fundedBy, targetCompanySize, fundingSource, needsLoan, idealTarget,
-      idealTargetDescription, businessCategories, targetLocations,
-      revenueRangeMin, revenueRangeMax, specificBusinessSearch,
-      targetDealSizeMin, targetDealSizeMax, geographicFocus, industryExpertise, dealStructurePreference
+      firstName,
+      lastName,
+      email,
+      company,
+      website,
+      linkedinProfile,
+      phoneNumber,
+      buyerType,
+      estimatedRevenue,
+      fundSize,
+      investmentSize,
+      aum,
+      isFunded,
+      fundedBy,
+      targetCompanySize,
+      fundingSource,
+      needsLoan,
+      idealTarget,
+      idealTargetDescription,
+      businessCategories,
+      targetLocations,
+      revenueRangeMin,
+      revenueRangeMax,
+      specificBusinessSearch,
+      targetDealSizeMin,
+      targetDealSizeMax,
+      geographicFocus,
+      industryExpertise,
+      dealStructurePreference,
     } = formData;
 
     const signupData: Partial<User> = {
-      first_name: firstName, last_name: lastName, email, company,
-      website: processUrl(website), linkedin_profile: processLinkedInUrl(linkedinProfile),
-      phone_number: phoneNumber, buyer_type: buyerType as BuyerType,
-      ideal_target_description: idealTargetDescription, business_categories: businessCategories,
-      target_locations: targetLocations, revenue_range_min: revenueRangeMin || undefined,
-      revenue_range_max: revenueRangeMax || undefined, specific_business_search: specificBusinessSearch,
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      company,
+      website: processUrl(website),
+      linkedin_profile: processLinkedInUrl(linkedinProfile),
+      phone_number: phoneNumber,
+      buyer_type: buyerType as BuyerType,
+      ideal_target_description: idealTargetDescription,
+      business_categories: businessCategories,
+      target_locations: targetLocations,
+      revenue_range_min: revenueRangeMin || undefined,
+      revenue_range_max: revenueRangeMax || undefined,
+      specific_business_search: specificBusinessSearch,
       job_title: formData.jobTitle || '',
-      estimated_revenue: estimatedRevenue, fund_size: fundSize,
-      investment_size: investmentSize || [], aum, is_funded: isFunded, funded_by: fundedBy,
-      target_company_size: targetCompanySize, funding_source: fundingSource,
-      needs_loan: needsLoan, ideal_target: idealTarget,
+      estimated_revenue: estimatedRevenue,
+      fund_size: fundSize,
+      investment_size: investmentSize || [],
+      aum,
+      is_funded: isFunded,
+      funded_by: fundedBy,
+      target_company_size: targetCompanySize,
+      funding_source: fundingSource,
+      needs_loan: needsLoan,
+      ideal_target: idealTarget,
       deploying_capital_now: formData.deployingCapitalNow || '',
       owning_business_unit: formData.owningBusinessUnit || '',
       deal_size_band: formData.dealSizeBand || '',
@@ -50,19 +87,26 @@ export function useSignupSubmit(formData: SignupFormData) {
       permanent_capital: formData.permanentCapital || false,
       operating_company_targets: formData.operatingCompanyTargets || [],
       flex_subxm_ebitda: formData.flexSubxmEbitda || false,
-      search_type: formData.searchType || '', acq_equity_band: formData.acqEquityBand || '',
-      financing_plan: formData.financingPlan || [], search_stage: formData.searchStage || '',
+      search_type: formData.searchType || '',
+      acq_equity_band: formData.acqEquityBand || '',
+      financing_plan: formData.financingPlan || [],
+      search_stage: formData.searchStage || '',
       flex_sub2m_ebitda: formData.flexSub2mEbitda || false,
-      on_behalf_of_buyer: formData.onBehalfOfBuyer || '', buyer_role: formData.buyerRole || '',
-      owner_timeline: formData.ownerTimeline || '', owner_intent: formData.ownerIntent || '',
-      uses_bank_finance: formData.usesBank || '', max_equity_today_band: formData.maxEquityToday || '',
+      on_behalf_of_buyer: formData.onBehalfOfBuyer || '',
+      buyer_role: formData.buyerRole || '',
+      owner_timeline: formData.ownerTimeline || '',
+      owner_intent: formData.ownerIntent || '',
+      uses_bank_finance: formData.usesBank || '',
+      max_equity_today_band: formData.maxEquityToday || '',
       mandate_blurb: formData.mandateBlurb || '',
       portfolio_company_addon: formData.portfolioCompanyAddon || '',
       backers_summary: formData.backersSummary || '',
       anchor_investors_summary: formData.anchorInvestorsSummary || '',
-      deal_intent: formData.dealIntent || '', exclusions: formData.exclusions || [],
+      deal_intent: formData.dealIntent || '',
+      exclusions: formData.exclusions || [],
       include_keywords: formData.includeKeywords || [],
-      referral_source: formData.referralSource || '', referral_source_detail: formData.referralSourceDetail || '',
+      referral_source: formData.referralSource || '',
+      referral_source_detail: formData.referralSourceDetail || '',
       deal_sourcing_methods: formData.dealSourcingMethods || [],
       target_acquisition_volume: formData.targetAcquisitionVolume || '',
     };
@@ -78,7 +122,9 @@ export function useSignupSubmit(formData: SignupFormData) {
           dealContext.from_deal_id ? `deal:${dealContext.from_deal_id}` : '',
           dealContext.first_deal_viewed ? `first:${dealContext.first_deal_viewed}` : '',
           dealContext.is_landing_page_referral ? 'landing_page_referral' : '',
-        ].filter(Boolean).join('|');
+        ]
+          .filter(Boolean)
+          .join('|');
         if (dealAttribution) {
           signupData.referral_source_detail = existingDetail
             ? `${existingDetail} [${dealAttribution}]`
@@ -88,7 +134,9 @@ export function useSignupSubmit(formData: SignupFormData) {
           signupData.referral_source = 'deal_landing_page';
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     await signup(signupData, formData.password);
 
@@ -98,9 +146,14 @@ export function useSignupSubmit(formData: SignupFormData) {
       localStorage.removeItem('sourceco_first_deal_viewed');
       localStorage.removeItem('sourceco_last_deal_viewed');
       localStorage.removeItem('sourceco_last_deal_title');
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
-    toast({ title: "Account created successfully!", description: "Please check your email to verify your account." });
+    toast({
+      title: 'Account created successfully!',
+      description: 'Please check your email to verify your account.',
+    });
     navigate(`/signup-success?email=${encodeURIComponent(formData.email)}`);
   };
 

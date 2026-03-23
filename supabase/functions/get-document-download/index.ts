@@ -7,7 +7,7 @@ import { requireAuth } from "../_shared/auth.ts";
  * get-document-download
  *
  * Returns a downloadable PDF URL for unsigned (draft) or signed documents.
- * Uses DocuSeal's GET /submissions/{id}/documents API, with template fallback.
+ * Uses PandaDoc's GET /documents/{id}/download API, with template fallback.
  *
  * Query params: document_type=nda|fee_agreement
  */
@@ -19,10 +19,10 @@ serve(async (req: Request) => {
   }
 
   try {
-    const docusealApiKey = Deno.env.get("DOCUSEAL_API_KEY");
-    if (!docusealApiKey) {
+    const pandadocApiKey = Deno.env.get("PANDADOC_API_KEY");
+    if (!pandadocApiKey) {
       return new Response(
-        JSON.stringify({ error: "DocuSeal API not configured" }),
+        JSON.stringify({ error: "PandaDoc API not configured" }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }
@@ -75,13 +75,13 @@ serve(async (req: Request) => {
     }
 
     const isNda = documentType === "nda";
-    const submissionField = isNda ? "nda_docuseal_submission_id" : "fee_docuseal_submission_id";
+    const documentField = isNda ? "nda_pandadoc_document_id" : "fee_pandadoc_document_id";
     const documentUrlField = isNda ? "nda_document_url" : "fee_agreement_document_url";
     const signedUrlField = isNda ? "nda_signed_document_url" : "fee_signed_document_url";
 
     const { data: firm } = await supabase
       .from("firm_agreements")
-      .select(`${submissionField}, ${documentUrlField}, ${signedUrlField}`)
+      .select(`${documentField}, ${documentUrlField}, ${signedUrlField}`)
       .eq("id", membership.firm_id)
       .maybeSingle();
 
@@ -101,53 +101,24 @@ serve(async (req: Request) => {
       );
     }
 
-    const submissionId = firmRecord[submissionField] as string | null;
-    if (!submissionId) {
-      // No submission — try template PDF fallback
-      const templateId = isNda
-        ? Deno.env.get("DOCUSEAL_NDA_TEMPLATE_ID")
-        : Deno.env.get("DOCUSEAL_FEE_TEMPLATE_ID");
-
-      if (!templateId) {
-        return new Response(
-          JSON.stringify({ error: "No document available for download" }),
-          { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } },
-        );
-      }
-
-      const templateRes = await fetch(`https://api.docuseal.com/templates/${templateId}`, {
-        headers: { "X-Auth-Token": docusealApiKey },
-      });
-
-      if (templateRes.ok) {
-        const templateData = await templateRes.json();
-        const docUrl = templateData?.documents?.[0]?.url;
-        if (docUrl) {
-          return new Response(
-            JSON.stringify({ url: docUrl }),
-            { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
-          );
-        }
-      } else {
-        await templateRes.text(); // consume body
-      }
-
+    const pandadocDocumentId = firmRecord[documentField] as string | null;
+    if (!pandadocDocumentId) {
       return new Response(
-        JSON.stringify({ error: "Template document not available" }),
+        JSON.stringify({ error: "No document available for download" }),
         { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }
 
-    // Fetch submission documents
-    console.log(`📄 Fetching documents for submission ${submissionId}`);
+    // Fetch document download from PandaDoc
+    console.log(`📄 Fetching download for document ${pandadocDocumentId}`);
     const fetchController = new AbortController();
     const fetchTimeout = setTimeout(() => fetchController.abort(), 15000);
     let docsRes: Response;
     try {
       docsRes = await fetch(
-        `https://api.docuseal.com/submissions/${submissionId}/documents`,
+        `https://api.pandadoc.com/public/v1/documents/${pandadocDocumentId}/download`,
         {
-          headers: { "X-Auth-Token": docusealApiKey },
+          headers: { "Authorization": `API-Key ${pandadocApiKey}` },
           signal: fetchController.signal,
         },
       );
@@ -157,16 +128,15 @@ serve(async (req: Request) => {
 
     if (!docsRes.ok) {
       const errText = await docsRes.text();
-      console.error("❌ DocuSeal documents API error:", docsRes.status, errText);
+      console.error("❌ PandaDoc download API error:", docsRes.status, errText);
       return new Response(
         JSON.stringify({ error: "Failed to fetch document" }),
         { status: 502, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }
 
-    const docsData = await docsRes.json();
-    const documents = docsData?.documents || (Array.isArray(docsData) ? docsData : []);
-    const docUrl = documents[0]?.url;
+    // PandaDoc download returns the PDF directly; use the final URL
+    const docUrl = docsRes.url || `https://api.pandadoc.com/public/v1/documents/${pandadocDocumentId}/download`;
 
     if (!docUrl) {
       return new Response(

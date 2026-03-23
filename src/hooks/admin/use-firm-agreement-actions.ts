@@ -85,6 +85,11 @@ export function useUpdateAgreementViaUser() {
 
 /**
  * Fetch the firm a user belongs to (for display in toggle UI).
+ * Uses the canonical `resolve_user_firm_id` RPC to find the firm,
+ * then fetches the full firm_agreements record.
+ *
+ * Resolution priority (inside the RPC):
+ *   email domain match → normalized company name match → latest firm_member.
  */
 export function useUserFirm(userId: string | undefined) {
   return useQuery({
@@ -92,53 +97,29 @@ export function useUserFirm(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return null;
 
-      // Try firm_members first
-      const { data: membership, error: memErr } = await supabase
-        .from('firm_members')
-        .select(
-          `
-          firm_id,
-          firm:firm_agreements!firm_members_firm_id_fkey(
-            id, primary_company_name, 
-            nda_signed, nda_signed_at, nda_signed_by_name, nda_email_sent, nda_email_sent_at, nda_status,
-            fee_agreement_signed, fee_agreement_signed_at, fee_agreement_signed_by_name, 
-            fee_agreement_email_sent, fee_agreement_email_sent_at, fee_agreement_status
-          )
-        `,
-        )
-        .eq('user_id', userId)
-        .limit(1)
-        .maybeSingle();
+      // Step 1: Resolve firm via canonical RPC
+      const { data: firmId, error: rpcError } = await supabase.rpc('resolve_user_firm_id', {
+        p_user_id: userId,
+      });
 
-      if (memErr) throw memErr;
-      const membershipData = membership as { firm_id: string; firm: AgreementResult | null } | null;
-      if (membershipData?.firm) return membershipData.firm;
+      if (rpcError) throw rpcError;
+      if (!firmId) return null;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('email, company')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (!profile?.email) return null;
-
-      const domain = profile.email.split('@')[1];
-      if (!domain) return null;
-
-      const { data: firm } = await supabase
+      // Step 2: Fetch firm details
+      const { data: firm, error: firmError } = await supabase
         .from('firm_agreements')
         .select(
           `
-          id, primary_company_name,
+          id, primary_company_name, 
           nda_signed, nda_signed_at, nda_signed_by_name, nda_email_sent, nda_email_sent_at, nda_status,
-          fee_agreement_signed, fee_agreement_signed_at, fee_agreement_signed_by_name,
+          fee_agreement_signed, fee_agreement_signed_at, fee_agreement_signed_by_name, 
           fee_agreement_email_sent, fee_agreement_email_sent_at, fee_agreement_status
         `,
         )
-        .or(`email_domain.eq.${domain},website_domain.eq.${domain}`)
-        .limit(1)
+        .eq('id', firmId)
         .maybeSingle();
 
+      if (firmError) throw firmError;
       return firm || null;
     },
     enabled: !!userId,

@@ -8,6 +8,7 @@ interface HeartbeatData {
   scroll_depth?: number;
   is_focused?: boolean;
   ended?: boolean;
+  access_token?: string; // Sent by sendBeacon which can't set Authorization header
 }
 
 Deno.serve(async (req) => {
@@ -19,13 +20,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // N04 FIX: Require authenticated user for session heartbeats
-    const authHeader = req.headers.get('Authorization') || '';
-    const token = authHeader.replace('Bearer ', '').trim();
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    // Parse body first — sendBeacon may include access_token in the payload
+    // since it cannot set Authorization headers
+    const body: HeartbeatData = await req.json();
+
+    // N04 FIX: Require authenticated user for session heartbeats
+    // Check Authorization header first, fall back to body.access_token (sendBeacon)
+    const authHeader = req.headers.get('Authorization') || '';
+    const token = authHeader.replace('Bearer ', '').trim() || body.access_token || '';
 
     let authenticatedUserId: string | null = null;
 
@@ -47,7 +53,6 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const body: HeartbeatData = await req.json();
 
     if (!body.session_id) {
       return new Response(

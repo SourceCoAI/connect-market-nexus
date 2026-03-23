@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { calculateLocationMatchScore, calculateIndustryMatchScore } from '@/lib/financial-parser';
 import { parseCurrency } from '@/lib/currency-utils';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { formatFinancialRange } from '@/lib/buyer-metrics';

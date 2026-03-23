@@ -9,7 +9,7 @@
  *   3. Upload Final PDF → Upload the polished PDF to data_room_documents
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -60,6 +60,116 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+
+// ─── Module-level generation tracker ───
+// Persists across component mount/unmount so navigating away doesn't lose state.
+
+interface ActiveGeneration {
+  progress: number;
+  intervalId: ReturnType<typeof setInterval>;
+  promise: Promise<unknown>;
+  listeners: Set<() => void>;
+}
+
+const activeGenerations = new Map<string, ActiveGeneration>();
+
+function getGenerationKey(dealId: string, slotType: string) {
+  return `${dealId}:${slotType}`;
+}
+
+function notifyListeners(key: string) {
+  activeGenerations.get(key)?.listeners.forEach((fn) => fn());
+}
+
+function startTrackedGeneration(
+  key: string,
+  generationPromise: Promise<unknown>,
+) {
+  // If already generating, don't restart
+  if (activeGenerations.has(key)) return activeGenerations.get(key)!;
+
+  const entry: ActiveGeneration = {
+    progress: 0,
+    intervalId: setInterval(() => {
+      const gen = activeGenerations.get(key);
+      if (!gen || gen.progress >= 90) return;
+      const increment = gen.progress < 30 ? 8 : gen.progress < 60 ? 4 : 2;
+      gen.progress = Math.min(gen.progress + increment, 90);
+      notifyListeners(key);
+    }, 800),
+    promise: generationPromise,
+    listeners: new Set(),
+  };
+
+  activeGenerations.set(key, entry);
+
+  generationPromise
+    .then(() => {
+      const gen = activeGenerations.get(key);
+      if (gen) {
+        gen.progress = 100;
+        notifyListeners(key);
+        // Brief pause to show 100% before cleanup
+        setTimeout(() => cleanupGeneration(key), 500);
+      }
+    })
+    .catch(() => {
+      cleanupGeneration(key);
+    });
+
+  return entry;
+}
+
+function cleanupGeneration(key: string) {
+  const gen = activeGenerations.get(key);
+  if (gen) {
+    clearInterval(gen.intervalId);
+    activeGenerations.delete(key);
+    // Notify so components re-render with isGenerating=false
+    gen.listeners.forEach((fn) => fn());
+  }
+}
+
+function useGenerationProgress(dealId: string, slotType: string) {
+  const key = getGenerationKey(dealId, slotType);
+
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      const gen = activeGenerations.get(key);
+      if (gen) {
+        gen.listeners.add(onStoreChange);
+        return () => {
+          gen.listeners.delete(onStoreChange);
+        };
+      }
+      // Not currently generating — poll briefly to detect when a generation starts
+      const id = setInterval(() => {
+        if (activeGenerations.has(key)) {
+          onStoreChange();
+          clearInterval(id);
+        }
+      }, 200);
+      return () => clearInterval(id);
+    },
+    [key],
+  );
+
+  // Return a primitive (number) so useSyncExternalStore can do simple === comparison.
+  // -1 means not generating, 0-100 means generating with that progress.
+  const getSnapshot = useCallback(() => {
+    const gen = activeGenerations.get(key);
+    return gen ? gen.progress : -1;
+  }, [key]);
+
+  const progressValue = useSyncExternalStore(subscribe, getSnapshot);
+
+  return {
+    isGenerating: progressValue >= 0,
+    progress: progressValue >= 0 ? progressValue : 0,
+  };
+}
+
+// ─── Component types ───
 
 interface MemosTabProps {
   dealId: string;
@@ -224,8 +334,7 @@ function MemoSlotCard({
   const documentUrl = useDocumentUrl();
   const generateMemo = useGenerateMemo();
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generateProgress, setGenerateProgress] = useState(0);
+  const { isGenerating, progress: generateProgress } = useGenerationProgress(dealId, slotType);
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -279,33 +388,19 @@ function MemoSlotCard({
     setConfirmRemove(false);
   };
 
-  const handleGenerateDraft = async () => {
-    setIsGenerating(true);
-    setGenerateProgress(0);
-    // Simulate progress steps while AI generates
-    const progressInterval = setInterval(() => {
-      setGenerateProgress((prev) => {
-        if (prev >= 90) return prev; // Cap at 90 until actually done
-        // Slow down as it approaches 90
-        const increment = prev < 30 ? 8 : prev < 60 ? 4 : 2;
-        return Math.min(prev + increment, 90);
-      });
-    }, 800);
-    try {
-      await generateMemo.mutateAsync({
-        deal_id: dealId,
-        memo_type: slotType,
-        branding: 'sourceco',
-        project_name: projectName || undefined,
-      });
-      setGenerateProgress(100);
-      // Brief pause to show 100%
-      await new Promise((r) => setTimeout(r, 500));
-    } finally {
-      clearInterval(progressInterval);
-      setIsGenerating(false);
-      setGenerateProgress(0);
-    }
+  const handleGenerateDraft = () => {
+    const key = getGenerationKey(dealId, slotType);
+    // Don't restart if already generating
+    if (activeGenerations.has(key)) return;
+
+    const promise = generateMemo.mutateAsync({
+      deal_id: dealId,
+      memo_type: slotType,
+      branding: 'sourceco',
+      project_name: projectName || undefined,
+    });
+
+    startTrackedGeneration(key, promise);
   };
 
   const handleDownloadDocx = async () => {
@@ -328,7 +423,7 @@ function MemoSlotCard({
           content: s.content || s.body || (s.bullets ? s.bullets.join('\n') : ''),
         })),
         memoType: slotType,
-        dealTitle: dealTitle || 'Deal',
+        dealTitle: slotType === 'anonymous_teaser' ? (projectName || 'Deal') : (dealTitle || 'Deal'),
         branding: 'SourceCo',
         companyInfo: company,
       });

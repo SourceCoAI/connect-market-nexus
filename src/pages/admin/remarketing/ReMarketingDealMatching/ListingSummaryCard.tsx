@@ -1,15 +1,10 @@
-import { Link } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  ExternalLink,
-  MapPin,
-  DollarSign,
-  Briefcase,
-} from "lucide-react";
+import { Link } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ExternalLink, MapPin, DollarSign, Briefcase } from 'lucide-react';
 
 interface ListingSummaryCardProps {
-  listing: any;
+  listing: Record<string, any>;
   formatCurrency: (value: number | null) => string;
 }
 
@@ -57,7 +52,8 @@ export function ListingSummaryCard({ listing, formatCurrency }: ListingSummaryCa
               <p className="text-muted-foreground">Services</p>
               <p className="font-medium">
                 {(listing.services?.length ?? 0) > 0
-                  ? listing.services!.slice(0, 3).join(', ') + (listing.services!.length > 3 ? ` +${listing.services!.length - 3}` : '')
+                  ? listing.services!.slice(0, 3).join(', ') +
+                    (listing.services!.length > 3 ? ` +${listing.services!.length - 3}` : '')
                   : listing.category || '\u2014'}
               </p>
             </div>

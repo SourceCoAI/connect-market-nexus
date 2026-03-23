@@ -24,7 +24,7 @@ import { Plus, ListChecks, CheckCircle2, AlertTriangle, Clock, Filter } from 'lu
 import { useEntityTasks } from '@/hooks/useEntityTasks';
 import { useDeleteTask } from '@/hooks/useDailyTasks';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { TaskCard } from './TaskCard';
 import { EditTaskDialog } from './EditTaskDialog';
 import { ReassignDialog } from './ReassignDialog';

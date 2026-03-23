@@ -52,7 +52,7 @@ Connect Market Nexus is a B2B M&A (Mergers & Acquisitions) deal marketplace plat
 | Maps | Mapbox GL |
 | Charts | Recharts |
 | Forms | React Hook Form + Zod validation |
-| Document Generation | docx (Word), DocuSeal (e-signatures) |
+| Document Generation | docx (Word), PandaDoc (e-signatures) |
 | Drag and Drop | dnd-kit |
 | Testing | Vitest 4 |
 
@@ -228,7 +228,7 @@ Edge functions use server-side secrets configured in the Supabase dashboard:
 | `MAPBOX_TOKEN` | `get-mapbox-token` | Mapbox GL access token |
 | `FIRECRAWL_API_KEY` | `firecrawl-scrape` | Firecrawl web scraping API key |
 | `APIFY_API_TOKEN` | `apify-*` functions | Apify scraping platform token |
-| `DOCUSEAL_API_KEY` | `create-docuseal-submission` | DocuSeal e-signature API key |
+| `PANDADOC_API_KEY` | `create-pandadoc-document` | PandaDoc e-signature API key |
 | `FIREFLIES_API_KEY` | `fetch-fireflies-content` | Fireflies.ai transcription API key |
 
 ---

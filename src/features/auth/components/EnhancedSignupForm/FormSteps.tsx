@@ -149,6 +149,12 @@ export const FormSteps: React.FC<FormStepsProps> = ({ currentStep, form, watch, 
     case 2:
       return (
         <div className="space-y-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-medium">Tell us about your mandate</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              We use this to match you to relevant deals and prioritize your application. The more specific you are, the faster we can clear you.
+            </p>
+          </div>
           <div>
             <Label htmlFor="buyerType">Buyer Type *</Label>
             <Select onValueChange={(value) => setValue('buyerType', value as SignupFormData['buyerType'])}>

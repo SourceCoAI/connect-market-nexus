@@ -7,40 +7,35 @@ interface MetricBox {
 }
 
 function formatCurrency(value: number | null | undefined): string {
-  if (!value) return '—';
-  if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-  return `$${value.toLocaleString()}`;
+  if (value == null) return '—';
+  if (value >= 1_000_000_000) return `~$${(value / 1_000_000_000).toFixed(1)}B`;
+  if (value >= 1_000_000) return `~$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `~$${(value / 1_000).toFixed(0)}K`;
+  return `~$${value.toLocaleString()}`;
 }
 
-/**
- * Mirrors the EnhancedFinancialGrid metric logic from ListingDetail.tsx
- * to keep the landing page metrics identical to the listing page.
- */
 function buildMetrics(deal: LandingPageDeal): MetricBox[] {
   const metrics: MetricBox[] = [];
 
-  // Metric 1: Revenue — matches listing page revenue metric
-  const revenueYear = new Date().getFullYear() - 1;
+  // Metric 1: Revenue
   metrics.push({
-    label: `${revenueYear} Revenue`,
+    label: 'Annual Revenue',
     value: formatCurrency(deal.revenue),
-    subtitle: deal.revenue_metric_subtitle || deal.category || deal.categories?.[0] || '',
+    subtitle: deal.revenue_metric_subtitle || 'Combined all locations',
   });
 
-  // Metric 2: EBITDA — matches listing page
+  // Metric 2: EBITDA
   const marginPct =
     deal.revenue && deal.revenue > 0 && deal.ebitda
-      ? ((deal.ebitda / deal.revenue) * 100).toFixed(1)
+      ? ((deal.ebitda / deal.revenue) * 100).toFixed(0)
       : '0';
   metrics.push({
-    label: 'EBITDA',
+    label: 'EBITDA / SDE',
     value: formatCurrency(deal.ebitda),
-    subtitle: deal.ebitda_metric_subtitle || `~${marginPct}% margin profile`,
+    subtitle: deal.ebitda_metric_subtitle || `${marginPct}% margin profile`,
   });
 
-  // Metric 3: Custom or Team Size — matches listing page logic
+  // Metric 3: Custom or Transaction Type
   if (deal.metric_3_type === 'custom' && deal.metric_3_custom_label) {
     metrics.push({
       label: deal.metric_3_custom_label,
@@ -48,16 +43,14 @@ function buildMetrics(deal: LandingPageDeal): MetricBox[] {
       subtitle: deal.metric_3_custom_subtitle || '',
     });
   } else {
-    const ft = deal.full_time_employees || 0;
-    const pt = deal.part_time_employees || 0;
     metrics.push({
-      label: 'Team Size',
-      value: `${ft + pt}`,
-      subtitle: `${ft} FT, ${pt} PT`,
+      label: 'Transaction Type',
+      value: '100% Sale',
+      subtitle: 'Full equity exit',
     });
   }
 
-  // Metric 4: Custom or EBITDA Margin — matches listing page logic
+  // Metric 4: Custom or EBITDA Margin
   if (deal.metric_4_type === 'custom' && deal.metric_4_custom_label) {
     metrics.push({
       label: deal.metric_4_custom_label,
@@ -65,12 +58,13 @@ function buildMetrics(deal: LandingPageDeal): MetricBox[] {
       subtitle: deal.metric_4_custom_subtitle || '',
     });
   } else {
+    const margin4Pct =
+      deal.revenue && deal.revenue > 0 && deal.ebitda
+        ? ((deal.ebitda / deal.revenue) * 100).toFixed(1)
+        : null;
     metrics.push({
       label: 'EBITDA Margin',
-      value:
-        deal.revenue && deal.revenue > 0 && deal.ebitda
-          ? `${((deal.ebitda / deal.revenue) * 100).toFixed(1)}%`
-          : '0%',
+      value: margin4Pct ? `${margin4Pct}%` : '—',
       subtitle: deal.metric_4_custom_subtitle || 'Profitability metric',
     });
   }
@@ -88,24 +82,60 @@ export default function MetricsStrip({ deal }: MetricsStripProps) {
   if (metrics.length === 0) return null;
 
   return (
-    <section className="pb-8">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 border-b border-[#E5E7EB] pb-6">
-        {metrics.map((metric, i) => (
-          <div key={i} className="space-y-1">
-            <p className="text-xs font-medium text-[#6B7280] uppercase tracking-wider font-['Inter',system-ui,sans-serif]">
-              {metric.label}
-            </p>
-            <p className="text-2xl font-light text-[#1A1A1A] font-['Inter',system-ui,sans-serif]">
-              {metric.value}
-            </p>
-            {metric.subtitle && (
-              <p className="text-xs text-[#6B7280] font-['Inter',system-ui,sans-serif]">
-                {metric.subtitle}
-              </p>
-            )}
+    <section
+      style={{
+        display: 'grid',
+        gap: 12,
+        margin: '32px 0',
+        fontFamily: "'DM Sans', sans-serif",
+      }}
+      className="animate-[fadeUp_0.5s_0.1s_ease_both] grid-cols-2 lg:grid-cols-4"
+    >
+      {metrics.map((metric, i) => (
+        <div
+          key={i}
+          style={{
+            background: '#FDFCFA',
+            border: '1px solid #DDD8D0',
+            borderRadius: 10,
+            padding: '20px 22px',
+            transition: 'transform 0.15s, box-shadow 0.15s',
+            cursor: 'default',
+          }}
+          className="hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(0,0,0,0.06)]"
+        >
+          <div
+            style={{
+              fontSize: '10.5px',
+              fontWeight: 600,
+              letterSpacing: '0.09em',
+              textTransform: 'uppercase',
+              color: '#6B6560',
+              marginBottom: 8,
+            }}
+          >
+            {metric.label}
           </div>
-        ))}
-      </div>
+          <div
+            style={{
+              fontFamily: "'DM Serif Display', serif",
+              fontSize: metric.value.length > 10 ? 20 : 28,
+              color: '#1A1714',
+              letterSpacing: '-0.02em',
+              lineHeight: 1,
+              marginBottom: 5,
+              marginTop: metric.value.length > 10 ? 4 : 0,
+            }}
+          >
+            {metric.value}
+          </div>
+          {metric.subtitle && (
+            <div style={{ fontSize: '11.5px', color: '#B8933A', fontWeight: 500 }}>
+              {metric.subtitle}
+            </div>
+          )}
+        </div>
+      ))}
     </section>
   );
 }

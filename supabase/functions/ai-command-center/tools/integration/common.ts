@@ -11,39 +11,48 @@ export type SupabaseClient = ReturnType<typeof createClient>;
 export type { ClaudeTool } from '../../../_shared/claude-client.ts';
 export type { ToolResult } from '../index.ts';
 
-export { inferDomain, inferDomainCandidates } from '../../../_shared/apify-client.ts';
+export { inferDomain, inferDomainCandidates } from '../../../_shared/domain-utils.ts';
 export { batchEnrich, domainSearchEnrich, enrichContact } from '../../../_shared/prospeo-client.ts';
 export { googleSearch } from '../../../_shared/serper-client.ts';
 
 // Re-import locally for use in this file's helper functions
-import { inferDomain } from '../../../_shared/apify-client.ts';
+import { inferDomain } from '../../../_shared/domain-utils.ts';
 import { googleSearch } from '../../../_shared/serper-client.ts';
 
 // ---------- Title matching (shared with find-contacts) ----------
 
 export const TITLE_ALIASES: Record<string, string[]> = {
-  associate: ['associate', 'sr associate', 'senior associate', 'investment associate'],
+  associate: ['associate', 'sr associate', 'senior associate', 'investment associate', 'investment professional'],
   principal: ['principal', 'sr principal', 'senior principal', 'investment principal'],
-  vp: ['vp', 'vice president', 'vice-president', 'svp', 'senior vice president', 'evp'],
+  vp: ['vp', 'vice president', 'vice-president', 'svp', 'senior vice president', 'evp',
+    'executive vice president', 'vp of operations', 'vp operations', 'vp finance',
+    'vp business development', 'vp strategy', 'vp corporate development'],
   director: [
-    'director',
-    'managing director',
-    'sr director',
-    'senior director',
-    'associate director',
+    'director', 'managing director', 'sr director', 'senior director', 'associate director',
+    'director of operations', 'director of finance', 'director of business development',
+    'director of acquisitions', 'director of strategy', 'executive director',
   ],
-  partner: ['partner', 'managing partner', 'general partner', 'senior partner'],
+  partner: ['partner', 'managing partner', 'general partner', 'senior partner',
+    'operating partner', 'venture partner', 'founding partner', 'equity partner'],
   analyst: ['analyst', 'sr analyst', 'senior analyst', 'investment analyst'],
-  ceo: ['ceo', 'chief executive officer', 'president', 'owner', 'founder', 'co-founder'],
+  ceo: ['ceo', 'chief executive officer', 'president', 'owner', 'founder', 'co-founder',
+    'chief executive', 'managing member', 'general manager', 'gm'],
+  cfo: ['cfo', 'chief financial officer', 'head of finance', 'finance director',
+    'vp finance', 'controller', 'treasurer'],
+  coo: ['coo', 'chief operating officer', 'head of operations', 'operations director',
+    'vp operations'],
   bd: [
-    'business development',
-    'corp dev',
-    'corporate development',
-    'head of acquisitions',
-    'vp acquisitions',
-    'vp m&a',
-    'head of m&a',
+    'business development', 'corp dev', 'corporate development',
+    'head of acquisitions', 'vp acquisitions', 'vp m&a', 'head of m&a',
+    'director of acquisitions', 'acquisitions', 'deal origination',
+    'deal sourcing', 'investment origination', 'business development officer',
+    'bdo', 'head of growth', 'vp growth', 'chief development officer',
+    'chief business development officer', 'chief growth officer',
   ],
+  operating_partner: ['operating partner', 'operating executive', 'operating advisor',
+    'senior operating partner', 'executive in residence', 'eir',
+    'operating principal', 'portfolio operations'],
+  senior_associate: ['senior associate', 'sr associate', 'investment associate'],
 };
 
 export function matchesTitle(title: string, filters: string[]): boolean {

@@ -71,7 +71,7 @@ class ErrorLogger {
     this.buffer.push(entry);
 
     // Console log for development
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       const logMethod =
         level === 'error' ? console.error : level === 'warning' ? console.warn : console.log;
       logMethod(`[${level.toUpperCase()}] ${entry.message}`, {

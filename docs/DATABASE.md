@@ -654,7 +654,7 @@ Conversations attached to specific listings.
 | `pe_firm_contacts` | PE firm contact records |
 | `platform_contacts` | Platform (marketplace) contact records |
 | `buyer_learning_history` | Buyer learning/interaction history |
-| `docuseal_webhook_log` | DocuSeal webhook event log |
+| `pandadoc_webhook_log` | PandaDoc webhook event log |
 | `owner_intro_notifications` | Owner introduction notifications |
 | `geographic_adjacency` | State/region adjacency data for proximity scoring |
 | `marketplace_approval_queue` | Marketplace approval workflow queue |

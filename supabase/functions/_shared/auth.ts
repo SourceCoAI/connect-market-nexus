@@ -59,6 +59,11 @@ export async function requireAdmin(
     console.error('is_admin RPC error:', adminCheckError.message);
   }
   if (adminCheckError || !isAdmin) {
+    console.warn('Admin access denied:', {
+      userId: auth.userId,
+      rpcError: adminCheckError?.message || null,
+      timestamp: new Date().toISOString(),
+    });
     return {
       authenticated: true,
       isAdmin: false,

@@ -257,7 +257,7 @@ export const BuyerTableToolbar = ({
           {onImportCSV && (
             <Button variant="outline" size="sm" onClick={onImportCSV}>
               <Upload className="h-4 w-4 mr-1" />
-              Import CSV
+              Import Spreadsheet
             </Button>
           )}
           {onEnrichAll && (

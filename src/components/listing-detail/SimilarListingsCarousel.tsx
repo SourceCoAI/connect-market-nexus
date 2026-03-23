@@ -3,6 +3,7 @@ import { Listing } from '@/types';
 import { Link } from 'react-router-dom';
 import { formatCurrency } from '@/lib/currency-utils';
 import { getListingImage } from '@/lib/listing-image-utils';
+import { stateToRegion } from '@/lib/deal-to-listing-anonymizer';
 import {
   Carousel,
   CarouselContent,
@@ -119,7 +120,7 @@ export function SimilarListingsCarousel({ currentListing }: SimilarListingsCarou
                         <span className="px-2 py-1 bg-muted rounded">
                           {listing.category}
                         </span>
-                        <span>{listing.location}</span>
+                        <span>{listing.location ? stateToRegion(listing.location) : listing.location}</span>
                       </div>
 
                       {/* EBITDA Margin */}

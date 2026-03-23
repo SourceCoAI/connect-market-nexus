@@ -13,7 +13,6 @@ import {
   TargetBuyerTypeConfig,
 } from '@/types/remarketing';
 import { toast } from 'sonner';
-import { useBuyerEnrichment } from '@/hooks/useBuyerEnrichment';
 import { useBuyerEnrichmentQueue } from '@/hooks/useBuyerEnrichmentQueue';
 import { useDealEnrichment } from '@/hooks/useDealEnrichment';
 import { useEnrichmentProgress } from '@/hooks/useEnrichmentProgress';
@@ -72,9 +71,6 @@ export function useUniverseData() {
   const [selectedDealIds, setSelectedDealIds] = useState<string[]>([]);
   const [isRemovingSelectedDeals, setIsRemovingSelectedDeals] = useState(false);
 
-  // Use the enrichment hook for proper batch processing with progress tracking (legacy - for direct enrichment)
-  useBuyerEnrichment(id);
-
   // Use the queue-based enrichment for persistent background processing
   const {
     progress: queueProgress,
@@ -82,6 +78,8 @@ export function useUniverseData() {
     showSummary: showEnrichmentSummary,
     dismissSummary: dismissEnrichmentSummary,
     queueBuyers,
+    pause: pauseQueueEnrichment,
+    resume: resumeQueueEnrichment,
     cancel: cancelQueueEnrichment,
     reset: resetQueueEnrichment,
   } = useBuyerEnrichmentQueue(id);
@@ -546,6 +544,8 @@ export function useUniverseData() {
     showEnrichmentSummary,
     dismissEnrichmentSummary,
     queueBuyers,
+    pauseQueueEnrichment,
+    resumeQueueEnrichment,
     cancelQueueEnrichment,
     resetQueueEnrichment,
     dealEnrichmentProgress,

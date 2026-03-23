@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Check, MapPin, Pencil, X } from 'lucide-react';
+import { ArrowLeft, Ban, Check, MapPin, Pencil, User, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Link } from 'react-router-dom';
 import { ScoreBadge } from '@/components/shared/ScoreBadge';
@@ -16,6 +16,8 @@ interface DealHeaderDeal {
   address_city?: string | null;
   address_state?: string | null;
   location?: string | null;
+  not_a_fit?: boolean;
+  not_a_fit_reason?: string | null;
 }
 
 interface DealHeaderProps {
@@ -25,6 +27,7 @@ interface DealHeaderProps {
   listedName: string | null;
   dataCompleteness: number;
   tier: string | null;
+  dealOwnerName?: string | null;
   isEditingName: boolean;
   setIsEditingName: (v: boolean) => void;
   editedName: string;
@@ -32,6 +35,8 @@ interface DealHeaderProps {
   handleSaveName: () => void;
   handleCancelEdit: () => void;
   updateNameMutation: { isPending: boolean };
+  onMarkNotAFit?: () => void;
+  onRemoveNotAFit?: () => void;
 }
 
 export function DealHeader({
@@ -41,6 +46,7 @@ export function DealHeader({
   listedName,
   dataCompleteness,
   tier,
+  dealOwnerName,
   isEditingName,
   setIsEditingName,
   editedName,
@@ -48,6 +54,8 @@ export function DealHeader({
   handleSaveName,
   handleCancelEdit,
   updateNameMutation,
+  onMarkNotAFit,
+  onRemoveNotAFit,
 }: DealHeaderProps) {
   return (
     <div className="flex items-start justify-between">
@@ -164,6 +172,12 @@ export function DealHeader({
         {listedName && (
           <p className="text-sm text-muted-foreground mt-0.5">Listed as: {listedName}</p>
         )}
+        {dealOwnerName && (
+          <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1">
+            <User className="h-3.5 w-3.5" />
+            Deal Owner: <span className="font-medium text-foreground">{dealOwnerName}</span>
+          </p>
+        )}
         {(() => {
           const loc = getDisplayLocation(deal);
           return (
@@ -178,6 +192,26 @@ export function DealHeader({
       </div>
       <div className="flex items-center gap-2">
         {tier && <ScoreBadge variant="tier" tier={tier as ScoreTier} size="lg" />}
+        {deal.not_a_fit ? (
+          onRemoveNotAFit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRemoveNotAFit}
+              className="border-orange-300 text-orange-700 hover:bg-orange-50"
+            >
+              <Ban className="h-4 w-4 mr-1.5" />
+              Remove Not a Fit
+            </Button>
+          )
+        ) : (
+          onMarkNotAFit && (
+            <Button variant="outline" size="sm" onClick={onMarkNotAFit}>
+              <Ban className="h-4 w-4 mr-1.5" />
+              Mark Not a Fit
+            </Button>
+          )
+        )}
       </div>
     </div>
   );

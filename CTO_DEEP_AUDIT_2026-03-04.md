@@ -105,7 +105,7 @@ The following 24 hooks are exported but never imported anywhere else in the code
 
 | Hook | File |
 |------|------|
-| `useAutoCreateFirmOnApproval` | `src/hooks/admin/use-docuseal.ts` |
+| `useAutoCreateFirmOnApproval` | `src/hooks/admin/use-pandadoc.ts` |
 | `useBuyerAllContacts` | `src/hooks/admin/use-buyer-all-contacts.ts` |
 | `useBuyerEngagementHistory` | `src/hooks/admin/use-buyer-engagement-history.ts` |
 | `useCheckDuplicates` | `src/hooks/admin/use-inbound-leads.ts` |
@@ -486,7 +486,7 @@ No auth. Can trigger expensive DB scans or inject manipulated metrics.
 
 `clay-webhook-linkedin`, `clay-webhook-name-domain`, `heyreach-webhook`, `salesforce-remarketing-webhook`, `phoneburner-webhook` — all accept POST data without verifying caller identity.
 
-**Fix:** Add webhook secret verification matching `smartlead-webhook` and `docuseal-webhook-handler` patterns.
+**Fix:** Add webhook secret verification matching `smartlead-webhook` and `pandadoc-webhook-handler` patterns.
 
 ---
 
@@ -660,13 +660,13 @@ All 6 exclusion categories and 5 inclusion categories correctly implemented.
 
 ---
 
-### 5.2 DocuSeal — Webhook Accepts All When Secret Missing
+### 5.2 PandaDoc — Webhook Accepts All When Secret Missing
 
 **Severity: HIGH**
 
-**File:** `supabase/functions/docuseal-webhook-handler/index.ts:86-96`
+**File:** `supabase/functions/pandadoc-webhook-handler/index.ts:86-96`
 
-If `DOCUSEAL_WEBHOOK_SECRET` is unset, all webhook requests accepted. Attacker could forge signatures.
+If `PANDADOC_WEBHOOK_SECRET` is unset, all webhook requests accepted. Attacker could forge signatures.
 
 NDA and fee agreement flows are otherwise **end-to-end correct** — idempotency, backward state protection, self-healing all working.
 
@@ -947,7 +947,7 @@ Labeled "TEMP / DEV ONLY" but in production bundle. Calls real AI APIs.
 | 4 | DataRoomPortal completely broken (POST vs GET mismatch) | 4.1 | CRITICAL |
 | 5 | Auth race condition + 3-second forced timeout | 6.1 | CRITICAL |
 | 6 | ~3,944 lines of dead components (deals/ + pipeline tabs) | 1.0 | CRITICAL |
-| 7 | DocuSeal webhook accepts forged requests when secret missing | 5.2 | HIGH |
+| 7 | PandaDoc webhook accepts forged requests when secret missing | 5.2 | HIGH |
 | 8 | PhoneBurner webhook accepts all when secret missing | 7.3 | HIGH |
 | 9 | 41 edge functions with zero auth | 3.12 | HIGH |
 | 10 | Regenerate Supabase types for 12+ untyped tables | 2.1 | HIGH |
@@ -961,7 +961,7 @@ Labeled "TEMP / DEV ONLY" but in production bundle. Calls real AI APIs.
 - **Buyer scoring algorithm:** No NaN, null, or division-by-zero risks. Sound.
 - **AI memo generation:** Templates correct, anonymization comprehensive.
 - **Enrichment pipeline:** Proper timeouts, retries, circuit breaker, stale job recovery.
-- **DocuSeal NDA/fee flows:** End-to-end correct with idempotency and self-healing.
+- **PandaDoc NDA/fee flows:** End-to-end correct with idempotency and self-healing.
 - **Secret management:** No service-role keys or API keys in source code.
 - **Database naming:** Consistently snake_case. No mismatches.
 

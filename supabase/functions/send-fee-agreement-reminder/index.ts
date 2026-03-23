@@ -42,10 +42,10 @@ serve(async (req: Request) => {
       .select(
         `
         id, primary_company_name, email_domain,
-        fee_docuseal_status, fee_agreement_email_sent_at
+        fee_pandadoc_status, fee_agreement_email_sent_at
       `,
       )
-      .eq('fee_docuseal_status', 'pending')
+      .in('fee_pandadoc_status', ['pending', 'not_sent', 'sent'])
       .eq('fee_agreement_email_sent', true)
       .not('fee_agreement_email_sent_at', 'is', null)
       .eq('fee_agreement_signed', false);
@@ -77,7 +77,7 @@ serve(async (req: Request) => {
 
       // Dedup check
       const { data: existingLog } = await supabase
-        .from('docuseal_webhook_log')
+        .from('pandadoc_webhook_log')
         .select('id')
         .eq('external_id', firm.id)
         .eq('event_type', `fee_reminder_${reminderType}`)
@@ -111,27 +111,27 @@ serve(async (req: Request) => {
 
       const subject =
         reminderType === '3-day'
-          ? `Your connection request is pending a fee agreement`
-          : `Fee agreement still needed — your introduction is on hold`;
+          ? `Your introduction request is on hold — one step to continue.`
+          : `A week on — your introduction is still waiting for you.`;
 
       const htmlContent =
         reminderType === '3-day'
           ? `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <p>Hi ${safeRecipientName},</p>
-              <p>You submitted a connection request but your firm's fee agreement is still unsigned. We can't process the introduction until it's in place.</p>
-              <p>The agreement covers our success-only fee &mdash; nothing is owed unless a deal closes. It takes about 60 seconds to sign.</p>
-              <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Sign fee agreement</a></p>
-              <p>If you have questions about the terms, reply to this email and we'll walk you through it.</p>
-              <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-            </div>`
+  <p>Hi ${safeRecipientName},</p>
+  <p>Your introduction request is on hold — we're waiting on your fee agreement before we can proceed.</p>
+  <p>The agreement is success-only. Nothing is owed unless a deal closes. It takes about 60 seconds and covers every introduction we make on your behalf.</p>
+  <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Sign Fee Agreement</a></p>
+  <p>If you have questions about the terms before signing, reply to this email.</p>
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
+</div>`
           : `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <p>Hi ${safeRecipientName},</p>
-              <p>It's been a week and your firm's fee agreement is still unsigned. We can't process any introductions without it.</p>
-              <p>The agreement covers our success-only fee &mdash; nothing is owed unless a deal closes.</p>
-              <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Sign fee agreement</a></p>
-              <p>If you have concerns about the terms, reply to this email &mdash; we can work through it.</p>
-              <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-            </div>`;
+  <p>Hi ${safeRecipientName},</p>
+  <p>It's been a week and your introduction request is still on hold pending your fee agreement.</p>
+  <p>We work with a small number of buyers per deal — if you're still interested, the sooner we can formalise things, the better.</p>
+  <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Sign Fee Agreement</a></p>
+  <p>If you have concerns about the terms, reply to this email — we can work through it.</p>
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
+</div>`;
 
       try {
         const controller = new AbortController();
@@ -160,11 +160,11 @@ serve(async (req: Request) => {
 
         if (brevoResponse.ok) {
           remindersSent++;
-          await supabase.from('docuseal_webhook_log').insert({
+          await supabase.from('pandadoc_webhook_log').insert({
             event_type: `fee_reminder_${reminderType}`,
             external_id: firm.id,
             document_type: 'fee_agreement',
-            submission_id: 'reminder',
+            document_id: firm.id,
             raw_payload: { reminder_type: reminderType },
             processed_at: new Date().toISOString(),
           });

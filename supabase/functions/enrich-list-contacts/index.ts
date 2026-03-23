@@ -15,7 +15,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import { enrichContact } from '../_shared/prospeo-client.ts';
-import { inferDomain } from '../_shared/apify-client.ts';
+import { inferDomain } from '../_shared/domain-utils.ts';
 import { fireClayFallback } from '../_shared/clay-fallback.ts';
 
 // deno-lint-ignore no-explicit-any

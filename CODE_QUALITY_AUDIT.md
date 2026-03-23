@@ -105,7 +105,7 @@
 | Function Name | Likely Trigger | Verify |
 |---------------|---------------|--------|
 | `approve-referral-submission` | Webhook | Check Supabase webhook config |
-| `docuseal-webhook-handler` | Webhook (DocuSeal) | Keep if DocuSeal integration active |
+| `pandadoc-webhook-handler` | Webhook (PandaDoc) | Keep if PandaDoc integration active |
 | `heyreach-webhook` | Webhook (HeyReach) | Keep if HeyReach integration active |
 | `phoneburner-oauth-callback` | OAuth callback | Keep if PhoneBurner active |
 | `phoneburner-push-contacts` | Webhook/Cron | Verify |
@@ -188,7 +188,7 @@
 | Component A | Component B | Overlap | Merge Strategy |
 |------------|------------|---------|----------------|
 | `PushToDialerModal` | `PushToSmartlead` | `PushToHeyreach` | ~80% — Copy-pasted modal structure | Single `PushToIntegrationModal` with integration prop |
-| `AgreementModal` variants | DocuSeal variants, Agreement alert modal | ~50% | Extract shared agreement modal base |
+| `AgreementModal` variants | PandaDoc variants, Agreement alert modal | ~50% | Extract shared agreement modal base |
 
 ### 2.2 Duplicate Edge Function Logic
 
@@ -339,7 +339,7 @@
 | `ai-command-center/tools/cross-deal-analytics-tools.ts` | 578 | Cross-deal analytics |
 | `extract-buyer-criteria/index.ts` | 573 | Buyer criteria extraction |
 | `ai-command-center/tools/alert-tools.ts` | 566 | Alert tools |
-| `docuseal-webhook-handler/index.ts` | 554 | DocuSeal webhook |
+| `pandadoc-webhook-handler/index.ts` | 554 | PandaDoc webhook |
 | `generate-lead-memo/index.ts` | 552 | Lead memo generation |
 | `phoneburner-webhook/index.ts` | 546 | PhoneBurner webhook |
 
@@ -594,7 +594,7 @@ No circular dependencies explicitly detected in initial scans, but the following
 - `enrich-deal/index.ts` — 32 console.log statements
 - `enrich-buyer/index.ts` — 22 console.log statements
 - `extract-deal-document/index.ts` — 14 console.log statements
-- `docuseal-webhook-handler/index.ts` — 13 console.log statements
+- `pandadoc-webhook-handler/index.ts` — 13 console.log statements
 
 ### 8.2 TODO / FIXME / HACK Comments
 

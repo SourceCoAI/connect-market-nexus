@@ -294,13 +294,17 @@ async function searchTranscripts(
     supabase
       .from('buyer_transcripts')
       .select('id, buyer_id, title, summary, call_date')
-      .or(`title.ilike.%${term}%,summary.ilike.%${term}%`)
+      .or(
+        `title.ilike.%${term.replace(/[,%()]/g, '')}%,summary.ilike.%${term.replace(/[,%()]/g, '')}%`,
+      )
       .order('call_date', { ascending: false })
       .limit(5),
     supabase
       .from('deal_transcripts')
       .select('id, listing_id, title, call_date')
-      .or(`title.ilike.%${term}%,transcript_text.ilike.%${term}%`)
+      .or(
+        `title.ilike.%${term.replace(/[,%()]/g, '')}%,transcript_text.ilike.%${term.replace(/[,%()]/g, '')}%`,
+      )
       .order('call_date', { ascending: false })
       .limit(5),
   ]);

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { FilterOptions, Listing, ListingStatus } from '@/types';
 import { withPerformanceMonitoring } from '@/lib/performance-monitor';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { toStandardCategory, toStandardLocation } from '@/lib/standardization';
 
 // TODO: Phase 6 — migrate to data access layer: getActiveListings() from '@/lib/data-access'
@@ -269,13 +269,18 @@ export const useListing = (id: string | undefined) => {
         }
 
         // N02 FIX: Use explicit safe columns instead of SELECT *
-        const { data, error } = await supabase
+        // Admins can preview draft (internal) listings; buyers only see published ones
+        let query = supabase
           .from('listings')
           .select(MARKETPLACE_SAFE_COLUMNS)
           .eq('id', id)
-          .is('deleted_at', null)
-          .eq('is_internal_deal', false)
-          .maybeSingle();
+          .is('deleted_at', null);
+
+        if (!user?.is_admin) {
+          query = query.eq('is_internal_deal', false);
+        }
+
+        const { data, error } = await query.maybeSingle();
 
         if (error) {
           throw error;

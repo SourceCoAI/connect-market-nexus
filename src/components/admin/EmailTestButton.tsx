@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/context/AuthContext";
-import { APP_CONFIG } from "@/config/app";
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { APP_CONFIG } from '@/config/app';
 
 export function EmailTestButton() {
   const [isSending, setIsSending] = useState(false);
@@ -22,27 +22,27 @@ export function EmailTestButton() {
           subject: 'Test Email - Connection Request Approved',
           message: `This is a test email from the EmailTestButton component.\n\nIf you received this, the email delivery pipeline is working correctly.`,
           type: 'connection_approved',
-          fromEmail: APP_CONFIG.adminEmail
-        }
+          fromEmail: APP_CONFIG.adminEmail,
+        },
       });
 
       if (error) {
         toast({
-          title: "Error",
+          title: 'Error',
           description: `Failed to send test email: ${error.message}`,
-          variant: "destructive",
+          variant: 'destructive',
         });
       } else {
         toast({
-          title: "Success",
+          title: 'Success',
           description: `Test email sent to ${testRecipient}`,
         });
       }
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to send test email",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to send test email',
+        variant: 'destructive',
       });
     } finally {
       setIsSending(false);
@@ -50,13 +50,8 @@ export function EmailTestButton() {
   };
 
   return (
-    <Button 
-      onClick={sendTestEmail} 
-      disabled={isSending}
-      variant="outline"
-      size="sm"
-    >
-      {isSending ? "Sending..." : "Send Test Email"}
+    <Button onClick={sendTestEmail} disabled={isSending} variant="outline" size="sm">
+      {isSending ? 'Sending...' : 'Send Test Email'}
     </Button>
   );
 }

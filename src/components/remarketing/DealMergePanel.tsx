@@ -181,7 +181,7 @@ const findPotentialMatches = (
 };
 
 const formatCurrency = (value: number | null | undefined) => {
-  if (!value) return '—';
+  if (value === null || value === undefined) return '—';
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
   return `$${value.toFixed(0)}`;

@@ -139,7 +139,7 @@ async function getConnectionRequests(
   const byConvState: Record<string, number> = {};
   let nda_signed = 0,
     fee_signed = 0;
-  for (const r of results) {
+  for (const r of results as any[]) {
     byStatus[r.status] = (byStatus[r.status] || 0) + 1;
     const cs = r.conversation_state || 'new';
     byConvState[cs] = (byConvState[cs] || 0) + 1;

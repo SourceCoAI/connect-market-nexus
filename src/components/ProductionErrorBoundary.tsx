@@ -1,6 +1,11 @@
 import React from 'react';
 import { ErrorBoundary } from './ErrorBoundary';
-import { adminErrorHandler, authErrorHandler, errorHandler, ErrorSeverity } from '@/lib/error-handler';
+import {
+  adminErrorHandler,
+  authErrorHandler,
+  errorHandler,
+  ErrorSeverity,
+} from '@/lib/error-handler';
 
 interface ProductionErrorBoundaryProps {
   children: React.ReactNode;
@@ -21,7 +26,7 @@ export const ProductionErrorBoundary: React.FC<ProductionErrorBoundaryProps> = (
   errorType = 'general',
   severity = 'medium',
   fallback,
-  onError
+  onError,
 }) => {
   const handleError = (error: Error, errorInfo: React.ErrorInfo) => {
     // Call custom error handler if provided
@@ -31,10 +36,10 @@ export const ProductionErrorBoundary: React.FC<ProductionErrorBoundaryProps> = (
     const context = {
       component,
       operation: 'component rendering',
-      metadata: { 
+      metadata: {
         componentStack: errorInfo.componentStack,
-        errorBoundary: true 
-      }
+        errorBoundary: true,
+      },
     };
 
     switch (errorType) {
@@ -51,22 +56,18 @@ export const ProductionErrorBoundary: React.FC<ProductionErrorBoundaryProps> = (
   };
 
   return (
-    <ErrorBoundary
-      fallback={fallback}
-      onError={handleError}
-      showDetails={process.env.NODE_ENV === 'development'}
-    >
+    <ErrorBoundary fallback={fallback} onError={handleError} showDetails={import.meta.env.DEV}>
       {children}
     </ErrorBoundary>
   );
 };
 
 // Convenience wrapper for admin components
-export const AdminErrorBoundary: React.FC<Omit<ProductionErrorBoundaryProps, 'errorType'>> = (props) => (
-  <ProductionErrorBoundary {...props} errorType="admin" />
-);
+export const AdminErrorBoundary: React.FC<Omit<ProductionErrorBoundaryProps, 'errorType'>> = (
+  props,
+) => <ProductionErrorBoundary {...props} errorType="admin" />;
 
-// Convenience wrapper for auth components  
-export const AuthErrorBoundary: React.FC<Omit<ProductionErrorBoundaryProps, 'errorType'>> = (props) => (
-  <ProductionErrorBoundary {...props} errorType="auth" />
-);
+// Convenience wrapper for auth components
+export const AuthErrorBoundary: React.FC<Omit<ProductionErrorBoundaryProps, 'errorType'>> = (
+  props,
+) => <ProductionErrorBoundary {...props} errorType="auth" />;

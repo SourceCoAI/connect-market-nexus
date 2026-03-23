@@ -75,7 +75,7 @@ const AddBuyerDialog = ({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="company_website">Website</Label>
+            <Label htmlFor="company_website">Company Website *</Label>
             <Input
               id="company_website"
               placeholder="https://example.com"
@@ -146,7 +146,7 @@ const AddBuyerDialog = ({
           </Button>
           <Button
             onClick={() => createMutation.mutate()}
-            disabled={!newBuyer.company_name.trim() || createMutation.isPending}
+            disabled={!newBuyer.company_name.trim() || !newBuyer.company_website.trim() || createMutation.isPending}
           >
             {createMutation.isPending ? "Adding..." : "Add Buyer"}
           </Button>

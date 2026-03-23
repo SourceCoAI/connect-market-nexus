@@ -137,8 +137,8 @@ Key categories:
 - **Scoring:** `score-buyer-deal`, `calculate-deal-quality`, `score-industry-alignment`, `process-scoring-queue`, `calculate-buyer-quality-score`
 - **AI:** `ai-command-center`, `analyze-buyer-notes`, `analyze-deal-notes`, `extract-deal-transcript`, `extract-standup-tasks`
 - **Notifications:** 20+ `send-*` and `notify-*` functions
-- **Integrations:** `smartlead-webhook`, `phoneburner-webhook`, `docuseal-webhook-handler`, `heyreach-webhook`, `sync-fireflies-transcripts`
-- **DocuSeal:** `create-docuseal-submission`, `docuseal-webhook-handler`, `get-buyer-nda-embed`, `get-buyer-fee-embed`, `confirm-agreement-signed`
+- **Integrations:** `smartlead-webhook`, `phoneburner-webhook`, `pandadoc-webhook-handler`, `heyreach-webhook`, `sync-fireflies-transcripts`
+- **PandaDoc:** `create-pandadoc-document`, `pandadoc-webhook-handler`, `get-buyer-nda-embed`, `get-buyer-fee-embed`, `confirm-agreement-signed`
 
 ### 2.2 Per-Function Health Checks
 
@@ -171,7 +171,7 @@ Key categories:
 
 ### 2.4 Dead Functions
 
-No confirmed dead functions found. `test-contact-enrichment` and `docuseal-integration-test` are intentional admin testing endpoints.
+No confirmed dead functions found. `test-contact-enrichment` and `pandadoc-integration-test` are intentional admin testing endpoints.
 
 ---
 
@@ -242,13 +242,13 @@ const BulkEmailDialog = (props: any) => null;
 
 **Pages WITHOUT handlers (20):** AdminDashboard, AdminListings, AdminNotifications, AdminPipeline, CreateListingFromDeal, DataRecoveryPage, EnrichmentQueue, FirefliesIntegrationPage, FormMonitoringPage, GlobalApprovalsPage, InternalTeamPage, MarketplaceQueue, MessageCenter, PhoneBurnerSettingsPage, and 6 test/settings pages
 
-### 3.6 DocuSeal Integration
+### 3.6 PandaDoc Integration
 
 - **End-to-end wired:** YES
-- **Components:** `FeeAgreementGate.tsx`, `AgreementSigningModal.tsx`, `NdaGateModal.tsx`, `DocuSealSigningPanel.tsx`, `DocuSealStatusBadge.tsx`, `SendAgreementDialog.tsx`
-- **Completion write-back:** YES — calls `confirm-agreement-signed` edge function on DocuSeal completion
+- **Components:** `FeeAgreementGate.tsx`, `AgreementSigningModal.tsx`, `NdaGateModal.tsx`, `PandaDocSigningPanel.tsx`, `AgreementStatusBadge.tsx`, `SendAgreementDialog.tsx`
+- **Completion write-back:** YES — calls `confirm-agreement-signed` edge function on PandaDoc completion
 - **Error handling if unavailable:** YES — error state displayed in signing modal
-- **Webhook handler:** `docuseal-webhook-handler` (555 lines) processes form.completed/viewed/started/declined/expired events with timing-safe secret verification
+- **Webhook handler:** `pandadoc-webhook-handler` (555 lines) processes form.completed/viewed/started/declined/expired events with timing-safe secret verification
 
 ### 3.7 Marketplace Listing Gate
 
@@ -304,7 +304,7 @@ Per-provider limits: Gemini (10 concurrent, 30 RPM), Firecrawl (5 concurrent, 20
 
 ### 4.4 API Key Management
 
-All keys stored as Supabase secrets accessed via `Deno.env.get()`: FIRECRAWL_API_KEY, GEMINI_API_KEY, FIREFLIES_API_KEY, SMARTLEAD_API_KEY, PROSPEO_API_KEY, PHONEBURNER_WEBHOOK_SECRET, DOCUSEAL_WEBHOOK_SECRET, HEYREACH_API_KEY. No hardcoded keys found. No health check logic for key validity before bulk operations.
+All keys stored as Supabase secrets accessed via `Deno.env.get()`: FIRECRAWL_API_KEY, GEMINI_API_KEY, FIREFLIES_API_KEY, SMARTLEAD_API_KEY, PROSPEO_API_KEY, PHONEBURNER_WEBHOOK_SECRET, PANDADOC_WEBHOOK_SECRET, HEYREACH_API_KEY. No hardcoded keys found. No health check logic for key validity before bulk operations.
 
 ---
 
@@ -367,9 +367,9 @@ All keys stored as Supabase secrets accessed via `Deno.env.get()`: FIRECRAWL_API
 - **SmartleadEmailHistory component:** BUILT but **NEVER IMPORTED** — completely orphaned
 - **Webhook handler:** Processes EMAIL_REPLIED, BOUNCED, UNSUBSCRIBED, OPENED, CLICKED, INTERESTED, NOT_INTERESTED events → writes to `smartlead_webhook_events` and `smartlead_campaign_leads`
 
-### 6.3 DocuSeal
+### 6.3 PandaDoc
 
-- **Webhooks configured:** `docuseal-webhook-handler` processes form.completed/viewed/started/declined/expired
+- **Webhooks configured:** `pandadoc-webhook-handler` processes form.completed/viewed/started/declined/expired
 - **Signing completion write-back:** Updates `firm_agreements` status, syncs to `firm_members`, creates admin notifications, sends buyer notification with download link
 - **Buyer onboarding gate:** NDA gate enforced via `useBuyerNdaStatus` hook on listing detail page. Fee agreement gate via `FeeAgreementGate.tsx` before connection request approval.
 - **Backward state prevention:** "viewed" cannot overwrite "completed"

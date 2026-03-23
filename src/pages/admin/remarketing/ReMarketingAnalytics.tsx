@@ -6,14 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  MatchingFunnel, 
-  TierDistributionChart, 
+import {
+  MatchingFunnel,
+  TierDistributionChart,
   ScoringTrendsChart,
   CategoryPerformanceChart,
   UniversePerformanceTable,
   DecisionHistoryChart,
-  ScoreCalibrationChart
+  ScoreCalibrationChart,
 } from '@/components/remarketing';
 import {
   BarChart3,
@@ -24,7 +24,7 @@ import {
   RefreshCw,
   ArrowLeft,
   Brain,
-  Sliders
+  Sliders,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -35,9 +35,7 @@ import { differenceInDays } from 'date-fns';
 const ReMarketingAnalytics = () => {
   const { timeframe, setTimeframe, dateRange } = useTimeframe('last_30d');
   // Compute daysBack for backward compat with hooks that expect a number
-  const daysBack = dateRange.from
-    ? differenceInDays(new Date(), dateRange.from)
-    : 365;
+  const daysBack = dateRange.from ? differenceInDays(new Date(), dateRange.from) : 365;
   const [activeTab, setActiveTab] = useState('overview');
   const { data, isLoading, error, refetch } = useReMarketingAnalytics(daysBack);
 
@@ -51,7 +49,7 @@ const ReMarketingAnalytics = () => {
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
-    }
+    },
   });
 
   // Fetch all scores for calibration chart
@@ -60,10 +58,10 @@ const ReMarketingAnalytics = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('remarketing_scores')
-        .select('composite_score, tier, geography_score, size_score, service_score, owner_goals_score');
+        .select('composite_score, tier, geography_score, service_score, owner_goals_score');
       if (error) throw error;
       return data;
-    }
+    },
   });
 
   if (error) {
@@ -92,21 +90,14 @@ const ReMarketingAnalytics = () => {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Remarketing Analytics</h1>
-            <p className="text-muted-foreground text-sm">
-              Performance metrics and funnel analysis
-            </p>
+            <p className="text-muted-foreground text-sm">Performance metrics and funnel analysis</p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <TimeframeSelector value={timeframe} onChange={setTimeframe} compact />
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => refetch()}
-            disabled={isLoading}
-          >
-            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+          <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
           </Button>
         </div>
       </div>
@@ -114,14 +105,16 @@ const ReMarketingAnalytics = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {isLoading ? (
-          Array(4).fill(0).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-20 mb-2" />
-                <Skeleton className="h-8 w-16" />
-              </CardContent>
-            </Card>
-          ))
+          Array(4)
+            .fill(0)
+            .map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-4">
+                  <Skeleton className="h-4 w-20 mb-2" />
+                  <Skeleton className="h-8 w-16" />
+                </CardContent>
+              </Card>
+            ))
         ) : (
           <>
             <Card>
@@ -136,7 +129,7 @@ const ReMarketingAnalytics = () => {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -149,7 +142,7 @@ const ReMarketingAnalytics = () => {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -162,7 +155,7 @@ const ReMarketingAnalytics = () => {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -170,9 +163,7 @@ const ReMarketingAnalytics = () => {
                   <span className="text-sm">Active Outreach</span>
                 </div>
                 <p className="text-2xl font-bold">{data?.summary.activeOutreach}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  In progress
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">In progress</p>
               </CardContent>
             </Card>
           </>
@@ -201,8 +192,16 @@ const ReMarketingAnalytics = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {isLoading ? (
               <>
-                <Card><CardContent className="p-6"><Skeleton className="h-[350px]" /></CardContent></Card>
-                <Card><CardContent className="p-6"><Skeleton className="h-[350px]" /></CardContent></Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <Skeleton className="h-[350px]" />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <Skeleton className="h-[350px]" />
+                  </CardContent>
+                </Card>
               </>
             ) : (
               <>
@@ -216,14 +215,22 @@ const ReMarketingAnalytics = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {isLoading ? (
               <>
-                <Card><CardContent className="p-6"><Skeleton className="h-[300px]" /></CardContent></Card>
-                <Card><CardContent className="p-6"><Skeleton className="h-[300px]" /></CardContent></Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <Skeleton className="h-[300px]" />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <Skeleton className="h-[300px]" />
+                  </CardContent>
+                </Card>
               </>
             ) : (
               <>
                 <TierDistributionChart data={data?.tierDistribution || []} />
-                <CategoryPerformanceChart 
-                  data={data?.categoryAverages || { geography: 0, size: 0, service: 0, ownerGoals: 0 }} 
+                <CategoryPerformanceChart
+                  data={data?.categoryAverages || { geography: 0, service: 0, ownerGoals: 0 }}
                   className="md:col-span-2 lg:col-span-2"
                 />
               </>
@@ -232,7 +239,11 @@ const ReMarketingAnalytics = () => {
 
           {/* Universe Performance Table */}
           {isLoading ? (
-            <Card><CardContent className="p-6"><Skeleton className="h-[300px]" /></CardContent></Card>
+            <Card>
+              <CardContent className="p-6">
+                <Skeleton className="h-[300px]" />
+              </CardContent>
+            </Card>
           ) : (
             <UniversePerformanceTable data={data?.universePerformance || []} />
           )}
@@ -240,36 +251,34 @@ const ReMarketingAnalytics = () => {
 
         <TabsContent value="learning" className="space-y-6 mt-6">
           {/* Decision History Chart */}
-          <DecisionHistoryChart 
-            decisions={(learningHistory || []).map(h => ({
+          <DecisionHistoryChart
+            decisions={(learningHistory || []).map((h) => ({
               action: h.action as 'approved' | 'passed',
               created_at: h.created_at || new Date().toISOString(),
               composite_score: h.composite_score || undefined,
-              pass_category: h.pass_category
+              pass_category: h.pass_category,
             }))}
             daysBack={daysBack}
           />
-
         </TabsContent>
 
         <TabsContent value="calibration" className="space-y-6 mt-6">
           {/* Score Calibration Chart */}
-          <ScoreCalibrationChart 
-            scores={(allScores || []).map(s => ({
+          <ScoreCalibrationChart
+            scores={(allScores || []).map((s) => ({
               composite_score: s.composite_score,
               tier: s.tier || 'D',
               geography_score: s.geography_score || undefined,
-              size_score: s.size_score || undefined,
               service_score: s.service_score || undefined,
-              owner_goals_score: s.owner_goals_score || undefined
+              owner_goals_score: s.owner_goals_score || undefined,
             }))}
             targetTierAPercentage={20}
           />
 
           {/* Category Performance with additional context */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <CategoryPerformanceChart 
-              data={data?.categoryAverages || { geography: 0, size: 0, service: 0, ownerGoals: 0 }} 
+            <CategoryPerformanceChart
+              data={data?.categoryAverages || { geography: 0, service: 0, ownerGoals: 0 }}
             />
             <Card>
               <CardHeader>
@@ -284,14 +293,13 @@ const ReMarketingAnalytics = () => {
                 </div>
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <p className="font-medium">Score Thresholds</p>
-                  <p className="text-muted-foreground">
-                    A: 80+, B: 65-79, C: 50-64, D: &lt;50
-                  </p>
+                  <p className="text-muted-foreground">A: 80+, B: 65-79, C: 50-64, D: &lt;50</p>
                 </div>
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <p className="font-medium">Weight Adjustment</p>
                   <p className="text-muted-foreground">
-                    If too many Tier A, reduce geography weight. If too few, increase service/size weights.
+                    If too many Tier A, reduce geography weight. If too few, increase service
+                    weights.
                   </p>
                 </div>
               </CardContent>

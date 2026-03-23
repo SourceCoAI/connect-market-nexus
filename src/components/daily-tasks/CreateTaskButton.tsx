@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAddEntityTask } from '@/hooks/useTaskActions';
 import { useTeamMembers } from '@/hooks/use-team-members';
 import { getLocalDateString } from '@/lib/utils';
@@ -107,9 +107,7 @@ export function CreateTaskButton({
       </PopoverTrigger>
       <PopoverContent className="w-80" align="end">
         <div className="space-y-3">
-          <p className="text-sm font-medium">
-            New Task{entityName ? ` — ${entityName}` : ''}
-          </p>
+          <p className="text-sm font-medium">New Task{entityName ? ` — ${entityName}` : ''}</p>
 
           {/* Subject */}
           <div className="space-y-1">
@@ -150,9 +148,15 @@ export function CreateTaskButton({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="high" className="text-xs">High</SelectItem>
-                  <SelectItem value="medium" className="text-xs">Medium</SelectItem>
-                  <SelectItem value="low" className="text-xs">Low</SelectItem>
+                  <SelectItem value="high" className="text-xs">
+                    High
+                  </SelectItem>
+                  <SelectItem value="medium" className="text-xs">
+                    Medium
+                  </SelectItem>
+                  <SelectItem value="low" className="text-xs">
+                    Low
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

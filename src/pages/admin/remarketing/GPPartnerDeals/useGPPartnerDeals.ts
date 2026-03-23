@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useShiftSelect } from '@/hooks/useShiftSelect';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
@@ -12,7 +12,7 @@ import {
   useGlobalGateCheck,
   useGlobalActivityMutations,
 } from '@/hooks/remarketing/useGlobalActivityQueue';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAdminProfiles } from '@/hooks/admin/use-admin-profiles';
 import { useEnrichmentProgress } from '@/hooks/useEnrichmentProgress';
 import type { GPPartnerDeal, SortColumn, SortDirection, NewDealForm } from './types';
@@ -240,10 +240,6 @@ export function useGPPartnerDeals() {
     return filteredDeals.slice(start, start + PAGE_SIZE);
   }, [filteredDeals, safePage]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filterState, sortColumn, sortDirection, setCurrentPage]);
-
   const handleSort = (col: SortColumn) => {
     setSearchParams(
       (prev) => {
@@ -254,6 +250,8 @@ export function useGPPartnerDeals() {
           next.set('sort', col);
           next.set('dir', 'asc');
         }
+        // Reset pagination when sort changes
+        next.delete('cp');
         return next;
       },
       { replace: true },
@@ -361,6 +359,9 @@ export function useGPPartnerDeals() {
         /* Non-blocking */
       }
 
+      // When mode='all', force re-enrichment so notes analysis runs on already-enriched deals
+      const forceReEnrich = mode === 'all';
+
       const now = new Date().toISOString();
       const seen = new Set<string>();
       const rows = targets
@@ -374,6 +375,7 @@ export function useGPPartnerDeals() {
           status: 'pending' as const,
           attempts: 0,
           queued_at: now,
+          ...(forceReEnrich ? { force: true } : {}),
         }));
 
       const CHUNK = 500;
@@ -465,9 +467,11 @@ export function useGPPartnerDeals() {
 
   // Enrich selected deals
   const handleEnrichSelected = useCallback(
-    async (dealIds: string[]) => {
+    async (dealIds: string[], options?: { force?: boolean }) => {
       if (dealIds.length === 0) return;
       setIsEnriching(true);
+
+      const forceReEnrich = options?.force ?? false;
 
       let activityItem: { id: string } | null = null;
       try {
@@ -499,7 +503,13 @@ export function useGPPartnerDeals() {
           seen.add(id);
           return true;
         })
-        .map((id) => ({ listing_id: id, status: 'pending' as const, attempts: 0, queued_at: now }));
+        .map((id) => ({
+          listing_id: id,
+          status: 'pending' as const,
+          attempts: 0,
+          queued_at: now,
+          ...(forceReEnrich ? { force: true } : {}),
+        }));
 
       const CHUNK = 500;
       for (let i = 0; i < rows.length; i += CHUNK) {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
 import {
   Dialog,
@@ -22,7 +23,7 @@ import {
   Loader2,
   User,
   Mail,
-  Phone,
+  
   Linkedin,
   Building2,
   Target,
@@ -128,10 +129,15 @@ export function UpdateIntroductionStatusDialog({
               </a>
             )}
             {buyer.buyer_phone && (
-              <span className="flex items-center gap-1">
-                <Phone className="h-3 w-3" />
-                {buyer.buyer_phone}
-              </span>
+              <ClickToDialPhone
+                phone={buyer.buyer_phone}
+                name={buyer.buyer_name}
+                email={buyer.buyer_email || undefined}
+                company={buyer.buyer_firm_name}
+                entityType={buyer.remarketing_buyer_id ? 'buyers' : undefined}
+                entityId={buyer.remarketing_buyer_id || undefined}
+                size="sm"
+              />
             )}
             {buyer.buyer_linkedin_url && (
               <a

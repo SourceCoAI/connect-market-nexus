@@ -1,14 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return corsPreflightResponse(req);
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const supabase = createClient(
@@ -92,8 +90,8 @@ Deno.serve(async (req) => {
             nda_signed_at: null,
             nda_signed_by: null,
             nda_signed_by_name: null,
-            nda_docuseal_status: null,
-            nda_docuseal_submission_id: null,
+            nda_pandadoc_status: null,
+            nda_pandadoc_document_id: null,
             nda_signed_document_url: null,
             nda_email_sent: false,
             nda_email_sent_at: null,
@@ -105,8 +103,8 @@ Deno.serve(async (req) => {
             fee_agreement_signed_at: null,
             fee_agreement_signed_by: null,
             fee_agreement_signed_by_name: null,
-            fee_docuseal_status: null,
-            fee_docuseal_submission_id: null,
+            fee_pandadoc_status: null,
+            fee_pandadoc_document_id: null,
             fee_signed_document_url: null,
             fee_agreement_email_sent: false,
             fee_agreement_email_sent_at: null,

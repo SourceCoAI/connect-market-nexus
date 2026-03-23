@@ -186,6 +186,30 @@ const BYPASS_RULES: Array<{
       confidence: 0.9,
     },
   },
+  // Complete task — "mark task done", "I finished the task", "task is done", "complete the task"
+  {
+    test: (q) =>
+      /\b(mark.*done|mark.*complete|finished.*task|task.*done|complete.*task|completed)\b/i.test(q),
+    result: {
+      category: 'TASK_INBOX',
+      tier: 'QUICK',
+      tools: ['complete_task', 'get_task_inbox'],
+      confidence: 0.92,
+    },
+  },
+  // Bulk task creation — "set a task for every", "create tasks for all", "add a follow-up for each"
+  {
+    test: (q) =>
+      /\b(task|follow.?up|reminder)\b.*\b(every|all|each)\b/i.test(q) ||
+      /\b(every|all|each)\b.*\b(task|follow.?up|reminder)\b/i.test(q) ||
+      /\b(set|create|add)\b.*\btask\b.*\b(every|all|each|every single)\b/i.test(q),
+    result: {
+      category: 'TASK_INBOX',
+      tier: 'STANDARD',
+      tools: ['query_deals', 'search_buyers', 'bulk_create_tasks'],
+      confidence: 0.9,
+    },
+  },
   // Snooze task
   {
     test: (q) => /\b(snooze|snooze task|snooze this)\b/i.test(q),
@@ -922,7 +946,7 @@ const BYPASS_RULES: Array<{
       confidence: 0.9,
     },
   },
-  // Send NDA / fee agreement / DocuSeal
+  // Send NDA / fee agreement / PandaDoc
   {
     test: (q) =>
       /\b(send.*(nda|fee agreement|fee.?agree|non.?disclosure)|nda.*(send|deliver|email)|fee agreement.*(send|deliver|email))\b/i.test(

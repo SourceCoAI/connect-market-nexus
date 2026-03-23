@@ -147,6 +147,11 @@ export const signupFormSchema = z.object({
 }, {
   message: "Please complete all required fields for your buyer type",
   path: ["buyerType"]
+}).refine((data) => {
+  return !!(data.website || data.linkedinProfile);
+}, {
+  message: "Please provide at least a website or LinkedIn profile so we can verify your credibility",
+  path: ["website"]
 });
 
 export type SignupFormData = z.infer<typeof signupFormSchema>;

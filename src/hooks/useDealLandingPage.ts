@@ -14,6 +14,7 @@ export interface LandingPageDeal {
   categories: string[] | null;
   category: string | null;
   custom_sections: Array<{ title: string; description: string }> | null;
+  image_url: string | null;
   revenue_metric_subtitle: string | null;
   ebitda_metric_subtitle: string | null;
   metric_3_type: string | null;
@@ -29,6 +30,8 @@ export interface LandingPageDeal {
   part_time_employees: number | null;
   status: string;
   presented_by_admin_id: string | null;
+  is_internal_deal: boolean | null;
+  acquisition_type: string | null;
   // Structured business details
   geographic_states: string[] | null;
   services: string[] | null;
@@ -39,6 +42,7 @@ export interface LandingPageDeal {
   growth_trajectory: string | null;
   // C-2 FIX: is_internal_deal used to gate access to draft/internal listings
   is_internal_deal: boolean;
+  featured_deal_ids: string[] | null;
 }
 
 export interface RelatedDeal {
@@ -61,14 +65,15 @@ export interface RelatedDeal {
 // should not be accessible without NDA/authentication.
 const LANDING_PAGE_FIELDS = `
   id, title, deal_identifier, hero_description, description, description_html, location,
-  revenue, ebitda, categories, category, custom_sections,
+  revenue, ebitda, categories, category, custom_sections, image_url,
   revenue_metric_subtitle, ebitda_metric_subtitle,
   metric_3_type, metric_3_custom_label, metric_3_custom_value, metric_3_custom_subtitle,
   metric_4_type, metric_4_custom_label, metric_4_custom_value, metric_4_custom_subtitle,
   full_time_employees, part_time_employees,
-  status, presented_by_admin_id, is_internal_deal,
+  status, presented_by_admin_id, is_internal_deal, acquisition_type,
   geographic_states, services, number_of_locations, customer_types,
-  revenue_model, business_model, growth_trajectory
+  revenue_model, business_model, growth_trajectory,
+  featured_deal_ids
 `;
 
 export function useDealLandingPage(dealId: string | undefined) {
@@ -101,15 +106,51 @@ export function useDealLandingPage(dealId: string | undefined) {
   });
 }
 
-export function useRelatedDeals(currentDealId: string | undefined) {
+export function useRelatedDeals(
+  currentDealId: string | undefined,
+  featuredDealIds?: string[] | null,
+) {
   return useQuery({
-    queryKey: ['related-deals', currentDealId],
+    queryKey: ['related-deals', currentDealId, featuredDealIds],
     queryFn: async (): Promise<RelatedDeal[]> => {
+      const selectFields =
+        'id, title, location, revenue, ebitda, ebitda_margin, categories, description, hero_description, image_url';
+
+      // If hand-picked featured deals are set, fetch those specifically
+      if (featuredDealIds && featuredDealIds.length > 0) {
+        const { data, error } = await supabase
+          .from('listings')
+          .select(selectFields)
+          .in('id', featuredDealIds)
+          .eq('status', 'active')
+          .eq('is_internal_deal', false);
+
+        if (error) throw error;
+
+        const featured = (data ?? []) as RelatedDeal[];
+
+        // If we got fewer than expected (e.g. a deal was deactivated), backfill with recent
+        if (featured.length < 2) {
+          const excludeIds = [currentDealId!, ...featured.map((d) => d.id)];
+          const { data: backfill } = await supabase
+            .from('listings')
+            .select(selectFields)
+            .eq('status', 'active')
+            .eq('is_internal_deal', false)
+            .not('id', 'in', `(${excludeIds.join(',')})`)
+            .order('created_at', { ascending: false })
+            .limit(3 - featured.length);
+
+          return [...featured, ...((backfill ?? []) as RelatedDeal[])];
+        }
+
+        return featured;
+      }
+
+      // Default: most recent active marketplace listings
       const { data, error } = await supabase
         .from('listings')
-        .select(
-          'id, title, location, revenue, ebitda, ebitda_margin, categories, description, hero_description',
-        )
+        .select(selectFields)
         .eq('status', 'active')
         .eq('is_internal_deal', false)
         .is('deleted_at', null)

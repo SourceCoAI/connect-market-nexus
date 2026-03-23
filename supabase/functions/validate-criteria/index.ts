@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
@@ -219,7 +219,8 @@ function validateBuyerTypesCriteria(criteria: Record<string, unknown> | undefine
 
   let score = 0;
 
-  const buyerTypes = ['pe_firms', 'strategics', 'family_offices', 'search_funds', 'independents'];
+  // Audit P1: Added individual_buyers to match 6-type taxonomy
+  const buyerTypes = ['pe_firms', 'strategics', 'family_offices', 'search_funds', 'independents', 'individual_buyers'];
   for (const type of buyerTypes) {
     if (criteria[type] !== undefined) {
       score += 20;

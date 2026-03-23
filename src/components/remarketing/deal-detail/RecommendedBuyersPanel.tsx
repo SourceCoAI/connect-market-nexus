@@ -122,6 +122,7 @@ function BuyerCard({
   const TierIcon = tier.icon;
   const sourceBadge = SOURCE_BADGE[buyer.source] || SOURCE_BADGE.scored;
   const location = useLocation();
+  const websiteUrl = buyer.platform_website || buyer.company_website;
 
   return (
     <div className="border rounded-lg px-3.5 py-3 hover:shadow-md transition-shadow shadow-sm">
@@ -130,26 +131,32 @@ function BuyerCard({
         {/* Name + location */}
         <div className="shrink-0 min-w-[180px]">
           <div className="flex items-center gap-1.5">
-            <Link to={`/admin/buyers/${buyer.buyer_id}`} state={{ from: location.pathname }}>
-              <span className="font-semibold text-[15px] hover:underline truncate">
-                {buyer.company_name}
-              </span>
-            </Link>
-            {buyer.pe_firm_name && (
+            {buyer.pe_firm_name ? (
               <>
-                <span className="text-muted-foreground text-[13px]">/</span>
                 {buyer.pe_firm_id ? (
                   <Link to={`/admin/buyers/pe-firms/${buyer.pe_firm_id}`} state={{ from: location.pathname }}>
-                    <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
+                    <span className="font-semibold text-[15px] hover:underline truncate">
                       {buyer.pe_firm_name}
                     </span>
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-muted-foreground truncate">
+                  <span className="font-semibold text-[15px] truncate">
                     {buyer.pe_firm_name}
                   </span>
                 )}
+                <span className="text-muted-foreground text-[13px]">/</span>
+                <Link to={`/admin/buyers/${buyer.buyer_id}`} state={{ from: location.pathname }}>
+                  <span className="text-[13px] text-muted-foreground hover:underline hover:text-foreground truncate">
+                    {buyer.company_name}
+                  </span>
+                </Link>
               </>
+            ) : (
+              <Link to={`/admin/buyers/${buyer.buyer_id}`} state={{ from: location.pathname }}>
+                <span className="font-semibold text-[15px] hover:underline truncate">
+                  {buyer.company_name}
+                </span>
+              </Link>
             )}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
@@ -163,9 +170,9 @@ function BuyerCard({
                 Fee
               </span>
             )}
-            {buyer.company_website && (
+            {websiteUrl && (
               <a
-                href={buyer.company_website.startsWith('http') ? buyer.company_website : `https://${buyer.company_website}`}
+                href={websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-0.5 text-blue-600 hover:text-blue-800 ml-1"
@@ -346,7 +353,20 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
       // (the server-side 4h score cache would otherwise return stale data)
       await refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to seed buyers');
+      const msg = err instanceof Error ? err.message : 'Failed to seed buyers';
+      // Show user-friendly error based on the error type
+      const lower = msg.toLowerCase();
+      if (lower.includes('timeout') || lower.includes('timed out')) {
+        toast.error('AI search timed out. Please try again — it often succeeds on retry.');
+      } else if (lower.includes('rate') || lower.includes('429')) {
+        toast.error('AI service is busy. Please wait a minute and try again.');
+      } else if (lower.includes('unavailable') || lower.includes('502') || lower.includes('503')) {
+        toast.error('AI service is temporarily unavailable. Please try again shortly.');
+      } else if (lower.includes('network') || lower.includes('failed to fetch')) {
+        toast.error('Network error reaching AI service. Please check your connection.');
+      } else {
+        toast.error(msg);
+      }
     }
   };
 
@@ -381,6 +401,7 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
               pe_firm_id: buyer.pe_firm_id,
               acquisition_appetite: buyer.acquisition_appetite,
               company_website: buyer.company_website,
+              platform_website: buyer.platform_website,
               is_publicly_traded: buyer.is_publicly_traded ?? null,
               is_pe_backed: buyer.is_pe_backed ?? false,
             },

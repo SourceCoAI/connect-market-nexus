@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Supabase client used with untyped tables */
 /**
  * Integration Enrichment Tools
  * Contact enrichment via external APIs (Google search + Prospeo email enrichment).
@@ -164,7 +165,7 @@ export async function enrichBuyerContacts(
 
   // 1. Check cache (7-day)
   const cacheKey = `${companyName}:${titleFilter.sort().join(',')}`.toLowerCase();
-  const { data: cached } = await supabase
+  const { data: cached } = await (supabase as any)
     .from('contact_search_cache')
     .select('results')
     .eq('cache_key', cacheKey)
@@ -208,7 +209,7 @@ export async function enrichBuyerContacts(
     const linkedInUrls = discovered.map((d) => d.linkedin_url?.toLowerCase()).filter(Boolean);
 
     if (linkedInUrls.length > 0) {
-      const { data: existingByLinkedIn } = await supabase
+      const { data: existingByLinkedIn } = await (supabase as any)
         .from('contacts')
         .select('linkedin_url')
         .eq('archived', false)
@@ -237,7 +238,7 @@ export async function enrichBuyerContacts(
     }
 
     // Check by name + company
-    const { data: existingByName } = await supabase
+    const { data: existingByName } = await (supabase as any)
       .from('contacts')
       .select('first_name, last_name')
       .eq('archived', false)
@@ -456,21 +457,21 @@ export async function enrichBuyerContacts(
 
   // 8. Save to enriched_contacts
   if (allContacts.length > 0) {
-    await supabase.from('enriched_contacts').upsert(
+    await (supabase as any).from('enriched_contacts').upsert(
       allContacts.map((c) => ({ ...c, workspace_id: userId })),
       { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: true },
     );
   }
 
   // 9. Cache
-  await supabase.from('contact_search_cache').insert({
+  await (supabase as any).from('contact_search_cache').insert({
     cache_key: cacheKey,
     company_name: companyName,
     results: allContacts,
   });
 
   // 10. Log
-  await supabase.from('contact_search_log').insert({
+  await (supabase as any).from('contact_search_log').insert({
     user_id: userId,
     company_name: companyName,
     title_filter: titleFilter,
@@ -565,7 +566,7 @@ export async function enrichLinkedInContact(
         search_query: `linkedin:${linkedinUrl}`,
       };
 
-      await supabase
+      await (supabase as any)
         .from('enriched_contacts')
         .upsert(contactData, { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false });
 
@@ -577,10 +578,10 @@ export async function enrichLinkedInContact(
         .replace('https://', '')
         .replace('http://', '');
 
-      const { data: existingContacts } = await supabase
+      const { data: existingContacts } = await (supabase as any)
         .from('contacts')
         .select('id, email, phone, linkedin_url, first_name, last_name')
-        .or(`linkedin_url.ilike.%${normalizedUrl}%`)
+        .or(`linkedin_url.ilike.%${normalizedUrl.replace(/[,%()]/g, '')}%`)
         .eq('archived', false)
         .limit(1);
 
@@ -589,7 +590,7 @@ export async function enrichLinkedInContact(
         const updates: Record<string, unknown> = {};
         if (!existing.email) updates.email = clayResult.email;
         if (Object.keys(updates).length > 0) {
-          await supabase.from('contacts').update(updates).eq('id', existing.id);
+          await (supabase as any).from('contacts').update(updates).eq('id', existing.id);
         }
         crmContactId = existing.id as string;
         crmAction = 'updated';
@@ -648,10 +649,10 @@ export async function enrichLinkedInContact(
         .replace('https://www.', '')
         .replace('https://', '')
         .replace('http://', '');
-      const { data: crmMatch } = await supabase
+      const { data: crmMatch } = await (supabase as any)
         .from('contacts')
         .select('id, first_name, last_name, title, company_name, listing_id, remarketing_buyer_id')
-        .or(`linkedin_url.ilike.%${normalizedUrl}%`)
+        .or(`linkedin_url.ilike.%${normalizedUrl.replace(/[,%()]/g, '')}%`)
         .eq('archived', false)
         .limit(1);
 
@@ -664,7 +665,7 @@ export async function enrichLinkedInContact(
 
         // Resolve company from linked records if not on contact directly
         if (!fallbackCompany && c.listing_id) {
-          const { data: listing } = await supabase
+          const { data: listing } = await (supabase as any)
             .from('listings')
             .select('title')
             .eq('id', c.listing_id as string)
@@ -672,7 +673,7 @@ export async function enrichLinkedInContact(
           if (listing?.title) fallbackCompany = listing.title as string;
         }
         if (!fallbackCompany && c.remarketing_buyer_id) {
-          const { data: buyer } = await supabase
+          const { data: buyer } = await (supabase as any)
             .from('buyers')
             .select('company_name, pe_firm_name')
             .eq('id', c.remarketing_buyer_id as string)
@@ -708,7 +709,7 @@ export async function enrichLinkedInContact(
             if (retryResult?.email) {
               // Update CRM with corrected URL + email
               if (fallbackCrmContactId) {
-                await supabase
+                await (supabase as any)
                   .from('contacts')
                   .update({
                     linkedin_url: googleResult.url,
@@ -722,7 +723,7 @@ export async function enrichLinkedInContact(
               }
 
               // Save to enriched_contacts
-              await supabase.from('enriched_contacts').upsert(
+              await (supabase as any).from('enriched_contacts').upsert(
                 {
                   workspace_id: userId,
                   company_name: retryResult.company || fallbackCompany || 'Unknown',
@@ -797,7 +798,7 @@ export async function enrichLinkedInContact(
       search_query: `linkedin:${linkedinUrl}`,
     };
 
-    await supabase
+    await (supabase as any)
       .from('enriched_contacts')
       .upsert(contactData, { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false });
 
@@ -811,10 +812,10 @@ export async function enrichLinkedInContact(
         .replace('http://', '');
 
       // First: try matching by LinkedIn URL
-      const { data: existingContacts } = await supabase
+      const { data: existingContacts } = await (supabase as any)
         .from('contacts')
         .select('id, email, phone, linkedin_url, first_name, last_name')
-        .or(`linkedin_url.ilike.%${normalizedUrl}%`)
+        .or(`linkedin_url.ilike.%${normalizedUrl.replace(/[,%()]/g, '')}%`)
         .eq('archived', false)
         .limit(1);
 
@@ -825,14 +826,14 @@ export async function enrichLinkedInContact(
         if (!existing.phone && result.phone) updates.phone = result.phone;
 
         if (Object.keys(updates).length > 0) {
-          await supabase.from('contacts').update(updates).eq('id', existing.id);
+          await (supabase as any).from('contacts').update(updates).eq('id', existing.id);
           console.log(`[enrich-linkedin] Updated CRM contact ${existing.id} with enriched data`);
         }
         crmContactId = existing.id as string;
         crmAction = 'updated';
       } else if (result.first_name && result.last_name) {
         // Second: try matching by name — catches CRM contacts with stale/different LinkedIn URL
-        const { data: nameMatches } = await supabase
+        const { data: nameMatches } = await (supabase as any)
           .from('contacts')
           .select('id, email, phone, linkedin_url, first_name, last_name')
           .eq('archived', false)
@@ -850,7 +851,7 @@ export async function enrichLinkedInContact(
           };
           if (result.phone && !existing.phone) updates.phone = result.phone;
 
-          await supabase.from('contacts').update(updates).eq('id', existing.id);
+          await (supabase as any).from('contacts').update(updates).eq('id', existing.id);
           crmContactId = existing.id as string;
           crmAction = 'updated';
           console.log(
@@ -858,7 +859,7 @@ export async function enrichLinkedInContact(
           );
         } else {
           // No name match or ambiguous — create new contact
-          const { data: newContact } = await supabase
+          const { data: newContact } = await (supabase as any)
             .from('contacts')
             .insert({
               first_name: result.first_name,
@@ -884,7 +885,7 @@ export async function enrichLinkedInContact(
         }
       } else {
         // No name info — create new contact
-        const { data: newContact } = await supabase
+        const { data: newContact } = await (supabase as any)
           .from('contacts')
           .insert({
             first_name: result.first_name,
@@ -959,7 +960,7 @@ export async function findAndEnrichPerson(
     orConditions.push(`last_name.ilike.%${escaped}%`);
   }
 
-  let crmQuery = supabase
+  let crmQuery = (supabase as any)
     .from('contacts')
     .select(
       'id, first_name, last_name, email, phone, title, contact_type, listing_id, remarketing_buyer_id, linkedin_url',
@@ -1011,7 +1012,7 @@ export async function findAndEnrichPerson(
   if (!companyName && contact) {
     // Try to resolve from linked listing or buyer record
     if (contact.listing_id) {
-      const { data: listing } = await supabase
+      const { data: listing } = await (supabase as any)
         .from('listings')
         .select('title, category')
         .eq('id', contact.listing_id as string)
@@ -1019,7 +1020,7 @@ export async function findAndEnrichPerson(
       if (listing?.title) companyName = listing.title as string;
     }
     if (!companyName && contact.remarketing_buyer_id) {
-      const { data: buyer } = await supabase
+      const { data: buyer } = await (supabase as any)
         .from('buyers')
         .select('company_name, pe_firm_name')
         .eq('id', contact.remarketing_buyer_id as string)
@@ -1066,12 +1067,12 @@ export async function findAndEnrichPerson(
           // Update CRM contact
           if (contact?.id) {
             const updates: Record<string, unknown> = { email: clayResult.email };
-            await supabase.from('contacts').update(updates).eq('id', contact.id);
+            await (supabase as any).from('contacts').update(updates).eq('id', contact.id);
             steps.push(`3c. Updated CRM contact ${contact.id} with email`);
           }
 
           // Save to enriched_contacts
-          await supabase.from('enriched_contacts').upsert(
+          await (supabase as any).from('enriched_contacts').upsert(
             {
               workspace_id: userId,
               company_name: companyName || 'Unknown',
@@ -1168,7 +1169,7 @@ export async function findAndEnrichPerson(
             steps.push(`3c. Using Google-discovered URL instead: ${googleResult.url}`);
             // Update CRM with corrected LinkedIn URL
             if (contact?.id) {
-              await supabase
+              await (supabase as any)
                 .from('contacts')
                 .update({ linkedin_url: googleResult.url })
                 .eq('id', contact.id);
@@ -1222,12 +1223,12 @@ export async function findAndEnrichPerson(
               if (result.phone && !contact.phone) updates.phone = result.phone;
               if (verifiedLinkedInUrl !== storedLinkedinUrl)
                 updates.linkedin_url = verifiedLinkedInUrl;
-              await supabase.from('contacts').update(updates).eq('id', contact.id);
+              await (supabase as any).from('contacts').update(updates).eq('id', contact.id);
               steps.push(`4. Updated CRM contact ${contact.id} with email: ${result.email}`);
             }
 
             // Save to enriched_contacts for audit trail
-            await supabase.from('enriched_contacts').upsert(
+            await (supabase as any).from('enriched_contacts').upsert(
               {
                 workspace_id: userId,
                 company_name: companyName || result.company || 'Unknown',
@@ -1272,11 +1273,11 @@ export async function findAndEnrichPerson(
           if (contact?.id) {
             const updates: Record<string, unknown> = { email: result.email };
             if (result.phone && !contact.phone) updates.phone = result.phone;
-            await supabase.from('contacts').update(updates).eq('id', contact.id);
+            await (supabase as any).from('contacts').update(updates).eq('id', contact.id);
             steps.push(`4. Updated CRM contact ${contact.id} with email: ${result.email}`);
           }
 
-          await supabase.from('enriched_contacts').upsert(
+          await (supabase as any).from('enriched_contacts').upsert(
             {
               workspace_id: userId,
               company_name: result.company || 'Unknown',
@@ -1349,7 +1350,7 @@ export async function findAndEnrichPerson(
 
       // Update CRM with LinkedIn URL
       if (contact?.id) {
-        await supabase
+        await (supabase as any)
           .from('contacts')
           .update({ linkedin_url: discoveredLinkedIn })
           .eq('id', contact.id);
@@ -1379,14 +1380,14 @@ export async function findAndEnrichPerson(
         if (contact?.id) {
           const updates: Record<string, unknown> = { email: result.email };
           if (result.phone && !contact.phone) updates.phone = result.phone;
-          await supabase.from('contacts').update(updates).eq('id', contact.id);
+          await (supabase as any).from('contacts').update(updates).eq('id', contact.id);
           steps.push(
             `${steps.length + 1}. Updated CRM contact ${contact.id} with email: ${result.email}`,
           );
         }
 
         // Save to enriched_contacts
-        await supabase.from('enriched_contacts').upsert(
+        await (supabase as any).from('enriched_contacts').upsert(
           {
             workspace_id: userId,
             company_name: companyName || result.company || 'Unknown',
@@ -1453,7 +1454,7 @@ export async function findAndEnrichPerson(
             if (result.phone && !contact.phone) updates.phone = result.phone;
             if (discoveredLinkedIn && !contact.linkedin_url)
               updates.linkedin_url = discoveredLinkedIn;
-            await supabase.from('contacts').update(updates).eq('id', contact.id);
+            await (supabase as any).from('contacts').update(updates).eq('id', contact.id);
             steps.push(`${steps.length + 1}. Updated CRM contact with email: ${result.email}`);
           }
 
@@ -1547,7 +1548,7 @@ export async function findDecisionMakers(
 
   // 2. Check CRM for existing contacts — skip those already enriched
   const crmAlreadyKnown = new Set<string>();
-  const { data: existingByName } = await supabase
+  const { data: existingByName } = await (supabase as any)
     .from('contacts')
     .select('first_name, last_name, email')
     .eq('archived', false)
@@ -1720,7 +1721,7 @@ export async function findDecisionMakers(
       }));
 
     if (toSave.length > 0) {
-      await supabase.from('enriched_contacts').upsert(toSave, {
+      await (supabase as any).from('enriched_contacts').upsert(toSave, {
         onConflict: 'workspace_id,linkedin_url',
         ignoreDuplicates: true,
       });
@@ -1753,7 +1754,7 @@ export async function findContactLinkedIn(
   const autoUpdate = (args.auto_update as boolean) || false;
 
   // 1. Fetch contacts that need LinkedIn URLs
-  let contactQuery = supabase
+  let contactQuery = (supabase as any)
     .from('contacts')
     .select('id, first_name, last_name, title, listing_id, remarketing_buyer_id, contact_type')
     .eq('archived', false)
@@ -1796,7 +1797,7 @@ export async function findContactLinkedIn(
   const buyerMap: Record<string, { company_name: string }> = {};
 
   if (listingIds.length > 0) {
-    const { data: listings } = await supabase
+    const { data: listings } = await (supabase as any)
       .from('listings')
       .select('id, title, category')
       .in('id', listingIds);
@@ -1808,7 +1809,7 @@ export async function findContactLinkedIn(
   }
 
   if (buyerIds.length > 0) {
-    const { data: buyers } = await supabase
+    const { data: buyers } = await (supabase as any)
       .from('buyers')
       .select('id, company_name, pe_firm_name')
       .in('id', buyerIds);
@@ -1889,7 +1890,7 @@ export async function findContactLinkedIn(
 
       // Auto-update if requested and confidence is high
       if (autoUpdate && confidence === 'high') {
-        const { error: updateError } = await supabase
+        const { error: updateError } = await (supabase as any)
           .from('contacts')
           .update({ linkedin_url: googleResult.url })
           .eq('id', contact.id);

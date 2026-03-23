@@ -10,7 +10,7 @@
  * Security: timeouts, rate limit handling, domain validation, response validation.
  */
 
-const PROSPEO_API_BASE = 'https://api.prospeo.io/v1';
+const PROSPEO_API_BASE = 'https://api.prospeo.io';
 const API_TIMEOUT_MS = 10_000; // 10 second timeout per API call
 const RATE_LIMIT_BACKOFF_MS = 5_000; // 5 second backoff on 429
 

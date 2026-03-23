@@ -97,6 +97,126 @@ export async function findCompanyLinkedIn(companyName: string): Promise<string |
 }
 
 /**
+ * Discover a company's real website domain via Google search.
+ * Phase 1 of contact discovery — find the actual domain before searching for people.
+ *
+ * Strategy:
+ *  1. Search Google for the company name — top results usually include the company website
+ *  2. Extract domains from organic results that look like company websites
+ *  3. Cross-check against inferred domain candidates for confidence
+ *  4. Return the best domain found, or null if nothing convincing
+ */
+export async function discoverCompanyDomain(
+  companyName: string,
+  inferredCandidates: string[] = [],
+): Promise<{ domain: string; source: 'google_search' | 'linkedin' | 'inferred'; confidence: 'high' | 'medium' | 'low' } | null> {
+  // Clean company name for search (remove parentheticals, trailing dots)
+  const cleanName = companyName.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\.{3,}$/, '').trim();
+
+  // Run two targeted searches in parallel
+  const queries = [
+    `"${cleanName}" official website`,
+    `${cleanName} private equity firm`,
+  ];
+
+  const allResults: GoogleSearchItem[] = [];
+  for (const query of queries) {
+    try {
+      const results = await googleSearch(query, 5);
+      allResults.push(...results);
+    } catch (err) {
+      console.warn(`[domain-discovery] Search failed for "${query}": ${err}`);
+    }
+  }
+
+  if (allResults.length === 0) return null;
+
+  // Extract domains from results, excluding known noise sites
+  const noiseDomains = new Set([
+    'linkedin.com', 'facebook.com', 'twitter.com', 'x.com', 'instagram.com',
+    'youtube.com', 'wikipedia.org', 'crunchbase.com', 'bloomberg.com',
+    'pitchbook.com', 'zoominfo.com', 'dnb.com', 'apollo.io', 'rocketreach.com',
+    'glassdoor.com', 'indeed.com', 'yelp.com', 'bbb.org', 'sec.gov',
+    'google.com', 'yahoo.com', 'bing.com', 'reddit.com', 'quora.com',
+    'signalhire.com', 'owler.com', 'ziprecruiter.com', 'comparably.com',
+    'ambitionbox.com', 'levelsfyi.com', 'wellfound.com',
+  ]);
+
+  // Score each domain candidate from search results
+  const domainScores = new Map<string, { score: number; url: string }>();
+  const companyWords = cleanName.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+
+  for (const result of allResults) {
+    let hostname: string;
+    try {
+      hostname = new URL(result.url).hostname.replace(/^www\./, '');
+    } catch {
+      continue;
+    }
+
+    // Skip noise domains
+    if (noiseDomains.has(hostname)) continue;
+    // Skip subdomains of noise sites
+    if ([...noiseDomains].some(nd => hostname.endsWith(`.${nd}`))) continue;
+
+    let score = 0;
+
+    // High position in results = more likely to be the company site
+    if (result.position <= 2) score += 3;
+    else if (result.position <= 5) score += 1;
+
+    // Domain name contains company words
+    const domainLower = hostname.toLowerCase();
+    for (const word of companyWords) {
+      if (domainLower.includes(word)) score += 2;
+    }
+
+    // Title/description contains company name
+    const combined = `${result.title} ${result.description}`.toLowerCase();
+    if (combined.includes(cleanName.toLowerCase())) score += 2;
+
+    // Matches one of our inferred candidates — strong signal
+    if (inferredCandidates.includes(hostname)) score += 5;
+
+    // Looks like a corporate site (short domain, .com)
+    if (hostname.endsWith('.com') && hostname.split('.').length === 2) score += 1;
+
+    const existing = domainScores.get(hostname);
+    if (!existing || score > existing.score) {
+      domainScores.set(hostname, { score, url: result.url });
+    }
+  }
+
+  // Also check if the LinkedIn company page mentions a website
+  // (LinkedIn results often appear even when filtered out above)
+  for (const result of allResults) {
+    if (!result.url.includes('linkedin.com/company/')) continue;
+    // LinkedIn company description sometimes includes the website domain
+    const desc = result.description.toLowerCase();
+    for (const candidate of inferredCandidates) {
+      if (desc.includes(candidate)) {
+        const existing = domainScores.get(candidate);
+        domainScores.set(candidate, { score: (existing?.score || 0) + 4, url: result.url });
+      }
+    }
+  }
+
+  if (domainScores.size === 0) return null;
+
+  // Pick the highest-scoring domain
+  const sorted = [...domainScores.entries()].sort((a, b) => b[1].score - a[1].score);
+  const [bestDomain, bestInfo] = sorted[0];
+
+  const confidence = bestInfo.score >= 6 ? 'high' : bestInfo.score >= 3 ? 'medium' : 'low';
+
+  console.log(
+    `[domain-discovery] "${cleanName}" → ${bestDomain} (score=${bestInfo.score}, confidence=${confidence}, candidates=${sorted.length})`,
+  );
+
+  return { domain: bestDomain, source: 'google_search', confidence };
+}
+
+/**
  * Search Google Maps for a business and return place data.
  * Uses Serper /maps endpoint which returns placeId, rating, reviews, address, etc.
  */

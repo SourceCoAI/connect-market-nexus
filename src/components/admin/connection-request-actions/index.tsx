@@ -14,7 +14,7 @@
  *   Embedded within ConnectionRequestsTable on the admin requests page
  *   (/admin/requests)
  */
-import { SendAgreementDialog } from '@/components/docuseal/SendAgreementDialog';
+import { SendAgreementDialog } from '@/components/pandadoc/SendAgreementDialog';
 import { Listing } from '@/types';
 import { format } from 'date-fns';
 import { getBuyerTier } from '@/lib/buyer-metrics';

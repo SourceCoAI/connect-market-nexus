@@ -22,6 +22,7 @@ import {
   Users,
   Phone,
   ThumbsDown,
+  Undo2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -398,22 +399,26 @@ export function CapTargetTableRow({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="text-orange-600 focus:text-orange-600"
+              className={deal.remarketing_status === 'not_a_fit' ? 'text-green-600 focus:text-green-600' : 'text-orange-600 focus:text-orange-600'}
               onClick={async () => {
+                const isAlreadyNotFit = deal.remarketing_status === 'not_a_fit';
                 const { error } = await supabase
                   .from('listings')
-                  .update({ remarketing_status: 'not_a_fit' } as never)
+                  .update({ remarketing_status: isAlreadyNotFit ? null : 'not_a_fit' } as never)
                   .eq('id', deal.id);
                 if (error) {
-                  toast({ title: 'Error', description: 'Failed to mark as not a fit' });
+                  toast({ title: 'Error', description: isAlreadyNotFit ? 'Failed to remove status' : 'Failed to mark as not a fit' });
                 } else {
-                  toast({ title: 'Marked as Not a Fit' });
+                  toast({ title: isAlreadyNotFit ? 'Removed Not a Fit status' : 'Marked as Not a Fit' });
                   onRefetch();
                 }
               }}
             >
-              <ThumbsDown className="h-4 w-4 mr-2" />
-              {deal.remarketing_status === 'not_a_fit' ? 'Already Not a Fit' : 'Mark as Not a Fit'}
+              {deal.remarketing_status === 'not_a_fit' ? (
+                <><Undo2 className="h-4 w-4 mr-2" />Remove Not a Fit</>
+              ) : (
+                <><ThumbsDown className="h-4 w-4 mr-2" />Mark as Not a Fit</>
+              )}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-amber-600 focus:text-amber-600"

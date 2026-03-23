@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FormField, FormItem, FormControl } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { NumericInput } from '@/components/ui/numeric-input';
 import {
   Select,
   SelectContent,
@@ -21,6 +20,7 @@ import { STATUS_TAGS } from '@/constants/statusTags';
 import { ChevronDown, Sparkles, Loader2 } from 'lucide-react';
 import { EnhancedMultiCategorySelect } from '@/components/ui/enhanced-category-select';
 import { EnhancedMultiLocationSelect } from '@/components/ui/enhanced-location-select';
+import { stateToRegion } from '@/lib/deal-to-listing-anonymizer';
 
 interface EditorInternalCardProps {
   form: UseFormReturn<any>;
@@ -28,14 +28,12 @@ interface EditorInternalCardProps {
 }
 
 const BUYER_TYPES = [
-  { value: 'privateEquity', label: 'PE' },
+  { value: 'private_equity', label: 'PE' },
   { value: 'corporate', label: 'Corporate' },
-  { value: 'familyOffice', label: 'Family Office' },
-  { value: 'searchFund', label: 'Search Fund' },
-  { value: 'individual', label: 'Individual' },
-  { value: 'independentSponsor', label: 'Ind. Sponsor' },
-  { value: 'advisor', label: 'Advisor' },
-  { value: 'businessOwner', label: 'Bus. Owner' },
+  { value: 'family_office', label: 'Family Office' },
+  { value: 'search_fund', label: 'Search Fund' },
+  { value: 'individual_buyer', label: 'Individual' },
+  { value: 'independent_sponsor', label: 'Ind. Sponsor' },
 ] as const;
 
 /**
@@ -52,7 +50,8 @@ function generateSmartTitle(form: UseFormReturn<any>): string {
   const ebitda: number = parseFloat(form.getValues('ebitda') || '0') || 0;
 
   const industry = categories[0] || 'Services';
-  const state = Array.isArray(location) ? location[0] || '' : location;
+  const rawState = Array.isArray(location) ? location[0] || '' : location;
+  const region = stateToRegion(rawState);
   const margin = revenue > 0 && ebitda > 0 ? Math.round((ebitda / revenue) * 100) : 0;
 
   // Build a descriptive, buyer-appealing title
@@ -62,12 +61,12 @@ function generateSmartTitle(form: UseFormReturn<any>): string {
   const revenueDescriptor =
     revenue >= 10_000_000 ? 'Scaled' : revenue >= 5_000_000 ? 'Growth-Stage' : '';
 
-  // Pattern: [Margin/Scale Descriptor] [Industry] [Type] — [Geography]
+  // Pattern: [Margin/Scale Descriptor] [Industry] [Type] — [Region]
   const descriptors = [marginDescriptor, revenueDescriptor].filter(Boolean);
   const prefix = descriptors.length > 0 ? descriptors[0] + ' ' : '';
 
-  if (state) {
-    return `${prefix}${industry} ${typeLabel} — ${state}`.trim();
+  if (region) {
+    return `${prefix}${industry} ${typeLabel} — ${region}`.trim();
   }
   return `${prefix}${industry} ${typeLabel} Opportunity`.trim();
 }
@@ -256,7 +255,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
                 <FormItem>
                   <FormControl>
                     <Input
-                      placeholder="e.g. Profitable HVAC Platform — Texas"
+                      placeholder="e.g. Profitable HVAC Platform — South Central"
                       {...field}
                       value={field.value || ''}
                       className={cn(
@@ -343,83 +342,6 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
                   </FormControl>
                 </FormItem>
               )}
-            />
-          </div>
-
-          {/* Team Size */}
-          <div className={EDITOR_DESIGN.microFieldSpacing}>
-            <div className={EDITOR_DESIGN.microLabel}>Team Size</div>
-            <div className="grid grid-cols-2 gap-2">
-              <FormField
-                control={form.control}
-                name="full_time_employees"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <NumericInput
-                        placeholder="Full-time"
-                        value={field.value ?? ''}
-                        onChange={(value) =>
-                          field.onChange(value ? Number(value) : 0)
-                        }
-                        className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="part_time_employees"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <NumericInput
-                        placeholder="Part-time"
-                        value={field.value ?? ''}
-                        onChange={(value) =>
-                          field.onChange(value ? Number(value) : 0)
-                        }
-                        className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-
-          {/* Structured Contact Fields */}
-          <div className={cn('pt-3', EDITOR_DESIGN.subtleDivider, EDITOR_DESIGN.microFieldSpacing)}>
-            <div className={EDITOR_DESIGN.microLabel}>Deal Contact</div>
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                placeholder="First name"
-                {...form.register('main_contact_first_name')}
-                className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
-              />
-              <Input
-                placeholder="Last name"
-                {...form.register('main_contact_last_name')}
-                className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
-              />
-            </div>
-            <Input
-              placeholder="Email"
-              type="email"
-              {...form.register('main_contact_email')}
-              className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
-            />
-            <Input
-              placeholder="Phone"
-              type="tel"
-              {...form.register('main_contact_phone')}
-              className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
-            />
-            <Input
-              placeholder="LinkedIn URL"
-              {...form.register('main_contact_linkedin')}
-              className={cn(EDITOR_DESIGN.miniHeight, 'text-xs font-mono', EDITOR_DESIGN.inputBg)}
             />
           </div>
 

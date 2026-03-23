@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Mail, CheckCircle, ArrowRight, ExternalLink } from 'lucide-react';
+import { CheckCircle, ArrowRight } from 'lucide-react';
 import { useDealLandingFormSubmit } from '@/hooks/useDealLandingFormSubmit';
 
 const ROLE_OPTIONS = [
@@ -9,7 +9,7 @@ const ROLE_OPTIONS = [
   'Corporate',
   'Search Fund',
   'Individual Investor',
-  'Consultant/Advisor',
+  'Consultant / Advisor',
   'Other',
 ];
 
@@ -18,169 +18,261 @@ interface DealRequestFormProps {
   dealTitle: string;
 }
 
-export default function DealRequestForm({ listingId, dealTitle }: DealRequestFormProps) {
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  background: '#F5F2ED',
+  border: '1px solid #DDD8D0',
+  borderRadius: 7,
+  padding: '10px 14px',
+  fontSize: '13.5px',
+  color: '#1A1714',
+  fontFamily: "'DM Sans', sans-serif",
+  outline: 'none',
+  transition: 'border-color 0.15s',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 12,
+  fontWeight: 600,
+  color: '#3D3830',
+  marginBottom: 6,
+  letterSpacing: '0.03em',
+  fontFamily: "'DM Sans', sans-serif",
+};
+
+export default function DealRequestForm({ listingId, dealTitle: _dealTitle }: DealRequestFormProps) {
   const { submit, isSubmitting, isSuccess, error } = useDealLandingFormSubmit(listingId);
 
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [company, setCompany] = useState('');
   const [phone, setPhone] = useState('');
+  const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
   const [message, setMessage] = useState('');
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !phone || !role || !message) return;
-    submit({ name, email, company, phone, role, message });
+    if (!firstName || !lastName || !email || !phone || !role || !message) return;
+    submit({
+      name: `${firstName} ${lastName}`.trim(),
+      email,
+      company,
+      phone,
+      role,
+      message,
+    });
   };
 
-  // GAP L fix: Use relative signup URLs
   const signupUrl = `/signup?from_deal=${listingId}&utm_source=landing_page&utm_medium=form_success&utm_content=post_submission_nudge`;
 
-  // GAP 11: Post-submission signup nudge
   if (isSuccess) {
     return (
       <div
-        id="request"
-        className="bg-white rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-6 sm:p-8"
+        id="request-form"
+        style={{
+          background: '#FDFCFA',
+          border: '1px solid #DDD8D0',
+          borderRadius: 12,
+          padding: 32,
+          fontFamily: "'DM Sans', sans-serif",
+        }}
       >
-        <div className="flex items-center gap-3 mb-4">
-          <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
-          <h3 className="text-[18px] font-bold text-[#1A1A1A] font-['Inter',system-ui,sans-serif]">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <CheckCircle style={{ width: 24, height: 24, color: '#16a34a', flexShrink: 0 }} />
+          <h3
+            style={{
+              fontFamily: "'DM Serif Display', serif",
+              fontSize: 22,
+              color: '#1A1714',
+            }}
+          >
             Request Received
           </h3>
         </div>
 
-        <p className="text-[15px] leading-[1.6] text-[#374151] mb-6 font-['Inter',system-ui,sans-serif]">
+        <p style={{ fontSize: '14px', lineHeight: 1.6, color: '#3D3830', marginBottom: 24, fontWeight: 300 }}>
           Your request is being reviewed by our team. We'll be in touch shortly with next steps
           and detailed deal materials.
         </p>
 
-        {/* Signup Nudge */}
-        <div className="bg-[#F7F5F0] rounded-lg p-5 mb-4">
-          <h4 className="text-[15px] font-semibold text-[#1A1A1A] mb-2 font-['Inter',system-ui,sans-serif]">
+        <div
+          style={{
+            background: '#F5EDD5',
+            borderRadius: 8,
+            padding: 20,
+            marginBottom: 16,
+          }}
+        >
+          <h4
+            style={{
+              fontSize: 15,
+              fontWeight: 600,
+              color: '#1A1714',
+              marginBottom: 8,
+            }}
+          >
             While you wait — explore more deals
           </h4>
-          <p className="text-[13px] text-[#6B7280] leading-[1.6] mb-3 font-['Inter',system-ui,sans-serif]">
+          <p
+            style={{
+              fontSize: '12.5px',
+              color: '#3D3830',
+              lineHeight: 1.6,
+              marginBottom: 12,
+              fontWeight: 300,
+            }}
+          >
             Join our marketplace to browse 50+ vetted, founder-led businesses with $2M-50M revenue.
-            Get instant access to new deal flow as soon as it's available.
           </p>
           <a
             href={signupUrl}
-            className="flex items-center justify-center gap-2 w-full bg-[#C9A84C] text-[#1A1A1A] font-semibold text-[15px] py-3 rounded-md hover:bg-[#b8963e] transition-colors font-['Inter',system-ui,sans-serif]"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              width: '100%',
+              background: '#B8933A',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: 14,
+              padding: '12px 16px',
+              borderRadius: 7,
+              textDecoration: 'none',
+              transition: 'background 0.15s',
+            }}
           >
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight style={{ width: 16, height: 16 }} />
             Join the Marketplace — Free
-          </a>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <a
-            href={`/signup?from_deal=${listingId}&utm_source=landing_page&utm_medium=form_success&utm_content=schedule_call`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 flex-1 bg-white border border-[#D1D5DB] text-[#374151] font-medium text-[13px] py-2.5 rounded-md hover:bg-gray-50 transition-colors font-['Inter',system-ui,sans-serif]"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            Schedule a Call
           </a>
         </div>
       </div>
     );
   }
 
-  const inputClasses =
-    "w-full bg-[#F7F5F0] border border-[#D1D5DB] rounded px-3 py-2.5 text-[15px] text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#C9A84C] focus:ring-1 focus:ring-[#C9A84C] transition-colors font-['Inter',system-ui,sans-serif]";
-  const labelClasses =
-    "block text-[14px] font-medium text-[#374151] mb-1.5 font-['Inter',system-ui,sans-serif]";
-
   return (
     <div
-      id="request"
-      className="bg-white rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-6 sm:p-8"
+      id="request-form"
+      style={{
+        background: '#FDFCFA',
+        border: '1px solid #DDD8D0',
+        borderRadius: 12,
+        padding: 32,
+        marginTop: 16,
+        fontFamily: "'DM Sans', sans-serif",
+      }}
     >
-      <div className="flex items-center gap-3 mb-2">
-        <Mail className="w-5 h-5 text-[#6B7280]" />
-        <h2 className="text-[18px] sm:text-[20px] font-bold text-[#1A1A1A] font-['Inter',system-ui,sans-serif]">
-          Request Full Deal Details
-        </h2>
+      <div
+        style={{
+          fontFamily: "'DM Serif Display', serif",
+          fontSize: 22,
+          color: '#1A1714',
+          marginBottom: 6,
+        }}
+      >
+        Request Full Deal Details
       </div>
-      <p className="text-[14px] text-[#6B7280] mb-6 font-['Inter',system-ui,sans-serif]">
-        Get full access to detailed financials and business metrics to {dealTitle}
-      </p>
+      <div
+        style={{
+          fontSize: '13.5px',
+          color: '#6B6560',
+          lineHeight: 1.5,
+          marginBottom: 24,
+          fontWeight: 300,
+        }}
+      >
+        Get access to detailed financials, the CIM, and direct contact with the SourceCo deal team.
+      </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Row 1: Name + Email */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit}>
+        {/* Row 1: First Name + Last Name */}
+        <div
+          style={{ display: 'grid', gap: 14, marginBottom: 14 }}
+          className="grid-cols-1 sm:grid-cols-2"
+        >
           <div>
-            <label className={labelClasses}>
-              Name <span className="text-red-500">*</span>
-            </label>
+            <label style={labelStyle}>First Name *</label>
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="Alex"
               required
-              className={inputClasses}
+              style={inputStyle}
+              className="focus:!border-[#1A1714] focus:!bg-[#FDFCFA]"
             />
           </div>
           <div>
-            <label className={labelClasses}>
-              Email <span className="text-red-500">*</span>
-            </label>
+            <label style={labelStyle}>Last Name *</label>
+            <input
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Johnson"
+              required
+              style={inputStyle}
+              className="focus:!border-[#1A1714] focus:!bg-[#FDFCFA]"
+            />
+          </div>
+        </div>
+
+        {/* Row 2: Email + Phone */}
+        <div
+          style={{ display: 'grid', gap: 14, marginBottom: 14 }}
+          className="grid-cols-1 sm:grid-cols-2"
+        >
+          <div>
+            <label style={labelStyle}>Email Address *</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Your@email.com"
+              placeholder="alex@firm.com"
               required
-              className={inputClasses}
-            />
-          </div>
-        </div>
-
-        {/* Row 2: Company + Phone */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClasses}>Company name</label>
-            <input
-              type="text"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              placeholder="Company URL or name"
-              className={inputClasses}
+              style={inputStyle}
+              className="focus:!border-[#1A1714] focus:!bg-[#FDFCFA]"
             />
           </div>
           <div>
-            <label className={labelClasses}>
-              Phone number <span className="text-red-500">*</span>
-            </label>
+            <label style={labelStyle}>Phone Number *</label>
             <input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+1 (614) 316-2342"
+              placeholder="+1 (555) 000-0000"
               required
-              className={inputClasses}
+              style={inputStyle}
+              className="focus:!border-[#1A1714] focus:!bg-[#FDFCFA]"
             />
           </div>
         </div>
 
-        {/* Row 3: Role Dropdown */}
-        <div>
-          <label className={labelClasses}>
-            What best describes you? <span className="text-red-500">*</span>
-          </label>
+        {/* Company Name */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Company Name</label>
+          <input
+            type="text"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            placeholder="Firm or company name"
+            style={inputStyle}
+            className="focus:!border-[#1A1714] focus:!bg-[#FDFCFA]"
+          />
+        </div>
+
+        {/* Role Dropdown */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>What best describes you? *</label>
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
             required
-            className={`${inputClasses} appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236B7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center] bg-[length:16px_16px] pr-10`}
+            style={{ ...inputStyle, appearance: 'none' as const }}
+            className="focus:!border-[#1A1714] focus:!bg-[#FDFCFA]"
           >
-            <option value="" disabled>
-              Select your role
-            </option>
+            <option value="">Select your role</option>
             {ROLE_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
@@ -189,34 +281,63 @@ export default function DealRequestForm({ listingId, dealTitle }: DealRequestFor
           </select>
         </div>
 
-        {/* Row 4: Mandate Textarea */}
-        <div>
-          <label className={labelClasses}>
-            Your interest or mandate <span className="text-red-500">*</span>
-          </label>
+        {/* Mandate Textarea */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Your Interest or Mandate *</label>
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="This helps us prioritize introductions based on buyer fit and seller expectations. Even a quick note on why this deal or how it fits your mandate gives us context to move faster with your request."
+            placeholder="Briefly describe your acquisition criteria or interest in this deal..."
             required
-            rows={4}
-            className={`${inputClasses} resize-y min-h-[100px]`}
+            style={{
+              ...inputStyle,
+              resize: 'vertical' as const,
+              minHeight: 90,
+            }}
+            className="focus:!border-[#1A1714] focus:!bg-[#FDFCFA]"
           />
         </div>
 
-        {/* Error */}
         {error && (
-          <p className="text-red-500 text-[14px] font-['Inter',system-ui,sans-serif]">{error}</p>
+          <p style={{ color: '#dc2626', fontSize: 14, marginBottom: 8 }}>{error}</p>
         )}
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full bg-[#1A1A1A] text-white font-semibold text-[15px] py-3.5 rounded-md hover:bg-[#333333] transition-colors disabled:opacity-60 font-['Inter',system-ui,sans-serif]"
+          style={{
+            width: '100%',
+            background: '#1A1714',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            padding: 14,
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: isSubmitting ? 'default' : 'pointer',
+            fontFamily: "'DM Sans', sans-serif",
+            marginTop: 8,
+            transition: 'background 0.15s',
+            letterSpacing: '0.01em',
+            opacity: isSubmitting ? 0.6 : 1,
+          }}
+          className="hover:!bg-[#333]"
         >
-          {isSubmitting ? 'Submitting...' : 'Request Full Deal Details'}
+          {isSubmitting ? 'Submitting...' : 'Submit Request for Full Details'}
         </button>
+
+        <p
+          style={{
+            fontSize: '11.5px',
+            color: '#6B6560',
+            textAlign: 'center',
+            marginTop: 10,
+            lineHeight: 1.5,
+          }}
+        >
+          Your information is kept strictly confidential and shared only with the SourceCo deal
+          team.
+        </p>
       </form>
     </div>
   );

@@ -74,19 +74,16 @@ export function useConnectionRequestActions({
     enabled: !!listing?.id,
   });
 
-  const hasFeeAgreement = firmInfo?.fee_agreement_signed || user.fee_agreement_signed || false;
-  const hasNDA = firmInfo?.nda_signed || user.nda_signed || false;
-  const ndaStatus =
-    firmInfo?.nda_status ||
-    (user.nda_signed ? 'signed' : user.nda_email_sent ? 'sent' : 'not_started');
-  const feeStatus =
-    firmInfo?.fee_agreement_status ||
-    (user.fee_agreement_signed ? 'signed' : user.fee_agreement_email_sent ? 'sent' : 'not_started');
+  // Only use firm-level data — never fall back to stale profile-level booleans
+  const hasFeeAgreement = firmInfo?.fee_agreement_signed || false;
+  const hasNDA = firmInfo?.nda_signed || false;
+  const ndaStatus = firmInfo?.nda_status || 'not_started';
+  const feeStatus = firmInfo?.fee_agreement_status || 'not_started';
 
   // ─── Decision Handlers ───
 
   const handleAccept = async () => {
-    if (!requestId) return;
+    if (!requestId || updateStatus.isPending) return;
     try {
       await updateStatus.mutateAsync({ requestId, status: 'approved' });
       await sendMessage.mutateAsync({

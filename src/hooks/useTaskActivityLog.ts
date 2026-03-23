@@ -5,7 +5,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { untypedFrom } from '@/integrations/supabase/client';
 import type { TaskActivityLogEntry } from '@/types/daily-tasks';
 
 const ACTIVITY_LOG_KEY = 'task-activity-log';
@@ -15,8 +15,7 @@ export function useTaskActivityLog(taskId: string | null) {
     queryKey: [ACTIVITY_LOG_KEY, taskId],
     enabled: !!taskId,
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('rm_task_activity_log' as any) as any)
+      const { data, error } = await untypedFrom('rm_task_activity_log')
         .select(
           `
           *,

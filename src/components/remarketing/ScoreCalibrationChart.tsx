@@ -1,23 +1,14 @@
-import { useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  } from "recharts";
-import { Sliders, Target } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Sliders, Target } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ScoreRecord {
   composite_score: number;
   tier: string;
   geography_score?: number;
-  size_score?: number;
   service_score?: number;
   owner_goals_score?: number;
 }
@@ -29,25 +20,28 @@ interface ScoreCalibrationChartProps {
 }
 
 const tierColors: Record<string, string> = {
-  'A': 'hsl(142, 76%, 36%)', // emerald
-  'B': 'hsl(221, 83%, 53%)', // blue
-  'C': 'hsl(38, 92%, 50%)',  // amber
-  'D': 'hsl(0, 72%, 51%)',   // red
+  A: 'hsl(142, 76%, 36%)', // emerald
+  B: 'hsl(221, 83%, 53%)', // blue
+  C: 'hsl(38, 92%, 50%)', // amber
+  D: 'hsl(0, 72%, 51%)', // red
 };
 
-export function ScoreCalibrationChart({ 
-  scores, 
+export function ScoreCalibrationChart({
+  scores,
   targetTierAPercentage = 20,
-  className 
+  className,
 }: ScoreCalibrationChartProps) {
   const { distribution, categoryStats, tierStats } = useMemo(() => {
     // Create score distribution buckets (0-10, 10-20, etc.)
-    const buckets: Record<string, { count: number; tierA: number; tierB: number; tierC: number; tierD: number }> = {};
+    const buckets: Record<
+      string,
+      { count: number; tierA: number; tierB: number; tierC: number; tierD: number }
+    > = {};
     for (let i = 0; i <= 90; i += 10) {
       buckets[`${i}-${i + 10}`] = { count: 0, tierA: 0, tierB: 0, tierC: 0, tierD: 0 };
     }
-    
-    scores.forEach(score => {
+
+    scores.forEach((score) => {
       const bucket = Math.floor(score.composite_score / 10) * 10;
       const key = `${bucket}-${bucket + 10}`;
       if (buckets[key]) {
@@ -58,7 +52,7 @@ export function ScoreCalibrationChart({
         else buckets[key].tierD++;
       }
     });
-    
+
     const dist = Object.entries(buckets).map(([range, data]) => ({
       range,
       count: data.count,
@@ -68,21 +62,22 @@ export function ScoreCalibrationChart({
       tierD: data.tierD,
       dominantTier: data.tierA > 0 ? 'A' : data.tierB > 0 ? 'B' : data.tierC > 0 ? 'C' : 'D',
     }));
-    
+
     // Category averages
     const catStats = {
-      geography: scores.reduce((sum, s) => sum + (s.geography_score || 0), 0) / (scores.length || 1),
-      size: scores.reduce((sum, s) => sum + (s.size_score || 0), 0) / (scores.length || 1),
+      geography:
+        scores.reduce((sum, s) => sum + (s.geography_score || 0), 0) / (scores.length || 1),
       service: scores.reduce((sum, s) => sum + (s.service_score || 0), 0) / (scores.length || 1),
-      ownerGoals: scores.reduce((sum, s) => sum + (s.owner_goals_score || 0), 0) / (scores.length || 1),
+      ownerGoals:
+        scores.reduce((sum, s) => sum + (s.owner_goals_score || 0), 0) / (scores.length || 1),
     };
-    
+
     // Tier stats
-    const tierA = scores.filter(s => s.tier === 'A').length;
-    const tierB = scores.filter(s => s.tier === 'B').length;
-    const tierC = scores.filter(s => s.tier === 'C').length;
-    const tierD = scores.filter(s => s.tier === 'D').length;
-    
+    const tierA = scores.filter((s) => s.tier === 'A').length;
+    const tierB = scores.filter((s) => s.tier === 'B').length;
+    const tierC = scores.filter((s) => s.tier === 'C').length;
+    const tierD = scores.filter((s) => s.tier === 'D').length;
+
     return {
       distribution: dist,
       categoryStats: catStats,
@@ -91,12 +86,12 @@ export function ScoreCalibrationChart({
         tierB: { count: tierB, percentage: (tierB / (scores.length || 1)) * 100 },
         tierC: { count: tierC, percentage: (tierC / (scores.length || 1)) * 100 },
         tierD: { count: tierD, percentage: (tierD / (scores.length || 1)) * 100 },
-      }
+      },
     };
   }, [scores]);
-  
+
   const isCalibrated = Math.abs(tierStats.tierA.percentage - targetTierAPercentage) < 5;
-  
+
   if (scores.length === 0) {
     return (
       <Card className={className}>
@@ -106,7 +101,7 @@ export function ScoreCalibrationChart({
       </Card>
     );
   }
-  
+
   return (
     <Card className={className}>
       <CardHeader>
@@ -120,12 +115,12 @@ export function ScoreCalibrationChart({
               Distribution of {scores.length.toLocaleString()} scores by tier
             </CardDescription>
           </div>
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className={cn(
-              isCalibrated 
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
-                : "bg-amber-50 text-amber-700 border-amber-200"
+              isCalibrated
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200',
             )}
           >
             <Target className="h-3 w-3 mr-1" />
@@ -138,13 +133,13 @@ export function ScoreCalibrationChart({
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={distribution} barCategoryGap="10%">
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis 
-                dataKey="range" 
+              <XAxis
+                dataKey="range"
                 tick={{ fontSize: 11 }}
                 stroke="hsl(var(--muted-foreground))"
                 tickLine={false}
               />
-              <YAxis 
+              <YAxis
                 tick={{ fontSize: 12 }}
                 stroke="hsl(var(--muted-foreground))"
                 tickLine={false}
@@ -161,28 +156,33 @@ export function ScoreCalibrationChart({
               <Bar dataKey="tierA" stackId="a" name="Tier A" fill={tierColors.A} />
               <Bar dataKey="tierB" stackId="a" name="Tier B" fill={tierColors.B} />
               <Bar dataKey="tierC" stackId="a" name="Tier C" fill={tierColors.C} />
-              <Bar dataKey="tierD" stackId="a" name="Tier D" fill={tierColors.D} radius={[4, 4, 0, 0]} />
+              <Bar
+                dataKey="tierD"
+                stackId="a"
+                name="Tier D"
+                fill={tierColors.D}
+                radius={[4, 4, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
-        
+
         {/* Tier Breakdown */}
         <div className="mt-4 pt-4 border-t">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium">Tier Distribution</span>
-            <span className="text-xs text-muted-foreground">Target: {targetTierAPercentage}% Tier A</span>
+            <span className="text-xs text-muted-foreground">
+              Target: {targetTierAPercentage}% Tier A
+            </span>
           </div>
           <div className="flex gap-2">
-            {(['A', 'B', 'C', 'D'] as const).map(tier => (
-              <div 
+            {(['A', 'B', 'C', 'D'] as const).map((tier) => (
+              <div
                 key={tier}
                 className="flex-1 p-2 rounded-lg text-center"
                 style={{ backgroundColor: `${tierColors[tier]}20` }}
               >
-                <div 
-                  className="text-lg font-bold" 
-                  style={{ color: tierColors[tier] }}
-                >
+                <div className="text-lg font-bold" style={{ color: tierColors[tier] }}>
                   {tierStats[`tier${tier}` as keyof typeof tierStats].percentage.toFixed(1)}%
                 </div>
                 <div className="text-xs text-muted-foreground">Tier {tier}</div>
@@ -190,17 +190,16 @@ export function ScoreCalibrationChart({
             ))}
           </div>
         </div>
-        
+
         {/* Category Performance */}
         <div className="mt-4 pt-4 border-t">
           <span className="text-sm font-medium mb-3 block">Category Averages</span>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {[
               { key: 'geography', label: 'Geography' },
-              { key: 'size', label: 'Size' },
               { key: 'service', label: 'Service' },
               { key: 'ownerGoals', label: 'Goals' },
-            ].map(cat => (
+            ].map((cat) => (
               <div key={cat.key} className="text-center">
                 <div className="text-lg font-semibold">
                   {Math.round(categoryStats[cat.key as keyof typeof categoryStats])}

@@ -3,6 +3,7 @@ import type { Database } from './types';
 
 // C-10 FIX: Warn loudly when falling back to hardcoded credentials so misconfiguration
 // is visible during development. Fallbacks kept to avoid breaking production.
+// NOTE: The anon key is a *public* key (embedded in client JS) — it is NOT a secret.
 const SUPABASE_FALLBACK_URL = 'https://vhzipqarkmmfuqadefep.supabase.co';
 const SUPABASE_FALLBACK_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZoemlwcWFya21tZnVxYWRlZmVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MTcxMTMsImV4cCI6MjA2MjE5MzExM30.M653TuQcthJx8vZW4jPkUTdB67D_Dm48ItLcu_XBh2g';
@@ -26,3 +27,16 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   },
 });
+
+/**
+ * Type-safe accessor for tables not yet in the generated Database types.
+ * Returns an untyped query builder — prefer adding the table to the codegen
+ * schema long-term, but this avoids scattering `as any` throughout the codebase.
+ *
+ * Usage: `untypedFrom('my_new_table').select('*')`
+ */
+type KnownTable = keyof Database['public']['Tables'];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function untypedFrom(table: string) {
+  return supabase.from(table as KnownTable) as any;
+}

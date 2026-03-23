@@ -2,35 +2,86 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
+import { selfHealFirm } from '../_shared/firm-self-heal.ts';
 
 /**
  * get-buyer-fee-embed
- * Uses deterministic firm resolution: active connection_request.firm_id first,
- * then fallback to latest firm_members by added_at.
+ * Buyer-facing endpoint: returns the PandaDoc embedded signing session URL for the buyer's Fee Agreement.
+ * Uses canonical resolve_user_firm_id() RPC for deterministic firm resolution.
  */
 
-async function resolveFirmId(supabaseAdmin: ReturnType<typeof createClient>, userId: string): Promise<string | null> {
-  const { data: reqFirm } = await supabaseAdmin
-    .from('connection_requests')
-    .select('firm_id')
-    .eq('user_id', userId)
-    .not('firm_id', 'is', null)
-    .in('status', ['approved', 'pending', 'on_hold'])
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+const PANDADOC_API_BASE = 'https://api.pandadoc.com/public/v1';
 
-  if (reqFirm?.firm_id) return reqFirm.firm_id;
+/** Notify all admins that a buyer opened a signing form */
+async function notifyAdminsSigningRequested(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  buyerName: string,
+  buyerEmail: string,
+  firmId: string,
+  docType: 'nda' | 'fee_agreement',
+  isNewDocument: boolean,
+) {
+  try {
+    const { data: adminRoles } = await supabaseAdmin
+      .from('user_roles')
+      .select('user_id')
+      .in('role', ['admin', 'owner']);
 
-  const { data: membership } = await supabaseAdmin
-    .from('firm_members')
-    .select('firm_id')
-    .eq('user_id', userId)
-    .order('added_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    const admins = (adminRoles || []).map((r: { user_id: string }) => r.user_id);
+    if (!admins.length) return;
 
-  return membership?.firm_id || null;
+    const docLabel = docType === 'nda' ? 'NDA' : 'Fee Agreement';
+    const action = isNewDocument ? 'initiated signing of' : 'opened signing form for';
+
+    const notifications = admins.map((adminId: string) => ({
+      admin_id: adminId,
+      title: `${docLabel} Signing Requested`,
+      message: `${buyerName} (${buyerEmail}) ${action} the ${docLabel}.`,
+      notification_type: 'document_signing_requested',
+      metadata: {
+        firm_id: firmId,
+        document_type: docType,
+        buyer_name: buyerName,
+        buyer_email: buyerEmail,
+        is_new_document: isNewDocument,
+      },
+      action_url: '/admin/documents',
+      is_read: false,
+    }));
+
+    await supabaseAdmin.from('admin_notifications').insert(notifications);
+    console.log(`🔔 Notified ${admins.length} admins: ${buyerName} requested ${docLabel} signing`);
+  } catch (err) {
+    console.error('⚠️ Failed to create admin signing notification:', err);
+  }
+}
+
+async function createPandaDocSession(
+  pandadocApiKey: string,
+  documentId: string,
+  recipientEmail: string,
+): Promise<string | null> {
+  const sessionResponse = await fetch(
+    `${PANDADOC_API_BASE}/documents/${documentId}/session`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `API-Key ${pandadocApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipient: recipientEmail,
+        lifetime: 3600,
+      }),
+    },
+  );
+
+  if (sessionResponse.ok) {
+    const result = await sessionResponse.json();
+    return result.id || null;
+  }
+  console.warn(`⚠️ Failed to create PandaDoc session: HTTP ${sessionResponse.status}`);
+  return null;
 }
 
 serve(async (req: Request) => {
@@ -54,21 +105,44 @@ serve(async (req: Request) => {
     }
 
     const userId = auth.userId;
-    const firmId = await resolveFirmId(supabaseAdmin, userId);
-
-    if (!firmId) {
-      return new Response(
-        JSON.stringify({ error: 'No firm found for this buyer', hasFirm: false }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
+    const { data: firmId, error: resolveErr } = await supabaseAdmin.rpc('resolve_user_firm_id', {
+      p_user_id: userId,
+    });
+    if (resolveErr) {
+      console.error('❌ resolve_user_firm_id error:', resolveErr);
     }
 
-    console.log(`🔍 Resolved firm ${firmId} for user ${userId}`);
+    // Self-heal: if no firm found, auto-create from profile
+    let resolvedFirmId = firmId;
+    if (!resolvedFirmId) {
+      console.log(`⚠️ No firm for user ${userId} — attempting self-heal`);
+      const { data: profileForHeal } = await supabaseAdmin
+        .from('profiles')
+        .select('email, company')
+        .eq('id', userId)
+        .single();
+
+      if (profileForHeal) {
+        const result = await selfHealFirm(supabaseAdmin, userId, profileForHeal);
+        if (result) {
+          resolvedFirmId = result.firmId;
+        }
+      }
+
+      if (!resolvedFirmId) {
+        return new Response(
+          JSON.stringify({ error: 'Could not set up your account for signing. Please try again or contact support.', hasFirm: false }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+        );
+      }
+    }
+
+    console.log(`🔍 Resolved firm ${resolvedFirmId} for user ${userId}`);
 
     const { data: firm } = await supabaseAdmin
       .from('firm_agreements')
-      .select('id, fee_agreement_signed, fee_docuseal_submission_id, fee_docuseal_status')
-      .eq('id', firmId)
+      .select('id, fee_agreement_signed, fee_pandadoc_document_id, fee_pandadoc_status')
+      .eq('id', resolvedFirmId)
       .single();
 
     if (!firm) {
@@ -79,7 +153,7 @@ serve(async (req: Request) => {
     }
 
     if (firm.fee_agreement_signed) {
-      return new Response(JSON.stringify({ feeSigned: true, embedSrc: null, resolvedFirmId: firmId }), {
+      return new Response(JSON.stringify({ feeSigned: true, embedUrl: null, resolvedFirmId }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
@@ -101,160 +175,185 @@ serve(async (req: Request) => {
     const buyerName =
       `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email;
 
-    const docusealApiKey = Deno.env.get('DOCUSEAL_API_KEY');
-    if (!docusealApiKey) {
-      return new Response(JSON.stringify({ error: 'DocuSeal not configured' }), {
+    const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
+    if (!pandadocApiKey) {
+      return new Response(JSON.stringify({ error: 'PandaDoc not configured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    if (firm.fee_docuseal_submission_id) {
+    // If we have an existing PandaDoc document, get a fresh session
+    if (firm.fee_pandadoc_document_id) {
       const fetchController = new AbortController();
       const fetchTimeout = setTimeout(() => fetchController.abort(), 15000);
-      let submitterRes: Response;
       try {
-        submitterRes = await fetch(
-          `https://api.docuseal.com/submitters?submission_id=${firm.fee_docuseal_submission_id}`,
+        const statusRes = await fetch(
+          `${PANDADOC_API_BASE}/documents/${firm.fee_pandadoc_document_id}`,
           {
-            headers: { 'X-Auth-Token': docusealApiKey },
+            headers: { 'Authorization': `API-Key ${pandadocApiKey}` },
             signal: fetchController.signal,
           },
         );
+
+        if (statusRes.ok) {
+          const docData = await statusRes.json();
+
+          // Self-heal: if PandaDoc says completed but our DB doesn't reflect it
+          if (docData.status === 'document.completed') {
+            const now = new Date().toISOString();
+            await supabaseAdmin
+              .from('firm_agreements')
+              .update({
+                fee_agreement_signed: true,
+                fee_agreement_signed_at: now,
+                fee_pandadoc_status: 'completed',
+                fee_agreement_status: 'signed',
+                updated_at: now,
+              })
+              .eq('id', resolvedFirmId);
+
+            // firm_agreements is the single source of truth — no profile-level writes
+
+            console.log(`🔧 Self-healed: fee agreement for firm ${resolvedFirmId} marked as signed`);
+            return new Response(JSON.stringify({ feeSigned: true, embedUrl: null, resolvedFirmId }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+          }
+
+          // Document exists and is not completed — create a fresh session
+          const sessionToken = await createPandaDocSession(
+            pandadocApiKey,
+            firm.fee_pandadoc_document_id,
+            profile.email,
+          );
+
+          if (sessionToken) {
+            const embedUrl = `https://app.pandadoc.com/s/${sessionToken}?embedded=1`;
+            await notifyAdminsSigningRequested(supabaseAdmin, buyerName, profile.email, resolvedFirmId, 'fee_agreement', false);
+            return new Response(JSON.stringify({ feeSigned: false, embedUrl, resolvedFirmId }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            });
+          }
+        }
       } finally {
         clearTimeout(fetchTimeout);
       }
-
-      if (submitterRes.ok) {
-        const submitters = await submitterRes.json();
-        const data = Array.isArray(submitters?.data)
-          ? submitters.data
-          : Array.isArray(submitters)
-            ? submitters
-            : [];
-        const submitter =
-          data.find((s: { email?: string }) => s.email === profile.email) || data[0];
-
-        if (submitter?.status === 'completed') {
-          const now = new Date().toISOString();
-          const docUrl = submitter.documents?.[0]?.url || null;
-          await supabaseAdmin
-            .from('firm_agreements')
-            .update({
-              fee_agreement_signed: true,
-              fee_agreement_signed_at: now,
-              fee_docuseal_status: 'completed',
-              fee_agreement_status: 'signed',
-              ...(docUrl ? { fee_signed_document_url: docUrl, fee_agreement_document_url: docUrl } : {}),
-              updated_at: now,
-            })
-            .eq('id', firmId);
-
-          const { data: members } = await supabaseAdmin
-            .from('firm_members')
-            .select('user_id')
-            .eq('firm_id', firmId);
-          if (members?.length) {
-            for (const member of members) {
-              await supabaseAdmin
-                .from('profiles')
-                .update({ fee_agreement_signed: true, fee_agreement_signed_at: now, updated_at: now })
-                .eq('id', member.user_id);
-            }
-          }
-
-          console.log(`🔧 Self-healed: fee agreement for firm ${firmId} marked as signed`);
-          return new Response(JSON.stringify({ feeSigned: true, embedSrc: null, resolvedFirmId: firmId }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          });
-        }
-
-        if (submitter?.embed_src) {
-          return new Response(JSON.stringify({ feeSigned: false, embedSrc: submitter.embed_src, resolvedFirmId: firmId }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          });
-        }
-      }
     }
 
-    // Create new submission
-    const feeTemplateId = Deno.env.get('DOCUSEAL_FEE_TEMPLATE_ID');
-    if (!feeTemplateId) {
+    // No existing document — create new
+    const feeTemplateUuid = Deno.env.get('PANDADOC_FEE_TEMPLATE_UUID');
+    if (!feeTemplateUuid) {
       return new Response(JSON.stringify({ error: 'Fee agreement template not configured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    const submissionPayload = {
-      template_id: Number(feeTemplateId),
-      send_email: false,
-      submitters: [
-        {
-          role: 'First Party',
-          email: profile.email,
-          name: buyerName,
-          external_id: firmId,
-        },
-      ],
-    };
+    const nameParts = buyerName.split(/\s+/);
+    const firstName = nameParts[0] || buyerName;
+    const lastName = nameParts.slice(1).join(' ') || '';
 
+    // Step 1: Create document from template
     const createController = new AbortController();
     const createTimeout = setTimeout(() => createController.abort(), 15000);
-    let docusealResponse: Response;
+    let createResponse: Response;
     try {
-      docusealResponse = await fetch('https://api.docuseal.com/submissions', {
+      createResponse = await fetch(`${PANDADOC_API_BASE}/documents`, {
         method: 'POST',
         headers: {
-          'X-Auth-Token': docusealApiKey,
+          'Authorization': `API-Key ${pandadocApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(submissionPayload),
+        body: JSON.stringify({
+          name: `Fee Agreement — ${buyerName}`,
+          template_uuid: feeTemplateUuid,
+          recipients: [
+            {
+              email: profile.email,
+              first_name: firstName,
+              last_name: lastName,
+              role: 'Signer',
+            },
+          ],
+          metadata: {
+            firm_id: resolvedFirmId,
+            document_type: 'fee_agreement',
+          },
+          tags: ['fee_agreement', `firm:${resolvedFirmId}`],
+        }),
         signal: createController.signal,
       });
     } finally {
       clearTimeout(createTimeout);
     }
 
-    if (!docusealResponse.ok) {
-      const errorText = await docusealResponse.text();
-      console.error('❌ DocuSeal API error:', docusealResponse.status, errorText);
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error('❌ PandaDoc API error (create):', errorText);
       return new Response(JSON.stringify({ error: 'Failed to create signing form' }), {
         status: 502,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    const result = await docusealResponse.json();
-    const submitter = Array.isArray(result) ? result[0] : result;
-    const submissionId = String(submitter.submission_id || submitter.id);
-    const embedSrc = submitter.embed_src || null;
+    const createResult = await createResponse.json();
+    const documentId = createResult.id;
 
+    // Step 2: Send the document (silent — no email from PandaDoc)
+    await new Promise((r) => setTimeout(r, 2000));
+
+    const sendResponse = await fetch(`${PANDADOC_API_BASE}/documents/${documentId}/send`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `API-Key ${pandadocApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: 'Please review and sign the Fee Agreement to proceed.',
+        silent: true,
+      }),
+    });
+
+    if (!sendResponse.ok) {
+      console.error('❌ PandaDoc send failed:', await sendResponse.text());
+    }
+
+    // Step 3: Create signing session
+    const sessionToken = await createPandaDocSession(pandadocApiKey, documentId, profile.email);
+    const embedUrl = sessionToken
+      ? `https://app.pandadoc.com/s/${sessionToken}?embedded=1`
+      : null;
+
+    // Update DB
     const now = new Date().toISOString();
     await supabaseAdmin
       .from('firm_agreements')
       .update({
-        fee_docuseal_submission_id: submissionId,
-        fee_docuseal_status: 'pending',
+        fee_pandadoc_document_id: documentId,
+        fee_pandadoc_status: 'sent',
         fee_agreement_status: 'sent',
         fee_agreement_sent_at: now,
         updated_at: now,
       })
-      .eq('id', firmId);
+      .eq('id', resolvedFirmId);
 
-    await supabaseAdmin.from('docuseal_webhook_log').insert({
-      event_type: 'submission_created',
-      submission_id: submissionId,
+    await supabaseAdmin.from('pandadoc_webhook_log').insert({
+      event_type: 'document_created',
+      document_id: documentId,
       document_type: 'fee_agreement',
-      external_id: firmId,
+      external_id: resolvedFirmId,
+      signer_email: profile.email,
       raw_payload: { created_by_buyer: userId },
     });
 
-    console.log(`✅ Created fee agreement submission ${submissionId} for buyer ${userId} (firm ${firmId})`);
+    console.log(`✅ Created fee agreement document ${documentId} for buyer ${userId} (firm ${resolvedFirmId})`);
 
-    return new Response(JSON.stringify({ feeSigned: false, embedSrc, resolvedFirmId: firmId }), {
+    await notifyAdminsSigningRequested(supabaseAdmin, buyerName, profile.email, resolvedFirmId, 'fee_agreement', true);
+
+    return new Response(JSON.stringify({ feeSigned: false, embedUrl, resolvedFirmId }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });

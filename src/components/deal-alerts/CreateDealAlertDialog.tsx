@@ -22,7 +22,7 @@ import { useCreateDealAlert, CreateDealAlertRequest } from '@/hooks/use-deal-ale
 import { useListingMetadata } from '@/hooks/marketplace/use-listings';
 import { AlertPreview } from './AlertPreview';
 import { AlertSuccessOnboarding } from './AlertSuccessOnboarding';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { MultiCategorySelect } from '@/components/ui/category-select';
 import { MultiLocationSelect } from '@/components/ui/location-select';
 

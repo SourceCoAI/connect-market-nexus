@@ -1,0 +1,1 @@
+DELETE FROM deal_pipeline WHERE id = '6fc389d3-3e82-4a2c-8c5c-7225074d1773';

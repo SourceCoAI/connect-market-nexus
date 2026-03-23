@@ -26,7 +26,7 @@ import {
 import { AdminConnectionRequest } from "@/types/admin";
 
 export type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'on_hold';
-export type BuyerTypeFilter = 'all' | 'privateEquity' | 'familyOffice' | 'searchFund' | 'corporate' | 'individual' | 'independentSponsor' | 'advisor' | 'businessOwner';
+export type BuyerTypeFilter = 'all' | 'private_equity' | 'corporate' | 'family_office' | 'independent_sponsor' | 'search_fund' | 'individual_buyer';
 export type NdaFilter = 'all' | 'signed' | 'not_signed' | 'sent';
 export type FeeAgreementFilter = 'all' | 'signed' | 'not_signed' | 'sent';
 export type SortOption = 'newest' | 'oldest' | 'buyer_priority' | 'deal_size' | 'approval_date' | 'score_highest' | 'score_lowest';
@@ -148,28 +148,26 @@ export function PipelineFilters({
 
   const buyerTypeOptions = [
     { value: 'all', label: 'All Buyer Types', count: requests.length },
-    { value: 'privateEquity', label: 'Private Equity', count: requests.filter(r => r.user?.buyer_type === 'privateEquity').length },
-    { value: 'familyOffice', label: 'Family Office', count: requests.filter(r => r.user?.buyer_type === 'familyOffice').length },
-    { value: 'searchFund', label: 'Search Fund', count: requests.filter(r => r.user?.buyer_type === 'searchFund').length },
-    { value: 'corporate', label: 'Corporate', count: requests.filter(r => r.user?.buyer_type === 'corporate').length },
-    { value: 'individual', label: 'Individual', count: requests.filter(r => r.user?.buyer_type === 'individual').length },
-    { value: 'independentSponsor', label: 'Independent Sponsor', count: requests.filter(r => r.user?.buyer_type === 'independentSponsor').length },
-    { value: 'advisor', label: 'Advisor / Banker', count: requests.filter(r => r.user?.buyer_type === 'advisor').length },
-    { value: 'businessOwner', label: 'Business Owner', count: requests.filter(r => r.user?.buyer_type === 'businessOwner').length },
+    { value: 'private_equity', label: 'Private Equity', count: requests.filter(r => r.user?.buyer_type === 'private_equity').length },
+    { value: 'family_office', label: 'Family Office', count: requests.filter(r => r.user?.buyer_type === 'family_office').length },
+    { value: 'search_fund', label: 'Search Fund', count: requests.filter(r => r.user?.buyer_type === 'search_fund').length },
+    { value: 'corporate', label: 'Corporate / Strategic', count: requests.filter(r => r.user?.buyer_type === 'corporate').length },
+    { value: 'individual_buyer', label: 'Individual Buyer', count: requests.filter(r => r.user?.buyer_type === 'individual_buyer').length },
+    { value: 'independent_sponsor', label: 'Independent Sponsor', count: requests.filter(r => r.user?.buyer_type === 'independent_sponsor').length },
   ];
 
   const ndaOptions = [
     { value: 'all', label: 'All NDA Status' },
-    { value: 'signed', label: 'NDA Signed', count: requests.filter(r => r.lead_nda_signed || r.user?.nda_signed).length },
-    { value: 'sent', label: 'NDA Sent (Not Signed)', count: requests.filter(r => (r.lead_nda_email_sent || r.user?.nda_email_sent) && !(r.lead_nda_signed || r.user?.nda_signed)).length },
-    { value: 'not_signed', label: 'NDA Not Signed', count: requests.filter(r => !(r.lead_nda_signed || r.user?.nda_signed)).length },
+    { value: 'signed', label: 'NDA Signed', count: requests.filter(r => r.lead_nda_signed).length },
+    { value: 'sent', label: 'NDA Sent (Not Signed)', count: requests.filter(r => r.lead_nda_email_sent && !r.lead_nda_signed).length },
+    { value: 'not_signed', label: 'NDA Not Signed', count: requests.filter(r => !r.lead_nda_signed).length },
   ];
 
   const feeAgreementOptions = [
     { value: 'all', label: 'All Fee Agreement Status' },
-    { value: 'signed', label: 'Fee Agreement Signed', count: requests.filter(r => r.lead_fee_agreement_signed || r.user?.fee_agreement_signed).length },
-    { value: 'sent', label: 'Fee Sent (Not Signed)', count: requests.filter(r => (r.lead_fee_agreement_email_sent || r.user?.fee_agreement_email_sent) && !(r.lead_fee_agreement_signed || r.user?.fee_agreement_signed)).length },
-    { value: 'not_signed', label: 'Fee Not Signed', count: requests.filter(r => !(r.lead_fee_agreement_signed || r.user?.fee_agreement_signed)).length },
+    { value: 'signed', label: 'Fee Agreement Signed', count: requests.filter(r => r.lead_fee_agreement_signed).length },
+    { value: 'sent', label: 'Fee Sent (Not Signed)', count: requests.filter(r => r.lead_fee_agreement_email_sent && !r.lead_fee_agreement_signed).length },
+    { value: 'not_signed', label: 'Fee Not Signed', count: requests.filter(r => !r.lead_fee_agreement_signed).length },
   ];
 
   const statusDropdownOptions = [

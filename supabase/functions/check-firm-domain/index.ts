@@ -15,6 +15,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { GENERIC_EMAIL_DOMAINS } from '../_shared/generic-email-domains.ts';
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return corsPreflightResponse(req);
@@ -53,8 +54,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Exclude generic email providers
-    const generic = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com', 'mail.com', 'protonmail.com'];
-    if (generic.includes(domain)) {
+    if (GENERIC_EMAIL_DOMAINS.has(domain)) {
       return new Response(
         JSON.stringify({ found: false, firm_name: null }),
         { headers: { ...headers, 'Content-Type': 'application/json' } },

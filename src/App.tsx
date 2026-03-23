@@ -2,14 +2,13 @@ import { Suspense, lazy, type ReactNode, type ComponentType } from 'react';
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { AuthProvider } from '@/context/AuthContext';
-import { AnalyticsProvider } from '@/context/AnalyticsContext';
-import { TabVisibilityProvider } from '@/context/TabVisibilityContext';
-import { NavigationStateProvider } from '@/context/NavigationStateContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
+import { TabVisibilityProvider } from '@/contexts/TabVisibilityContext';
+import { NavigationStateProvider } from '@/contexts/NavigationStateContext';
 import SessionTrackingProvider from '@/components/SessionTrackingProvider';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
-import { SimpleToastProvider } from '@/components/ui/simple-toast';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { errorHandler } from '@/lib/error-handler';
 
@@ -45,7 +44,7 @@ function AppProviders({ children }: { children: ReactNode }) {
           <AuthProvider>
             <SessionTrackingProvider>
               <AnalyticsProvider>
-                <SimpleToastProvider>{children}</SimpleToastProvider>
+                {children}
               </AnalyticsProvider>
             </SessionTrackingProvider>
           </AuthProvider>
@@ -126,13 +125,20 @@ const EnrichmentQueue = lazyWithRetry(() => import('@/pages/admin/EnrichmentQueu
 const MarketplaceQueue = lazyWithRetry(() => import('@/pages/admin/MarketplaceQueue'));
 const CreateListingFromDeal = lazyWithRetry(() => import('@/pages/admin/CreateListingFromDeal'));
 const AdminListings = lazyWithRetry(() => import('@/pages/admin/AdminListings'));
+const ListingPreview = lazyWithRetry(() => import('@/pages/ListingPreview'));
 const DataRecoveryPage = lazyWithRetry(() => import('@/pages/admin/DataRecoveryPage'));
 const FormMonitoringPage = lazyWithRetry(() => import('@/pages/admin/FormMonitoringPage'));
 const SecuritySettings = lazyWithRetry(() => import('@/pages/admin/settings/SecuritySettings'));
+const OutreachSettingsPage = lazyWithRetry(
+  () => import('@/pages/admin/settings/OutreachSettingsPage'),
+);
 const GlobalApprovalsPage = lazyWithRetry(() => import('@/pages/admin/GlobalApprovalsPage'));
 const DocumentTrackingPage = lazyWithRetry(() => import('@/pages/admin/DocumentTrackingPage'));
 const TestingHub = lazyWithRetry(() => import('@/pages/admin/TestingHub'));
 const MessageCenter = lazyWithRetry(() => import('@/pages/admin/MessageCenter'));
+const MessagesLayout = lazyWithRetry(() => import('@/pages/admin/MessagesLayout'));
+const SmartleadResponsesList = lazyWithRetry(() => import('@/pages/admin/SmartleadResponsesList'));
+const SmartleadResponseDetail = lazyWithRetry(() => import('@/pages/admin/SmartleadResponseDetail'));
 const AdminFeatureIdeas = lazyWithRetry(() => import('@/pages/admin/AdminFeatureIdeas'));
 const PEFirmLinkReview = lazyWithRetry(() => import('@/pages/admin/PEFirmLinkReview'));
 
@@ -153,6 +159,11 @@ const PhoneBurnerSettingsPage = lazyWithRetry(
 // Fireflies pages
 const FirefliesIntegrationPage = lazyWithRetry(
   () => import('@/pages/admin/FirefliesIntegrationPage'),
+);
+
+// Training Center / Objection Tracker
+const ObjectionTrackerPage = lazyWithRetry(
+  () => import('@/features/objection-tracker/ObjectionTrackerPage'),
 );
 
 // ReMarketing pages (now rendered inside AdminLayout via shared sidebar)
@@ -204,6 +215,7 @@ const CapTargetDeals = lazyWithRetry(
   () => import('@/pages/admin/remarketing/CapTargetDeals/index'),
 );
 const GPPartnerDeals = lazyWithRetry(() => import('@/pages/admin/remarketing/GPPartnerDeals'));
+const MasterLeads = lazyWithRetry(() => import('@/pages/admin/remarketing/MasterLeads'));
 const SourceCoDeals = lazyWithRetry(() => import('@/pages/admin/remarketing/SourceCoDeals'));
 const ValuationLeads = lazyWithRetry(() => import('@/pages/admin/remarketing/ValuationLeads'));
 const DailyTaskDashboard = lazyWithRetry(
@@ -260,22 +272,22 @@ function App() {
         >
           <Routes>
             {/* ─── PUBLIC ─── */}
-            <Route path="/welcome" element={<Welcome />} />
-            <Route path="/sell" element={<OwnerInquiry />} />
-            <Route path="/sell/success" element={<OwnerInquirySuccess />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/signup-success" element={<SignupSuccess />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/pending-approval" element={<PendingApproval />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/unauthorized" element={<Unauthorized />} />
-            <Route path="/admin-login" element={<AdminLogin />} />
-            <Route path="/referrals/:shareToken" element={<ReferralTrackerPage />} />
-            <Route path="/dataroom/:accessToken" element={<DataRoomPortal />} />
-            <Route path="/view/:linkToken" element={<TrackedDocumentViewer />} />
-            <Route path="/deals/:id" element={<DealLandingPage />} />
+            <Route path="/welcome" element={<RouteErrorBoundary name="PublicRoutes"><Welcome /></RouteErrorBoundary>} />
+            <Route path="/sell" element={<RouteErrorBoundary name="PublicRoutes"><OwnerInquiry /></RouteErrorBoundary>} />
+            <Route path="/sell/success" element={<RouteErrorBoundary name="PublicRoutes"><OwnerInquirySuccess /></RouteErrorBoundary>} />
+            <Route path="/login" element={<RouteErrorBoundary name="PublicRoutes"><Login /></RouteErrorBoundary>} />
+            <Route path="/signup" element={<RouteErrorBoundary name="PublicRoutes"><Signup /></RouteErrorBoundary>} />
+            <Route path="/signup-success" element={<RouteErrorBoundary name="PublicRoutes"><SignupSuccess /></RouteErrorBoundary>} />
+            <Route path="/forgot-password" element={<RouteErrorBoundary name="PublicRoutes"><ForgotPassword /></RouteErrorBoundary>} />
+            <Route path="/reset-password" element={<RouteErrorBoundary name="PublicRoutes"><ResetPassword /></RouteErrorBoundary>} />
+            <Route path="/pending-approval" element={<RouteErrorBoundary name="PublicRoutes"><PendingApproval /></RouteErrorBoundary>} />
+            <Route path="/auth/callback" element={<RouteErrorBoundary name="PublicRoutes"><AuthCallback /></RouteErrorBoundary>} />
+            <Route path="/unauthorized" element={<RouteErrorBoundary name="PublicRoutes"><Unauthorized /></RouteErrorBoundary>} />
+            <Route path="/admin-login" element={<RouteErrorBoundary name="PublicRoutes"><AdminLogin /></RouteErrorBoundary>} />
+            <Route path="/referrals/:shareToken" element={<RouteErrorBoundary name="PublicRoutes"><ReferralTrackerPage /></RouteErrorBoundary>} />
+            <Route path="/dataroom/:accessToken" element={<RouteErrorBoundary name="PublicRoutes"><DataRoomPortal /></RouteErrorBoundary>} />
+            <Route path="/view/:linkToken" element={<RouteErrorBoundary name="PublicRoutes"><TrackedDocumentViewer /></RouteErrorBoundary>} />
+            <Route path="/deals/:id" element={<RouteErrorBoundary name="PublicRoutes"><DealLandingPage /></RouteErrorBoundary>} />
 
             {/* ─── BUYER-FACING (unchanged) ─── */}
             <Route
@@ -365,11 +377,16 @@ function App() {
               <Route path="lists/:id" element={<ContactListDetailPage />} />
 
               {/* MARKETPLACE (listings absorbed into unified All Deals page) */}
+              <Route path="listing-preview/:id" element={<ListingPreview />} />
               <Route path="marketplace/listings" element={<AdminListings />} />
               <Route path="marketplace/queue" element={<MarketplaceQueue />} />
               <Route path="marketplace/create-listing" element={<CreateListingFromDeal />} />
               <Route path="marketplace/requests" element={<AdminRequests />} />
-              <Route path="marketplace/messages" element={<MessageCenter />} />
+              <Route path="marketplace/messages" element={<MessagesLayout />}>
+                <Route index element={<MessageCenter />} />
+                <Route path="smartlead" element={<SmartleadResponsesList />} />
+                <Route path="smartlead/:inboxId" element={<SmartleadResponseDetail />} />
+              </Route>
               <Route path="marketplace/users" element={<MarketplaceUsersPage />} />
 
               {/* REMARKETING (GlobalActivityStatusBar lives in ReMarketingLayout wrapper) */}
@@ -383,6 +400,7 @@ function App() {
               >
                 <Route index element={<ReMarketingDashboard />} />
                 <Route path="activity-queue" element={<ReMarketingActivityQueue />} />
+                <Route path="leads" element={<MasterLeads />} />
                 <Route path="leads/captarget" element={<CapTargetDeals />} />
                 <Route path="leads/captarget/:dealId" element={<ReMarketingDealDetail />} />
                 <Route path="leads/gp-partners" element={<GPPartnerDeals />} />
@@ -495,6 +513,9 @@ function App() {
                 }
               />
 
+              {/* TRAINING CENTER */}
+              <Route path="training-center" element={<ObjectionTrackerPage />} />
+
               {/* APPROVALS */}
               <Route
                 path="approvals"
@@ -566,6 +587,14 @@ function App() {
                 }
               />
               <Route
+                path="settings/outreach"
+                element={
+                  <RoleGate min="admin">
+                    <OutreachSettingsPage />
+                  </RoleGate>
+                }
+              />
+              <Route
                 path="settings/data-recovery"
                 element={
                   <RoleGate min="owner">
@@ -607,8 +636,8 @@ function App() {
                 element={<Navigate to="/admin/testing?tab=system" replace />}
               />
               <Route
-                path="docuseal-health"
-                element={<Navigate to="/admin/testing?tab=docuseal" replace />}
+                path="pandadoc-health"
+                element={<Navigate to="/admin/testing?tab=pandadoc" replace />}
               />
               <Route
                 path="listings"

@@ -77,7 +77,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailSubject = listingTitle
       ? `Fee Agreement - ${listingTitle} | SourceCo`
-      : subject || 'Fee Agreement | SourceCo';
+      : subject || 'Your first introduction is one step away';
 
     console.log(`📧 Starting fee agreement email process`, {
       userEmail,

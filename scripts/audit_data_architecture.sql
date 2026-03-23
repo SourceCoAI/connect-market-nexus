@@ -51,7 +51,7 @@ FROM (VALUES
   ('deal_documents'),
   ('document_release_log'),
   ('document_tracked_links'),
-  ('docuseal_webhook_log'),
+  ('pandadoc_webhook_log'),
   ('connection_requests'),
   ('inbound_leads')
 ) AS t(required_table)
@@ -269,7 +269,7 @@ LEFT JOIN all_fks f
 ORDER BY r.from_tbl, r.from_col;
 
 \echo ''
-\echo '--- 4c. docuseal_webhook_log → contacts FK (should NOT exist per audit spec) ---'
+\echo '--- 4c. pandadoc_webhook_log → contacts FK (should NOT exist per audit spec) ---'
 SELECT
   CASE
     WHEN EXISTS (
@@ -285,12 +285,12 @@ SELECT
         AND ccu.table_schema = tc.table_schema
       WHERE tc.constraint_type = 'FOREIGN KEY'
         AND tc.table_schema = 'public'
-        AND tc.table_name = 'docuseal_webhook_log'
+        AND tc.table_name = 'pandadoc_webhook_log'
         AND kcu.column_name = 'contact_id'
         AND ccu.table_name = 'contacts'
-    ) THEN '⚠️ FK EXISTS — docuseal_webhook_log.contact_id → contacts (audit spec says this should be absent; however migration 20260306100000 intentionally added it)'
+    ) THEN '⚠️ FK EXISTS — pandadoc_webhook_log.contact_id → contacts (audit spec says this should be absent; however migration 20260306100000 intentionally added it)'
     ELSE '✅ ABSENT as expected'
-  END AS docuseal_contact_fk_status;
+  END AS pandadoc_contact_fk_status;
 
 
 -- ============================================================================
@@ -558,12 +558,12 @@ WHERE rbc.email IS NOT NULL;
 
 
 -- ============================================================================
--- SECTION 11 — DOCUSEAL SIGNING AUDIT
+-- SECTION 11 — PANDADOC SIGNING AUDIT
 -- ============================================================================
 
 \echo ''
 \echo '══════════════════════════════════════════════════════════════'
-\echo ' SECTION 11 — DOCUSEAL SIGNING AUDIT'
+\echo ' SECTION 11 — PANDADOC SIGNING AUDIT'
 \echo '══════════════════════════════════════════════════════════════'
 \echo ''
 
@@ -573,7 +573,7 @@ SELECT
   document_type,
   COUNT(*) AS events,
   COUNT(DISTINCT submission_id) AS unique_submissions
-FROM public.docuseal_webhook_log
+FROM public.pandadoc_webhook_log
 GROUP BY event_type, document_type
 ORDER BY document_type, event_type;
 
@@ -586,10 +586,10 @@ SELECT
   fa.primary_company_name AS firm,
   fa.nda_status,
   fa.fee_agreement_status
-FROM public.docuseal_webhook_log dwl
+FROM public.pandadoc_webhook_log dwl
 LEFT JOIN public.firm_agreements fa
-  ON fa.nda_docuseal_submission_id = dwl.submission_id
-  OR fa.fee_docuseal_submission_id = dwl.submission_id
+  ON fa.nda_pandadoc_document_id = dwl.submission_id
+  OR fa.fee_pandadoc_document_id = dwl.submission_id
 WHERE dwl.event_type ILIKE '%completed%' OR dwl.event_type ILIKE '%signed%'
 ORDER BY dwl.created_at DESC
 LIMIT 20;
@@ -600,10 +600,10 @@ SELECT
   COUNT(*) FILTER (WHERE fa.id IS NOT NULL) AS joinable_to_firm,
   COUNT(*) FILTER (WHERE fa.id IS NULL) AS orphaned_no_firm_match,
   COUNT(*) AS total_completed
-FROM public.docuseal_webhook_log dwl
+FROM public.pandadoc_webhook_log dwl
 LEFT JOIN public.firm_agreements fa
-  ON fa.nda_docuseal_submission_id = dwl.submission_id
-  OR fa.fee_docuseal_submission_id = dwl.submission_id
+  ON fa.nda_pandadoc_document_id = dwl.submission_id
+  OR fa.fee_pandadoc_document_id = dwl.submission_id
 WHERE dwl.event_type ILIKE '%completed%' OR dwl.event_type ILIKE '%signed%';
 
 
@@ -688,7 +688,7 @@ FROM (VALUES
   ('data_room_access'),
   ('deal_documents'),
   ('document_release_log'),
-  ('docuseal_webhook_log'),
+  ('pandadoc_webhook_log'),
   ('deals'),
   ('listings'),
   ('profiles'),
@@ -881,7 +881,7 @@ SELECT
   fa.primary_company_name AS firm,
   fa.nda_status,
   fa.nda_signed_at,
-  fa.nda_docuseal_submission_id,
+  fa.nda_pandadoc_document_id,
   c.first_name || ' ' || c.last_name AS contact_at_firm
 FROM public.firm_agreements fa
 LEFT JOIN public.contacts c

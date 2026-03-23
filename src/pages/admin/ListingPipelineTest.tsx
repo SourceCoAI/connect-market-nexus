@@ -89,11 +89,10 @@ async function runPipelineChecks(dealId: string): Promise<PipelineReport> {
     label: string;
     check: () => boolean;
   }> = [
-    { label: 'Website', check: () => !!deal.website },
-    { label: 'Revenue', check: () => !!deal.revenue },
-    { label: 'EBITDA', check: () => !!deal.ebitda },
+    { label: 'Revenue', check: () => typeof deal.revenue === 'number' && deal.revenue > 0 },
+    { label: 'EBITDA', check: () => deal.ebitda != null },
     {
-      label: 'Location',
+      label: 'Location / Geography',
       check: () => !!(deal.address_state || deal.location),
     },
     {
@@ -106,6 +105,7 @@ async function runPipelineChecks(dealId: string): Promise<PipelineReport> {
     },
     { label: 'Main contact name', check: () => !!deal.main_contact_name },
     { label: 'Main contact email', check: () => !!deal.main_contact_email },
+    { label: 'Hero description', check: () => !!deal.hero_description },
   ];
 
   const failedGates = gateFields.filter((g) => !g.check());

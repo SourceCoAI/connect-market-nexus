@@ -31,6 +31,7 @@ interface KanbanBoardProps {
 export function KanbanBoard({ listingId, listingTitle }: KanbanBoardProps) {
   const {
     columns,
+    introductions,
     isLoading,
     moveToColumn,
     updateIntroductionNotes,
@@ -175,6 +176,20 @@ export function KanbanBoard({ listingId, listingTitle }: KanbanBoardProps) {
     [followUpTarget, updateIntroductionNotes],
   );
 
+  const resolvedBuyerIds = Object.fromEntries(
+    introductions.map((intro) => [
+      intro.id,
+      ((intro as BuyerIntroduction & { resolved_buyer_id?: string | null }).resolved_buyer_id ?? null),
+    ]),
+  );
+
+  const resolvedPeFirmNames = Object.fromEntries(
+    introductions.map((intro) => [
+      intro.id,
+      ((intro as BuyerIntroduction & { resolved_pe_firm_name?: string | null }).resolved_pe_firm_name ?? null),
+    ]),
+  );
+
   if (isLoading) {
     return (
       <div className="flex gap-4 overflow-x-auto pb-4">
@@ -202,6 +217,8 @@ export function KanbanBoard({ listingId, listingTitle }: KanbanBoardProps) {
           <KanbanColumn
             column="to_introduce"
             buyers={columns.to_introduce}
+            resolvedBuyerIds={resolvedBuyerIds}
+            resolvedPeFirmNames={resolvedPeFirmNames}
             onAddBuyer={() => setAddBuyerOpen(true)}
             onIntroduce={handleIntroduceFromButton}
             onRemove={handleRemove}
@@ -209,6 +226,8 @@ export function KanbanBoard({ listingId, listingTitle }: KanbanBoardProps) {
           <KanbanColumn
             column="introduced"
             buyers={columns.introduced}
+            resolvedBuyerIds={resolvedBuyerIds}
+            resolvedPeFirmNames={resolvedPeFirmNames}
             onMarkInterested={handleMarkInterested}
             onMarkPassed={handleMarkPassed}
             onLogFollowUp={(buyer) => setFollowUpTarget(buyer)}
@@ -216,11 +235,15 @@ export function KanbanBoard({ listingId, listingTitle }: KanbanBoardProps) {
           <KanbanColumn
             column="interested"
             buyers={columns.interested}
+            resolvedBuyerIds={resolvedBuyerIds}
+            resolvedPeFirmNames={resolvedPeFirmNames}
             onApproveForPipeline={(buyer) => setApproveTarget(buyer)}
           />
           <KanbanColumn
             column="passed"
             buyers={columns.passed}
+            resolvedBuyerIds={resolvedBuyerIds}
+            resolvedPeFirmNames={resolvedPeFirmNames}
             onReactivate={handleReactivate}
           />
         </div>

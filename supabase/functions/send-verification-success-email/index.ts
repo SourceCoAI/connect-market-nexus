@@ -1,10 +1,9 @@
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
-import { sendViaBervo } from "../_shared/brevo-sender.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 
 interface VerificationSuccessRequest {
   email: string;
@@ -79,17 +78,17 @@ function buildVerificationSuccessHtml(userName: string, loginUrl: string): strin
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
 
   try {
-    console.log("Email verification success notification request received");
+    console.log('Email verification success notification request received');
 
     const { email, firstName, lastName }: VerificationSuccessRequest = await req.json();
 
     if (!email) {
-      throw new Error("Email is required");
+      throw new Error('Email is required');
     }
 
     const userName = firstName && lastName ? `${firstName} ${lastName}` : firstName || 'there';
@@ -107,7 +106,10 @@ const handler = async (req: Request): Promise<Response> => {
       senderName: 'SourceCo',
     });
 
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
     await logEmailDelivery(supabase, {
       email,
       emailType: 'verification_success',
@@ -118,23 +120,37 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!result.success) throw new Error(result.error);
 
-    console.log("Verification success email sent to:", email);
+    console.log('Verification success email sent to:', email);
 
     return new Response(JSON.stringify({ success: true, messageId: result.messageId }), {
       status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (error: unknown) {
-    console.error("Error in send-verification-success-email:", error);
+    console.error('Error in send-verification-success-email:', error);
 
     try {
-      const sbClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-      await logEmailDelivery(sbClient, { email: 'unknown', emailType: 'verification_success', status: 'failed', correlationId: crypto.randomUUID(), errorMessage: error.message });
-    } catch (_) { /* best-effort */ }
+      const sbClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      );
+      await logEmailDelivery(sbClient, {
+        email: 'unknown',
+        emailType: 'verification_success',
+        status: 'failed',
+        correlationId: crypto.randomUUID(),
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    } catch (_) {
+      /* best-effort */
+    }
 
     return new Response(
-      JSON.stringify({ error: error.message, success: false }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      JSON.stringify({
+        error: error instanceof Error ? error.message : String(error),
+        success: false,
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   }
 };

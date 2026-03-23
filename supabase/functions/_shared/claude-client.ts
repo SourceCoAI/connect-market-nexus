@@ -3,7 +3,8 @@
  * Supports streaming responses with tool calling.
  */
 
-import { fetchWithAutoRetry } from './ai-providers.ts';
+import { fetchWithAutoRetry, type RateLimitConfig } from './ai-providers.ts';
+import { waitForProviderSlot, withConcurrencyTracking, reportRateLimit } from './rate-limiter.ts';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -73,6 +74,7 @@ export interface ClaudeCallOptions {
   messages: ClaudeMessage[];
   tools?: ClaudeTool[];
   timeoutMs?: number;
+  rateLimitConfig?: RateLimitConfig;
 }
 
 export interface ClaudeResponse {
@@ -87,37 +89,66 @@ export async function callClaude(options: ClaudeCallOptions): Promise<ClaudeResp
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
-  const response = await fetchWithAutoRetry(
-    ANTHROPIC_API_URL,
-    {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'prompt-caching-2024-07-31',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: options.model,
-        max_tokens: options.maxTokens,
-        system: [
-          { type: 'text', text: options.systemPrompt, cache_control: { type: 'ephemeral' } },
-        ],
-        messages: options.messages,
-        tools: options.tools,
-        stream: false,
-      }),
-      signal: AbortSignal.timeout(options.timeoutMs || 30000),
-    },
-    { maxRetries: 2, baseDelayMs: 1000, callerName: `Claude/${options.model}` },
-  );
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Claude API error ${response.status}: ${errorBody}`);
+  // Wait for rate limiter slot if configured
+  if (options.rateLimitConfig?.supabase) {
+    await waitForProviderSlot(options.rateLimitConfig.supabase, 'anthropic');
   }
 
-  return await response.json();
+  const doFetch = async () => {
+    const response = await fetchWithAutoRetry(
+      ANTHROPIC_API_URL,
+      {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'prompt-caching-2024-07-31',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: options.model,
+          max_tokens: options.maxTokens,
+          system: [
+            { type: 'text', text: options.systemPrompt, cache_control: { type: 'ephemeral' } },
+          ],
+          messages: options.messages,
+          tools: options.tools,
+          stream: false,
+        }),
+        signal: AbortSignal.timeout(options.timeoutMs || 30000),
+      },
+      { maxRetries: 1, baseDelayMs: 1000, callerName: `Claude/${options.model}` },
+    );
+
+    if (response.status === 429 && options.rateLimitConfig?.supabase) {
+      await reportRateLimit(options.rateLimitConfig.supabase, 'anthropic');
+    }
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Claude API error ${response.status}: ${errorBody}`);
+    }
+
+    return await response.json();
+  };
+
+  try {
+    // Wrap with concurrency tracking if rate limiter is configured
+    if (options.rateLimitConfig?.supabase) {
+      return await withConcurrencyTracking(options.rateLimitConfig.supabase, 'anthropic', doFetch);
+    }
+    return await doFetch();
+  } catch (err) {
+    // Re-throw timeout/abort errors with model context for better diagnostics
+    if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      const timeoutSec = Math.round((options.timeoutMs || 30000) / 1000);
+      throw new Error(
+        `Claude ${options.model} timed out after ${timeoutSec}s. ` +
+        'The AI model took too long to respond.'
+      );
+    }
+    throw err;
+  }
 }
 
 // ---------- Streaming call (for orchestrator) ----------

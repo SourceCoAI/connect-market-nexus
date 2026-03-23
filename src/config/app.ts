@@ -9,6 +9,8 @@
  *   console.log(APP_CONFIG.name); // "Connect Market Nexus"
  */
 
+const EMAIL_DOMAIN = import.meta.env.VITE_EMAIL_DOMAIN || 'sourcecodeals.com';
+
 export const APP_CONFIG = {
   /** Display name shown in headers, emails, etc. */
   name: 'SourceCo Marketplace',
@@ -17,16 +19,16 @@ export const APP_CONFIG = {
   version: '0.0.0',
 
   /** Support / contact email */
-  supportEmail: 'support@sourcecodeals.com',
+  supportEmail: import.meta.env.VITE_SUPPORT_EMAIL || `support@${EMAIL_DOMAIN}`,
 
   /** Default admin email (used for mailto links, reply-to, etc.) */
-  adminEmail: 'adam.haile@sourcecodeals.com',
+  adminEmail: import.meta.env.VITE_ADMIN_EMAIL || `adam.haile@${EMAIL_DOMAIN}`,
 
   /** No-reply sender email for transactional emails */
-  noreplyEmail: 'noreply@sourcecodeals.com',
+  noreplyEmail: `noreply@${EMAIL_DOMAIN}`,
 
   /** Deals inbox email */
-  dealsEmail: 'deals@sourcecodeals.com',
+  dealsEmail: `deals@${EMAIL_DOMAIN}`,
 } as const;
 
 // ─── Feature Flags ───────────────────────────────────────────────────────────

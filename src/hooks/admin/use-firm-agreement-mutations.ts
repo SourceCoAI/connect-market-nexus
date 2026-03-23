@@ -313,3 +313,115 @@ export function useRemoveDomainAlias() {
     },
   });
 }
+
+// ─── Reassign Member to Different Firm ───
+
+export function useReassignFirmMember() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({
+      memberId,
+      oldFirmId,
+      newFirmId,
+      userId,
+    }: {
+      memberId: string;
+      oldFirmId: string;
+      newFirmId: string;
+      userId: string | null;
+    }) => {
+      // Delete old membership
+      const { error: delError } = await supabase
+        .from('firm_members' as never)
+        .delete()
+        .eq('id', memberId);
+      if (delError) throw delError;
+
+      // Insert new membership
+      if (userId) {
+        const { error: insError } = await supabase
+          .from('firm_members' as never)
+          .upsert(
+            { firm_id: newFirmId, user_id: userId, member_type: 'marketplace_user', added_at: new Date().toISOString() } as never,
+            { onConflict: 'firm_id,user_id' },
+          );
+        if (insError) throw insError;
+      }
+
+      // Update connection_requests
+      if (userId) {
+        await supabase
+          .from('connection_requests' as never)
+          .update({ firm_id: newFirmId } as never)
+          .eq('user_id', userId)
+          .eq('firm_id', oldFirmId);
+      }
+
+      // Update member counts
+      for (const fId of [oldFirmId, newFirmId]) {
+        const { count } = await supabase
+          .from('firm_members' as never)
+          .select('id', { count: 'exact', head: true })
+          .eq('firm_id', fId);
+        await supabase
+          .from('firm_agreements')
+          .update({ member_count: count ?? 0, updated_at: new Date().toISOString() })
+          .eq('id', fId);
+      }
+
+      return { oldFirmId, newFirmId };
+    },
+    onSuccess: (_data, { oldFirmId, newFirmId }) => {
+      queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
+      queryClient.invalidateQueries({ queryKey: ['firm-members', oldFirmId] });
+      queryClient.invalidateQueries({ queryKey: ['firm-members', newFirmId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      queryClient.invalidateQueries({ queryKey: ['user-firm'] });
+      queryClient.invalidateQueries({ queryKey: ['connection-request-firm'] });
+      toast({ title: 'Member reassigned to correct firm' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Reassignment failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+// ─── Remove Member from Firm ───
+
+export function useRemoveFirmMember() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ memberId, firmId }: { memberId: string; firmId: string }) => {
+      const { error } = await supabase
+        .from('firm_members' as never)
+        .delete()
+        .eq('id', memberId);
+      if (error) throw error;
+
+      // Update member count
+      const { count } = await supabase
+        .from('firm_members' as never)
+        .select('id', { count: 'exact', head: true })
+        .eq('firm_id', firmId);
+      await supabase
+        .from('firm_agreements')
+        .update({ member_count: count ?? 0, updated_at: new Date().toISOString() })
+        .eq('id', firmId);
+
+      return firmId;
+    },
+    onSuccess: (_data, { firmId }) => {
+      queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
+      queryClient.invalidateQueries({ queryKey: ['firm-members', firmId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      toast({ title: 'Member removed from firm' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Removal failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}

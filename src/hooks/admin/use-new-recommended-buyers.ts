@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useCallback } from 'react';
+import { invokeEdgeFunction } from '@/lib/invoke-edge-function';
 
 export interface BuyerScore {
   buyer_id: string;
@@ -13,6 +13,7 @@ export interface BuyerScore {
   has_fee_agreement: boolean;
   acquisition_appetite: string | null;
   company_website: string | null;
+  platform_website: string | null;
   is_publicly_traded: boolean | null;
   is_pe_backed: boolean;
   composite_score: number;
@@ -24,6 +25,8 @@ export interface BuyerScore {
   fit_reason: string;
   tier: 'move_now' | 'strong' | 'speculative';
   source: 'ai_seeded' | 'marketplace' | 'scored';
+  /** Buyer type priority for ranking (1=PE-backed platform, 2=PE/FO, 3=IS/SF, 4=Operating, 5=Other) */
+  buyer_type_priority?: number;
 }
 
 export interface RecommendedBuyersResult {
@@ -31,25 +34,6 @@ export interface RecommendedBuyersResult {
   total: number;
   cached: boolean;
   scored_at: string;
-}
-
-/** Extract the real error message from a Supabase FunctionsHttpError */
-async function extractEdgeFunctionError(error: unknown): Promise<string> {
-  // FunctionsHttpError has a context property with the Response object
-  if (error && typeof error === 'object' && 'context' in error) {
-    try {
-      const ctx = (error as { context: Response }).context;
-      if (ctx && typeof ctx.json === 'function') {
-        const body = await ctx.json();
-        if (body?.error) return body.error + (body.details ? `: ${body.details}` : '');
-        return JSON.stringify(body);
-      }
-    } catch {
-      // Fall through to generic message
-    }
-  }
-  if (error instanceof Error) return error.message;
-  return String(error);
 }
 
 /** Validate edge function response shape to prevent cache corruption */
@@ -67,13 +51,10 @@ export function useNewRecommendedBuyers(listingId: string | null | undefined) {
   const query = useQuery<RecommendedBuyersResult>({
     queryKey: ['new-recommended-buyers', listingId],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('score-deal-buyers', {
+      const data = await invokeEdgeFunction<RecommendedBuyersResult>('score-deal-buyers', {
         body: { listingId },
+        maxRetries: 2,
       });
-      if (error) {
-        const msg = await extractEdgeFunctionError(error);
-        throw new Error(msg);
-      }
       return validateResult(data);
     },
     enabled: !!listingId,
@@ -82,13 +63,10 @@ export function useNewRecommendedBuyers(listingId: string | null | undefined) {
   });
 
   const refresh = useCallback(async () => {
-    const { data, error } = await supabase.functions.invoke('score-deal-buyers', {
+    const data = await invokeEdgeFunction<RecommendedBuyersResult>('score-deal-buyers', {
       body: { listingId, forceRefresh: true },
+      maxRetries: 2,
     });
-    if (error) {
-      const msg = await extractEdgeFunctionError(error);
-      throw new Error(msg);
-    }
     const validated = validateResult(data);
     queryClient.setQueryData(['new-recommended-buyers', listingId], validated);
     return validated;

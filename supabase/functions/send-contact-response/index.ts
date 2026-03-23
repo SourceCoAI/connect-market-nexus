@@ -1,9 +1,8 @@
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { logEmailDelivery } from "../_shared/email-logger.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 interface ContactResponseData {
   to: string;
@@ -18,7 +17,7 @@ serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
 
   console.log('🚀 Contact response function invoked');
-  
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log('✅ Handling CORS preflight request');
@@ -28,14 +27,19 @@ serve(async (req: Request) => {
   try {
     const requestBody = await req.json();
     console.log('📝 Request body received:', { ...requestBody, content: '[HIDDEN]' });
-    
-    const { to, subject, content, feedbackId, userName, category }: ContactResponseData = requestBody;
-    
+
+    const { to, subject, content, feedbackId, userName, category }: ContactResponseData =
+      requestBody;
+
     if (!to || !subject || !content) {
-      console.error('❌ Missing required fields:', { to: !!to, subject: !!subject, content: !!content });
+      console.error('❌ Missing required fields:', {
+        to: !!to,
+        subject: !!subject,
+        content: !!content,
+      });
       throw new Error('Missing required fields: to, subject, or content');
     }
-    
+
     const brevoApiKey = Deno.env.get('BREVO_API_KEY');
     if (!brevoApiKey) {
       console.error('❌ BREVO_API_KEY not configured');
@@ -72,45 +76,53 @@ This is an automated response. Please do not reply to this email.`;
             return {
               subject: `Thank you for reporting a bug${userName ? `, ${userName}` : ''}`,
               title: 'Thank You for Reporting a Bug!',
-              mainText: 'Thank you for helping us improve our platform by reporting this bug! Your report has been received and our development team will investigate the issue.',
-              followUpText: 'We take all bug reports seriously and work quickly to fix issues. We\'ll keep you updated on the progress.',
+              mainText:
+                'Thank you for helping us improve our platform by reporting this bug! Your report has been received and our development team will investigate the issue.',
+              followUpText:
+                "We take all bug reports seriously and work quickly to fix issues. We'll keep you updated on the progress.",
               borderColor: '#dc3545',
-              backgroundColor: '#fff5f5'
+              backgroundColor: '#fff5f5',
             };
           case 'feature':
             return {
               subject: `Thank you for your feature suggestion${userName ? `, ${userName}` : ''}`,
               title: 'Thank You for Your Feature Request!',
-              mainText: 'Thank you for sharing your feature suggestion! Your request has been received and will be reviewed by our product team.',
-              followUpText: 'We value your input and use it to prioritize new features. We\'ll consider your suggestion for future updates.',
+              mainText:
+                'Thank you for sharing your feature suggestion! Your request has been received and will be reviewed by our product team.',
+              followUpText:
+                "We value your input and use it to prioritize new features. We'll consider your suggestion for future updates.",
               borderColor: '#6f42c1',
-              backgroundColor: '#f8f5ff'
+              backgroundColor: '#f8f5ff',
             };
           case 'ui':
             return {
               subject: `Thank you for your UI feedback${userName ? `, ${userName}` : ''}`,
               title: 'Thank You for Your UI Feedback!',
-              mainText: 'Thank you for helping us improve the user experience! Your UI feedback has been received and will be reviewed by our design team.',
-              followUpText: 'Your insights help us create a better, more intuitive platform for everyone. We appreciate your attention to detail.',
+              mainText:
+                'Thank you for helping us improve the user experience! Your UI feedback has been received and will be reviewed by our design team.',
+              followUpText:
+                'Your insights help us create a better, more intuitive platform for everyone. We appreciate your attention to detail.',
               borderColor: '#fd7e14',
-              backgroundColor: '#fff8f0'
+              backgroundColor: '#fff8f0',
             };
           case 'general':
           default:
             return {
               subject: `Thank you for your feedback${userName ? `, ${userName}` : ''}`,
               title: 'Thank You for Your Feedback!',
-              mainText: 'Thank you for your valuable feedback! Your submission has been received and is being reviewed by our team.',
-              followUpText: 'We take all feedback seriously and use it to improve our platform. If your feedback requires a response, we\'ll get back to you soon.',
+              mainText:
+                'Thank you for your valuable feedback! Your submission has been received and is being reviewed by our team.',
+              followUpText:
+                "We take all feedback seriously and use it to improve our platform. If your feedback requires a response, we'll get back to you soon.",
               borderColor: '#28a745',
-              backgroundColor: '#f8fff9'
+              backgroundColor: '#f8fff9',
             };
         }
       };
 
       const emailContent = getEmailContent(category || 'general');
       emailSubject = emailContent.subject;
-      
+
       emailHtml = `Hello${userName ? ` ${userName}` : ''},
 
 ${emailContent.mainText}
@@ -133,7 +145,7 @@ This is an automated response. Please do not reply to this email.`;
     const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
+        accept: 'application/json',
         'content-type': 'application/json',
         'api-key': brevoApiKey,
       },
@@ -141,7 +153,7 @@ This is an automated response. Please do not reply to this email.`;
         to: [{ email: to }],
         sender: {
           email: Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com',
-          name: 'SourcecodeAls Team'
+          name: 'SourcecodeAls Team',
         },
         subject: emailSubject,
         textContent: emailHtml,
@@ -149,14 +161,14 @@ This is an automated response. Please do not reply to this email.`;
         // Disable click tracking for consistency
         params: {
           trackClicks: false,
-          trackOpens: true
-        }
+          trackOpens: true,
+        },
       }),
     });
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
     if (!emailResponse.ok) {
@@ -183,36 +195,38 @@ This is an automated response. Please do not reply to this email.`;
       correlationId: crypto.randomUUID(),
     });
 
-    return new Response(JSON.stringify({
-      success: true, 
-      messageId: result.messageId,
-      feedbackId,
-      emailSent: true
-    }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders,
+    return new Response(
+      JSON.stringify({
+        success: true,
+        messageId: result.messageId,
+        feedbackId,
+        emailSent: true,
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
       },
-    });
-
+    );
   } catch (error: unknown) {
     console.error('💥 Critical error in send-contact-response function:', error);
     console.error('🔍 Error stack:', error.stack);
-    
+
     return new Response(
-      JSON.stringify({ 
-        error: error.message || 'Unknown error occurred',
+      JSON.stringify({
+        error: error instanceof Error ? error.message : String(error) || 'Unknown error occurred',
         success: false,
-        details: error.stack || 'No stack trace available'
+        details: error.stack || 'No stack trace available',
       }),
       {
         status: 500,
-        headers: { 
-          'Content-Type': 'application/json', 
-          ...corsHeaders 
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
         },
-      }
+      },
     );
   }
 });

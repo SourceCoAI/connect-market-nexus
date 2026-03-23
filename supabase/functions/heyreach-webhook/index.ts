@@ -13,6 +13,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { timingSafeEqual } from '../_shared/security.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflightResponse(req);
@@ -39,7 +40,7 @@ Deno.serve(async (req) => {
   const providedSecret =
     req.headers.get('x-webhook-secret') || new URL(req.url).searchParams.get('secret');
 
-  if (providedSecret !== webhookSecret) {
+  if (!providedSecret || !timingSafeEqual(providedSecret, webhookSecret)) {
     console.warn('[heyreach-webhook] Invalid webhook secret');
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,

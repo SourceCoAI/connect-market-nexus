@@ -64,7 +64,6 @@ export interface ReMarketingAnalyticsData {
   universePerformance: UniversePerformance[];
   categoryAverages: {
     geography: number;
-    size: number;
     service: number;
     ownerGoals: number;
   };
@@ -273,13 +272,12 @@ export function useReMarketingAnalytics(daysBack: number = 30) {
         .sort((a, b) => b.avgScore - a.avgScore);
 
       // Calculate category averages
-      const categoryTotals = { geography: 0, size: 0, service: 0, ownerGoals: 0 };
+      const categoryTotals = { geography: 0, service: 0, ownerGoals: 0 };
       let categoryCount = 0;
 
       scores.forEach((s) => {
         if (s.geography_score !== null) {
           categoryTotals.geography += s.geography_score;
-          categoryTotals.size += s.size_score || 0;
           categoryTotals.service += s.service_score || 0;
           categoryTotals.ownerGoals += s.owner_goals_score || 0;
           categoryCount++;
@@ -288,7 +286,6 @@ export function useReMarketingAnalytics(daysBack: number = 30) {
 
       const categoryAverages = {
         geography: categoryCount > 0 ? Math.round(categoryTotals.geography / categoryCount) : 0,
-        size: categoryCount > 0 ? Math.round(categoryTotals.size / categoryCount) : 0,
         service: categoryCount > 0 ? Math.round(categoryTotals.service / categoryCount) : 0,
         ownerGoals: categoryCount > 0 ? Math.round(categoryTotals.ownerGoals / categoryCount) : 0,
       };

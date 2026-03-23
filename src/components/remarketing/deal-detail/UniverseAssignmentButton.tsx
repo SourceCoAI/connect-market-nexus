@@ -28,20 +28,18 @@ export function UniverseAssignmentButton({
   const [selectedUniverse, setSelectedUniverse] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
 
-  // Fetch current universe assignment
-  const { data: assignment, isLoading: assignmentLoading } = useQuery({
+  // Fetch all universe assignments for this deal
+  const { data: assignments, isLoading: assignmentLoading } = useQuery({
     queryKey: ['remarketing', 'deal-universe', dealId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('remarketing_universe_deals')
         .select('id, universe_id, buyer_universes(id, name)')
         .eq('listing_id', dealId)
-        .eq('status', 'active')
-        .limit(1)
-        .maybeSingle();
+        .eq('status', 'active');
 
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enabled: !!dealId,
   });
@@ -88,8 +86,9 @@ export function UniverseAssignmentButton({
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal-universe', dealId] });
       setSelectedUniverse('');
     },
-    onError: () => {
-      toast.error('Failed to assign deal to universe');
+    onError: (err: Error) => {
+      console.error('Failed to assign deal to universe:', err);
+      toast.error('Failed to assign deal to universe', { description: err.message });
     },
   });
 
@@ -115,15 +114,22 @@ export function UniverseAssignmentButton({
     );
   }
 
-  // Deal is assigned to a universe - show View Buyer Matches
-  if (assignment?.universe_id) {
+  // Deal is assigned to one or more universes - show View Buyer Matches with count
+  if (assignments && assignments.length > 0) {
     return (
-      <Button className="gap-2" asChild>
-        <Link to={`/admin/remarketing/matching/${dealId}`}>
-          <Target className="h-4 w-4" />
-          View Buyer Matches ({scoreCount})
-        </Link>
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button className="gap-2" asChild>
+          <Link to={`/admin/remarketing/matching/${dealId}`}>
+            <Target className="h-4 w-4" />
+            View Buyer Matches ({scoreCount})
+          </Link>
+        </Button>
+        {assignments.length > 1 && (
+          <span className="text-xs text-muted-foreground">
+            in {assignments.length} universes
+          </span>
+        )}
+      </div>
     );
   }
 

@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
@@ -9,9 +9,8 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
  * Queries Fireflies for recent meetings and processes any unprocessed ones
  * through the extract-standup-tasks function.
  *
- * Meetings tagged with `<ds>` in the title are prioritized as known
- * standup meetings, but ALL meetings are processed by default so tasks
- * are never silently dropped.
+ * Only meetings tagged with `<ds>` in the title are processed. Other
+ * meetings are skipped to keep the task tracker focused on standups.
  *
  * This runs on a cron schedule as a safety net in case the Fireflies
  * webhook is misconfigured, delayed, or fails silently.
@@ -100,23 +99,25 @@ serve(async (req) => {
     const transcripts = (data?.transcripts || []).filter((t: { title?: string }) => !!t.title);
     console.log(`Found ${transcripts.length} recent transcripts`);
 
-    // Log which meetings have the <ds> standup tag (informational only)
-    const taggedCount = transcripts.filter((t: { title: string }) => hasStandupTag(t.title)).length;
-    console.log(`${taggedCount} of ${transcripts.length} have <ds> tag (processing ALL meetings)`);
+    // Only process meetings with the <ds> standup tag
+    const dsTagged = transcripts.filter((t: { title: string }) => hasStandupTag(t.title));
+    const skippedCount = transcripts.length - dsTagged.length;
+    console.log(`${dsTagged.length} of ${transcripts.length} have <ds> tag (skipping ${skippedCount} non-<ds> meetings)`);
 
-    if (transcripts.length === 0) {
+    if (dsTagged.length === 0) {
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'No recent meetings found in Fireflies',
-          transcripts_checked: 0,
+          message: 'No <ds>-tagged meetings found in Fireflies',
+          transcripts_checked: transcripts.length,
+          skipped_non_ds: skippedCount,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     // Check which ones have already been processed
-    const transcriptIds = transcripts.map((t: { id: string }) => t.id);
+    const transcriptIds = dsTagged.map((t: { id: string }) => t.id);
     const { data: existing } = await supabase
       .from('standup_meetings')
       .select('fireflies_transcript_id')
@@ -126,9 +127,14 @@ serve(async (req) => {
       (existing || []).map((e: { fireflies_transcript_id: string }) => e.fireflies_transcript_id),
     );
 
-    const unprocessed = transcripts.filter((t: { id: string }) => !processedIds.has(t.id));
+    const unprocessed = dsTagged.filter((t: { id: string }) => !processedIds.has(t.id));
 
     console.log(`${unprocessed.length} unprocessed meetings (${processedIds.size} already done)`);
+
+    // Auto-detect extraction mode: use Fireflies-native mode when Gemini key is not configured
+    const hasGeminiKey = !!(Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY'));
+    const useFirefliesActions = !hasGeminiKey;
+    console.log(`Extraction mode: ${useFirefliesActions ? 'fireflies-native' : 'ai'}`);
 
     // Process each unprocessed standup
     const results: {
@@ -152,6 +158,7 @@ serve(async (req) => {
           body: JSON.stringify({
             fireflies_transcript_id: transcript.id,
             meeting_title: transcript.title,
+            use_fireflies_actions: useFirefliesActions,
           }),
         });
 
@@ -194,7 +201,8 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         transcripts_checked: transcripts.length,
-        tagged_standups: taggedCount,
+        ds_tagged: dsTagged.length,
+        skipped_non_ds: skippedCount,
         already_processed: processedIds.size,
         newly_processed: processed,
         failed,

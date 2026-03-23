@@ -6,7 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { untypedFrom } from '@/integrations/supabase/client';
 import type { DealTeamMember, DealTeamRole } from '@/types/daily-tasks';
 
 const DEAL_TEAM_KEY = 'deal-team';
@@ -16,8 +16,7 @@ export function useDealTeam(listingId: string | null) {
     queryKey: [DEAL_TEAM_KEY, listingId],
     enabled: !!listingId,
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('rm_deal_team' as any) as any)
+      const { data, error } = await untypedFrom('rm_deal_team')
         .select(
           `
           *,
@@ -47,8 +46,7 @@ export function useAddDealTeamMember() {
       userId: string;
       role: DealTeamRole;
     }) => {
-      const { data, error } = await (supabase
-        .from('rm_deal_team' as any) as any)
+      const { data, error } = await untypedFrom('rm_deal_team')
         .insert({ listing_id: listingId, user_id: userId, role })
         .select()
         .single();
@@ -75,7 +73,7 @@ export function useUpdateDealTeamRole() {
       listingId: string;
       role: DealTeamRole;
     }) => {
-      const { error } = await (supabase.from('rm_deal_team' as any) as any).update({ role }).eq('id', memberId);
+      const { error } = await untypedFrom('rm_deal_team').update({ role }).eq('id', memberId);
 
       if (error) throw error;
       return listingId;
@@ -91,7 +89,7 @@ export function useRemoveDealTeamMember() {
 
   return useMutation({
     mutationFn: async ({ memberId, listingId }: { memberId: string; listingId: string }) => {
-      const { error } = await (supabase.from('rm_deal_team' as any) as any).delete().eq('id', memberId);
+      const { error } = await untypedFrom('rm_deal_team').delete().eq('id', memberId);
 
       if (error) throw error;
       return listingId;

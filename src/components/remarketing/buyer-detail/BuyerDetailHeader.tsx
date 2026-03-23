@@ -11,6 +11,7 @@ interface BuyerDetailHeaderProps {
   isPeBacked?: boolean;
   peFirmName?: string | null;
   peFirmId?: string | null;
+  peFirmWebsite?: string | null;
   platformWebsite?: string | null;
   hqCity?: string | null;
   hqState?: string | null;
@@ -30,6 +31,7 @@ export const BuyerDetailHeader = ({
   isPeBacked = false,
   peFirmName,
   peFirmId,
+  peFirmWebsite,
   platformWebsite,
   hqCity,
   hqState,
@@ -90,21 +92,31 @@ export const BuyerDetailHeader = ({
             {/* PE Firm Name + Marketplace Badge */}
             <div className="flex items-center gap-3">
               {peFirmName && (
-                peFirmId ? (
-                  <Link
-                    to={`/admin/buyers/pe-firms/${peFirmId}`}
-                    state={{ from: location.pathname }}
-                    className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <Building2 className="h-4 w-4" />
-                    <span className="hover:underline">{peFirmName}</span>
-                  </Link>
-                ) : (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Building2 className="h-4 w-4" />
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Building2 className="h-4 w-4" />
+                  {peFirmId ? (
+                    <Link
+                      to={`/admin/buyers/pe-firms/${peFirmId}`}
+                      state={{ from: location.pathname }}
+                      className="hover:text-primary hover:underline transition-colors"
+                    >
+                      {peFirmName}
+                    </Link>
+                  ) : (
                     <span>{peFirmName}</span>
-                  </div>
-                )
+                  )}
+                  {peFirmWebsite && (
+                    <a
+                      href={peFirmWebsite.startsWith('http') ? peFirmWebsite : `https://${peFirmWebsite}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-primary transition-colors"
+                      title={`Visit ${peFirmName} website`}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                </div>
               )}
               {marketplaceFirmId && (
                 <Link to="/admin/marketplace/users" className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors border border-blue-200">

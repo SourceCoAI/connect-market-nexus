@@ -1,51 +1,52 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { normalizeStates, extractStatesFromText, mergeStates } from "../_shared/geography.ts";
 import { buildPriorityUpdates, updateExtractionSources } from "../_shared/source-priority.ts";
-import { isPlaceholder } from "../_shared/deal-extraction.ts";
+import { isPlaceholder, VALID_LISTING_UPDATE_KEYS } from "../_shared/deal-extraction.ts";
 import { callGeminiWithRetry, GEMINI_API_URL, getGeminiHeaders, DEFAULT_GEMINI_MODEL } from "../_shared/ai-providers.ts";
 
 import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 
 // Pre-extraction regex patterns per spec
 const REVENUE_PATTERNS = [
-  /\$\s*([\d,.]+)\s*(M|MM|m|million|mil)/gi,
-  /revenue[:\s]+\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/gi,
-  /([\d,.]+)\s*(M|MM|million)\s*(?:in\s+)?(?:revenue|sales)/gi,
-  /top\s*line[:\s]+\$?\s*([\d,.]+)\s*(M|MM|m|million|mil)?/gi,
-  /annual\s+revenue[:\s]+\$?\s*([\d,.]+)\s*(M|MM|m|million|K|k|thousand)?/gi,
+  /~?\$\s*([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)/i,
+  /revenue[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)?/i,
+  /revenue\s+(?:of|is|at|around|approximately|about|~)\s+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)?/i,
+  /([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)\s*(?:in\s+)?(?:revenue|sales)/i,
+  /top\s*line[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)?/i,
+  /annual\s+revenue[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(M|MM|m|million|mil|K|k|thousand)?/i,
 ];
 
 const EBITDA_PATTERNS = [
-  /EBITDA[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
-  /\$\s*([\d,.]+)\s*(K|k|M|MM)?\s*EBITDA/gi,
-  /cash\s*flow[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
-  /SDE[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
-  /owner.?s?\s*(?:cash|earnings)[:\s]+\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/gi,
+  /EBITDA[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /~?\$\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million|mil)?\s*EBITDA/i,
+  /cash\s*flow[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /SDE[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
+  /owner.?s?\s*(?:cash|earnings)[:\s\-–—]+~?\$?\s*([\d,.]+)\s*(K|k|M|MM|m|thousand|million)?/i,
 ];
 
 const MARGIN_PATTERNS = [
-  /([\d.]+)\s*%\s*(?:EBITDA\s*)?margin/gi,
-  /margin[:\s]+([\d.]+)\s*%/gi,
-  /run(?:ning|s)?\s+(?:at\s+)?(?:about\s+)?([\d.]+)\s*%\s*margin/gi,
+  /([\d.]+)\s*%\s*(?:EBITDA\s*)?margin/i,
+  /margin[:\s]+([\d.]+)\s*%/i,
+  /run(?:ning|s)?\s+(?:at\s+)?(?:about\s+)?([\d.]+)\s*%\s*margin/i,
 ];
 
 const EMPLOYEE_PATTERNS = [
-  /([\d,]+)\s*(?:full[- ]?time\s*)?employees/gi,
-  /headcount[:\s]+([\d,]+)/gi,
-  /team\s*(?:of\s*)?([\d,]+)/gi,
-  /([\d,]+)\s*FTEs?/gi,
+  /([\d,]+)\s*(?:full[- ]?time\s*)?employees/i,
+  /headcount[:\s]+([\d,]+)/i,
+  /team\s*(?:of\s*)?([\d,]+)/i,
+  /([\d,]+)\s*FTEs?/i,
 ];
 
 const LOCATION_PATTERNS = [
-  /(\d+)\s+(?:staffed\s+)?locations?/gi,
-  /(\d+)\s+offices?/gi,
-  /(\d+)\s+branches?/gi,
-  /(\d+)\s+stores?/gi,
-  /(\d+)\s+shops?/gi,
-  /(\d+)\s+facilities/gi,
-  /operate\s+out\s+of\s+(\d+)/gi,
-  /(\d+)\s+sites?\s+across/gi,
+  /(\d+)\s+(?:staffed\s+)?locations?/i,
+  /(\d+)\s+offices?/i,
+  /(\d+)\s+branches?/i,
+  /(\d+)\s+stores?/i,
+  /(\d+)\s+shops?/i,
+  /(\d+)\s+facilities/i,
+  /operate\s+out\s+of\s+(\d+)/i,
+  /(\d+)\s+sites?\s+across/i,
 ];
 
 function parseNumberValue(match: string, multiplier?: string): number | null {
@@ -62,12 +63,15 @@ function parseNumberValue(match: string, multiplier?: string): number | null {
       return num * 1000;
     }
   }
-  
-  // If number is small, assume millions for revenue/EBITDA
-  if (num < 1000) {
+
+  // Without an explicit multiplier, only assume millions for values that look
+  // like shorthand (e.g., "2.5" or "12" meaning $2.5M or $12M).
+  // Values >= 100 without a multiplier are ambiguous — could be $800 literal
+  // or $800K shorthand — so return them as-is and let the threshold filter decide.
+  if (!multiplier && num > 0 && num < 100) {
     return num * 1000000;
   }
-  
+
   return num;
 }
 
@@ -172,6 +176,32 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Auth: Allow either internal service calls (x-internal-secret) OR valid user JWT
+    const internalSecret = req.headers.get('x-internal-secret') || '';
+    const authHeader = req.headers.get('authorization') || '';
+    const bearer = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7) : '';
+    const isInternalCall = internalSecret === supabaseKey;
+
+    if (!isInternalCall) {
+      if (!bearer) {
+        return new Response(
+          JSON.stringify({ error: 'Missing Authorization bearer token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Legacy fallback: allow direct service role bearer
+      if (bearer !== supabaseKey) {
+        const { data: userData, error: userErr } = await supabase.auth.getUser(bearer);
+        if (userErr || !userData?.user) {
+          return new Response(
+            JSON.stringify({ error: 'Unauthorized' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
+
     const { dealId, notesText } = await req.json();
 
     if (!dealId) {
@@ -195,10 +225,15 @@ serve(async (req) => {
       );
     }
 
-    // Use the explicitly provided notes text, or fall back to the deal's general_notes only.
-    // Do NOT silently fall back to internal_notes/owner_notes — those are separate fields
-    // with different purposes and should be analyzed explicitly if needed.
-    const notes = notesText || deal.general_notes || '';
+    // Use the explicitly provided notes text, or concatenate all available note fields.
+    const notes = notesText || [
+      deal.general_notes,
+      deal.owner_notes,
+      deal.internal_notes,
+      deal.owner_response,
+      deal.captarget_call_notes,
+      deal.description,
+    ].filter(Boolean).join('\n\n');
     
     if (!notes || notes.length < 20) {
       return new Response(
@@ -217,13 +252,12 @@ serve(async (req) => {
     console.log('Geography from notes:', geographyFromNotes);
 
     // Step 2: AI extraction for complex fields
-    // Try direct Gemini first, fall back to Lovable AI Gateway
+    // Direct Gemini API
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     
     let aiExtracted: Record<string, unknown> = {};
     
-    if (geminiApiKey || lovableApiKey) {
+    if (geminiApiKey) {
       const systemPrompt = `You are an elite M&A analyst extracting EVERY piece of deal intelligence from internal notes, call summaries, and broker memos. Your output directly drives buyer matching and deal scoring — the more detail you extract, the better the matches.
 
 RULES:
@@ -271,6 +305,10 @@ Use the tool to return structured data.`;
               geographic_states: { type: 'array', items: { type: 'string' }, description: 'All US states where business operates, has customers, or holds licenses (2-letter codes). Include expansion targets.' },
               location: { type: 'string', description: 'Primary location/HQ in "City, ST" format. Use suburb name if mentioned.' },
               number_of_locations: { type: 'number', description: 'Total physical locations: offices, shops, warehouses, branches, storage (owned + leased). Home office = 1.' },
+              revenue: { type: 'number', description: 'Annual revenue as a raw integer (e.g., 2000000 for $2M, 500000 for $500K). Extract from any mention of revenue, sales, top-line, or annual run-rate. Return null if not mentioned.' },
+              ebitda: { type: 'number', description: 'Annual EBITDA/SDE/cash flow as a raw integer (e.g., 400000 for $400K). Extract from any mention of EBITDA, SDE, discretionary earnings, or cash flow. Return null if not mentioned.' },
+              full_time_employees: { type: 'number', description: 'Total employee headcount (full-time equivalents). Extract from any mention of employees, team size, headcount, FTEs, or staff.' },
+              ebitda_margin: { type: 'number', description: 'EBITDA margin as a percentage (e.g., 25 for 25%). Extract from any mention of margin percentage, profitability rate, or "runs at X%". Return null if not mentioned.' },
               financial_notes: { type: 'string', description: 'Detailed 3-5 sentences: Revenue breakdown by segment/location, EBITDA adjustments and add-backs, owner compensation details, margin trends, seasonality patterns, capex requirements, working capital needs, debt structure, growth rates with specific numbers.' },
               growth_trajectory: { type: 'string', description: 'Detailed 2-3 sentences: Revenue CAGR or trend with specifics, new location openings, service line additions, headcount growth, contract wins, market expansion, pipeline indicators.' },
               management_depth: { type: 'string', description: 'Detailed 2-3 sentences: Key personnel by role and tenure, succession readiness, is there a strong #2? Who runs day-to-day operations? What happens if owner leaves? Training/mentoring pipeline.' },
@@ -302,11 +340,16 @@ Use the tool to return structured data.`;
       };
 
       const parseToolResponse = (aiData: { choices?: { message?: { tool_calls?: { function?: { arguments?: string | Record<string, unknown> } }[] } }[] }): Record<string, unknown> | null => {
-        const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-        if (toolCall?.function?.arguments) {
-          return JSON.parse(typeof toolCall.function.arguments === 'string' ? toolCall.function.arguments : JSON.stringify(toolCall.function.arguments));
+        try {
+          const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+          if (toolCall?.function?.arguments) {
+            return JSON.parse(typeof toolCall.function.arguments === 'string' ? toolCall.function.arguments : JSON.stringify(toolCall.function.arguments));
+          }
+          return null;
+        } catch (e) {
+          console.warn('[AI] Failed to parse tool response JSON:', e instanceof Error ? e.message : e);
+          return null;
         }
-        return null;
       };
 
       let aiSuccess = false;
@@ -338,34 +381,7 @@ Use the tool to return structured data.`;
         }
       }
 
-      // Attempt 2: Lovable AI Gateway fallback
-      if (!aiSuccess && lovableApiKey) {
-        try {
-          console.log('[AI] Falling back to Lovable AI Gateway...');
-          const gatewayBody = { ...requestBody, model: 'google/gemini-2.5-flash' };
-          const aiResponse = await callGeminiWithRetry(
-            'https://ai.gateway.lovable.dev/v1/chat/completions',
-            { Authorization: `Bearer ${lovableApiKey}`, 'Content-Type': 'application/json' },
-            gatewayBody,
-            90000,
-            'LovableAI/notes-extract'
-          );
 
-          if (aiResponse.ok) {
-            const parsed = parseToolResponse(await aiResponse.json());
-            if (parsed) {
-              aiExtracted = parsed;
-              aiSuccess = true;
-              console.log('[AI] Lovable AI Gateway succeeded');
-            }
-          } else {
-            const errText = await aiResponse.text();
-            console.error('[AI] Lovable AI Gateway failed:', aiResponse.status, errText.slice(0, 200));
-          }
-        } catch (e) {
-          console.error('[AI] Lovable AI Gateway error:', e instanceof Error ? e.message : e);
-        }
-      }
 
       if (!aiSuccess) {
         console.warn('[AI] All AI providers failed — using regex-only extraction');
@@ -393,6 +409,11 @@ Use the tool to return structured data.`;
       }
     }
 
+    // Normalize AI ebitda_margin from percentage (25) to decimal (0.25) to match DB format
+    if (typeof aiExtracted.ebitda_margin === 'number' && (aiExtracted.ebitda_margin as number) > 1) {
+      aiExtracted.ebitda_margin = (aiExtracted.ebitda_margin as number) / 100;
+    }
+
     // Merge regex and AI extractions
     const extracted: Record<string, unknown> = {
       ...aiExtracted,
@@ -410,6 +431,13 @@ Use the tool to return structured data.`;
         extracted.geographic_states as string[] | undefined,
         geographyFromNotes
       );
+    }
+
+    // Filter extracted fields to valid listing columns before priority check
+    for (const key of Object.keys(extracted)) {
+      if (!VALID_LISTING_UPDATE_KEYS.has(key)) {
+        delete extracted[key];
+      }
     }
 
     // Build priority-aware updates

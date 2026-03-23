@@ -31,8 +31,11 @@ import {
   DealBulkActionBar,
   AddDealsToListDialog,
   PushToHeyreachModal,
+  NotAFitReasonDialog,
 } from '@/components/remarketing';
 import type { DealForList } from '@/components/remarketing';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
 import { PushToSmartleadModal } from '@/components/remarketing/PushToSmartleadModal';
 import { DndContext, closestCorners, MeasuringStrategy } from '@dnd-kit/core';
@@ -64,6 +67,7 @@ const ReMarketingDeals = () => {
   const [smartleadOpen, setSmartleadOpen] = useState(false);
   const [heyreachOpen, setHeyreachOpen] = useState(false);
   const [addToListOpen, setAddToListOpen] = useState(false);
+  const [notAFitTarget, setNotAFitTarget] = useState<{ id: string; name: string } | null>(null);
 
   const selectedDealsForList = useMemo((): DealForList[] => {
     if (!h.localOrder || h.selectedDeals.size === 0) return [];
@@ -195,7 +199,7 @@ const ReMarketingDeals = () => {
           </Button>
           <Button variant="outline" onClick={() => h.setShowImportDialog(true)}>
             <Upload className="h-4 w-4 mr-2" />
-            Import CSV
+            Import Spreadsheet
           </Button>
           <Button
             onClick={() => h.setShowEnrichDialog(true)}
@@ -376,6 +380,16 @@ const ReMarketingDeals = () => {
             </span>
           )}
         </Button>
+        <div className="flex items-center gap-2 ml-2">
+          <Switch
+            id="hide-not-a-fit"
+            checked={h.hideNotAFit}
+            onCheckedChange={h.setHideNotAFit}
+          />
+          <Label htmlFor="hide-not-a-fit" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
+            Hide Not a Fit
+          </Label>
+        </div>
       </FilterBar>
 
       <DealBulkActionBar
@@ -388,6 +402,7 @@ const ReMarketingDeals = () => {
         onPushToSmartlead={() => setSmartleadOpen(true)}
         onPushToHeyreach={() => setHeyreachOpen(true)}
         onAddToList={() => setAddToListOpen(true)}
+        onMarkNotFit={h.handleBulkMarkNotAFit}
         onArchive={h.handleBulkArchive}
         isArchiving={h.isArchiving}
         onDelete={h.handleBulkDelete}
@@ -663,6 +678,19 @@ const ReMarketingDeals = () => {
                             universesByListing={h.universeDealMap ?? {}}
                             pipelineCount={h.pipelineCounts?.[listing.id] || 0}
                             onUpdateRank={h.handleUpdateRank}
+                            onMarkNotAFit={(dealId, dealName) =>
+                              setNotAFitTarget({ id: dealId, name: dealName })
+                            }
+                            onRemoveNotAFit={async (dealId) => {
+                              const { supabase } = await import('@/integrations/supabase/client');
+                              const { error } = await supabase
+                                .from('listings')
+                                .update({ not_a_fit: false, not_a_fit_reason: null } as never)
+                                .eq('id', dealId);
+                              if (!error) {
+                                h.queryClient.invalidateQueries({ queryKey: ['remarketing'] });
+                              }
+                            }}
                           />
                         ))}
                       </SortableContext>
@@ -734,6 +762,19 @@ const ReMarketingDeals = () => {
         onOpenChange={setAddToListOpen}
         selectedDeals={selectedDealsForList}
         entityType="deal"
+      />
+
+      {/* Not a Fit Dialog */}
+      <NotAFitReasonDialog
+        open={!!notAFitTarget}
+        onOpenChange={(open) => !open && setNotAFitTarget(null)}
+        dealName={notAFitTarget?.name ?? ''}
+        onConfirm={(reason) => {
+          if (notAFitTarget) {
+            h.handleMarkNotAFit(notAFitTarget.id, reason);
+            setNotAFitTarget(null);
+          }
+        }}
       />
 
       {/* All Dialogs */}

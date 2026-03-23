@@ -73,7 +73,7 @@ export const useBuyersData = () => {
   // Scoped to current buyer set to avoid full table scan
   const buyerIds = useMemo(() => (buyers || []).map((b) => b.id), [buyers]);
   const { data: buyerIdsWithTranscripts } = useQuery({
-    queryKey: ['remarketing', 'buyer-transcript-ids', buyerIds.slice(0, 5)],
+    queryKey: ['remarketing', 'buyer-transcript-ids', buyerIds],
     queryFn: async () => {
       if (buyerIds.length === 0) return new Set<string>();
 

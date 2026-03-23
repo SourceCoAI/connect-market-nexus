@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const ONBOARDING_KEY = 'onboarding_completed';
@@ -19,14 +18,14 @@ export const useOnboarding = () => {
 
       // Check localStorage first (instant, reliable)
       const completedInStorage = localStorage.getItem(ONBOARDING_KEY) === 'true';
-      
+
       // Check user object (already loaded, no extra DB call)
       const completedInProfile = user.onboarding_completed === true;
-      
+
       // If completed in either place, don't show
       if (completedInStorage || completedInProfile) {
         setShowOnboarding(false);
-        
+
         // Sync localStorage if needed (background operation)
         if (!completedInStorage && completedInProfile) {
           localStorage.setItem(ONBOARDING_KEY, 'true');
@@ -44,10 +43,10 @@ export const useOnboarding = () => {
   const completeOnboarding = async () => {
     // 1. Immediate localStorage update (never fails, instant UI update)
     localStorage.setItem(ONBOARDING_KEY, 'true');
-    
+
     // 2. Immediate UI update (don't wait for anything)
     setShowOnboarding(false);
-    
+
     // 3. Background database sync (non-blocking, can fail silently)
     if (user?.id) {
       setTimeout(async () => {
@@ -64,12 +63,13 @@ export const useOnboarding = () => {
     }
   };
 
-  const shouldShowOnboarding = showOnboarding && user && user.email_verified && user.approval_status === 'approved';
+  const shouldShowOnboarding =
+    showOnboarding && user && user.email_verified && user.approval_status === 'approved';
 
   return {
     showOnboarding,
     completeOnboarding,
     isLoading: false, // Never blocks UI
-    shouldShowOnboarding
+    shouldShowOnboarding,
   };
 };

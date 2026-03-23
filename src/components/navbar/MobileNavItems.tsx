@@ -14,7 +14,7 @@ interface MobileNavItemsProps {
 const MobileNavItems = ({ isAdmin, isApproved, onNavigateToAdmin }: MobileNavItemsProps) => {
   const { unreadCount } = useUserNotifications();
   const { data: unreadMessages } = useUnreadBuyerMessageCounts();
-  const totalDealsUnread = unreadCount + (unreadMessages?.total || 0);
+  const totalDealsUnread = unreadCount + (unreadMessages?.dealTotal || 0);
 
   if (!isApproved) {
     return null;
@@ -55,7 +55,7 @@ const MobileNavItems = ({ isAdmin, isApproved, onNavigateToAdmin }: MobileNavIte
       >
         <MessageSquare className="h-4 w-4" strokeWidth={1.5} />
         Messages
-        {(unreadMessages?.total || 0) > 0 && (
+        {(unreadMessages?.messagesTotal || 0) > 0 && (
           <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-600 ring-1 ring-white shadow-sm"></span>
         )}
       </Link>

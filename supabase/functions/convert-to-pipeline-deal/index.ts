@@ -100,25 +100,32 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 3. Fetch primary contact for the buyer
+    // 3. Fetch primary contact for the buyer from unified contacts table
+    // (Audit P1: migrate from legacy remarketing_buyer_contacts to contacts)
     const { data: contact } = await supabase
-      .from('remarketing_buyer_contacts')
-      .select('name, email, phone, role')
-      .eq('buyer_id', buyer_id)
-      .eq('is_primary_contact', true)
+      .from('contacts')
+      .select('first_name, last_name, email, phone, title')
+      .eq('remarketing_buyer_id', buyer_id)
+      .eq('is_primary_at_firm', true)
+      .eq('archived', false)
       .maybeSingle();
 
     // Fallback: any contact if no primary
-    let contactInfo = contact;
+    let contactInfo = contact
+      ? { name: [contact.first_name, contact.last_name].filter(Boolean).join(' '), email: contact.email, phone: contact.phone, role: contact.title }
+      : null;
     if (!contactInfo) {
       const { data: anyContact } = await supabase
-        .from('remarketing_buyer_contacts')
-        .select('name, email, phone, role')
-        .eq('buyer_id', buyer_id)
+        .from('contacts')
+        .select('first_name, last_name, email, phone, title')
+        .eq('remarketing_buyer_id', buyer_id)
+        .eq('archived', false)
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle();
-      contactInfo = anyContact;
+      contactInfo = anyContact
+        ? { name: [anyContact.first_name, anyContact.last_name].filter(Boolean).join(' '), email: anyContact.email, phone: anyContact.phone, role: anyContact.title }
+        : null;
     }
 
     // 4. Fetch listing title
@@ -256,6 +263,24 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ error: 'Failed to create pipeline deal', details: dealError.message }),
         { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } },
       );
+    }
+
+    // Audit P2: Atomically update buyer_introductions status when creating pipeline deal
+    // This prevents sync issues between the Kanban and deal pipeline views
+    const { error: introUpdateError } = await supabase
+      .from('buyer_introductions')
+      .update({
+        introduction_status: 'deal_created',
+        deal_pipeline_id: newDeal.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('remarketing_buyer_id', buyer_id)
+      .eq('listing_id', listing_id)
+      .is('archived_at', null);
+
+    if (introUpdateError) {
+      // Non-blocking — log but don't fail the overall operation
+      console.warn('Failed to update buyer_introductions status:', introUpdateError.message);
     }
 
     return new Response(

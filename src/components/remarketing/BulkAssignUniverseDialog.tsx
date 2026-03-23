@@ -107,7 +107,9 @@ export function BulkAssignUniverseDialog({
       onOpenChange(false);
       onComplete();
     } catch (err) {
-      toast.error('Failed to assign deals to universe');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Failed to assign deals to universe:', err);
+      toast.error('Failed to assign deals to universe', { description: msg });
     } finally {
       setIsAssigning(false);
     }

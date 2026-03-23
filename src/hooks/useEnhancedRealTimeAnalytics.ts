@@ -310,6 +310,7 @@ export function useEnhancedRealTimeAnalytics() {
               totalVisits: engagement?.session_count || 1,
               totalTimeSpent: engagement?.total_session_time || 0,
               searchCount: engagement?.search_count || 0,
+              // APPROXIMATE — stale profile-level booleans for performance; canonical source is firm_agreements
               feeAgreementSigned: profile.fee_agreement_signed || false,
               ndaSigned: profile.nda_signed || false,
               // Cross-session journey data

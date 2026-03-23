@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
 
 // TODO: Phase 6 — migrate admin_view_state read to data access layer: getAdminLastViewed() from '@/lib/data-access'
@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 // The second query (.from('inbound_leads') count) has no data access equivalent yet.
 export function useUnviewedOwnerLeads() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ['unviewed-owner-leads-count'],
@@ -59,15 +60,15 @@ export function useUnviewedOwnerLeads() {
           filter: 'lead_type=eq.owner',
         },
         () => {
-          query.refetch();
-        }
+          queryClient.invalidateQueries({ queryKey: ['unviewed-owner-leads-count'] });
+        },
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [user?.id, queryClient]);
 
   return {
     unviewedCount: query.data || 0,

@@ -613,7 +613,7 @@ export function ConnectionRequestRow({
                   user={request.user}
                   listing={request.listing ?? undefined}
                   requestId={request.id}
-                  requestStatus={request.status}
+                  requestStatus={request.status === 'converted' ? 'approved' : request.status === 'notified' || request.status === 'reviewed' ? 'pending' : request.status}
                   userMessage={request.user_message}
                   createdAt={request.created_at}
                   flaggedForReview={request.flagged_for_review}

@@ -11,8 +11,9 @@ export interface UserFirmInfo {
 
 /**
  * Resolves the canonical firm for a user via the DB function
- * `get_user_firm_agreement_status`, which uses deterministic
- * resolution (active connection_request → latest firm_member).
+ * `get_user_firm_agreement_status`, which delegates to `resolve_user_firm_id()`.
+ * Resolution priority: email domain match → normalized company name match → latest firm_member.
+ * Never uses connection_requests.firm_id (avoids circular dependency).
  */
 export function useUserFirm(userId: string | null) {
   return useQuery({

@@ -205,11 +205,12 @@ const MobileUserCard = ({
           <div className="text-sm">
             <span className="font-medium">Buyer Type:</span>{" "}
             <Badge variant="outline" className="capitalize text-xs ml-1">
-              {user.buyer_type === 'independentSponsor' ? 'IS' :
-               user.buyer_type === 'privateEquity' ? 'PE' :
-               user.buyer_type === 'familyOffice' ? 'FO' :
-               user.buyer_type === 'searchFund' ? 'SF' :
+              {user.buyer_type === 'independent_sponsor' ? 'IS' :
+               user.buyer_type === 'private_equity' ? 'PE' :
+               user.buyer_type === 'family_office' ? 'FO' :
+               user.buyer_type === 'search_fund' ? 'SF' :
                user.buyer_type === 'corporate' ? 'Corp' :
+               user.buyer_type === 'individual_buyer' ? 'Indiv' :
                user.buyer_type}
             </Badge>
           </div>
