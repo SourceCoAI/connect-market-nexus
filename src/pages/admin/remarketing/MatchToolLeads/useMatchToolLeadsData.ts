@@ -28,6 +28,9 @@ export function useMatchToolLeadsData() {
         case 'has_contact':
           query = query.not('email', 'is', null);
           break;
+        case 'has_financials':
+          query = query.eq('submission_stage', 'financials');
+          break;
         case 'website_only':
           query = query.is('email', null).eq('submission_stage', 'browse');
           break;
