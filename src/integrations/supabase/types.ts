@@ -128,6 +128,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "admin_notifications_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "v_deals_exceeding_sla"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "admin_notifications_feedback_id_fkey"
             columns: ["feedback_id"]
             isOneToOne: false
@@ -1387,6 +1394,8 @@ export type Database = {
           customer_industries: string[] | null
           data_last_updated: string | null
           email_domain: string | null
+          email_unsubscribed: boolean
+          email_unsubscribed_at: string | null
           extraction_sources: Json | null
           fee_agreement_source: string | null
           fee_agreement_status: string | null
@@ -1429,6 +1438,7 @@ export type Database = {
           revenue_model: string | null
           service_regions: string[] | null
           services_offered: string | null
+          tags: string[] | null
           target_customer_profile: string | null
           target_ebitda_max: number | null
           target_ebitda_min: number | null
@@ -1479,6 +1489,8 @@ export type Database = {
           customer_industries?: string[] | null
           data_last_updated?: string | null
           email_domain?: string | null
+          email_unsubscribed?: boolean
+          email_unsubscribed_at?: string | null
           extraction_sources?: Json | null
           fee_agreement_source?: string | null
           fee_agreement_status?: string | null
@@ -1521,6 +1533,7 @@ export type Database = {
           revenue_model?: string | null
           service_regions?: string[] | null
           services_offered?: string | null
+          tags?: string[] | null
           target_customer_profile?: string | null
           target_ebitda_max?: number | null
           target_ebitda_min?: number | null
@@ -1571,6 +1584,8 @@ export type Database = {
           customer_industries?: string[] | null
           data_last_updated?: string | null
           email_domain?: string | null
+          email_unsubscribed?: boolean
+          email_unsubscribed_at?: string | null
           extraction_sources?: Json | null
           fee_agreement_source?: string | null
           fee_agreement_status?: string | null
@@ -1613,6 +1628,7 @@ export type Database = {
           revenue_model?: string | null
           service_regions?: string[] | null
           services_offered?: string | null
+          tags?: string[] | null
           target_customer_profile?: string | null
           target_ebitda_max?: number | null
           target_ebitda_min?: number | null
@@ -3398,6 +3414,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "daily_standup_tasks_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "v_deals_exceeding_sla"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "daily_standup_tasks_pinned_by_fkey"
             columns: ["pinned_by"]
             isOneToOne: false
@@ -3696,6 +3719,13 @@ export type Database = {
             referencedRelation: "deal_pipeline"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deal_activities_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "v_deals_exceeding_sla"
+            referencedColumns: ["id"]
+          },
         ]
       }
       deal_alerts: {
@@ -3775,6 +3805,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deal_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_comments_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "v_deals_exceeding_sla"
             referencedColumns: ["id"]
           },
         ]
@@ -3950,6 +3987,13 @@ export type Database = {
             referencedRelation: "deal_pipeline"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deal_documents_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "v_deals_exceeding_sla"
+            referencedColumns: ["id"]
+          },
         ]
       }
       deal_outreach_profiles: {
@@ -4023,6 +4067,7 @@ export type Database = {
           description: string | null
           expected_close_date: string | null
           fee_agreement_status: string | null
+          first_reviewed_at: string | null
           followed_up: boolean | null
           followed_up_at: string | null
           followed_up_by: string | null
@@ -4041,6 +4086,7 @@ export type Database = {
           probability: number | null
           remarketing_buyer_id: string | null
           remarketing_score_id: string | null
+          review_sla_hours: number | null
           seller_contact_id: string | null
           source: string | null
           stage_entered_at: string | null
@@ -4065,6 +4111,7 @@ export type Database = {
           description?: string | null
           expected_close_date?: string | null
           fee_agreement_status?: string | null
+          first_reviewed_at?: string | null
           followed_up?: boolean | null
           followed_up_at?: string | null
           followed_up_by?: string | null
@@ -4083,6 +4130,7 @@ export type Database = {
           probability?: number | null
           remarketing_buyer_id?: string | null
           remarketing_score_id?: string | null
+          review_sla_hours?: number | null
           seller_contact_id?: string | null
           source?: string | null
           stage_entered_at?: string | null
@@ -4107,6 +4155,7 @@ export type Database = {
           description?: string | null
           expected_close_date?: string | null
           fee_agreement_status?: string | null
+          first_reviewed_at?: string | null
           followed_up?: boolean | null
           followed_up_at?: string | null
           followed_up_by?: string | null
@@ -4125,6 +4174,7 @@ export type Database = {
           probability?: number | null
           remarketing_buyer_id?: string | null
           remarketing_score_id?: string | null
+          review_sla_hours?: number | null
           seller_contact_id?: string | null
           source?: string | null
           stage_entered_at?: string | null
@@ -4456,6 +4506,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "deal_scoring_adjustments_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "v_deals_exceeding_sla"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "deal_scoring_adjustments_listing_id_fkey"
             columns: ["listing_id"]
             isOneToOne: false
@@ -4549,6 +4606,13 @@ export type Database = {
             columns: ["converted_to_deal_id"]
             isOneToOne: false
             referencedRelation: "deal_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_sourcing_requests_converted_to_deal_id_fkey"
+            columns: ["converted_to_deal_id"]
+            isOneToOne: false
+            referencedRelation: "v_deals_exceeding_sla"
             referencedColumns: ["id"]
           },
           {
@@ -4710,6 +4774,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deal_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_tasks_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "v_deals_exceeding_sla"
             referencedColumns: ["id"]
           },
         ]
@@ -8382,6 +8453,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "owner_intro_notifications_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "v_deals_exceeding_sla"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "owner_intro_notifications_listing_id_fkey"
             columns: ["listing_id"]
             isOneToOne: false
@@ -8423,6 +8501,7 @@ export type Database = {
           created_at: string | null
           exit_page: boolean | null
           id: string
+          is_admin: boolean
           page_path: string
           page_title: string | null
           referrer: string | null
@@ -8440,6 +8519,7 @@ export type Database = {
           created_at?: string | null
           exit_page?: boolean | null
           id?: string
+          is_admin?: boolean
           page_path: string
           page_title?: string | null
           referrer?: string | null
@@ -8457,6 +8537,7 @@ export type Database = {
           created_at?: string | null
           exit_page?: boolean | null
           id?: string
+          is_admin?: boolean
           page_path?: string
           page_title?: string | null
           referrer?: string | null
@@ -9306,52 +9387,76 @@ export type Database = {
       }
       referral_partners: {
         Row: {
+          archived_at: string | null
+          commission_notes: string | null
+          commission_rate: number | null
+          commission_type: string | null
           company: string | null
+          contact_name: string | null
           created_at: string | null
           deal_count: number | null
           email: string | null
           id: string
           is_active: boolean | null
           last_viewed_at: string | null
+          linkedin: string | null
           name: string
           notes: string | null
+          partner_type: string | null
           phone: string | null
           share_password_hash: string | null
           share_password_plaintext: string | null
           share_token: string | null
           updated_at: string | null
+          website: string | null
         }
         Insert: {
+          archived_at?: string | null
+          commission_notes?: string | null
+          commission_rate?: number | null
+          commission_type?: string | null
           company?: string | null
+          contact_name?: string | null
           created_at?: string | null
           deal_count?: number | null
           email?: string | null
           id?: string
           is_active?: boolean | null
           last_viewed_at?: string | null
+          linkedin?: string | null
           name: string
           notes?: string | null
+          partner_type?: string | null
           phone?: string | null
           share_password_hash?: string | null
           share_password_plaintext?: string | null
           share_token?: string | null
           updated_at?: string | null
+          website?: string | null
         }
         Update: {
+          archived_at?: string | null
+          commission_notes?: string | null
+          commission_rate?: number | null
+          commission_type?: string | null
           company?: string | null
+          contact_name?: string | null
           created_at?: string | null
           deal_count?: number | null
           email?: string | null
           id?: string
           is_active?: boolean | null
           last_viewed_at?: string | null
+          linkedin?: string | null
           name?: string
           notes?: string | null
+          partner_type?: string | null
           phone?: string | null
           share_password_hash?: string | null
           share_password_plaintext?: string | null
           share_token?: string | null
           updated_at?: string | null
+          website?: string | null
         }
         Relationships: []
       }
@@ -12419,6 +12524,36 @@ export type Database = {
           },
         ]
       }
+      v_deals_exceeding_sla: {
+        Row: {
+          created_at: string | null
+          first_reviewed_at: string | null
+          hours_since_creation: number | null
+          id: string | null
+          review_sla_hours: number | null
+          sla_breached: boolean | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          first_reviewed_at?: string | null
+          hours_since_creation?: never
+          id?: string | null
+          review_sla_hours?: number | null
+          sla_breached?: never
+          title?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          first_reviewed_at?: string | null
+          hours_since_creation?: never
+          id?: string | null
+          review_sla_hours?: number | null
+          sla_breached?: never
+          title?: string | null
+        }
+        Relationships: []
+      }
       v_duplicate_buyers: {
         Row: {
           buyer_ids: string[] | null
@@ -13241,6 +13376,10 @@ export type Database = {
       }
       log_security_event: {
         Args: { event_type: string; metadata?: Json; user_id?: string }
+        Returns: undefined
+      }
+      manage_user_role: {
+        Args: { new_role: string; reason?: string; target_email: string }
         Returns: undefined
       }
       mark_event_failed: {
