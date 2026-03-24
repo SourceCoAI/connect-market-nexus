@@ -254,7 +254,7 @@ export function UnifiedAdminSidebar({
           {
             label: 'Match Tool Leads',
             href: '/admin/remarketing/leads/match-tool',
-            icon: <Globe className="h-4 w-4" />,
+            icon: <Globe2 className="h-4 w-4" />,
           },
           {
             label: 'Referral Partners',
