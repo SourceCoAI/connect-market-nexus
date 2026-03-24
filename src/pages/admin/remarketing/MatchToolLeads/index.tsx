@@ -69,8 +69,9 @@ function formatFinancials(revenue: string | null, profit: string | null): string
 
 export default function MatchToolLeads() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<MatchToolLead | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const selectedLead = leads.find((l) => l.id === selectedLeadId) ?? null;
   const {
     leads,
     isLoading,
@@ -103,7 +104,7 @@ export default function MatchToolLeads() {
   };
 
   const handleRowClick = (lead: MatchToolLead) => {
-    setSelectedLead(lead);
+    setSelectedLeadId(lead.id);
     setPanelOpen(true);
   };
 

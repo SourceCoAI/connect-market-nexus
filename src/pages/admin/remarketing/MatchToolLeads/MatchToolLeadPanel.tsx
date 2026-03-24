@@ -51,7 +51,7 @@ export function MatchToolLeadPanel({ lead, open, onOpenChange, onEnrich, isEnric
     if (open && lead && !lead.enrichment_data) {
       onEnrich(lead.id, lead.website);
     }
-  }, [open, lead?.id]);
+  }, [open, lead?.id, lead?.enrichment_data]);
 
   if (!lead) return null;
 
@@ -265,6 +265,12 @@ export function MatchToolLeadPanel({ lead, open, onOpenChange, onEnrich, isEnric
                 <Skeleton className="h-4 w-5/6" />
                 <Skeleton className="h-4 w-2/3" />
               </div>
+            ) : isEnriching ? (
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <p className="text-[11px] text-muted-foreground/60 mt-2">Generating company intel…</p>
+              </div>
             ) : enrichment ? (
               <div className="space-y-3">
                 {enrichment.one_liner && (
@@ -304,7 +310,15 @@ export function MatchToolLeadPanel({ lead, open, onOpenChange, onEnrich, isEnric
                 )}
               </div>
             ) : (
-              <p className="text-[12px] text-muted-foreground/50">No enrichment data available</p>
+              <div className="space-y-2">
+                <p className="text-[12px] text-muted-foreground/50">Couldn't generate intel for this website</p>
+                <button
+                  onClick={() => lead && onEnrich(lead.id, lead.website)}
+                  className="text-[11px] text-primary hover:text-primary/80 underline"
+                >
+                  Retry enrichment
+                </button>
+              </div>
             )}
           </Section>
         </div>

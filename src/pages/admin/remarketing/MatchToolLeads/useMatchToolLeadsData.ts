@@ -113,6 +113,9 @@ export function useMatchToolLeadsData() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['match-tool-leads'] });
     },
+    onError: (error: Error) => {
+      toast.error(`Enrichment failed: ${error.message}`);
+    },
   });
 
   return {
