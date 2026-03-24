@@ -61,10 +61,10 @@ export function CategoriesView() {
 
   // Separate AI-suggested from regular
   const aiSuggested = (categories || []).filter(
-    (c) => c.ai_suggested && !c.approved_by,
+    (c: any) => c.ai_suggested && !c.approved_by,
   );
   const regularCategories = (categories || []).filter(
-    (c) => !c.ai_suggested || c.approved_by,
+    (c: any) => !c.ai_suggested || c.approved_by,
   );
 
   const handleAdd = () => {
@@ -105,7 +105,7 @@ export function CategoriesView() {
       {aiSuggested.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-muted-foreground">AI Suggestions</h4>
-          {aiSuggested.map((cat) => (
+          {aiSuggested.map((cat: any) => (
             <Card key={cat.id} className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/10">
               <CardContent className="p-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -165,7 +165,7 @@ export function CategoriesView() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {regularCategories.map((cat) => (
+            {regularCategories.map((cat: any) => (
               <TableRow key={cat.id}>
                 <TableCell className="font-medium">{cat.name}</TableCell>
                 <TableCell className="text-muted-foreground">{cat.icon || '—'}</TableCell>

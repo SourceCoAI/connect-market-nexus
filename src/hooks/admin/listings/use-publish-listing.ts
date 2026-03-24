@@ -65,7 +65,7 @@ export function usePublishListing() {
             for (const alert of matchingAlerts) {
               if (alert.alert_frequency === 'instant') {
                 await supabase.functions.invoke('send-deal-alert', {
-                  body: { alertId: alert.id, listingId: variables.listingId, listing },
+                  body: { alertId: alert.alert_id, listingId: variables.listingId, listing },
                 });
               }
             }

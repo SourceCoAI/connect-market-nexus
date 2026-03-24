@@ -194,7 +194,7 @@ export function useBuyerMutations(
       const firstName = nameParts[0] || 'Unknown';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      const { error } = await supabase.rpc('upsert_buyer_contact', {
+      const { error } = await (supabase.rpc as any)('upsert_buyer_contact', {
         p_first_name: firstName,
         p_last_name: lastName,
         p_email: newContact.email || null,
@@ -239,7 +239,7 @@ export function useBuyerMutations(
       const firstName = nameParts[0] || 'Unknown';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      const { error } = await supabase.rpc('update_buyer_contact', {
+      const { error } = await (supabase.rpc as any)('update_buyer_contact', {
         p_contact_id: contact.id,
         p_first_name: firstName,
         p_last_name: lastName,

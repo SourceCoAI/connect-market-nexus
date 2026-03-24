@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -74,7 +74,7 @@ export function PendingReviewView() {
         <div>
           <h3 className="text-lg font-semibold mb-3">Unconfirmed Extractions</h3>
           <div className="space-y-2">
-            {pendingInstances.map((inst) => (
+            {pendingInstances.map((inst: any) => (
               <PendingInstanceCard key={inst.id} instance={inst} />
             ))}
           </div>

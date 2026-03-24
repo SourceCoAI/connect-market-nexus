@@ -130,7 +130,7 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
 
     // H-5 FIX: Use stage type instead of hardcoded name for owner intro check.
     // Supports both the preferred type-based check and legacy name match as fallback.
-    if (targetStage.type === 'owner_intro' || targetStage.name === 'Owner intro requested') {
+    if ((targetStage as any).type === 'owner_intro' || targetStage.name === 'Owner intro requested') {
       try {
         if (!deal.listing_id) {
           toast({

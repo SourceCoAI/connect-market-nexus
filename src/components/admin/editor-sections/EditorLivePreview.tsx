@@ -426,7 +426,7 @@ function formValuesToLandingPageDeal(
     metric_4_custom_label: formValues.metric_4_custom_label || null,
     metric_4_custom_value: formValues.metric_4_custom_value || null,
     metric_4_custom_subtitle: formValues.metric_4_custom_subtitle || null,
-    executive_summary: null,
+    
     full_time_employees: formValues.full_time_employees || null,
     part_time_employees: formValues.part_time_employees || null,
     status: 'active',

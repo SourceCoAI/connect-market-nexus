@@ -252,11 +252,11 @@ export function ImprovedListingEditor({
       } else if (field === 'description' && data?.description) {
         form.setValue('description', data.description, { shouldDirty: true });
         if (data.description_html) {
-          form.setValue('description_html' as never, data.description_html, { shouldDirty: true });
+          (form.setValue as Function)('description_html', data.description_html, { shouldDirty: true });
         }
         toast({ title: 'AI Content Generated', description: 'Description updated.' });
       } else if (data?.custom_sections) {
-        form.setValue('custom_sections' as never, data.custom_sections, { shouldDirty: true });
+        (form.setValue as Function)('custom_sections', data.custom_sections, { shouldDirty: true });
         toast({ title: 'AI Content Generated', description: 'Content sections updated.' });
       }
     } catch (err) {

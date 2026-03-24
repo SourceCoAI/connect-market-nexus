@@ -461,7 +461,7 @@ export default function ReMarketingReferralPartnerDetail() {
         <AddPartnerDialog
           open={actions.editDialogOpen}
           onOpenChange={actions.setEditDialogOpen}
-          editingPartner={partner}
+          editingPartner={partner ? { ...partner, partner_type: partner.partner_type ?? undefined } as any : undefined}
         />
         <AddDealDialog
           open={actions.addDealOpen}

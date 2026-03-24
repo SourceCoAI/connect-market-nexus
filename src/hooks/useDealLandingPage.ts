@@ -30,7 +30,7 @@ export interface LandingPageDeal {
   part_time_employees: number | null;
   status: string;
   presented_by_admin_id: string | null;
-  is_internal_deal: boolean | null;
+  is_internal_deal: boolean;
   acquisition_type: string | null;
   // Structured business details
   geographic_states: string[] | null;
@@ -40,8 +40,6 @@ export interface LandingPageDeal {
   revenue_model: string | null;
   business_model: string | null;
   growth_trajectory: string | null;
-  // C-2 FIX: is_internal_deal used to gate access to draft/internal listings
-  is_internal_deal: boolean;
   featured_deal_ids: string[] | null;
 }
 
