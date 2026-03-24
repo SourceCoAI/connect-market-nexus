@@ -8098,6 +8098,109 @@ export type Database = {
           },
         ]
       }
+      match_tool_leads: {
+        Row: {
+          business_name: string | null
+          created_at: string
+          deal_owner_id: string | null
+          email: string | null
+          excluded: boolean
+          full_name: string | null
+          id: string
+          industry: string | null
+          location: string | null
+          not_a_fit: boolean
+          notes: string | null
+          phone: string | null
+          profit: string | null
+          pushed_listing_id: string | null
+          pushed_to_all_deals: boolean
+          raw_inputs: Json | null
+          revenue: string | null
+          source: string | null
+          status: string
+          submission_count: number
+          submission_stage: string
+          timeline: string | null
+          updated_at: string
+          website: string
+        }
+        Insert: {
+          business_name?: string | null
+          created_at?: string
+          deal_owner_id?: string | null
+          email?: string | null
+          excluded?: boolean
+          full_name?: string | null
+          id?: string
+          industry?: string | null
+          location?: string | null
+          not_a_fit?: boolean
+          notes?: string | null
+          phone?: string | null
+          profit?: string | null
+          pushed_listing_id?: string | null
+          pushed_to_all_deals?: boolean
+          raw_inputs?: Json | null
+          revenue?: string | null
+          source?: string | null
+          status?: string
+          submission_count?: number
+          submission_stage?: string
+          timeline?: string | null
+          updated_at?: string
+          website: string
+        }
+        Update: {
+          business_name?: string | null
+          created_at?: string
+          deal_owner_id?: string | null
+          email?: string | null
+          excluded?: boolean
+          full_name?: string | null
+          id?: string
+          industry?: string | null
+          location?: string | null
+          not_a_fit?: boolean
+          notes?: string | null
+          phone?: string | null
+          profit?: string | null
+          pushed_listing_id?: string | null
+          pushed_to_all_deals?: boolean
+          raw_inputs?: Json | null
+          revenue?: string | null
+          source?: string | null
+          status?: string
+          submission_count?: number
+          submission_stage?: string
+          timeline?: string | null
+          updated_at?: string
+          website?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_tool_leads_pushed_listing_id_fkey"
+            columns: ["pushed_listing_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_introduction_summary"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "match_tool_leads_pushed_listing_id_fkey"
+            columns: ["pushed_listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_tool_leads_pushed_listing_id_fkey"
+            columns: ["pushed_listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memo_distribution_log: {
         Row: {
           channel: string
@@ -13396,6 +13499,21 @@ export type Database = {
           user_email: string
           user_id: string
         }[]
+      }
+      merge_match_tool_lead: {
+        Args: {
+          p_email?: string
+          p_full_name?: string
+          p_phone?: string
+          p_profit?: string
+          p_raw_inputs?: string
+          p_revenue?: string
+          p_source?: string
+          p_submission_stage?: string
+          p_timeline?: string
+          p_website: string
+        }
+        Returns: string
       }
       merge_or_create_connection_request: {
         Args: {
