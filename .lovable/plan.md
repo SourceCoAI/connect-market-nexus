@@ -1,96 +1,50 @@
 
 
-# Auto-Enrich Match Tool Leads: Logos + Company Intel Panel
+# Auto-Enrich on Ingestion + Rich Lead Intelligence Panel
 
-## What We're Building
+## Two Changes
 
-1. **Favicons/logos next to every website** — shown immediately, no API calls needed
-2. **Side panel** that opens on row click with AI-generated company intelligence
-3. **Edge function** (`enrich-match-tool-lead`) that scrapes the website via Firecrawl + uses Gemini to extract a concise company profile
+### 1. Auto-Enrich on Ingestion
 
-## Architecture
+Currently enrichment only triggers when an admin opens the panel. Instead, trigger it automatically in `ingest-match-tool-lead` right after the upsert — fire-and-forget so it doesn't block the 200 response.
 
-```text
-Lead Row Click
-  ├─ Instant: Show favicon via Google's favicon API (no cost, no API)
-  └─ Panel Opens → calls enrich-match-tool-lead edge function
-       ├─ Firecrawl: scrape website markdown
-       ├─ Gemini: extract structured company intel
-       ├─ Cache result in match_tool_leads.enrichment_data (JSONB)
-       └─ Return to panel (cached on subsequent opens)
-```
+**File: `supabase/functions/ingest-match-tool-lead/index.ts`**
 
-## Plan
+After the successful merge RPC, call the enrichment logic inline (same Firecrawl + Gemini pattern from `enrich-match-tool-lead`) but without auth checks since this is server-to-server. Only enrich if the lead doesn't already have `enrichment_data`. Fire-and-forget — don't await, don't block the response.
 
-### 1. Logos — Zero-cost Google Favicon API
+Since edge functions can't easily call other edge functions internally, inline the enrichment logic directly: after the upsert succeeds, check if enrichment_data is null, then scrape + Gemini + save. Wrap in a try/catch so failures never block ingestion.
 
-No scraping needed. Google provides favicons for any domain instantly:
+### 2. Rich Lead Intelligence Panel
 
-```
-https://www.google.com/s2/favicons?domain=example.com&sz=32
-```
+The CSV reveals significant untapped intel. Redesign the panel to show actionable decision-making data:
 
-Add a 20×20 `<img>` before the domain text in LeadRow. Falls back gracefully to a generic globe icon if no favicon exists.
+**New sections in `MatchToolLeadPanel.tsx`:**
 
-**File**: `index.tsx` — LeadRow website column only.
+| Section | Data Source | What It Shows |
+|---------|-----------|---------------|
+| **Seller Intent** | `raw_inputs.exit_timing`, `raw_inputs.intent_score`, `raw_inputs.converted`, submission_stage | Timeline badge ("Selling in 6-12m"), intent score bar, conversion status |
+| **Buyer Match Results** | `raw_inputs.match_count` | "Matched with 160 buyers" — shows they saw value |
+| **Business Profile** | `raw_inputs.company_name`, `raw_inputs.sector` | Self-reported company name and industry vertical |
+| **Traffic Source** | `raw_inputs.source`, `raw_inputs.utm_source/medium/campaign` | How they found the tool (embed, standalone, UTM params) |
+| **Visitor Geo** | `raw_inputs.city/region/country`, `raw_inputs.latitude/longitude` | Full location with map link |
+| **Funnel Journey** | `raw_inputs.reached_step`, `submission_count`, `created_at → updated_at` | Steps completed, return visits, time on tool |
+| **Company Intelligence** | `enrichment_data` (AI-generated) | One-liner, services, industry, signals (existing) |
 
-### 2. Database: Add `enrichment_data` Column
+**Priority display for decision-making:**
+- Top: Seller intent + timeline (most actionable)
+- Middle: Business profile + financials + match results
+- Bottom: Traffic source + funnel journey + AI intel
 
-New JSONB column on `match_tool_leads` to cache enrichment results so we only scrape once per lead:
+**Visual treatment:**
+- Intent score as a small radial/bar indicator
+- Timeline as a colored badge (green = <6m urgent, amber = 6-12m, gray = 24m+)
+- Match count as a prominent stat
+- Funnel steps as a mini progress indicator (hero → basics → financials → results → form)
 
-```sql
-ALTER TABLE match_tool_leads 
-ADD COLUMN IF NOT EXISTS enrichment_data jsonb DEFAULT NULL;
-```
-
-Schema of the cached JSON:
-```json
-{
-  "company_name": "Gilbert Mechanical",
-  "one_liner": "Commercial HVAC contractor in Phoenix, AZ",
-  "services": ["HVAC installation", "maintenance", "repair"],
-  "industry": "Home Services — HVAC",
-  "geography": "Phoenix, AZ",
-  "employee_estimate": "20-50",
-  "year_founded": "2005",
-  "notable_signals": ["Licensed contractor", "Serves commercial & residential"],
-  "enriched_at": "2026-03-24T..."
-}
-```
-
-### 3. Edge Function: `enrich-match-tool-lead`
-
-- Accepts `{ lead_id, website }`
-- Checks if `enrichment_data` already exists (cache hit → return immediately)
-- Scrapes website via Firecrawl (markdown, main content only)
-- Sends markdown to Gemini with a tight extraction prompt
-- Saves result to `enrichment_data` column
-- Returns the structured data
-
-Uses existing `FIRECRAWL_API_KEY` and `GEMINI_API_KEY` (both already configured).
-
-### 4. Lead Detail Panel (Sheet)
-
-New `MatchToolLeadPanel.tsx` component using the existing `Sheet` pattern (same as ValuationLeadDetailDrawer):
-
-- Opens on row click
-- Shows:
-  - Large favicon + domain + business name
-  - Stage badge + date
-  - Contact info (if available)
-  - Financials (if available)
-  - **Company Intel section** — one-liner, services list, industry, geography, employee estimate, year founded, notable signals
-  - Loading skeleton while enrichment fetches
-- Actions: "Not a Fit", "Delete", external link to website
-
-### 5. Files Changed
+### Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/migrations/[new].sql` | Add `enrichment_data` JSONB column |
-| `supabase/functions/enrich-match-tool-lead/index.ts` | New edge function: Firecrawl scrape → Gemini extract → cache |
-| `src/pages/admin/remarketing/MatchToolLeads/MatchToolLeadPanel.tsx` | New Sheet-based detail panel with company intel |
-| `src/pages/admin/remarketing/MatchToolLeads/index.tsx` | Add favicon images to LeadRow, wire row click → panel open |
-| `src/pages/admin/remarketing/MatchToolLeads/types.ts` | Add `enrichment_data` to MatchToolLead interface |
-| `src/pages/admin/remarketing/MatchToolLeads/useMatchToolLeadsData.ts` | Add `enrichLead` mutation that calls the edge function |
+| `supabase/functions/ingest-match-tool-lead/index.ts` | Add inline enrichment after upsert (fire-and-forget) |
+| `src/pages/admin/remarketing/MatchToolLeads/MatchToolLeadPanel.tsx` | Redesign with seller intent, match results, traffic source, funnel journey sections |
 
