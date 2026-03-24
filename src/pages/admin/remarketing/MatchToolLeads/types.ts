@@ -25,6 +25,7 @@ export interface MatchToolLead {
   scoring_notes: string | null;
   submission_count: number | null;
   created_at: string;
+  enrichment_data: Record<string, unknown> | null;
   updated_at: string;
 }
 

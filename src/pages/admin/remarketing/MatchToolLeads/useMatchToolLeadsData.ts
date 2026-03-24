@@ -102,6 +102,19 @@ export function useMatchToolLeadsData() {
     },
   });
 
+  const enrichLead = useMutation({
+    mutationFn: async ({ lead_id, website }: { lead_id: string; website: string }) => {
+      const { data, error } = await supabase.functions.invoke('enrich-match-tool-lead', {
+        body: { lead_id, website },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['match-tool-leads'] });
+    },
+  });
+
   return {
     leads,
     isLoading,
@@ -114,5 +127,6 @@ export function useMatchToolLeadsData() {
     markNotAFit,
     deleteLeads,
     updateStatus,
+    enrichLead,
   };
 }

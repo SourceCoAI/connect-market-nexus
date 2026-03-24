@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Ban, Trash2 } from 'lucide-react';
+import { Search, Ban, Trash2, Globe } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useMatchToolLeadsData } from './useMatchToolLeadsData';
+import { MatchToolLeadPanel } from './MatchToolLeadPanel';
 import type { MatchToolLead } from './types';
 
 function formatDate(dateStr: string): string {
@@ -27,6 +28,15 @@ function formatDate(dateStr: string): string {
 
 function cleanDomain(url: string): string {
   return url.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+}
+
+function getDomain(url: string): string {
+  try {
+    const u = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return u.hostname;
+  } catch {
+    return url;
+  }
 }
 
 const REVENUE_LABELS: Record<string, string> = {
@@ -59,6 +69,8 @@ function formatFinancials(revenue: string | null, profit: string | null): string
 
 export default function MatchToolLeads() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<MatchToolLead | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
   const {
     leads,
     isLoading,
@@ -70,6 +82,7 @@ export default function MatchToolLeads() {
     setSelectedIds,
     markNotAFit,
     deleteLeads,
+    enrichLead,
   } = useMatchToolLeadsData();
 
   const toggleSelect = (id: string) => {
@@ -87,6 +100,11 @@ export default function MatchToolLeads() {
     } else {
       setSelectedIds(new Set(leads.map((l) => l.id)));
     }
+  };
+
+  const handleRowClick = (lead: MatchToolLead) => {
+    setSelectedLead(lead);
+    setPanelOpen(true);
   };
 
   return (
@@ -178,6 +196,7 @@ export default function MatchToolLeads() {
                   lead={lead}
                   selected={selectedIds.has(lead.id)}
                   onToggle={() => toggleSelect(lead.id)}
+                  onClick={() => handleRowClick(lead)}
                 />
               ))}
             </div>
@@ -207,6 +226,14 @@ export default function MatchToolLeads() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MatchToolLeadPanel
+        lead={selectedLead}
+        open={panelOpen}
+        onOpenChange={setPanelOpen}
+        onEnrich={(lead_id, website) => enrichLead.mutate({ lead_id, website })}
+        isEnriching={enrichLead.isPending}
+      />
     </div>
   );
 }
@@ -215,14 +242,17 @@ function LeadRow({
   lead,
   selected,
   onToggle,
+  onClick,
 }: {
   lead: MatchToolLead;
   selected: boolean;
   onToggle: () => void;
+  onClick: () => void;
 }) {
   const isFullForm = lead.submission_stage === 'full_form';
   const isFinancials = lead.submission_stage === 'financials';
   const financials = formatFinancials(lead.revenue, lead.profit);
+  const domain = getDomain(lead.website);
 
   const raw = lead.raw_inputs as Record<string, any> | null;
   const city = raw?.city || null;
@@ -236,7 +266,7 @@ function LeadRow({
     <div
       className={`
         grid grid-cols-[28px_1.2fr_1.2fr_1fr_100px_80px_64px] gap-6 px-4 py-4 items-center
-        border-b border-border/30 transition-colors
+        border-b border-border/30 transition-colors cursor-pointer
         ${isFullForm
           ? 'border-l-[3px] border-l-emerald-500'
           : selected
@@ -244,27 +274,36 @@ function LeadRow({
             : 'hover:bg-muted/15'
         }
       `}
+      onClick={onClick}
     >
       {/* Checkbox */}
-      <div>
+      <div onClick={(e) => e.stopPropagation()}>
         <Checkbox checked={selected} onCheckedChange={onToggle} />
       </div>
 
       {/* Website */}
-      <div className="min-w-0">
-        <a
-          href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[13px] font-medium text-foreground hover:text-primary transition-colors truncate block"
-        >
-          {cleanDomain(lead.website)}
-        </a>
-        {lead.business_name && (
-          <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">
-            {lead.business_name}
-          </p>
-        )}
+      <div className="min-w-0 flex items-center gap-2">
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+          alt=""
+          className="h-5 w-5 rounded flex-shrink-0"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.style.display = 'none';
+            target.nextElementSibling?.classList.remove('hidden');
+          }}
+        />
+        <Globe className="h-5 w-5 text-muted-foreground/40 flex-shrink-0 hidden" />
+        <div className="min-w-0">
+          <span className="text-[13px] font-medium text-foreground truncate block">
+            {cleanDomain(lead.website)}
+          </span>
+          {lead.business_name && (
+            <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">
+              {lead.business_name}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Contact */}

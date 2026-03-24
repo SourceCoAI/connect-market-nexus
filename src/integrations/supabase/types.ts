@@ -8104,6 +8104,7 @@ export type Database = {
           created_at: string
           deal_owner_id: string | null
           email: string | null
+          enrichment_data: Json | null
           excluded: boolean
           full_name: string | null
           id: string
@@ -8130,6 +8131,7 @@ export type Database = {
           created_at?: string
           deal_owner_id?: string | null
           email?: string | null
+          enrichment_data?: Json | null
           excluded?: boolean
           full_name?: string | null
           id?: string
@@ -8156,6 +8158,7 @@ export type Database = {
           created_at?: string
           deal_owner_id?: string | null
           email?: string | null
+          enrichment_data?: Json | null
           excluded?: boolean
           full_name?: string | null
           id?: string

@@ -1,0 +1,1 @@
+ALTER TABLE match_tool_leads ADD COLUMN IF NOT EXISTS enrichment_data jsonb DEFAULT NULL;
