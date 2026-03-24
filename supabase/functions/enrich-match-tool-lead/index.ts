@@ -105,11 +105,11 @@ serve(async (req) => {
       console.warn(`[enrich-match-tool-lead] Firecrawl failed: ${scrapeResponse.status}`);
     }
 
-    // Extract with Lovable AI Gateway
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
+    // Extract with OpenAI
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }),
+        JSON.stringify({ error: 'OPENAI_API_KEY not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -122,14 +122,14 @@ Website: ${formattedUrl}
 Content:
 ${truncatedMarkdown || '(No content available - infer from URL only)'}`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: 'Extract structured company data from the provided website content. Be concise and factual.' },
           { role: 'user', content: prompt },
@@ -141,7 +141,7 @@ ${truncatedMarkdown || '(No content available - infer from URL only)'}`;
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-      console.error(`[enrich-match-tool-lead] AI Gateway error: ${aiResponse.status} - ${errText}`);
+      console.error(`[enrich-match-tool-lead] OpenAI error: ${aiResponse.status} - ${errText}`);
       
       if (aiResponse.status === 429) {
         return new Response(

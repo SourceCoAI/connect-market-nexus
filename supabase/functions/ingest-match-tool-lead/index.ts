@@ -75,10 +75,10 @@ async function enrichLead(supabase: any, leadId: string, website: string) {
       console.warn(`[enrich] Firecrawl failed: ${scrapeResponse.status}`);
     }
 
-    // Extract with Lovable AI Gateway
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.warn('[enrich] LOVABLE_API_KEY not configured, skipping');
+    // Extract with OpenAI
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      console.warn('[enrich] OPENAI_API_KEY not configured, skipping');
       return;
     }
 
@@ -90,14 +90,14 @@ Website: ${formattedUrl}
 Content:
 ${truncatedMarkdown || '(No content available - infer from URL only)'}`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: 'Extract structured company data from the provided website content. Be concise and factual.' },
           { role: 'user', content: prompt },
@@ -108,7 +108,7 @@ ${truncatedMarkdown || '(No content available - infer from URL only)'}`;
     });
 
     if (!aiResponse.ok) {
-      console.error(`[enrich] AI Gateway error: ${aiResponse.status}`);
+      console.error(`[enrich] OpenAI error: ${aiResponse.status}`);
       return;
     }
 
