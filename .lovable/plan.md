@@ -1,66 +1,38 @@
 
 
-# Fix Enrichment: Switch from Direct Gemini to Lovable AI Gateway
+# Switch Enrichment from Lovable AI Gateway to OpenAI Direct
 
-## Root Cause
-The enrichment edge functions call the Gemini API directly, which is hitting **429 rate limits**. This means every enrichment attempt fails, and the panel always shows "No enrichment data available."
+## What Changes
 
-## Fix
-Switch both enrichment functions from direct Gemini API calls to the **Lovable AI Gateway** (`https://ai.gateway.lovable.dev/v1/chat/completions`), which uses `LOVABLE_API_KEY` (already configured) and has separate rate limiting.
+Both enrichment functions currently use the Lovable AI Gateway with `google/gemini-2.5-flash`. Switch to direct OpenAI API calls using the existing `OPENAI_API_KEY` secret.
 
-### Changes
+### File 1: `supabase/functions/enrich-match-tool-lead/index.ts`
 
-**File 1: `supabase/functions/enrich-match-tool-lead/index.ts`**
+- Replace `LOVABLE_API_KEY` check with `OPENAI_API_KEY` check
+- Change fetch URL from `https://ai.gateway.lovable.dev/v1/chat/completions` to `https://api.openai.com/v1/chat/completions`
+- Change auth header to `Bearer ${OPENAI_API_KEY}`
+- Change model from `google/gemini-2.5-flash` to `gpt-4o-mini` (fast, cheap, great at structured extraction)
+- Keep tool calling schema identical (OpenAI native format)
+- Update error messages to reference OpenAI
 
-Replace the Gemini API section (lines 87-145) with a Lovable AI Gateway call:
-- Use `LOVABLE_API_KEY` instead of `GEMINI_API_KEY`
-- Call `https://ai.gateway.lovable.dev/v1/chat/completions` with `google/gemini-2.5-flash` model
-- Use tool calling (structured output) instead of `responseMimeType: 'application/json'` for reliable JSON extraction
-- Keep the same prompt and same output schema
-- Add 429/402 error handling with clear error messages
+### File 2: `supabase/functions/ingest-match-tool-lead/index.ts`
 
-**File 2: `supabase/functions/ingest-match-tool-lead/index.ts`**
+Same changes in the inline `enrichLead()` function (lines 78-112):
+- `LOVABLE_API_KEY` → `OPENAI_API_KEY`
+- Gateway URL → `https://api.openai.com/v1/chat/completions`
+- Model → `gpt-4o-mini`
 
-Same change in the inline `enrichLead` function (lines 56-100):
-- Switch from direct Gemini to Lovable AI Gateway
-- Same structured output approach
-
-### Technical Detail
-
-Replace:
-```typescript
-const geminiResponse = await fetch(
-  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-  { ... }
-);
-```
-
-With:
-```typescript
-const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    model: 'google/gemini-2.5-flash',
-    messages: [
-      { role: 'system', content: 'Extract structured company data. Return JSON only.' },
-      { role: 'user', content: prompt }
-    ],
-    tools: [{ type: 'function', function: { name: 'extract_company', parameters: { ... schema ... } } }],
-    tool_choice: { type: 'function', function: { name: 'extract_company' } },
-  }),
-});
-```
+### No other changes needed
+- `OPENAI_API_KEY` is already configured as a secret
+- The tool calling format is identical (OpenAI invented it)
+- Response parsing stays the same (`choices[0].message.tool_calls[0].function.arguments`)
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/enrich-match-tool-lead/index.ts` | Switch Gemini → Lovable AI Gateway |
-| `supabase/functions/ingest-match-tool-lead/index.ts` | Switch Gemini → Lovable AI Gateway in enrichLead() |
+| `supabase/functions/enrich-match-tool-lead/index.ts` | Switch AI provider to OpenAI |
+| `supabase/functions/ingest-match-tool-lead/index.ts` | Switch AI provider to OpenAI in enrichLead() |
 
-Both functions will be redeployed after changes.
+Both functions will be redeployed.
 
