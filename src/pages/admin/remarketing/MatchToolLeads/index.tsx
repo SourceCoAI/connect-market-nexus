@@ -118,7 +118,7 @@ export default function MatchToolLeads() {
           ) : (
             <div className="space-y-0">
               {/* Header row */}
-              <div className="grid grid-cols-[28px_1fr_1fr_1fr_100px_60px] gap-4 px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border/60">
+              <div className="grid grid-cols-[28px_1fr_1fr_1fr_120px_100px_60px] gap-4 px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border/60">
                 <div>
                   <Checkbox
                     checked={selectedIds.size === leads.length && leads.length > 0}
@@ -128,6 +128,7 @@ export default function MatchToolLeads() {
                 <div>Website</div>
                 <div>Contact</div>
                 <div>Financials</div>
+                <div>Location</div>
                 <div>Stage</div>
                 <div className="text-right">Date</div>
               </div>
@@ -161,15 +162,19 @@ function LeadRow({
   const isFinancials = lead.submission_stage === 'financials';
   const financials = compactFinancials(lead.revenue, lead.profit);
 
-  // Extract geo from raw_inputs if available
-  const geo = lead.raw_inputs
-    ? ((lead.raw_inputs as any).geo_region || (lead.raw_inputs as any).location || null)
-    : null;
+  // Extract location from raw_inputs
+  const raw = lead.raw_inputs as Record<string, any> | null;
+  const city = raw?.city || null;
+  const region = raw?.region || null;
+  const country = raw?.country || null;
+  const locationDisplay = city && region
+    ? `${city}, ${region}`
+    : city || region || country || null;
 
   return (
     <div
       className={`
-        grid grid-cols-[28px_1fr_1fr_1fr_100px_60px] gap-4 px-3 py-3 items-center
+        grid grid-cols-[28px_1fr_1fr_1fr_120px_100px_60px] gap-4 px-3 py-3 items-center
         border-b border-border/40 transition-colors
         ${isFullForm
           ? 'border-l-2 border-l-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/10'
@@ -194,11 +199,9 @@ function LeadRow({
         >
           {cleanDomain(lead.website)}
         </a>
-        {(lead.business_name || geo) && (
+        {lead.business_name && (
           <p className="text-[11px] text-muted-foreground truncate mt-0.5">
             {lead.business_name}
-            {lead.business_name && geo ? ' · ' : ''}
-            {geo}
           </p>
         )}
       </div>
@@ -237,6 +240,15 @@ function LeadRow({
         )}
         {lead.timeline && (
           <p className="text-[11px] text-muted-foreground mt-0.5">Timeline: {lead.timeline}</p>
+        )}
+      </div>
+
+      {/* Location */}
+      <div className="min-w-0">
+        {locationDisplay ? (
+          <span className="text-xs text-foreground/80 truncate block">{locationDisplay}</span>
+        ) : (
+          <span className="text-[11px] text-muted-foreground/50">—</span>
         )}
       </div>
 
