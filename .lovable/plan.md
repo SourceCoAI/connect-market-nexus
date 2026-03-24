@@ -1,50 +1,66 @@
 
 
-# Auto-Enrich on Ingestion + Rich Lead Intelligence Panel
+# Fix Enrichment: Switch from Direct Gemini to Lovable AI Gateway
 
-## Two Changes
+## Root Cause
+The enrichment edge functions call the Gemini API directly, which is hitting **429 rate limits**. This means every enrichment attempt fails, and the panel always shows "No enrichment data available."
 
-### 1. Auto-Enrich on Ingestion
+## Fix
+Switch both enrichment functions from direct Gemini API calls to the **Lovable AI Gateway** (`https://ai.gateway.lovable.dev/v1/chat/completions`), which uses `LOVABLE_API_KEY` (already configured) and has separate rate limiting.
 
-Currently enrichment only triggers when an admin opens the panel. Instead, trigger it automatically in `ingest-match-tool-lead` right after the upsert — fire-and-forget so it doesn't block the 200 response.
+### Changes
 
-**File: `supabase/functions/ingest-match-tool-lead/index.ts`**
+**File 1: `supabase/functions/enrich-match-tool-lead/index.ts`**
 
-After the successful merge RPC, call the enrichment logic inline (same Firecrawl + Gemini pattern from `enrich-match-tool-lead`) but without auth checks since this is server-to-server. Only enrich if the lead doesn't already have `enrichment_data`. Fire-and-forget — don't await, don't block the response.
+Replace the Gemini API section (lines 87-145) with a Lovable AI Gateway call:
+- Use `LOVABLE_API_KEY` instead of `GEMINI_API_KEY`
+- Call `https://ai.gateway.lovable.dev/v1/chat/completions` with `google/gemini-2.5-flash` model
+- Use tool calling (structured output) instead of `responseMimeType: 'application/json'` for reliable JSON extraction
+- Keep the same prompt and same output schema
+- Add 429/402 error handling with clear error messages
 
-Since edge functions can't easily call other edge functions internally, inline the enrichment logic directly: after the upsert succeeds, check if enrichment_data is null, then scrape + Gemini + save. Wrap in a try/catch so failures never block ingestion.
+**File 2: `supabase/functions/ingest-match-tool-lead/index.ts`**
 
-### 2. Rich Lead Intelligence Panel
+Same change in the inline `enrichLead` function (lines 56-100):
+- Switch from direct Gemini to Lovable AI Gateway
+- Same structured output approach
 
-The CSV reveals significant untapped intel. Redesign the panel to show actionable decision-making data:
+### Technical Detail
 
-**New sections in `MatchToolLeadPanel.tsx`:**
+Replace:
+```typescript
+const geminiResponse = await fetch(
+  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+  { ... }
+);
+```
 
-| Section | Data Source | What It Shows |
-|---------|-----------|---------------|
-| **Seller Intent** | `raw_inputs.exit_timing`, `raw_inputs.intent_score`, `raw_inputs.converted`, submission_stage | Timeline badge ("Selling in 6-12m"), intent score bar, conversion status |
-| **Buyer Match Results** | `raw_inputs.match_count` | "Matched with 160 buyers" — shows they saw value |
-| **Business Profile** | `raw_inputs.company_name`, `raw_inputs.sector` | Self-reported company name and industry vertical |
-| **Traffic Source** | `raw_inputs.source`, `raw_inputs.utm_source/medium/campaign` | How they found the tool (embed, standalone, UTM params) |
-| **Visitor Geo** | `raw_inputs.city/region/country`, `raw_inputs.latitude/longitude` | Full location with map link |
-| **Funnel Journey** | `raw_inputs.reached_step`, `submission_count`, `created_at → updated_at` | Steps completed, return visits, time on tool |
-| **Company Intelligence** | `enrichment_data` (AI-generated) | One-liner, services, industry, signals (existing) |
-
-**Priority display for decision-making:**
-- Top: Seller intent + timeline (most actionable)
-- Middle: Business profile + financials + match results
-- Bottom: Traffic source + funnel journey + AI intel
-
-**Visual treatment:**
-- Intent score as a small radial/bar indicator
-- Timeline as a colored badge (green = <6m urgent, amber = 6-12m, gray = 24m+)
-- Match count as a prominent stat
-- Funnel steps as a mini progress indicator (hero → basics → financials → results → form)
+With:
+```typescript
+const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    model: 'google/gemini-2.5-flash',
+    messages: [
+      { role: 'system', content: 'Extract structured company data. Return JSON only.' },
+      { role: 'user', content: prompt }
+    ],
+    tools: [{ type: 'function', function: { name: 'extract_company', parameters: { ... schema ... } } }],
+    tool_choice: { type: 'function', function: { name: 'extract_company' } },
+  }),
+});
+```
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/ingest-match-tool-lead/index.ts` | Add inline enrichment after upsert (fire-and-forget) |
-| `src/pages/admin/remarketing/MatchToolLeads/MatchToolLeadPanel.tsx` | Redesign with seller intent, match results, traffic source, funnel journey sections |
+| `supabase/functions/enrich-match-tool-lead/index.ts` | Switch Gemini → Lovable AI Gateway |
+| `supabase/functions/ingest-match-tool-lead/index.ts` | Switch Gemini → Lovable AI Gateway in enrichLead() |
+
+Both functions will be redeployed after changes.
 
