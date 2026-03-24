@@ -73,6 +73,21 @@ export function useMatchToolLeadsData() {
     },
   });
 
+  const deleteLeads = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('match_tool_leads' as any)
+        .delete()
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['match-tool-leads'] });
+      setSelectedIds(new Set());
+      toast.success('Leads deleted');
+    },
+  });
+
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabase
@@ -97,6 +112,7 @@ export function useMatchToolLeadsData() {
     selectedIds,
     setSelectedIds,
     markNotAFit,
+    deleteLeads,
     updateStatus,
   };
 }
