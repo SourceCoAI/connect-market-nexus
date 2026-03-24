@@ -367,7 +367,8 @@ export function useRobustListingCreation() {
  */
 // H-4 FIX: This function is no longer called from listing creation.
 // Deal alerts are now triggered from use-publish-listing.ts on publication instead.
-async function _triggerDealAlertsForListing(_listing: Record<string, unknown>): Promise<void> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _triggerDealAlertsForListing(listing: Record<string, unknown>): Promise<void> {
   try {
     // Query deal alerts that match this listing
     const { data: matchingAlerts, error } = await supabase.rpc('match_deal_alerts_with_listing', {

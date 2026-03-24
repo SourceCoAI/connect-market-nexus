@@ -29,7 +29,7 @@ export function PlaybookView() {
   );
 
   const totalInstances = (categories || []).reduce((sum, c) => sum + c.instance_count, 0);
-  const _totalCalls = new Set((categories || []).map((c: any) => c.id)).size; // simplified
+  // const totalCalls = new Set((categories || []).map((c: any) => c.id)).size;
 
   if (selectedCategoryId) {
     const category = (categories || []).find((c) => c.id === selectedCategoryId);
