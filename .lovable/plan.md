@@ -1,97 +1,60 @@
 
 
-# Connect Deal Match AI to Marketplace — Implementation Instructions
+# Fix Dates & Redesign Match Tool Leads
 
-## What's Already Done (This Project)
-- `match_tool_leads` table with `merge_match_tool_lead` RPC (deduplicates by website)
-- `ingest-match-tool-lead` Edge Function deployed and tested
-- Match Tool Leads admin page at `/admin/remarketing/leads/match-tool`
+## Problem
+1. **Wrong dates**: The backfill used the edge function which sets `created_at = now()`, so all 13 leads show "24/03/2026" instead of their real dates (March 6–24 from the CSV).
+2. **Design is flat**: All rows look the same regardless of lead quality. Full-form leads (who want the buyer list) should stand out visually.
 
-## What Needs to Happen in the Deal Match AI Project
+## Plan
 
-The Deal Match AI project has 3 stages managed in `src/pages/Index.tsx`:
-1. **Hero** — user enters website → transitions to form
-2. **FinancialDataForm** — user picks revenue + profit → transitions to analysis
-3. **LeadCaptureModal** — user submits name/email/phone/timeline
+### 1. Fix Dates via SQL Migration
 
-### Changes Required (3 files + 1 new utility)
+Run an UPDATE that sets correct `created_at` from the CSV data, matching by normalized website URL:
 
-**File 1: Create `src/lib/sync-to-marketplace.ts`**
-
-A single reusable helper function:
-
-```typescript
-export const syncToMarketplace = (data: Record<string, unknown>) => {
-  fetch('https://vhzipqarkmmfuqadefep.supabase.co/functions/v1/ingest-match-tool-lead', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...data, source: 'deal-match-ai' }),
-  }).catch(() => {});
-};
+```sql
+UPDATE match_tool_leads SET created_at = '2026-03-06T12:12:46Z' WHERE lower(website) = 'https://gilbertmechanical.com';
+UPDATE match_tool_leads SET created_at = '2026-03-09T14:11:44Z' WHERE lower(website) = 'https://autobahn.com';
+UPDATE match_tool_leads SET created_at = '2026-03-09T16:27:29Z' WHERE lower(website) = 'https://saksmetering.com';
+UPDATE match_tool_leads SET created_at = '2026-03-10T17:05:57Z' WHERE lower(website) = 'https://bill martin';
+UPDATE match_tool_leads SET created_at = '2026-03-10T17:15:00Z' WHERE lower(website) = 'https://www.ur24technology.com/';
+UPDATE match_tool_leads SET created_at = '2026-03-12T19:57:57Z' WHERE lower(website) = 'https://spotlightreporting.com';
+UPDATE match_tool_leads SET created_at = '2026-03-14T22:35:10Z' WHERE lower(website) = 'https://www.ourayservices.com/';
+UPDATE match_tool_leads SET created_at = '2026-03-17T14:53:41Z' WHERE lower(website) = 'https://ninakendosa.com';
+UPDATE match_tool_leads SET created_at = '2026-03-17T23:56:17Z' WHERE lower(website) = 'https://dbssearch.today/';
+UPDATE match_tool_leads SET created_at = '2026-03-18T00:39:05Z' WHERE lower(website) = 'https://integrityrc.com/';
+UPDATE match_tool_leads SET created_at = '2026-03-24T13:13:03Z' WHERE lower(website) = 'https://aquasafepool.com';
+-- test records excluded
 ```
 
-**File 2: `src/components/Hero.tsx` — line 19, after `trackEvent`**
+Also update `business_name`, `industry`, `location` from CSV raw_inputs where available (e.g., "Integrity Roofing & Construction", "OURAY", "Digimedia").
 
-Add:
-```typescript
-import { syncToMarketplace } from '@/lib/sync-to-marketplace';
-// ...
-// Inside handleSubmit, after trackEvent line:
-syncToMarketplace({ website: website.trim() });
-```
+### 2. Redesign the UI — `index.tsx`
 
-**File 3: `src/components/FinancialDataForm.tsx` — line 21, after `trackEvent`**
+**Full-form leads get a highlighted row treatment:**
+- Left border accent (emerald/green) on full_form rows
+- Subtle green background tint (`bg-emerald-50/50`)
+- A small "Wants Buyer List" indicator badge
+- Contact info displayed more prominently inline
 
-Add:
-```typescript
-import { syncToMarketplace } from '@/lib/sync-to-marketplace';
-// ...
-// Inside handleSubmit, after trackEvent line:
-syncToMarketplace({ website, revenue, profit });
-```
+**Browse/financials rows stay clean and minimal:**
+- No background tint, standard row
+- Muted text for missing data instead of "—" dashes everywhere
 
-**File 4: `src/components/LeadCaptureModal.tsx` — line 44, after the successful insert**
+**General design improvements:**
+- Remove the outer border wrapper, use hairline separators only (quiet luxury pattern)
+- Cleaner header with count integrated, not a separate badge
+- Relative dates ("3d ago", "2w ago") instead of absolute dates
+- Stage badges: smaller, pill-style, color-coded (gray for browse, blue for financials, emerald for full_form)
+- Financials displayed as a compact single line: "Rev $5M–10M · Profit $500K–1M"
+- Location/geo info from raw_inputs shown as subtle secondary text
+- Remove redundant external link icon (the link on the domain is enough)
 
-Add:
-```typescript
-import { syncToMarketplace } from '@/lib/sync-to-marketplace';
-// ...
-// Inside handleSubmit, after the successful supabase insert (after line 43, before trackEvent):
-syncToMarketplace({
-  website: businessData.website,
-  revenue: businessData.revenue,
-  profit: businessData.profit,
-  full_name: formData.fullName,
-  email: formData.email,
-  phone: formData.phone,
-  timeline: formData.timeline,
-});
-```
+### 3. Files Changed
 
----
-
-## Summary for Copy-Paste to the Other Project
-
-Give the Deal Match AI project exactly this prompt:
-
-> **Create a new file `src/lib/sync-to-marketplace.ts`** with a fire-and-forget helper that POSTs to `https://vhzipqarkmmfuqadefep.supabase.co/functions/v1/ingest-match-tool-lead`. Then call it at 3 points:
->
-> 1. **`Hero.tsx` handleSubmit** (line 19) — call `syncToMarketplace({ website: website.trim() })` after `trackEvent`
-> 2. **`FinancialDataForm.tsx` handleSubmit** (line 21) — call `syncToMarketplace({ website, revenue, profit })` after `trackEvent`
-> 3. **`LeadCaptureModal.tsx` handleSubmit** (after line 43, inside the try block after the successful supabase insert) — call `syncToMarketplace({ website: businessData.website, revenue: businessData.revenue, profit: businessData.profit, full_name: formData.fullName, email: formData.email, phone: formData.phone, timeline: formData.timeline })`
->
-> The helper:
-> ```typescript
-> export const syncToMarketplace = (data: Record<string, unknown>) => {
->   fetch('https://vhzipqarkmmfuqadefep.supabase.co/functions/v1/ingest-match-tool-lead', {
->     method: 'POST',
->     headers: { 'Content-Type': 'application/json' },
->     body: JSON.stringify({ ...data, source: 'deal-match-ai' }),
->   }).catch(() => {});
-> };
-> ```
->
-> This is fire-and-forget — no await, no error handling needed. The receiving endpoint deduplicates by website URL and progressively enriches the lead record. Do not modify any existing behavior — just add the sync call after each stage's existing logic.
-
-No changes are needed on this project's side. Everything is already deployed and ready to receive.
+| File | Change |
+|------|--------|
+| `supabase/migrations/[new].sql` | UPDATE created_at + business metadata for backfilled leads |
+| `src/pages/admin/remarketing/MatchToolLeads/index.tsx` | Full redesign of layout and LeadRow component |
+| `src/pages/admin/remarketing/MatchToolLeads/useMatchToolLeadsData.ts` | Add "Has Financials" tab filter for `financials` stage specifically |
 
