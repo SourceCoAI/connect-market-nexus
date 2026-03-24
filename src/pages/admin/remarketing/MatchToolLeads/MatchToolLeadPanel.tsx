@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ExternalLink, Globe, Mail, Phone, User, Calendar, MapPin, Building2, Briefcase, Users, Sparkles } from 'lucide-react';
+import { ExternalLink, Mail, Phone, User, Calendar, MapPin, Building2, Briefcase, Users, Sparkles } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { MatchToolLead } from './types';
