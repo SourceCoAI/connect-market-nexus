@@ -71,7 +71,6 @@ export default function MatchToolLeads() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
-  const selectedLead = leads.find((l) => l.id === selectedLeadId) ?? null;
   const {
     leads,
     isLoading,
@@ -85,6 +84,8 @@ export default function MatchToolLeads() {
     deleteLeads,
     enrichLead,
   } = useMatchToolLeadsData();
+
+  const selectedLead = leads.find((l) => l.id === selectedLeadId) ?? null;
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
