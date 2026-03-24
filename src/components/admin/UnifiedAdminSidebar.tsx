@@ -252,6 +252,11 @@ export function UnifiedAdminSidebar({
             icon: <Calculator className="h-4 w-4" />,
           },
           {
+            label: 'Match Tool Leads',
+            href: '/admin/remarketing/leads/match-tool',
+            icon: <Globe2 className="h-4 w-4" />,
+          },
+          {
             label: 'Referral Partners',
             href: '/admin/remarketing/leads/referrals',
             icon: <Handshake className="h-4 w-4" />,

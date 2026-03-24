@@ -218,6 +218,7 @@ const GPPartnerDeals = lazyWithRetry(() => import('@/pages/admin/remarketing/GPP
 const MasterLeads = lazyWithRetry(() => import('@/pages/admin/remarketing/MasterLeads'));
 const SourceCoDeals = lazyWithRetry(() => import('@/pages/admin/remarketing/SourceCoDeals'));
 const ValuationLeads = lazyWithRetry(() => import('@/pages/admin/remarketing/ValuationLeads'));
+const MatchToolLeads = lazyWithRetry(() => import('@/pages/admin/remarketing/MatchToolLeads'));
 const DailyTaskDashboard = lazyWithRetry(
   () => import('@/pages/admin/remarketing/DailyTaskDashboard'),
 );
@@ -408,6 +409,7 @@ function App() {
                 <Route path="leads/sourceco" element={<SourceCoDeals />} />
                 <Route path="leads/sourceco/:dealId" element={<ReMarketingDealDetail />} />
                 <Route path="leads/valuation" element={<ValuationLeads />} />
+                <Route path="leads/match-tool" element={<MatchToolLeads />} />
                 <Route path="leads/referrals" element={<ReMarketingReferralPartners />} />
                 <Route
                   path="leads/referrals/:partnerId"
