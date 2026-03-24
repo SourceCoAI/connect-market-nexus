@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ExternalLink, Mail, Phone, User, Calendar, MapPin, Building2, Briefcase, Users, Sparkles, Target, TrendingUp, Globe, ArrowRight, Clock } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
