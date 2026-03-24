@@ -1,0 +1,1 @@
+UPDATE match_tool_leads SET created_at = (raw_inputs->>'original_created_at')::timestamptz WHERE raw_inputs->>'original_created_at' IS NOT NULL;
