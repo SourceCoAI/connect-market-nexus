@@ -606,7 +606,7 @@ export function ContactMemberDrawer({
                         size="sm"
                         className="h-6 px-2 text-xs gap-1 text-primary"
                         onClick={() => {
-                          navigate(`/admin/owner-leads`);
+                          navigate(`/admin/remarketing/leads/valuation`);
                           onClose();
                         }}
                       >
@@ -976,6 +976,20 @@ export function ContactMemberDrawer({
                 >
                   <Building2 className="h-3.5 w-3.5" />
                   View Company
+                </Button>
+              )}
+              {leadRecord && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigate(`/admin/remarketing/leads/valuation`);
+                    onClose();
+                  }}
+                  className="gap-1.5"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  View Lead
                 </Button>
               )}
               <Button
