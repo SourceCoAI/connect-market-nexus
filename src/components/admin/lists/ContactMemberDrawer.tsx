@@ -264,7 +264,7 @@ export function ContactMemberDrawer({
 }: ContactMemberDrawerProps) {
   const navigate = useNavigate();
   const isDealType = member ? DEAL_ENTITY_TYPES.includes(member.entity_type) : false;
-  const { contactRecord, buyerRecord, relatedDeals, connectionRequest, firmRecord, isLoading } =
+  const { contactRecord, buyerRecord, relatedDeals, leadRecord, connectionRequest, firmRecord, isLoading } =
     useContactEnrichedData(member);
 
   return (
