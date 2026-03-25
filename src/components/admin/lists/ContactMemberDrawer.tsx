@@ -617,7 +617,7 @@ export function ContactMemberDrawer({
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Status</span>
                         <Badge variant="outline" className="text-[11px] capitalize">
-                          {leadRecord.status.split('_').join(' ')}
+                          {(leadRecord.status || 'unknown').split('_').join(' ')}
                         </Badge>
                       </div>
                       {leadRecord.lead_type && (
