@@ -471,9 +471,7 @@ function MemberRow({
         {member.deal_owner_name ? (
           <span className="text-sm font-medium text-foreground">{member.deal_owner_name}</span>
         ) : (
-          <span className="text-sm text-muted-foreground/50">
-            {isDealType ? 'Unassigned' : '--'}
-          </span>
+          <span className="text-sm text-muted-foreground/50">--</span>
         )}
       </TableCell>
       <TableCell>
