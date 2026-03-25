@@ -668,7 +668,7 @@ export function ContactMemberDrawer({
                           {String(connectionRequest.status || '').split('_').join(' ')}
                         </Badge>
                       </div>
-                      {connectionRequest.buyer_type && (
+                      {!!connectionRequest.buyer_type && (
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Buyer Type</span>
                           <span className="text-sm text-foreground capitalize">
@@ -676,7 +676,7 @@ export function ContactMemberDrawer({
                           </span>
                         </div>
                       )}
-                      {connectionRequest.services_needed && (
+                      {!!connectionRequest.services_needed && (
                         <div className="text-sm">
                           <span className="text-muted-foreground block mb-1">Services Needed</span>
                           <p className="text-foreground text-xs">{String(connectionRequest.services_needed)}</p>
