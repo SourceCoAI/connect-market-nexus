@@ -148,22 +148,54 @@ function useContactEnrichedData(member: ContactListMember | null) {
     staleTime: 30000,
   });
 
-  // Fetch related deals by email
+  // Fetch related deals by email or entity_id
   const { data: relatedDeals = [] } = useQuery({
-    queryKey: ['contact-member-detail', 'deals', email],
+    queryKey: ['contact-member-detail', 'deals', email, entityId],
     queryFn: async () => {
-      if (!email) return [];
-      const { data, error } = await supabase
-        .from('deal_pipeline')
-        .select('id, title, contact_name, contact_company, stage_id, priority, created_at, listing_id')
-        .eq('contact_email', email)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-        .limit(5);
-      if (error) return [];
-      return (data || []) as Array<{ id: string; title: string; contact_company: string | null; stage_id: string; priority: string | null; created_at: string | null; listing_id: string | null }>;
+      const results: Array<{ id: string; title: string; contact_company: string | null; stage_id: string; priority: string | null; created_at: string | null; listing_id: string | null }> = [];
+      // By email
+      if (email) {
+        const { data } = await supabase
+          .from('deal_pipeline')
+          .select('id, title, contact_name, contact_company, stage_id, priority, created_at, listing_id')
+          .eq('contact_email', email)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (data) results.push(...data);
+      }
+      // Also by inbound_lead_id if entity is a lead
+      if (entityId && entityType === 'lead') {
+        const { data } = await supabase
+          .from('deal_pipeline')
+          .select('id, title, contact_name, contact_company, stage_id, priority, created_at, listing_id')
+          .eq('inbound_lead_id', entityId)
+          .is('deleted_at', null)
+          .limit(5);
+        if (data) {
+          const existingIds = new Set(results.map(r => r.id));
+          results.push(...data.filter(d => !existingIds.has(d.id)));
+        }
+      }
+      return results;
     },
-    enabled: !!email,
+    enabled: !!email || !!entityId,
+    staleTime: 30000,
+  });
+
+  // Fetch inbound lead details if entity is a lead
+  const { data: leadRecord } = useQuery({
+    queryKey: ['contact-member-detail', 'lead', entityId, entityType],
+    queryFn: async () => {
+      if (!entityId) return null;
+      const { data } = await supabase
+        .from('inbound_leads')
+        .select('id, name, email, phone_number, company_name, business_website, lead_type, status, source, source_form_name, estimated_revenue_range, sale_timeline, role, message, priority_score, admin_notes, mapped_to_listing_title, created_at')
+        .eq('id', entityId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!entityId && entityType === 'lead',
     staleTime: 30000,
   });
 
