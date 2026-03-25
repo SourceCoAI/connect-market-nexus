@@ -236,6 +236,7 @@ function useContactEnrichedData(member: ContactListMember | null) {
     contactRecord,
     buyerRecord,
     relatedDeals,
+    leadRecord,
     connectionRequest,
     firmRecord,
     isLoading: contactLoading || buyerLoading,
