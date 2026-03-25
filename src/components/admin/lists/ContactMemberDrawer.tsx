@@ -124,12 +124,13 @@ function useContactEnrichedData(member: ContactListMember | null) {
       if (!email) return [];
       const { data, error } = await supabase
         .from('deal_pipeline')
-        .select('id, contact_name, contact_company, stage, status, created_at, listing_id')
+        .select('id, title, contact_name, contact_company, stage_id, priority, created_at, listing_id')
         .eq('contact_email', email)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(5);
       if (error) return [];
-      return data || [];
+      return (data || []) as Array<{ id: string; title: string; contact_company: string | null; stage_id: string; priority: string | null; created_at: string | null; listing_id: string | null }>;
     },
     enabled: !!email,
     staleTime: 30000,
