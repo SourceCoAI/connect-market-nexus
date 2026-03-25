@@ -192,7 +192,7 @@ function useContactEnrichedData(member: ContactListMember | null) {
       // Try valuation_leads first (entity_type 'lead' usually maps here)
       const { data: vlData } = await supabase
         .from('valuation_leads')
-        .select('id, full_name, email, phone, business_name, website, industry, region, location, revenue, ebitda, valuation_low, valuation_mid, valuation_high, quality_tier, quality_label, exit_timing, lead_score, status, lead_source, calculator_type, growth_trend, buyer_lane, revenue_model, locations_count, created_at')
+        .select('id, full_name, email, phone, business_name, website, industry, region, location, revenue, ebitda, valuation_low, valuation_mid, valuation_high, quality_tier, quality_label, exit_timing, lead_score, status, lead_source, calculator_type, growth_trend, buyer_lane, revenue_model, locations_count, pushed_listing_id, created_at')
         .eq('id', entityId)
         .maybeSingle();
       if (vlData) {
@@ -228,7 +228,8 @@ function useContactEnrichedData(member: ContactListMember | null) {
           growth_trend: vlData.growth_trend,
           buyer_lane: vlData.buyer_lane,
           revenue_model: vlData.revenue_model,
-          locations_count: vlData.locations_count,
+           locations_count: vlData.locations_count,
+          pushed_listing_id: vlData.pushed_listing_id,
         };
       }
       
@@ -238,7 +239,7 @@ function useContactEnrichedData(member: ContactListMember | null) {
         .select('id, name, email, phone_number, company_name, business_website, lead_type, status, source, source_form_name, estimated_revenue_range, sale_timeline, role, message, priority_score, admin_notes, mapped_to_listing_title, created_at')
         .eq('id', entityId)
         .maybeSingle();
-      if (ilData) return { ...ilData, industry: null, region: null, location: null, revenue: null, ebitda: null, valuation_low: null, valuation_mid: null, valuation_high: null, quality_tier: null, quality_label: null, growth_trend: null, buyer_lane: null, revenue_model: null, locations_count: null };
+      if (ilData) return { ...ilData, industry: null, region: null, location: null, revenue: null, ebitda: null, valuation_low: null, valuation_mid: null, valuation_high: null, quality_tier: null, quality_label: null, growth_trend: null, buyer_lane: null, revenue_model: null, locations_count: null, pushed_listing_id: null };
       
       return null;
     },
@@ -606,11 +607,11 @@ export function ContactMemberDrawer({
                         size="sm"
                         className="h-6 px-2 text-xs gap-1 text-primary"
                         onClick={() => {
-                          navigate(`/admin/remarketing/leads/valuation`);
+                          navigate(`/admin/remarketing/leads/valuation?leadId=${leadRecord.id}`);
                           onClose();
                         }}
                       >
-                        View Leads <ArrowRight className="h-3 w-3" />
+                        View Lead <ArrowRight className="h-3 w-3" />
                       </Button>
                     </div>
                     <div className="space-y-1.5">
@@ -983,13 +984,27 @@ export function ContactMemberDrawer({
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    navigate(`/admin/remarketing/leads/valuation`);
+                    navigate(`/admin/remarketing/leads/valuation?leadId=${leadRecord.id}`);
                     onClose();
                   }}
                   className="gap-1.5"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   View Lead
+                </Button>
+              )}
+              {leadRecord?.pushed_listing_id && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigate(`/admin/deals/${leadRecord.pushed_listing_id}`, { state: { from: '/admin/lists' } });
+                    onClose();
+                  }}
+                  className="gap-1.5"
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  View Company
                 </Button>
               )}
               <Button
