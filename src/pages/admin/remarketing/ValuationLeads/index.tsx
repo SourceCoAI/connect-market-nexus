@@ -145,6 +145,23 @@ export default function ValuationLeads() {
     setPageContext({ page: 'valuation_leads', entity_type: 'leads' });
   }, [setPageContext]);
 
+  // Auto-open lead detail drawer from ?leadId= query param
+  useEffect(() => {
+    const leadId = searchParams.get('leadId');
+    if (!leadId || !leads?.length) return;
+    const lead = leads.find((l) => l.id === leadId);
+    if (lead) {
+      setSelectedLead(lead);
+      setDrawerOpen(true);
+      // Clear param so it doesn't re-open on subsequent renders
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('leadId');
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams, leads, setSelectedLead, setDrawerOpen, setSearchParams]);
+
   useAIUIActionHandler({
     table: 'leads',
     onSelectRows: (rowIds, mode) => {
