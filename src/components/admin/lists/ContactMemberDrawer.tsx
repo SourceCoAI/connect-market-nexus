@@ -663,6 +663,68 @@ export function ContactMemberDrawer({
                           <span className="text-foreground text-xs truncate max-w-[200px]">{leadRecord.mapped_to_listing_title}</span>
                         </div>
                       )}
+                      {(leadRecord.industry || leadRecord.region || leadRecord.location) && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Industry / Location</span>
+                          <span className="text-foreground text-xs truncate max-w-[200px]">
+                            {[leadRecord.industry, leadRecord.location || leadRecord.region].filter(Boolean).join(' · ')}
+                          </span>
+                        </div>
+                      )}
+                      {(leadRecord.revenue || leadRecord.ebitda) && (
+                        <div className="space-y-1">
+                          {leadRecord.revenue && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Revenue</span>
+                              <span className="text-foreground font-medium">${(leadRecord.revenue / 1_000_000).toFixed(1)}M</span>
+                            </div>
+                          )}
+                          {leadRecord.ebitda && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">EBITDA</span>
+                              <span className="text-foreground font-medium">${(leadRecord.ebitda / 1_000_000).toFixed(1)}M</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {leadRecord.valuation_mid && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Valuation Range</span>
+                          <span className="text-foreground font-medium text-xs">
+                            {leadRecord.valuation_low ? `$${(leadRecord.valuation_low / 1_000_000).toFixed(1)}M` : '?'} – {`$${(leadRecord.valuation_mid / 1_000_000).toFixed(1)}M`} – {leadRecord.valuation_high ? `$${(leadRecord.valuation_high / 1_000_000).toFixed(1)}M` : '?'}
+                          </span>
+                        </div>
+                      )}
+                      {leadRecord.quality_label && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Quality</span>
+                          <Badge variant="secondary" className="text-[10px] capitalize">{leadRecord.quality_label}</Badge>
+                        </div>
+                      )}
+                      {leadRecord.growth_trend && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Growth Trend</span>
+                          <span className="text-foreground capitalize">{leadRecord.growth_trend.split('_').join(' ')}</span>
+                        </div>
+                      )}
+                      {leadRecord.buyer_lane && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Buyer Lane</span>
+                          <span className="text-foreground capitalize">{leadRecord.buyer_lane.split('_').join(' ')}</span>
+                        </div>
+                      )}
+                      {leadRecord.revenue_model && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Revenue Model</span>
+                          <span className="text-foreground capitalize">{leadRecord.revenue_model.split('_').join(' ')}</span>
+                        </div>
+                      )}
+                      {leadRecord.locations_count && leadRecord.locations_count > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Locations</span>
+                          <span className="text-foreground">{leadRecord.locations_count}</span>
+                        </div>
+                      )}
                       {leadRecord.message && (
                         <div className="text-sm">
                           <span className="text-muted-foreground block mb-1">Message</span>
