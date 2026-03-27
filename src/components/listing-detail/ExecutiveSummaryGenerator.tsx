@@ -1,5 +1,6 @@
 import { formatCurrency } from '@/lib/currency-utils';
 import { FileDown } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Listing } from '@/types';
 
 interface ExecutiveSummaryGeneratorProps {
