@@ -249,7 +249,7 @@ export function UsersTable({
                     user={user}
                     onSendEmail={(user) => setSelectedUserForEmail(user)}
                     size="sm"
-                    firmData={firmDataMap?.get(user.id)}
+                    firmData={firmDataMap?.get(user.id) as { [key: string]: unknown } | undefined}
                   />
                 </TableCell>
                 <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
@@ -257,7 +257,7 @@ export function UsersTable({
                     user={user}
                     onSendEmail={(user) => setSelectedUserForNDA(user)}
                     size="sm"
-                    firmData={firmDataMap?.get(user.id)}
+                    firmData={firmDataMap?.get(user.id) as { [key: string]: unknown } | undefined}
                   />
                 </TableCell>
                 <TableCell className="py-2">
