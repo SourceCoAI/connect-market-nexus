@@ -307,31 +307,42 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Auth guard: require valid JWT + admin role
+    // Auth guard: require valid JWT + admin role (or service_role/internal-secret for batch ops)
+    const internalSecret = req.headers.get('x-internal-secret');
+    const isInternalCall = internalSecret === supabaseServiceKey;
+
     const authHeader = req.headers.get('Authorization') || '';
     const callerToken = authHeader.replace('Bearer ', '').trim();
-    if (!callerToken) {
-      return errorResponse('Unauthorized', 401, corsHeaders, 'unauthorized');
-    }
-
-    const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: `Bearer ${callerToken}` } },
-    });
-    const {
-      data: { user: callerUser },
-      error: callerError,
-    } = await anonClient.auth.getUser();
-    if (callerError || !callerUser) {
+    if (!callerToken && !isInternalCall) {
       return errorResponse('Unauthorized', 401, corsHeaders, 'unauthorized');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Service-role bypass: allows internal/cron/backfill calls
+    const isServiceRole = isInternalCall || callerToken === supabaseServiceKey;
+    let callerUserId: string | null = null;
+
+    if (!isServiceRole) {
+      const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: `Bearer ${callerToken}` } },
+      });
+      const {
+        data: { user: callerUser },
+        error: callerError,
+      } = await anonClient.auth.getUser();
+      if (callerError || !callerUser) {
+        return errorResponse('Unauthorized', 401, corsHeaders, 'unauthorized');
+      }
+      callerUserId = callerUser.id;
+    }
+
     const body = await req.json();
 
     // Allow self-scoring: a user can score their own profile (used during signup)
-    const isSelfScore = body.self_score === true && body.profile_id === callerUser.id;
-    if (!isSelfScore) {
-      const { data: isAdmin } = await supabase.rpc('is_admin', { user_id: callerUser.id });
+    const isSelfScore = !isServiceRole && body.self_score === true && body.profile_id === callerUserId;
+    if (!isServiceRole && !isSelfScore) {
+      const { data: isAdmin } = await supabase.rpc('is_admin', { user_id: callerUserId });
       if (!isAdmin) {
         return errorResponse('Forbidden: admin access required', 403, corsHeaders, 'forbidden');
       }
