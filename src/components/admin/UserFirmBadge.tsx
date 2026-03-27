@@ -1,3 +1,4 @@
+import React from 'react';
 import { Building2, Users, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -10,7 +11,7 @@ interface UserFirmBadgeProps {
   firmData?: { firm_id: string; primary_company_name: string | null; fee_agreement_signed: boolean | null; nda_signed: boolean | null } | null;
 }
 
-export function UserFirmBadge({ userId, compact = false, firmData }: UserFirmBadgeProps) {
+export const UserFirmBadge = React.memo(function UserFirmBadge({ userId, compact = false, firmData }: UserFirmBadgeProps) {
   // Skip individual query if bulk data was provided
   const { data: fetchedFirmInfo, isLoading } = useUserFirm(firmData !== undefined ? undefined : userId);
 
@@ -64,4 +65,4 @@ export function UserFirmBadge({ userId, compact = false, firmData }: UserFirmBad
       </Tooltip>
     </TooltipProvider>
   );
-}
+});

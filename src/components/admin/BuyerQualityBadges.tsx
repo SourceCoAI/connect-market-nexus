@@ -1,3 +1,4 @@
+import React from 'react';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -20,7 +21,7 @@ const TIER_DESCRIPTIONS: Record<number, string> = {
   4: 'Unverified or incomplete buyer profile',
 };
 
-export function BuyerTierBadge({
+export const BuyerTierBadge = React.memo(function BuyerTierBadge({
   tier,
   isOverride,
 }: {
@@ -53,9 +54,9 @@ export function BuyerTierBadge({
       </Tooltip>
     </TooltipProvider>
   );
-}
+});
 
-export function BuyerTierBadgeFull({
+export const BuyerTierBadgeFull = React.memo(function BuyerTierBadgeFull({
   tier,
   isOverride,
 }: {
@@ -73,9 +74,9 @@ export function BuyerTierBadgeFull({
       <span className="text-sm text-muted-foreground">· {label}</span>
     </span>
   );
-}
+});
 
-export function BuyerScoreBadge({ score, size = 'sm', showLabel = false }: { score?: number | null; size?: 'sm' | 'md' | 'lg' | 'xl'; showLabel?: boolean }) {
+export const BuyerScoreBadge = React.memo(function BuyerScoreBadge({ score, size = 'sm', showLabel = false }: { score?: number | null; size?: 'sm' | 'md' | 'lg' | 'xl'; showLabel?: boolean }) {
   if (score == null) {
     return <span className="text-xs text-muted-foreground">—</span>;
   }
@@ -132,4 +133,4 @@ export function BuyerScoreBadge({ score, size = 'sm', showLabel = false }: { sco
       </Tooltip>
     </TooltipProvider>
   );
-}
+});
