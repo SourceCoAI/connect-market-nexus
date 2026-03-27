@@ -496,7 +496,7 @@ const AdminUsers = () => {
                       onRevokeAdmin={revokeAdmin}
                       onDelete={deleteUser}
                       isLoading={isLoading}
-                      firmDataMap={firmDataMap}
+                      firmDataMap={firmDataMap ?? new Map()}
                     />
                   </TableErrorBoundary>
                 </div>

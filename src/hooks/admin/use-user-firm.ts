@@ -15,7 +15,7 @@ export interface UserFirmInfo {
  * Resolution priority: email domain match → normalized company name match → latest firm_member.
  * Never uses connection_requests.firm_id (avoids circular dependency).
  */
-export function useUserFirm(userId: string | null) {
+export function useUserFirm(userId: string | null | undefined) {
   return useQuery({
     queryKey: ['user-firm', userId],
     queryFn: async () => {

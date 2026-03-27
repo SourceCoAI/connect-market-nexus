@@ -27,10 +27,8 @@ import { SimpleNDADialog } from './SimpleNDADialog';
 import { UserFirmBadge } from './UserFirmBadge';
 import type { BulkFirmData } from '@/hooks/admin/use-bulk-user-firms';
 
-import { useEnhancedUserExport } from '@/hooks/admin/use-enhanced-user-export';
 import { useLogFeeAgreementEmail } from '@/hooks/admin/use-fee-agreement';
 import { useLogNDAEmail } from '@/hooks/admin/use-nda';
-import { usePermissions } from '@/hooks/permissions/usePermissions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleManagement } from '@/hooks/permissions/useRoleManagement';
 import { RoleBadge } from './permissions/RoleBadge';
@@ -67,15 +65,19 @@ export function UsersTable({
   const [selectedUserForEmail, setSelectedUserForEmail] = useState<User | null>(null);
   const [selectedUserForNDA, setSelectedUserForNDA] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  useEnhancedUserExport();
-  usePermissions();
   const { allUserRoles, isLoadingRoles } = useRoleManagement();
 
-  const getUserRole = (userId: string): AppRole => {
-    if (!allUserRoles || allUserRoles.length === 0) return 'viewer';
-    const roleData = allUserRoles.find((ur) => ur.user_id === userId);
-    return (roleData?.role as AppRole) || 'viewer';
-  };
+  const roleMap = useMemo(() => {
+    const map = new Map<string, AppRole>();
+    if (allUserRoles) {
+      for (const ur of allUserRoles) {
+        map.set(ur.user_id, ur.role as AppRole);
+      }
+    }
+    return map;
+  }, [allUserRoles]);
+
+  const getUserRole = (userId: string): AppRole => roleMap.get(userId) || 'viewer';
   const logEmailMutation = useLogFeeAgreementEmail();
   const logNDAEmail = useLogNDAEmail();
   const { user: currentAuthUser } = useAuth();

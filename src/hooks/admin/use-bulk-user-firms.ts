@@ -24,7 +24,7 @@ export interface BulkFirmData {
  */
 export function useBulkUserFirms(userIds: string[]) {
   return useQuery({
-    queryKey: ['bulk-user-firms', userIds.length],
+    queryKey: ['bulk-user-firms', [...userIds].sort().join(',')],
     queryFn: async (): Promise<Map<string, BulkFirmData>> => {
       if (userIds.length === 0) return new Map();
 

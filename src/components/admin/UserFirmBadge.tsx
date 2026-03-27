@@ -12,7 +12,7 @@ interface UserFirmBadgeProps {
 
 export function UserFirmBadge({ userId, compact = false, firmData }: UserFirmBadgeProps) {
   // Skip individual query if bulk data was provided
-  const { data: fetchedFirmInfo, isLoading } = useUserFirm(firmData !== undefined ? null : userId);
+  const { data: fetchedFirmInfo, isLoading } = useUserFirm(firmData !== undefined ? undefined : userId);
 
   const firmInfo = firmData
     ? { firm_id: firmData.firm_id, firm_name: firmData.primary_company_name, member_count: null, fee_agreement_signed: firmData.fee_agreement_signed ?? false, nda_signed: firmData.nda_signed ?? false }
