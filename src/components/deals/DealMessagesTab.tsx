@@ -27,10 +27,23 @@ export function DealMessagesTab({ requestId, requestStatus }: DealMessagesTabPro
   const sendMsg = useSendMessage();
   const markRead = useMarkMessagesReadByBuyer();
   const [newMessage, setNewMessage] = useState('');
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const canSend = requestStatus !== 'rejected';
   const isRejected = requestStatus === 'rejected';
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowScrollBtn(distFromBottom > 100);
+  }, []);
 
   useEffect(() => {
     if (requestId && messages.some((m) => !m.is_read_by_buyer && m.sender_role === 'admin')) {
@@ -40,8 +53,12 @@ export function DealMessagesTab({ requestId, requestStatus }: DealMessagesTabPro
   }, [requestId, messages.length]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    // Auto-scroll only if user is near bottom
+    const el = scrollContainerRef.current;
+    if (!el) { scrollToBottom(); return; }
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distFromBottom < 150) scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const handleSend = () => {
     if (!newMessage.trim() || !canSend) return;
