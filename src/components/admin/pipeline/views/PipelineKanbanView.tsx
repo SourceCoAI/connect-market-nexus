@@ -327,8 +327,8 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
         config.primaryOwnerId !== ownerIntroConfig.currentPrimaryOwner?.id
       ) {
         await updateListing.mutateAsync({
-          listingId: ownerIntroConfig.listingId,
-          updates: { primary_owner_id: config.primaryOwnerId },
+          id: ownerIntroConfig.listingId,
+          listing: { primary_owner_id: config.primaryOwnerId },
         });
       }
 
