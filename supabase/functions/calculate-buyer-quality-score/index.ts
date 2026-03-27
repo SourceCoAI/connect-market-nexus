@@ -326,12 +326,16 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { data: isAdmin } = await supabase.rpc('is_admin', { user_id: callerUser.id });
-    if (!isAdmin) {
-      return errorResponse('Forbidden: admin access required', 403, corsHeaders, 'forbidden');
-    }
-
     const body = await req.json();
+
+    // Allow self-scoring: a user can score their own profile (used during signup)
+    const isSelfScore = body.self_score === true && body.profile_id === callerUser.id;
+    if (!isSelfScore) {
+      const { data: isAdmin } = await supabase.rpc('is_admin', { user_id: callerUser.id });
+      if (!isAdmin) {
+        return errorResponse('Forbidden: admin access required', 403, corsHeaders, 'forbidden');
+      }
+    }
 
     // ─── BATCH MODE: score all unscored buyers ────────────────────────
     if (body.batch_all_unscored) {
