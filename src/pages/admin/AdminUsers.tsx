@@ -58,6 +58,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast as toastDirect } from '@/hooks/use-toast';
+import { invokeEdgeFunction } from '@/lib/invoke-edge-function';
 import { useQuery } from '@tanstack/react-query';
 
 type PrimaryView = 'buyers' | 'owners';
@@ -293,15 +294,21 @@ const AdminUsers = () => {
   const unscoredCount = usersData.filter((u) => u.buyer_type && u.buyer_quality_score == null).length;
 
   const handleBulkScoreUnscored = async () => {
-    const unscoredIds = usersData
-      .filter((u) => u.buyer_type && u.buyer_quality_score == null)
-      .map((u) => u.id);
-    if (unscoredIds.length === 0) return;
+    if (unscoredCount === 0) return;
     setIsBulkScoring(true);
+    let totalScored = 0;
     try {
-      const { queueBuyerQualityScoring } = await import('@/lib/remarketing/queueScoring');
-      const result = await queueBuyerQualityScoring(unscoredIds);
-      toast({ title: 'Scoring complete', description: `Scored ${result.scored} users (${result.errors} errors)` });
+      for (let round = 0; round < 10; round++) {
+        const result = await invokeEdgeFunction<{ scored: number; results: unknown[] }>(
+          'calculate-buyer-quality-score',
+          { body: { batch_all_unscored: true, batch_limit: 30 }, timeoutMs: 120_000 },
+        );
+        const scored = result?.scored ?? 0;
+        totalScored += scored;
+        if (scored === 0) break;
+        toast({ title: `Progress: scored ${totalScored} so far…` });
+      }
+      toast({ title: 'Scoring complete', description: `Scored ${totalScored} users` });
       refetch();
     } catch (err) {
       toast({ variant: 'destructive', title: 'Scoring failed', description: (err as Error).message });
@@ -339,7 +346,7 @@ const AdminUsers = () => {
                 ) : (
                   <Zap className="h-4 w-4 mr-1" />
                 )}
-                Score All Unscored ({unscoredCount})
+                {isBulkScoring ? 'Scoring…' : `Score All Unscored (${unscoredCount})`}
               </Button>
             )}
           </div>
