@@ -380,8 +380,6 @@ const ListingDetail = () => {
                   <EnhancedSaveButton
                     listingId={id!}
                     listingTitle={listing.title}
-                    revenue={listing.revenue}
-                    ebitda={listing.ebitda}
                     location={listing.location}
                     onSave={() => trackListingSave(id!)}
                   />
