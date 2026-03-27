@@ -1,132 +1,185 @@
 
-Fix the bulk scoring flow by treating this as a client-side auth/session deadlock first, not an edge-function bug.
+# Deep Dive: Why bulk scoring still appears stuck, and what needs fixing
 
 ## What I found
 
-- The button click is definitely firing:
-  - console shows: `[AdminUsers] Starting bulk score for 130 unscored users`
-  - session replay shows the button changing to `Scoring…`
-- But there is no actual request reaching Supabase:
-  - network snapshot shows no `calculate-buyer-quality-score` request
-  - edge-function logs show no executions at all
-  - edge gateway analytics also show nothing
-- The function itself is configured in `supabase/config.toml` with:
-  - `[functions.calculate-buyer-quality-score]`
-  - `verify_jwt = false`
-- There are currently 134 unscored buyer profiles in the database, so this is a real backlog.
+There are two different issues happening at once:
 
-## Root cause
+### 1. The scoring action still is not reaching the edge function
+I verified:
+- the button exists in the live page code (`src/pages/admin/AdminUsers.tsx`)
+- the handler sets `isBulkScoring` and calls `invokeEdgeFunction('calculate-buyer-quality-score', ...)`
+- there are still **no network requests**
+- there are still **no edge function logs**
+- edge gateway analytics also show **no executions**
 
-The hang is most likely happening before `fetch()` is ever called, inside this line in `src/lib/invoke-with-timeout.ts`:
+That means the request is still dying **before Supabase receives it**.
 
-```ts
-const { data: { session } } = await supabase.auth.getSession();
-```
+### 2. The project currently has build/typecheck problems unrelated to this button
+Your latest error dump shows:
+- a frontend type error in `PipelineDetailDealInfo.tsx` (`listing.hired_broker` missing from the typed deal shape)
+- many edge-function TypeScript errors under `supabase/functions/ai-command-center/...`
 
-This code has no timeout around `getSession()`. In this project there are already comments/workarounds elsewhere about avoiding Supabase auth deadlocks. That matches the symptom perfectly:
+This matters because if the project is not clean, recent changes may not be reflected reliably and edge-function deploy/typegen can fail noisily.
 
-```text
-Click button
-→ setIsBulkScoring(true)
-→ toast + console log
-→ invokeEdgeFunction()
-→ invokeWithTimeout()
-→ await supabase.auth.getSession() hangs
-→ no fetch request
-→ no edge logs
-→ UI stays "Scoring…"
-```
+## Most likely root cause of the stuck button
 
-So the main issue is not “the scorer logic is broken”; it is “the request builder can stall forever before the network call starts.”
-
-## Implementation plan
-
-### 1. Harden edge invocation auth retrieval
-Update `src/lib/invoke-with-timeout.ts` so session/token retrieval cannot hang forever.
-
-Changes:
-- wrap `supabase.auth.getSession()` in a short timeout helper
-- if it times out, surface a clear error immediately
-- prefer a token path that does not silently hang the whole request flow
-- add minimal debug logs around:
-  - session lookup start
-  - session lookup success/failure
-  - fetch start
-
-Goal: if auth/session is the blocker, the UI should fail fast with a real error instead of appearing stuck.
-
-### 2. Make the bulk button fail fast and show useful feedback
-Update `src/pages/admin/AdminUsers.tsx`.
-
-Changes:
-- show immediate “Starting…” toast as now
-- add a per-round timeout message if round 1 never begins
-- reduce retry behavior for this admin action:
-  - either set `maxRetries: 0` for this specific action
-  - or use shorter timeout/retry values just for bulk scoring
-- surface a descriptive toast if token/session lookup fails
-
-Goal: no more endless `Scoring…` state with no explanation.
-
-### 3. Add stronger instrumentation for this exact flow
-Add temporary targeted logs in:
-- `src/lib/invoke-with-timeout.ts`
-- possibly `src/pages/admin/AdminUsers.tsx`
-
-Specifically log:
-- entering bulk round
-- before session lookup
-- after session lookup
-- before fetch
-- after fetch/error
-
-This will let the next run prove whether the freeze is at auth lookup or network.
-
-### 4. Verify edge function assumptions while we’re in there
-Even though the current blocker is earlier, I would also harden `supabase/functions/calculate-buyer-quality-score/index.ts` so the next failure mode is explicit, not silent.
-
-Changes:
-- validate presence of:
-  - `SUPABASE_URL`
-  - `SUPABASE_SERVICE_ROLE_KEY`
-  - `SUPABASE_ANON_KEY`
-- return structured 500s if missing
-- add one startup/request log showing:
-  - function entered
-  - batch mode requested
-  - caller auth mode (admin/self/internal), without logging secrets
-
-Goal: once requests start reaching the function, any backend misconfiguration is immediately visible.
-
-### 5. Re-test the actual admin flow
-After the above, the expected sequence should be:
+The strongest signal is still this:
 
 ```text
-Click "Score All Unscored"
-→ Starting toast
-→ Round 1 starts
-→ request reaches edge function
-→ edge logs appear
-→ progress toast(s) / completion toast
-→ users refetch with score + tier populated
+Button enters "Scoring…"
+but no browser request appears
+and no edge logs exist
 ```
 
-## Files to update
+That means one of these pre-request stages is failing:
+1. `invokeEdgeFunction()`
+2. `invokeWithTimeout()`
+3. `supabase.auth.getSession()` / token retrieval
+4. request construction before `fetch()`
+
+The auth deadlock is still the leading candidate, but there is one more thing to tighten: the current helper still depends entirely on `getSession()` returning a token. If it times out or returns null in this admin route, the UI should fail immediately with a visible toast. Right now, if logs are not surfacing in preview, it can still look like a stuck spinner.
+
+## Important database reality check
+
+From the database:
+- profiles with buyer type but missing score: about **130**
+- profiles with buyer type but missing tier: about **130**
+- approved users still missing score: about **60**
+- missing buyer_type: **0**
+
+So the backlog is real, and scoring/backfill still needs to run.
+
+## What I would fix next
+
+### 1. Make the bulk action visibly prove where it stops
+Update `src/pages/admin/AdminUsers.tsx` to:
+- toast before starting round 1
+- toast again immediately before the invoke call
+- wrap each round with a short local timeout/failure state
+- surface a very explicit message if session lookup fails or returns no token
+
+Goal:
+```text
+Starting...
+Preparing auth...
+Calling scorer...
+Round 1 complete...
+```
+So we can tell exactly where it stops from the UI alone.
+
+### 2. Harden the invocation helper one step further
+Update `src/lib/invoke-with-timeout.ts` to:
+- keep the 5s session timeout
+- add a fallback token path if available from current auth state
+- return a clearly categorized error for:
+  - session timeout
+  - missing session
+  - fetch not started
+- fix error parsing to match your shared edge-function schema:
+  - current code checks `errorBody.code`
+  - your shared helper returns `error_code`
+  - that mismatch should be corrected
+
+This will make failures much clearer.
+
+### 3. Add a direct admin-only fallback path for bulk scoring
+Right now the UI depends on the browser session being healthy to call the function.
+
+A more reliable pattern for this admin tool is:
+- call a small admin-safe endpoint/function mode that starts server-side batch work
+- return progress per round
+- avoid the UI depending on long-running client orchestration
+
+The existing `batch_all_unscored` mode is close, but the client is still driving rounds. I’d harden this so one admin click can execute the full backfill server-side or at least return deterministic progress.
+
+### 4. Fix the current build blockers
+These need to be cleaned up because they can interfere with reliable iteration:
+
+#### Frontend
+- `src/components/admin/pipeline/tabs/PipelineDetailDealInfo.tsx`
+  - `listing.hired_broker` is referenced but missing on the typed object
+  - fix the type source or map this field properly from the query result
+
+#### Edge functions
+The `ai-command-center` tree has multiple TypeScript issues:
+- implicit `any`
+- unknown typing in `.map()` / `.sort()`
+- query builders being pushed where `Promise` is expected
+- unsafe property access on `unknown`
+- return types too narrow in some tools
+
+These should be fixed in a cleanup pass so edge function typegen/deploy stops failing noisily.
+
+### 5. Re-verify the scoring function itself
+The scorer code is generally sound, but I would tighten two areas:
+- validate body shape before using `body.self_score`, `body.batch_all_unscored`, etc.
+- make the buyer lookup more precise:
+  ```ts
+  .or(`primary_contact_email.eq.${profile.email},marketplace_firm_id.not.is.null`)
+  ```
+  This condition is too broad and can match unrelated buyers whenever `marketplace_firm_id` is not null.
+- for scoring quality, this should be replaced with a true linkage rule.
+
+## What else should be fixed around buyer scoring
+
+Beyond the stuck button, these are still worth addressing:
+
+### Buyer scoring correctness
+- ensure bulk backfill writes both:
+  - `buyer_quality_score`
+  - `buyer_tier`
+- ensure signup self-score still runs for future users
+- ensure admin override logic remains respected
+
+### Data integrity
+- tighten profile ↔ buyer association logic for enrichment/scoring
+- confirm no users are missing required firm/profile relationships during signup
+- verify all approved buyers have:
+  - profile
+  - buyer_type
+  - score
+  - tier
+  - firm linkage if expected
+
+### Operational visibility
+- add one lightweight admin metric/card:
+  - “Unscored buyers”
+  - “Missing tier”
+  - “Last bulk score run”
+This prevents this kind of silent backlog from building again.
+
+## Recommended implementation order
+
+1. Fix the frontend type error in `PipelineDetailDealInfo.tsx`
+2. Fix the edge-function typecheck errors in `ai-command-center`
+3. Harden `invoke-with-timeout.ts` error classification and token retrieval
+4. Improve `AdminUsers.tsx` bulk scoring feedback so the exact stop point is visible
+5. Refactor bulk scoring to a more server-driven/admin-safe execution path
+6. Re-run the backfill and verify DB counts drop from ~130 missing scores/tiers to 0
+7. Audit signup again to confirm future users are scored automatically
+
+## Expected outcome after this pass
+
+After these fixes:
+- the button will either actually start scoring or fail with a precise message
+- the edge function will finally show logs if the request is reaching Supabase
+- the codebase will be clean enough that changes reliably reflect in the app
+- the backlog of unscored buyers can be fully backfilled
+- future signups should continue populating score and tier automatically
+
+## Files most likely needing changes
 
 - `src/lib/invoke-with-timeout.ts`
 - `src/pages/admin/AdminUsers.tsx`
 - `supabase/functions/calculate-buyer-quality-score/index.ts`
+- `src/components/admin/pipeline/tabs/PipelineDetailDealInfo.tsx`
+- multiple files under `supabase/functions/ai-command-center/tools/`
 
-## Expected outcome
+## Technical notes
 
-This should fix the real blocker:
-- requests will actually leave the browser
-- the button won’t sit forever in `Scoring…`
-- we’ll either get working scoring or a precise error message
-- once it runs, it should populate both:
-  - `buyer_quality_score`
-  - `buyer_tier`
+- The absence of both browser network activity and edge logs still points to a pre-request client failure.
+- The current build errors are real and should be fixed before trusting further UI behavior.
+- The scorer’s batch mode is present and configured in `supabase/config.toml`, so this no longer looks like a missing-route problem.
+- The buyer scoring function’s remarketing buyer lookup is currently too loose and should be corrected for scoring accuracy.
 
-## Technical note
-
-I do not think the primary issue is deployment or `verify_jwt` anymore, because if that were the problem we would still see a network request and likely edge/gateway traces. We currently see neither. That strongly points to a client-side stall before `fetch()`, with `supabase.auth.getSession()` being the most likely culprit.
