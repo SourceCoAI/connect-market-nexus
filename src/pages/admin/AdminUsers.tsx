@@ -10,6 +10,7 @@ import {
   XCircle,
   ThumbsDown,
   Users,
+  Zap,
 } from 'lucide-react';
 import { UsersTable } from '@/components/admin/UsersTable';
 import { MobileUsersTable } from '@/components/admin/MobileUsersTable';
@@ -135,6 +136,7 @@ const AdminUsers = () => {
     staleTime: 60_000,
   });
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [isBulkScoring, setIsBulkScoring] = useState(false);
   const [filteredOwnerLeads, setFilteredOwnerLeads] = useState<OwnerLead[]>([]);
   const { markAsViewed: markUsersAsViewed } = useMarkUsersViewed();
   const { markAsViewed: markOwnerLeadsAsViewed } = useMarkOwnerLeadsViewed();
@@ -288,6 +290,26 @@ const AdminUsers = () => {
     );
   }
 
+  const unscoredCount = usersData.filter((u) => u.buyer_type && u.buyer_quality_score == null).length;
+
+  const handleBulkScoreUnscored = async () => {
+    const unscoredIds = usersData
+      .filter((u) => u.buyer_type && u.buyer_quality_score == null)
+      .map((u) => u.id);
+    if (unscoredIds.length === 0) return;
+    setIsBulkScoring(true);
+    try {
+      const { queueBuyerQualityScoring } = await import('@/lib/remarketing/queueScoring');
+      const result = await queueBuyerQualityScoring(unscoredIds);
+      toast({ title: 'Scoring complete', description: `Scored ${result.scored} users (${result.errors} errors)` });
+      refetch();
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Scoring failed', description: (err as Error).message });
+    } finally {
+      setIsBulkScoring(false);
+    }
+  };
+
   const isOwnersView = primaryView === 'owners';
 
   return (
@@ -304,6 +326,22 @@ const AdminUsers = () => {
                   : 'Manage owner/seller inquiries and leads'}
               </p>
             </div>
+            {isBuyersView && unscoredCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkScoreUnscored}
+                disabled={isBulkScoring}
+                className="shrink-0"
+              >
+                {isBulkScoring ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4 mr-1" />
+                )}
+                Score All Unscored ({unscoredCount})
+              </Button>
+            )}
           </div>
 
           <Tabs defaultValue="users" className="mt-6">
