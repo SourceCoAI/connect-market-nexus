@@ -24,6 +24,7 @@
 The Deal Page System is an AI-powered M&A deal intelligence platform that extracts, enriches, and analyzes business opportunity data from multiple sources (transcripts, websites, notes) with intelligent prioritization and confidence tracking.
 
 ### Key Capabilities
+
 - **Multi-source data extraction**: Transcripts (priority 100), Notes (priority 80), Website (priority 60)
 - **AI-powered parsing**: Claude Sonnet 4 for transcripts/websites, Gemini 2.5 Flash for notes
 - **Confidence tracking**: High/medium/low confidence levels for financial data
@@ -38,6 +39,7 @@ The Deal Page System is an AI-powered M&A deal intelligence platform that extrac
 ### Functional Requirements
 
 #### FR-1: Deal Creation
+
 - **FR-1.1**: User can create a new deal with basic information (deal name, website, geography, revenue, EBITDA)
 - **FR-1.2**: User can paste general notes and have AI extract structured fields
 - **FR-1.3**: System must check for duplicate companies across trackers via domain normalization
@@ -45,6 +47,7 @@ The Deal Page System is an AI-powered M&A deal intelligence platform that extrac
 - **FR-1.5**: System must track extraction source and timestamp for each field
 
 #### FR-2: Transcript Processing
+
 - **FR-2.1**: User can add transcripts via link, file upload (.pdf, .txt, .md), or pasted text
 - **FR-2.2**: System must scrape link-based transcripts using Firecrawl API
 - **FR-2.3**: System must parse PDF files using pdfjs-serverless
@@ -54,6 +57,7 @@ The Deal Page System is an AI-powered M&A deal intelligence platform that extrac
 - **FR-2.7**: Transcript data has HIGHEST priority (100) and cannot be overwritten by notes or website
 
 #### FR-3: Notes Analysis
+
 - **FR-3.1**: User can paste notes and extract: deal name, website, geography, revenue, EBITDA, service mix, owner goals, location count
 - **FR-3.2**: System must pre-extract obvious patterns using regex before AI analysis
 - **FR-3.3**: System must expand regional terms to state codes (e.g., "Southeast" → [GA, FL, SC, NC, AL, TN, MS, LA, AR, KY, VA, WV])
@@ -62,6 +66,7 @@ The Deal Page System is an AI-powered M&A deal intelligence platform that extrac
 - **FR-3.6**: System must merge pre-extracted data with AI results (pre-extracted takes precedence for numeric values)
 
 #### FR-4: Website Enrichment
+
 - **FR-4.1**: System must scrape company website using Firecrawl API
 - **FR-4.2**: System must extract: company overview, geography, headquarters, company address, service mix, employee count, founded year, location count, business model, industry type
 - **FR-4.3**: Website data has LOWEST priority (60) and only fills empty fields
@@ -69,6 +74,7 @@ The Deal Page System is an AI-powered M&A deal intelligence platform that extrac
 - **FR-4.5**: System must respect onlyFillEmpty flag (default: true)
 
 #### FR-5: Auto-Enrichment
+
 - **FR-5.1**: System must automatically enrich deals when viewed if:
   - Last enriched > 24 hours ago
   - Key fields missing (company_overview < 50 chars, company_address empty, geography empty)
@@ -78,6 +84,7 @@ The Deal Page System is an AI-powered M&A deal intelligence platform that extrac
 - **FR-5.4**: System must update last_enriched_at timestamp after enrichment
 
 #### FR-6: Data Display
+
 - **FR-6.1**: Deal page must show confidence badges for revenue and EBITDA
 - **FR-6.2**: Deal page must show source badges indicating data origin (transcript/notes/website)
 - **FR-6.3**: Deal page must show data quality score (% of fields completed)
@@ -86,6 +93,7 @@ The Deal Page System is an AI-powered M&A deal intelligence platform that extrac
 - **FR-6.6**: Deal page must allow inline editing of all sections with optimistic UI updates
 
 #### FR-7: Location Count Extraction
+
 - **FR-7.1**: System must extract location count from phrases: "X locations", "X offices", "X branches", "X stores", "X shops"
 - **FR-7.2**: System must count individual location mentions (e.g., "Dallas, Houston, Austin" = 3)
 - **FR-7.3**: System must interpret "multiple locations" as 3 (conservative estimate)
@@ -94,24 +102,28 @@ The Deal Page System is an AI-powered M&A deal intelligence platform that extrac
 ### Non-Functional Requirements
 
 #### NFR-1: Performance
+
 - Transcript extraction must complete within 60 seconds
 - Website scraping must complete within 30 seconds
 - Notes analysis must complete within 15 seconds
 - Auto-enrichment must not block UI (show loading banner)
 
 #### NFR-2: Data Integrity
+
 - Source priority system must prevent data overwrites: transcript (100) > notes (80) > website (60)
 - All numeric conversions must preserve precision to 2 decimal places
 - Geography normalization must handle all 50 US states + DC
 - EBITDA calculations must use formula: revenue × (margin / 100)
 
 #### NFR-3: Security
+
 - All API calls must be authenticated via Supabase Auth
 - Row Level Security (RLS) must verify user access before enrichment
 - Service role key must only be used after RLS verification
 - File uploads must be scoped to user_id/deal_id path
 
 #### NFR-4: Usability
+
 - Financial data must display with confidence badges
 - Protected fields must show source badges
 - Extraction errors must show user-friendly messages
@@ -480,12 +492,14 @@ manual      = 20   (Lowest - user-entered)
 ```
 
 **Priority Rules:**
+
 1. Higher priority sources ALWAYS win during conflicts
 2. Lower priority sources can only fill empty fields
 3. `extraction_sources` JSONB tracks source and timestamp per field
 4. Protected fields show source badge in UI
 
 **Example:**
+
 ```json
 {
   "revenue": {
@@ -502,12 +516,14 @@ manual      = 20   (Lowest - user-entered)
 ### Geography Normalization
 
 **Input Formats Accepted:**
+
 - State names: "California", "texas", "New York"
 - State codes: "CA", "TX", "NY"
 - Regions: "Southeast", "Pacific Northwest", "Midwest"
 - Cities: "Orlando", "Houston", "Seattle"
 
 **Regional Expansions:**
+
 ```javascript
 {
   'southeast': ['GA', 'FL', 'SC', 'NC', 'AL', 'TN', 'MS', 'LA', 'AR', 'KY', 'VA', 'WV'],
@@ -529,10 +545,12 @@ manual      = 20   (Lowest - user-entered)
 ```
 
 **Context-Aware Processing:**
+
 - If notes mention specific cities/states → regional terms are local modifiers (e.g., "southeast counties near Orlando" = FL, not entire Southeast)
 - If NO local context → regional terms expand to macro-regions (e.g., "Southeast" = all Southeast states)
 
 **Output Format:**
+
 - Always uppercase 2-letter codes
 - Always sorted alphabetically
 - Always unique (Set de-duplication)
@@ -550,6 +568,7 @@ manual      = 20   (Lowest - user-entered)
 **Purpose:** Extract financial and business data from M&A call transcripts with conservative bias
 
 **Full Prompt:**
+
 ```
 You are an AI agent supporting a buy-side M&A firm. Your job is to extract revenue and EBITDA from phone call transcripts with business owners. These calls often reference financial performance without using formal accounting terms, so you must interpret owner language carefully and conservatively.
 
@@ -643,6 +662,7 @@ When in doubt, flag—not guess.
 ```
 
 **Tool Schema:**
+
 ```json
 {
   "name": "extract_deal_info",
@@ -689,7 +709,10 @@ When in doubt, flag—not guess.
       "employee_count": { "type": "number" },
       "founded_year": { "type": "number" },
       "headquarters": { "type": "string" },
-      "location_count": { "type": "number", "description": "CRITICAL: Count ALL physical locations" },
+      "location_count": {
+        "type": "number",
+        "description": "CRITICAL: Count ALL physical locations"
+      },
       "ownership_structure": { "type": "string" },
       "special_requirements": { "type": "string" },
       "contact_name": { "type": "string" },
@@ -717,6 +740,7 @@ When in doubt, flag—not guess.
 **Purpose:** Extract structured deal data from general notes with regional expansion
 
 **Full Prompt:**
+
 ```
 You are an M&A analyst assistant. Extract structured deal information from notes about a business opportunity.
 
@@ -781,6 +805,7 @@ EXTRACTION RULES:
 ```
 
 **Tool Schema:**
+
 ```json
 {
   "name": "extract_deal_info",
@@ -866,6 +891,7 @@ const foundedMatch = notes.match(/(?:Founded|Established|Started)[:\s]+(\d{4})/i
 **Purpose:** Extract business information from company websites with focus on geography
 
 **Full Prompt:**
+
 ```
 You are an AI assistant that extracts business information from company websites for M&A deal research.
 
@@ -894,6 +920,7 @@ Be thorough in finding geographic and address information - it's critical for bu
 ```
 
 **User Prompt Template:**
+
 ```
 Extract business information from this company website for "[COMPANY_NAME]".
 
@@ -904,6 +931,7 @@ Website Content:
 ```
 
 **Tool Schema:**
+
 ```json
 {
   "name": "extract_website_info",
@@ -952,7 +980,6 @@ Website Content:
    SUPABASE_SERVICE_ROLE_KEY=[service-role-key]
    ANTHROPIC_API_KEY=[anthropic-key]
    FIRECRAWL_API_KEY=[firecrawl-key]
-   LOVABLE_API_KEY=[lovable-key]
    ```
 
 ### Setup Steps
@@ -1143,17 +1170,18 @@ supabase functions deploy enrich-deal
 # 4. Set environment secrets
 supabase secrets set ANTHROPIC_API_KEY=[your-key]
 supabase secrets set FIRECRAWL_API_KEY=[your-key]
-supabase secrets set LOVABLE_API_KEY=[your-key]
 ```
 
 #### Step 3: Frontend Components
 
 **Install dependencies:**
+
 ```bash
 npm install @supabase/supabase-js date-fns lucide-react
 ```
 
 **Key files to create:**
+
 1. `src/pages/DealDetail.tsx` - Main deal page (see Appendix A)
 2. `src/pages/NewDeal.tsx` - Deal creation form (see Appendix B)
 3. `src/components/DealNotesSection.tsx` - Notes analysis UI (see Appendix C)
@@ -1166,25 +1194,66 @@ npm install @supabase/supabase-js date-fns lucide-react
 
 ```typescript
 const STATE_NAME_TO_ABBREV: Record<string, string> = {
-  'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
-  'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA',
-  'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
-  'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
-  'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS', 'missouri': 'MO',
-  'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
-  'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH',
-  'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
-  'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT', 'vermont': 'VT',
-  'virginia': 'VA', 'washington': 'WA', 'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY',
-  'district of columbia': 'DC', 'dc': 'DC'
+  alabama: 'AL',
+  alaska: 'AK',
+  arizona: 'AZ',
+  arkansas: 'AR',
+  california: 'CA',
+  colorado: 'CO',
+  connecticut: 'CT',
+  delaware: 'DE',
+  florida: 'FL',
+  georgia: 'GA',
+  hawaii: 'HI',
+  idaho: 'ID',
+  illinois: 'IL',
+  indiana: 'IN',
+  iowa: 'IA',
+  kansas: 'KS',
+  kentucky: 'KY',
+  louisiana: 'LA',
+  maine: 'ME',
+  maryland: 'MD',
+  massachusetts: 'MA',
+  michigan: 'MI',
+  minnesota: 'MN',
+  mississippi: 'MS',
+  missouri: 'MO',
+  montana: 'MT',
+  nebraska: 'NE',
+  nevada: 'NV',
+  'new hampshire': 'NH',
+  'new jersey': 'NJ',
+  'new mexico': 'NM',
+  'new york': 'NY',
+  'north carolina': 'NC',
+  'north dakota': 'ND',
+  ohio: 'OH',
+  oklahoma: 'OK',
+  oregon: 'OR',
+  pennsylvania: 'PA',
+  'rhode island': 'RI',
+  'south carolina': 'SC',
+  'south dakota': 'SD',
+  tennessee: 'TN',
+  texas: 'TX',
+  utah: 'UT',
+  vermont: 'VT',
+  virginia: 'VA',
+  washington: 'WA',
+  'west virginia': 'WV',
+  wisconsin: 'WI',
+  wyoming: 'WY',
+  'district of columbia': 'DC',
+  dc: 'DC',
 };
 
 const REGION_TO_STATES: Record<string, string[]> = {
-  'southeast': ['GA', 'FL', 'SC', 'NC', 'AL', 'TN', 'MS', 'LA', 'AR', 'KY', 'VA', 'WV'],
-  'northeast': ['NY', 'NJ', 'PA', 'CT', 'MA', 'RI', 'VT', 'NH', 'ME', 'DE', 'MD'],
-  'midwest': ['OH', 'MI', 'IN', 'IL', 'WI', 'MN', 'IA', 'MO', 'KS', 'NE', 'SD', 'ND'],
-  'southwest': ['TX', 'AZ', 'NM', 'OK', 'NV'],
-  'west': ['CA', 'WA', 'OR', 'NV', 'UT', 'CO', 'ID', 'MT', 'WY', 'AK', 'HI'],
+  southeast: ['GA', 'FL', 'SC', 'NC', 'AL', 'TN', 'MS', 'LA', 'AR', 'KY', 'VA', 'WV'],
+  northeast: ['NY', 'NJ', 'PA', 'CT', 'MA', 'RI', 'VT', 'NH', 'ME', 'DE', 'MD'],
+  midwest: ['OH', 'MI', 'IN', 'IL', 'WI', 'MN', 'IA', 'MO', 'KS', 'NE', 'SD', 'ND'],
+  southwest: ['TX', 'AZ', 'NM', 'OK', 'NV'],
+  west: ['CA', 'WA', 'OR', 'NV', 'UT', 'CO', 'ID', 'MT', 'WY', 'AK', 'HI'],
   'west coast': ['CA', 'OR', 'WA'],
   'pacific northwest': ['WA', 'OR', 'ID'],
 };
@@ -1194,7 +1263,10 @@ export function normalizeGeography(input: string | string[] | null | undefined):
 
   const inputs = Array.isArray(input)
     ? input
-    : input.split(',').map(s => s.trim()).filter(Boolean);
+    : input
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
 
   const result = new Set<string>();
 
@@ -1215,7 +1287,7 @@ export function normalizeGeography(input: string | string[] | null | undefined):
 
     // Check if it's a region
     if (REGION_TO_STATES[lower]) {
-      REGION_TO_STATES[lower].forEach(state => result.add(state));
+      REGION_TO_STATES[lower].forEach((state) => result.add(state));
       continue;
     }
   }
@@ -1243,11 +1315,13 @@ npm run deploy
 **Test Case 1.1: Direct Revenue Statement**
 
 **Input Transcript:**
+
 ```
 Owner: "Yeah, we do about $8.5 million a year in revenue. We've been growing steadily."
 ```
 
 **Expected Output:**
+
 ```json
 {
   "revenue": {
@@ -1260,6 +1334,7 @@ Owner: "Yeah, we do about $8.5 million a year in revenue. We've been growing ste
 ```
 
 **Verification:**
+
 - ✅ `deals.revenue` = 8.5
 - ✅ `deals.revenue_confidence` = "high"
 - ✅ `deals.revenue_is_inferred` = false
@@ -1271,11 +1346,13 @@ Owner: "Yeah, we do about $8.5 million a year in revenue. We've been growing ste
 **Test Case 1.2: Inferred Revenue from Margin**
 
 **Input Transcript:**
+
 ```
 Owner: "We make about $800,000 and we run at 10% margins."
 ```
 
 **Expected Output:**
+
 ```json
 {
   "revenue": {
@@ -1289,6 +1366,7 @@ Owner: "We make about $800,000 and we run at 10% margins."
 ```
 
 **Verification:**
+
 - ✅ `deals.revenue` = 8.0
 - ✅ `deals.revenue_is_inferred` = true
 - ✅ `deals.revenue_confidence` = "high"
@@ -1298,11 +1376,13 @@ Owner: "We make about $800,000 and we run at 10% margins."
 **Test Case 1.3: EBITDA Margin Extraction**
 
 **Input Transcript:**
+
 ```
 Owner: "Our EBITDA margins are around 23%."
 ```
 
 **Expected Output:**
+
 ```json
 {
   "ebitda": {
@@ -1315,6 +1395,7 @@ Owner: "Our EBITDA margins are around 23%."
 ```
 
 **Verification:**
+
 - ✅ `deals.ebitda_percentage` = 23
 - ✅ `deals.ebitda_confidence` = "high"
 - ✅ `deals.ebitda_is_inferred` = false
@@ -1324,11 +1405,13 @@ Owner: "Our EBITDA margins are around 23%."
 **Test Case 1.4: Low Confidence Financial Data**
 
 **Input Transcript:**
+
 ```
 Owner: "I take home maybe $500k after everything, but that includes some personal stuff."
 ```
 
 **Expected Output:**
+
 ```json
 {
   "ebitda": {
@@ -1344,6 +1427,7 @@ Owner: "I take home maybe $500k after everything, but that includes some persona
 ```
 
 **Verification:**
+
 - ✅ `deals.ebitda_confidence` = "low" OR null
 - ✅ `deals.financial_followup_questions` array has questions
 - ✅ Low confidence banner shows in UI
@@ -1353,11 +1437,13 @@ Owner: "I take home maybe $500k after everything, but that includes some persona
 **Test Case 1.5: Location Count Extraction**
 
 **Input Transcript:**
+
 ```
 Owner: "We have shops in Dallas, Houston, and Austin. We just opened the Austin location last year."
 ```
 
 **Expected Output:**
+
 ```json
 {
   "location_count": 3,
@@ -1367,6 +1453,7 @@ Owner: "We have shops in Dallas, Houston, and Austin. We just opened the Austin 
 ```
 
 **Verification:**
+
 - ✅ `deals.location_count` = 3
 - ✅ `deals.geography` = ["TX"]
 
@@ -1377,6 +1464,7 @@ Owner: "We have shops in Dallas, Houston, and Austin. We just opened the Austin 
 **Test Case 2.1: Structured Notes with Patterns**
 
 **Input Notes:**
+
 ```
 Deal: Acme Roofing Services
 Website: https://acmeroofing.com
@@ -1389,6 +1477,7 @@ Founded: 2010
 ```
 
 **Expected Pre-Extraction:**
+
 ```json
 {
   "company_website": "https://acmeroofing.com",
@@ -1401,6 +1490,7 @@ Founded: 2010
 ```
 
 **Expected AI Extraction (merged):**
+
 ```json
 {
   "deal_name": "Acme Roofing Services",
@@ -1415,6 +1505,7 @@ Founded: 2010
 ```
 
 **Verification:**
+
 - ✅ Pre-extracted numeric values take precedence over AI
 - ✅ Regional term "Southeast" expanded to 12 states
 - ✅ All fields applied to deal
@@ -1425,11 +1516,13 @@ Founded: 2010
 **Test Case 2.2: Context-Aware Regional Detection**
 
 **Input Notes:**
+
 ```
 Roofing company in Orlando, FL. Serves southeast counties and parts of central Florida.
 ```
 
 **Expected Behavior:**
+
 - ✅ Local context detected: Orlando, FL mentioned
 - ✅ "southeast" interpreted as local modifier (southeast Florida), NOT macro Southeast region
 - ✅ `geography` = ["FL"]
@@ -1439,11 +1532,13 @@ Roofing company in Orlando, FL. Serves southeast counties and parts of central F
 **Test Case 2.3: Macro-Region Expansion (No Local Context)**
 
 **Input Notes:**
+
 ```
 Roofing company operating across the Southeast region.
 ```
 
 **Expected Behavior:**
+
 - ✅ No local context detected
 - ✅ "Southeast" expands to macro-region
 - ✅ `geography` = ["GA", "FL", "SC", "NC", "AL", "TN", "MS", "LA", "AR", "KY", "VA", "WV"]
@@ -1453,12 +1548,14 @@ Roofing company operating across the Southeast region.
 **Test Case 2.4: Financial Unit Conversion**
 
 **Input Notes:**
+
 ```
 Revenue: $500,000
 EBITDA: $75K
 ```
 
 **Expected Output:**
+
 ```json
 {
   "revenue": 0.5,
@@ -1467,6 +1564,7 @@ EBITDA: $75K
 ```
 
 **Verification:**
+
 - ✅ $500,000 converted to 0.5M
 - ✅ $75K converted to 0.075M
 
@@ -1477,11 +1575,14 @@ EBITDA: $75K
 **Test Case 3.1: Geography Extraction from Website**
 
 **Mock Scraped Content:**
+
 ```markdown
 # About Us
+
 Acme Services proudly serves customers in California, Oregon, and Washington.
 
 ## Our Locations
+
 - San Francisco, CA - Headquarters
 - Portland, OR
 - Seattle, WA
@@ -1490,6 +1591,7 @@ Contact: 123 Market Street, Suite 200, San Francisco, CA 94103
 ```
 
 **Expected Output:**
+
 ```json
 {
   "geography": ["CA", "OR", "WA"],
@@ -1500,6 +1602,7 @@ Contact: 123 Market Street, Suite 200, San Francisco, CA 94103
 ```
 
 **Verification:**
+
 - ✅ All 3 states extracted
 - ✅ Full street address captured
 - ✅ Headquarters identified
@@ -1510,6 +1613,7 @@ Contact: 123 Market Street, Suite 200, San Francisco, CA 94103
 **Test Case 3.2: Priority System - Website Cannot Overwrite Transcript**
 
 **Setup:**
+
 ```sql
 -- Deal already has transcript data
 UPDATE deals SET
@@ -1521,6 +1625,7 @@ WHERE id = '[deal-id]';
 **Action:** Run `enrich-deal` with website containing "Revenue: $10M"
 
 **Expected Behavior:**
+
 - ✅ Website enrichment skips revenue field
 - ✅ `deals.revenue` remains 8.5
 - ✅ `extraction_sources['revenue']` remains "transcript"
@@ -1531,6 +1636,7 @@ WHERE id = '[deal-id]';
 **Test Case 3.3: Empty Field Filling**
 
 **Setup:**
+
 ```sql
 UPDATE deals SET
   company_overview = NULL,
@@ -1541,6 +1647,7 @@ WHERE id = '[deal-id]';
 **Action:** Run `enrich-deal` with `onlyFillEmpty: true`
 
 **Expected Behavior:**
+
 - ✅ Website data fills empty fields
 - ✅ `company_overview` and `geography` populated
 - ✅ `extraction_sources` updated with "website" source
@@ -1553,12 +1660,14 @@ WHERE id = '[deal-id]';
 **Test Case 4.1: Full Priority Chain**
 
 **Sequence:**
+
 1. Create deal with manual entry: `revenue = 5.0` (priority 20)
 2. Analyze notes: `revenue = 6.0` (priority 80)
 3. Extract transcript: `revenue = 8.5` (priority 100)
 4. Enrich website: `revenue = 10.0` (priority 60)
 
 **Expected Final State:**
+
 - ✅ Step 1: `revenue = 5.0`, source = "manual"
 - ✅ Step 2: `revenue = 6.0`, source = "notes" (overwrites manual)
 - ✅ Step 3: `revenue = 8.5`, source = "transcript" (overwrites notes)
@@ -1569,6 +1678,7 @@ WHERE id = '[deal-id]';
 **Test Case 4.2: Partial Field Protection**
 
 **Setup:**
+
 - `revenue` from transcript (priority 100)
 - `geography` from notes (priority 80)
 - `company_overview` from website (priority 60)
@@ -1576,6 +1686,7 @@ WHERE id = '[deal-id]';
 **Action:** Run website enrichment with all 3 fields
 
 **Expected Behavior:**
+
 - ✅ `revenue` protected (transcript)
 - ✅ `geography` protected (notes)
 - ✅ `company_overview` updated (website can overwrite itself)
@@ -1587,6 +1698,7 @@ WHERE id = '[deal-id]';
 **Test Case 5.1: Auto-Enrich on Page Load**
 
 **Setup:**
+
 ```sql
 INSERT INTO deals (deal_name, company_website, last_enriched_at, company_overview)
 VALUES ('Test Co', 'https://example.com', NULL, NULL);
@@ -1595,6 +1707,7 @@ VALUES ('Test Co', 'https://example.com', NULL, NULL);
 **Action:** Navigate to deal detail page
 
 **Expected Behavior:**
+
 - ✅ Auto-enrichment triggers (no last_enriched_at, missing overview)
 - ✅ Loading banner shows
 - ✅ Website scraped and enrichment applied
@@ -1606,6 +1719,7 @@ VALUES ('Test Co', 'https://example.com', NULL, NULL);
 **Test Case 5.2: Cache Prevents Re-Enrichment**
 
 **Setup:**
+
 ```sql
 UPDATE deals SET
   last_enriched_at = NOW() - INTERVAL '12 hours'
@@ -1615,6 +1729,7 @@ WHERE id = '[deal-id]';
 **Action:** Navigate to deal detail page
 
 **Expected Behavior:**
+
 - ✅ Auto-enrichment SKIPPED (enriched < 24 hours ago)
 - ✅ No loading banner
 - ✅ No API calls made
@@ -1624,6 +1739,7 @@ WHERE id = '[deal-id]';
 **Test Case 5.3: Multi-Source Auto-Enrichment**
 
 **Setup:**
+
 ```sql
 INSERT INTO deals (
   deal_name,
@@ -1643,11 +1759,13 @@ INSERT INTO deals (
 **Action:** Navigate to deal detail page
 
 **Expected Sequence:**
+
 1. ✅ Extract transcript (priority 1)
 2. ✅ Analyze notes (priority 2)
 3. ✅ Enrich website (priority 3)
 
 **Final State:**
+
 - ✅ Transcript data has highest protection
 - ✅ Notes filled gaps not in transcript
 - ✅ Website filled remaining gaps
@@ -1660,6 +1778,7 @@ INSERT INTO deals (
 **Test Case 6.1: Confidence Badges Display**
 
 **Setup:**
+
 ```sql
 UPDATE deals SET
   revenue = 8.5,
@@ -1670,6 +1789,7 @@ WHERE id = '[deal-id]';
 ```
 
 **Expected UI:**
+
 - ✅ Revenue shows red "Low Confidence" badge
 - ✅ EBITDA shows green "High Confidence" badge
 - ✅ Low confidence warning banner visible at top
@@ -1679,6 +1799,7 @@ WHERE id = '[deal-id]';
 **Test Case 6.2: Follow-Up Questions Display**
 
 **Setup:**
+
 ```sql
 UPDATE deals SET
   financial_followup_questions = ARRAY[
@@ -1689,6 +1810,7 @@ WHERE id = '[deal-id]';
 ```
 
 **Expected UI:**
+
 - ✅ Follow-up questions panel visible
 - ✅ 2 questions listed with icons
 - ✅ Panel highlighted in yellow/warning color
@@ -1698,6 +1820,7 @@ WHERE id = '[deal-id]';
 **Test Case 6.3: Source Badges**
 
 **Setup:**
+
 ```sql
 UPDATE deals SET
   revenue = 8.5,
@@ -1706,6 +1829,7 @@ WHERE id = '[deal-id]';
 ```
 
 **Expected UI:**
+
 - ✅ Revenue field shows "Transcript" source badge
 - ✅ Badge has distinct color (blue/purple)
 - ✅ Tooltip shows extraction timestamp
@@ -1715,6 +1839,7 @@ WHERE id = '[deal-id]';
 **Test Case 6.4: Data Quality Score**
 
 **Setup:**
+
 ```sql
 -- Populate 50% of key fields
 UPDATE deals SET
@@ -1726,6 +1851,7 @@ WHERE id = '[deal-id]';
 ```
 
 **Expected UI:**
+
 - ✅ Data quality score shows ~50%
 - ✅ Progress bar half-filled
 - ✅ Green color if >70%, yellow if 40-70%, red if <40%
@@ -1739,6 +1865,7 @@ WHERE id = '[deal-id]';
 **Input:** Image-based PDF with no extractable text
 
 **Expected Behavior:**
+
 - ✅ PDF parsing throws error
 - ✅ Error message: "Could not extract meaningful text from PDF..."
 - ✅ Suggests user paste content in notes field
@@ -1751,6 +1878,7 @@ WHERE id = '[deal-id]';
 **Input:** Transcript with only 50 characters
 
 **Expected Behavior:**
+
 - ✅ Function returns error
 - ✅ Error message: "Transcript content too short or empty"
 - ✅ Minimum 100 characters required
@@ -1760,11 +1888,13 @@ WHERE id = '[deal-id]';
 **Test Case 7.3: Invalid Geography Input**
 
 **Input Notes:**
+
 ```
 Geography: XYZ, ABC, Southeast
 ```
 
 **Expected Behavior:**
+
 - ✅ Invalid codes (XYZ, ABC) ignored
 - ✅ "Southeast" expanded to valid states
 - ✅ `geography` = ["GA", "FL", "SC", "NC", "AL", "TN", "MS", "LA", "AR", "KY", "VA", "WV"]
@@ -1774,11 +1904,13 @@ Geography: XYZ, ABC, Southeast
 **Test Case 7.4: EBITDA Calculation Edge Case**
 
 **Setup:**
+
 - Revenue: 10.0
 - EBITDA Margin: 23%
 - EBITDA Amount: null
 
 **Expected Behavior:**
+
 - ✅ System calculates: `ebitda_amount = 10.0 × 0.23 = 2.3`
 - ✅ `ebitda_is_inferred = true`
 - ✅ Financial notes include calculation explanation
@@ -1788,6 +1920,7 @@ Geography: XYZ, ABC, Southeast
 **Test Case 7.5: Duplicate Domain Prevention**
 
 **Setup:**
+
 ```sql
 INSERT INTO companies (domain, company_name, user_id)
 VALUES ('acmeroofing.com', 'Acme Roofing', '[user-id]');
@@ -1796,6 +1929,7 @@ VALUES ('acmeroofing.com', 'Acme Roofing', '[user-id]');
 **Action:** User creates new deal with website "https://acmeroofing.com"
 
 **Expected Behavior:**
+
 - ✅ Domain lookup finds existing company
 - ✅ UI shows "Company Exists" card
 - ✅ Shows deal history across trackers
@@ -1808,12 +1942,14 @@ VALUES ('acmeroofing.com', 'Acme Roofing', '[user-id]');
 **Test Case 8.1: Transcript Extraction Latency**
 
 **Expected Performance:**
+
 - ✅ Firecrawl scrape: < 15 seconds
 - ✅ Claude extraction: < 30 seconds
 - ✅ Database update: < 2 seconds
 - ✅ **Total: < 60 seconds**
 
 **Load Test:**
+
 - Run 10 concurrent extractions
 - All should complete within 90 seconds
 
@@ -1822,6 +1958,7 @@ VALUES ('acmeroofing.com', 'Acme Roofing', '[user-id]');
 **Test Case 8.2: Notes Analysis Latency**
 
 **Expected Performance:**
+
 - ✅ Pre-extraction (regex): < 1 second
 - ✅ Gemini API call: < 10 seconds
 - ✅ Database update: < 2 seconds
@@ -1832,6 +1969,7 @@ VALUES ('acmeroofing.com', 'Acme Roofing', '[user-id]');
 **Test Case 8.3: Website Enrichment Latency**
 
 **Expected Performance:**
+
 - ✅ Firecrawl scrape: < 10 seconds
 - ✅ Claude extraction: < 15 seconds
 - ✅ Database update: < 2 seconds
@@ -1844,22 +1982,25 @@ VALUES ('acmeroofing.com', 'Acme Roofing', '[user-id]');
 ### Appendix A: Key Configuration Constants
 
 **Geography Utilities**
+
 - `STATE_NAME_TO_ABBREV`: 50 states + DC mapping
 - `REGION_TO_STATES`: 13 regional groupings
 - `CITY_TO_STATE`: 60+ major cities
 
 **Source Priorities**
+
 ```javascript
 const SOURCE_PRIORITY = {
   transcript: 100,
   notes: 80,
   website: 60,
   csv: 40,
-  manual: 20
+  manual: 20,
 };
 ```
 
 **Auto-Enrichment Thresholds**
+
 - Cache duration: 24 hours
 - Minimum overview length: 50 characters
 - Required missing fields: any of [company_overview, company_address, geography]
@@ -1885,19 +2026,20 @@ const SOURCE_PRIORITY = {
 
 ### Appendix C: Error Messages Reference
 
-| Error Code | Message | User Action |
-|------------|---------|-------------|
-| `transcript_too_short` | "Transcript content too short or empty" | Add more content (min 100 chars) |
-| `pdf_parse_failed` | "Failed to parse PDF. Please paste content directly." | Copy text and paste in notes |
-| `no_website` | "Deal has no company website" | Add website to deal |
-| `scrape_failed` | "Could not scrape website content" | Check URL or paste content manually |
-| `rate_limit` | "Rate limit exceeded. Please try again in a moment." | Wait 60 seconds |
-| `access_denied` | "Deal not found or access denied" | Verify you own this tracker |
-| `duplicate_deal` | "This company is already listed in this buyer universe" | View existing deal instead |
+| Error Code             | Message                                                 | User Action                         |
+| ---------------------- | ------------------------------------------------------- | ----------------------------------- |
+| `transcript_too_short` | "Transcript content too short or empty"                 | Add more content (min 100 chars)    |
+| `pdf_parse_failed`     | "Failed to parse PDF. Please paste content directly."   | Copy text and paste in notes        |
+| `no_website`           | "Deal has no company website"                           | Add website to deal                 |
+| `scrape_failed`        | "Could not scrape website content"                      | Check URL or paste content manually |
+| `rate_limit`           | "Rate limit exceeded. Please try again in a moment."    | Wait 60 seconds                     |
+| `access_denied`        | "Deal not found or access denied"                       | Verify you own this tracker         |
+| `duplicate_deal`       | "This company is already listed in this buyer universe" | View existing deal instead          |
 
 ### Appendix D: Database Migrations
 
 **Migration: Add Financial Confidence Fields**
+
 ```sql
 ALTER TABLE deals
   ADD COLUMN revenue_confidence TEXT,
@@ -1911,6 +2053,7 @@ ALTER TABLE deals
 ```
 
 **Migration: Add Source Tracking**
+
 ```sql
 ALTER TABLE deals
   ADD COLUMN extraction_sources JSONB DEFAULT '{}',
@@ -1918,6 +2061,7 @@ ALTER TABLE deals
 ```
 
 **Migration: Add End Market Fields**
+
 ```sql
 ALTER TABLE deals
   ADD COLUMN end_market_customers TEXT,
@@ -1926,6 +2070,7 @@ ALTER TABLE deals
 ```
 
 **Migration: Add Additional Intelligence Fields**
+
 ```sql
 ALTER TABLE deals
   ADD COLUMN key_risks TEXT[],
@@ -1939,9 +2084,9 @@ ALTER TABLE deals
 
 ## Document Changelog
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | 2026-02-05 | Initial comprehensive documentation |
+| Version | Date       | Changes                             |
+| ------- | ---------- | ----------------------------------- |
+| 1.0     | 2026-02-05 | Initial comprehensive documentation |
 
 ---
 
