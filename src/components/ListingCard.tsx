@@ -18,7 +18,6 @@ import ListingCardFinancials from './listing/ListingCardFinancials';
 import ListingCardActions from './listing/ListingCardActions';
 import ListingStatusTag from './listing/ListingStatusTag';
 import { SearchSessionContext } from '@/contexts/SearchSessionContext';
-import { SearchSessionContext } from '@/contexts/SearchSessionContext';
 
 interface ListingCardProps {
   listing: Listing;
