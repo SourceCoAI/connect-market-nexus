@@ -1,47 +1,54 @@
 
 
-# Add Contact Detail Drawer to List Detail Page
+# Fix Missing Buyer Score & Tier on Signup
 
-## Summary
+## Root Cause
 
-Make every row in the list detail page clickable. Clicking opens a slide-out drawer on the right showing the contact's full details, call history, and a link to navigate to the associated deal.
+After investigation, here's what's actually happening:
 
-## Changes
+- **`buyer_type` IS saving correctly** — all recent signups have their buyer type (privateEquity, searchFund, advisor, etc.) stored in the profiles table. The trigger logs confirm `handle_new_user` succeeds for every signup.
+- **`buyer_quality_score` and `buyer_tier` are NULL** for every recent user because **scoring is never triggered on signup**. The `calculate-buyer-quality-score` edge function only runs when an admin manually triggers it from the UI via `queueBuyerQualityScoring()`.
+- There is no database trigger, webhook, or cron job that auto-scores new users.
 
-### File 1: New — `src/components/admin/lists/ContactMemberDrawer.tsx`
+## What the Screenshot Shows
 
-Create a new drawer component using the existing `Sheet` UI primitive. It receives a `ContactListMember` and displays:
+The "—" dashes in Type/Tier/Score columns on the admin users page are likely a **display issue** — `buyer_type` exists in the DB (e.g., "privateEquity") but the UI may not be rendering it. Score and Tier are genuinely NULL because they were never calculated.
 
-- **Header**: Contact name, role, company
-- **Contact Info section**: Email (mailto link), Phone (tel link)
-- **Source & List Info**: Entity type badge, date added
-- **Deal Owner**: Name if available
-- **Call Activity section**: Total calls, last call date, last disposition
-- **Actions footer**: 
-  - "View Deal" button (navigates to `/admin/deals/${entity_id}`) — shown for deal-type entities
-  - "Remove from List" button
+## Fix
 
-The drawer will be ~480px wide (override the default `sm:max-w-sm` with `sm:max-w-md`).
+### 1. Auto-Score on Signup (Frontend)
 
-### File 2: `src/pages/admin/ContactListDetailPage.tsx`
+In `use-nuclear-auth.ts` → `signup()`, add a call to `calculate-buyer-quality-score` alongside the existing fire-and-forget calls (welcome email, admin notification, firm creation):
 
-- Add state: `const [drawerMember, setDrawerMember] = useState<ContactListMember | null>(null)`
-- Change the row click handler: instead of directly navigating to the deal page, set `drawerMember` to the clicked member (for ALL entity types, not just deal types)
-- Render `<ContactMemberDrawer>` at the bottom of the page, passing `drawerMember`, `onClose`, `onRemove`, and `onNavigateToDeal`
-- Keep the existing deal navigation as a button inside the drawer
+```typescript
+const scoringPromise = supabase.functions
+  .invoke('calculate-buyer-quality-score', {
+    body: { profile_id: data.user.id },
+  })
+  .catch((err) => {
+    console.warn('Buyer scoring failed (will be scored later):', err);
+  });
 
-### Technical Detail
-
+await Promise.allSettled([
+  welcomeEmailPromise,
+  adminNotificationPromise,
+  firmCreationPromise,
+  scoringPromise,  // ← new
+]);
 ```
-Row click → setDrawerMember(member) → Sheet opens
-  ├── Contact info (name, email, phone, company, role)
-  ├── Call activity (from existing joined data on ContactListMember)
-  ├── Deal owner info
-  └── Actions: [View Deal] [Remove from List]
-```
+
+### 2. Backfill Existing Users
+
+Create a migration that queues scoring for all users who have `buyer_type` set but `buyer_quality_score` is NULL. This will use `pg_net` to call the edge function, or we can run it manually from the admin UI.
+
+### 3. Check UI Display of buyer_type
+
+Verify the admin users table is correctly reading and displaying `buyer_type` from profiles — if it shows "—" despite the field being populated, there's a mapping/display bug to fix.
+
+## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/admin/lists/ContactMemberDrawer.tsx` | New drawer component |
-| `src/pages/admin/ContactListDetailPage.tsx` | Wire drawer state, make all rows clickable |
+| `src/hooks/use-nuclear-auth.ts` | Add `calculate-buyer-quality-score` call in signup flow |
+| `supabase/migrations/[timestamp]_backfill_buyer_scores.sql` | Backfill scores for existing unscored users |
 
