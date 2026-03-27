@@ -216,6 +216,23 @@ Deno.serve(async (req) => {
 
       console.log(`Listing ${listingId} published by admin ${user.id}`);
 
+      // Phase 64: Auto-cleanup — if this listing was created from a deal in the
+      // marketplace queue, clear the source deal's pushed_to_marketplace flag so
+      // it no longer appears in the queue.
+      if (listing.source_deal_id) {
+        const { error: cleanupError } = await supabaseAdmin
+          .from('listings')
+          .update({ pushed_to_marketplace: false })
+          .eq('id', listing.source_deal_id);
+
+        if (cleanupError) {
+          console.warn(`Queue cleanup failed for source deal ${listing.source_deal_id}:`, cleanupError.message);
+          // Non-blocking — publish still succeeds
+        } else {
+          console.log(`Queue cleanup: source deal ${listing.source_deal_id} removed from queue`);
+        }
+      }
+
       return new Response(
         JSON.stringify({ 
           success: true, 
