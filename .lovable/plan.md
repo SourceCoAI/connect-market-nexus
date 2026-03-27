@@ -1,98 +1,111 @@
 
 
-# Mega Audit Round 3: Untested & Overlooked Areas
+# Mega Audit Round 4: Fresh Angles — UX Quality, UI Polish, Data Integrity
 
-## Status of Previous 38 Phases
-All 38 phases (connection gates, RPC resilience, documents, messaging, deals, public pages, realtime, analytics, mobile) have been code-audited. Phases 1-11 included code fixes; phases 12-38 were verified clean.
+## What's Been Fully Tested (Phases 1-46)
+Security gates, RPC resilience, document signing, messaging, deals, public pages, realtime, analytics, mobile responsive, data isolation, popup handling, share email privacy, and BlurredFinancialTeaser gate bypass.
 
-## NEW: Critical Bug Found
+## New Findings from Fresh Investigation
 
-### BlurredFinancialTeaser Bypasses All Connection Gates
-**Severity: HIGH**
+### Phase 47: MatchedDealsSection "Complete Profile" Links to Wrong Page
+**Severity: Medium — UX bug**
 
-`BlurredFinancialTeaser.tsx` (line 33-36) opens a `ConnectionRequestDialog` directly on button click — it does NOT check:
-- Profile completeness (`isProfileComplete`)
-- Fee agreement status (`coverage.fee_covered`)
-- NDA status
-- Buyer type (business owners can click through)
-- Listing status (inactive/sold)
+`MatchedDealsSection.tsx` line 101 links incomplete-profile users to `/welcome` — which is the **pre-auth landing page** that redirects authenticated users away (Welcome.tsx line 17-21: `if (authChecked && user) navigate(redirectPath)`). The user gets bounced back to `/` without completing anything.
 
-The sidebar `ConnectionButton` properly enforces all 8 gates. But the bottom-of-page `BlurredFinancialTeaser` is a completely separate entry point that bypasses every single one.
+Should link to `/profile` instead.
 
-The server-side `useRequestConnection` mutation does check `buyer_type` and message length, but does NOT check profile completeness, fee agreement, or NDA — so an incomplete-profile user could submit a connection request through this component.
+### Phase 48: Notification Preferences Are localStorage-Only (Not Persisted to DB)
+**Severity: Medium — Feature gap**
 
-**Fix:** Replace `BlurredFinancialTeaser`'s internal dialog/button with the same `ConnectionButton` component used in the sidebar, or add the same gate checks.
+Profile > Notifications tab stores preferences in `localStorage` only (line 76 of `Profile/index.tsx`). The disclaimer says "may not affect all email notifications" — but in reality these preferences affect **nothing** server-side. They are purely cosmetic toggles that reset on browser change/clear.
+
+**Fix options:**
+- A) Persist to a `notification_preferences` column on `profiles` table
+- B) Add a clear disclaimer that these are display-only placeholders (honest UX)
+- C) Remove the tab entirely until backend support exists
+
+### Phase 49: SimilarListingsCarousel Exposes Financial Data Without NDA Check
+**Severity: Low-Medium**
+
+`SimilarListingsCarousel.tsx` shows Revenue, EBITDA, EBITDA margin %, and revenue multiple for every similar listing — regardless of whether the user has signed an NDA or has a connection. The main listing page blurs financials behind `BlurredFinancialTeaser`, but similar listings at the bottom show everything openly.
+
+This may be intentional (teaser data to drive engagement), but creates inconsistency with the financial gating on the primary listing.
+
+### Phase 50: Saved Listings Annotations Are localStorage-Only
+**Severity: Low**
+
+`SavedListings.tsx` stores per-listing notes in `localStorage` (line 21-33). Notes are lost on browser change, device switch, or cache clear. If annotations are a real feature, they should persist to DB.
+
+### Phase 51: "Results per page" Resets Search/Filter State Inconsistently
+**Severity: Low — UX**
+
+On the Marketplace page, changing "Results per page" (Select on line 297) calls `pagination.setPerPage()` which may or may not reset to page 1. On SavedListings, the same action explicitly resets to page 1 (line 178). Verify consistency.
+
+### Phase 52: DealDocumentsCard — "View Documents" Button Never Wired
+**Severity: Low — UX gap**
+
+`DealDocumentsCard.tsx` accepts `onViewDocuments` prop (line 32), but in `MyRequests.tsx` the component is rendered without passing this prop (line 406-412). So even when documents are unlocked, the "View Documents" button never appears. The user has no way to navigate to the data room from the My Deals page.
+
+### Phase 53: PostRejectionPanel Fetches All 50 Listings Unnecessarily
+**Severity: Low — Performance**
+
+`PostRejectionPanel.tsx` line 16-26 fetches 50 listings via `useSimpleListings` just to find 3 similar ones client-side. This could be a targeted query instead. Not a bug but wasteful — and the query runs for every rejected deal.
+
+### Phase 54: Onboarding Popup — Double Supabase Call Pattern
+**Severity: Low**
+
+`OnboardingPopup.tsx` first SELECT's the profile, then UPDATE's it (lines 24-58). This could be a single UPDATE with a WHERE clause. Also, if the popup fails to update, the user sees it again on every visit — no graceful fallback.
+
+### Phase 55: DealMessagesTab — No "Scroll to Bottom" on New Messages
+**Severity: Low — UX**
+
+`DealMessagesTab.tsx` auto-scrolls on mount but if a new message arrives via realtime subscription while the user is scrolled up, there's no indicator or scroll-to-bottom button. Standard chat UX expectation.
+
+### Phase 56: Marketplace Welcome Toast Fires Only Once Per Browser (Not Per Account)
+**Severity: Low**
+
+`Marketplace.tsx` line 93 uses `localStorage.getItem('sourceco_shown_welcome')` — this is browser-scoped, not user-scoped. If a user logs out and a new user logs in on the same browser, the second user never sees the welcome message. Should key by user ID.
+
+### Phase 57: DealPipelineCard — No Visual Distinction for `on_hold` Status
+**Severity: Low — UX**
+
+Verify that `DealPipelineCard.tsx` renders a visually distinct state for `on_hold` status in the My Deals sidebar. Previous phases confirmed `DealActionCard` handles it, but the sidebar card list may not show a differentiated badge/color.
 
 ---
 
-## Remaining Untested Areas (Phases 39-46)
-
-### Phase 39: BlurredFinancialTeaser Gate Bypass Fix
-- Add profile completeness, fee agreement, NDA, buyer type, and listing status checks to `BlurredFinancialTeaser.tsx`
-- Or replace its CTA entirely with `ConnectionButton`
-- Verify the `ConnectionRequestDialog` inside it cannot be triggered by incomplete/blocked users
-
-### Phase 40: ConnectionRequestDialog — AI Draft Error Resilience
-- `draft-connection-message` edge function error handling (line 66-80 of `ConnectionRequestDialog.tsx`)
-- What happens if the edge function returns malformed data?
-- Profile completion warning shown when `percentage < 60` — does the threshold align with `isProfileComplete` in `ConnectionButton`? (potential inconsistency: 60% vs the binary check)
-- Empty message submission guard — currently checks `message.trim()` but the mutation requires 20+ chars; no client-side minimum length validation in the dialog
-
-### Phase 41: ExecutiveSummaryGenerator — Window Popup & Print
-- Uses `window.open()` to generate a print-ready HTML page — popup blockers will silently fail
-- No fallback or error message when `summaryWindow` is null (line 14: `if (!summaryWindow) return;` — silent failure)
-- Content includes real financial data — should it be gated behind NDA/connection status?
-
-### Phase 42: DealSourcingCriteriaDialog — Submission & Calendar
-- Inserts to `deal_sourcing_requests` table — does admin see these?
-- Calendar embed (`setDialogState('calendar')`) — is the calendar URL hardcoded or configurable?
-- Duplicate submission prevention — can a user submit multiple deal sourcing requests?
-- What happens for unauthenticated users? (the button is on `ListingDetail` which requires auth)
-
-### Phase 43: EnhancedSaveButton Share — Email Content Leakage
-- `handleShare` constructs a `mailto:` link with listing title, location, revenue, and EBITDA in plaintext
-- This exposes confidential deal financials via email to anyone — even if the recipient has no account
-- The share URL (`/listing/{id}`) requires auth, but the email body itself contains the data
-- Should financial figures be omitted from the share email body?
-
-### Phase 44: SimilarListingsCarousel — Data Isolation
-- `useSimilarListings` hook — does it enforce `is_internal_deal: false`?
-- Could internal/remarketing deals leak into the similar listings section?
-- Verify the query filters match the marketplace isolation guardrails
-
-### Phase 45: BuyerDataRoom — Access Control Edge Cases
-- `data_room_access` query uses `maybeSingle()` — correct for no-access case
-- Document download via signed URLs — are URLs time-limited?
-- What if `can_view_data_room` is false but `can_view_teaser` is true? Does the UI show partial content?
-- `DataRoomOrientation` component — does it render even when there are 0 documents?
-
-### Phase 46: Listing Detail — Cross-Cutting UX Issues
-- `DealAdvisorCard` falls back to hardcoded "Tomos Mughan" when no `presented_by_admin_id` — is this intentional or a bug?
-- Listing detail `isAdmin` check uses `user?.is_admin === true` — previous phases established this should use `useAuth().isAdmin`. Inconsistency risk.
-- The `InvestmentFitScore` component renders a "Complete your profile" card for users with `criteriaCount < 2` — does this link to the correct profile tab?
-- `listing_analytics` insert on unmount — if the component unmounts and remounts rapidly (React StrictMode), `hasFlushOnUnmountRef` prevents double-flush, but does StrictMode cause the ref to reset?
-
----
-
-## Summary of New Findings
+## Summary
 
 | Phase | Area | Severity | Type |
 |-------|------|----------|------|
-| 39 | BlurredFinancialTeaser gate bypass | **Critical** | Security bug |
-| 40 | ConnectionRequestDialog validation gaps | Medium | UX/validation |
-| 41 | ExecutiveSummaryGenerator popup blocker | Low | UX |
-| 42 | DealSourcingCriteriaDialog admin visibility | Low | Feature gap |
-| 43 | Share button leaks confidential financials | **High** | Data exposure |
-| 44 | SimilarListingsCarousel isolation | Medium | Data isolation |
-| 45 | BuyerDataRoom access edge cases | Medium | Access control |
-| 46 | Listing detail cross-cutting issues | Low | Consistency |
+| 47 | MatchedDealsSection links to wrong page | **Medium** | UX bug |
+| 48 | Notification preferences not persisted | **Medium** | Feature gap |
+| 49 | Similar listings expose financials without NDA | Low-Medium | Consistency |
+| 50 | Saved listing annotations localStorage-only | Low | Data persistence |
+| 51 | Per-page change pagination reset inconsistency | Low | UX |
+| 52 | DealDocumentsCard "View Documents" never wired | Low | UX gap |
+| 53 | PostRejectionPanel fetches 50 listings | Low | Performance |
+| 54 | Onboarding popup double query | Low | Efficiency |
+| 55 | No scroll-to-bottom in deal messages | Low | UX |
+| 56 | Welcome toast not user-scoped | Low | UX bug |
+| 57 | DealPipelineCard on_hold visual distinction | Low | UX |
 
 ## Proposed Execution Order
 
 | Priority | Phases | Rationale |
 |----------|--------|-----------|
-| Critical | 39, 43 | Security: gate bypass and data leakage |
-| High | 40, 44 | Validation gaps and data isolation |
-| Medium | 45, 46 | Access control and consistency |
-| Low | 41, 42 | UX polish |
+| High | 47, 52 | Broken navigation + missing feature wiring |
+| Medium | 48, 56 | localStorage bugs affecting multi-user scenarios |
+| Lower | 49, 50, 51, 53, 54, 55, 57 | Polish, performance, UX enhancements |
+
+## Implementation Plan
+
+**Phase 47** — Change `to="/welcome"` to `to="/profile"` in `MatchedDealsSection.tsx` line 101.
+
+**Phase 48** — Add disclaimer text to notifications tab clarifying preferences are browser-local only, until DB persistence is built.
+
+**Phase 52** — Wire `onViewDocuments` prop in `MyRequests.tsx` to navigate to the listing detail data room tab or switch inner tab.
+
+**Phase 56** — Change welcome toast localStorage key to include `user.id`: `sourceco_shown_welcome_${user.id}`.
+
+**Phases 49-51, 53-55, 57** — Audit and fix as needed (mostly minor tweaks).
 
