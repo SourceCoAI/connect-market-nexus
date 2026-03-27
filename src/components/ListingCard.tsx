@@ -6,6 +6,7 @@ import { useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAnalyticsTracking } from '@/hooks/use-analytics-tracking';
 import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
+import { toast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { RichTextDisplay } from '@/components/ui/rich-text-display';
 import { formatCurrency } from '@/lib/currency-utils';
@@ -211,6 +212,20 @@ const ListingCard = memo(function ListingCard({
                   profileCompletePct={profilePct}
                   isBuyerBlocked={buyerBlocked}
                   isFeeCovered={feeCovered}
+                  onFeeGateOpen={() => {
+                    toast({
+                      title: 'Fee Agreement Required',
+                      description: 'You need a signed fee agreement before requesting access. Visit your profile to complete it.',
+                      action: (
+                        <a
+                          href="/profile?tab=documents"
+                          className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3 whitespace-nowrap"
+                        >
+                          Go to Profile
+                        </a>
+                      ),
+                    });
+                  }}
                 />
               </div>
             </CardContent>

@@ -214,6 +214,12 @@ const MyRequests = () => {
               Browse the marketplace and request an introduction when you find a fit. Every deal you
               connect on will appear here — along with your messages, status, and next steps.
             </p>
+            <a
+              href="/marketplace"
+              className="inline-flex items-center justify-center rounded-lg text-[13px] font-semibold bg-[#0E101A] text-white hover:bg-[#0E101A]/90 h-10 px-5 transition-colors"
+            >
+              Browse Marketplace
+            </a>
           </div>
         </div>
       </div>

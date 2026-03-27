@@ -171,7 +171,7 @@ export const useRequestConnection = () => {
         toast({
           title: 'Request sent.',
           description:
-            "We'll review your request within 1-2 business days. You'll be notified by email.",
+            "We'll review your request within 1-2 business days. You'll be notified by email. Track your request in My Deals.",
         });
       }
 

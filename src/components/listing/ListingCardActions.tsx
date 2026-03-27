@@ -206,14 +206,16 @@ const ListingCardActions = memo(function ListingCardActions({
 
             {/* Secondary Actions */}
             <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-              <Button
-                variant="ghost"
-                className={`${viewType === 'list' ? 'h-8' : 'h-9'} px-3 text-[12px] font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors`}
-                size="sm"
-              >
-                <Eye className="h-3.5 w-3.5 mr-1.5" />
-                <span>Details</span>
-              </Button>
+              <Link to={listingId ? `/listing/${listingId}` : '#'} onClick={(e) => e.stopPropagation()} className="w-full">
+                <Button
+                  variant="ghost"
+                  className={`w-full ${viewType === 'list' ? 'h-8' : 'h-9'} px-3 text-[12px] font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors`}
+                  size="sm"
+                >
+                  <Eye className="h-3.5 w-3.5 mr-1.5" />
+                  <span>Details</span>
+                </Button>
+              </Link>
 
               <Button
                 variant="ghost"
