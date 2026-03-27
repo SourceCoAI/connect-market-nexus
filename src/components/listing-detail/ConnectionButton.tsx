@@ -230,6 +230,15 @@ const ConnectionButton = ({
             </p>
           </div>
         )}
+
+        <ConnectionRequestDialog
+          isOpen={isDialogOpen}
+          onClose={() => setIsDialogOpen(false)}
+          onSubmit={handleDialogSubmit}
+          isSubmitting={isRequesting}
+          listingTitle={listingTitle}
+          listingId={listingId}
+        />
       </div>
     );
   }
