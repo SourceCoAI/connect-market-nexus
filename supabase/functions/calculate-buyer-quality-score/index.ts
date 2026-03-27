@@ -360,6 +360,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // ─── BATCH MODE: score all unscored buyers ────────────────────────
     if (body.batch_all_unscored) {
+      console.log('[calculate-buyer-quality-score] Batch mode entered, limit:', body.batch_limit);
       const batchLimit = Math.min(body.batch_limit || 30, 500);
       const { data: unscored, error: unscoredErr } = await supabase
         .from('profiles')
