@@ -196,7 +196,7 @@ Deno.serve(async (req: Request) => {
     if (geminiApiKey && documentCategory === "data_room" && isExtractableType(file.type)) {
       // Run text extraction in the background — don't block the upload response
       extractAndStoreDocumentText(
-        supabaseAdmin,
+        supabaseAdmin as any,
         doc.id,
         storagePath,
         file.type,

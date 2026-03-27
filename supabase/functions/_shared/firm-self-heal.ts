@@ -101,5 +101,5 @@ export async function selfHealFirm(
     console.error('⚠️ selfHealFirm: failed to create firm_member:', memberError);
   }
 
-  return { firmId, created };
+  return { firmId: firmId as string, created };
 }

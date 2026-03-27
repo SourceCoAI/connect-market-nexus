@@ -7,10 +7,16 @@ import { Link } from 'react-router-dom';
 interface UserFirmBadgeProps {
   userId: string;
   compact?: boolean;
+  firmData?: { firm_id: string; primary_company_name: string | null; fee_agreement_signed: boolean | null; nda_signed: boolean | null } | null;
 }
 
-export function UserFirmBadge({ userId, compact = false }: UserFirmBadgeProps) {
-  const { data: firmInfo, isLoading } = useUserFirm(userId);
+export function UserFirmBadge({ userId, compact = false, firmData }: UserFirmBadgeProps) {
+  // Skip individual query if bulk data was provided
+  const { data: fetchedFirmInfo, isLoading } = useUserFirm(firmData !== undefined ? null : userId);
+
+  const firmInfo = firmData
+    ? { firm_id: firmData.firm_id, firm_name: firmData.primary_company_name, member_count: null, fee_agreement_signed: firmData.fee_agreement_signed ?? false, nda_signed: firmData.nda_signed ?? false }
+    : fetchedFirmInfo;
 
   if (isLoading) {
     return <Badge variant="outline" className="text-xs">Loading...</Badge>;

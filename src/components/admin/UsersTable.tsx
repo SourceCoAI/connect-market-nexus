@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Tooltip,
   TooltipContent,
@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { User } from '@/types';
-import { CheckCircle, ChevronDown, ChevronRight, Zap } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { UserDataCompleteness } from './UserDataCompleteness';
 import { BuyerTierBadge, BuyerScoreBadge } from './BuyerQualityBadges';
@@ -25,6 +25,7 @@ import { SimpleFeeAgreementDialog } from './SimpleFeeAgreementDialog';
 import { DualNDAToggle } from './DualNDAToggle';
 import { SimpleNDADialog } from './SimpleNDADialog';
 import { UserFirmBadge } from './UserFirmBadge';
+import type { BulkFirmData } from '@/hooks/admin/use-bulk-user-firms';
 
 import { useEnhancedUserExport } from '@/hooks/admin/use-enhanced-user-export';
 import { useLogFeeAgreementEmail } from '@/hooks/admin/use-fee-agreement';
@@ -41,6 +42,8 @@ import { UserDetails } from './users-table/UserDetails';
 import { UserActionButtons } from './users-table/UserActionButtons';
 import { UsersTableSkeleton } from './users-table/UsersTableSkeleton';
 
+const PAGE_SIZE = 50;
+
 interface UsersTableProps {
   users: User[];
   onApprove: (user: User) => void;
@@ -48,6 +51,7 @@ interface UsersTableProps {
   onRevokeAdmin: (user: User) => void;
   onDelete: (user: User) => void;
   isLoading: boolean;
+  firmDataMap?: Map<string, BulkFirmData>;
 }
 
 export function UsersTable({
@@ -57,10 +61,12 @@ export function UsersTable({
   onRevokeAdmin,
   onDelete,
   isLoading,
+  firmDataMap,
 }: UsersTableProps) {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [selectedUserForEmail, setSelectedUserForEmail] = useState<User | null>(null);
   const [selectedUserForNDA, setSelectedUserForNDA] = useState<User | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
   useEnhancedUserExport();
   usePermissions();
   const { allUserRoles, isLoadingRoles } = useRoleManagement();
@@ -73,6 +79,20 @@ export function UsersTable({
   const logEmailMutation = useLogFeeAgreementEmail();
   const logNDAEmail = useLogNDAEmail();
   const { user: currentAuthUser } = useAuth();
+
+  // Pagination
+  const totalPages = Math.ceil(users.length / PAGE_SIZE);
+  const paginatedUsers = useMemo(() => {
+    const start = currentPage * PAGE_SIZE;
+    return users.slice(start, start + PAGE_SIZE);
+  }, [users, currentPage]);
+
+  // Reset page when users change
+  useMemo(() => {
+    if (currentPage >= totalPages && totalPages > 0) {
+      setCurrentPage(totalPages - 1);
+    }
+  }, [users.length]);
 
   const toggleExpand = (userId: string) => {
     setExpandedUserId(expandedUserId === userId ? null : userId);
@@ -136,7 +156,7 @@ export function UsersTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.flatMap((user) => [
+            {paginatedUsers.flatMap((user) => [
               <TableRow
                 key={user.id}
                 className="cursor-pointer hover:bg-muted/50"
@@ -160,13 +180,9 @@ export function UsersTable({
                       {!isLoadingRoles &&
                         (() => {
                           const role = getUserRole(user.id);
-                          // Fallback to legacy profile flag while migrating
                           const effectiveRole: AppRole =
                             role === 'viewer' && user?.is_admin === true ? 'admin' : role;
-                          // Map 'owner' to 'admin' for display
                           const displayRole = effectiveRole === 'owner' ? 'admin' : effectiveRole;
-
-                          // Only show badge for admin
                           if (displayRole === 'admin') {
                             return <RoleBadge role={displayRole} showTooltip={false} />;
                           }
@@ -188,7 +204,7 @@ export function UsersTable({
                           {user.company}
                         </div>
                       )}
-                      <UserFirmBadge userId={user.id} compact />
+                      <UserFirmBadge userId={user.id} compact firmData={firmDataMap?.get(user.id)} />
                     </div>
                   </div>
                 </TableCell>
@@ -197,7 +213,6 @@ export function UsersTable({
                     {(() => {
                       const bt = user.buyer_type;
                       if (!bt) return '\u2014';
-                      // Handle both camelCase (signup) and snake_case (legacy/admin) values
                       const map: Record<string, string> = {
                         private_equity: 'PE', privateEquity: 'PE',
                         family_office: 'FO', familyOffice: 'FO',
@@ -234,6 +249,7 @@ export function UsersTable({
                     user={user}
                     onSendEmail={(user) => setSelectedUserForEmail(user)}
                     size="sm"
+                    firmData={firmDataMap?.get(user.id) as { [key: string]: unknown } | undefined}
                   />
                 </TableCell>
                 <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
@@ -241,6 +257,7 @@ export function UsersTable({
                     user={user}
                     onSendEmail={(user) => setSelectedUserForNDA(user)}
                     size="sm"
+                    firmData={firmDataMap?.get(user.id) as { [key: string]: unknown } | undefined}
                   />
                 </TableCell>
                 <TableCell className="py-2">
@@ -286,6 +303,38 @@ export function UsersTable({
             ])}
           </TableBody>
         </Table>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t">
+            <p className="text-sm text-muted-foreground">
+              Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, users.length)} of {users.length}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground px-3">
+                Page {currentPage + 1} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage >= totalPages - 1}
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <SimpleFeeAgreementDialog

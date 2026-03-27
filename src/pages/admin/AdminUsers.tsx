@@ -1,4 +1,4 @@
-import { useState, useEffect, Component, type ErrorInfo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, Component, type ErrorInfo, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAdmin } from '@/hooks/use-admin';
 import {
@@ -60,6 +60,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast as toastDirect } from '@/hooks/use-toast';
 import { invokeEdgeFunction } from '@/lib/invoke-edge-function';
 import { useQuery } from '@tanstack/react-query';
+import { useBulkUserFirms } from '@/hooks/admin/use-bulk-user-firms';
 
 type PrimaryView = 'buyers' | 'owners';
 type SecondaryView = 'marketplace' | 'non-marketplace';
@@ -138,6 +139,11 @@ const AdminUsers = () => {
   });
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [isBulkScoring, setIsBulkScoring] = useState(false);
+
+  // Batch-fetch all firm data in ONE query instead of per-row
+  const userIds = useMemo(() => usersData.map((u) => u.id), [usersData]);
+  const { data: firmDataMap } = useBulkUserFirms(userIds);
+
   const [filteredOwnerLeads, setFilteredOwnerLeads] = useState<OwnerLead[]>([]);
   const { markAsViewed: markUsersAsViewed } = useMarkUsersViewed();
   const { markAsViewed: markOwnerLeadsAsViewed } = useMarkOwnerLeadsViewed();
@@ -490,6 +496,7 @@ const AdminUsers = () => {
                       onRevokeAdmin={revokeAdmin}
                       onDelete={deleteUser}
                       isLoading={isLoading}
+                      firmDataMap={firmDataMap}
                     />
                   </TableErrorBoundary>
                 </div>
