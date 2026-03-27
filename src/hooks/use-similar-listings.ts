@@ -101,6 +101,7 @@ export function useSimilarListings(currentListing: Listing | undefined, limit = 
           revenue: Number(listing.revenue ?? 0),
           ebitda: Number(listing.ebitda ?? 0),
           description: listing.description ?? '',
+          ownerNotes: '',
           tags: listing.tags || [],
           created_at: listing.created_at ?? '',
           updated_at: listing.updated_at ?? '',
