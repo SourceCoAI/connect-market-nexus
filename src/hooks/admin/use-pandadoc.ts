@@ -101,6 +101,14 @@ export function useAutoCreateFirmOnApproval() {
  * Uses the canonical `get_user_firm_agreement_status` RPC
  * to deterministically resolve the correct firm.
  */
+const SAFE_NDA_DEFAULT = { hasFirm: false, ndaSigned: false, embedUrl: null, firmId: null };
+
+function isRpcError(error: unknown): boolean {
+  const msg = String((error as Record<string, unknown>)?.message ?? error).toLowerCase();
+  const code = String((error as Record<string, unknown>)?.code ?? '');
+  return msg.includes('404') || msg.includes('400') || msg.includes('not found') || code === '404' || code === '400' || code === 'PGRST202';
+}
+
 export function useBuyerNdaStatus(userId: string | undefined) {
   return useQuery({
     queryKey: ['buyer-nda-status', userId],
@@ -111,12 +119,16 @@ export function useBuyerNdaStatus(userId: string | undefined) {
         p_user_id: userId,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (isRpcError(error)) {
+          console.warn('[pandadoc] get_user_firm_agreement_status RPC error — returning safe defaults (gates will activate)');
+          return SAFE_NDA_DEFAULT;
+        }
+        throw error;
+      }
 
       const row = Array.isArray(data) ? data[0] : data;
-      if (!row || !row.firm_id) {
-        return { hasFirm: false, ndaSigned: false, embedUrl: null, firmId: null };
-      }
+      if (!row || !row.firm_id) return SAFE_NDA_DEFAULT;
 
       return {
         hasFirm: true,
@@ -129,5 +141,9 @@ export function useBuyerNdaStatus(userId: string | undefined) {
     },
     enabled: !!userId,
     staleTime: 30_000,
+    retry: (count, error) => {
+      if (isRpcError(error)) return false;
+      return count < 2;
+    },
   });
 }

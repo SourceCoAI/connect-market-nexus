@@ -19,34 +19,50 @@ export interface AgreementCoverage {
   fee_parent_firm_name: string | null;
 }
 
+const SAFE_DEFAULT_COVERAGE: AgreementCoverage = {
+  nda_covered: false,
+  nda_status: 'not_started',
+  nda_coverage_source: 'not_covered',
+  nda_firm_name: null,
+  nda_parent_firm_name: null,
+  fee_covered: false,
+  fee_status: 'not_started',
+  fee_coverage_source: 'not_covered',
+  fee_firm_name: null,
+  fee_parent_firm_name: null,
+};
+
+function isRpcMissing(error: unknown): boolean {
+  const msg = String((error as Record<string, unknown>)?.message ?? error).toLowerCase();
+  const code = String((error as Record<string, unknown>)?.code ?? '');
+  return msg.includes('404') || msg.includes('not found') || code === '404' || code === 'PGRST202';
+}
+
 export function useMyAgreementStatus(enabled = true) {
   return useQuery({
     queryKey: ['my-agreement-status'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_my_agreement_status');
 
-      if (error) throw error;
-
-      // RPC returns an array of rows; take the first
-      const row = Array.isArray(data) ? data[0] : data;
-      if (!row) {
-        return {
-          nda_covered: false,
-          nda_status: 'not_started',
-          nda_coverage_source: 'not_covered',
-          nda_firm_name: null,
-          nda_parent_firm_name: null,
-          fee_covered: false,
-          fee_status: 'not_started',
-          fee_coverage_source: 'not_covered',
-          fee_firm_name: null,
-          fee_parent_firm_name: null,
-        } as AgreementCoverage;
+      if (error) {
+        // If the RPC doesn't exist, return safe defaults so gates activate
+        if (isRpcMissing(error)) {
+          console.warn('[agreement-status] get_my_agreement_status RPC not found — returning safe defaults (gates will activate)');
+          return SAFE_DEFAULT_COVERAGE;
+        }
+        throw error;
       }
+
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) return SAFE_DEFAULT_COVERAGE;
 
       return row as AgreementCoverage;
     },
-    staleTime: 30_000, // 30 seconds — ensures signing status refreshes quickly
+    staleTime: 30_000,
+    retry: (count, error) => {
+      if (isRpcMissing(error)) return false;
+      return count < 2;
+    },
     enabled,
   });
 }
