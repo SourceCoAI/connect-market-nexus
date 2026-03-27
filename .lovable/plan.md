@@ -1,49 +1,44 @@
 
 
-# Phase 6: Final Audit — One Remaining Fix + System Verification
+# Phase 7: Connection Request System — Final Verification & Status
 
-## Verification: Phases 1-5 All Confirmed Implemented
+## All 6 Phases Verified Complete
 
-Every fix from all previous phases is verified in the codebase:
+Every fix from all previous phases has been confirmed in the codebase:
 
 | Phase | Fixes | Status |
 |-------|-------|--------|
-| 1 | Profile/fee/buyer gates on ListingCardActions, isAdmin fix, ArchivedDeals/ValuationLeads build fixes | Done |
-| 2 | Fee gate fallback, dead ndaGateDismissed removed, navigation wired, listingId passed | Done |
-| 3 | Dialog in rejected block, success toast, onFeeGateOpen wired, Details link, Browse Marketplace CTA | Done |
-| 4 | Click propagation fix, on_hold in ConnectionButton + ListingCardActions, profile link fix | Done |
-| 5 | on_hold in DealActionCard, DealDetailHeader, DealDocumentsCard, DealStatusSection, DealPipelineCard, MyRequests casts | Done |
+| 1 | Profile/fee/buyer gates on ListingCardActions, isAdmin fix, ArchivedDeals/ValuationLeads build fixes | Verified |
+| 2 | Fee gate fallback, dead ndaGateDismissed removed, navigation wired, listingId passed | Verified |
+| 3 | Dialog in rejected block, success toast, onFeeGateOpen wired, Details link, Browse Marketplace CTA | Verified |
+| 4 | Click propagation fix, on_hold in ConnectionButton + ListingCardActions, profile link fix | Verified |
+| 5 | on_hold in DealActionCard, DealDetailHeader, DealDocumentsCard, DealStatusSection, DealPipelineCard, MyRequests casts | Verified |
+| 6 | Last remaining type cast in MyRequests.tsx line 426 | Verified |
 
-## One Remaining Issue
+## System Status: Complete
 
-**MyRequests.tsx line 426** — `DealStatusSection` is still passed `requestStatus as 'pending' | 'approved' | 'rejected'` (missing `| 'on_hold'`). All other casts in the file were fixed in Phase 5, but this one was missed.
-
-## Fix
-
-Update line 426 in `src/pages/MyRequests.tsx`:
-```
-requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
-```
-
-## System Status: Connection Request Flow — Complete
-
-After this fix, the entire connection request system is fully hardened:
+The connection request system is fully hardened:
 
 - **8 gates** enforced consistently across both entry points (marketplace card + listing detail)
 - **5 statuses** (pending, approved, rejected, on_hold, default) handled in all buyer-facing components
 - **NDA gate** is non-dismissible (full page block)
 - **Fee gate** has fallback UI when no firm exists
 - **Profile completeness** gate on both marketplace cards and detail page
-- **Rejected re-request** flow works with properly mounted dialog
-- **Click propagation** prevents double navigation
+- **Rejected re-request** flow works with properly mounted dialog + "Request Again" text
+- **Click propagation** prevents double navigation on card Links
 - **Empty states** have marketplace CTAs
 - **Success feedback** mentions My Deals tracking
+- **Profile link** goes to `/profile` (not `/welcome`)
+- **isAdmin** correctly passed to ConnectionButton on listing detail
 
-No further connection request issues identified.
+## No Further Code Changes Required
 
-## Files Changed
+All connection request flows have been audited across:
+- Marketplace card (`ListingCardActions.tsx`)
+- Listing detail page (`ConnectionButton.tsx`, `ListingDetail.tsx`)
+- My Deals / My Requests (`MyRequests.tsx`, all Deal* components)
+- Backend mutation (`use-connections.ts`)
+- Dialog (`ConnectionRequestDialog.tsx`)
 
-| File | Change |
-|------|--------|
-| `src/pages/MyRequests.tsx` | Fix last remaining type cast on line 426 to include `on_hold` |
+No remaining issues identified. The system is ready for end-to-end testing.
 
