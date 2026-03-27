@@ -2,7 +2,6 @@ import { useSimilarListings } from '@/hooks/use-similar-listings';
 import { Listing } from '@/types';
 import { Link } from 'react-router-dom';
 import { getListingImage } from '@/lib/listing-image-utils';
-import { getListingImage } from '@/lib/listing-image-utils';
 import { stateToRegion } from '@/lib/deal-to-listing-anonymizer';
 import {
   Carousel,
