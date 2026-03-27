@@ -1,17 +1,23 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { ListingsTabContent } from './ListingsTabContent';
 import { ListingForm } from './ListingForm';
 import { AdminListing } from '@/types/admin';
 import { useAdmin } from '@/hooks/use-admin';
+import { useListingTypeCounts } from '@/hooks/admin/listings/use-listings-by-type';
+import { ListingType } from '@/hooks/admin/listings/use-listings-by-type';
 
 const ListingsManagementTabs = () => {
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [editingListing, setEditingListing] = useState<AdminListing | null>(null);
+  const [activeTab, setActiveTab] = useState<ListingType>('all');
 
   const { useCreateListing, useUpdateListing } = useAdmin();
   const { mutateAsync: createListing, isPending: isCreating } = useCreateListing();
   const { mutateAsync: updateListing, isPending: isUpdating } = useUpdateListing();
+  const { data: counts } = useListingTypeCounts();
 
   const handleFormSubmit = async (
     data: Record<string, unknown>,
@@ -72,18 +78,62 @@ const ListingsManagementTabs = () => {
               Listings Management
             </h1>
             <p className="text-sm text-muted-foreground">
-              Manage marketplace listings with enterprise-grade tools
+              Manage all listings — marketplace, internal, and queued deals
             </p>
           </div>
-          {/* Listings are created from the Marketplace Queue */}
         </div>
 
-        {/* Marketplace Listings */}
-        <ListingsTabContent
-          type="marketplace"
-          onEdit={setEditingListing}
-          onCreateNew={() => setIsCreateFormOpen(true)}
-        />
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ListingType)}>
+          <TabsList>
+            <TabsTrigger value="all" className="gap-2">
+              All Listings
+              {counts && (
+                <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+                  {(counts.marketplace || 0) + (counts.research || 0)}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="marketplace" className="gap-2">
+              Published
+              {counts && (
+                <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+                  {counts.marketplace || 0}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="research" className="gap-2">
+              Internal / Drafts
+              {counts && (
+                <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+                  {counts.research || 0}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all">
+            <ListingsTabContent
+              type="all"
+              onEdit={setEditingListing}
+              onCreateNew={() => setIsCreateFormOpen(true)}
+            />
+          </TabsContent>
+          <TabsContent value="marketplace">
+            <ListingsTabContent
+              type="marketplace"
+              onEdit={setEditingListing}
+              onCreateNew={() => setIsCreateFormOpen(true)}
+            />
+          </TabsContent>
+          <TabsContent value="research">
+            <ListingsTabContent
+              type="research"
+              onEdit={setEditingListing}
+              onCreateNew={() => setIsCreateFormOpen(true)}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
