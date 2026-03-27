@@ -226,6 +226,15 @@ export function OverviewTab({
             address_state: data.addressState,
             address_zip: data.addressZip,
             address_country: data.addressCountry,
+            linkedin_url: data.linkedinUrl,
+            linkedin_employee_count: data.linkedinEmployeeCount,
+            linkedin_employee_range: data.linkedinEmployeeRange,
+            full_time_employees: data.fullTimeEmployees,
+            part_time_employees: data.partTimeEmployees,
+            google_rating: data.googleRating,
+            google_review_count: data.googleReviewCount,
+            google_maps_url: data.googleMapsUrl,
+            hired_broker: data.hiredBroker,
           });
         }}
       />

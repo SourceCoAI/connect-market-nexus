@@ -32,7 +32,7 @@ const DEAL_FIELDS_QUICK = `
   id, title, status, deal_source, industry, category, categories, revenue, ebitda,
   location, address_state, geographic_states, services, service_mix, tags,
   deal_total_score, is_priority_target, remarketing_status,
-  deal_owner_id, primary_owner_id, updated_at
+  deal_owner_id, primary_owner_id, hired_broker, updated_at
 `
   .replace(/\s+/g, ' ')
   .trim();
@@ -50,7 +50,7 @@ const DEAL_FIELDS_FULL = `
   competitive_position, management_depth, customer_concentration,
   internal_company_name, project_name, deal_identifier,
   deal_owner_id, primary_owner_id, presented_by_admin_id,
-  needs_buyer_search, universe_build_flagged,
+  needs_buyer_search, universe_build_flagged, hired_broker,
   description, hero_description, tags, website,
   acquisition_type, revenue_model, customer_types, customer_geography,
   end_market_description, growth_trajectory, ownership_structure,
