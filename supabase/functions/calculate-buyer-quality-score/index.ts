@@ -320,7 +320,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Service-role bypass: allows internal/cron/backfill calls
-    const isServiceRole = callerToken === supabaseServiceKey;
+    const isServiceRole = isInternalCall || callerToken === supabaseServiceKey;
     let callerUserId: string | null = null;
 
     if (!isServiceRole) {
