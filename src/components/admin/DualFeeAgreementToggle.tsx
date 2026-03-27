@@ -6,7 +6,7 @@ import { Mail, FileText, Clock, Loader2, Building2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { User } from '@/types';
 import { useUpdateAgreementViaUser, useUserFirm } from '@/hooks/admin/use-firm-agreement-actions';
-import { useState } from 'react';
+import React, { useState } from 'react';
 
 interface DualFeeAgreementToggleProps {
   user: User;
@@ -15,7 +15,7 @@ interface DualFeeAgreementToggleProps {
   firmData?: { [key: string]: unknown } | null;
 }
 
-export function DualFeeAgreementToggle({
+export const DualFeeAgreementToggle = React.memo(function DualFeeAgreementToggle({
   user,
   onSendEmail,
   size = 'default',
@@ -251,4 +251,4 @@ export function DualFeeAgreementToggle({
       )}
     </div>
   );
-}
+});

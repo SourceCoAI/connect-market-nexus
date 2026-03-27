@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ interface DualNDAToggleProps {
   firmData?: { [key: string]: unknown } | null;
 }
 
-export const DualNDAToggle = ({ user, onSendEmail, size = 'default', firmData }: DualNDAToggleProps) => {
+export const DualNDAToggle = React.memo(function DualNDAToggle({ user, onSendEmail, size = 'default', firmData }: DualNDAToggleProps) {
   const [isUpdatingSigned, setIsUpdatingSigned] = useState(false);
   const [isUpdatingEmailSent, setIsUpdatingEmailSent] = useState(false);
   const updateAgreement = useUpdateAgreementViaUser();
@@ -236,4 +236,4 @@ export const DualNDAToggle = ({ user, onSendEmail, size = 'default', firmData }:
       )}
     </div>
   );
-};
+});

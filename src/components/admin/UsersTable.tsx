@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Tooltip,
   TooltipContent,
@@ -90,11 +90,11 @@ export function UsersTable({
   }, [users, currentPage]);
 
   // Reset page when users change
-  useMemo(() => {
+  useEffect(() => {
     if (currentPage >= totalPages && totalPages > 0) {
       setCurrentPage(totalPages - 1);
     }
-  }, [users.length]);
+  }, [users.length, totalPages, currentPage]);
 
   const toggleExpand = (userId: string) => {
     setExpandedUserId(expandedUserId === userId ? null : userId);
@@ -249,7 +249,7 @@ export function UsersTable({
                 <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                   <DualFeeAgreementToggle
                     user={user}
-                    onSendEmail={(user) => setSelectedUserForEmail(user)}
+                    onSendEmail={setSelectedUserForEmail}
                     size="sm"
                     firmData={firmDataMap?.get(user.id) as { [key: string]: unknown } | undefined}
                   />
@@ -257,7 +257,7 @@ export function UsersTable({
                 <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                   <DualNDAToggle
                     user={user}
-                    onSendEmail={(user) => setSelectedUserForNDA(user)}
+                    onSendEmail={setSelectedUserForNDA}
                     size="sm"
                     firmData={firmDataMap?.get(user.id) as { [key: string]: unknown } | undefined}
                   />
