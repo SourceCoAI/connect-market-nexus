@@ -30,7 +30,7 @@ import type { BulkFirmData } from '@/hooks/admin/use-bulk-user-firms';
 import { useLogFeeAgreementEmail } from '@/hooks/admin/use-fee-agreement';
 import { useLogNDAEmail } from '@/hooks/admin/use-nda';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRoleManagement } from '@/hooks/permissions/useRoleManagement';
+import { useAllUserRoles } from '@/hooks/permissions/useAllUserRoles';
 import { RoleBadge } from './permissions/RoleBadge';
 import { AppRole } from '@/hooks/permissions/usePermissions';
 
@@ -65,7 +65,7 @@ export function UsersTable({
   const [selectedUserForEmail, setSelectedUserForEmail] = useState<User | null>(null);
   const [selectedUserForNDA, setSelectedUserForNDA] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  const { allUserRoles, isLoadingRoles } = useRoleManagement();
+  const { allUserRoles, isLoadingRoles } = useAllUserRoles();
 
   const roleMap = useMemo(() => {
     const map = new Map<string, AppRole>();
