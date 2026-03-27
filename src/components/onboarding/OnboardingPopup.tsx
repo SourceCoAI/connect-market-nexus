@@ -38,23 +38,6 @@ const OnboardingPopup = ({ isOpen, onClose, userId }: OnboardingPopupProps) => {
         onClose();
         return;
       }
-
-      // Update onboarding status
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ onboarding_completed: true })
-        .eq('id', userId);
-
-      if (updateError) {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to complete onboarding. Please try again.',
-        });
-        setIsCompleting(false);
-        return;
-      }
-
       // Show success message
       toast({
         title: "You're in.",
