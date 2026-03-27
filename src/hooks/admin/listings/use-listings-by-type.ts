@@ -5,7 +5,7 @@ import { withPerformanceMonitoring } from '@/lib/performance-monitor';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTabAwareQuery } from '@/hooks/use-tab-aware-query';
 
-export type ListingType = 'marketplace' | 'research';
+export type ListingType = 'marketplace' | 'research' | 'all';
 
 /**
  * Hook for fetching admin listings filtered by type:
