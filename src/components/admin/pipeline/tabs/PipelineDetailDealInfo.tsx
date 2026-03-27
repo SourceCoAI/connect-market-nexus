@@ -108,6 +108,10 @@ export function PipelineDetailDealInfo({ deal }: PipelineDetailDealInfoProps) {
           onScoreChange={async (newScore) => {
             await updateListing.mutateAsync({ deal_total_score: newScore });
           }}
+          hiredBroker={!!listing.hired_broker}
+          onHiredBrokerChange={async (value) => {
+            await updateListing.mutateAsync({ hired_broker: value });
+          }}
           onSave={async (data) => {
             await updateListing.mutateAsync({
               internal_company_name: data.companyName,

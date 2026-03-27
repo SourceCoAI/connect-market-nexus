@@ -75,6 +75,8 @@ interface DealRecord {
   general_notes: string | null;
   created_at: string;
   updated_at: string;
+  // Hired a broker flag
+  hired_broker?: boolean | null;
   // Fields needed by WebsiteActionsCard
   needs_owner_contact?: boolean | null;
   needs_buyer_search?: boolean | null;
@@ -205,6 +207,10 @@ export function OverviewTab({
           await updateDealMutation.mutateAsync({
             deal_total_score: newScore,
           });
+        }}
+        hiredBroker={!!deal.hired_broker}
+        onHiredBrokerChange={async (value) => {
+          await updateDealMutation.mutateAsync({ hired_broker: value });
         }}
         onSave={async (data) => {
           await updateDealMutation.mutateAsync({
