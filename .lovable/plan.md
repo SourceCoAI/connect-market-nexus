@@ -1,126 +1,68 @@
 
 
-# Fix: Admin Users Page Extreme Slowness
+# Audit: Admin Users Page Optimization — Implementation Status & Remaining Issues
 
-## Root Cause
+## What Was Implemented Correctly
 
-The page renders **614 users** and each row makes **3 individual Supabase RPC calls** (`resolve_user_firm_id` + `firm_agreements` fetch):
+1. **`useBulkUserFirms` hook** — Created and working. Batch-fetches firm_members + firm_agreements in 2 queries instead of 1,842.
+2. **Pagination** — `PAGE_SIZE = 50` with prev/next controls in UsersTable.
+3. **`firmDataMap` prop threading** — AdminUsers calls `useBulkUserFirms(userIds)` and passes the map to `UsersTable`, which passes it to `UserFirmBadge`, `DualFeeAgreementToggle`, and `DualNDAToggle`.
+4. **Conditional skip in toggles** — Both `DualFeeAgreementToggle` and `DualNDAToggle` skip `useUserFirm()` when `firmData` is provided.
 
-1. `UserFirmBadge` → `useUserFirm(userId)` — 614 calls
-2. `DualFeeAgreementToggle` → `useUserFirm(user.id)` — 614 calls  
-3. `DualNDAToggle` → `useUserFirm(user.id)` — 614 calls
+## Issues Found
 
-That's **~1,842 individual database round-trips** on page load. Each involves an RPC call to `resolve_user_firm_id` followed by a `firm_agreements` query. This is why every row shows "Loading..." and the page crawls.
+### Issue 1: `useBulkUserFirms` query key is unstable
+**Line 27**: `queryKey: ['bulk-user-firms', userIds.length]` — Uses only the *count* of user IDs, not their actual values. If users are filtered/sorted but the count stays the same, stale data is returned. Should use a hash or sorted ID list.
 
-Additionally, `useRoleManagement()` inside `UsersTable` fetches all roles, and `useEnhancedUserExport()` runs on every render.
+### Issue 2: `useUserFirm` still called unconditionally in `UserFirmBadge`
+**Line 15** of `UserFirmBadge.tsx`: `useUserFirm(firmData !== undefined ? null : userId)` — Passing `null` still triggers the hook (React hooks can't be conditional). The hook's `enabled: !!userId` check means it won't *fire* a query for `null`, but it still creates a query observer per row. When `firmData` is `undefined` (e.g., map hasn't loaded yet), all 50 visible rows fire individual queries. **Fix**: pass `undefined` instead of `null` to match the hook's `enabled` check, and ensure `firmDataMap` defaults to an empty Map rather than `undefined` during loading.
 
-## Fix Strategy
+### Issue 3: `useUserFirm` from `use-firm-agreement-actions.ts` still called in dialogs
+`SimpleFeeAgreementDialog` and `SimpleNDADialog` each call `useUserFirm(userId)` individually. These are only opened one at a time (modal), so this is acceptable — NOT a perf issue.
 
-### 1. Batch-fetch all firm data in ONE query (biggest win)
+### Issue 4: `useEnhancedUserExport()` called inside UsersTable with no arguments
+Line 70 — This hook runs on every render of the table. If it triggers queries or side effects, it adds unnecessary overhead. Should be verified and potentially moved to the page level or memoized.
 
-Create a new hook `useBulkUserFirms` that:
-- Takes the full list of user IDs
-- Calls a single RPC or direct query to resolve all firms at once
-- Returns a `Map<userId, firmData>`
-- Pass the map down as a prop to `UsersTable`, `DualFeeAgreementToggle`, `DualNDAToggle`, and `UserFirmBadge`
+### Issue 5: `usePermissions()` called without using return value
+Line 71 — Fires a query on every render with no visible consumer. May be setting up a context or side effect, but should be audited.
 
-This replaces **1,842 queries** with **1 query**.
+### Issue 6: `useRoleManagement()` fetches all user roles on every table render
+Line 72 — This is a single query (acceptable), but `getUserRole()` does a linear scan (`allUserRoles.find()`) for every row. Should be converted to a Map lookup.
 
-The RPC `resolve_user_firm_id` only handles one user. We'll create a new approach:
-- Query `firm_members` joined with `firm_agreements` for all user IDs in one call
-- Fall back gracefully for users without firm membership
+### Issue 7: No `React.memo` on row sub-components
+`BuyerTierBadge`, `BuyerScoreBadge`, `UserDataCompleteness`, `DualFeeAgreementToggle`, `DualNDAToggle`, `UserFirmBadge` — none are memoized. When any state changes (e.g., expanding a row, changing page), all 50 visible rows re-render with all their children.
 
-### 2. Virtualize the table
+## Plan
 
-614 rows means 614 × ~12 components per row = ~7,000+ mounted React components. Use `@tanstack/react-virtual` to only render visible rows (~15-20 at a time).
+### File 1: `src/hooks/admin/use-bulk-user-firms.ts`
+- Fix query key to use a stable hash: `queryKey: ['bulk-user-firms', userIds.sort().join(',')]` or use the length + a hash of the first/last IDs.
 
-### 3. Remove per-row hooks from toggle components
+### File 2: `src/components/admin/UserFirmBadge.tsx`
+- Change `useUserFirm(firmData !== undefined ? null : userId)` → `useUserFirm(firmData !== undefined ? undefined : userId)` for consistency with the hook's `enabled` check.
 
-`DualFeeAgreementToggle` and `DualNDAToggle` each call `useUserFirm` internally. Refactor them to accept firm data as a prop instead.
+### File 3: `src/components/admin/UsersTable.tsx`
+- Convert `getUserRole` to use a `Map` built from `allUserRoles` via `useMemo`
+- Remove the bare `usePermissions()` call (line 71) — it's not used
+- Wrap row rendering in `React.memo` or extract a `UserTableRow` component with `React.memo`
 
-### 4. Paginate or lazy-load as fallback
+### File 4: `src/pages/admin/AdminUsers.tsx`
+- Ensure `firmDataMap` passes as `firmDataMap ?? new Map()` to avoid the `undefined` case triggering per-row queries
 
-If virtualization is complex with expandable rows, add simple pagination (50 users per page) as an alternative.
+## Expected Additional Impact
 
-## Implementation
-
-### File 1: `src/hooks/admin/use-bulk-user-firms.ts` (NEW)
-
-Single query that joins `firm_members` → `firm_agreements` for all users:
-
-```ts
-const { data } = await supabase
-  .from('firm_members')
-  .select(`
-    user_id,
-    firm:firm_agreements(
-      id, primary_company_name,
-      nda_signed, nda_signed_at, nda_signed_by_name, nda_email_sent, nda_email_sent_at,
-      fee_agreement_signed, fee_agreement_signed_at, fee_agreement_signed_by_name,
-      fee_agreement_email_sent, fee_agreement_email_sent_at
-    )
-  `)
-  .in('user_id', userIds);
-```
-
-Returns `Map<string, FirmData>`.
-
-### File 2: `src/components/admin/UsersTable.tsx`
-
-- Accept `firmDataMap: Map<string, FirmData>` as a prop
-- Pass firm data to `UserFirmBadge`, `DualFeeAgreementToggle`, `DualNDAToggle` as props
-- Add pagination: show 50 users per page with prev/next controls
-
-### File 3: `src/components/admin/UserFirmBadge.tsx`
-
-- Accept optional `firmData` prop
-- If provided, skip `useUserFirm` hook call
-- Eliminates 614 individual queries
-
-### File 4: `src/components/admin/DualFeeAgreementToggle.tsx`
-
-- Accept optional `firmData` prop
-- If provided, use it instead of calling `useUserFirm`
-- Eliminates 614 individual queries
-
-### File 5: `src/components/admin/DualNDAToggle.tsx`
-
-- Same pattern as DualFeeAgreementToggle
-- Eliminates 614 individual queries
-
-### File 6: `src/pages/admin/AdminUsers.tsx`
-
-- Call `useBulkUserFirms(userIds)` once
-- Pass `firmDataMap` to `UsersTable`
-
-## Also fix: Build errors
-
-The build errors in `data-room-upload`, `firm-self-heal`, and `enrich-deal` edge functions need type fixes:
-
-- `firm-self-heal.ts:104` — add `as string` assertion or null check for `firmId`
-- `data-room-upload/index.ts:199` — fix the Supabase client type mismatch (add `.then()` or cast)
-- `enrich-deal` — update `DealTranscriptRow` type to make new fields optional, fix `Date` constructor argument types
-
-## Expected Impact
-
-| Metric | Before | After |
-|--------|--------|-------|
-| DB queries on load | ~1,842 | ~2 |
-| Mounted rows | 614 | 50 (paginated) |
-| Time to interactive | 10-15s+ | <2s |
+| Improvement | Effect |
+|-------------|--------|
+| Stable query key | Prevents stale cache hits on filter changes |
+| `undefined` fix in UserFirmBadge | Prevents 50 individual queries during bulk load |
+| Map-based role lookup | O(1) vs O(n) per row |
+| Memoized rows | Prevents 50×12 re-renders on page/expand changes |
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/hooks/admin/use-bulk-user-firms.ts` | NEW — batch firm lookup |
-| `src/pages/admin/AdminUsers.tsx` | Call bulk hook, pass map to table |
-| `src/components/admin/UsersTable.tsx` | Accept firmDataMap prop, add pagination |
-| `src/components/admin/UserFirmBadge.tsx` | Accept optional firmData prop |
-| `src/components/admin/DualFeeAgreementToggle.tsx` | Accept optional firmData prop |
-| `src/components/admin/DualNDAToggle.tsx` | Accept optional firmData prop |
-| `supabase/functions/data-room-upload/index.ts` | Fix TS type error |
-| `supabase/functions/_shared/firm-self-heal.ts` | Fix null type error |
-| `supabase/functions/enrich-deal/index.ts` | Fix DealTranscriptRow type mismatches |
-| `supabase/functions/enrich-deal/external-enrichment.ts` | Fix Date constructor type |
+| `src/hooks/admin/use-bulk-user-firms.ts` | Fix query key stability |
+| `src/components/admin/UserFirmBadge.tsx` | Fix null→undefined for hook skip |
+| `src/components/admin/UsersTable.tsx` | Memoize row component, Map-based role lookup, remove unused hook |
+| `src/pages/admin/AdminUsers.tsx` | Default firmDataMap to empty Map |
 
