@@ -98,7 +98,7 @@ export function MatchedDealsSection() {
               recommendations.
             </p>
             <Link
-              to="/welcome"
+              to="/profile"
               className="text-xs font-medium text-slate-700 hover:text-slate-900 underline mt-2 inline-block"
             >
               Complete your profile →

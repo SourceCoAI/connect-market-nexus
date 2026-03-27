@@ -409,6 +409,7 @@ function DetailPanel({
                 ndaSigned={ndaSigned}
                 feeCovered={feeCovered}
                 feeStatus={feeStatus}
+                onViewDocuments={() => window.open(`/listing/${request.listing_id}?tab=data-room`, '_blank')}
               />
               <DealInfoCard
                 category={request.listing?.category}

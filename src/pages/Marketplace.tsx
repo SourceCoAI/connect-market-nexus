@@ -89,14 +89,15 @@ const MarketplaceContent = () => {
   // Welcome toast on first visit after approval
   useEffect(() => {
     if (user && authChecked && user.approval_status === 'approved') {
-      const hasSeenWelcome = localStorage.getItem('sourceco_shown_welcome');
+      const welcomeKey = `sourceco_shown_welcome_${user.id}`;
+      const hasSeenWelcome = localStorage.getItem(welcomeKey);
       if (!hasSeenWelcome) {
         toast({
           title: 'Welcome to SourceCo',
           description:
             'Every deal here has been sourced and qualified by our team. Request an introduction when you find a fit — we handle the rest.',
         });
-        localStorage.setItem('sourceco_shown_welcome', 'true');
+        localStorage.setItem(welcomeKey, 'true');
       }
     }
   }, [user, authChecked]);

@@ -93,40 +93,12 @@ export function SimilarListingsCarousel({ currentListing }: SimilarListingsCarou
                         </p>
                       )}
 
-                      {/* Key Metrics */}
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Revenue</p>
-                          <p className="text-sm font-medium text-foreground">
-                            {formatCurrency(Number(listing.revenue))}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">EBITDA</p>
-                          <p className="text-sm font-medium text-foreground">
-                            {formatCurrency(Number(listing.ebitda))}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Multiple</p>
-                          <p className="text-sm font-medium text-foreground">
-                            {ebitdaMultiple}x
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Secondary Info */}
-                      <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
+                      {/* Category & Location */}
+                      <div className="flex items-center justify-between pt-2 border-t border-border text-xs text-muted-foreground">
                         <span className="px-2 py-1 bg-muted rounded">
                           {listing.category}
                         </span>
                         <span>{listing.location ? stateToRegion(listing.location) : listing.location}</span>
-                      </div>
-
-                      {/* EBITDA Margin */}
-                      <div className="text-xs">
-                        <span className="text-muted-foreground">Margin: </span>
-                        <span className="font-medium text-foreground">{ebitdaMargin}%</span>
                       </div>
                     </div>
                   </div>
