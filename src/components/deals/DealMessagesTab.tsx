@@ -89,7 +89,7 @@ export function DealMessagesTab({ requestId, requestStatus }: DealMessagesTabPro
       )}
 
       {/* Message thread */}
-      <div className="min-h-[300px] max-h-[500px] overflow-y-auto px-5 py-4 space-y-3 flex-1 bg-[#FAFAF8]">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="relative min-h-[300px] max-h-[500px] overflow-y-auto px-5 py-4 space-y-3 flex-1 bg-[#FAFAF8]">
         {messagesLoading ? (
           <div className="space-y-3 py-4">
             <div className="flex justify-start">
@@ -146,6 +146,15 @@ export function DealMessagesTab({ requestId, requestStatus }: DealMessagesTabPro
           })
         )}
         <div ref={messagesEndRef} />
+        {showScrollBtn && (
+          <button
+            onClick={scrollToBottom}
+            className="sticky bottom-2 left-1/2 -translate-x-1/2 z-10 bg-[#0E101A] text-white rounded-full p-2 shadow-lg hover:bg-[#0E101A]/85 transition-colors"
+            aria-label="Scroll to latest messages"
+          >
+            <ArrowDown className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Compose bar */}
