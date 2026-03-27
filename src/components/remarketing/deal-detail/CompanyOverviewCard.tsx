@@ -39,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Pencil,
   Loader2,
@@ -54,6 +55,7 @@ import {
   Star,
   Linkedin,
   Target,
+  Briefcase,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -122,6 +124,9 @@ interface CompanyOverviewCardProps {
   /** The AI-calculated score (read-only, for reference) */
   aiCalculatedScore?: number | null;
   onScoreChange?: (newScore: number) => Promise<void>;
+  // Hired a broker flag
+  hiredBroker?: boolean;
+  onHiredBrokerChange?: (value: boolean) => Promise<void>;
   onSave: (data: {
     companyName: string;
     website: string;
@@ -165,6 +170,8 @@ export const CompanyOverviewCard = ({
   dealQualityScore,
   aiCalculatedScore,
   onScoreChange,
+  hiredBroker,
+  onHiredBrokerChange,
   onSave,
 }: CompanyOverviewCardProps) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -616,6 +623,38 @@ export const CompanyOverviewCard = ({
                   <Badge variant={status === "active" ? "default" : "secondary"} className="capitalize mt-0.5">
                     {status}
                   </Badge>
+                </div>
+              </div>
+
+              {/* Hired a Broker */}
+              <div className="flex items-start gap-2 py-2">
+                <Briefcase className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">
+                    HIRED A BROKER
+                  </span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Checkbox
+                      id="hired-broker"
+                      checked={!!hiredBroker}
+                      onCheckedChange={async (checked) => {
+                        if (onHiredBrokerChange) {
+                          try {
+                            await onHiredBrokerChange(!!checked);
+                            toast.success(checked ? "Marked as hired a broker" : "Broker flag removed");
+                          } catch {
+                            toast.error("Failed to update broker status");
+                          }
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="hired-broker"
+                      className="text-sm font-medium cursor-pointer select-none"
+                    >
+                      {hiredBroker ? "Yes" : "No"}
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
