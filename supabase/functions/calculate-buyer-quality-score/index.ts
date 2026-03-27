@@ -307,10 +307,13 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Auth guard: require valid JWT + admin role (or service_role for batch ops)
+    // Auth guard: require valid JWT + admin role (or service_role/internal-secret for batch ops)
+    const internalSecret = req.headers.get('x-internal-secret');
+    const isInternalCall = internalSecret === supabaseServiceKey;
+
     const authHeader = req.headers.get('Authorization') || '';
     const callerToken = authHeader.replace('Bearer ', '').trim();
-    if (!callerToken) {
+    if (!callerToken && !isInternalCall) {
       return errorResponse('Unauthorized', 401, corsHeaders, 'unauthorized');
     }
 
