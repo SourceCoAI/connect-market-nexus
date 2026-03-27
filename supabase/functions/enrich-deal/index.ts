@@ -260,7 +260,7 @@ serve(async (req) => {
     };
 
     if (!transcriptsError && allTranscripts?.length) {
-      const sample = allTranscripts.slice(0, 5).map((t: DealTranscriptRow) => ({
+      const sample = allTranscripts.slice(0, 5).map((t: any) => ({
         id: t.id,
         processed_at: t.processed_at,
         text_len: t.transcript_text ? t.transcript_text.length : 0,
@@ -273,14 +273,14 @@ serve(async (req) => {
     // 0A) Apply existing extracted_data from previously-processed transcripts
     if (!transcriptsError && allTranscripts && allTranscripts.length > 0) {
       const transcriptsWithExtracted = allTranscripts.filter(
-        (t: DealTranscriptRow) => t.extracted_data && typeof t.extracted_data === 'object',
+        (t: any) => t.extracted_data && typeof t.extracted_data === 'object',
       );
 
       if (transcriptsWithExtracted.length > 0) {
         const existingResult = await applyExistingTranscriptData(
           supabase,
           deal,
-          dealId,
+          dealId as string,
           transcriptsWithExtracted,
           forceReExtract,
         );
@@ -301,7 +301,7 @@ serve(async (req) => {
         );
         needsExtraction = allTranscripts;
 
-        const allTranscriptIds = allTranscripts.map((t: DealTranscriptRow) => t.id);
+        const allTranscriptIds = allTranscripts.map((t: any) => t.id);
         if (allTranscriptIds.length > 0) {
           console.log(
             `[Transcripts] Clearing extracted_data for ${allTranscriptIds.length} transcripts`,
@@ -315,7 +315,7 @@ serve(async (req) => {
           }
         }
       } else {
-        needsExtraction = allTranscripts.filter((t: DealTranscriptRow) => {
+        needsExtraction = allTranscripts.filter((t: any) => {
           const hasExtracted =
             t.extracted_data &&
             typeof t.extracted_data === 'object' &&
