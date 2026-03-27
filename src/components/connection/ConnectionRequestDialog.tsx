@@ -177,7 +177,7 @@ const ConnectionRequestDialog = ({
                   : 'Completing your profile helps generate more specific, compelling messages.'}
               </p>
               <Link
-                to="/welcome"
+                to="/profile"
                 target="_blank"
                 className="inline-flex items-center text-xs font-medium text-amber-700 hover:text-amber-900 underline"
               >

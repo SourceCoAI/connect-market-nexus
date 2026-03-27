@@ -69,6 +69,14 @@ const ListingCardActions = memo(function ListingCardActions({
             disabled: false,
             className: "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
           };
+        case "on_hold":
+          return { 
+            icon: Clock, 
+            text: "Under Review", 
+            variant: "pending" as const, 
+            disabled: true,
+            className: "bg-sourceco-muted text-sourceco-accent border border-sourceco-form hover:bg-sourceco-muted"
+          };
         default:
           return { 
             icon: Send, 

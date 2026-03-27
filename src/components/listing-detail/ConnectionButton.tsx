@@ -79,6 +79,13 @@ const ConnectionButton = ({
             className: 'bg-slate-900 hover:bg-slate-800 text-white border-none',
             disabled: false,
           };
+        case 'on_hold':
+          return {
+            text: 'Request under review',
+            className:
+              'bg-slate-100 text-slate-700 border border-slate-200 cursor-default hover:bg-slate-100',
+            disabled: true,
+          };
         default:
           return {
             text: 'Request connection',

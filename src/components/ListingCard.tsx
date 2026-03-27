@@ -66,8 +66,8 @@ const ListingCard = memo(function ListingCard({
 
   // Handle click on the listing card
   const handleCardClick = (e: React.MouseEvent) => {
-    // Don't intercept if clicking on action buttons
-    if ((e.target as HTMLElement).closest('button')) {
+    // Don't intercept if clicking on action buttons or links
+    if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
       return;
     }
 
