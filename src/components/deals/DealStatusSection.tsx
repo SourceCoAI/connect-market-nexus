@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DealStatusSectionProps {
-  requestStatus: 'pending' | 'approved' | 'rejected';
+  requestStatus: 'pending' | 'approved' | 'rejected' | 'on_hold';
   ndaSigned: boolean;
   feeCovered: boolean;
   feeStatus?: string;

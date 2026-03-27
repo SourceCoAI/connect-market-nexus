@@ -18,7 +18,7 @@ interface DealDetailHeaderProps {
   acquisitionType?: string | null;
   ebitda?: number;
   revenue?: number;
-  requestStatus: 'pending' | 'approved' | 'rejected';
+  requestStatus: 'pending' | 'approved' | 'rejected' | 'on_hold';
   ndaSigned?: boolean;
   hasCim?: boolean;
 }
@@ -29,6 +29,8 @@ function getStatusConfig(status: string): { label: string; className: string } {
       return { label: 'Connected', className: 'bg-[#0E101A] text-white' };
     case 'rejected':
       return { label: 'Not Selected', className: 'bg-[#F5F3EE] text-[#0E101A]/40' };
+    case 'on_hold':
+      return { label: 'On Hold', className: 'bg-[#FBF7EC] text-[#8B6F47] border border-[#E5DDD0]' };
     default:
       return {
         label: 'Under Review',

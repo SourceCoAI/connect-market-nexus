@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 
 interface DealDocumentsCardProps {
   dealId: string;
-  requestStatus: 'pending' | 'approved' | 'rejected';
+  requestStatus: 'pending' | 'approved' | 'rejected' | 'on_hold';
   ndaSigned: boolean;
   feeCovered: boolean;
   feeStatus?: string;

@@ -11,7 +11,7 @@ import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningMod
 import { cn } from '@/lib/utils';
 
 interface DealActionCardProps {
-  requestStatus: 'pending' | 'approved' | 'rejected';
+  requestStatus: 'pending' | 'approved' | 'rejected' | 'on_hold';
   ndaSigned: boolean;
   feeCovered: boolean;
   feeStatus?: string;
@@ -43,6 +43,18 @@ export function DealActionCard({
           'The owner has chosen another buyer for this opportunity. This reflects deal-specific fit, not your qualifications.',
         variant: 'muted' as const,
         unlock: null,
+        cta: null,
+      };
+    }
+
+    if (requestStatus === 'on_hold') {
+      return {
+        icon: Clock,
+        title: 'Request On Hold',
+        description:
+          'The owner is still evaluating interested buyers. Your request remains active — we\'ll notify you as soon as there\'s an update.',
+        unlock: null,
+        variant: 'waiting' as const,
         cta: null,
       };
     }
