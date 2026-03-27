@@ -60,6 +60,8 @@ export function AdminListingCard({
 
   // Determine if listing is published (visible on marketplace)
   const isPublished = listing.is_internal_deal === false && listing.published_at;
+  // Previously published but now unpublished (internal with audit trail)
+  const wasPreviouslyPublished = listing.is_internal_deal !== false && !!listing.published_at;
 
   const displayCategories = listing.categories || (listing.category ? [listing.category] : []);
   const revenue = Number(listing.revenue) || 0;
@@ -253,10 +255,12 @@ export function AdminListingCard({
               "backdrop-blur-sm border-0 text-[11px] font-medium",
               isPublished 
                 ? "bg-primary/90 text-primary-foreground" 
-                : "bg-amber-500/90 text-white"
+                : wasPreviouslyPublished
+                  ? "bg-orange-500/90 text-white"
+                  : "bg-amber-500/90 text-white"
             )}
           >
-            {isPublished ? 'Published' : 'Draft'}
+            {isPublished ? 'Published' : wasPreviouslyPublished ? 'Unpublished' : 'Draft'}
           </Badge>
         </div>
       </div>

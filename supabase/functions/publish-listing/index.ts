@@ -248,6 +248,7 @@ Deno.serve(async (req) => {
         .from('listings')
         .update({
           is_internal_deal: true,
+          status: 'inactive',
           // Keep published_at and published_by for audit trail
         })
         .eq('id', listingId)
