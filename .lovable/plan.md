@@ -1,111 +1,147 @@
 
 
-# Mega Audit Round 4: Fresh Angles — UX Quality, UI Polish, Data Integrity
+# Listing Lifecycle Deep Dive: Audit & Optimization Roadmap
 
-## What's Been Fully Tested (Phases 1-46)
-Security gates, RPC resilience, document signing, messaging, deals, public pages, realtime, analytics, mobile responsive, data isolation, popup handling, share email privacy, and BlurredFinancialTeaser gate bypass.
+## Current Architecture Overview
 
-## New Findings from Fresh Investigation
+```text
+LISTING CREATION PATHS (3 entry points):
+                                                         
+  1. Remarketing Deals ──push_to_marketplace──▶ Marketplace Queue ──create──▶ CreateListingFromDeal
+     (SourceCo, GP Partner,                       (MarketplaceQueue.tsx)        (AI content gen +
+      CapTarget, Valuation Leads)                                               anonymization)
+                                                                                     │
+  2. Admin "Manage Listings" ──────────────────────────────────────────────▶ ImprovedListingEditor
+     (ListingsManagementTabs.tsx)                                                     │
+                                                                                     ▼
+  3. AddDealToUniverseDialog ──direct insert──▶ listings table              listings table INSERT
+     (inline "New Deal" form)                   (is_internal_deal=true)      (is_internal_deal=true)
 
-### Phase 47: MatchedDealsSection "Complete Profile" Links to Wrong Page
-**Severity: Medium — UX bug**
+PUBLISHING PATH:
+  AdminListingCard ──▶ usePublishListing ──▶ publish-listing edge function
+                                              │  Validates: title≥5, desc≥50, category, location,
+                                              │  revenue>0, EBITDA, image, Lead Memo PDF, Teaser PDF
+                                              ▼
+                                         UPDATE is_internal_deal=false, published_at, published_by
 
-`MatchedDealsSection.tsx` line 101 links incomplete-profile users to `/welcome` — which is the **pre-auth landing page** that redirects authenticated users away (Welcome.tsx line 17-21: `if (authChecked && user) navigate(redirectPath)`). The user gets bounced back to `/` without completing anything.
+BYPASS (BUG):
+  DealMarketplacePanel ──direct UPDATE──▶ is_internal_deal=false (NO validation, NO published_at)
+```
 
-Should link to `/profile` instead.
+## Critical Findings
 
-### Phase 48: Notification Preferences Are localStorage-Only (Not Persisted to DB)
-**Severity: Medium — Feature gap**
+### 1. SECURITY: DealMarketplacePanel Bypasses All Publishing Gates
+**Severity: Critical**
 
-Profile > Notifications tab stores preferences in `localStorage` only (line 76 of `Profile/index.tsx`). The disclaimer says "may not affect all email notifications" — but in reality these preferences affect **nothing** server-side. They are purely cosmetic toggles that reset on browser change/clear.
+`DealMarketplacePanel.tsx` line 54-57 directly sets `is_internal_deal: false` via a raw UPDATE — completely bypassing the `publish-listing` edge function's quality validation (title, description, image, memo PDFs, etc.) and audit trail (`published_at`, `published_by_admin_id`).
 
-**Fix options:**
-- A) Persist to a `notification_preferences` column on `profiles` table
-- B) Add a clear disclaimer that these are display-only placeholders (honest UX)
-- C) Remove the tab entirely until backend support exists
+A deal with no image, no description, no memos can be published to the marketplace with one click from the deal detail page.
 
-### Phase 49: SimilarListingsCarousel Exposes Financial Data Without NDA Check
-**Severity: Low-Medium**
+**Fix:** Replace direct UPDATE with `supabase.functions.invoke('publish-listing')`.
 
-`SimilarListingsCarousel.tsx` shows Revenue, EBITDA, EBITDA margin %, and revenue multiple for every similar listing — regardless of whether the user has signed an NDA or has a connection. The main listing page blurs financials behind `BlurredFinancialTeaser`, but similar listings at the bottom show everything openly.
+### 2. NO SINGLE SOURCE OF TRUTH for "All Listings"
+**Severity: High — Admin UX**
 
-This may be intentional (teaser data to drive engagement), but creates inconsistency with the financial gating on the primary listing.
+Admins currently see listings fragmented across:
+- **Manage Listings** (`/admin/marketplace/listings`) — only `is_internal_deal=false` with images
+- **Marketplace Queue** (`/admin/marketplace/queue`) — only `pushed_to_marketplace=true` AND `is_internal_deal=true`
+- **Remarketing Deals** (`/admin/deals`) — all deals in listings table, filtered by deal_source/tabs
+- **AddDealToUniverseDialog** — fetches its own separate listing list
 
-### Phase 50: Saved Listings Annotations Are localStorage-Only
+There is no single page where an admin can see ALL listings (internal + marketplace + queue) with their full status. The "Manage Listings" page misleadingly only shows published marketplace listings.
+
+**Fix:** Add a unified "All Listings" view or add tabs to Manage Listings showing all states.
+
+### 3. Marketplace Queue → Listing Gap: Deals Stay in Queue Forever
+**Severity: Medium**
+
+When a listing is created from a queue deal (via `source_deal_id`), the deal is NOT removed from the queue. It shows a "Listing Created" badge but stays in the queue indefinitely. There's no auto-cleanup or archival.
+
+### 4. `useListingsByType('marketplace')` Excludes Unpublished Drafts
+**Severity: Medium — Admin UX**
+
+`use-listings-by-type.ts` line 50-55: marketplace filter requires `is_internal_deal=false` AND image. This means:
+- A listing created from queue (draft, `is_internal_deal=true`) is invisible in Manage Listings
+- Admins must go to the deal detail to find it
+- Once published and then unpublished, it disappears from Manage Listings entirely
+
+### 5. Duplicate Listing Creation Not Fully Prevented
+**Severity: Medium**
+
+`CreateListingFromDeal.tsx` checks for existing listings with matching `source_deal_id`, but only shows a warning — the "Create Listing" button in the queue (line 384-404) doesn't pass `disabled` when a listing already exists (it's handled by `hasExistingListing` which shows a different button). However, nothing prevents navigating directly to `/admin/marketplace/create-listing?fromDeal=X` to create a duplicate.
+
+### 6. Editor Doesn't Show Publishing Status or Publish Action
+**Severity: Medium — UX**
+
+`ImprovedListingEditor.tsx` has no indication of whether a listing is published, draft, or internal. There's no way to publish from the editor — you must go back to the card view. The editor also doesn't show the pipeline check results.
+
+### 7. Multiple Listing Update Hooks (Fragmented)
+**Severity: Low — Maintainability**
+
+Two different update hooks exist:
+- `src/hooks/admin/listings/use-update-listing.ts` — full validation, image upload, published-state protection
+- `src/hooks/admin/use-update-listing.ts` — bare `supabase.update()` with no validation
+
+Both are used in different parts of the app. The bare version could update a published listing into an invalid state.
+
+### 8. Analytics Fragmentation
 **Severity: Low**
 
-`SavedListings.tsx` stores per-listing notes in `localStorage` (line 21-33). Notes are lost on browser change, device switch, or cache clear. If annotations are a real feature, they should persist to DB.
+Listing analytics are scattered:
+- `listing_analytics` table — views, saves, time_spent
+- `page_views` table — landing page views by path
+- `connection_requests` — by listing_id + source
+- `DealMarketplacePanel` queries `listing_analytics` with `as never` cast (line 38)
+- `LandingPageAnalytics` component queries different tables
+- No unified analytics view per listing
 
-### Phase 51: "Results per page" Resets Search/Filter State Inconsistently
-**Severity: Low — UX**
-
-On the Marketplace page, changing "Results per page" (Select on line 297) calls `pagination.setPerPage()` which may or may not reset to page 1. On SavedListings, the same action explicitly resets to page 1 (line 178). Verify consistency.
-
-### Phase 52: DealDocumentsCard — "View Documents" Button Never Wired
-**Severity: Low — UX gap**
-
-`DealDocumentsCard.tsx` accepts `onViewDocuments` prop (line 32), but in `MyRequests.tsx` the component is rendered without passing this prop (line 406-412). So even when documents are unlocked, the "View Documents" button never appears. The user has no way to navigate to the data room from the My Deals page.
-
-### Phase 53: PostRejectionPanel Fetches All 50 Listings Unnecessarily
-**Severity: Low — Performance**
-
-`PostRejectionPanel.tsx` line 16-26 fetches 50 listings via `useSimpleListings` just to find 3 similar ones client-side. This could be a targeted query instead. Not a bug but wasteful — and the query runs for every rejected deal.
-
-### Phase 54: Onboarding Popup — Double Supabase Call Pattern
+### 9. `use-listings-query.ts` vs `use-listings-by-type.ts` Redundancy
 **Severity: Low**
 
-`OnboardingPopup.tsx` first SELECT's the profile, then UPDATE's it (lines 24-58). This could be a single UPDATE with a WHERE clause. Also, if the popup fails to update, the user sees it again on every visit — no graceful fallback.
+Two separate query hooks for admin listings:
+- `use-listings-query.ts` — used by `useAdminListings()`, selects 16 columns, filters by status only
+- `use-listings-by-type.ts` — used by `ListingsTabContent`, selects 13 columns, filters by type+status
 
-### Phase 55: DealMessagesTab — No "Scroll to Bottom" on New Messages
-**Severity: Low — UX**
+Both do basically the same thing with slightly different column sets and filters.
 
-`DealMessagesTab.tsx` auto-scrolls on mount but if a new message arrives via realtime subscription while the user is scrolled up, there's no indicator or scroll-to-bottom button. Standard chat UX expectation.
+### 10. Listing Editor Form Drops Enrichment Fields
+**Severity: Low — Data Loss Risk**
 
-### Phase 56: Marketplace Welcome Toast Fires Only Once Per Browser (Not Per Account)
-**Severity: Low**
-
-`Marketplace.tsx` line 93 uses `localStorage.getItem('sourceco_shown_welcome')` — this is browser-scoped, not user-scoped. If a user logs out and a new user logs in on the same browser, the second user never sees the welcome message. Should key by user ID.
-
-### Phase 57: DealPipelineCard — No Visual Distinction for `on_hold` Status
-**Severity: Low — UX**
-
-Verify that `DealPipelineCard.tsx` renders a visually distinct state for `on_hold` status in the My Deals sidebar. Previous phases confirmed `DealActionCard` handles it, but the sidebar card list may not show a differentiated badge/color.
+`CreateListingFromDeal.tsx` lines 295-311 manually re-merges enrichment fields (`customer_geography`, `investment_thesis`, etc.) because the Zod schema doesn't include them. If admin edits and saves an existing listing through the editor, these fields would be overwritten/lost since `handleFormSubmit` only passes form values.
 
 ---
 
-## Summary
+## Proposed Phases
 
-| Phase | Area | Severity | Type |
-|-------|------|----------|------|
-| 47 | MatchedDealsSection links to wrong page | **Medium** | UX bug |
-| 48 | Notification preferences not persisted | **Medium** | Feature gap |
-| 49 | Similar listings expose financials without NDA | Low-Medium | Consistency |
-| 50 | Saved listing annotations localStorage-only | Low | Data persistence |
-| 51 | Per-page change pagination reset inconsistency | Low | UX |
-| 52 | DealDocumentsCard "View Documents" never wired | Low | UX gap |
-| 53 | PostRejectionPanel fetches 50 listings | Low | Performance |
-| 54 | Onboarding popup double query | Low | Efficiency |
-| 55 | No scroll-to-bottom in deal messages | Low | UX |
-| 56 | Welcome toast not user-scoped | Low | UX bug |
-| 57 | DealPipelineCard on_hold visual distinction | Low | UX |
+| Phase | Area | Priority | Impact |
+|-------|------|----------|--------|
+| **58** | Fix DealMarketplacePanel publish bypass | **Critical** | Security |
+| **59** | Unified "All Listings" admin view | **High** | Admin UX |
+| **60** | Show publish status + actions in editor | **Medium** | Admin UX |
+| **61** | Prevent duplicate listing creation via URL | **Medium** | Data integrity |
+| **62** | Consolidate update hooks (remove bare version) | **Medium** | Maintainability |
+| **63** | Protect enrichment fields during editor saves | **Medium** | Data preservation |
+| **64** | Queue auto-cleanup after publish | **Low** | UX polish |
+| **65** | Consolidate listing query hooks | **Low** | Code quality |
+| **66** | Unified per-listing analytics dashboard | **Low** | Admin insight |
 
-## Proposed Execution Order
+## Implementation Details
 
-| Priority | Phases | Rationale |
-|----------|--------|-----------|
-| High | 47, 52 | Broken navigation + missing feature wiring |
-| Medium | 48, 56 | localStorage bugs affecting multi-user scenarios |
-| Lower | 49, 50, 51, 53, 54, 55, 57 | Polish, performance, UX enhancements |
+**Phase 58** — Replace `DealMarketplacePanel`'s direct `supabase.update({ is_internal_deal })` with `supabase.functions.invoke('publish-listing', { body: { listingId, action } })`. Use `usePublishListing` hook. Remove the raw toggle mutation.
 
-## Implementation Plan
+**Phase 59** — Add "All", "Published", "Drafts", "Queue" tabs to `ListingsManagementTabs`. Modify `useListingsByType` to accept an `'all'` type that returns everything. Show `is_internal_deal` and `published_at` status badges.
 
-**Phase 47** — Change `to="/welcome"` to `to="/profile"` in `MatchedDealsSection.tsx` line 101.
+**Phase 60** — Add publish status banner + publish/unpublish button to `ImprovedListingEditor`. Show pipeline check summary.
 
-**Phase 48** — Add disclaimer text to notifications tab clarifying preferences are browser-local only, until DB persistence is built.
+**Phase 61** — In `CreateListingFromDeal`, if `existingListing` exists, redirect to edit instead of allowing duplicate creation.
 
-**Phase 52** — Wire `onViewDocuments` prop in `MyRequests.tsx` to navigate to the listing detail data room tab or switch inner tab.
+**Phase 62** — Remove `src/hooks/admin/use-update-listing.ts` and migrate all consumers to the validated version in `listings/use-update-listing.ts`.
 
-**Phase 56** — Change welcome toast localStorage key to include `user.id`: `sourceco_shown_welcome_${user.id}`.
+**Phase 63** — Preserve enrichment fields during editor updates by reading current DB values for non-form fields before saving.
 
-**Phases 49-51, 53-55, 57** — Audit and fix as needed (mostly minor tweaks).
+**Phase 64** — Auto-remove deal from queue when listing is published (not just created).
+
+**Phase 65** — Merge `use-listings-query.ts` into `use-listings-by-type.ts` with configurable column set.
+
+**Phase 66** — Create `ListingAnalyticsSummary` component aggregating views, saves, connections, landing page stats.
 
