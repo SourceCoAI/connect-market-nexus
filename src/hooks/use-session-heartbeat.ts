@@ -94,6 +94,7 @@ export function useSessionHeartbeat(userId?: string | null) {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
+      clearTimeout(delayTimer);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
