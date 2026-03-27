@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { parseCurrency } from '@/lib/currency-utils';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Save, Target, ExternalLink } from 'lucide-react';
+import { Loader2, Save, Target, ExternalLink, Globe, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { usePublishListing } from '@/hooks/admin/listings/use-publish-listing';
+import { Badge } from '@/components/ui/badge';
 
 // Import section components
 import { EditorFinancialCard } from './editor-sections/EditorFinancialCard';
