@@ -1,11 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Globe, Eye, EyeOff } from "lucide-react";
-import { toast } from "sonner";
+import { Globe, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { usePublishListing } from "@/hooks/admin/listings/use-publish-listing";
 
 interface DealMarketplacePanelProps {
   listingId: string;
@@ -22,6 +22,8 @@ export const DealMarketplacePanel = ({
 }: DealMarketplacePanelProps) => {
   const queryClient = useQueryClient();
   const isListed = isInternalDeal === false && status === 'active';
+
+  const { publishListing, unpublishListing, isPublishing } = usePublishListing();
 
   // Fetch marketplace analytics for this listing
   const { data: marketplaceStats } = useQuery({
@@ -48,27 +50,22 @@ export const DealMarketplacePanel = ({
     enabled: isListed,
   });
 
-  // Toggle marketplace listing
-  const toggleListingMutation = useMutation({
-    mutationFn: async (listOnMarketplace: boolean) => {
-      const { error } = await supabase
-        .from('listings')
-        .update({ is_internal_deal: !listOnMarketplace })
-        .eq('id', listingId);
-      if (error) throw error;
-    },
-    onSuccess: (_, listOnMarketplace) => {
+  const handlePublish = () => {
+    publishListing(listingId);
+    // Invalidate deal queries after publish settles
+    setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', listingId] });
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
-      toast.success(listOnMarketplace
-        ? 'Deal listed on marketplace'
-        : 'Deal removed from marketplace'
-      );
-    },
-    onError: () => {
-      toast.error('Failed to update marketplace status');
-    },
-  });
+    }, 1000);
+  };
+
+  const handleUnpublish = () => {
+    unpublishListing(listingId);
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'deal', listingId] });
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
+    }, 1000);
+  };
 
   return (
     <Card>
@@ -113,8 +110,8 @@ export const DealMarketplacePanel = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => toggleListingMutation.mutate(false)}
-                disabled={toggleListingMutation.isPending}
+                onClick={handleUnpublish}
+                disabled={isPublishing}
                 className="text-amber-600 border-amber-200 hover:bg-amber-50"
               >
                 <EyeOff className="h-3.5 w-3.5 mr-1.5" />
@@ -125,15 +122,19 @@ export const DealMarketplacePanel = ({
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              This deal is not currently listed on the marketplace. List it to make it visible to approved buyers.
+              This deal is not currently listed on the marketplace. Publishing will validate quality requirements (title, description, image, memos) before making it visible to buyers.
             </p>
+            <div className="flex items-start gap-2 p-2 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-700">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span>Publishing requires: title, description, category, location, revenue, image, and memo PDFs.</span>
+            </div>
             <Button
-              onClick={() => toggleListingMutation.mutate(true)}
-              disabled={toggleListingMutation.isPending}
+              onClick={handlePublish}
+              disabled={isPublishing}
               className="gap-2"
             >
               <Globe className="h-4 w-4" />
-              List on Marketplace
+              {isPublishing ? 'Publishing...' : 'Publish to Marketplace'}
             </Button>
           </div>
         )}
