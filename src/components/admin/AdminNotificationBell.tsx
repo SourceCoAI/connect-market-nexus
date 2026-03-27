@@ -1,4 +1,4 @@
-import { Bell, CheckCheck, Clock, ListTodo } from 'lucide-react';
+import { Bell, CheckCheck, Clock, ListTodo, FileSignature, FileCheck } from 'lucide-react';
 import {
   useAdminNotifications,
   useMarkNotificationAsRead,
@@ -32,6 +32,10 @@ export function AdminNotificationBell() {
         return <CheckCheck className="w-4 h-4 text-green-600" />;
       case 'remarketing_a_tier_match':
         return <Bell className="w-4 h-4 text-emerald-600" />;
+      case 'document_completed':
+        return <FileCheck className="w-4 h-4 text-emerald-600" />;
+      case 'document_signing_requested':
+        return <FileSignature className="w-4 h-4 text-amber-600" />;
       default:
         return <Bell className="w-4 h-4 text-muted-foreground" />;
     }
@@ -48,6 +52,14 @@ export function AdminNotificationBell() {
       notification.action_url
     ) {
       navigate(notification.action_url.split('?')[0]);
+      setOpen(false);
+      return;
+    }
+
+    // Handle document notifications — navigate to admin documents page
+    const docTypes = ['document_completed', 'document_signing_requested'];
+    if (docTypes.includes(notification.notification_type as string)) {
+      navigate('/admin/documents');
       setOpen(false);
       return;
     }

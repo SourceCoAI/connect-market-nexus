@@ -238,7 +238,9 @@ export function ProfileDocuments() {
                   <FileDown className="h-3.5 w-3.5 mr-1.5" />
                   Download
                 </Button>
-              ) : !doc.signed && doc.hasSubmission ? (
+              ) : doc.signed ? (
+                <DownloadOnDemandButton documentType={doc.type} />
+              ) : (
                 <Button
                   size="sm"
                   className="bg-sourceco hover:bg-sourceco/90 text-sourceco-foreground font-medium"
@@ -247,9 +249,7 @@ export function ProfileDocuments() {
                   Sign Now
                   <ArrowRight className="h-3.5 w-3.5 ml-1" />
                 </Button>
-              ) : doc.signed ? (
-                <span className="text-xs text-muted-foreground">Processing...</span>
-              ) : null}
+              )}
             </div>
           ))}
         </CardContent>
