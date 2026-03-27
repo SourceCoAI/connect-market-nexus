@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/client';
 
 const DEFAULT_TIMEOUT_MS = 90_000; // 90 seconds — longer than Supabase 60s edge limit
+const SESSION_TIMEOUT_MS = 5_000; // 5 seconds max for session retrieval
 
 interface InvokeOptions {
   body?: Record<string, unknown>;
@@ -11,6 +12,28 @@ interface InvokeOptions {
 interface InvokeResult<T = unknown> {
   data: T | null;
   error: Error | null;
+}
+
+/**
+ * Retrieve the access token with a hard timeout so getSession()
+ * can never hang the entire request flow (known Supabase auth deadlock risk).
+ */
+async function getAccessTokenWithTimeout(): Promise<string | null> {
+  console.log('[invoke-with-timeout] Starting session lookup…');
+  try {
+    const result = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Session retrieval timed out after 5 s')), SESSION_TIMEOUT_MS),
+      ),
+    ]);
+    const token = result.data?.session?.access_token ?? null;
+    console.log('[invoke-with-timeout] Session lookup done, token present:', !!token);
+    return token;
+  } catch (err) {
+    console.error('[invoke-with-timeout] Session lookup failed:', err);
+    throw err;
+  }
 }
 
 /**
@@ -36,15 +59,25 @@ export async function invokeWithTimeout<T = unknown>(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    // Get the current user's JWT for the Authorization header
-    const { data: { session } } = await supabase.auth.getSession();
-    const accessToken = session?.access_token;
+    // Get the current user's JWT with a hard 5s timeout
+    let accessToken: string | null;
+    try {
+      accessToken = await getAccessTokenWithTimeout();
+    } catch (sessionErr) {
+      return {
+        data: null,
+        error: sessionErr instanceof Error
+          ? sessionErr
+          : new Error('Session retrieval failed'),
+      };
+    }
 
     if (!accessToken) {
       return { data: null, error: new Error('No active session — please sign in again') };
     }
 
     const url = `${SUPABASE_URL}/functions/v1/${functionName}`;
+    console.log('[invoke-with-timeout] Starting fetch to', functionName);
 
     const response = await fetch(url, {
       method: 'POST',

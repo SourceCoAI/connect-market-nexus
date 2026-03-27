@@ -304,8 +304,18 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      console.error('[calculate-buyer-quality-score] Missing env vars:', {
+        url: !!supabaseUrl, serviceKey: !!supabaseServiceKey, anonKey: !!supabaseAnonKey,
+      });
+      return errorResponse('Server misconfiguration: missing environment variables', 500, corsHeaders, 'config_error');
+    }
+
+    console.log('[calculate-buyer-quality-score] Function entered');
 
     // Auth guard: require valid JWT + admin role (or service_role/internal-secret for batch ops)
     const internalSecret = req.headers.get('x-internal-secret');
@@ -324,7 +334,7 @@ const handler = async (req: Request): Promise<Response> => {
     let callerUserId: string | null = null;
 
     if (!isServiceRole) {
-      const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: `Bearer ${callerToken}` } },
       });
       const {
@@ -350,6 +360,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // ─── BATCH MODE: score all unscored buyers ────────────────────────
     if (body.batch_all_unscored) {
+      console.log('[calculate-buyer-quality-score] Batch mode entered, limit:', body.batch_limit);
       const batchLimit = Math.min(body.batch_limit || 30, 500);
       const { data: unscored, error: unscoredErr } = await supabase
         .from('profiles')

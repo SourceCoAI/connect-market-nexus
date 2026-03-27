@@ -304,7 +304,11 @@ const AdminUsers = () => {
         console.log('[AdminUsers] Scoring round', round + 1);
         const result = await invokeEdgeFunction<{ scored: number; results: unknown[] }>(
           'calculate-buyer-quality-score',
-          { body: { batch_all_unscored: true, batch_limit: 30 }, timeoutMs: 90_000 },
+          {
+            body: { batch_all_unscored: true, batch_limit: 30 },
+            timeoutMs: 30_000,   // 30s per attempt — fail fast
+            maxRetries: 0,       // no retries for bulk admin action
+          },
         );
         const scored = result?.scored ?? 0;
         totalScored += scored;
