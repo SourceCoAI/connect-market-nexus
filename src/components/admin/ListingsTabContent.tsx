@@ -92,12 +92,21 @@ export function ListingsTabContent({
     }
   };
 
-  const emptyStateContent = {
-    icon: Building2,
-    title: 'No Marketplace Listings',
-    description: 'Publish your first listing to start attracting buyers.',
-    actionLabel: 'Create Listing',
-  };
+  const emptyStateContent = type === 'research' 
+    ? {
+        icon: Building2,
+        title: 'No Internal Deals',
+        description: 'Internal deals from remarketing will appear here.',
+        actionLabel: 'Create Listing',
+      }
+    : {
+        icon: Building2,
+        title: type === 'all' ? 'No Listings' : 'No Marketplace Listings',
+        description: type === 'all' 
+          ? 'No listings found. Create deals from the pipeline or marketplace queue.'
+          : 'Publish your first listing to start attracting buyers.',
+        actionLabel: 'Create Listing',
+      };
 
   const isFiltered = filterState.rules.length > 0 || filterState.search;
 
