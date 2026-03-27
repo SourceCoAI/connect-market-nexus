@@ -1,38 +1,32 @@
 
 
-# Fix: "Score All Unscored" Button Stuck — Edge Function Not Responding
+# Fix: `calculate-buyer-quality-score` Not Deployed
+
+## Problem
+
+The "Score All Unscored" button is stuck because the `calculate-buyer-quality-score` edge function was **never successfully deployed**. The previous deployment attempt returned a `400 Bad Request` error. Console logs confirm the client code fires ("Starting bulk score for 130 users", "Scoring round 1") but no network request to the function appears, and the function has zero execution logs in Supabase.
 
 ## Root Cause
 
-The `calculate-buyer-quality-score` edge function has **zero logs** in Supabase, meaning it's either not deployed or crashing on boot. The button enters "Scoring..." state correctly but the `invokeEdgeFunction` call never gets a response. With 120s timeout per attempt and 2 retries, the button could stay stuck for up to 6 minutes before showing an error toast.
-
-The function exists in the codebase (`supabase/functions/calculate-buyer-quality-score/index.ts`) but unlike other functions (score-deal-buyers, process-scoring-queue, etc.), it has **no `config.toml`** file. This shouldn't prevent deployment but could cause JWT verification issues.
+The function needs to be redeployed. The 400 error on the previous attempt was likely transient (Supabase gateway issue) or caused by a stale `deno.lock`.
 
 ## Fix
 
 ### 1. Redeploy the edge function
 
-Add a `config.toml` to ensure consistent deployment configuration, matching the pattern used by other scoring functions:
+Simply trigger a fresh deployment of `calculate-buyer-quality-score`. If a `deno.lock` is present and causing issues, remove it first.
 
-**New file: `supabase/functions/calculate-buyer-quality-score/config.toml`**
-```toml
-verify_jwt = false
-```
+### 2. Verify deployment via logs
 
-Setting `verify_jwt = false` is safe here because the function already does its own auth checks (admin check, self-score check, service-role check). This matches the pattern of `score-deal-buyers`, `process-scoring-queue`, etc. The missing config.toml with default `verify_jwt = true` may be causing JWT validation failures at the Supabase gateway level before the function code even runs.
+After deployment, check edge function logs to confirm the function boots successfully.
 
-### 2. Add better client-side feedback
+### 3. No code changes needed
 
-Update the handler in `src/pages/admin/AdminUsers.tsx` to show immediate feedback when starting, and reduce the timeout to something more reasonable:
-
-- Show a toast immediately: "Starting scoring of X users..."
-- Reduce `timeoutMs` to 90s (still generous, but not 120s)
-- Add a `console.log` before the fetch so we can diagnose future issues
+The client-side code and the function code are both correct. This is purely a deployment issue.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/calculate-buyer-quality-score/config.toml` | New — set `verify_jwt = false` |
-| `src/pages/admin/AdminUsers.tsx` | Add immediate toast feedback when scoring starts |
+| (none) | Redeploy `calculate-buyer-quality-score` edge function |
 
