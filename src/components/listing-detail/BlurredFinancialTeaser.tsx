@@ -1,6 +1,4 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import ConnectionRequestDialog from "@/components/connection/ConnectionRequestDialog";
+import ConnectionButton from "@/components/listing-detail/ConnectionButton";
 import { LockIcon } from "@/components/icons/MetricIcons";
 
 interface BlurredFinancialTeaserProps {
@@ -9,6 +7,9 @@ interface BlurredFinancialTeaserProps {
   hasConnection: boolean;
   connectionStatus: string;
   listingTitle?: string;
+  listingId: string;
+  listingStatusValue?: string;
+  isAdmin: boolean;
 }
 
 const BlurredFinancialTeaser = ({ 
@@ -16,25 +17,15 @@ const BlurredFinancialTeaser = ({
   isRequesting, 
   hasConnection, 
   connectionStatus,
-  listingTitle 
+  listingTitle,
+  listingId,
+  listingStatusValue,
+  isAdmin,
 }: BlurredFinancialTeaserProps) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  // Don't show if already connected
-  if (hasConnection && connectionStatus === "approved") {
+  // Don't show if already connected or admin
+  if ((hasConnection && connectionStatus === "approved") || isAdmin) {
     return null;
   }
-
-  const handleDialogSubmit = (message: string) => {
-    onRequestConnection(message);
-    setIsDialogOpen(false);
-  };
-
-  const handleButtonClick = () => {
-    if (!hasConnection || connectionStatus === "rejected") {
-      setIsDialogOpen(true);
-    }
-  };
 
   return (
     <div className="relative bg-white border border-slate-200/80 overflow-hidden rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.06)] min-h-[360px]">
@@ -77,25 +68,21 @@ const BlurredFinancialTeaser = ({
               Request a connection to access comprehensive financial data, historical performance, and detailed business metrics.
             </p>
             
-            <Button
-              onClick={handleButtonClick}
-              disabled={isRequesting || (hasConnection && connectionStatus !== "rejected")}
-              className="bg-sourceco-accent text-white hover:bg-sourceco-accent/90 transition-colors px-8 h-11 text-sm font-medium rounded-md shadow-sm"
-            >
-              <LockIcon className="w-4 h-4 mr-2" />
-              {isRequesting ? "Sending Request..." : hasConnection && connectionStatus !== "rejected" ? "Request Sent" : "Request Connection"}
-            </Button>
+            <div className="max-w-xs mx-auto">
+              <ConnectionButton
+                connectionExists={hasConnection}
+                connectionStatus={connectionStatus}
+                isRequesting={isRequesting}
+                isAdmin={isAdmin}
+                handleRequestConnection={onRequestConnection}
+                listingTitle={listingTitle}
+                listingId={listingId}
+                listingStatus={listingStatusValue}
+              />
+            </div>
           </div>
         </div>
       </div>
-
-      <ConnectionRequestDialog
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        onSubmit={handleDialogSubmit}
-        isSubmitting={isRequesting}
-        listingTitle={listingTitle}
-      />
     </div>
   );
 };

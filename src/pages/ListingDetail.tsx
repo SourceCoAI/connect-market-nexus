@@ -314,6 +314,9 @@ const ListingDetail = () => {
                 hasConnection={connectionExists}
                 connectionStatus={connectionStatusValue}
                 listingTitle={listing.title}
+                listingId={id!}
+                listingStatusValue={listing.status}
+                isAdmin={isAdmin}
               />
             </div>
 
@@ -377,8 +380,6 @@ const ListingDetail = () => {
                   <EnhancedSaveButton
                     listingId={id!}
                     listingTitle={listing.title}
-                    revenue={listing.revenue}
-                    ebitda={listing.ebitda}
                     location={listing.location}
                     onSave={() => trackListingSave(id!)}
                   />
