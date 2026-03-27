@@ -69,7 +69,7 @@ function useArchivedPipelineDeals() {
         .order('deleted_at', { ascending: false });
 
       if (error) throw error;
-      const deals = data || [];
+      const deals = (data as any[]) || [];
       if (deals.length === 0) return [] as ArchivedDeal[];
 
       // Batch fetch listing titles

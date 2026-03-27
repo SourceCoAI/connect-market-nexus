@@ -4,6 +4,8 @@ import { useMarketplace } from '@/hooks/use-marketplace';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAnalyticsTracking } from '@/hooks/use-analytics-tracking';
+import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
+import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
 import { Card, CardContent } from '@/components/ui/card';
 import { RichTextDisplay } from '@/components/ui/rich-text-display';
 import { formatCurrency } from '@/lib/currency-utils';
@@ -15,6 +17,7 @@ import ListingCardTitle from './listing/ListingCardTitle';
 import ListingCardFinancials from './listing/ListingCardFinancials';
 import ListingCardActions from './listing/ListingCardActions';
 import ListingStatusTag from './listing/ListingStatusTag';
+import { SearchSessionContext } from '@/contexts/SearchSessionContext';
 import { SearchSessionContext } from '@/contexts/SearchSessionContext';
 
 interface ListingCardProps {
@@ -34,7 +37,7 @@ const ListingCard = memo(function ListingCard({
   const { useConnectionStatus, useSaveListingMutation, useSavedStatus, useRequestConnection } =
     useMarketplace();
 
-  useAuth();
+  const { user } = useAuth();
   const { data: connectionStatus } = useConnectionStatus(listing.id, connectionMap);
   const { data: isSaved = false } = useSavedStatus(listing.id, savedIds);
   const { mutate: toggleSave, isPending: isSaving } = useSaveListingMutation();
@@ -42,6 +45,13 @@ const ListingCard = memo(function ListingCard({
   const { trackListingSave, trackConnectionRequest } = useAnalytics();
   const { trackSearchResultClick } = useAnalyticsTracking();
   const navigate = useNavigate();
+
+  // Gating computations
+  const { data: agreementStatus } = useMyAgreementStatus(!!user);
+  const profileComplete = user ? isProfileComplete(user) : true;
+  const profilePct = user ? getProfileCompletionPercentage(user) : 100;
+  const buyerBlocked = user?.buyer_type === 'businessOwner' || user?.buyer_type === 'business_owner';
+  const feeCovered = agreementStatus?.fee_covered ?? true;
 
   // Get search session context for tracking (returns undefined if not within provider)
   const searchSession = useContext(SearchSessionContext);
@@ -197,6 +207,10 @@ const ListingCard = memo(function ListingCard({
                   handleToggleSave={handleToggleSave}
                   handleRequestConnection={handleRequestConnection}
                   listingTitle={listing.title}
+                  isProfileComplete={profileComplete}
+                  profileCompletePct={profilePct}
+                  isBuyerBlocked={buyerBlocked}
+                  isFeeCovered={feeCovered}
                 />
               </div>
             </CardContent>
