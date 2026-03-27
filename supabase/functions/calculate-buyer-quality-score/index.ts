@@ -304,8 +304,18 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      console.error('[calculate-buyer-quality-score] Missing env vars:', {
+        url: !!supabaseUrl, serviceKey: !!supabaseServiceKey, anonKey: !!supabaseAnonKey,
+      });
+      return errorResponse('Server misconfiguration: missing environment variables', 500, corsHeaders, 'config_error');
+    }
+
+    console.log('[calculate-buyer-quality-score] Function entered');
 
     // Auth guard: require valid JWT + admin role (or service_role/internal-secret for batch ops)
     const internalSecret = req.headers.get('x-internal-secret');
