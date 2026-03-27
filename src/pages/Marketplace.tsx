@@ -9,7 +9,7 @@ import { SearchSessionProvider } from '@/contexts/SearchSessionContext';
 import { useSearchSession } from '@/hooks/use-search-session';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
+
 
 import { LayoutGrid, LayoutList, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
