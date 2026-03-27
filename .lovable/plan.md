@@ -1,65 +1,62 @@
 
 
-# Phase 3: Connection Request System — Verification & Remaining Gaps
+# Phase 4: Connection Request System — Audit & Remaining Fixes
 
-## Verification: What's Implemented and Working
+## Verification: All Previous Phases Confirmed
 
-All Phase 1 and Phase 2 fixes are confirmed in the code:
-
-| Fix | Status | Evidence |
-|-----|--------|----------|
-| Profile completeness gate on ListingCardActions | Done | Lines 19, 37, 100-101, 132-159 |
-| Fee agreement gate on ListingCardActions | Done | Lines 22, 40, 104-107 |
-| Buyer type block on ListingCardActions | Done | Lines 21, 39, 98, 120-129 |
-| listingId prop on ListingCardActions | Done | Lines 17, 36, 169, 243 |
-| ListingCard passes all gating props | Done | Lines 49-53, 209-213 |
-| isAdmin={isAdmin} in ListingDetail | Done | Line 357 |
-| "Request Again" text for rejected | Done | Line 210 |
-| Fee gate fallback for missing firmId | Done | Lines 225-231, 269-275 |
-| Dead ndaGateDismissed removed | Done | Lines 57-58, no state |
-| View Deal Details navigates | Done | Line 169 Link wrapper |
+| Phase | Fix | Status |
+|-------|-----|--------|
+| 1 | Profile/fee/buyer gates on ListingCardActions | Done |
+| 1 | ListingCard passes gating props | Done |
+| 1 | isAdmin={isAdmin} in ListingDetail | Done |
+| 1 | "Request Again" text for rejected | Done |
+| 1 | ArchivedDeals/ValuationLeads build fixes | Done |
+| 2 | Fee gate fallback for missing firmId | Done |
+| 2 | Dead ndaGateDismissed removed | Done |
+| 2 | View Deal Details navigates | Done |
+| 2 | listingId passed to dialog | Done |
+| 3 | Dialog in rejected block | Done |
+| 3 | Success toast mentions My Deals | Done |
+| 3 | onFeeGateOpen wired in ListingCard | Done |
+| 3 | Details button wrapped in Link | Done |
+| 3 | Browse Marketplace button in empty state | Done |
 
 ## Remaining Issues Found
 
-### Issue 1: ConnectionRequestDialog missing `listingId` in the rejected state block
+### Issue 1: Card click propagation conflict with inner Links
 
-In `ConnectionButton.tsx`, the rejected state block (lines 194-234) renders `handleButtonClick` which opens the fee gate or sets `isDialogOpen(true)`. But there is **no `ConnectionRequestDialog` rendered** in that rejected block. The dialog only exists in the default return (line 248). When a rejected user clicks "Request Again", `isDialogOpen` becomes true, but the component returns at line 194 before reaching the dialog at line 248.
+`ListingCard.tsx` line 104 wraps the entire card in `<div onClick={handleCardClick}>`. The `handleCardClick` checks for `button` elements but **not** `a` or `Link` elements. When a user clicks the "Details" Link or "View Deal Details" Link inside `ListingCardActions`, the click bubbles up and `handleCardClick` also fires, causing a double navigation — once from the Link, once from `navigate(/listing/${listing.id})`.
 
-**Result**: Rejected users on the listing detail page click "Request Again" and nothing happens — the dialog never opens because the early return prevents it from mounting.
+**Fix**: Update `handleCardClick` to also skip when `(e.target as HTMLElement).closest('a')` is truthy.
 
-**Fix**: Move the `ConnectionRequestDialog` inside the rejected block (after the fee gate components), or restructure so the dialog is always rendered regardless of which status branch returns.
+### Issue 2: `handleCardClick` skips buttons but dialog still opens on card click
 
-### Issue 2: No success confirmation linking to My Deals after submission
+When a user clicks the card body (not a button), `handleCardClick` navigates to `/listing/${listing.id}`. But the `ConnectionRequestDialog` uses a Radix Dialog which renders a portal overlay. If a user has the dialog open and clicks outside it, the card's `onClick` could interfere. This is minor since the dialog backdrop handles its own close, but worth noting — no fix needed.
 
-After a user submits a connection request, the only feedback is a toast notification (use-connections.ts line 171-175): "Request sent. We'll review your request within 1-2 business days." This toast disappears after a few seconds. There is **no persistent UI** directing the user to their My Deals page where they can track the request.
+### Issue 3: Fee agreement gate on ListingCardActions — no signing flow
 
-**Fix**: Enhance the success toast to include an action button linking to `/my-deals`, or show a brief confirmation overlay on the listing detail page with a "View in My Deals" link.
+The `onFeeGateOpen` callback in `ListingCard` shows a toast with a link to `/profile?tab=documents`. This is functional but suboptimal — the user leaves the marketplace, signs, then has to navigate back. The `ConnectionButton` on the listing detail page offers an inline `FeeAgreementGate` (PandaDoc embed). The marketplace card can't do this without the firmId.
 
-### Issue 3: `onFeeGateOpen` prop not wired in ListingCard
+This is acceptable for now. No change needed — the listing detail page provides the superior signing experience.
 
-`ListingCardActions` accepts an `onFeeGateOpen` callback (line 23) for when fee agreement is missing, but `ListingCard.tsx` never passes this prop (lines 199-214). When a user without fee coverage clicks "Request Access" on a card, `onFeeGateOpen?.()` is called with optional chaining — it silently does nothing. The user sees no feedback.
+### Issue 4: No "on_hold" status handling in buyer-facing UI
 
-**Fix**: In `ListingCard.tsx`, add an `onFeeGateOpen` handler that either navigates to `/profile?tab=documents` or shows a toast explaining they need a fee agreement. Since `FeeAgreementGate` requires a firmId (which ListingCard doesn't have), the simplest approach is a toast + navigate to profile documents tab.
+The `ConnectionButton` and `ListingCardActions` handle `pending`, `approved`, and `rejected` statuses. But the admin can set status to `on_hold`. When `on_hold`, the buyer sees the default "Request connection" button (not disabled), which would create a duplicate request. The RPC handles this (merges), but the UX is confusing.
 
-### Issue 4: "Details" button in ListingCardActions does nothing
+**Fix**: Add `on_hold` case to both `ConnectionButton.getButtonContent()` and `ListingCardActions.getConnectionButtonContent()` — show same UI as `pending` ("Request Under Review").
 
-Line 209-216 in `ListingCardActions.tsx` renders a "Details" ghost button that has **no onClick handler and no Link wrapper**. It's a dead button.
+### Issue 5: Profile completeness link in ConnectionRequestDialog goes to `/welcome`
 
-**Fix**: Wrap it in a `Link` to `/listing/{listingId}` — same as the card click, but lets users explicitly click "Details" to navigate.
+In `ConnectionRequestDialog.tsx` line 180, the low-profile warning links to `/welcome`. This is the onboarding wizard. Users who have already completed onboarding should go to `/profile` instead.
 
-### Issue 5: No empty state CTA in My Deals page
-
-The empty state (MyRequests.tsx lines 199-221) shows "Browse the marketplace and request an introduction" text but has **no button or link** to navigate to the marketplace. The user has to manually navigate.
-
-**Fix**: Add a "Browse Marketplace" button linking to `/marketplace`.
+**Fix**: Change the link from `/welcome` to `/profile`.
 
 ## Summary of Changes
 
 | File | Change |
 |------|--------|
-| `src/components/listing-detail/ConnectionButton.tsx` | Move `ConnectionRequestDialog` so it renders in all status branches (fix rejected state dialog) |
-| `src/hooks/marketplace/use-connections.ts` | Add action button to success toast linking to My Deals |
-| `src/components/ListingCard.tsx` | Wire `onFeeGateOpen` callback with toast + navigate to profile documents |
-| `src/components/listing/ListingCardActions.tsx` | Wrap "Details" button in Link to listing page |
-| `src/pages/MyRequests.tsx` | Add "Browse Marketplace" button to empty state |
+| `src/components/ListingCard.tsx` | Add `closest('a')` check to `handleCardClick` to prevent double navigation |
+| `src/components/listing-detail/ConnectionButton.tsx` | Add `on_hold` case showing "Request Under Review" (same as pending) |
+| `src/components/listing/ListingCardActions.tsx` | Add `on_hold` case showing "Under Review" (same as pending) |
+| `src/components/connection/ConnectionRequestDialog.tsx` | Change profile link from `/welcome` to `/profile` |
 
