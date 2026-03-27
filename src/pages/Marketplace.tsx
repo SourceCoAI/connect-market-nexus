@@ -8,8 +8,10 @@ import OnboardingPopup from '@/components/onboarding/OnboardingPopup';
 import { SearchSessionProvider } from '@/contexts/SearchSessionContext';
 import { useSearchSession } from '@/hooks/use-search-session';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
-import { LayoutGrid, LayoutList } from 'lucide-react';
+
+import { LayoutGrid, LayoutList, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAllSavedListingIds } from '@/hooks/marketplace/use-saved-listings';
@@ -41,6 +43,8 @@ import { CreateDealAlertDialog } from '@/components/deal-alerts/CreateDealAlertD
 
 const MarketplaceContent = () => {
   const { user, authChecked } = useAuth();
+  
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { shouldShowOnboarding, completeOnboarding } = useOnboarding();
   const { listingsConnected } = useRealtime();
 
@@ -195,9 +199,51 @@ const MarketplaceContent = () => {
             </div>
           </div>
 
+          {/* Mobile filter button */}
+          <div className="lg:hidden">
+            <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Filters
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[300px] overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Filters</SheetTitle>
+                </SheetHeader>
+                <div className="mt-4">
+                  <FilterPanel
+                    onFilterChange={(filters) => {
+                      pagination.setFilters(filters);
+                      setFiltersOpen(false);
+                    }}
+                    onResetFilters={() => {
+                      pagination.resetFilters();
+                      setFiltersOpen(false);
+                    }}
+                    totalListings={totalItems}
+                    filteredCount={totalItems}
+                    categories={categories}
+                    locations={locations}
+                    currentFilters={{
+                      search: pagination.state.search,
+                      category: pagination.state.category,
+                      location: pagination.state.location,
+                      revenueMin: pagination.state.revenueMin,
+                      revenueMax: pagination.state.revenueMax,
+                      ebitdaMin: pagination.state.ebitdaMin,
+                      ebitdaMax: pagination.state.ebitdaMax,
+                    }}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Filter sidebar */}
-            <div className="col-span-1">
+            {/* Filter sidebar - desktop only */}
+            <div className="hidden lg:block col-span-1">
               <FilterPanel
                 onFilterChange={pagination.setFilters}
                 onResetFilters={pagination.resetFilters}
