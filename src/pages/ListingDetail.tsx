@@ -314,6 +314,9 @@ const ListingDetail = () => {
                 hasConnection={connectionExists}
                 connectionStatus={connectionStatusValue}
                 listingTitle={listing.title}
+                listingId={id!}
+                listingStatusValue={listing.status}
+                isAdmin={isAdmin}
               />
             </div>
 

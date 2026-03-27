@@ -12,13 +12,11 @@ import {
 interface EnhancedSaveButtonProps {
   listingId: string;
   listingTitle: string;
-  revenue: number;
-  ebitda: number;
   location: string;
   onSave?: () => void;
 }
 
-export function EnhancedSaveButton({ listingId, listingTitle, revenue, ebitda, location, onSave }: EnhancedSaveButtonProps) {
+export function EnhancedSaveButton({ listingId, listingTitle, location, onSave }: EnhancedSaveButtonProps) {
   const { data: isSaved } = useSavedStatus(listingId);
   const { mutate: toggleSave, isPending } = useSaveListingMutation();
 

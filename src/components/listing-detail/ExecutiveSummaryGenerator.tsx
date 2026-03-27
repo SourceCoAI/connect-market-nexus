@@ -12,7 +12,10 @@ export const ExecutiveSummaryGenerator = ({ listing }: ExecutiveSummaryGenerator
     // Create a new window with the executive summary content
     const summaryWindow = window.open('', '_blank', 'width=800,height=1200');
 
-    if (!summaryWindow) return;
+    if (!summaryWindow) {
+      toast.error('Popup blocked — please allow popups for this site and try again.');
+      return;
+    }
 
     const content = `
       <!DOCTYPE html>

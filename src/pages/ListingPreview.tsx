@@ -213,6 +213,8 @@ const ListingPreview = () => {
                 hasConnection={false}
                 connectionStatus=""
                 listingTitle={listing.title}
+                listingId={listing.id}
+                isAdmin={false}
               />
             </div>
           </div>
