@@ -66,6 +66,29 @@ const MarketplaceUsersPage = () => {
   useRealtimeAdmin();
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const { markAsViewed } = useMarkUsersViewed();
+  const [isBulkScoring, setIsBulkScoring] = useState(false);
+
+  const handleBulkScoreUnscored = async () => {
+    const unscoredIds = usersData
+      .filter((u) => u.buyer_type && u.buyer_quality_score == null)
+      .map((u) => u.id);
+    if (unscoredIds.length === 0) {
+      toast.info('All users already have scores');
+      return;
+    }
+    setIsBulkScoring(true);
+    try {
+      const { queueBuyerQualityScoring } = await import('@/lib/remarketing/queueScoring');
+      const { scored, errors } = await queueBuyerQualityScoring(unscoredIds);
+      toast.success(`Scored ${scored} user(s)${errors > 0 ? `, ${errors} failed` : ''}`);
+      refetch();
+    } catch (err) {
+      toast.error('Bulk scoring failed');
+      console.error(err);
+    } finally {
+      setIsBulkScoring(false);
+    }
+  };
 
   // Query remarketing buyers that have a marketplace_firm_id link
   const { data: linkedBuyerCount = 0 } = useQuery({
