@@ -10,6 +10,7 @@ import {
   XCircle,
   ThumbsDown,
   Users,
+  Zap,
 } from 'lucide-react';
 import { UsersTable } from '@/components/admin/UsersTable';
 import { MobileUsersTable } from '@/components/admin/MobileUsersTable';
