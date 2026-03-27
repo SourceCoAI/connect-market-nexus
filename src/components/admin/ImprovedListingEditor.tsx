@@ -472,6 +472,13 @@ export function ImprovedListingEditor({
               </div>
             )}
 
+            {/* Publish Status Banner */}
+            {listing?.id && (
+              <div className="mb-6">
+                <PublishStatusBanner listing={listing} />
+              </div>
+            )}
+
             {/* Landing Page Preview button */}
             {listing?.id && (
               <div className="mb-6 flex items-center gap-3">
