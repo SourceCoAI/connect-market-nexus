@@ -1,68 +1,62 @@
 
 
-# Audit: Admin Users Page Optimization — Implementation Status & Remaining Issues
+# Audit: All 4 Planned Fixes — Verified Implemented
 
-## What Was Implemented Correctly
+## Confirmed Working
 
-1. **`useBulkUserFirms` hook** — Created and working. Batch-fetches firm_members + firm_agreements in 2 queries instead of 1,842.
-2. **Pagination** — `PAGE_SIZE = 50` with prev/next controls in UsersTable.
-3. **`firmDataMap` prop threading** — AdminUsers calls `useBulkUserFirms(userIds)` and passes the map to `UsersTable`, which passes it to `UserFirmBadge`, `DualFeeAgreementToggle`, and `DualNDAToggle`.
-4. **Conditional skip in toggles** — Both `DualFeeAgreementToggle` and `DualNDAToggle` skip `useUserFirm()` when `firmData` is provided.
+| Fix | Status | Evidence |
+|-----|--------|----------|
+| Stable query key | Done | Line 27: `[...userIds].sort().join(',')` |
+| `undefined` in UserFirmBadge | Done | Line 15: `firmData !== undefined ? undefined : userId` |
+| Map-based role lookup | Done | Lines 70-80: `useMemo` builds `Map`, line 80: O(1) `.get()` |
+| Default empty Map | Done | Line 499 AdminUsers: `firmDataMap ?? new Map()` |
+| Removed `useEnhancedUserExport` | Done | Import and call removed |
+| Removed `usePermissions` | Done | Import and call removed |
 
-## Issues Found
+## Remaining Issues Worth Fixing
 
-### Issue 1: `useBulkUserFirms` query key is unstable
-**Line 27**: `queryKey: ['bulk-user-firms', userIds.length]` — Uses only the *count* of user IDs, not their actual values. If users are filtered/sorted but the count stays the same, stale data is returned. Should use a hash or sorted ID list.
+### Issue 1: `useMemo` used for side effects (bug)
+Lines 93-97 of `UsersTable.tsx` use `useMemo` to call `setCurrentPage` — this is a React anti-pattern. `useMemo` is for computing values, not triggering state updates. Should be `useEffect`.
 
-### Issue 2: `useUserFirm` still called unconditionally in `UserFirmBadge`
-**Line 15** of `UserFirmBadge.tsx`: `useUserFirm(firmData !== undefined ? null : userId)` — Passing `null` still triggers the hook (React hooks can't be conditional). The hook's `enabled: !!userId` check means it won't *fire* a query for `null`, but it still creates a query observer per row. When `firmData` is `undefined` (e.g., map hasn't loaded yet), all 50 visible rows fire individual queries. **Fix**: pass `undefined` instead of `null` to match the hook's `enabled` check, and ensure `firmDataMap` defaults to an empty Map rather than `undefined` during loading.
+### Issue 2: No memoization on row sub-components
+`BuyerTierBadge`, `BuyerScoreBadge`, `UserDataCompleteness`, `DualFeeAgreementToggle`, `DualNDAToggle`, `UserFirmBadge` — none are wrapped in `React.memo`. Every expand/collapse or page change re-renders all 50 rows and their 6+ children. This is the main remaining rendering bottleneck.
 
-### Issue 3: `useUserFirm` from `use-firm-agreement-actions.ts` still called in dialogs
-`SimpleFeeAgreementDialog` and `SimpleNDADialog` each call `useUserFirm(userId)` individually. These are only opened one at a time (modal), so this is acceptable — NOT a perf issue.
+### Issue 3: Inline closures recreated every render
+Lines 252, 260 create new arrow functions `(user) => setSelectedUserForEmail(user)` on every render, defeating any future memoization. Should use `useCallback`.
 
-### Issue 4: `useEnhancedUserExport()` called inside UsersTable with no arguments
-Line 70 — This hook runs on every render of the table. If it triggers queries or side effects, it adds unnecessary overhead. Should be verified and potentially moved to the page level or memoized.
+### Issue 4: `useRoleManagement()` fetches audit log unnecessarily
+The hook returns `auditLog` and `isLoadingAudit` — UsersTable doesn't use either. The audit log query (`get_permission_audit_log` with 100 rows) fires on every table mount for no reason. The hook should be split, or UsersTable should use a lighter variant.
 
-### Issue 5: `usePermissions()` called without using return value
-Line 71 — Fires a query on every render with no visible consumer. May be setting up a context or side effect, but should be audited.
+### Issue 5: Query key with 600+ sorted UUIDs
+Line 27 joins all 600+ UUIDs into one massive string for the query key. React Query serializes this on every render for cache comparison. For 600 UUIDs × 36 chars = ~22KB string. A hash would be more efficient, but this is a minor concern — the current approach is correct, just slightly heavy.
 
-### Issue 6: `useRoleManagement()` fetches all user roles on every table render
-Line 72 — This is a single query (acceptable), but `getUserRole()` does a linear scan (`allUserRoles.find()`) for every row. Should be converted to a Map lookup.
+## Recommended Next Fix
 
-### Issue 7: No `React.memo` on row sub-components
-`BuyerTierBadge`, `BuyerScoreBadge`, `UserDataCompleteness`, `DualFeeAgreementToggle`, `DualNDAToggle`, `UserFirmBadge` — none are memoized. When any state changes (e.g., expanding a row, changing page), all 50 visible rows re-render with all their children.
+Focus on Issues 1-3 as they're quick wins with real impact:
 
-## Plan
+### File: `src/components/admin/UsersTable.tsx`
+- Change `useMemo` on line 93 to `useEffect` for page reset
+- Wrap `onSendEmail` callbacks in `useCallback`
+- Extract row rendering into a `React.memo` wrapped `UserTableRow` component
 
-### File 1: `src/hooks/admin/use-bulk-user-firms.ts`
-- Fix query key to use a stable hash: `queryKey: ['bulk-user-firms', userIds.sort().join(',')]` or use the length + a hash of the first/last IDs.
+### Files: Badge/Toggle components
+- Wrap `BuyerTierBadge`, `BuyerScoreBadge`, `UserFirmBadge`, `DualFeeAgreementToggle`, `DualNDAToggle` exports in `React.memo`
 
-### File 2: `src/components/admin/UserFirmBadge.tsx`
-- Change `useUserFirm(firmData !== undefined ? null : userId)` → `useUserFirm(firmData !== undefined ? undefined : userId)` for consistency with the hook's `enabled` check.
-
-### File 3: `src/components/admin/UsersTable.tsx`
-- Convert `getUserRole` to use a `Map` built from `allUserRoles` via `useMemo`
-- Remove the bare `usePermissions()` call (line 71) — it's not used
-- Wrap row rendering in `React.memo` or extract a `UserTableRow` component with `React.memo`
-
-### File 4: `src/pages/admin/AdminUsers.tsx`
-- Ensure `firmDataMap` passes as `firmDataMap ?? new Map()` to avoid the `undefined` case triggering per-row queries
-
-## Expected Additional Impact
+## Expected Impact
 
 | Improvement | Effect |
 |-------------|--------|
-| Stable query key | Prevents stale cache hits on filter changes |
-| `undefined` fix in UserFirmBadge | Prevents 50 individual queries during bulk load |
-| Map-based role lookup | O(1) vs O(n) per row |
-| Memoized rows | Prevents 50×12 re-renders on page/expand changes |
+| `useEffect` fix | Prevents potential render-loop bugs from state updates in `useMemo` |
+| `React.memo` on sub-components | Prevents ~300 unnecessary re-renders per interaction (50 rows × 6 components) |
+| `useCallback` for handlers | Enables `React.memo` to actually skip re-renders |
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/hooks/admin/use-bulk-user-firms.ts` | Fix query key stability |
-| `src/components/admin/UserFirmBadge.tsx` | Fix null→undefined for hook skip |
-| `src/components/admin/UsersTable.tsx` | Memoize row component, Map-based role lookup, remove unused hook |
-| `src/pages/admin/AdminUsers.tsx` | Default firmDataMap to empty Map |
+| `src/components/admin/UsersTable.tsx` | Fix `useMemo`→`useEffect`, add `useCallback`, extract memoized row |
+| `src/components/admin/BuyerQualityBadges.tsx` | Wrap in `React.memo` |
+| `src/components/admin/UserFirmBadge.tsx` | Wrap in `React.memo` |
+| `src/components/admin/DualFeeAgreementToggle.tsx` | Wrap in `React.memo` |
+| `src/components/admin/DualNDAToggle.tsx` | Wrap in `React.memo` |
 
