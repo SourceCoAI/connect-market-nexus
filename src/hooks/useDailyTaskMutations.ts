@@ -346,24 +346,11 @@ export function useReassignTask() {
       // Send notification to new assignee if different from current user
       if (newAssigneeId !== user?.id && task) {
         try {
-          const [{ data: assigneeProfile }, { data: assignerProfile }, { data: dealData }] =
-            await Promise.all([
-              supabase
-                .from('profiles')
-                .select('id, email, first_name, last_name')
-                .eq('id', newAssigneeId)
-                .single(),
-              supabase
-                .from('profiles')
-                .select('first_name, last_name')
-                .eq('id', user?.id ?? '')
-                .single(),
-              task.entity_type === 'deal'
-                ? supabase.from('deal_pipeline').select('title').eq('id', task.entity_id!).single()
-                : Promise.resolve({ data: null }),
-            ]);
+          const { data: dealData } = task.entity_type === 'deal'
+            ? await supabase.from('deal_pipeline').select('title').eq('id', task.entity_id!).single()
+            : { data: null };
 
-          if (assigneeProfile?.email) {
+          {
             await supabase.from('admin_notifications').insert({
               admin_id: newAssigneeId,
               notification_type: 'task_assigned',
@@ -383,23 +370,6 @@ export function useReassignTask() {
               },
             });
 
-            await supabase.functions.invoke('send-task-notification-email', {
-              body: {
-                assignee_email: assigneeProfile.email,
-                assignee_name:
-                  `${assigneeProfile.first_name} ${assigneeProfile.last_name}`.trim() ||
-                  assigneeProfile.email,
-                assigner_name: assignerProfile
-                  ? `${assignerProfile.first_name} ${assignerProfile.last_name}`.trim()
-                  : 'Admin',
-                task_title: task.title,
-                task_description: task.description,
-                task_priority: task.priority || 'medium',
-                task_due_date: task.due_date,
-                deal_title: dealData?.title || 'Task',
-                deal_id: task.entity_type === 'deal' ? task.entity_id : '',
-              },
-            });
           }
         } catch (notifError) {
           console.error('Failed to send task reassignment notification:', notifError);
@@ -497,21 +467,7 @@ export function useAddManualTask() {
       // Send notification if task is assigned to someone other than the creator
       if (task.assignee_id && task.assignee_id !== user?.id) {
         try {
-          const [{ data: assigneeProfile }, { data: assignerProfile }] = await Promise.all([
-            supabase
-              .from('profiles')
-              .select('id, email, first_name, last_name')
-              .eq('id', task.assignee_id)
-              .single(),
-            supabase
-              .from('profiles')
-              .select('first_name, last_name')
-              .eq('id', user?.id ?? '')
-              .single(),
-          ]);
-
-          if (assigneeProfile?.email) {
-            // In-app notification
+          {
             await supabase.from('admin_notifications').insert({
               admin_id: task.assignee_id,
               notification_type: 'task_assigned',
@@ -526,24 +482,6 @@ export function useAddManualTask() {
               },
             });
 
-            // Email notification
-            await supabase.functions.invoke('send-task-notification-email', {
-              body: {
-                assignee_email: assigneeProfile.email,
-                assignee_name:
-                  `${assigneeProfile.first_name} ${assigneeProfile.last_name}`.trim() ||
-                  assigneeProfile.email,
-                assigner_name: assignerProfile
-                  ? `${assignerProfile.first_name} ${assignerProfile.last_name}`.trim()
-                  : 'Admin',
-                task_title: task.title,
-                task_description: task.description,
-                task_priority: 'medium',
-                task_due_date: task.due_date,
-                deal_title: task.deal_reference || 'Task',
-                deal_id: '',
-              },
-            });
           }
         } catch (notifError) {
           // Don't fail task creation if notification fails
