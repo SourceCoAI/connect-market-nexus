@@ -345,7 +345,7 @@ function DetailPanel({
         acquisitionType={request.listing?.acquisition_type}
         ebitda={request.listing?.ebitda}
         revenue={request.listing?.revenue}
-        requestStatus={requestStatus as 'pending' | 'approved' | 'rejected'}
+        requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
         ndaSigned={ndaSigned}
       />
 
@@ -394,7 +394,7 @@ function DetailPanel({
           <TabsContent value="overview" className="mt-0 p-6 space-y-5">
             {/* Row 1: Action Card — full width */}
             <DealActionCard
-              requestStatus={requestStatus as 'pending' | 'approved' | 'rejected'}
+              requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
               ndaSigned={ndaSigned}
               feeCovered={feeCovered}
               feeStatus={feeStatus}
@@ -405,7 +405,7 @@ function DetailPanel({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <DealDocumentsCard
                 dealId={request.listing_id}
-                requestStatus={requestStatus as 'pending' | 'approved' | 'rejected'}
+                requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
                 ndaSigned={ndaSigned}
                 feeCovered={feeCovered}
                 feeStatus={feeStatus}
