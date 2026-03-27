@@ -25,6 +25,7 @@ import { CategoryLocationBadges } from "@/components/shared/CategoryLocationBadg
 import { StatusTagSwitcher } from "./StatusTagSwitcher";
 import { BUYER_TYPE_OPTIONS } from "@/lib/signup-field-options";
 import { LandingPageAnalytics } from "./LandingPageAnalytics";
+import { ListingAnalyticsSummary } from "./ListingAnalyticsSummary";
 import {
   Tooltip,
   TooltipContent,
@@ -488,6 +489,9 @@ export function AdminListingCard({
                 </div>
               </div>
             )}
+
+            {/* Marketplace activity analytics */}
+            <ListingAnalyticsSummary listingId={listing.id} />
 
             {/* GAP D: Landing page analytics */}
             <LandingPageAnalytics listingId={listing.id} />
