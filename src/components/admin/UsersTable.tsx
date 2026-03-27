@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Table,
   TableBody,
@@ -93,8 +94,34 @@ export function UsersTable({
               <TableHead className="w-10"></TableHead>
               <TableHead className="min-w-[200px]">User & Company</TableHead>
               <TableHead className="w-20">Type</TableHead>
-              <TableHead className="w-24">Tier</TableHead>
-              <TableHead className="w-16">Score</TableHead>
+              <TableHead className="w-24">
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 cursor-default border-b border-dashed border-muted-foreground/40">
+                        Tier
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[260px]">
+                      <p className="text-xs">Buyer classification (T1–T4) based on capital structure and verification. T1 = Platform Add-On, T2 = Committed Capital, T3 = Indep. Sponsor, T4 = Unverified.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </TableHead>
+              <TableHead className="w-16">
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 cursor-default border-b border-dashed border-muted-foreground/40">
+                        Score
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[260px]">
+                      <p className="text-xs">Quality score (0–100) computed from buyer type, available capital, profile completeness, and acquisition signals.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </TableHead>
               <TableHead className="w-20">Profile</TableHead>
               <TableHead className="w-16">Fee</TableHead>
               <TableHead className="w-16">NDA</TableHead>
