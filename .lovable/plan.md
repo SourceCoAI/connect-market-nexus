@@ -1,77 +1,64 @@
 
 
-# Phase 8: Profile System — Deep Links, Password UX & Notification Persistence
+# Phase 9: Document Signing Flow, Notifications & Messaging Audit
 
-## Verified Working (from code audit)
-- Profile form saves via `updateUserProfile` → Supabase profiles table update → re-fetches profile
-- ProfileDocuments resolves firm via `resolve_user_firm_id` RPC, shows NDA + Fee Agreement status with Sign Now / Download buttons
-- ProfileTeamMembers queries `firm_members` joined with profiles
-- DealAlertsTab: full CRUD with `useDealAlerts` hook
-- ProfileSecurity: password change + account deactivation request
-- Connection request gates (all 8) verified across both marketplace card and detail page
-- `on_hold` status supported across all deal components
+## Verified Working (Phases 1-8)
+- Connection request gates (profile, fee, buyer type, NDA) across cards and detail pages
+- `on_hold` status across all deal components
+- Profile tab deep-linking via `?tab=`
+- Password verification via `signInWithPassword`
+- Agreement RPC resilience (404/400 safe defaults)
+- Session heartbeat delay
+- Realtime sync for firm_agreements changes
 
 ## Issues Found
 
-### Issue 1: Profile `?tab=` Deep Links Are Broken (CRITICAL)
+### Issue 1: ProfileDocuments "Sign Now" Missing for Not-Sent Documents (MEDIUM)
 
-**Evidence**: Two places deep-link to `/profile?tab=documents`:
-- `ListingCard.tsx` line 221: fee gate toast action links to `/profile?tab=documents`
-- `BuyerNotificationBell.tsx` line 144: `agreement_pending` notifications navigate to `/profile?tab=documents`
+**Evidence**: `ProfileDocuments.tsx` line 241: `!doc.signed && doc.hasSubmission` gates the "Sign Now" button. `hasSubmission` is `!!firm.nda_pandadoc_document_id` (line 86). For firms where no PandaDoc document has been created yet, `hasSubmission` is false, and no button renders at all — just blank space.
 
-**Problem**: `Profile/index.tsx` line 90 uses `<Tabs defaultValue="profile">` — a static default. It never reads `useSearchParams()` to pick up the `?tab=` query parameter. Result: user clicks "Go to Documents" from a notification or toast and lands on the Profile Information tab instead.
+**Problem**: The memory notes state "Unsigned documents show 'Sign Now' CTAs even in 'pending' or 'not_sent' states." The edge functions `get-buyer-nda-embed` and `get-buyer-fee-embed` create documents on-demand, so "Sign Now" should always be available for unsigned documents.
 
-**Fix**: In `Profile/index.tsx`:
-- Import `useSearchParams` from react-router-dom
-- Read `tab` param, use it as initial value for a controlled `Tabs` component
-- Update URL when user switches tabs (optional but improves UX)
+**Fix**: In `ProfileDocuments.tsx`, show "Sign Now" for any unsigned document regardless of `hasSubmission`. Keep the "Ready to Sign" vs "Not Sent" badge distinction for informational purposes, but always render the button.
 
-### Issue 2: Current Password Field Is Collected But Never Verified
+### Issue 2: ProfileDocuments Shows "Processing..." for Signed Docs Without URL (LOW)
 
-**Evidence**: `ProfileSecurity.tsx` renders a "Current Password" input (line 98-108). The value is stored in `passwordData.currentPassword`. However, `handlePasswordChange` in `useProfileData.ts` (line 195) calls `supabase.auth.updateUser({ password: passwordData.newPassword })` without ever verifying the current password.
+**Evidence**: Line 250-251: when `doc.signed` is true but `doc.documentUrl` doesn't start with `https://`, it shows "Processing..." text. This could persist indefinitely if the signed URL is never populated (e.g., if PandaDoc webhook fails to deliver the URL).
 
-**Impact**: Low security risk — Supabase's `updateUser` requires a valid session JWT, so an attacker would need the session token anyway. However, the UX is misleading: the user fills in their current password thinking it's being verified, but it's silently ignored.
+**Fix**: Change "Processing..." to a "Download" button that invokes `get-agreement-document` edge function on-demand (same pattern as the signing modal's download button), rather than relying on a pre-cached URL.
 
-**Fix**: Two options:
-1. **Remove the "Current Password" field** — since Supabase doesn't support server-side current password verification via the client SDK, remove the misleading field
-2. **Add re-authentication** — call `supabase.auth.signInWithPassword()` first to verify the current password before calling `updateUser`
+### Issue 3: Admin Notification Bell Missing Document Signing Types (MEDIUM)
 
-Recommendation: Option 2 (verify current password via `signInWithPassword` before allowing the update). This is the secure approach.
+**Evidence**: `AdminNotificationBell.tsx` `getNotificationIcon` (line 27-38) only handles `task_assigned`, `task_completed`, and `remarketing_a_tier_match`. The `confirm-agreement-signed` edge function creates admin notifications with type `document_completed` (line 514), but this type has no icon case — it falls through to the default bell icon.
 
-### Issue 3: Notification Preferences Are localStorage-Only
+Additionally, `handleNotificationClick` (line 40-82) only handles notifications with `action_url` by navigating to the pipeline. Document signing notifications have no `action_url` set, so clicking them does nothing.
 
-**Evidence**: `Profile/index.tsx` lines 52-76 — notification preferences (email frequency, connection updates, message alerts, platform announcements) are stored exclusively in `localStorage`. They are never persisted to the database.
+**Fix**: 
+- Add `document_completed` and `document_signing_requested` cases to `getNotificationIcon` (use FileSignature or CheckCircle icons)
+- Add click handler for document notifications to navigate to `/admin/documents`
 
-**Impact**: 
-- Preferences are lost when user switches devices or clears browser data
-- Backend email systems can't read these preferences — they'll send notifications regardless of user settings
-- The UI gives false confidence that preferences are being respected
+### Issue 4: Admin Notification Bell Only Shows Unread Then 5 Read (COSMETIC)
 
-**Fix**: This is a known limitation but not urgent. For now, add a small disclaimer text below the Save button: "Preferences are saved locally to this browser." Long-term: persist to a `notification_preferences` table.
+**Evidence**: Line 198-229: read notifications are sliced to 5. Combined with unread shown above, the total visible is limited. The "View all notifications" link goes to `/admin/settings/notifications` — need to verify this route exists.
 
-### Issue 4: Notification Preferences Not Server-Enforced
+**Fix**: Not critical but worth noting. Verify `/admin/settings/notifications` route exists.
 
-Related to Issue 3 — even if we persist preferences to the database, the email notification edge functions (`send-connection-notification`, etc.) don't check user preferences before sending. This is a backend gap that should be noted but is out of scope for this phase.
+---
 
 ## Plan
 
-### File 1: `src/pages/Profile/index.tsx`
-- Import `useSearchParams` from `react-router-dom`
-- Read `?tab=` param to set initial tab value
-- Make `Tabs` controlled with `value` + `onValueChange`
-- Update URL search params when tab changes
+### File 1: `src/pages/Profile/ProfileDocuments.tsx`
+- Change line 241 condition from `!doc.signed && doc.hasSubmission` to `!doc.signed` — always show "Sign Now" for unsigned documents
+- Replace the "Processing..." fallback (line 250-251) with a "Download" button that calls `get-agreement-document` edge function on-demand
 
-### File 2: `src/pages/Profile/useProfileData.ts`
-- In `handlePasswordChange`: before calling `updateUser`, call `supabase.auth.signInWithPassword({ email: user.email, password: passwordData.currentPassword })` to verify the current password
-- If verification fails, set `passwordError` to "Current password is incorrect" and return early
-
-### File 3: `src/pages/Profile/index.tsx` (notifications section)
-- Add small muted text below Save button: "Preferences are saved locally to this browser and may not affect all email notifications."
+### File 2: `src/components/admin/AdminNotificationBell.tsx`
+- Add `document_completed` and `document_signing_requested` icon cases in `getNotificationIcon`
+- Add navigation to `/admin/documents` for document-type notifications in `handleNotificationClick`
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/Profile/index.tsx` | Add `useSearchParams` for tab deep-linking; add localStorage disclaimer to notifications |
-| `src/pages/Profile/useProfileData.ts` | Verify current password via `signInWithPassword` before allowing password change |
+| `src/pages/Profile/ProfileDocuments.tsx` | Show "Sign Now" for all unsigned docs; replace "Processing..." with on-demand download |
+| `src/components/admin/AdminNotificationBell.tsx` | Add document notification icon cases and click-to-navigate handler |
 
