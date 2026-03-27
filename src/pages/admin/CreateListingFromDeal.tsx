@@ -81,6 +81,14 @@ export default function CreateListingFromDeal() {
     },
   });
 
+  // Phase 61: Redirect to edit if a listing already exists for this deal
+  useEffect(() => {
+    if (existingListing?.id) {
+      toast.info('A listing already exists for this deal. Redirecting to edit.');
+      navigate(`/admin/marketplace/listings`, { replace: true });
+    }
+  }, [existingListing, navigate]);
+
   // Build the pre-filled listing from anonymized deal data
   const [prefilled, setPrefilled] = useState<AdminListing | null>(null);
 
