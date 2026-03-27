@@ -423,7 +423,7 @@ function DetailPanel({
 
             {/* Row 3: Deal Progress — full width */}
             <DealStatusSection
-              requestStatus={requestStatus as 'pending' | 'approved' | 'rejected'}
+              requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
               ndaSigned={ndaSigned}
               feeCovered={feeCovered}
               feeStatus={feeStatus}
