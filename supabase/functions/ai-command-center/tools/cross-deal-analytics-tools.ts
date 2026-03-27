@@ -258,7 +258,7 @@ async function universeComparison(
   );
 
   // Sort by conversion rate
-  universeStats.sort((a, b) => b.conversion_rate_pct - a.conversion_rate_pct);
+  universeStats.sort((a: { conversion_rate_pct: number }, b: { conversion_rate_pct: number }) => b.conversion_rate_pct - a.conversion_rate_pct);
 
   return {
     data: {

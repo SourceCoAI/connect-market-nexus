@@ -108,7 +108,7 @@ export function PipelineDetailDealInfo({ deal }: PipelineDetailDealInfoProps) {
           onScoreChange={async (newScore) => {
             await updateListing.mutateAsync({ deal_total_score: newScore });
           }}
-          hiredBroker={!!listing.hired_broker}
+          hiredBroker={!!(listing as Record<string, unknown>).hired_broker}
           onHiredBrokerChange={async (value) => {
             await updateListing.mutateAsync({ hired_broker: value });
           }}

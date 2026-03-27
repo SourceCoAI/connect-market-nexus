@@ -37,6 +37,27 @@ async function getAccessTokenWithTimeout(): Promise<string | null> {
 }
 
 /**
+ * Fallback: try to get a cached token without calling getSession(),
+ * which can deadlock. This reads from the storage layer directly.
+ */
+function getCachedAccessToken(): string | null {
+  try {
+    const storageKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+    if (!storageKey) return null;
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const token = parsed?.access_token ?? parsed?.currentSession?.access_token ?? null;
+    if (token) {
+      console.log('[invoke-with-timeout] Using cached token from localStorage');
+    }
+    return token;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Invoke a Supabase edge function using direct fetch() with a configurable
  * timeout via AbortController.
  *
@@ -60,16 +81,20 @@ export async function invokeWithTimeout<T = unknown>(
 
   try {
     // Get the current user's JWT with a hard 5s timeout
+    // If getSession() hangs (known Supabase deadlock), fall back to cached token
     let accessToken: string | null;
     try {
       accessToken = await getAccessTokenWithTimeout();
     } catch (sessionErr) {
-      return {
-        data: null,
-        error: sessionErr instanceof Error
+      console.warn('[invoke-with-timeout] getSession() failed, trying cached token…');
+      accessToken = getCachedAccessToken();
+      if (!accessToken) {
+        const error = sessionErr instanceof Error
           ? sessionErr
-          : new Error('Session retrieval failed'),
-      };
+          : new Error('Session retrieval failed');
+        console.error('[invoke-with-timeout] No cached token available either');
+        return { data: null, error };
+      }
     }
 
     if (!accessToken) {
@@ -97,7 +122,7 @@ export async function invokeWithTimeout<T = unknown>(
         const errorBody = await response.json();
         // If the server returned a categorized error code, use just the user-friendly
         // message without appending raw details (which are meant for logging).
-        if (errorBody?.error && errorBody?.code) {
+        if (errorBody?.error && (errorBody?.code || errorBody?.error_code)) {
           errorMessage = errorBody.error;
         } else {
           errorMessage = errorBody?.error

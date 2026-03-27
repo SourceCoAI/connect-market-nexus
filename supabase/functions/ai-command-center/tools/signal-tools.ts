@@ -202,7 +202,7 @@ async function getBuyerDecisions(
       .limit(limit);
     if (args.deal_id) approvedQuery = approvedQuery.eq('listing_id', args.deal_id as string);
     if (args.buyer_id) approvedQuery = approvedQuery.eq('buyer_id', args.buyer_id as string);
-    queries.push(approvedQuery);
+    queries.push(approvedQuery.then((r: unknown) => r));
   } else {
     queries.push(Promise.resolve({ data: [], error: null }));
   }

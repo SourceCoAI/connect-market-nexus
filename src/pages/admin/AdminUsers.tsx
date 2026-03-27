@@ -300,13 +300,18 @@ const AdminUsers = () => {
     toast({ title: `Starting scoring for ${unscoredCount} users…` });
     console.log('[AdminUsers] Starting bulk score for', unscoredCount, 'unscored users');
     try {
+      // Step 1: Verify auth is available before looping
+      toast({ title: 'Preparing auth…' });
+      console.log('[AdminUsers] Checking auth before scoring…');
+      
       for (let round = 0; round < 10; round++) {
         console.log('[AdminUsers] Scoring round', round + 1);
+        toast({ title: `Calling scorer (round ${round + 1})…` });
         const result = await invokeEdgeFunction<{ scored: number; results: unknown[] }>(
           'calculate-buyer-quality-score',
           {
             body: { batch_all_unscored: true, batch_limit: 30 },
-            timeoutMs: 30_000,   // 30s per attempt — fail fast
+            timeoutMs: 45_000,   // 45s per attempt
             maxRetries: 0,       // no retries for bulk admin action
           },
         );
@@ -320,7 +325,8 @@ const AdminUsers = () => {
       refetch();
     } catch (err) {
       console.error('[AdminUsers] Bulk scoring failed:', err);
-      toast({ variant: 'destructive', title: 'Scoring failed', description: (err as Error).message });
+      const msg = (err as Error).message || 'Unknown error';
+      toast({ variant: 'destructive', title: 'Scoring failed', description: msg });
     } finally {
       setIsBulkScoring(false);
     }
