@@ -354,10 +354,19 @@ export function useNuclearAuth() {
           );
         });
 
+      const scoringPromise = supabase.functions
+        .invoke('calculate-buyer-quality-score', {
+          body: { profile_id: data.user.id },
+        })
+        .catch((err) => {
+          console.warn('Buyer scoring failed (will be scored later):', err);
+        });
+
       await Promise.allSettled([
         welcomeEmailPromise,
         adminNotificationPromise,
         firmCreationPromise,
+        scoringPromise,
       ]);
     }
   }, []);

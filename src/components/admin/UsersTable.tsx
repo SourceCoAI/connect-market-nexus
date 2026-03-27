@@ -162,19 +162,22 @@ export function UsersTable({
                 </TableCell>
                 <TableCell className="py-2">
                   <div className="text-xs">
-                    {user.buyer_type === 'private_equity'
-                      ? 'PE'
-                      : user.buyer_type === 'family_office'
-                        ? 'FO'
-                        : user.buyer_type === 'search_fund'
-                          ? 'SF'
-                          : user.buyer_type === 'independent_sponsor'
-                            ? 'IS'
-                            : user.buyer_type === 'corporate'
-                              ? 'Corp'
-                              : user.buyer_type === 'individual_buyer'
-                                ? 'Indiv'
-                                : '\u2014'}
+                    {(() => {
+                      const bt = user.buyer_type;
+                      if (!bt) return '\u2014';
+                      // Handle both camelCase (signup) and snake_case (legacy/admin) values
+                      const map: Record<string, string> = {
+                        private_equity: 'PE', privateEquity: 'PE',
+                        family_office: 'FO', familyOffice: 'FO',
+                        search_fund: 'SF', searchFund: 'SF',
+                        independent_sponsor: 'IS', independentSponsor: 'IS',
+                        corporate: 'Corp',
+                        individual_buyer: 'Indiv', individual: 'Indiv',
+                        advisor: 'Advisor',
+                        business_owner: 'Owner', businessOwner: 'Owner',
+                      };
+                      return map[bt] || bt;
+                    })()}
                   </div>
                 </TableCell>
                 <TableCell className="py-2">
