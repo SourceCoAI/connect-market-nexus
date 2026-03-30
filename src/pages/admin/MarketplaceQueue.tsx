@@ -21,6 +21,7 @@ import {
   Eye,
   CheckCircle2,
 } from 'lucide-react';
+import { CopyDealInfoButton } from './remarketing/ReMarketingDealDetail/CopyDealInfoButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
