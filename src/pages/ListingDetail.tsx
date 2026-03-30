@@ -41,6 +41,7 @@ const ListingDetail = () => {
   // Click tracking for engagement analytics
   const { getClickData, resetTracking } = useClickTracking(true);
   const { sessionId } = useSessionContext();
+  const queryClient = useQueryClient();
   const hasFlushOnUnmountRef = useRef(false);
 
   const { useListing, useRequestConnection, useConnectionStatus } = useMarketplace();
@@ -163,7 +164,11 @@ const ListingDetail = () => {
       <NdaGateModal
         userId={user!.id}
         firmId={ndaStatus.firmId}
-        onSigned={() => {/* NDA signed — component will re-render with updated ndaStatus */}}
+        onSigned={() => {
+          queryClient.invalidateQueries({ queryKey: ['buyer-nda-status'] });
+          queryClient.invalidateQueries({ queryKey: ['my-agreement-status'] });
+          queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
+        }}
       />
     );
   }
