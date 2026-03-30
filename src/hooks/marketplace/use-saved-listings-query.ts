@@ -54,19 +54,19 @@ export const useSavedListings = (filters: FilterOptions = {}) => {
         query = query.eq('location', filters.location);
       }
 
-      if (filters.revenueMin) {
+      if (filters.revenueMin != null) {
         query = query.gte('revenue', filters.revenueMin);
       }
 
-      if (filters.revenueMax) {
+      if (filters.revenueMax != null) {
         query = query.lte('revenue', filters.revenueMax);
       }
 
-      if (filters.ebitdaMin) {
+      if (filters.ebitdaMin != null) {
         query = query.gte('ebitda', filters.ebitdaMin);
       }
 
-      if (filters.ebitdaMax) {
+      if (filters.ebitdaMax != null) {
         query = query.lte('ebitda', filters.ebitdaMax);
       }
 
