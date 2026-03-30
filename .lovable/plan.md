@@ -1,106 +1,36 @@
 
 
-# Add "Copy Deal Info" Button to Deal Detail Page
+# Fix: Copy Deal Info — Empty Output + service_mix Crash
 
-## What It Does
+## Root Cause
 
-Adds a clipboard button to the deal detail header that copies **all deal information** as structured plain text — ready to paste into ChatGPT, another Lovable project, email, or any text field.
+Two issues:
 
-## Output Format
+1. **Missing data in copy output**: `DealHeader` declares a narrow `DealHeaderDeal` interface with only ~10 fields. It passes this to `CopyDealInfoButton`, which accepts `CopyDealDeal` (also narrow — missing description, executive_summary, etc. from the actual deal object). At runtime the full deal IS passed through, but the format function only reads the fields it knows about — and many are simply not being read because the interface is too restrictive.
 
-```text
-DEAL: Saks Metering
-=====================================
+2. **`service_mix?.join is not a function`**: The `service_mix` column comes from Supabase as a JSON value. Depending on how it was stored, it may arrive as a string (e.g. `'["plumbing","HVAC"]'`) rather than a native JS array. Calling `.join()` on a string crashes.
 
-COMPANY OVERVIEW
-Company Name: Saks Metering
-Website: saksmetering.com
-Industry: Meter Installation Services
-Category: Energy services
-Headquarters: Maspeth, NY
-Address: Maspeth, NY, United States
-Founded: —
-Status: Active
+## Fix Plan
 
-EMPLOYEES
-Full-Time: 34
-Part-Time: —
-LinkedIn Employees: 34
-Employee Range: 11-50
+### File 1: `CopyDealInfoButton.tsx`
 
-FINANCIALS
-Revenue: $X.XM
-EBITDA: $X.XM
-EBITDA Margin: XX.X%
-Quality Score: 87/100
+- **Widen the deal interface** to accept `Record<string, unknown>` (or a much broader interface) so it captures all fields from the actual deal object at runtime — description, executive_summary, service_mix, geographic_states, owner_notes, general_notes, etc.
+- **Safe array handling**: Replace `deal.service_mix?.join(', ')` and `deal.geographic_states?.join(', ')` with a helper that handles both string and array inputs:
+  ```ts
+  function safeJoin(val: unknown): string | null {
+    if (Array.isArray(val)) return val.join(', ');
+    if (typeof val === 'string') {
+      try { const parsed = JSON.parse(val); if (Array.isArray(parsed)) return parsed.join(', '); } catch {}
+      return val;
+    }
+    return null;
+  }
+  ```
+- **Add all missing fields** to the format function: `owner_notes`, `general_notes`, `internal_notes`, `customer_types`, `growth_trajectory`, `ownership_structure`, `key_risks`, `technology_systems`, `real_estate_info`, `owner_goals`, `special_requirements`, `revenue_model`, `business_model`, `number_of_locations`, `services`, etc.
 
-ONLINE PRESENCE
-LinkedIn: saksmetering
-Google Rating: 4.1 (17 reviews)
-Google Maps: [url]
+### File 2: `DealHeader.tsx`
 
-CONTACT
-Name: [main_contact_name]
-Email: [main_contact_email]
-Phone: [main_contact_phone]
+- Change the `CopyDealInfoButton` prop to pass the full deal object without narrowing. Cast it or use a broader type so all fields flow through.
 
-EXECUTIVE SUMMARY
-[full executive_summary text]
-
-DESCRIPTION
-[full description text]
-
-SERVICES & BUSINESS MODEL
-[service_mix]
-
-GEOGRAPHIC COVERAGE
-States: [geographic_states joined]
-
-CUSTOMER INFO
-Types: [customer_types]
-Concentration: [customer_concentration]
-Geography: [customer_geography]
-
-OWNER INFO
-Goals: [owner_goals]
-Ownership Structure: [ownership_structure]
-Special Requirements: [special_requirements]
-Owner Response: [owner_response]
-
-ADDITIONAL DETAILS
-Key Risks: [key_risks]
-Technology: [technology_systems]
-Real Estate: [real_estate_info]
-Growth: [growth_trajectory]
-
-INTERNAL NOTES
-[internal_notes]
-[general_notes]
-[owner_notes]
-```
-
-## Implementation
-
-### File 1: `src/pages/admin/remarketing/ReMarketingDealDetail/CopyDealInfoButton.tsx` (NEW)
-
-- A button component that takes the `deal` object
-- Builds the structured text string from all available fields, skipping nulls
-- Uses `navigator.clipboard.writeText()` + sonner toast confirmation
-- Icon: `Copy` from lucide-react, small outline button style
-
-### File 2: `src/pages/admin/remarketing/ReMarketingDealDetail/DealHeader.tsx`
-
-- Import and render `CopyDealInfoButton` next to the existing "Mark Not a Fit" / "New Task" buttons in the header
-- Pass the `deal` object through
-
-### File 3: `src/pages/admin/MarketplaceQueue.tsx`
-
-- Add the same copy button as an icon button on each queue card row (next to the external link / remove buttons), so you can copy deal info directly from the queue without opening the deal
-
-### Technical Details
-
-- Helper function `formatDealAsText(deal)` in the new component handles all field mapping
-- Uses the existing `formatCurrency` helper for financial values
-- Skips any field that is null/undefined/empty — no "undefined" in output
-- No new dependencies needed
+Two files changed. Fixes both the empty/lorem-ipsum output and the runtime crash.
 
