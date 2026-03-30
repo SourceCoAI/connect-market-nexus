@@ -143,8 +143,10 @@ async function fetchListings(state: PaginationState, buyerTier?: number | null) 
       return (tier12Counts[listing.id] || 0) < 3;
     });
 
+    // Phase 103: Apply client-side pagination after filtering
+    const paged = filtered.slice(offset, offset + state.perPage);
     return {
-      listings: filtered,
+      listings: paged,
       totalItems: filtered.length,
     };
   }
