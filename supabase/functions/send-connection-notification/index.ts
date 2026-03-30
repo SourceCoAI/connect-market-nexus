@@ -143,16 +143,19 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    // AUTH: Requires authenticated user (users submit connection requests)
-    const auth = await requireAuth(req);
-    if (!auth.authenticated) {
-      return new Response(JSON.stringify({ error: auth.error }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
-    }
-
     const requestData: ConnectionNotificationRequest = await req.json();
+
+    // Phase 88: Allow unauthenticated calls for admin_notification type (landing page).
+    // Other notification types (user_confirmation, approval_notification) still require auth.
+    if (requestData.type !== 'admin_notification') {
+      const auth = await requireAuth(req);
+      if (!auth.authenticated) {
+        return new Response(JSON.stringify({ error: auth.error }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+    }
     const {
       type,
       recipientEmail,
@@ -234,7 +237,8 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      const buyerMessagesUrl = `https://marketplace.sourcecodeals.com/messages`;
+      // Phase 90: CTA links to /my-deals (deal command center) instead of /messages
+      const buyerMessagesUrl = `https://marketplace.sourcecodeals.com/my-deals`;
       const subject = `You're in — introduction to ${escapeHtml(listingTitle)} approved.`;
       const htmlContent = `
 <!DOCTYPE html>

@@ -117,6 +117,23 @@ export function useConnectionRequestActions({
           });
       }
 
+      // Phase 87: Insert persistent user_notification so buyer's bell shows approval
+      if (user.id) {
+        supabase
+          .from('user_notifications')
+          .insert({
+            user_id: user.id,
+            notification_type: 'request_approved',
+            title: 'Connection Approved',
+            message: `Your introduction request for "${listingTitle}" has been approved.`,
+            connection_request_id: requestId || null,
+            metadata: { listing_id: listingId },
+          })
+          .then(({ error: notifErr }) => {
+            if (notifErr) console.error('[Phase 87] Failed to insert approval notification:', notifErr);
+          });
+      }
+
       toast({ title: 'Request approved', description: 'Buyer has been notified.' });
     } catch (err) {
       toast({
@@ -160,6 +177,24 @@ export function useConnectionRequestActions({
           })
           .catch((emailErr) => {
             console.error('[rejection-email] Failed to send rejection email:', emailErr);
+          });
+      }
+
+      // Phase 87: Insert persistent user_notification so buyer's bell shows rejection
+      if (user.id) {
+        const rejListingTitle = listing?.title || 'the listing';
+        supabase
+          .from('user_notifications')
+          .insert({
+            user_id: user.id,
+            notification_type: 'status_changed',
+            title: 'Connection Update',
+            message: `Your introduction request for "${rejListingTitle}" was not approved at this time.`,
+            connection_request_id: requestId || null,
+            metadata: { listing_id: listing?.id },
+          })
+          .then(({ error: notifErr }) => {
+            if (notifErr) console.error('[Phase 87] Failed to insert rejection notification:', notifErr);
           });
       }
 
