@@ -63,9 +63,15 @@ export function BuyerDataRoom({ dealId }: BuyerDataRoomProps) {
     enabled: !!dealId && !!user?.id,
   });
 
-  // Fetch documents (RLS will filter based on access)
+  // Phase 102: Build allowed categories from access toggles
+  const allowedCategories = new Set<string>();
+  if (access?.can_view_teaser) allowedCategories.add('teaser');
+  if (access?.can_view_full_memo) allowedCategories.add('full_memo');
+  if (access?.can_view_data_room) allowedCategories.add('data_room');
+
+  // Fetch documents filtered by status, then client-filter by category
   const { data: documents = [], isLoading: _isLoading } = useQuery({
-    queryKey: ['buyer-data-room-documents', dealId],
+    queryKey: ['buyer-data-room-documents', dealId, Array.from(allowedCategories).sort().join(',')],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('data_room_documents')
@@ -73,13 +79,17 @@ export function BuyerDataRoom({ dealId }: BuyerDataRoomProps) {
           'id, folder_name, file_name, file_type, file_size_bytes, document_category, allow_download, created_at',
         )
         .eq('deal_id', dealId)
+        .eq('status', 'active')
         .order('folder_name')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as BuyerDocument[];
+      // Filter by allowed categories based on buyer's access toggles
+      return (data as BuyerDocument[]).filter(
+        (doc) => allowedCategories.has(doc.document_category),
+      );
     },
-    enabled: !!dealId && !!access,
+    enabled: !!dealId && !!access && allowedCategories.size > 0,
   });
 
   // Fetch published memos

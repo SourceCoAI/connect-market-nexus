@@ -156,6 +156,44 @@ export default function DealLandingPage() {
   const { data: relatedDeals } = useRelatedDeals(id, deal?.featured_deal_ids);
   const hasTrackedView = useRef(false);
 
+  // Phase 101: Dynamic SEO meta tags for social sharing
+  useEffect(() => {
+    if (!deal) return;
+    const originalTitle = document.title;
+    document.title = `${deal.title} — SourceCo`;
+
+    const setMeta = (property: string, content: string) => {
+      let el = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute('property', property);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    const description = deal.description
+      ? (deal.description as string).slice(0, 155) + '…'
+      : `Explore this vetted acquisition opportunity on SourceCo.`;
+    setMeta('og:title', `${deal.title} — SourceCo`);
+    setMeta('og:description', description);
+    setMeta('og:type', 'website');
+    setMeta('og:url', window.location.href);
+
+    // Also set standard description meta
+    let descEl = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+    if (!descEl) {
+      descEl = document.createElement('meta');
+      descEl.setAttribute('name', 'description');
+      document.head.appendChild(descEl);
+    }
+    descEl.setAttribute('content', description);
+
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [deal]);
+
   // GAP 9: Track anonymous landing page views per listing
   // M-8 FIX: Skip tracking for admin users to prevent inflating view counts
   useEffect(() => {
