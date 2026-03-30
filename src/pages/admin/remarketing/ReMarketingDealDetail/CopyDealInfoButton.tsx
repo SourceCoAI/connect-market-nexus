@@ -33,7 +33,6 @@ interface CopyDealDeal {
   geographic_states?: string[] | null;
   deal_source?: string | null;
   is_priority_target?: boolean | null;
-  [key: string]: unknown;
 }
 
 function line(label: string, value: unknown): string {
