@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState, useEffect, useRef } from "react";
 import { FilterOptions } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
