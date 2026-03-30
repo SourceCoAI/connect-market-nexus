@@ -415,6 +415,7 @@ const MarketplaceQueue = () => {
                           );
                         })()
                       )}
+                      <CopyDealInfoButton deal={deal} iconOnly />
                       {deal.website && (
                         <Button
                           variant="ghost"

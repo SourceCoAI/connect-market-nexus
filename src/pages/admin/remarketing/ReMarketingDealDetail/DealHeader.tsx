@@ -192,6 +192,7 @@ export function DealHeader({
         })()}
       </div>
       <div className="flex items-center gap-2">
+        <CopyDealInfoButton deal={deal} />
         {tier && <ScoreBadge variant="tier" tier={tier as ScoreTier} size="lg" />}
         {deal.not_a_fit ? (
           onRemoveNotAFit && (
