@@ -124,7 +124,7 @@ export function InvestmentFitScore({
     let revenueScore = 0;
     let revenueDetails = '';
 
-    if (currentUser.revenue_range_min || currentUser.revenue_range_max) {
+    if (currentUser.revenue_range_min != null || currentUser.revenue_range_max != null) {
       const minRange = currentUser.revenue_range_min
         ? parseCurrency(String(currentUser.revenue_range_min))
         : 0;
