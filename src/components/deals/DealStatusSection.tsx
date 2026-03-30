@@ -28,6 +28,7 @@ function getCurrentStageIndex(
 ): number {
   if (status === 'rejected') return 0;
   if (status === 'approved') return 3;
+  if (status === 'on_hold') return 2;
   const needsFee = feeStatus === 'sent' && !feeCovered;
   if (!ndaSigned || needsFee) return 1;
   return 2;
@@ -35,12 +36,14 @@ function getCurrentStageIndex(
 
 function getStageExplanation(
   index: number,
-  isRejected: boolean,
+  status: string,
   ndaSigned: boolean,
   feeCovered: boolean,
   feeStatus?: string,
 ): string {
-  if (isRejected) return 'This opportunity is no longer available at this time.';
+  if (status === 'rejected') return 'This opportunity is no longer available at this time.';
+  if (status === 'on_hold')
+    return 'Your request is being evaluated. We\'ll notify you as soon as there\'s an update.';
   if (index === 3)
     return 'Great news — the owner selected your firm. Expect an email from our team shortly.';
   if (index === 1) {
@@ -61,14 +64,14 @@ export function DealStatusSection({
   requestCreatedAt,
 }: DealStatusSectionProps) {
   const currentIndex = getCurrentStageIndex(requestStatus, ndaSigned, feeCovered, feeStatus);
-  const isRejected = requestStatus === 'rejected';
   const explanation = getStageExplanation(
     currentIndex,
-    isRejected,
+    requestStatus,
     ndaSigned,
     feeCovered,
     feeStatus,
   );
+  const isRejected = requestStatus === 'rejected';
 
   return (
     <div className="rounded-lg border border-[#F0EDE6] bg-white p-5">

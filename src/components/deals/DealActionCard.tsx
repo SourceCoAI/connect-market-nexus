@@ -40,7 +40,7 @@ export function DealActionCard({
         icon: XCircle,
         title: 'Not Selected',
         description:
-          'The owner has chosen another buyer for this opportunity. This reflects deal-specific fit, not your qualifications.',
+          'This opportunity is no longer available at this time. This reflects deal-specific fit, not your qualifications.',
         variant: 'muted' as const,
         unlock: null,
         cta: null,
