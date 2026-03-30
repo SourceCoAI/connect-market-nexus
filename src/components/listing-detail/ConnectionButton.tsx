@@ -202,9 +202,9 @@ const ConnectionButton = ({
     return (
       <div className="space-y-3">
         <div className="w-full px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-center">
-          <p className="text-sm font-semibold text-red-700">Owner selected another buyer</p>
+          <p className="text-sm font-semibold text-red-700">This opportunity is no longer available</p>
           <p className="text-xs text-red-600 mt-0.5">
-            The business owner has moved forward with another buyer on this one. Browse other deals
+            This listing is no longer available for introduction requests. Browse other deals
             — our team sources new opportunities regularly.
           </p>
         </div>

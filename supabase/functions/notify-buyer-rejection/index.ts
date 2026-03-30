@@ -40,7 +40,7 @@ function buildRejectionHtml(buyerName: string, companyName: string): string {
       </p>
 
       <p style="margin: 0 0 16px 0;">
-        The seller has elected to move forward with another buyer at this stage. We are intentional about limiting buyer introductions so that every connection made is a genuine fit for both sides &mdash; and we've noted your interest should anything change.
+        After careful review, this opportunity is no longer available for your profile at this time. We are intentional about limiting buyer introductions so that every connection made is a genuine fit for both sides &mdash; and we've noted your interest should anything change.
       </p>
 
       <p style="margin: 0 0 16px 0;">
@@ -71,7 +71,7 @@ function buildPlainText(buyerName: string, companyName: string): string {
 
 Thank you for your interest in ${companyName}.
 
-The seller has elected to move forward with another buyer at this stage. We are intentional about limiting buyer introductions so that every connection made is a genuine fit for both sides — and we've noted your interest should anything change.
+After careful review, this opportunity is no longer available for your profile at this time. We are intentional about limiting buyer introductions so that every connection made is a genuine fit for both sides — and we've noted your interest should anything change.
 
 We're committed to finding you the right match.
 

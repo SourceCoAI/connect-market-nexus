@@ -40,7 +40,7 @@ function getStageExplanation(
   feeCovered: boolean,
   feeStatus?: string,
 ): string {
-  if (isRejected) return 'The owner selected another buyer for this opportunity.';
+  if (isRejected) return 'This opportunity is no longer available at this time.';
   if (index === 3)
     return 'Great news — the owner selected your firm. Expect an email from our team shortly.';
   if (index === 1) {
