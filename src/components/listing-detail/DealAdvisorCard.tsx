@@ -2,7 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import { useAdminProfiles } from '@/hooks/admin/use-admin-profiles';
 import { useConnectionStatus } from '@/hooks/marketplace/use-connections';
 import { getAdminProfile } from '@/lib/admin-profiles';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Tooltip,
   TooltipContent,
@@ -59,7 +59,6 @@ export function DealAdvisorCard({ presentedByAdminId, listingId }: DealAdvisorCa
       
       <div className="flex items-start gap-2.5 mb-3">
         <Avatar className="w-10 h-10 flex-shrink-0">
-          <AvatarImage src="/avatars/tomos-mughan.jpg" alt={advisorProfile.displayName} />
           <AvatarFallback className="bg-primary/10 text-primary text-xs">
             {advisorProfile.displayName.split(' ').map(n => n[0]).join('')}
           </AvatarFallback>

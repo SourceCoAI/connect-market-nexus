@@ -124,7 +124,7 @@ export function InvestmentFitScore({
     let revenueScore = 0;
     let revenueDetails = '';
 
-    if (currentUser.revenue_range_min || currentUser.revenue_range_max) {
+    if (currentUser.revenue_range_min != null || currentUser.revenue_range_max != null) {
       const minRange = currentUser.revenue_range_min
         ? parseCurrency(String(currentUser.revenue_range_min))
         : 0;
@@ -284,7 +284,7 @@ export function InvestmentFitScore({
 
   function getProfileCompleteness(): number {
     const fields = [
-      currentUser.revenue_range_min || currentUser.revenue_range_max,
+      currentUser.revenue_range_min != null || currentUser.revenue_range_max != null,
       userTargetLocations.length > 0,
       userCategories.length > 0,
       currentUser.investment_size,

@@ -89,11 +89,11 @@ export function computeMatchScore(
   }
 
   // ── Revenue fit (2 pts) ─────────────────────────────────────────────
-  const revMin = revenueMin ? parseFloat(String(revenueMin)) : null;
-  const revMax = revenueMax ? parseFloat(String(revenueMax)) : null;
-  if (listing.revenue && (revMin || revMax)) {
+  const revMin = revenueMin != null ? parseFloat(String(revenueMin)) : null;
+  const revMax = revenueMax != null ? parseFloat(String(revenueMax)) : null;
+  if (listing.revenue != null && (revMin != null || revMax != null)) {
     const inRange =
-      (!revMin || listing.revenue >= revMin) && (!revMax || listing.revenue <= revMax);
+      (revMin == null || listing.revenue >= revMin) && (revMax == null || listing.revenue <= revMax);
     if (inRange) {
       score += 2;
       reasons.push({
@@ -113,10 +113,10 @@ export function computeMatchScore(
   }
 
   // ── EBITDA fit (2 pts) ──────────────────────────────────────────────
-  const ebMin = ebitdaMin ? parseFloat(String(ebitdaMin)) : null;
-  const ebMax = ebitdaMax ? parseFloat(String(ebitdaMax)) : null;
-  if (listing.ebitda && (ebMin || ebMax)) {
-    const inRange = (!ebMin || listing.ebitda >= ebMin) && (!ebMax || listing.ebitda <= ebMax);
+  const ebMin = ebitdaMin != null ? parseFloat(String(ebitdaMin)) : null;
+  const ebMax = ebitdaMax != null ? parseFloat(String(ebitdaMax)) : null;
+  if (listing.ebitda != null && (ebMin != null || ebMax != null)) {
+    const inRange = (ebMin == null || listing.ebitda >= ebMin) && (ebMax == null || listing.ebitda <= ebMax);
     if (inRange) {
       score += 2;
       reasons.push({
@@ -201,17 +201,17 @@ export function extractBuyerCriteria(user: User | null) {
       ? [user.target_locations]
       : [];
 
-  const revenueMin = user.revenue_range_min ? parseFloat(String(user.revenue_range_min)) : null;
-  const revenueMax = user.revenue_range_max ? parseFloat(String(user.revenue_range_max)) : null;
-  const ebitdaMin = user.ebitda_min ? parseFloat(String(user.ebitda_min)) : null;
-  const ebitdaMax = user.ebitda_max ? parseFloat(String(user.ebitda_max)) : null;
+  const revenueMin = user.revenue_range_min != null ? parseFloat(String(user.revenue_range_min)) : null;
+  const revenueMax = user.revenue_range_max != null ? parseFloat(String(user.revenue_range_max)) : null;
+  const ebitdaMin = user.ebitda_min != null ? parseFloat(String(user.ebitda_min)) : null;
+  const ebitdaMax = user.ebitda_max != null ? parseFloat(String(user.ebitda_max)) : null;
   const dealIntent = user.deal_intent || null;
 
   const criteriaCount = [
     buyerCategories.length > 0,
     buyerLocations.length > 0,
-    revenueMin || revenueMax,
-    ebitdaMin || ebitdaMax,
+    revenueMin != null || revenueMax != null,
+    ebitdaMin != null || ebitdaMax != null,
     dealIntent,
   ].filter(Boolean).length;
 

@@ -203,7 +203,7 @@ export const DealSourcingCriteriaDialog = ({
                 </div>
               )}
 
-            {(user?.revenue_range_min || user?.revenue_range_max) && (
+            {(user?.revenue_range_min != null || user?.revenue_range_max != null) && (
               <div className="space-y-2">
                 <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-[0.08em]">
                   Revenue Target
@@ -240,7 +240,7 @@ export const DealSourcingCriteriaDialog = ({
               />
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-3 sm:pt-4 space-y-3 sm:space-y-4">
-              {(user?.ebitda_min || user?.ebitda_max) && (
+              {(user?.ebitda_min != null || user?.ebitda_max != null) && (
                 <div className="space-y-2">
                   <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-[0.08em]">
                     EBITDA Target
@@ -257,7 +257,7 @@ export const DealSourcingCriteriaDialog = ({
                 </div>
               )}
 
-              {(user?.target_deal_size_min || user?.target_deal_size_max) && (
+              {(user?.target_deal_size_min != null || user?.target_deal_size_max != null) && (
                 <div className="space-y-2">
                   <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-[0.08em]">
                     Deal Size Range
