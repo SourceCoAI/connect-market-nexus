@@ -20,6 +20,7 @@ import {
   XCircle,
   Undo2,
   Scale,
+  Clock,
 } from 'lucide-react';
 import type { ConnectionRequestActionsProps } from './types';
 
@@ -33,6 +34,7 @@ interface ApprovalSectionProps {
   handleAccept: () => void;
   handleReject: () => void;
   handleResetToPending: () => void;
+  handleOnHold?: () => void;
   // Mutation states
   isStatusPending: boolean;
   isRejecting: boolean;
@@ -54,6 +56,7 @@ export function ApprovalSection({
   handleAccept,
   handleReject,
   handleResetToPending,
+  handleOnHold,
   isStatusPending,
   isRejecting,
   showRejectDialog,
@@ -102,6 +105,17 @@ export function ApprovalSection({
                 <XCircle className="h-4 w-4 mr-1.5" />
                 Decline
               </Button>
+              {handleOnHold && (
+                <Button
+                  variant="outline"
+                  onClick={handleOnHold}
+                  disabled={isStatusPending}
+                  className="border-amber-300 text-amber-700 bg-transparent hover:bg-amber-50 h-10 px-5 text-sm"
+                >
+                  <Clock className="h-4 w-4 mr-1.5" />
+                  On Hold
+                </Button>
+              )}
               {flagButton}
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-foreground/5 rounded-full px-4 py-1.5">
                 Awaiting Action
@@ -159,7 +173,7 @@ export function ApprovalSection({
         </div>
       )}
 
-      {/* Status banner — on hold */}
+      {/* Status banner — on hold (Phase 95 + 97: add Accept/Decline alongside Undo) */}
       {requestStatus === 'on_hold' && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -171,15 +185,34 @@ export function ApprovalSection({
               <p className="text-xs text-amber-700">This request is paused for review.</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleResetToPending}
-            disabled={isStatusPending}
-            className="text-xs h-7 text-amber-700 hover:text-amber-800 hover:bg-amber-200/50"
-          >
-            <Undo2 className="h-3 w-3 mr-1" /> Undo
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleAccept}
+              disabled={isStatusPending}
+              className="bg-emerald-600 text-white hover:bg-emerald-700 text-xs h-7 px-3"
+            >
+              <CheckCircle className="h-3 w-3 mr-1" /> Accept
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowRejectDialog(true)}
+              disabled={isStatusPending}
+              className="text-xs h-7 px-3 border-red-200 text-red-700 hover:bg-red-50"
+            >
+              <XCircle className="h-3 w-3 mr-1" /> Decline
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleResetToPending}
+              disabled={isStatusPending}
+              className="text-xs h-7 text-amber-700 hover:text-amber-800 hover:bg-amber-200/50"
+            >
+              <Undo2 className="h-3 w-3 mr-1" /> Undo
+            </Button>
+          </div>
         </div>
       )}
 

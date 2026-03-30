@@ -6,6 +6,8 @@
 import { useState, useCallback } from "react";
 import { AdminConnectionRequest } from "@/types/admin";
 import { useUpdateConnectionRequestStatus } from "@/hooks/admin/use-connection-request-status";
+import { useSendMessage } from "@/hooks/use-connection-messages";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 export function useConnectionRequestsFilters(
@@ -18,6 +20,7 @@ export function useConnectionRequestsFilters(
   const [bulkRejectNote, setBulkRejectNote] = useState("");
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(false);
   const updateStatus = useUpdateConnectionRequestStatus();
+  const sendMessage = useSendMessage();
   const { toast } = useToast();
 
   // Filter requests by selected sources, then by flagged status
@@ -75,6 +78,77 @@ export function useConnectionRequestsFilters(
       for (const id of ids) {
         try {
           await updateStatus.mutateAsync({ requestId: id, status, notes });
+
+          // Find the request to get buyer/listing info for emails & notifications
+          const req = requests.find((r) => r.id === id);
+          if (!req) { successCount++; continue; }
+
+          const buyerName = req.user
+            ? `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim()
+            : '';
+          const listingTitle = req.listing?.title || 'the listing';
+
+          // Send system message in deal thread
+          try {
+            await sendMessage.mutateAsync({
+              connection_request_id: id,
+              body: status === 'approved'
+                ? 'We have sent you a brief overview of the deal. Please let us know if you are still interested.'
+                : notes || 'Request declined.',
+              sender_role: 'admin',
+              message_type: 'decision',
+            });
+          } catch { /* best-effort */ }
+
+          // Send email notification
+          const buyerEmail = req.user?.email;
+          if (buyerEmail) {
+            if (status === 'approved') {
+              supabase.functions
+                .invoke('send-connection-notification', {
+                  body: {
+                    type: 'approval_notification',
+                    recipientEmail: buyerEmail,
+                    recipientName: buyerName || buyerEmail,
+                    requesterName: buyerName || buyerEmail,
+                    requesterEmail: buyerEmail,
+                    listingTitle,
+                    listingId: req.listing?.id,
+                    requestId: id,
+                  },
+                })
+                .catch(() => {});
+            } else {
+              supabase.functions
+                .invoke('notify-buyer-rejection', {
+                  body: {
+                    connectionRequestId: id,
+                    buyerEmail,
+                    buyerName: buyerName || buyerEmail,
+                    companyName: listingTitle,
+                  },
+                })
+                .catch(() => {});
+            }
+          }
+
+          // Insert persistent user_notification
+          if (req.user?.id) {
+            supabase
+              .from('user_notifications')
+              .insert({
+                user_id: req.user.id,
+                notification_type: status === 'approved' ? 'request_approved' : 'status_changed',
+                title: status === 'approved' ? 'Connection Approved' : 'Connection Update',
+                message: status === 'approved'
+                  ? `Your introduction request for "${listingTitle}" has been approved.`
+                  : `Your introduction request for "${listingTitle}" was not approved at this time.`,
+                connection_request_id: id,
+                metadata: { listing_id: req.listing?.id },
+              })
+              .then(() => {});
+          }
+
           successCount++;
         } catch {
           errorCount++;
@@ -91,7 +165,7 @@ export function useConnectionRequestsFilters(
         description: `${successCount} request${successCount !== 1 ? "s" : ""} ${label}${errorCount > 0 ? `, ${errorCount} failed` : ""}.`,
       });
     },
-    [selectedIds, updateStatus, toast],
+    [selectedIds, requests, updateStatus, sendMessage, toast],
   );
 
   const allSelected =
