@@ -1,36 +1,37 @@
 
 
-# Phase 99: Soften Rejection Copy — Final Remaining Item
+# Phase 100: Remaining Copy & UX Gaps in Connection Request Lifecycle
 
-## Status of All Phases
+## Verification: All Phases 86-99 Implemented Correctly
 
-| Phase | Status |
-|-------|--------|
-| 93 — Bulk action emails/notifications | ✅ Done |
-| 94 — Undo system message | ✅ Done |
-| 95 — On Hold button | ✅ Done |
-| 96 — config.toml for notify-buyer-rejection | ✅ Already existed |
-| 97 — Accept/Decline on on_hold banner | ✅ Done |
-| 98 — Re-request verification | ✅ No change needed |
-| **99 — Soften rejection copy** | **Remaining** |
+Every phase has been verified in the codebase:
+- **Phase 86**: Realtime `user_id` filter in place, admin toasts suppressed
+- **Phase 87**: `user_notifications` inserted on approve/reject in individual actions
+- **Phase 88**: `admin_notification` type bypasses auth in `send-connection-notification`
+- **Phase 90**: Approval email CTA points to `/my-deals`
+- **Phase 93**: Bulk actions send emails, notifications, and system messages
+- **Phase 94**: Undo inserts system message + notification
+- **Phase 95/97**: On Hold button on pending, Accept/Decline on on_hold banner
+- **Phase 99**: Rejection copy softened in `ConnectionButton`, `DealStatusSection`, and `notify-buyer-rejection`
 
-## Phase 99: What Changes
+## Two Remaining Issues Found
 
-Three locations use misleading "owner selected another buyer" language. Rejections happen for many reasons — bad fit, incomplete profile, timing. The copy should be neutral.
+### Issue 1: `DealActionCard.tsx` still uses old rejection/approval copy (Phase 99 missed this file)
 
-### Changes
+**Line 42-43**: `"The owner has chosen another buyer for this opportunity. This reflects deal-specific fit, not your qualifications."`
+Should match Phase 99 neutral language: `"This opportunity is no longer available at this time. This reflects deal-specific fit, not your qualifications."`
 
-**1. `ConnectionButton.tsx` (lines 205-209)**
-- Current: "Owner selected another buyer" / "The business owner has moved forward with another buyer"
-- New: "This opportunity is no longer available" / "This listing is no longer available for introduction requests. Browse other deals — our team sources new opportunities regularly."
+**Line 66-67**: `"Great news — the owner selected your firm..."` — This is the *approved* state and is accurate (the owner did select them), so no change needed.
 
-**2. `DealStatusSection.tsx` (line 43)**
-- Current: "The owner selected another buyer for this opportunity."
-- New: "This opportunity is no longer available at this time."
+### Issue 2: `DealStatusSection.tsx` has no `on_hold` stage explanation
 
-**3. `notify-buyer-rejection/index.ts` (lines 43, 74)**
-- Current: "The seller has elected to move forward with another buyer at this stage."
-- New: "After careful review, this opportunity is no longer available for your profile at this time. We are intentional about limiting buyer introductions so that every connection made is a genuine fit for both sides — and we've noted your interest should anything change."
+`getCurrentStageIndex` doesn't handle `on_hold` — it falls through to pending logic (stage 1 or 2 based on NDA/fee status). The stage explanation then says "Sign your NDA" or "being presented to the owner" which may be misleading for an on-hold request. Should show a distinct message like "Your request is being evaluated — we'll update you shortly."
 
-All three files updated, edge function redeployed. This is the last item from the Phase 93-99 plan.
+## Changes
+
+**1. `DealActionCard.tsx` (line 42-43)** — Update rejected description to neutral copy matching Phase 99.
+
+**2. `DealStatusSection.tsx`** — Add `on_hold` handling in both `getCurrentStageIndex` (return stage 2 regardless of NDA/fee) and `getStageExplanation` (add on_hold-specific message).
+
+Two files, two small edits. No edge function changes needed.
 
