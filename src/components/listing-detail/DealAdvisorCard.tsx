@@ -2,7 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import { useAdminProfiles } from '@/hooks/admin/use-admin-profiles';
 import { useConnectionStatus } from '@/hooks/marketplace/use-connections';
 import { getAdminProfile } from '@/lib/admin-profiles';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Tooltip,
   TooltipContent,
