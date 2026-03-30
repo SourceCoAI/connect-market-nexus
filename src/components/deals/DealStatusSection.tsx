@@ -36,12 +36,14 @@ function getCurrentStageIndex(
 
 function getStageExplanation(
   index: number,
-  isRejected: boolean,
+  status: string,
   ndaSigned: boolean,
   feeCovered: boolean,
   feeStatus?: string,
 ): string {
-  if (isRejected) return 'This opportunity is no longer available at this time.';
+  if (status === 'rejected') return 'This opportunity is no longer available at this time.';
+  if (status === 'on_hold')
+    return 'Your request is being evaluated. We\'ll notify you as soon as there\'s an update.';
   if (index === 3)
     return 'Great news — the owner selected your firm. Expect an email from our team shortly.';
   if (index === 1) {
