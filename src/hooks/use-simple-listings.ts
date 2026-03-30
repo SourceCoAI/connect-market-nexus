@@ -80,9 +80,13 @@ async function fetchListings(state: PaginationState, buyerTier?: number | null) 
     query = query.lte('ebitda', state.ebitdaMax);
   }
 
-  // Apply pagination
+  // Phase 103: For Tier 3, skip pagination — fetch all then filter client-side
   const offset = (state.page - 1) * state.perPage;
-  query = query.range(offset, offset + state.perPage - 1);
+  if (buyerTier !== 3) {
+    query = query.range(offset, offset + state.perPage - 1);
+  } else {
+    query = query.limit(200);
+  }
 
   // Order by creation date
   query = query.order('created_at', { ascending: false });
@@ -139,8 +143,10 @@ async function fetchListings(state: PaginationState, buyerTier?: number | null) 
       return (tier12Counts[listing.id] || 0) < 3;
     });
 
+    // Phase 103: Apply client-side pagination after filtering
+    const paged = filtered.slice(offset, offset + state.perPage);
     return {
-      listings: filtered,
+      listings: paged,
       totalItems: filtered.length,
     };
   }
