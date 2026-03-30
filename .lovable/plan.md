@@ -1,72 +1,106 @@
 
 
-# Verification: All Implemented Phases — Status Report
+# Add "Copy Deal Info" Button to Deal Detail Page
 
-## Summary: Everything is properly implemented.
+## What It Does
 
-All phases from our multi-response audit have been verified in the codebase. No missing implementations or regressions found.
+Adds a clipboard button to the deal detail header that copies **all deal information** as structured plain text — ready to paste into ChatGPT, another Lovable project, email, or any text field.
 
----
+## Output Format
 
-## Phase-by-Phase Verification
+```text
+DEAL: Saks Metering
+=====================================
 
-### Notification System (Phases 73-79) ✅
-- **73**: AdminNotificationType union expanded with all 11 types — verified
-- **74**: `agreement_signed` icon + nav in BuyerNotificationBell — verified
-- **75**: Grouping logic in admin bell — verified
-- **76**: Realtime filter by user_id — verified
-- **77-79**: Cleanup, modal nav — verified
+COMPANY OVERVIEW
+Company Name: Saks Metering
+Website: saksmetering.com
+Industry: Meter Installation Services
+Category: Energy services
+Headquarters: Maspeth, NY
+Address: Maspeth, NY, United States
+Founded: —
+Status: Active
 
-### Connection Request Lifecycle (Phases 86-100) ✅
-- **86**: Realtime toast filtering — verified
-- **87**: `user_notifications` on approve/reject — verified
-- **88**: Landing page admin notification auth bypass — verified
-- **93**: Bulk action emails — verified
-- **94**: Undo system message — verified
-- **95**: On Hold button — verified
-- **97**: Accept/Decline on on_hold banner — verified
-- **99**: Softened rejection copy — verified in `DealActionCard.tsx` (line 43) and `DealStatusSection.tsx` (line 44)
-- **100**: `DealStatusSection` on_hold handling — verified (line 31, line 45-46)
+EMPLOYEES
+Full-Time: 34
+Part-Time: —
+LinkedIn Employees: 34
+Employee Range: 11-50
 
-### Area 1: Filters/Search/Pagination ✅
-- **Search debounce** (300ms): `FilterPanel.tsx` line 102-111 — verified
-- **Falsy-zero fix** (`?? undefined`): `FilterPanel.tsx` line 125-126, 137-138 — verified
-- **Strict null range detection**: `FilterPanel.tsx` line 77, 89 — verified
-- **Saved listings null checks**: `use-saved-listings-query.ts` line 57 (`!= null`) — verified
+FINANCIALS
+Revenue: $X.XM
+EBITDA: $X.XM
+EBITDA Margin: XX.X%
+Quality Score: 87/100
 
-### Area 2: Match Scoring ✅
-- **Strict null checks** in `match-scoring.ts`: line 92-93 (`revenueMin != null`), line 116-117 (`ebitdaMin != null`) — verified
-- **DealAdvisorCard** hardcoded avatar removed — verified (uses `AvatarFallback`)
+ONLINE PRESENCE
+LinkedIn: saksmetering
+Google Rating: 4.1 (17 reviews)
+Google Maps: [url]
 
-### Area 3: Messaging ✅
-- **Empty message guard**: `use-connection-messages.ts` line 112 (`body.trim()` check) — verified
+CONTACT
+Name: [main_contact_name]
+Email: [main_contact_email]
+Phone: [main_contact_phone]
 
-### Area 4: Deal Alerts ✅
-- **Payload fix**: `use-publish-listing.ts` line 67-85 — snake_case fields with `alert_id`, `user_email`, `user_id`, `listing_data` — verified
+EXECUTIVE SUMMARY
+[full executive_summary text]
 
-### Area 6: Landing Pages (Phase 101) ✅
-- **SEO meta tags**: `DealLandingPage/index.tsx` line 159-195 — `document.title`, `og:title`, `og:description`, `og:url`, `meta[name=description]` — verified
-- **Character counter**: `DealRequestForm.tsx` line 289 (`slice(0, 2000)`), line 292 (`maxLength={2000}`), line 300-302 (counter display) — verified
+DESCRIPTION
+[full description text]
 
-### Area 7: Data Room (Phase 102) ✅
-- **Category filtering**: `BuyerDataRoom.tsx` line 67-70 builds `allowedCategories` Set from access toggles — verified
-- **Active status filter**: line 82 `.eq('status', 'active')` — verified
-- **Client-side category filter**: line 88-90 `.filter(doc => allowedCategories.has(doc.document_category))` — verified
+SERVICES & BUSINESS MODEL
+[service_mix]
 
-### Area 9: Tier 3 Pagination (Phase 103) ✅
-- **Fetch-all for Tier 3**: `use-simple-listings.ts` line 85-89 — skips `.range()`, uses `.limit(200)` — verified
-- **Client-side pagination**: line 147 `filtered.slice(offset, offset + state.perPage)` — verified
-- **Correct totalItems**: line 150 `totalItems: filtered.length` — verified
+GEOGRAPHIC COVERAGE
+States: [geographic_states joined]
 
----
+CUSTOMER INFO
+Types: [customer_types]
+Concentration: [customer_concentration]
+Geography: [customer_geography]
 
-## Conclusion
+OWNER INFO
+Goals: [owner_goals]
+Ownership Structure: [ownership_structure]
+Special Requirements: [special_requirements]
+Owner Response: [owner_response]
 
-**All phases (73-103) are fully implemented and verified.** No remaining gaps, no regressions, no missing code. The codebase is consistent with every plan we approved.
+ADDITIONAL DETAILS
+Key Risks: [key_risks]
+Technology: [technology_systems]
+Real Estate: [real_estate_info]
+Growth: [growth_trajectory]
 
-The only remaining items from the original 10-area strategy are:
-- **Area 10 (Listing Preview page)** — low priority, not yet investigated
-- **Honeypot spam field on EmailCapture** — noted as LOW, not implemented (acceptable)
+INTERNAL NOTES
+[internal_notes]
+[general_notes]
+[owner_notes]
+```
 
-No code changes needed.
+## Implementation
+
+### File 1: `src/pages/admin/remarketing/ReMarketingDealDetail/CopyDealInfoButton.tsx` (NEW)
+
+- A button component that takes the `deal` object
+- Builds the structured text string from all available fields, skipping nulls
+- Uses `navigator.clipboard.writeText()` + sonner toast confirmation
+- Icon: `Copy` from lucide-react, small outline button style
+
+### File 2: `src/pages/admin/remarketing/ReMarketingDealDetail/DealHeader.tsx`
+
+- Import and render `CopyDealInfoButton` next to the existing "Mark Not a Fit" / "New Task" buttons in the header
+- Pass the `deal` object through
+
+### File 3: `src/pages/admin/MarketplaceQueue.tsx`
+
+- Add the same copy button as an icon button on each queue card row (next to the external link / remove buttons), so you can copy deal info directly from the queue without opening the deal
+
+### Technical Details
+
+- Helper function `formatDealAsText(deal)` in the new component handles all field mapping
+- Uses the existing `formatCurrency` helper for financial values
+- Skips any field that is null/undefined/empty — no "undefined" in output
+- No new dependencies needed
 
