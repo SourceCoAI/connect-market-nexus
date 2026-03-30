@@ -748,11 +748,11 @@ Deno.serve(async (req: Request) => {
     const dealIndustryFeedback = (deal.industry as string) || '';
     const dealCategories = (deal.categories as string[]) || [];
     let feedbackSection = '';
-    if (dealIndustry || dealCategories.length > 0) {
+    if (dealIndustryFeedback || dealCategories.length > 0) {
       const { data: feedbackRows } = await supabase
         .from('buyer_discovery_feedback')
         .select('buyer_name, pe_firm_name, action, reason, niche_category')
-        .in('niche_category', [dealIndustry, ...dealCategories].filter(Boolean))
+        .in('niche_category', [dealIndustryFeedback, ...dealCategories].filter(Boolean))
         .order('created_at', { ascending: false })
         .limit(20);
 
