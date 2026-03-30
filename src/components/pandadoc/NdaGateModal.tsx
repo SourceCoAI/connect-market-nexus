@@ -35,7 +35,14 @@ export function NdaGateModal({ userId, firmId, onSigned }: NdaGateModalProps) {
         if (cancelled) return;
 
         if (fnError) {
-          setError('Failed to prepare NDA signing form');
+          const errorMsg = typeof fnError === 'object' && fnError !== null && 'message' in fnError
+            ? String((fnError as Record<string, unknown>).message)
+            : '';
+          if (errorMsg.toLowerCase().includes('not configured') || errorMsg.toLowerCase().includes('pandadoc')) {
+            setError('Document signing is temporarily unavailable. Our team has been notified — please check back shortly.');
+          } else {
+            setError('Failed to prepare NDA signing form');
+          }
         } else if (data?.ndaSigned) {
           onSigned?.();
         } else if (data?.embedUrl) {
