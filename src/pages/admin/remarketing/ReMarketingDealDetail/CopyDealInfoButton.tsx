@@ -161,7 +161,9 @@ export function formatDealAsText(deal: CopyDealDeal): string {
   text += section('NOTES',
     line('Owner Notes', str(deal, 'owner_notes')) +
     line('General Notes', str(deal, 'general_notes')) +
-    line('Internal Notes', str(deal, 'internal_notes'))
+    line('Internal Notes', str(deal, 'internal_notes')) +
+    line('Notes', str(deal, 'notes')) +
+    line('CapTarget Call Notes', str(deal, 'captarget_call_notes'))
   );
 
   return text.trim();
