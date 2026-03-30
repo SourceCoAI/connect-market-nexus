@@ -65,7 +65,23 @@ export function usePublishListing() {
             for (const alert of matchingAlerts) {
               if (alert.alert_frequency === 'instant') {
                 await supabase.functions.invoke('send-deal-alert', {
-                  body: { alertId: alert.alert_id, listingId: variables.listingId, listing },
+                  body: {
+                    alert_id: alert.alert_id,
+                    user_email: alert.user_email,
+                    user_id: alert.user_id,
+                    listing_id: variables.listingId,
+                    alert_name: alert.alert_name,
+                    listing_data: {
+                      id: listing.id as string,
+                      title: listing.title as string,
+                      category: listing.category as string,
+                      location: listing.location as string,
+                      revenue: listing.revenue as number,
+                      ebitda: listing.ebitda as number,
+                      description: (listing.description as string) || '',
+                      image_url: listing.image_url as string | undefined,
+                    },
+                  },
                 });
               }
             }

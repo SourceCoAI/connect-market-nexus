@@ -108,6 +108,11 @@ export function useSendMessage() {
       sender_role: 'admin' | 'buyer';
       message_type?: 'message' | 'decision' | 'system';
     }) => {
+      // Prevent empty messages
+      if (!params.body || !params.body.trim()) {
+        throw new Error('Message cannot be empty');
+      }
+
       const {
         data: { user },
         error: authError,
