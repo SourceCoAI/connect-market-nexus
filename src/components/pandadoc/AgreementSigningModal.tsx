@@ -77,7 +77,14 @@ export function AgreementSigningModal({
         const alreadySigned = documentType === 'nda' ? data?.ndaSigned : data?.feeSigned;
 
         if (fnError) {
-          setError('Failed to load signing form. Please try again.');
+          const errorMsg = typeof fnError === 'object' && fnError !== null && 'message' in fnError
+            ? String((fnError as Record<string, unknown>).message)
+            : '';
+          if (errorMsg.toLowerCase().includes('not configured') || errorMsg.toLowerCase().includes('pandadoc')) {
+            setError('Document signing is temporarily unavailable. Our team has been notified. Please try again later or contact us via Messages.');
+          } else {
+            setError('Failed to load signing form. Please try again.');
+          }
         } else if (data?.hasFirm === false) {
           setError(
             "Your account hasn't been set up for signing yet. Please contact our team via Messages.",
