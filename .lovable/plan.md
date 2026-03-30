@@ -1,139 +1,69 @@
 
 
-# Marketplace Testing Strategy: Remaining Untested Areas
+# Response 4: Area 6 (Landing Pages) + Area 7 (Data Room) + Area 9 (Tier Gating)
 
-## What We've Already Tested (Phases 67-100)
+## Findings
 
-- Listing publishing pipeline (creation, validation, publish/unpublish)
-- Connection request lifecycle (submit, approve, reject, on_hold, undo, bulk)
-- Notification system (admin bell, buyer bell, emails, realtime)
-- Document signing gates (PandaDoc NDA/fee flow)
-- Rejection/approval copy consistency
+### Area 6: Deal Landing Pages
 
-## Untested Areas — Organized by Priority
+**6A — No SEO meta tags (MEDIUM)**
+`DealLandingPage/index.tsx` sets no `document.title`, no Open Graph tags, no description meta. When shared on LinkedIn/Twitter/Slack, it shows a blank preview. Need to add `document.title` and basic OG meta tags using `useEffect` based on deal data.
 
----
+**6B — Email capture lacks honeypot spam protection (LOW)**
+`EmailCapture.tsx` validates email format but has no bot protection. A simple hidden honeypot field would block most automated spam without requiring CAPTCHA.
 
-### AREA 1: Marketplace Search, Filters & Pagination (HIGH)
+**6C — DealRequestForm missing character counter for message (LOW)**
+The form hook (`useDealLandingFormSubmit.ts`) rejects messages >2000 chars, but the UI shows no counter or feedback until submission. Users get a cryptic error after typing a long message.
 
-The `FilterPanel` and `Marketplace.tsx` page have significant untested surface area:
+**6D — Landing page view tracking is fire-and-forget with no error handling (LOW)**
+The `page_views` insert at line 202-215 silently swallows errors. This is acceptable as-is since it's analytics, but worth noting — no change needed.
 
-- **Search**: Full-text search via `fts` column — does it handle special characters, empty queries, partial matches, accented names?
-- **Category/Location filters**: Use `STANDARDIZED_CATEGORIES` and `STANDARDIZED_LOCATIONS` — are these in sync with what listings actually have? Orphaned categories showing zero results?
-- **Revenue/EBITDA range filters**: Do min/max boundaries work correctly (edge: exactly $1M, exactly $50M)?
-- **Filter persistence**: Filters reset on navigation? URL params preserved on back button?
-- **Pagination**: Edge cases — page beyond total, page 0, perPage=0, single result, empty results
-- **Sort order**: Currently hardcoded `created_at desc` — no user-facing sort option exists. Should there be one?
-- **Mobile filter sheet**: Does the Sheet drawer open/close properly? Do applied filters persist when sheet closes?
+### Area 7: Buyer Data Room
 
-### AREA 2: Matched Deals / Investment Fit Scoring (HIGH)
+**7A — BuyerDataRoom does NOT filter documents by access category (HIGH)**
+The component at line 67-83 fetches ALL documents for the deal with `.eq('deal_id', dealId)` — it relies entirely on RLS to restrict what comes back. However, the access check at line 49-64 fetches `can_view_teaser`, `can_view_full_memo`, `can_view_data_room` toggles but **never uses them to filter documents by category**. If RLS on `data_room_documents` doesn't enforce category-level access, a buyer with only "teaser" access could see data room documents.
 
-`MatchedDealsSection` and `InvestmentFitScore` are buyer-facing AI-like features:
+The edge function `data-room-download` properly checks via `check_data_room_access` RPC, so download/view is gated. But the **document list itself** may leak file names and metadata.
 
-- **Match scoring accuracy**: `computeMatchScore` uses category (3pts), location (2pts), revenue fit (2pts), EBITDA fit (2pts), deal intent (1pt), recency (1pt) — are weights appropriate?
-- **Buyer criteria extraction**: `extractBuyerCriteria` pulls from user profile — what happens with incomplete profiles? Users with zero criteria see nothing (good) but is threshold (`criteriaCount < 2`) correct?
-- **MatchedDealsSection**: Fetches ALL 50 listings then filters client-side — performance concern at scale. Excludes saved/connected listings — verified?
-- **InvestmentFitScore on detail page**: Shows per-listing match breakdown — does it handle missing revenue/EBITDA gracefully?
-- **Collapsible section**: Default closed (`useState(false)`) — is this the right UX for a feature meant to drive engagement?
+**Fix**: Add client-side category filtering based on the access toggles. Map `can_view_teaser` → 'teaser' category, `can_view_full_memo` → 'full_memo', `can_view_data_room` → 'data_room'. Filter `documents` array to only show docs matching enabled categories.
 
-### AREA 3: Buyer Messaging System (HIGH)
+**7B — BuyerDataRoom doesn't filter by document status (MEDIUM)**
+The query doesn't filter `status = 'active'` — archived/deleted documents could appear. Need to add `.eq('status', 'active')` to the document query.
 
-`BuyerMessages/` is a full messaging center with threads, general chat, and document sharing:
+### Area 9: Tier 3 Time-Gating
 
-- **Thread routing**: URL param `?deal=<id>` or `?deal=general` — what happens with invalid IDs?
-- **General chat**: Separate non-deal thread — how does admin see/respond to these?
-- **Message delivery**: Are messages real-time? Is there a realtime subscription?
-- **Unread counts**: `useUnreadBuyerMessageCounts` — do counts update on read? Cross-tab?
-- **Document sharing in messages**: `DocumentDialog` and `ReferencePicker` — can buyers attach files? Size limits?
-- **Message input**: Character limits? XSS sanitization? Empty message prevention?
-- **Agreement section**: `AgreementSection.tsx` in messages — what does this show and when?
+**9A — Tier 3 gating is client-side only — data leaks in network tab (MEDIUM)**
+`use-simple-listings.ts` fetches ALL listings from Supabase, then filters client-side at line 122-146. A Tier 3 buyer can see all listing data (titles, revenue, EBITDA) in DevTools Network tab before the filter removes them from the UI. 
 
-### AREA 4: Deal Alerts System (MEDIUM-HIGH)
+**Proper fix would require a server-side RPC**, but that's a large architectural change. For now, a pragmatic fix: since `MARKETPLACE_SAFE_COLUMNS_STRING` already limits columns and all listings are public marketplace data (not confidential), the real risk is limited. Document this as a known limitation.
 
-Full CRUD for buyer deal alerts (`deal_alerts` table):
+**9B — Tier 3 pagination count is wrong (MEDIUM)**
+At line 142-145, after filtering, `totalItems` is set to `filtered.length` — but the original query used `count: 'exact'` with pagination. The filtered count reflects only page 1's filtered results, not the true total. This makes pagination show incorrect page counts for Tier 3 users.
 
-- **Alert creation**: Categories, locations, revenue/EBITDA ranges, frequency (instant/daily/weekly) — all validated?
-- **Alert matching**: `match_deal_alerts_with_listing` RPC called on publish — does it actually send notifications? What mechanism delivers alerts?
-- **Alert management**: Edit, delete, toggle active/inactive — all working?
-- **Alert preview**: `AlertPreview` component — does it show accurate preview of what would match?
-- **Success onboarding**: `AlertSuccessOnboarding` — shown once after first alert creation?
-- **Edge cases**: Duplicate alerts, alerts with impossible criteria, alerts after account deactivation
+**Fix**: For Tier 3 users, fetch without pagination first (or fetch all IDs), filter, then apply pagination client-side. OR simpler: just note that Tier 3 sees a subset and pagination may be approximate — set `totalItems` to `filtered.length` only when on page 1.
 
-### AREA 5: Saved Listings (MEDIUM)
+Actually, looking more carefully — the current code fetches with pagination (line 84-85 `query.range(offset, ...)`) but then filters the already-paginated results. This means Tier 3 users on page 1 might see 8 results instead of 10 (if 2 were filtered out), and there's no way to know if page 2 has more. This is fundamentally broken for Tier 3 pagination.
 
-`SavedListings.tsx` page with annotations:
+**Fix**: When `buyerTier === 3`, skip the `.range()` call, fetch all active listings, filter, then slice for pagination client-side. Cap at a reasonable limit (e.g., 200) to avoid massive queries.
 
-- **Save/unsave toggle**: Does `useSaveListingMutation` properly toggle? Optimistic updates?
-- **Annotations**: Stored in `localStorage` (`sourceco_saved_listing_notes`) — lost on device switch. Should this be server-side?
-- **Saved listings filters**: Page has category/search but uses `useSavedListings` hook with different filter logic than main marketplace
-- **Empty state**: What shows when no listings saved?
-- **Stale saved listings**: What happens when a saved listing gets unpublished/deleted? Still shows? Shows error?
+## Implementation Plan
 
-### AREA 6: Deal Landing Pages (MEDIUM)
+| Phase | Description | Priority | Files |
+|-------|-------------|----------|-------|
+| 101 | Add SEO meta tags to DealLandingPage | Medium | `DealLandingPage/index.tsx` |
+| 102 | Filter BuyerDataRoom documents by access category + active status | High | `BuyerDataRoom.tsx` |
+| 103 | Fix Tier 3 pagination — fetch-all-then-filter approach | Medium | `use-simple-listings.ts` |
+| 104 | Add message character counter to DealRequestForm | Low | `DealRequestForm.tsx` |
 
-Public-facing pages at `/deal/:slug` for external marketing:
+4 phases, all code-only, implementable in one response.
 
-- **Public access**: No auth required — does it properly gate sensitive data?
-- **Email capture**: `EmailCapture` component — where do submissions go? Is there spam protection?
-- **Deal request form**: `DealRequestForm` — submits connection request without auth? Creates anonymous lead?
-- **Related deals**: `RelatedDeals` component — uses `useRelatedDeals` — similar listings logic?
-- **Mobile sticky bar**: Intersection observer pattern — works on all devices?
-- **SEO/meta**: Does the page set proper meta tags for sharing?
-- **Analytics**: Page view tracking for landing page visits?
+### Technical Details
 
-### AREA 7: Buyer Data Room Access (MEDIUM)
+**Phase 101**: `useEffect` sets `document.title` from `deal.title`. Add OG meta tags via `document.head` manipulation (no Helmet library needed — append/update meta elements directly).
 
-`BuyerDataRoom.tsx` — document access for approved buyers:
+**Phase 102**: After fetching `access` toggles, build an `allowedCategories` set. Filter `documents` array: if `can_view_data_room` → allow 'data_room' category docs, if `can_view_full_memo` → allow 'full_memo', if `can_view_teaser` → allow 'teaser'. Also add `.eq('status', 'active')` to the document query.
 
-- **Access control**: Checks `buyer-data-room-access` query — does it properly gate by connection status?
-- **Document categories**: Only shows documents matching enabled categories — is this enforced server-side or client-side only?
-- **Download vs view**: `allow_download` flag per document — enforced?
-- **Tracked document viewer**: `/view/:linkToken` page — does link tracking work? Expiration?
-- **Orientation flow**: `DataRoomOrientation` — first-time guidance for new data room users
+**Phase 103**: When `buyerTier === 3`, remove `.range()` from query, add `.limit(200)`, apply tier filter, then slice `[offset, offset + perPage]`. Return `totalItems` as total filtered count.
 
-### AREA 8: Listing Detail Page UX (MEDIUM)
-
-`ListingDetail.tsx` — 457 lines of the most important buyer page:
-
-- **Click tracking**: `useClickTracking` with flush on unmount — does it reliably capture engagement?
-- **Similar listings carousel**: Performance with many similar listings? Empty state?
-- **Executive summary generator**: `ExecutiveSummaryGenerator` — AI-generated? What triggers it?
-- **Editable fields**: `EditableTitle`, `EditableDescription` — admin-only editing on live pages? Proper auth gates?
-- **Deal advisor card**: `DealAdvisorCard` — what info does this show? Is it always relevant?
-- **Deal sourcing criteria dialog**: `DealSourcingCriteriaDialog` — what is this? When shown?
-- **NDA gate modal**: Shows when `hasFirm && !ndaSigned` — correct behavior for users without a firm?
-- **Blurred financial teaser**: Security — can the real data be seen in network tab despite blur?
-
-### AREA 9: Tier 3 Time-Gating (LOW-MEDIUM)
-
-- **Logic**: Tier 3 buyers only see deals 14+ days old OR with <3 Tier 1/2 requests
-- **Implementation**: Client-side filtering after fetch — data still sent over network (potential leak)
-- **Admin bypass**: Admins skip tier gating — verified
-- **Edge**: What tier are new users before scoring? Default tier?
-
-### AREA 10: Listing Preview Page (LOW)
-
-`ListingPreview.tsx` — admin preview of unpublished listings:
-
-- **Admin gate**: Returns "Access Denied" for non-admins — proper, but could it leak data in the query before the gate renders?
-- **Parity with ListingDetail**: Does preview accurately represent what buyers will see?
-- **BlurredFinancialTeaser in preview**: Shows connection request UI in a preview context — confusing?
-
----
-
-## Recommended Execution Order
-
-| Response | Areas | Effort |
-|----------|-------|--------|
-| 1 | Area 1 (Filters/Search/Pagination) + Area 5 (Saved Listings) | Investigation + fixes |
-| 2 | Area 3 (Messaging) + Area 4 (Deal Alerts) | Investigation + fixes |
-| 3 | Area 2 (Match Scoring) + Area 8 (Listing Detail UX) | Investigation + fixes |
-| 4 | Area 6 (Landing Pages) + Area 7 (Data Room) + Area 9 (Tier Gating) | Investigation + fixes |
-| 5 | Area 10 (Preview) + cross-cutting cleanup | Final sweep |
-
-## Technical Details
-
-- **Files involved**: ~40+ component files, ~15 hooks, 3-4 edge functions
-- **Key data flows**: `useSimpleListings` → Marketplace, `useSavedListings` → SavedListings, `useBuyerThreads` → Messages, `useDealAlerts` → Alerts, `useBuyerDataRoom` → Data Room
-- **Security surfaces**: Tier gating (network leak), data room access (client-side category filter), landing page (public data exposure), blurred teaser (DOM inspection)
+**Phase 104**: Add a small character count display below the textarea showing `{message.length}/2000`.
 
