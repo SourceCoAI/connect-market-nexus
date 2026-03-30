@@ -161,7 +161,7 @@ const FilterPanel = memo(function FilterPanel({
           <Input
             id="search"
             placeholder="Search listings..."
-            value={currentFilters.search}
+            value={localSearch}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
         </div>
