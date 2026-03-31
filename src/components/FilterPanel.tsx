@@ -72,6 +72,11 @@ const FilterPanel = memo(function FilterPanel({
     setLocalSearch(currentFilters.search);
   }, [currentFilters.search]);
 
+  // Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => clearTimeout(debounceRef.current);
+  }, []);
+
   // Helper function to get current revenue range label
   const getCurrentRevenueRange = () => {
     if (currentFilters.revenueMin == null && currentFilters.revenueMax == null) return 'Any';

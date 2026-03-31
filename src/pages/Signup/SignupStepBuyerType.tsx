@@ -28,9 +28,28 @@ export function SignupStepBuyerType({ formData, setFormData, onChange }: Props) 
   const handleBuyerTypeChange = (value: string) => {
     setFormData((prev) => ({
       ...prev, buyerType: value as BuyerType,
+      // Reset all buyer-type-specific fields when switching types
       estimatedRevenue: "", fundSize: "", investmentSize: [] as string[], aum: "",
       isFunded: "", fundedBy: "", targetCompanySize: "", fundingSource: "",
       needsLoan: "", idealTarget: "", targetDealSizeMin: "", targetDealSizeMax: "",
+      // Corporate
+      owningBusinessUnit: "", dealSizeBand: "", integrationPlan: [] as string[], corpdevIntent: "",
+      // PE
+      portfolioCompanyAddon: "", deployingCapitalNow: "",
+      // Family Office
+      discretionType: "", permanentCapital: false, operatingCompanyTargets: [] as string[],
+      // Search Fund
+      searchType: "", acqEquityBand: "", financingPlan: [] as string[],
+      flexSub2mEbitda: undefined, anchorInvestorsSummary: "", searchStage: "",
+      // Individual
+      usesBank: "", maxEquityToday: "",
+      // Independent Sponsor
+      committedEquityBand: "", equitySource: [] as string[],
+      flexSubxmEbitda: undefined, backersSummary: "", deploymentTiming: "",
+      // Advisor
+      onBehalfOfBuyer: "", buyerRole: "", buyerOrgUrl: "", mandateBlurb: "",
+      // Business Owner
+      ownerIntent: "", ownerTimeline: "",
     }));
   };
 

@@ -387,13 +387,6 @@ const Signup = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setFormData((p) => ({
-                      ...p,
-                      referralSource: '',
-                      referralSourceDetail: '',
-                      dealSourcingMethods: [],
-                      targetAcquisitionVolume: '',
-                    }));
                     setCurrentStep((p) => p + 1);
                   }}
                   disabled={isLoading || isSubmitting}

@@ -73,6 +73,7 @@ const ConnectionRequestDialog = ({
               className="w-full resize-none"
               required
               minLength={20}
+              maxLength={500}
             />
             <div className="flex justify-between items-center mt-1">
               <p className="text-xs text-muted-foreground">
@@ -106,7 +107,7 @@ const ConnectionRequestDialog = ({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting || !message.trim() || message.length < 20}
+            disabled={isSubmitting || !message.trim() || message.length < 20 || message.length > 500}
             className="w-full sm:w-auto bg-sourceco hover:bg-sourceco/90 text-sourceco-foreground border-0 hover:shadow-lg font-semibold"
           >
             {isSubmitting ? 'Sending...' : 'Send Request'}
