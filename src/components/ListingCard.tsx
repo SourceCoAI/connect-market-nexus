@@ -213,6 +213,7 @@ const ListingCard = memo(function ListingCard({
                   profileCompletePct={profilePct}
                   isBuyerBlocked={buyerBlocked}
                   isFeeCovered={feeCovered}
+                  isNdaCovered={ndaCovered}
                   onFeeGateOpen={() => {
                     toast({
                       title: 'Fee Agreement Required',
