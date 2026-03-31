@@ -188,7 +188,16 @@ export const useSignupForm = () => {
               watch('flexSubXmEbitda') !== undefined
             );
           case 'individual':
-            return watch('fundingSource') && watch('needsLoan') && watch('idealTarget');
+            return watch('fundingSource') && watch('needsLoan') && watch('idealTarget') && watch('maxEquityTodayBand');
+          case 'businessOwner':
+            return watch('ownerIntent') && watch('ownerTimeline');
+          case 'advisor': {
+            const onBehalf = watch('onBehalfOfBuyer');
+            if (onBehalf === false || onBehalf === 'no') {
+              return !!watch('mandateBlurb');
+            }
+            return !!onBehalf;
+          }
           default:
             return true;
         }
