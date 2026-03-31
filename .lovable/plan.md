@@ -1,22 +1,27 @@
 
 
-# Lower Profile Completeness Threshold from 100% to 90%
+# Fix: Currency Input Placeholders Look Like Real Values
 
 ## Problem
 
-The `isProfileComplete()` function requires **every** required field to be filled (100%). Users at 91% are blocked from requesting access, even though optional "about me" fields aren't meaningful for deal qualification.
+The `EnhancedCurrencyInput` placeholder text (e.g., "250-1,000 (millions)") looks like an actual filled-in value because it uses the same text color as real input. Users skip the field thinking it's already populated.
 
-## Change — Single File
+## Changes
 
-**`src/lib/profile-completeness.ts`** (line 59-60)
+### File 1: `src/components/ui/enhanced-currency-input.tsx`
 
-Change `isProfileComplete` from checking for zero missing fields to checking if completion percentage ≥ 90%:
+- Change placeholders from numeric-looking ranges to clear instructional text:
+  - `fund`: `"e.g. 500"` 
+  - `aum`: `"e.g. 1000"`
+  - `revenue`: `"e.g. 25"`
+  - `dealSize`: `"e.g. 10"`
+  - `general`: `"Enter amount"`
 
-```ts
-export const isProfileComplete = (user: Partial<User>): boolean => {
-  return getProfileCompletionPercentage(user) >= 90;
-};
-```
+- Add explicit `placeholder:text-muted-foreground/50` class to the Input to make placeholder visually distinct (lighter) from real values.
 
-That's it. Every consumer (`ConnectionButton`, `ListingCard`, `ListingCardActions`, `ProfileForm`) already calls this function — they all inherit the new threshold automatically.
+### File 2: `src/pages/Profile/ProfileForm.tsx`
+
+- Compute completeness banner from merged `formData` + `user` so it updates live as fields are filled (not just after save + refresh).
+
+Two files. The core fix is making placeholders obviously not real data.
 
