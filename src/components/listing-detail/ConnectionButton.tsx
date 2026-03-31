@@ -168,7 +168,7 @@ const ConnectionButton = ({
           )}
         </div>
         <Link
-          to="/profile"
+          to="/profile?tab=profile&complete=1"
           className="block w-full text-center text-xs font-medium py-2.5 px-3 rounded-md bg-sourceco text-sourceco-foreground hover:bg-sourceco/90 transition-colors"
         >
           Complete My Profile

@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { MultiCategorySelect } from '@/components/ui/category-select';
 import { MultiLocationSelect } from '@/components/ui/location-select';
@@ -21,6 +21,8 @@ import { ChipInput } from '@/components/ui/chip-input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DEAL_INTENT_OPTIONS } from '@/lib/signup-field-options';
 import { ProfileSettings } from './ProfileSettings';
+import { Progress } from '@/components/ui/progress';
+import { getMissingFieldLabels, getProfileCompletionPercentage, isProfileComplete } from '@/lib/profile-completeness';
 import type { ProfileFormProps } from './types';
 
 export function ProfileForm({
@@ -33,6 +35,10 @@ export function ProfileForm({
   onSetFormData,
   onSubmit,
 }: ProfileFormProps) {
+  const missingLabels = getMissingFieldLabels(user);
+  const completionPct = getProfileCompletionPercentage(user);
+  const profileComplete = isProfileComplete(user);
+
   return (
     <Card>
       <CardHeader>
@@ -41,6 +47,31 @@ export function ProfileForm({
       </CardHeader>
 
       <CardContent>
+        {!profileComplete && (
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="font-medium text-sm text-amber-900">
+                  Complete these fields to unlock deal access
+                </p>
+                <p className="text-xs text-amber-700">
+                  {completionPct}% complete — fill in the remaining fields below to request introductions.
+                </p>
+              </div>
+            </div>
+            <Progress value={completionPct} className="h-2" />
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-amber-800 pl-1">
+              {missingLabels.map((label) => (
+                <li key={label} className="flex items-center gap-1.5">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                  {label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <form onSubmit={onSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
             <div className="space-y-2">
