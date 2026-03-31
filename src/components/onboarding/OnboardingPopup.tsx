@@ -33,7 +33,7 @@ const OnboardingPopup = ({ isOpen, onClose, userId }: OnboardingPopupProps) => {
           description: 'Failed to save your onboarding status. Please try again.',
         });
         // Fallback: mark in localStorage so popup doesn't loop forever
-        localStorage.setItem(`sourceco_onboarding_done_${userId}`, 'true');
+        localStorage.setItem('onboarding_completed', 'true');
         setIsCompleting(false);
         onClose();
         return;

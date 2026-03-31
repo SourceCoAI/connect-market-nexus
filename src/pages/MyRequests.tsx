@@ -40,7 +40,6 @@ import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
 
 /* ═══════════════════════════════════════════════════════════════════════
    Main Page Component
@@ -59,7 +58,6 @@ const MyRequests = () => {
   const markRequestNotificationsAsRead = useMarkRequestNotificationsAsRead();
   const markAllNotificationsAsRead = useMarkAllUserNotificationsAsRead();
   const { data: unreadMsgCounts } = useUnreadBuyerMessageCounts();
-  const { data: ndaStatus } = useBuyerNdaStatus(!isAdmin ? user?.id : undefined);
   const { data: coverage } = useMyAgreementStatus(!isAdmin && !!user);
   useAgreementStatusSync();
   const [sortBy] = useState<'recent' | 'action' | 'status'>('recent');
@@ -105,7 +103,7 @@ const MyRequests = () => {
       case 'action': {
         const actionScore = (r: (typeof requests)[number]) => {
           let score = 0;
-          if (!ndaStatus?.ndaSigned) score += 1;
+          if (!coverage?.nda_covered) score += 1;
           if (!coverage?.fee_covered) score += 1;
           const unread = (unreadByRequest[r.id] || 0) + (unreadMsgCounts?.byRequest[r.id] || 0);
           if (unread > 0) score += 1;
@@ -136,7 +134,7 @@ const MyRequests = () => {
       }
     }
     return sorted;
-  }, [requests, sortBy, ndaStatus, coverage, unreadByRequest, unreadMsgCounts]);
+  }, [requests, sortBy, coverage, unreadByRequest, unreadMsgCounts]);
 
   const handleSelectDeal = (dealId: string, tab?: string) => {
     setSelectedDeal(dealId);
@@ -266,7 +264,7 @@ const MyRequests = () => {
                       request={request}
                       isSelected={selectedDeal === request.id}
                       unreadCount={unreadForRequest}
-                      ndaSigned={ndaStatus?.ndaSigned ?? undefined}
+                      ndaSigned={coverage?.nda_covered ?? undefined}
                       onSelect={() => handleSelectDeal(request.id)}
                     />
                   );
@@ -284,7 +282,7 @@ const MyRequests = () => {
                   unreadMsgCounts={unreadMsgCounts}
                   updateMessage={updateMessage}
                   profileForCalc={profileForCalc}
-                  ndaSigned={ndaStatus?.ndaSigned ?? false}
+                  ndaSigned={coverage?.nda_covered ?? false}
                   feeCovered={coverage?.fee_covered ?? false}
                   feeStatus={coverage?.fee_status}
                 />

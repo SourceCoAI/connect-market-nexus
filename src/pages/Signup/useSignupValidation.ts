@@ -77,6 +77,10 @@ export function validateStep(currentStep: number, formData: SignupFormData): str
             else if (!isValidUrlFormat(formData.buyerOrgUrl))
               errors.push('Please enter a valid buyer organization website');
           }
+          if (formData.onBehalfOfBuyer === 'no') {
+            if (!formData.mandateBlurb?.trim())
+              errors.push('Please describe your sourcing mandate');
+          }
           break;
         case 'businessOwner':
           if (!formData.ownerIntent) errors.push("Please describe why you're here");

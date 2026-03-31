@@ -17,6 +17,7 @@ export interface AgreementCoverage {
   fee_coverage_source: string;
   fee_firm_name: string | null;
   fee_parent_firm_name: string | null;
+  firm_id: string | null;
 }
 
 const SAFE_DEFAULT_COVERAGE: AgreementCoverage = {
@@ -30,6 +31,7 @@ const SAFE_DEFAULT_COVERAGE: AgreementCoverage = {
   fee_coverage_source: 'not_covered',
   fee_firm_name: null,
   fee_parent_firm_name: null,
+  firm_id: null,
 };
 
 function isRpcMissing(error: unknown): boolean {

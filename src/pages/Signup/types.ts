@@ -30,9 +30,6 @@ export interface SignupFormData {
   specificBusinessSearch: string;
   targetDealSizeMin: string;
   targetDealSizeMax: string;
-  geographicFocus: string;
-  industryExpertise: string;
-  dealStructurePreference: string;
   portfolioCompanyAddon?: string;
   deployingCapitalNow?: string;
   owningBusinessUnit?: string;
@@ -79,8 +76,7 @@ export const INITIAL_FORM_DATA: SignupFormData = {
   needsLoan: "", idealTarget: "",
   idealTargetDescription: "", businessCategories: [], targetLocations: [],
   revenueRangeMin: "", revenueRangeMax: "", specificBusinessSearch: "",
-  targetDealSizeMin: "", targetDealSizeMax: "", geographicFocus: "",
-  industryExpertise: "", dealStructurePreference: "",
+  targetDealSizeMin: "", targetDealSizeMax: "",
   portfolioCompanyAddon: "", deployingCapitalNow: "", owningBusinessUnit: "",
   dealSizeBand: "", integrationPlan: [], corpdevIntent: "", discretionType: "",
   permanentCapital: false, operatingCompanyTargets: [],

@@ -179,6 +179,7 @@ export default function DealLandingPage() {
     setMeta('og:description', description);
     setMeta('og:type', 'website');
     setMeta('og:url', window.location.href);
+    setMeta('og:image', (deal as Record<string, unknown>).image_url as string || `${window.location.origin}/og-default.png`);
 
     // Also set standard description meta
     let descEl = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;

@@ -17,7 +17,6 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAllSavedListingIds } from '@/hooks/marketplace/use-saved-listings';
 import { useAllConnectionStatuses } from '@/hooks/marketplace/use-connections';
 
-import { MatchedDealsSection } from '@/components/marketplace/MatchedDealsSection';
 
 import {
   Select,
@@ -49,9 +48,10 @@ const MarketplaceContent = () => {
   const { listingsConnected } = useRealtime();
 
   const pagination = useSimplePagination();
-  // Pass buyer tier for Tier 3 time-gating (admins bypass)
+  // Pass buyer tier for Tier 3 time-gating and buyer type for visibility filtering (admins bypass)
   const buyerTier = user?.is_admin ? null : (user?.buyer_tier ?? null);
-  const { data: listingsData, isLoading, error } = useSimpleListings(pagination.state, buyerTier);
+  const buyerType = user?.is_admin ? null : (user?.buyer_type ?? null);
+  const { data: listingsData, isLoading, error } = useSimpleListings(pagination.state, buyerTier, buyerType);
   const { data: metadata } = useListingMetadata();
 
   // Batch fetch saved & connection status (2 queries total instead of 40+)
@@ -266,8 +266,6 @@ const MarketplaceContent = () => {
 
             {/* Listings */}
             <div className="col-span-1 lg:col-span-3 flex flex-col gap-4 relative">
-              {/* Matched Deals Feed */}
-              {user && !user.is_admin && <MatchedDealsSection />}
               {/* View type and sorting */}
               <div className="flex flex-wrap justify-between items-center gap-4">
                 <div className="text-sm text-muted-foreground">

@@ -39,7 +39,7 @@ async function fetchTier12RequestCounts(listingIds: string[]): Promise<Record<st
   return counts;
 }
 
-async function fetchListings(state: PaginationState, buyerTier?: number | null) {
+async function fetchListings(state: PaginationState, buyerTier?: number | null, buyerType?: string | null) {
 
   let query = supabase
     .from('listings')
@@ -47,6 +47,11 @@ async function fetchListings(state: PaginationState, buyerTier?: number | null) 
     .eq('status', 'active')
     .is('deleted_at', null)
     .eq('is_internal_deal', false); // Only show marketplace deals, not internal/research deals
+
+  // Filter by buyer type visibility — only show listings visible to this buyer's type
+  if (buyerType) {
+    query = query.or(`visible_to_buyer_types.is.null,visible_to_buyer_types.cs.{${buyerType}}`);
+  }
 
   // Apply full-text search (uses GIN-indexed tsvector column for fast ranked search)
   if (state.search) {
@@ -177,7 +182,7 @@ async function fetchMetadata() {
   return { categories, locations };
 }
 
-export function useSimpleListings(state: PaginationState, buyerTier?: number | null) {
+export function useSimpleListings(state: PaginationState, buyerTier?: number | null, buyerType?: string | null) {
   return useQuery({
     queryKey: [
       'simple-listings',
@@ -191,9 +196,10 @@ export function useSimpleListings(state: PaginationState, buyerTier?: number | n
       state.ebitdaMin,
       state.ebitdaMax,
       buyerTier,
+      buyerType,
     ],
     queryFn: () => {
-      return fetchListings(state, buyerTier);
+      return fetchListings(state, buyerTier, buyerType);
     },
     staleTime: 30_000, // 30 seconds — prevents aggressive refetch on every navigation
     refetchOnWindowFocus: false,

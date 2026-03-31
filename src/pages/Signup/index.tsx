@@ -35,7 +35,7 @@ const SENSITIVE_FIELDS = new Set(['password', 'confirmPassword']);
 
 function loadDraft(): Partial<SignupFormData> | null {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const raw = sessionStorage.getItem(DRAFT_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -48,16 +48,16 @@ function saveDraft(data: SignupFormData, step: number) {
     for (const [k, v] of Object.entries(data)) {
       if (!SENSITIVE_FIELDS.has(k)) safe[k] = v;
     }
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(safe));
-    localStorage.setItem(DRAFT_STEP_KEY, String(step));
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(safe));
+    sessionStorage.setItem(DRAFT_STEP_KEY, String(step));
   } catch {
     /* quota exceeded — ignore */
   }
 }
 
 function clearDraft() {
-  localStorage.removeItem(DRAFT_KEY);
-  localStorage.removeItem(DRAFT_STEP_KEY);
+  sessionStorage.removeItem(DRAFT_KEY);
+  sessionStorage.removeItem(DRAFT_STEP_KEY);
 }
 
 const Signup = () => {
@@ -366,12 +366,6 @@ const Signup = () => {
                 <button
                   type="button"
                   onClick={(e) => {
-                    setFormData((p) => ({
-                      ...p,
-                      idealTargetDescription: '',
-                      businessCategories: [],
-                      targetLocations: [],
-                    }));
                     handleSubmit(e as unknown as React.FormEvent);
                   }}
                   disabled={isLoading || isSubmitting}

@@ -24,12 +24,12 @@ import { DealSourcingCriteriaDialog } from '@/components/listing-detail/DealSour
 import { EditableDescription } from '@/components/listing-detail/EditableDescription';
 import { SimilarListingsCarousel } from '@/components/listing-detail/SimilarListingsCarousel';
 import { EnhancedSaveButton } from '@/components/listing-detail/EnhancedSaveButton';
-import { InvestmentFitScore } from '@/components/listing-detail/InvestmentFitScore';
+
 import { InternalCompanyInfoDisplay } from '@/components/admin/InternalCompanyInfoDisplay';
 import { BuyerDataRoom } from '@/components/marketplace/BuyerDataRoom';
 import { MFAGate } from '@/components/auth/MFAGate';
 import { NdaGateModal } from '@/components/pandadoc/NdaGateModal';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
+import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { AgreementStatusBanner } from '@/components/marketplace/AgreementStatusBanner';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 
@@ -54,10 +54,10 @@ const ListingDetail = () => {
   const isAdmin = user?.is_admin === true;
 
   // NDA gate: check if buyer has signed NDA (skip for admins and unauthenticated)
-  const { data: ndaStatus } = useBuyerNdaStatus(!isAdmin ? user?.id : undefined);
+  const { data: agreementStatus } = useMyAgreementStatus(!isAdmin && !!user);
   useAgreementStatusSync();
   const showNdaGate =
-    !isAdmin && user && ndaStatus && ndaStatus.hasFirm && !ndaStatus.ndaSigned;
+    !isAdmin && user && agreementStatus && agreementStatus.firm_id && !agreementStatus.nda_covered;
 
   useEffect(() => {
     document.title = listing ? `${listing.title} | Marketplace` : 'Listing Detail | Marketplace';
@@ -158,12 +158,12 @@ const ListingDetail = () => {
   // Extract isInactive safely with fallback to false if status is undefined
   const isInactive = listing?.status === 'inactive';
 
-  // Show NDA gate modal for unsigned buyers
-  if (showNdaGate && ndaStatus?.firmId) {
+  // Show NDA gate modal for unsigned buyers (skip for inactive/sold listings)
+  if (showNdaGate && agreementStatus?.firm_id && !isInactive && listing?.status !== 'sold') {
     return (
       <NdaGateModal
         userId={user!.id}
-        firmId={ndaStatus.firmId}
+        firmId={agreementStatus.firm_id}
         onSigned={() => {
           queryClient.invalidateQueries({ queryKey: ['buyer-nda-status'] });
           queryClient.invalidateQueries({ queryKey: ['my-agreement-status'] });
@@ -194,8 +194,8 @@ const ListingDetail = () => {
       )}
 
       {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-[42px]">
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-10">
           {/* Main Content - 70% */}
           <div className="lg:col-span-7 space-y-8">
             {/* Horizontal Header */}
@@ -391,17 +391,6 @@ const ListingDetail = () => {
                   />
                 </div>
               </div>
-
-              {/* Investment Fit Analysis — buyer-facing match explanation */}
-              {!isAdmin && (
-                <InvestmentFitScore
-                  revenue={listing.revenue}
-                  ebitda={listing.ebitda}
-                  category={listing.category}
-                  location={listing.location}
-                  listing={listing}
-                />
-              )}
 
               {/* Exclusive Deal Flow */}
               <div className="bg-white/50 border border-slate-200/60 rounded-lg p-6 shadow-sm">

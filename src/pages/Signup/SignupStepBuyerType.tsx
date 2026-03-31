@@ -31,7 +31,6 @@ export function SignupStepBuyerType({ formData, setFormData, onChange }: Props) 
       estimatedRevenue: "", fundSize: "", investmentSize: [] as string[], aum: "",
       isFunded: "", fundedBy: "", targetCompanySize: "", fundingSource: "",
       needsLoan: "", idealTarget: "", targetDealSizeMin: "", targetDealSizeMax: "",
-      geographicFocus: "", industryExpertise: "", dealStructurePreference: "",
     }));
   };
 
