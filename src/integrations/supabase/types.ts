@@ -13380,7 +13380,6 @@ export type Database = {
           fee_pandadoc_status: string
           fee_signed_document_url: string
           firm_id: string
-          firm_name: string
           nda_document_url: string
           nda_pandadoc_document_id: string
           nda_pandadoc_signed_url: string
@@ -13390,6 +13389,7 @@ export type Database = {
           nda_signed_by_name: string
           nda_signed_document_url: string
           nda_status: string
+          primary_company_name: string
         }[]
       }
       get_user_role: { Args: { _user_id: string }; Returns: string }
