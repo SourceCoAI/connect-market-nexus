@@ -45,6 +45,8 @@ const ConnectionButton = ({
 
   const handleButtonClick = () => {
     if (!connectionExists || connectionStatus === 'rejected') {
+      // Gate: listing must be active
+      if (listingStatus === 'inactive' || listingStatus === 'sold') return;
       // Gate: profile must be complete
       if (user && !isAdmin && !isProfileComplete(user)) return;
       // Gate: NDA must be signed

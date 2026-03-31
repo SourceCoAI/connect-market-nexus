@@ -43,13 +43,12 @@ const PendingApproval = () => {
   const { data: ndaStatus, refetch: refetchNdaStatus } = useBuyerNdaStatus(user?.id);
   const [firmCreationAttempted, setFirmCreationAttempted] = useState(false);
 
-  // Fallback: if firm doesn't exist yet (e.g., signup edge function failed), create it now
+  // Fallback: if firm doesn't exist yet (e.g., signup edge function failed), create it now.
+  // Only marks as attempted on success so it can retry on failure.
   useEffect(() => {
     if (!user || firmCreationAttempted) return;
     if (ndaStatus === undefined) return; // Still loading
     if (ndaStatus?.hasFirm) return; // Firm already exists
-
-    setFirmCreationAttempted(true);
 
     supabase.functions
       .invoke('auto-create-firm-on-signup', {
@@ -57,7 +56,7 @@ const PendingApproval = () => {
       })
       .then(({ error }) => {
         if (!error) {
-          // Firm created — re-fetch NDA status so the signing panel appears
+          setFirmCreationAttempted(true);
           refetchNdaStatus();
         } else {
           console.warn('Fallback firm creation failed:', error);

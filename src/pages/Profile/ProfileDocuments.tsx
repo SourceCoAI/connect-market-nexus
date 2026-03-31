@@ -80,7 +80,7 @@ function useAllDocuments() {
       docs.push({
         type: 'nda',
         label: 'Non-Disclosure Agreement (NDA)',
-        signed: firm.nda_status === 'signed',
+        signed: firm.nda_status === 'signed' || firm.nda_signed === true || firm.nda_pandadoc_status === 'completed',
         signedAt: firm.nda_signed_at,
         documentUrl: firm.nda_pandadoc_signed_url || firm.nda_document_url || null,
         hasSubmission: !!firm.nda_pandadoc_document_id,
@@ -91,7 +91,7 @@ function useAllDocuments() {
       docs.push({
         type: 'fee_agreement',
         label: 'Fee Agreement',
-        signed: firm.fee_agreement_status === 'signed',
+        signed: firm.fee_agreement_status === 'signed' || firm.fee_agreement_signed === true || firm.fee_pandadoc_status === 'completed',
         signedAt: firm.fee_agreement_signed_at,
         documentUrl: firm.fee_pandadoc_signed_url || firm.fee_agreement_document_url || null,
         hasSubmission: !!firm.fee_pandadoc_document_id,

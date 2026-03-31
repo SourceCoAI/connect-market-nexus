@@ -1,7 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { useSavedStatus, useSaveListingMutation } from '@/hooks/marketplace/use-saved-listings';
+import { useAuth } from '@/contexts/AuthContext';
 import { Bookmark, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 import {
   Tooltip,
   TooltipContent,
@@ -17,10 +19,15 @@ interface EnhancedSaveButtonProps {
 }
 
 export function EnhancedSaveButton({ listingId, listingTitle, location, onSave }: EnhancedSaveButtonProps) {
+  const { user } = useAuth();
   const { data: isSaved } = useSavedStatus(listingId);
   const { mutate: toggleSave, isPending } = useSaveListingMutation();
 
   const handleQuickSave = () => {
+    if (!user) {
+      toast({ title: 'Sign in required', description: 'Please sign in to save listings.' });
+      return;
+    }
     toggleSave(
       {
         listingId,

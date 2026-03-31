@@ -366,12 +366,6 @@ const Signup = () => {
                 <button
                   type="button"
                   onClick={(e) => {
-                    setFormData((p) => ({
-                      ...p,
-                      idealTargetDescription: '',
-                      businessCategories: [],
-                      targetLocations: [],
-                    }));
                     handleSubmit(e as unknown as React.FormEvent);
                   }}
                   disabled={isLoading || isSubmitting}
