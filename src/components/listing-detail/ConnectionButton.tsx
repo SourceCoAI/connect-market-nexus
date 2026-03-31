@@ -178,6 +178,26 @@ const ConnectionButton = ({
     );
   }
 
+  // Block users who haven't signed an NDA
+  if (!isAdmin && coverage && !coverage.nda_covered) {
+    return (
+      <div className="space-y-3">
+        <div className="w-full px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <ShieldAlert className="h-4 w-4 text-amber-500" />
+            <p className="text-sm font-medium text-amber-900">NDA Required</p>
+          </div>
+          <p className="text-xs text-amber-700 mt-0.5">
+            You must sign a confidentiality agreement before requesting deal access. This is a one-time process.
+          </p>
+          <p className="text-xs text-muted-foreground mt-2">
+            Contact <a href={`mailto:${APP_CONFIG.adminEmail}`} className="underline text-amber-700 hover:text-amber-900">{APP_CONFIG.adminEmail}</a> to get your NDA set up.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Show closed/sold state for inactive or sold listings
   if (listingStatus === 'inactive' || listingStatus === 'sold') {
     return (

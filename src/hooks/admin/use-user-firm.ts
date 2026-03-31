@@ -41,7 +41,7 @@ export function useUserFirm(userId: string | null | undefined) {
 
         return {
           firm_id: row.firm_id,
-          firm_name: row.firm_name,
+          firm_name: row.primary_company_name ?? null,
           member_count: null,
           fee_agreement_signed: row.fee_agreement_signed ?? false,
           nda_signed: row.nda_signed ?? false,
