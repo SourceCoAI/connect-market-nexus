@@ -31,15 +31,15 @@ const getSuffix = (_mode: 'millions' | 'thousands' | 'auto', fieldType: string):
 const getPlaceholder = (fieldType: string): string => {
   switch (fieldType) {
     case 'fund':
-      return '100-500 (millions)';
+      return 'e.g. 500';
     case 'aum':
-      return '250-1,000 (millions)';
+      return 'e.g. 1000';
     case 'revenue':
-      return '10-50 (millions)';
+      return 'e.g. 25';
     case 'dealSize':
-      return '5-25 (millions)';
+      return 'e.g. 10';
     default:
-      return '1-10 (millions)';
+      return 'Enter amount';
   }
 };
 
