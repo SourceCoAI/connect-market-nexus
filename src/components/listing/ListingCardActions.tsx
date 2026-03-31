@@ -154,7 +154,7 @@ const ListingCardActions = memo(function ListingCardActions({
             </div>
           </div>
         </div>
-        <Link to="/profile" onClick={(e) => e.stopPropagation()}>
+        <Link to="/profile?tab=profile&complete=1" onClick={(e) => e.stopPropagation()}>
           <Button
             variant="outline"
             size="sm"
