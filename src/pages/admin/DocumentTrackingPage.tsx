@@ -28,6 +28,8 @@ import { useRemoveFirmMember } from '@/hooks/admin/use-firm-agreements';
 import { useAgreementAuditLog } from '@/hooks/admin/use-firm-agreements';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
