@@ -1,37 +1,45 @@
 
 
-# Profile Completion: Remaining Issues to Fix
+# Root Cause: "Failed to request connection" Error
 
-## Issues Found
+## What's Happening
 
-### Issue 1: `company` silently stripped on profile save
-In `use-nuclear-auth.ts` line 414, `'company'` is in `PRIVILEGED_FIELDS` and gets deleted from the update payload. If a user's company was empty at signup, they can **never** fill it via the profile page — yet it's a required field for completeness. The field is also rendered as `disabled` with `bg-muted/50` in `ProfileForm.tsx` (line 141-145), so the user can't even type in it.
+Two issues combine to cause the error:
 
-**Fix**: Remove `'company'` from `PRIVILEGED_FIELDS` in `use-nuclear-auth.ts` AND remove the `disabled` prop + grey styling from the company input in `ProfileForm.tsx` so users can actually edit it. Keep the "contact support" note only for `buyer_type` and `email`.
+### Issue 1: No visual NDA gate on the listing page
+The `ConnectionButton` silently blocks clicks when NDA isn't signed (line 53: `if (coverage && !coverage.nda_covered) return;`) — the button just does nothing. There is **no UI telling the user they need to sign an NDA**. The profile completeness gate has a nice visual block with instructions; the NDA gate has nothing.
 
-### Issue 2: `EnhancedCurrencyInput` saves wrong value on blur
-Line 111 in `enhanced-currency-input.tsx`: `onChange?.(displayValue)` sends the **pre-formatted display string** (which at that point still contains the old value before formatting). Should be `onChange?.(digits)` to save the clean numeric value.
+### Issue 2: Race condition lets the click through
+When `coverage` is still loading (undefined), the guard `coverage && !coverage.nda_covered` evaluates to `false` (because `coverage` is falsy), so the click passes through → dialog opens → user submits → the server-side RPC enforces NDA and raises `'NDA must be signed before requesting deal access'` → error toast.
 
-### Issue 3: Auth context `user` object is stale after save — gates don't update
-After saving the profile, `updateUserProfile` in `use-nuclear-auth.ts` re-fetches the profile from DB and calls `setUser()`. However, the `ConnectionButton` and `ListingCard` both read `user` from `useAuth()`. If the user saves their profile on `/profile` and then navigates back to a listing, the `user` object should be fresh. This part actually works — `setUser` updates context. **No fix needed here** as long as the save actually persists the data (which Issues 1 & 2 block).
+### Issue 3 (separate): `get_user_firm_agreement_status` RPC broken
+The console is spammed with `column fa.nda_pandadoc_signed_url does not exist` because the PandaDoc migration (`20260310000000`) hasn't been applied to the database. This doesn't directly cause the connection error but is a separate DB schema issue that needs a migration fix.
 
-### Issue 4: Profile banner uses `mergedUser` but `ConnectionButton` uses auth `user`
-After the user fills fields on the profile form, the banner says "100% complete" (because it merges `formData`). But if they don't click Save, the auth `user` is still stale — they go back to a listing and see "Complete Your Profile" again. This is expected behavior (they need to save), but could be confusing.
+### Issue 4: Gmail users can never get domain-based NDA coverage
+`gmail.com` is in the `generic_email_domains` table, so `check_agreement_coverage` always returns `is_covered: false`. These users need to sign an NDA through PandaDoc directly — which requires the NDA signing UI gate to be visible.
 
-**Fix**: After successful save, the profile page should show a clear success state. Already done via toast — acceptable.
+## Plan
 
-## Plan — 3 Files
+### File 1: `src/components/listing-detail/ConnectionButton.tsx`
 
-### File 1: `src/hooks/use-nuclear-auth.ts`
-- Remove `'company'` from the `PRIVILEGED_FIELDS` array (line 414)
+Add a **visual NDA gate block** (similar to the profile completeness block) that renders when `coverage` exists and `nda_covered` is false. Shows:
+- "NDA Required" heading
+- Brief explanation that an NDA must be signed before requesting access
+- Link/button to initiate NDA signing (or message to contact support if no firm resolved)
 
-### File 2: `src/pages/Profile/ProfileForm.tsx`
-- Remove `disabled` and `className="bg-muted/50"` from the company `<Input>` (lines 145-146)
-- Remove the "contact support" helper text under company (lines 148-153)
-- Add `onChange={onInputChange}` to the company input
+Also fix the race condition: change the `handleButtonClick` guard to block when `coverage` is **undefined** (still loading) — `if (!isAdmin && (!coverage || !coverage.nda_covered)) return;`
 
-### File 3: `src/components/ui/enhanced-currency-input.tsx`
-- Line 111: Change `onChange?.(displayValue)` to `onChange?.(digits)` so the raw numeric string is saved to the database, not a comma-formatted display string
+### File 2: Migration — fix `get_user_firm_agreement_status` RPC
 
-Three files, three targeted fixes. After these + the already-committed 90% threshold, the flow will work end-to-end: user sees missing fields → edits them on profile → saves → returns to listing → gate is cleared immediately.
+Create a migration that either:
+- Adds the missing `nda_pandadoc_signed_url` column to `firm_agreements` (the PandaDoc migration should have done this)
+- OR updates the RPC to not reference that column
+
+Since the column addition migration exists but wasn't applied, the simplest fix is a new migration that re-runs the `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` statements for the PandaDoc columns, then re-creates the RPC.
+
+### Technical Details
+
+- The NDA gate visual block goes between the profile completeness block (line 178) and the closed/sold block (line 181)
+- The guard fix changes line 53 from `coverage &&` to `(!coverage ||` to be safe-by-default
+- The migration adds 6 PandaDoc columns with `IF NOT EXISTS` (idempotent) and re-creates `get_user_firm_agreement_status`
 
