@@ -13294,6 +13294,7 @@ export type Database = {
           fee_firm_name: string
           fee_parent_firm_name: string
           fee_status: string
+          firm_id: string
           nda_coverage_source: string
           nda_covered: boolean
           nda_firm_name: string
