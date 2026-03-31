@@ -24,7 +24,7 @@ import { DealSourcingCriteriaDialog } from '@/components/listing-detail/DealSour
 import { EditableDescription } from '@/components/listing-detail/EditableDescription';
 import { SimilarListingsCarousel } from '@/components/listing-detail/SimilarListingsCarousel';
 import { EnhancedSaveButton } from '@/components/listing-detail/EnhancedSaveButton';
-import { InvestmentFitScore } from '@/components/listing-detail/InvestmentFitScore';
+
 import { InternalCompanyInfoDisplay } from '@/components/admin/InternalCompanyInfoDisplay';
 import { BuyerDataRoom } from '@/components/marketplace/BuyerDataRoom';
 import { MFAGate } from '@/components/auth/MFAGate';
@@ -194,8 +194,8 @@ const ListingDetail = () => {
       )}
 
       {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-[42px]">
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-10">
           {/* Main Content - 70% */}
           <div className="lg:col-span-7 space-y-8">
             {/* Horizontal Header */}
@@ -391,17 +391,6 @@ const ListingDetail = () => {
                   />
                 </div>
               </div>
-
-              {/* Investment Fit Analysis — buyer-facing match explanation */}
-              {!isAdmin && (
-                <InvestmentFitScore
-                  revenue={listing.revenue}
-                  ebitda={listing.ebitda}
-                  category={listing.category}
-                  location={listing.location}
-                  listing={listing}
-                />
-              )}
 
               {/* Exclusive Deal Flow */}
               <div className="bg-white/50 border border-slate-200/60 rounded-lg p-6 shadow-sm">

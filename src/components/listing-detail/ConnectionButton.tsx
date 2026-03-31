@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
 import { useRealtime } from '@/components/realtime/RealtimeProvider';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
-import { Send, XCircle, AlertCircle } from 'lucide-react';
+import { XCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
 
@@ -47,7 +47,11 @@ const ConnectionButton = ({
 
   const handleButtonClick = () => {
     if (!connectionExists || connectionStatus === 'rejected') {
-      // Check fee agreement coverage before opening dialog
+      // Gate: profile must be complete
+      if (user && !isAdmin && !isProfileComplete(user)) return;
+      // Gate: NDA must be signed
+      if (!isAdmin && ndaStatus && ndaStatus.hasFirm && !ndaStatus.ndaSigned) return;
+      // Gate: fee agreement must be covered
       if (!isAdmin && coverage && !coverage.fee_covered) {
         setShowFeeGate(true);
       } else {
@@ -202,50 +206,18 @@ const ConnectionButton = ({
     return (
       <div className="space-y-3">
         <div className="w-full px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-center">
-          <p className="text-sm font-semibold text-red-700">This opportunity is no longer available</p>
+          <p className="text-sm font-semibold text-red-700">Owner selected another buyer</p>
           <p className="text-xs text-red-600 mt-0.5">
-            This listing is no longer available for introduction requests. Browse other deals
+            The business owner has moved forward with another buyer on this one. Browse other deals
             — our team sources new opportunities regularly.
           </p>
         </div>
-        <Button
-          onClick={handleButtonClick}
-          disabled={isRequesting}
-          className="w-full h-10 bg-slate-900 hover:bg-slate-800 text-white font-medium text-[13px] tracking-[0.002em] shadow-sm hover:shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-sourceco-accent/30 focus:ring-offset-2"
+        <Link
+          to="/marketplace"
+          className="block w-full text-center text-xs font-medium py-2.5 px-3 rounded-md bg-slate-900 text-white hover:bg-slate-800 transition-colors"
         >
-          <Send className="h-3.5 w-3.5" />
-          {isRequesting ? 'Sending request...' : 'Request Again'}
-        </Button>
-
-        {showFeeGate && user && ndaStatus?.firmId && (
-          <FeeAgreementGate
-            userId={user.id}
-            firmId={ndaStatus.firmId}
-            listingTitle={listingTitle}
-            onSigned={() => {
-              setShowFeeGate(false);
-              setIsDialogOpen(true);
-            }}
-            onDismiss={() => setShowFeeGate(false)}
-          />
-        )}
-        {showFeeGate && user && !ndaStatus?.firmId && (
-          <div className="w-full px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
-            <p className="text-sm font-medium text-amber-900">Fee Agreement Required</p>
-            <p className="text-xs text-amber-700 mt-0.5">
-              We couldn't resolve your firm. Please contact support to set up your fee agreement.
-            </p>
-          </div>
-        )}
-
-        <ConnectionRequestDialog
-          isOpen={isDialogOpen}
-          onClose={() => setIsDialogOpen(false)}
-          onSubmit={handleDialogSubmit}
-          isSubmitting={isRequesting}
-          listingTitle={listingTitle}
-          listingId={listingId}
-        />
+          Browse Other Deals
+        </Link>
       </div>
     );
   }
@@ -267,7 +239,6 @@ const ConnectionButton = ({
         onSubmit={handleDialogSubmit}
         isSubmitting={isRequesting}
         listingTitle={listingTitle}
-        listingId={listingId}
       />
 
       {showFeeGate && user && ndaStatus?.firmId && (

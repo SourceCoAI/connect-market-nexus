@@ -17,7 +17,6 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAllSavedListingIds } from '@/hooks/marketplace/use-saved-listings';
 import { useAllConnectionStatuses } from '@/hooks/marketplace/use-connections';
 
-import { MatchedDealsSection } from '@/components/marketplace/MatchedDealsSection';
 
 import {
   Select,
@@ -266,8 +265,6 @@ const MarketplaceContent = () => {
 
             {/* Listings */}
             <div className="col-span-1 lg:col-span-3 flex flex-col gap-4 relative">
-              {/* Matched Deals Feed */}
-              {user && !user.is_admin && <MatchedDealsSection />}
               {/* View type and sorting */}
               <div className="flex flex-wrap justify-between items-center gap-4">
                 <div className="text-sm text-muted-foreground">
