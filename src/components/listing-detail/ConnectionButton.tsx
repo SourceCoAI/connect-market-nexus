@@ -8,7 +8,7 @@ import { useRealtime } from '@/components/realtime/RealtimeProvider';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { XCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
+import { isProfileComplete, getProfileCompletionPercentage, getMissingFieldLabels } from '@/lib/profile-completeness';
 
 interface ConnectionButtonProps {
   connectionExists: boolean;
