@@ -33,6 +33,38 @@ export const useSignupForm = () => {
     formState: { errors },
   } = form;
   const buyerType = watch('buyerType');
+  const prevBuyerTypeRef = useRef(buyerType);
+
+  // Reset type-specific fields when buyer type changes
+  useEffect(() => {
+    if (prevBuyerTypeRef.current && prevBuyerTypeRef.current !== buyerType) {
+      const typeSpecificFields: (keyof SignupFormData)[] = [
+        // PE
+        'portfolioCompanyAddon', 'deployingCapitalNow',
+        // Corporate
+        'owningBusinessUnit', 'dealSizeBand', 'integrationPlan', 'corpdevIntent',
+        // Family Office
+        'discretionType', 'permanentCapital', 'operatingCompanyTargets',
+        // Independent Sponsor
+        'committedEquityBand', 'equitySource', 'flexSubXmEbitda', 'backersSummary', 'deploymentTiming',
+        // Search Fund
+        'searchType', 'acqEquityBand', 'financingPlan', 'flexSub2mEbitda', 'anchorInvestorsSummary', 'searchStage',
+        // Advisor
+        'onBehalfOfBuyer', 'buyerRole', 'buyerOrgUrl', 'mandateBlurb',
+        // Business Owner
+        'ownerIntent', 'ownerTimeline',
+        // Individual
+        'maxEquityTodayBand', 'usesBankFinance',
+        // Shared
+        'fundSize', 'investmentSize', 'aum', 'estimatedRevenue',
+        'isFunded', 'fundedBy', 'targetCompanySize', 'fundingSource', 'needsLoan', 'idealTarget',
+      ];
+      for (const field of typeSpecificFields) {
+        setValue(field, undefined as never);
+      }
+    }
+    prevBuyerTypeRef.current = buyerType;
+  }, [buyerType, setValue]);
 
   const onSubmit = async (data: SignupFormData) => {
     try {
