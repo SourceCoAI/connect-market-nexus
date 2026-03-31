@@ -268,6 +268,12 @@ export default function DocumentTrackingPage() {
   const filteredFirms = useMemo(() => {
     let result = [...firms];
 
+    if (marketplaceOnly) {
+      result = result.filter(f =>
+        f.members.some(m => m.member_type === 'marketplace_user' && m.user_id)
+      );
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((f) => {
