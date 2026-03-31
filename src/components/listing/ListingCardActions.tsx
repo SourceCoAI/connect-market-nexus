@@ -1,7 +1,7 @@
 import { useState, memo } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Bookmark, CheckCircle2, Clock, XCircle, Send, Eye, AlertCircle, ShieldX } from "lucide-react";
+import { Bookmark, CheckCircle2, Clock, XCircle, Send, Eye, AlertCircle, ShieldX, Shield } from "lucide-react";
 import ConnectionRequestDialog from "@/components/connection/ConnectionRequestDialog";
 
 interface ListingCardActionsProps {
