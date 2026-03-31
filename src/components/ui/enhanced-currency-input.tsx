@@ -108,7 +108,7 @@ export const EnhancedCurrencyInput = React.forwardRef<HTMLInputElement, Enhanced
       if (digits) {
         const formatted = formatCurrency(digits, currencyMode);
         setDisplayValue(formatted);
-        onChange?.(displayValue); // Keep the user's input format
+        onChange?.(digits);
       } else {
         setDisplayValue('');
         onChange?.('');

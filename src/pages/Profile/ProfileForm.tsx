@@ -142,15 +142,8 @@ export function ProfileForm({
                 id="company"
                 name="company"
                 value={formData.company}
-                disabled
-                className="bg-muted/50"
+                onChange={onInputChange}
               />
-              <p className="text-xs text-muted-foreground">
-                Need to update your company? Contact{' '}
-                <a href="mailto:support@sourceco.com" className="text-primary hover:underline">
-                  support@sourceco.com
-                </a>
-              </p>
             </div>
 
             <div className="space-y-2">
