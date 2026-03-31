@@ -35,9 +35,11 @@ export function ProfileForm({
   onSetFormData,
   onSubmit,
 }: ProfileFormProps) {
-  const missingLabels = getMissingFieldLabels(user);
-  const completionPct = getProfileCompletionPercentage(user);
-  const profileComplete = isProfileComplete(user);
+  // Merge formData with user for live completeness tracking
+  const mergedUser = { ...user, ...formData };
+  const missingLabels = getMissingFieldLabels(mergedUser);
+  const completionPct = getProfileCompletionPercentage(mergedUser);
+  const profileComplete = isProfileComplete(mergedUser);
 
   return (
     <Card>

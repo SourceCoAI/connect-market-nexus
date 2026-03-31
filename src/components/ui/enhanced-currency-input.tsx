@@ -130,7 +130,7 @@ export const EnhancedCurrencyInput = React.forwardRef<HTMLInputElement, Enhanced
           onChange={handleChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          className={cn(showSuffix && "pr-10", className)}
+          className={cn("placeholder:text-muted-foreground/40", showSuffix && "pr-10", className)}
           placeholder={defaultPlaceholder}
         />
         {showSuffix && suffix && (
