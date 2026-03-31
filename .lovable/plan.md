@@ -1,72 +1,44 @@
 
 
-# Root Cause: Signup Fails with "Database error saving new user"
+# Fix: Guide Users to Exact Missing Fields on Profile Page
 
-## The Error Chain
+## Problem
 
-1. User submits signup → Supabase creates row in `auth.users`
-2. Trigger `on_auth_user_created` fires → `handle_new_user()` inserts into `profiles`
-3. Trigger `trg_sync_marketplace_buyer_on_signup` fires on `profiles` INSERT → `sync_marketplace_buyer_on_signup()` tries to INSERT into `remarketing_buyers`
-4. The INSERT sets `email_domain` from the user's email (e.g. `gmail.com`)
-5. **UNIQUE INDEX** `idx_remarketing_buyers_unique_email_domain_per_universe` rejects the insert because another non-archived `remarketing_buyers` row already has that same `email_domain` + `universe_id` combination
-6. The error is **not caught** inside `sync_marketplace_buyer_on_signup()` — it propagates up, aborting the entire transaction including the `auth.users` INSERT
-7. Result: **500 — "Database error saving new user"**
+When a buyer clicks "Complete Profile (73%)" from a listing card, they land on `/profile` with a big form and no idea which fields need filling. The missing-field info exists in `ConnectionButton` (on the listing detail page) but is completely absent from the Profile page itself.
 
-## Why It Happens
+## Solution
 
-The unique index enforces one buyer per email domain per universe. This makes sense for corporate domains (one `acme.com` buyer), but breaks for:
-- **Generic email domains** (gmail.com, yahoo.com, hotmail.com) — multiple unrelated buyers share them
-- **Any domain** that already has a buyer record — a second user from the same company triggers the constraint
+Add a **completion banner** at the top of the Profile form that:
+1. Shows the completion percentage and a progress bar
+2. Lists the exact missing fields by name (e.g., "Phone", "Search Stage", "Acquisition Equity")
+3. Auto-scrolls to / highlights the first missing field
+4. Disappears once the profile is 100% complete
 
-The `sync_marketplace_buyer_on_signup()` function does check for existing buyers by website domain and company name, but does **NOT** check by email domain. So it falls through to INSERT, which hits the unique constraint.
+Also pass `?incomplete=true` query param from the listing card and listing detail "Complete My Profile" links so the banner can appear prominently when arriving from that flow.
 
-## The Fix — Single Migration
+## Changes
 
-**File**: New migration
+### File 1: `src/pages/Profile/ProfileForm.tsx`
 
-1. **Add email_domain lookup** to `sync_marketplace_buyer_on_signup()` — before attempting INSERT, check if a buyer with the same `email_domain` already exists (same logic path as the website/company-name checks). If found, use that buyer instead of inserting.
+- Import `getMissingFieldLabels`, `getProfileCompletionPercentage`, `isProfileComplete` from `profile-completeness`
+- Add a banner component at the top of the form (inside `<CardContent>`, before the form fields) that:
+  - Shows an amber alert box with `AlertCircle` icon: "Complete these fields to unlock deal access"
+  - Lists each missing field as a bullet
+  - Shows a progress bar with percentage
+  - Only renders when profile is incomplete
+- Add `required` red asterisk styling to labels of fields that are in the missing list
 
-2. **Add EXCEPTION handler** around the INSERT INTO `remarketing_buyers` — if the unique constraint is still violated (race condition), catch it and fall back to SELECT the existing row. This prevents the error from killing the entire signup transaction.
+### File 2: `src/components/listing/ListingCardActions.tsx` (line 157)
 
-3. **Skip email_domain for generic providers** — if the domain is gmail.com, yahoo.com, hotmail.com, etc., set `email_domain` to NULL on the new buyer row so the unique index doesn't apply. The function already has access to the domain; just add a check against a list of common free providers.
+- Change `<Link to="/profile">` → `<Link to="/profile?tab=profile&complete=1">`
 
-```text
-Signup flow BEFORE fix:
-  auth.users INSERT
-    → handle_new_user() → profiles INSERT
-      → sync_marketplace_buyer_on_signup()
-        → INSERT remarketing_buyers (email_domain = 'gmail.com')
-        → UNIQUE VIOLATION → ENTIRE TRANSACTION ABORTS → 500
+### File 3: `src/components/listing-detail/ConnectionButton.tsx` (line 170-175)
 
-Signup flow AFTER fix:
-  auth.users INSERT
-    → handle_new_user() → profiles INSERT
-      → sync_marketplace_buyer_on_signup()
-        → Check existing buyer by email_domain FIRST
-        → If found → use existing (no INSERT)
-        → If not found → INSERT with email_domain = NULL for generic domains
-        → If INSERT still fails → EXCEPTION handler catches → SELECT existing
-        → Transaction succeeds → 200
-```
+- Change `<Link to="/profile">` → `<Link to="/profile?tab=profile&complete=1">`
 
 ### Technical Details
 
-The migration will `CREATE OR REPLACE FUNCTION public.sync_marketplace_buyer_on_signup()` with three changes:
-
-1. After the company-name fallback lookup (line ~174), add a third lookup:
-   ```sql
-   IF v_buyer_id IS NULL AND v_email_domain IS NOT NULL THEN
-     SELECT id INTO v_buyer_id
-     FROM public.remarketing_buyers
-     WHERE archived = false
-       AND email_domain = v_email_domain
-     LIMIT 1;
-   END IF;
-   ```
-
-2. Wrap the INSERT (lines 211-249) in a `BEGIN ... EXCEPTION WHEN unique_violation` block that does a SELECT fallback.
-
-3. Before INSERT, null out `v_email_domain` if it's a generic provider (gmail.com, yahoo.com, hotmail.com, outlook.com, aol.com, icloud.com, etc.).
-
-One migration file. No frontend changes needed.
+- Reuses existing `getMissingFieldLabels(user)` and `getProfileCompletionPercentage(user)` — no new logic needed
+- The banner is always visible when fields are missing, regardless of query param (the param just ensures the correct tab is active)
+- Missing field labels come from `FIELD_LABELS` map — already human-readable
 
