@@ -179,10 +179,17 @@ export const useRequestConnection = () => {
       invalidateConnectionRequests(queryClient);
     },
     onError: (error: unknown) => {
+      let message = 'Failed to request connection';
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (error && typeof error === 'object') {
+        const e = error as Record<string, unknown>;
+        message = String(e.message || e.details || e.hint || message);
+      }
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to request connection',
+        description: message,
       });
     },
   });

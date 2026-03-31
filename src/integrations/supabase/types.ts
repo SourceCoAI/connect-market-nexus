@@ -6241,6 +6241,18 @@ export type Database = {
           },
         ]
       }
+      generic_email_domains: {
+        Row: {
+          domain: string
+        }
+        Insert: {
+          domain: string
+        }
+        Update: {
+          domain?: string
+        }
+        Relationships: []
+      }
       global_activity_queue: {
         Row: {
           actor_id: string | null

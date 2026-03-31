@@ -52,6 +52,7 @@ const ListingCard = memo(function ListingCard({
   const profilePct = user ? getProfileCompletionPercentage(user) : 100;
   const buyerBlocked = user?.buyer_type === 'businessOwner' || user?.buyer_type === 'business_owner';
   const feeCovered = agreementStatus?.fee_covered ?? true;
+  const ndaCovered = agreementStatus?.nda_covered ?? true;
 
   // Get search session context for tracking (returns undefined if not within provider)
   const searchSession = useContext(SearchSessionContext);
@@ -212,6 +213,7 @@ const ListingCard = memo(function ListingCard({
                   profileCompletePct={profilePct}
                   isBuyerBlocked={buyerBlocked}
                   isFeeCovered={feeCovered}
+                  isNdaCovered={ndaCovered}
                   onFeeGateOpen={() => {
                     toast({
                       title: 'Fee Agreement Required',

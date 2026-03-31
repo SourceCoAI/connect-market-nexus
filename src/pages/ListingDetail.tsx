@@ -57,7 +57,7 @@ const ListingDetail = () => {
   const { data: agreementStatus } = useMyAgreementStatus(!isAdmin && !!user);
   useAgreementStatusSync();
   const showNdaGate =
-    !isAdmin && user && agreementStatus && agreementStatus.firm_id && !agreementStatus.nda_covered;
+    !isAdmin && user && agreementStatus && !agreementStatus.nda_covered;
 
   useEffect(() => {
     document.title = listing ? `${listing.title} | Marketplace` : 'Listing Detail | Marketplace';

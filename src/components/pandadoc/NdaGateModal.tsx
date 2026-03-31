@@ -9,7 +9,7 @@ import { APP_CONFIG } from '@/config/app';
 
 interface NdaGateModalProps {
   userId: string;
-  firmId: string;
+  firmId?: string;
   onSigned?: () => void;
 }
 

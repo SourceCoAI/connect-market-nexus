@@ -1,7 +1,7 @@
 import { useState, memo } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Bookmark, CheckCircle2, Clock, XCircle, Send, Eye, AlertCircle, ShieldX } from "lucide-react";
+import { Bookmark, CheckCircle2, Clock, XCircle, Send, Eye, AlertCircle, ShieldX, Shield } from "lucide-react";
 import ConnectionRequestDialog from "@/components/connection/ConnectionRequestDialog";
 
 interface ListingCardActionsProps {
@@ -20,6 +20,7 @@ interface ListingCardActionsProps {
   profileCompletePct?: number;
   isBuyerBlocked?: boolean;
   isFeeCovered?: boolean;
+  isNdaCovered?: boolean;
   onFeeGateOpen?: () => void;
 }
 
@@ -38,6 +39,7 @@ const ListingCardActions = memo(function ListingCardActions({
   profileCompletePct = 100,
   isBuyerBlocked = false,
   isFeeCovered = true,
+  isNdaCovered = true,
   onFeeGateOpen,
 }: ListingCardActionsProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -108,6 +110,12 @@ const ListingCardActions = memo(function ListingCardActions({
     // Gate: profile incomplete
     if (!isProfileComplete) return;
 
+    // Gate: NDA not covered — redirect to listing detail for signing
+    if (!isNdaCovered) {
+      window.location.href = listingId ? `/listing/${listingId}` : '/marketplace';
+      return;
+    }
+
     // Gate: fee agreement not covered
     if (!isFeeCovered) {
       onFeeGateOpen?.();
@@ -161,6 +169,30 @@ const ListingCardActions = memo(function ListingCardActions({
             className={`w-full ${viewType === 'list' ? 'h-8' : 'h-9'} text-[12px] font-medium`}
           >
             Complete Profile ({profileCompletePct}%)
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  // NDA not signed — show signing prompt
+  if (!isNdaCovered) {
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-muted/50 border border-border">
+          <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="text-[12px] text-muted-foreground">
+            Sign NDA to request access
+          </span>
+        </div>
+        <Link to={listingId ? `/listing/${listingId}` : '/marketplace'} onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="outline"
+            size="sm"
+            className={`w-full ${viewType === 'list' ? 'h-8' : 'h-9'} text-[12px] font-medium`}
+          >
+            <Shield className="h-3.5 w-3.5 mr-1.5" />
+            Sign NDA
           </Button>
         </Link>
       </div>
