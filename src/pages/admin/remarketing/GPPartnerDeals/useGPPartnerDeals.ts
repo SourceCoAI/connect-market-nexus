@@ -134,6 +134,7 @@ export function useGPPartnerDeals() {
           `,
           )
           .eq('deal_source', 'gp_partners')
+          .is('deleted_at', null)
           .order('created_at', { ascending: false })
           .range(offset, offset + batchSize - 1);
 
