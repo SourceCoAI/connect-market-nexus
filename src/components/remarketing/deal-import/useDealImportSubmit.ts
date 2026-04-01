@@ -222,6 +222,12 @@ async function tryMergeExistingListing(
       updates.deal_source = dealSource;
     }
 
+    // If the matched listing was soft-deleted, un-delete it on re-import
+    const wasSoftDeleted = existingListing.deleted_at != null;
+    if (wasSoftDeleted) {
+      updates.deleted_at = null;
+    }
+
     const existingId = existingListing.id as string;
     const existingTitle = (existingListing.title as string) || 'Unknown';
     const locations = await resolveLocations(existingListing);
