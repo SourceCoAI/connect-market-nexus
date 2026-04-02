@@ -250,6 +250,17 @@ interface PendingRequest {
   recipient_email: string | null;
   recipient_name: string | null;
   firm_id: string | null;
+  email_correlation_id: string | null;
+  email_provider_message_id: string | null;
+  last_email_error: string | null;
+}
+
+interface DeliveryEvent {
+  email: string;
+  status: string;
+  correlation_id: string | null;
+  error_message: string | null;
+  sent_at: string | null;
 }
 
 function usePendingRequestQueue() {
@@ -258,13 +269,34 @@ function usePendingRequestQueue() {
     staleTime: 30_000,
     queryFn: async () => {
       const { data, error } = await untypedFrom('document_requests')
-        .select('id, user_id, agreement_type, status, created_at, recipient_email, recipient_name, firm_id')
+        .select('id, user_id, agreement_type, status, created_at, recipient_email, recipient_name, firm_id, email_correlation_id, email_provider_message_id, last_email_error')
         .in('status', ['requested', 'email_sent'])
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (error) throw error;
       return (data || []) as PendingRequest[];
+    },
+  });
+}
+
+/** Fetch latest delivery events from brevo webhook logs for given correlation IDs */
+function useDeliveryEvents(correlationIds: string[]) {
+  return useQuery<DeliveryEvent[]>({
+    queryKey: ['admin-delivery-events', correlationIds],
+    staleTime: 30_000,
+    enabled: correlationIds.length > 0,
+    queryFn: async () => {
+      if (correlationIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('email_delivery_logs')
+        .select('email, status, correlation_id, error_message, sent_at')
+        .eq('email_type', 'brevo_webhook')
+        .in('correlation_id', correlationIds)
+        .order('sent_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as DeliveryEvent[];
     },
   });
 }
@@ -301,7 +333,27 @@ export default function DocumentTrackingPage() {
   const { data: firms = [], isLoading, error } = useAllFirmsTracking();
   const { data: orphanUsers = [] } = useOrphanUsers();
   const { data: pendingRequests = [] } = usePendingRequestQueue();
-  
+
+  // Gather correlation IDs from pending requests for delivery event lookup
+  const correlationIds = useMemo(() =>
+    pendingRequests
+      .map(r => r.email_correlation_id)
+      .filter((id): id is string => !!id),
+    [pendingRequests]
+  );
+  const { data: deliveryEvents = [] } = useDeliveryEvents(correlationIds);
+
+  // Build lookup: correlation_id -> latest delivery event
+  const deliveryMap = useMemo(() => {
+    const map = new Map<string, DeliveryEvent>();
+    for (const ev of deliveryEvents) {
+      if (ev.correlation_id && !map.has(ev.correlation_id)) {
+        map.set(ev.correlation_id, ev);
+      }
+    }
+    return map;
+  }, [deliveryEvents]);
+
   useRealtimeFirmAgreements();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -616,7 +668,7 @@ export default function DocumentTrackingPage() {
           </div>
           <div className="divide-y divide-amber-200">
             {pendingRequests.map((req) => (
-              <PendingRequestRow key={req.id} req={req} />
+              <PendingRequestRow key={req.id} req={req} deliveryEvent={req.email_correlation_id ? deliveryMap.get(req.email_correlation_id) : undefined} />
             ))}
           </div>
         </div>
@@ -966,7 +1018,7 @@ function FirmExpandableRow({
 
 // ─── Pending Request Row (with Mark Signed dialog) ───────────────────
 
-function PendingRequestRow({ req }: { req: PendingRequest }) {
+function PendingRequestRow({ req, deliveryEvent }: { req: PendingRequest; deliveryEvent?: DeliveryEvent }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -1052,6 +1104,36 @@ function PendingRequestRow({ req }: { req: PendingRequest }) {
             {req.recipient_email && req.recipient_name && (
               <p className="text-xs text-muted-foreground">{req.recipient_email}</p>
             )}
+            {/* Delivery state indicator */}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {req.last_email_error ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-destructive/10 text-destructive border border-destructive/20">
+                  ⚠ {req.last_email_error.length > 40 ? req.last_email_error.substring(0, 40) + '…' : req.last_email_error}
+                </span>
+              ) : deliveryEvent ? (
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${
+                  deliveryEvent.status === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                  deliveryEvent.status === 'opened' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                  deliveryEvent.status === 'bounced' || deliveryEvent.status === 'blocked' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                  'bg-muted text-muted-foreground border-border'
+                }`}>
+                  {deliveryEvent.status === 'delivered' ? '✓ Delivered' :
+                   deliveryEvent.status === 'opened' ? '👁 Opened' :
+                   deliveryEvent.status === 'bounced' ? '✕ Bounced' :
+                   deliveryEvent.status === 'blocked' ? '✕ Blocked' :
+                   deliveryEvent.status === 'spam_complaint' ? '⚠ Spam' :
+                   deliveryEvent.status}
+                </span>
+              ) : req.status === 'email_sent' ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                  ✉ Sent to provider
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground border border-border">
+                  Requested
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">

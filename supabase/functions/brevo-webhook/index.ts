@@ -23,6 +23,13 @@ interface BrevoWebhookEvent {
   ts_event?: number;
 }
 
+/** Normalize Brevo message-id to match what we store in document_requests */
+function normalizeMessageId(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  // Brevo sometimes wraps in angle brackets, sometimes not
+  return raw.replace(/^<|>$/g, '').trim() || null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
@@ -37,7 +44,20 @@ Deno.serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const body: BrevoWebhookEvent | BrevoWebhookEvent[] = await req.json();
+    const rawBody = await req.text();
+    console.log(`[brevo-webhook] Raw payload: ${rawBody.substring(0, 500)}`);
+
+    let body: BrevoWebhookEvent | BrevoWebhookEvent[];
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      console.error('[brevo-webhook] Failed to parse JSON body');
+      return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+        status: 400,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      });
+    }
+
     const events = Array.isArray(body) ? body : [body];
 
     let processed = 0;
@@ -46,16 +66,24 @@ Deno.serve(async (req: Request) => {
     for (const event of events) {
       try {
         const email = event.email?.toLowerCase();
-        if (!email) continue;
+        if (!email) {
+          console.warn('[brevo-webhook] Event has no email, skipping:', event.event);
+          continue;
+        }
 
-        const messageId = event['message-id'] || null;
+        const rawMessageId = event['message-id'];
+        const messageId = normalizeMessageId(rawMessageId);
+
+        console.log(`[brevo-webhook] Processing: event=${event.event} | email=${email} | rawMessageId=${rawMessageId} | normalizedId=${messageId}`);
 
         // ── 1. Engagement signals (existing logic) ──
         const eventMap: Record<string, { signalType: string; score: number }> = {
           opened: { signalType: 'email_engagement', score: 10 },
           clicked: { signalType: 'email_engagement', score: 25 },
           hardBounce: { signalType: 'email_engagement', score: -50 },
+          hard_bounce: { signalType: 'email_engagement', score: -50 },
           softBounce: { signalType: 'email_engagement', score: -10 },
+          soft_bounce: { signalType: 'email_engagement', score: -10 },
           unsubscribed: { signalType: 'email_engagement', score: -100 },
         };
 
@@ -106,30 +134,28 @@ Deno.serve(async (req: Request) => {
         }
 
         // ── 2. Delivery logging for agreement emails ──
-        let deliveryStatus: string | null = null;
-        switch (event.event) {
-          case 'delivered':
-            deliveryStatus = 'delivered';
-            break;
-          case 'hardBounce':
-          case 'hard_bounce':
-            deliveryStatus = 'bounced';
-            break;
-          case 'softBounce':
-          case 'soft_bounce':
-            deliveryStatus = 'soft_bounced';
-            break;
-          case 'blocked':
-            deliveryStatus = 'blocked';
-            break;
-          case 'spam':
-            deliveryStatus = 'spam_complaint';
-            break;
-        }
+        // Map all Brevo event name variants to a canonical delivery status
+        const deliveryStatusMap: Record<string, string> = {
+          delivered: 'delivered',
+          request: 'accepted',
+          deferred: 'deferred',
+          hardBounce: 'bounced',
+          hard_bounce: 'bounced',
+          softBounce: 'soft_bounced',
+          soft_bounce: 'soft_bounced',
+          blocked: 'blocked',
+          spam: 'spam_complaint',
+          complaint: 'spam_complaint',
+          opened: 'opened',
+          clicked: 'clicked',
+          invalid_email: 'bounced',
+        };
+
+        const deliveryStatus = deliveryStatusMap[event.event] || null;
 
         if (deliveryStatus) {
           // Log to email_delivery_logs
-          await supabase.from('email_delivery_logs').insert({
+          const { error: logErr } = await supabase.from('email_delivery_logs').insert({
             email,
             email_type: 'brevo_webhook',
             status: deliveryStatus,
@@ -138,21 +164,37 @@ Deno.serve(async (req: Request) => {
             sent_at: event.date ? new Date(event.date).toISOString() : new Date().toISOString(),
           });
 
-          // Update document_requests for bounces/blocks
-          if (['bounced', 'blocked', 'spam_complaint'].includes(deliveryStatus) && messageId) {
-            await supabase
-              .from('document_requests' as never)
-              .update({ last_email_error: `${deliveryStatus}: ${event.reason || event.event}` } as never)
-              .eq('email_provider_message_id' as never, messageId as never);
+          if (logErr) {
+            console.error(`[brevo-webhook] Delivery log insert error: ${logErr.message}`);
           }
 
-          console.log(`[brevo-webhook] Delivery: ${deliveryStatus} for ${email} | messageId=${messageId || 'unknown'}`);
+          // Update document_requests for bounces/blocks — match on normalized message id
+          if (['bounced', 'blocked', 'spam_complaint'].includes(deliveryStatus) && messageId) {
+            // Try matching with the raw stored value (could have angle brackets or not)
+            const errorMsg = `${deliveryStatus}: ${event.reason || event.event}`;
+
+            // Match both with and without angle brackets
+            const variants = [messageId, `<${messageId}>`];
+            for (const variant of variants) {
+              await supabase
+                .from('document_requests' as never)
+                .update({ last_email_error: errorMsg } as never)
+                .eq('email_provider_message_id' as never, variant as never);
+            }
+          }
+
+          console.log(`[brevo-webhook] Delivery: ${deliveryStatus} for ${email} | messageId=${messageId || 'unknown'} | reason=${event.reason || 'none'}`);
+        } else {
+          // Log unrecognized events instead of silently ignoring them
+          console.warn(`[brevo-webhook] Unrecognized event type: "${event.event}" for ${email} | messageId=${messageId || 'unknown'}`);
         }
       } catch (err) {
         console.error(`[brevo-webhook] Event processing error:`, err);
         errors++;
       }
     }
+
+    console.log(`[brevo-webhook] Batch complete: processed=${processed} errors=${errors} total=${events.length}`);
 
     return new Response(JSON.stringify({ processed, errors, total: events.length }), {
       status: 200,
