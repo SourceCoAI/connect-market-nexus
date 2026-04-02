@@ -119,7 +119,10 @@ serve(async (req: Request) => {
       firmId = firmIdResult;
 
       if (!firmId) {
-        const healResult = await selfHealFirm(supabaseAdmin, userId);
+        const healResult = await selfHealFirm(supabaseAdmin, userId, {
+          email: profile.email,
+          company: profile.company,
+        });
         firmId = healResult?.firmId ?? null;
       }
 

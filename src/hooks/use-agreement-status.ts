@@ -18,6 +18,8 @@ export interface AgreementCoverage {
   fee_firm_name: string | null;
   fee_parent_firm_name: string | null;
   firm_id: string | null;
+  nda_requested_at: string | null;
+  fee_agreement_requested_at: string | null;
 }
 
 const SAFE_DEFAULT_COVERAGE: AgreementCoverage = {
