@@ -32,6 +32,7 @@ const ConnectionButton = ({
   listingStatus,
 }: ConnectionButtonProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
   useRealtime();
   useAgreementStatusSync();
   const { user } = useAuth();
