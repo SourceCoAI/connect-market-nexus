@@ -330,6 +330,7 @@ export function OverviewTab({
         name={deal.main_contact_name}
         email={deal.main_contact_email}
         phone={deal.main_contact_phone}
+        dealId={dealId}
         onSave={async (data) => {
           await updateDealMutation.mutateAsync({
             main_contact_name: data.name,

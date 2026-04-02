@@ -8,7 +8,7 @@ interface ClickToDialPhoneProps {
   name?: string;
   email?: string;
   company?: string;
-  entityType?: 'buyer_contacts' | 'contacts' | 'buyers';
+  entityType?: 'buyer_contacts' | 'contacts' | 'buyers' | 'listings' | 'leads' | 'contact_list';
   entityId?: string;
   /** Display label — defaults to the phone number */
   label?: string;

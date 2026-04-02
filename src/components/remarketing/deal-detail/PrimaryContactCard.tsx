@@ -19,10 +19,17 @@ interface PrimaryContactCardProps {
   name: string | null;
   email: string | null;
   phone: string | null;
+  dealId?: string;
   onSave: (data: { name: string; email: string; phone: string }) => Promise<void>;
 }
 
-export const PrimaryContactCard = ({ name, email, phone, onSave }: PrimaryContactCardProps) => {
+export const PrimaryContactCard = ({
+  name,
+  email,
+  phone,
+  dealId,
+  onSave,
+}: PrimaryContactCardProps) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editedName, setEditedName] = useState(name || '');
   const [editedEmail, setEditedEmail] = useState(email || '');
@@ -103,6 +110,8 @@ export const PrimaryContactCard = ({ name, email, phone, onSave }: PrimaryContac
                     phone={phone}
                     name={name || undefined}
                     email={email || undefined}
+                    entityType="listings"
+                    entityId={dealId}
                     size="sm"
                     className="text-sm text-muted-foreground hover:text-foreground"
                   />
@@ -122,6 +131,8 @@ export const PrimaryContactCard = ({ name, email, phone, onSave }: PrimaryContac
                     phone={phone}
                     name={name || undefined}
                     email={email || undefined}
+                    entityType="listings"
+                    entityId={dealId}
                     label="Call"
                     size="md"
                     className="border rounded-md px-3 py-1.5 text-sm text-foreground hover:text-foreground hover:bg-accent"
