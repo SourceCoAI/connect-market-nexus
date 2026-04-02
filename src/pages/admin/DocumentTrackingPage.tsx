@@ -444,7 +444,7 @@ export default function DocumentTrackingPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <StatCard label="Total Firms" value={totalFirms} />
         <StatCard
           label="NDA Signed"
@@ -457,6 +457,12 @@ export default function DocumentTrackingPage() {
           value={feeSigned}
           subtitle={`/ ${totalFirms}`}
           color="emerald"
+        />
+        <StatCard
+          label="Pending Requests"
+          value={firms.filter(f => f.hasPendingRequest).length}
+          color="amber"
+          onClick={() => setFilterStatus('pending_requests')}
         />
         <StatCard
           label="Needs Attention"
