@@ -34,6 +34,8 @@ const SAFE_DEFAULT_COVERAGE: AgreementCoverage = {
   fee_firm_name: null,
   fee_parent_firm_name: null,
   firm_id: null,
+  nda_requested_at: null,
+  fee_agreement_requested_at: null,
 };
 
 function isRpcMissing(error: unknown): boolean {
