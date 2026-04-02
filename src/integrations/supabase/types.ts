@@ -7361,6 +7361,7 @@ export type Database = {
           address_country: string | null
           address_state: string | null
           address_zip: string | null
+          archive_reason: string | null
           business_model: string | null
           buyer_universe_description: string | null
           buyer_universe_generated_at: string | null
@@ -7556,6 +7557,7 @@ export type Database = {
           address_country?: string | null
           address_state?: string | null
           address_zip?: string | null
+          archive_reason?: string | null
           business_model?: string | null
           buyer_universe_description?: string | null
           buyer_universe_generated_at?: string | null
@@ -7751,6 +7753,7 @@ export type Database = {
           address_country?: string | null
           address_state?: string | null
           address_zip?: string | null
+          archive_reason?: string | null
           business_model?: string | null
           buyer_universe_description?: string | null
           buyer_universe_generated_at?: string | null
@@ -12952,6 +12955,7 @@ export type Database = {
           address_country: string | null
           address_state: string | null
           address_zip: string | null
+          archive_reason: string | null
           business_model: string | null
           buyer_universe_description: string | null
           buyer_universe_generated_at: string | null
