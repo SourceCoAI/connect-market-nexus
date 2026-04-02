@@ -17,6 +17,8 @@ import { useAdminProfiles } from '@/hooks/admin/use-admin-profiles';
 import { useEnrichmentProgress } from '@/hooks/useEnrichmentProgress';
 import type { GPPartnerDeal, SortColumn, SortDirection, NewDealForm } from './types';
 import { EMPTY_NEW_DEAL } from './types';
+import { normalizeDomain } from '@/lib/remarketing/normalizeDomain';
+import type { DuplicateDealInfo, FieldKey } from './DuplicateDealDialog';
 
 const PAGE_SIZE = 50;
 
@@ -98,6 +100,9 @@ export function useGPPartnerDeals() {
   const [addDealOpen, setAddDealOpen] = useState(false);
   const [isAddingDeal, setIsAddingDeal] = useState(false);
   const [newDeal, setNewDeal] = useState<NewDealForm>(EMPTY_NEW_DEAL);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateDealInfo | null>(null);
+  const [isUpdatingDuplicate, setIsUpdatingDuplicate] = useState(false);
 
   // CSV upload dialog
   const [csvUploadOpen, setCsvUploadOpen] = useState(false);
@@ -552,7 +557,7 @@ export function useGPPartnerDeals() {
     [user, startOrQueueMajorOp, completeOperation, updateProgress, queryClient],
   );
 
-  // Add single deal
+  // Add single deal — pre-checks for duplicate website before inserting
   const handleAddDeal = useCallback(async () => {
     if (!newDeal.company_name.trim()) {
       sonnerToast.error('Company name is required');
@@ -563,6 +568,30 @@ export function useGPPartnerDeals() {
     let website = newDeal.website.trim();
     if (website && !website.startsWith('http://') && !website.startsWith('https://')) {
       website = `https://${website}`;
+    }
+
+    // Pre-check: look for existing deal with same normalized domain
+    if (website) {
+      const normalized = normalizeDomain(website);
+      if (normalized) {
+        const { data: existing } = await supabase
+          .from('listings')
+          .select(
+            'id, title, website, main_contact_name, main_contact_email, main_contact_phone, main_contact_title, industry, description, location, revenue, ebitda',
+          )
+          .ilike('website', `%${normalized}%`)
+          .limit(1)
+          .single();
+
+        if (existing) {
+          // Show duplicate dialog instead of error
+          setDuplicateInfo({ existing, newDeal });
+          setAddDealOpen(false);
+          setDuplicateDialogOpen(true);
+          setIsAddingDeal(false);
+          return;
+        }
+      }
     }
 
     const dealData = {
@@ -584,45 +613,7 @@ export function useGPPartnerDeals() {
       pushed_to_all_deals: false,
     };
 
-    // Try insert first; if duplicate website, update the existing listing instead
     const { error } = await supabase.from('listings').insert(dealData as never);
-
-    if (error?.message?.includes('idx_listings_unique_website')) {
-      // Find existing listing by website and update it
-      const { data: existing } = await supabase
-        .from('listings')
-        .select('id')
-        .ilike('website', `%${website.replace(/^https?:\/\//, '').replace(/\/$/, '')}%`)
-        .limit(1)
-        .single();
-
-      if (existing) {
-        const { title: _t, deal_source: _ds, is_internal_deal: _i, pushed_to_all_deals: _p, status: _s, ...updateData } = dealData;
-        const { error: updateError } = await supabase
-          .from('listings')
-          .update({
-            ...updateData,
-            title: dealData.title,
-            deleted_at: null, // un-delete if soft-deleted
-          } as never)
-          .eq('id', existing.id);
-
-        setIsAddingDeal(false);
-        if (updateError) {
-          sonnerToast.error(`Failed to update deal: ${updateError.message}`);
-        } else {
-          sonnerToast.success('Existing deal updated successfully');
-          setAddDealOpen(false);
-          setNewDeal(EMPTY_NEW_DEAL);
-          queryClient.invalidateQueries({ queryKey: ['remarketing', 'gp-partner-deals'] });
-        }
-        return;
-      }
-
-      setIsAddingDeal(false);
-      sonnerToast.error('A deal with this website already exists');
-      return;
-    }
 
     setIsAddingDeal(false);
     if (error) {
@@ -634,6 +625,59 @@ export function useGPPartnerDeals() {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'gp-partner-deals'] });
     }
   }, [newDeal, queryClient]);
+
+  // Confirm update of selected fields on duplicate deal
+  const handleConfirmDuplicateUpdate = useCallback(
+    async (fieldsToUpdate: FieldKey[]) => {
+      if (!duplicateInfo) return;
+      setIsUpdatingDuplicate(true);
+
+      const { existing, newDeal: nd } = duplicateInfo;
+      const fieldMap: Record<FieldKey, { column: string; value: unknown }> = {
+        company_name: { column: 'title', value: nd.company_name.trim() || null },
+        contact_name: { column: 'main_contact_name', value: nd.contact_name.trim() || null },
+        contact_email: { column: 'main_contact_email', value: nd.contact_email.trim() || null },
+        contact_phone: { column: 'main_contact_phone', value: nd.contact_phone.trim() || null },
+        contact_title: { column: 'main_contact_title', value: nd.contact_title.trim() || null },
+        industry: { column: 'industry', value: nd.industry.trim() || null },
+        description: { column: 'description', value: nd.description.trim() || null },
+        location: { column: 'location', value: nd.location.trim() || null },
+        revenue: { column: 'revenue', value: nd.revenue ? parseFloat(nd.revenue) : null },
+        ebitda: { column: 'ebitda', value: nd.ebitda ? parseFloat(nd.ebitda) : null },
+      };
+
+      const updatePayload: Record<string, unknown> = {};
+      for (const key of fieldsToUpdate) {
+        const mapping = fieldMap[key];
+        if (mapping) {
+          updatePayload[mapping.column] = mapping.value;
+        }
+      }
+      // Also update internal_company_name if company_name is selected
+      if (fieldsToUpdate.includes('company_name')) {
+        updatePayload.internal_company_name = nd.company_name.trim() || null;
+      }
+
+      const { error } = await supabase
+        .from('listings')
+        .update(updatePayload as never)
+        .eq('id', existing.id);
+
+      setIsUpdatingDuplicate(false);
+      if (error) {
+        sonnerToast.error(`Failed to update deal: ${error.message}`);
+      } else {
+        sonnerToast.success(
+          `Updated ${fieldsToUpdate.length} field${fieldsToUpdate.length !== 1 ? 's' : ''} on existing deal`,
+        );
+        setDuplicateDialogOpen(false);
+        setDuplicateInfo(null);
+        setNewDeal(EMPTY_NEW_DEAL);
+        queryClient.invalidateQueries({ queryKey: ['remarketing', 'gp-partner-deals'] });
+      }
+    },
+    [duplicateInfo, queryClient],
+  );
 
   const handleImportComplete = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['remarketing', 'gp-partner-deals'] });
@@ -761,6 +805,12 @@ export function useGPPartnerDeals() {
     isAddingDeal,
     newDeal,
     setNewDeal,
+    // Duplicate deal dialog
+    duplicateDialogOpen,
+    setDuplicateDialogOpen,
+    duplicateInfo,
+    isUpdatingDuplicate,
+    handleConfirmDuplicateUpdate,
     // CSV
     csvUploadOpen,
     setCsvUploadOpen,

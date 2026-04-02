@@ -39,6 +39,7 @@ import { GPPartnerKPICards } from './GPPartnerKPICards';
 import { GPPartnerTable } from './GPPartnerTable';
 import { GPPartnerPagination } from './GPPartnerPagination';
 import { AddDealDialog } from './AddDealDialog';
+import { DuplicateDealDialog } from './DuplicateDealDialog';
 import { ArchiveDealDialog } from '@/components/admin/deals/ArchiveDealDialog';
 
 export default function GPPartnerDeals() {
@@ -51,7 +52,7 @@ export default function GPPartnerDeals() {
   const [isArchiving, setIsArchiving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMarkingNotFit, setIsMarkingNotFit] = useState(false);
-  const [archiveTarget, setArchiveTarget] = useState<{id: string; name: string} | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null);
 
   const handleBulkArchive = useCallback(async () => {
     setIsArchiving(true);
@@ -425,7 +426,7 @@ export default function GPPartnerDeals() {
         setAddDealOpen={hook.setAddDealOpen}
         setCsvUploadOpen={hook.setCsvUploadOpen}
         onMarkNotFit={handleMarkNotFitSingle}
-        onArchiveDeal={(dealId, dealName) => setArchiveTarget({id: dealId, name: dealName})}
+        onArchiveDeal={(dealId, dealName) => setArchiveTarget({ id: dealId, name: dealName })}
       />
 
       {/* Pagination */}
@@ -448,6 +449,15 @@ export default function GPPartnerDeals() {
         handleAddDeal={hook.handleAddDeal}
       />
 
+      {/* Duplicate Deal Dialog */}
+      <DuplicateDealDialog
+        open={hook.duplicateDialogOpen}
+        onOpenChange={hook.setDuplicateDialogOpen}
+        duplicateInfo={hook.duplicateInfo}
+        isUpdating={hook.isUpdatingDuplicate}
+        onConfirmUpdate={hook.handleConfirmDuplicateUpdate}
+      />
+
       {/* CSV Upload Dialog */}
       <DealImportDialog
         open={hook.csvUploadOpen}
@@ -460,7 +470,9 @@ export default function GPPartnerDeals() {
       {/* Archive Deal Dialog */}
       <ArchiveDealDialog
         open={!!archiveTarget}
-        onOpenChange={(open) => { if (!open) setArchiveTarget(null); }}
+        onOpenChange={(open) => {
+          if (!open) setArchiveTarget(null);
+        }}
         deal={archiveTarget ? { id: archiveTarget.id, name: archiveTarget.name } : null}
         onConfirmArchive={async (reason) => {
           if (!archiveTarget) return;
