@@ -253,6 +253,7 @@ type FilterStatus = 'all' | 'signed' | 'sent' | 'not_started' | 'unsigned' | 'ne
 type SortField = 'company' | 'nda_status' | 'fee_status' | 'members' | 'last_signed' | 'last_requested';
 
 export default function DocumentTrackingPage() {
+  const { user } = useAuth();
   const { data: firms = [], isLoading, error } = useAllFirmsTracking();
   const { data: orphanUsers = [] } = useOrphanUsers();
   const { data: pendingRequests = [] } = usePendingRequestQueue();
