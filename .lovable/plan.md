@@ -1,30 +1,53 @@
 
 
-# Document Signing Revamp — Final Audit
+# Document Signing Revamp — Final Remaining Issues
 
-## Status: ~99% Complete
+## Status: ~97% Complete
 
-The system is fully functional end-to-end. All major surfaces — marketplace cards, listing detail, My Deals, Profile Documents, PendingApproval, and admin Document Tracking — correctly implement the email-based workflow with the "either-doc" rule. Only two minor issues remain.
+The core email-based flow, marketplace gating, admin pending queue, and buyer UI are all working correctly. Three issues remain.
 
 ---
 
-## Remaining Issues
+## Issue 1: ListingDetail gate requires `firm_id` — fails open for no-firm users
 
-### 1. Filter bug in DocumentTrackingPage (functional)
+**File:** `src/pages/ListingDetail.tsx`, line 162
 
-**File:** `src/pages/admin/DocumentTrackingPage.tsx`, lines 329-354
+The full-screen `NdaGateModal` only renders when `agreementStatus?.firm_id` exists. Users without a resolved firm (new accounts, generic email domains) bypass the gate entirely and see full deal details without any agreement.
 
-The `pending_requests` filter is inside an `else` branch of the search query check. When an admin types a search query AND has "Pending Requests" selected as the filter, the pending filter is ignored — all search results show regardless of pending status.
+**Fix:** Remove the `agreementStatus?.firm_id` condition. The gate should render based solely on coverage status (`showNdaGate` is already correct on line 59-60). The `NdaGateModal` component already handles no-firm scenarios — it invokes `request-agreement-email` which self-heals the firm.
 
-**Fix:** Move filter logic so it applies independently of search. The `pending_requests` filter (and all other status filters) should apply as a second pass after search, not as an alternative to search.
+Change line 162 from:
+```
+if (showNdaGate && agreementStatus?.firm_id && !isInactive && ...)
+```
+to:
+```
+if (showNdaGate && !isInactive && ...)
+```
 
-### 2. Welcome page copy says "Sign NDA" instead of "Sign Agreement"
+---
 
-**File:** `src/pages/Welcome.tsx`, line 171
+## Issue 2: Admin UsersTable still uses legacy send-nda-email / send-fee-agreement-email
 
-The "How it works" text reads: `Apply → Verify your email → Admin review → Sign NDA → Browse deals → Request access`
+**Files:**
+- `src/components/admin/UsersTable.tsx` — imports `SimpleNDADialog`, `SimpleFeeAgreementDialog`
+- `src/components/admin/MobileUsersTable.tsx` — same
+- `src/components/admin/SimpleNDADialog.tsx` — calls `send-nda-email`
+- `src/components/admin/SimpleFeeAgreementDialog.tsx` — calls `send-fee-agreement-email`
+- `src/hooks/admin/use-nda.ts` — invokes `send-nda-email`
+- `src/hooks/admin/use-fee-agreement.ts` — invokes `send-fee-agreement-email`
 
-This should say "Sign Agreement" instead of "Sign NDA" to reflect the new either-doc rule.
+These admin send paths bypass `request-agreement-email` entirely, so documents sent from the Users table don't appear in the pending request queue, don't get tracked in `document_requests`, and don't trigger the sidebar badge.
+
+**Fix:** Rewire `SimpleNDADialog` and `SimpleFeeAgreementDialog` to invoke `request-agreement-email` with admin override parameters instead of the legacy edge functions. This ensures all admin-initiated sends go through the same tracking pipeline.
+
+---
+
+## Issue 3: Legacy email templates still reference "Sign NDA" button copy
+
+**File:** `supabase/functions/_shared/email-templates.ts`, lines 238 and 250
+
+The NDA email templates still have button text "Sign NDA" and "Sign NDA Now" which reference the old PandaDoc signing flow with `signUrl`. These templates are used by the legacy `send-nda-email` edge function. Once Issue 2 is resolved (admin sends routed through `request-agreement-email`), these templates become dead code. No immediate fix needed — they'll be cleaned up when the legacy edge functions are deleted.
 
 ---
 
@@ -34,22 +57,40 @@ This should say "Sign Agreement" instead of "Sign NDA" to reflect the new either
 |------|--------|
 | ListingCardActions — either-doc gate + inline chooser modal | Correct |
 | ConnectionButton — either-doc gate + inline chooser modal | Correct |
-| ListingDetail — gate uses coverage, not firm_id | Correct |
+| ListingDetail — `showNdaGate` logic (line 59-60) | Correct |
 | NdaGateModal — offers both NDA + Fee Agreement | Correct |
 | AgreementSigningModal — chooser step when no type provided | Correct |
 | PendingApproval — both doc buttons + either-doc check | Correct |
 | ProfileDocuments — requestable even without firm | Correct |
 | DealActionCard — either-doc rule + chooser modal | Correct |
-| DealDocumentsCard — both NDA + Fee rows, either-doc gate | Correct |
-| DealStatusSection — either-doc stage logic + copy | Correct |
-| AgreementStatusBanner — no false "fee required" messaging | Correct |
+| DealDocumentsCard — both NDA + Fee rows | Correct |
+| DealStatusSection — either-doc stage logic | Correct |
+| AgreementStatusBanner — correct messaging | Correct |
 | DocumentTrackingPage — pending queue, amber rows, audit log | Correct |
-| DocumentTrackingPage — Mark Signed with admin attribution + audit log insert | Correct |
-| DocumentTrackingPage — realtime invalidation (all 3 query keys) | Correct |
+| DocumentTrackingPage — Mark Signed with admin attribution | Correct |
+| DocumentTrackingPage — realtime invalidation (3 query keys) | Correct |
+| DocumentTrackingPage — filter/search independence | Correct |
 | Sidebar badge — counts from document_requests | Correct |
-| Edge function — sends via Brevo, syncs both tables | Correct |
+| Welcome page — "Sign Agreement" copy | Correct |
+| Edge function — request-agreement-email | Correct |
 
-### Files to Change
-- `src/pages/admin/DocumentTrackingPage.tsx` — fix filter/search independence (lines 329-354)
-- `src/pages/Welcome.tsx` — change "Sign NDA" to "Sign Agreement" (line 171)
+---
+
+## Implementation Steps
+
+### Step 1: Fix ListingDetail gate (1 line change)
+- Remove `agreementStatus?.firm_id &&` from line 162 in `src/pages/ListingDetail.tsx`
+
+### Step 2: Rewire admin send dialogs to unified pipeline
+- Update `SimpleNDADialog.tsx` — change `onSendEmail` callback to invoke `request-agreement-email` with `{ documentType: 'nda', adminOverride: true, recipientEmail, firmId }`
+- Update `SimpleFeeAgreementDialog.tsx` — same pattern with `documentType: 'fee_agreement'`
+- Update `UsersTable.tsx` and `MobileUsersTable.tsx` send handlers to use the new unified invocation
+- This ensures all admin sends appear in the pending request queue and sidebar badge
+
+### Files Changed
+- `src/pages/ListingDetail.tsx` — remove firm_id gate dependency
+- `src/components/admin/SimpleNDADialog.tsx` — rewire to request-agreement-email
+- `src/components/admin/SimpleFeeAgreementDialog.tsx` — rewire to request-agreement-email
+- `src/components/admin/UsersTable.tsx` — update send handler
+- `src/components/admin/MobileUsersTable.tsx` — update send handler
 
