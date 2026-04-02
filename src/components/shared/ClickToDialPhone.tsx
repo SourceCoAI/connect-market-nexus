@@ -24,6 +24,9 @@ interface ClickToDialPhoneProps {
  */
 export function ClickToDialPhone({
   phone,
+  name,
+  email,
+  company,
   entityType,
   entityId,
   label,
@@ -51,11 +54,12 @@ export function ClickToDialPhone({
     md: 'h-3.5 w-3.5',
   };
 
-  // Map entityType to the dialer modal's expected type
   const dialerEntityType = entityType || 'contacts';
-
-  // Use entityId if available, otherwise fall back to phone as identifier
   const contactIds = entityId ? [entityId] : [];
+
+  // When no entityId, pass contact details inline so the edge function
+  // can create a PhoneBurner session without a DB lookup
+  const inlineContacts = !entityId ? [{ phone, name, email, company }] : undefined;
 
   return (
     <>
@@ -93,6 +97,7 @@ export function ClickToDialPhone({
         contactIds={contactIds}
         contactCount={1}
         entityType={dialerEntityType}
+        inlineContacts={inlineContacts}
       />
     </>
   );

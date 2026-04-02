@@ -20,10 +20,18 @@ const PB_API_BASE = 'https://www.phoneburner.com/rest/1';
 
 type EntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads' | 'contact_list';
 
+interface InlineContact {
+  phone: string;
+  name?: string;
+  email?: string;
+  company?: string;
+}
+
 interface PushRequest {
   entity_type?: EntityType;
   entity_ids?: string[];
   contact_ids?: string[]; // Legacy — treated as buyer_contacts
+  inline_contacts?: InlineContact[]; // Direct contact details (no DB lookup)
   session_name?: string;
   skip_recent_days?: number;
   target_user_id?: string;
@@ -588,37 +596,54 @@ Deno.serve(async (req: Request) => {
 
   const entityType: EntityType = body.entity_type || 'buyer_contacts';
   const entityIds = body.entity_ids || body.contact_ids || [];
+  const inlineContacts: InlineContact[] = body.inline_contacts || [];
 
-  if (!entityIds.length) {
+  let contacts: ResolvedContact[];
+
+  if (inlineContacts.length > 0) {
+    // Direct contact details provided — no DB lookup needed
+    contacts = inlineContacts.map((c: InlineContact, i: number) => ({
+      id: `inline-${i}`,
+      name: c.name || 'Unknown',
+      phone: c.phone || null,
+      email: c.email || null,
+      title: null,
+      company: c.company || null,
+      source_entity: 'inline',
+      last_contacted_date: null,
+      contact_id: null,
+      listing_id: null,
+      remarketing_buyer_id: null,
+    }));
+  } else if (!entityIds.length) {
     return new Response(JSON.stringify({ error: 'No entities provided' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  }
-
-  let contacts: ResolvedContact[];
-  switch (entityType) {
-    case 'contacts':
-    case 'buyer_contacts':
-      contacts = await resolveFromBuyerContacts(supabase, entityIds);
-      break;
-    case 'buyers':
-      contacts = await resolveFromBuyers(supabase, entityIds);
-      break;
-    case 'listings':
-      contacts = await resolveFromListings(supabase, entityIds);
-      break;
-    case 'leads':
-      contacts = await resolveFromLeads(supabase, entityIds);
-      break;
-    case 'contact_list':
-      contacts = await resolveFromContactListMembers(supabase, entityIds);
-      break;
-    default:
-      return new Response(JSON.stringify({ error: `Unknown entity_type: ${entityType}` }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+  } else {
+    switch (entityType) {
+      case 'contacts':
+      case 'buyer_contacts':
+        contacts = await resolveFromBuyerContacts(supabase, entityIds);
+        break;
+      case 'buyers':
+        contacts = await resolveFromBuyers(supabase, entityIds);
+        break;
+      case 'listings':
+        contacts = await resolveFromListings(supabase, entityIds);
+        break;
+      case 'leads':
+        contacts = await resolveFromLeads(supabase, entityIds);
+        break;
+      case 'contact_list':
+        contacts = await resolveFromContactListMembers(supabase, entityIds);
+        break;
+      default:
+        return new Response(JSON.stringify({ error: `Unknown entity_type: ${entityType}` }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+    }
   }
 
   if (!contacts.length) {
