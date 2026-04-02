@@ -48,7 +48,6 @@ export function DealDocumentsCard({
   };
 
   const hasAnyAgreement = ndaSigned || feeCovered;
-  const showFee = feeStatus === 'sent' || feeCovered;
 
   const { data: access } = useQuery({
     queryKey: ['buyer-data-room-access', dealId, user?.id],

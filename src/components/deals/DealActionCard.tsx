@@ -26,12 +26,6 @@ export function DealActionCard({
   requestCreatedAt,
 }: DealActionCardProps) {
   const [signingOpen, setSigningOpen] = useState(false);
-  const [signingType, setSigningType] = useState<'nda' | 'fee_agreement'>('nda');
-
-  const openSigning = (type: 'nda' | 'fee_agreement') => {
-    setSigningType(type);
-    setSigningOpen(true);
-  };
 
   // Either doc unlocks access
   const hasAnyAgreement = ndaSigned || feeCovered;
