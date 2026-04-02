@@ -207,8 +207,8 @@ function useRealtimeFirmAgreements() {
 
 // ─── Component ───────────────────────────────────────────────────────
 
-type FilterStatus = 'all' | 'signed' | 'sent' | 'not_started' | 'unsigned' | 'needs_attention';
-type SortField = 'company' | 'nda_status' | 'fee_status' | 'members' | 'last_signed';
+type FilterStatus = 'all' | 'signed' | 'sent' | 'not_started' | 'unsigned' | 'needs_attention' | 'pending_requests';
+type SortField = 'company' | 'nda_status' | 'fee_status' | 'members' | 'last_signed' | 'last_requested';
 
 export default function DocumentTrackingPage() {
   const { data: firms = [], isLoading, error } = useAllFirmsTracking();
