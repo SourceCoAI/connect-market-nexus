@@ -766,6 +766,7 @@ Extract all available business information using the provided tool. Be EXHAUSTIV
             console.warn('[enrich-deal] Rate limit report failed:', err);
           });
 
+          lastAiError = `Rate limited by Gemini (429) on attempt ${attempt + 1}/${MAX_AI_RETRIES}`;
           const waitMs = retryAfterSeconds ? retryAfterSeconds * 1000 : AI_RETRY_DELAYS[attempt];
           const jitter = Math.random() * 1000;
           console.log(
