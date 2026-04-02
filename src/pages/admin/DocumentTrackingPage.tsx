@@ -193,6 +193,10 @@ function useRealtimeFirmAgreements() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'firm_agreements' }, () => {
         queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'document_requests' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+      })
       .subscribe();
 
     return () => {

@@ -24,6 +24,15 @@ export function useAgreementStatusSync() {
           invalidateAgreementQueries(queryClient, user.id);
         },
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'document_requests' },
+        () => {
+          invalidateAgreementQueries(queryClient, user.id);
+          queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+          queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+        },
+      )
       .subscribe();
 
     return () => {
