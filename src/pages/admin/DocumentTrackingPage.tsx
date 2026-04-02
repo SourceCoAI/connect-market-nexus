@@ -254,7 +254,7 @@ export default function DocumentTrackingPage() {
   const { data: firms = [], isLoading, error } = useAllFirmsTracking();
   const { data: orphanUsers = [] } = useOrphanUsers();
   const { data: pendingRequests = [] } = usePendingRequestQueue();
-  const { user: adminUser } = useAuth();
+  const _adminUser = adminUser; // reserved for future admin attribution
   useRealtimeFirmAgreements();
   const queryClient = useQueryClient();
 
