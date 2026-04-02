@@ -1908,43 +1908,43 @@ export function getChatbotTestScenarios(): TestScenario[] {
       },
     },
 
-    // PandaDoc - Send NDA
+    // Email-based Agreement Sending - Send NDA
     {
       id: 'int-send-nda',
-      category: 'Integration — PandaDoc',
+      category: 'Integration — Agreements',
       name: 'Send NDA to buyer contact',
-      description: 'Tests send_document tool routing and confirmation flow.',
+      description: 'Tests send_document tool routing and confirmation flow via email.',
       userMessage: 'Send the NDA to John Smith at Trivest Partners',
       expectedBehavior: [
         'Routes to DOCUMENT_ACTION category',
         'Looks up firm and contact details',
         'Asks for confirmation before sending',
-        'Reports submission ID and delivery mode after confirmation',
+        'Reports that the document was sent via email',
       ],
       severity: 'critical',
       skipAutoRun: true,
       autoValidation: {
         expectedRouteCategories: ['DOCUMENT_ACTION', 'ACTION'],
         expectedTools: ['send_document'],
-        mustContainAny: ['NDA', 'send', 'sign', 'confirm'],
+        mustContainAny: ['NDA', 'send', 'sign', 'confirm', 'email'],
       },
     },
     {
       id: 'int-send-fee-agreement',
-      category: 'Integration — PandaDoc',
+      category: 'Integration — Agreements',
       name: 'Send fee agreement',
-      description: 'Tests fee agreement variant of send_document.',
+      description: 'Tests fee agreement variant of send_document via email.',
       userMessage: 'Send the fee agreement to the primary contact at Audax Private Equity',
       expectedBehavior: [
         'Routes to DOCUMENT_ACTION category',
         'Looks up firm and primary contact email',
-        'Asks for confirmation before sending',
+        'Asks for confirmation before sending via email',
       ],
       severity: 'high',
       skipAutoRun: true,
       autoValidation: {
         expectedRouteCategories: ['DOCUMENT_ACTION', 'ACTION'],
-        mustContainAny: ['fee agreement', 'Fee Agreement', 'send', 'sign'],
+        mustContainAny: ['fee agreement', 'Fee Agreement', 'send', 'sign', 'email'],
       },
     },
 
