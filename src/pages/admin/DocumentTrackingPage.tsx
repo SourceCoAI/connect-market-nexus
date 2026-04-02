@@ -552,7 +552,84 @@ export default function DocumentTrackingPage() {
         </Collapsible>
       )}
 
-      {/* Filters */}
+      {/* Pending Request Queue */}
+      {pendingRequests.length > 0 && (
+        <div className="border border-amber-200 rounded-xl bg-amber-50/50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-amber-200 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Pending Requests ({pendingRequests.length})
+            </h3>
+            <span className="text-xs text-amber-700">Check inbox at support@sourcecodeals.com</span>
+          </div>
+          <div className="divide-y divide-amber-200">
+            {pendingRequests.map((req) => (
+              <div key={req.id} className="px-4 py-3 flex items-center justify-between hover:bg-amber-100/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  {req.document_type === 'nda' ? (
+                    <Shield className="h-4 w-4 text-primary" />
+                  ) : (
+                    <FileSignature className="h-4 w-4 text-primary" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {req.recipient_name || req.recipient_email || 'Unknown'}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {req.document_type === 'nda' ? 'NDA' : 'Fee Agreement'}
+                      </span>
+                    </p>
+                    {req.recipient_email && req.recipient_name && (
+                      <p className="text-xs text-muted-foreground">{req.recipient_email}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(req.created_at), { addSuffix: true })}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    onClick={async () => {
+                      try {
+                        await untypedFrom('document_requests')
+                          .update({
+                            status: 'signed',
+                            updated_at: new Date().toISOString(),
+                          })
+                          .eq('id', req.id);
+
+                        // Also update firm_agreements if we have a firm_id
+                        if (req.firm_id) {
+                          const statusCol = req.document_type === 'nda' ? 'nda_status' : 'fee_agreement_status';
+                          const signedAtCol = req.document_type === 'nda' ? 'nda_signed_at' : 'fee_agreement_signed_at';
+                          await supabase
+                            .from('firm_agreements')
+                            .update({
+                              [statusCol]: 'signed',
+                              [signedAtCol]: new Date().toISOString(),
+                            } as never)
+                            .eq('id', req.firm_id);
+                        }
+
+                        queryClient.invalidateQueries({ queryKey: ['admin-pending-request-queue'] });
+                        queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+                        queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+                      } catch {
+                        // Silently fail
+                      }
+                    }}
+                  >
+                    Mark Signed
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
