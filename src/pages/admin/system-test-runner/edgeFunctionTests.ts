@@ -2,7 +2,7 @@
  * Edge function and AI engine tests for the SystemTestRunner.
  *
  * Categories 14-16:
- *  14. PandaDoc Integration
+ *  14. Agreement Email Flow
  *  15. External API Health
  *  16. AI Buyer Recommendation Engine
  */

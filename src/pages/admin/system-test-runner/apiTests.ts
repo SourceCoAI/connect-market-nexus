@@ -4,7 +4,7 @@
  * Categories 8-13:
  *  8. Marketplace Approval
  *  9. Fireflies Integration
- *  9b. PandaDoc Integration
+ *  9b. Agreement & Document Tracking
  *  10. Send Memo Flow
  *  11. Data Room Portal
  *  12. CapTarget Integration
