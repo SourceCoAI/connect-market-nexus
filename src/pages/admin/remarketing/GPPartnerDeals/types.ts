@@ -71,6 +71,26 @@ export interface NewDealForm {
   ebitda: string;
 }
 
+export const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+  checkbox: 40,
+  number: 50,
+  company: 200,
+  description: 200,
+  industry: 130,
+  owner: 120,
+  revenue: 90,
+  ebitda: 90,
+  liCount: 80,
+  liRange: 100,
+  reviews: 80,
+  rating: 70,
+  score: 70,
+  date: 90,
+  status: 80,
+  priority: 70,
+  actions: 50,
+};
+
 export const EMPTY_NEW_DEAL: NewDealForm = {
   company_name: '',
   website: '',

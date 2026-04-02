@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAdminProfiles } from '@/hooks/admin/use-admin-profiles';
 import { useEnrichmentProgress } from '@/hooks/useEnrichmentProgress';
 import type { GPPartnerDeal, SortColumn, SortDirection, NewDealForm } from './types';
-import { EMPTY_NEW_DEAL } from './types';
+import { EMPTY_NEW_DEAL, DEFAULT_COLUMN_WIDTHS } from './types';
 
 const PAGE_SIZE = 50;
 
@@ -35,6 +35,12 @@ export function useGPPartnerDeals() {
   const [searchParams, setSearchParams] = useSearchParams();
   const sortColumn = (searchParams.get('sort') as SortColumn) ?? 'created_at';
   const sortDirection = (searchParams.get('dir') as SortDirection) ?? 'desc';
+
+  // Column resizing
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(DEFAULT_COLUMN_WIDTHS);
+  const handleColumnResize = useCallback((column: string, newWidth: number) => {
+    setColumnWidths((prev) => ({ ...prev, [column]: newWidth }));
+  }, []);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -687,6 +693,9 @@ export function useGPPartnerDeals() {
     engineTotal,
     timeframe,
     setTimeframe,
+    // Column resizing
+    columnWidths,
+    handleColumnResize,
     // Sort
     sortColumn,
     sortDirection,
