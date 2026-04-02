@@ -50,14 +50,9 @@ const ConnectionButton = ({
       if (listingStatus === 'inactive' || listingStatus === 'sold') return;
       // Gate: profile must be complete
       if (user && !isAdmin && !isProfileComplete(user)) return;
-      // Gate: NDA must be signed (block when loading too — safe-by-default)
-      if (!isAdmin && (!coverage || !coverage.nda_covered)) return;
-      // Gate: fee agreement must be covered
-      if (!isAdmin && coverage && !coverage.fee_covered) {
-        setShowFeeGate(true);
-      } else {
-        setIsDialogOpen(true);
-      }
+      // Gate: at least ONE agreement must be signed (NDA or Fee Agreement)
+      if (!isAdmin && (!coverage || (!coverage.nda_covered && !coverage.fee_covered))) return;
+      setIsDialogOpen(true);
     }
   };
 
