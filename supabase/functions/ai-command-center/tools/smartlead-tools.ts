@@ -199,7 +199,7 @@ async function getSmartleadCampaigns(
   }
 
   const enriched = campaigns.map((c: Record<string, unknown>) => {
-    const stats = statsMap.get(c.id);
+    const stats = statsMap.get(c.id as string);
     return {
       id: c.id,
       smartlead_campaign_id: c.smartlead_campaign_id,
