@@ -106,6 +106,7 @@ serve(async (req: Request) => {
       console.error('[request-agreement-email] Insert error:', insertErr);
     }
 
+    const docLabel = documentType === 'nda' ? 'NDA (Non-Disclosure Agreement)' : 'Fee Agreement';
     // Build PDF download link if available in storage
     const pdfFileName = documentType === 'nda' ? 'NDA.pdf' : 'FeeAgreement.pdf';
     const { data: pdfUrl } = supabaseAdmin.storage
