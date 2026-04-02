@@ -7362,6 +7362,7 @@ export type Database = {
           address_state: string | null
           address_zip: string | null
           archive_reason: string | null
+          auto_created_from_smartlead: boolean | null
           business_model: string | null
           buyer_universe_description: string | null
           buyer_universe_generated_at: string | null
@@ -7531,6 +7532,9 @@ export type Database = {
           sf_target_stage: string | null
           sf_target_sub_stage: string | null
           sf_tier: string | null
+          smartlead_ai_category: string | null
+          smartlead_replied_at: string | null
+          smartlead_reply_inbox_id: string | null
           source_deal_id: string | null
           special_requirements: string | null
           status: string
@@ -7558,6 +7562,7 @@ export type Database = {
           address_state?: string | null
           address_zip?: string | null
           archive_reason?: string | null
+          auto_created_from_smartlead?: boolean | null
           business_model?: string | null
           buyer_universe_description?: string | null
           buyer_universe_generated_at?: string | null
@@ -7727,6 +7732,9 @@ export type Database = {
           sf_target_stage?: string | null
           sf_target_sub_stage?: string | null
           sf_tier?: string | null
+          smartlead_ai_category?: string | null
+          smartlead_replied_at?: string | null
+          smartlead_reply_inbox_id?: string | null
           source_deal_id?: string | null
           special_requirements?: string | null
           status?: string
@@ -7754,6 +7762,7 @@ export type Database = {
           address_state?: string | null
           address_zip?: string | null
           archive_reason?: string | null
+          auto_created_from_smartlead?: boolean | null
           business_model?: string | null
           buyer_universe_description?: string | null
           buyer_universe_generated_at?: string | null
@@ -7923,6 +7932,9 @@ export type Database = {
           sf_target_stage?: string | null
           sf_target_sub_stage?: string | null
           sf_tier?: string | null
+          smartlead_ai_category?: string | null
+          smartlead_replied_at?: string | null
+          smartlead_reply_inbox_id?: string | null
           source_deal_id?: string | null
           special_requirements?: string | null
           status?: string
@@ -10839,6 +10851,9 @@ export type Database = {
           manual_sentiment: string | null
           message_id: string | null
           metadata: Json | null
+          phone_enriched_at: string | null
+          phone_enrichment_linkedin_url: string | null
+          phone_enrichment_source: string | null
           preview_text: string | null
           raw_payload: Json | null
           recategorized_at: string | null
@@ -10901,6 +10916,9 @@ export type Database = {
           manual_sentiment?: string | null
           message_id?: string | null
           metadata?: Json | null
+          phone_enriched_at?: string | null
+          phone_enrichment_linkedin_url?: string | null
+          phone_enrichment_source?: string | null
           preview_text?: string | null
           raw_payload?: Json | null
           recategorized_at?: string | null
@@ -10963,6 +10981,9 @@ export type Database = {
           manual_sentiment?: string | null
           message_id?: string | null
           metadata?: Json | null
+          phone_enriched_at?: string | null
+          phone_enrichment_linkedin_url?: string | null
+          phone_enrichment_source?: string | null
           preview_text?: string | null
           raw_payload?: Json | null
           recategorized_at?: string | null
@@ -12956,6 +12977,7 @@ export type Database = {
           address_state: string | null
           address_zip: string | null
           archive_reason: string | null
+          auto_created_from_smartlead: boolean | null
           business_model: string | null
           buyer_universe_description: string | null
           buyer_universe_generated_at: string | null
@@ -13125,6 +13147,9 @@ export type Database = {
           sf_target_stage: string | null
           sf_target_sub_stage: string | null
           sf_tier: string | null
+          smartlead_ai_category: string | null
+          smartlead_replied_at: string | null
+          smartlead_reply_inbox_id: string | null
           source_deal_id: string | null
           special_requirements: string | null
           status: string
