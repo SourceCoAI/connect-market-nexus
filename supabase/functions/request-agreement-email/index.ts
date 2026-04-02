@@ -170,15 +170,15 @@ serve(async (req: Request) => {
     }
 
     const docLabel = documentType === 'nda' ? 'NDA (Non-Disclosure Agreement)' : 'Fee Agreement';
-    const pdfFileName = documentType === 'nda' ? 'NDA.pdf' : 'FeeAgreement.pdf';
-    const { data: pdfUrl } = supabaseAdmin.storage
+    const docFileName = documentType === 'nda' ? 'NDA.docx' : 'FeeAgreement.docx';
+    const { data: docUrl } = supabaseAdmin.storage
       .from('agreement-templates')
-      .getPublicUrl(pdfFileName);
+      .getPublicUrl(docFileName);
 
-    const downloadLink = pdfUrl?.publicUrl
+    const downloadLink = docUrl?.publicUrl
       ? `<p style="margin:20px 0; text-align:center;">
-          <a href="${pdfUrl.publicUrl}" style="background:#1e293b;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">
-            Download ${docLabel}
+          <a href="${docUrl.publicUrl}" style="background:#1e293b;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">
+            Download ${docLabel} Document
           </a>
         </p>`
       : '';
