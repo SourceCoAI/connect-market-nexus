@@ -194,10 +194,9 @@ const ListingCardActions = memo(function ListingCardActions({
             Sign Agreement
           </Button>
         </div>
-        <AgreementSigningModal
+      <AgreementSigningModal
           open={signingOpen}
           onOpenChange={setSigningOpen}
-          documentType="nda"
         />
       </>
     );
