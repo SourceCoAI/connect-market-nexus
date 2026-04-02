@@ -365,6 +365,20 @@ export default function DocumentTrackingPage() {
         cmp =
           (statusOrder[a.fee_agreement_status] ?? 9) - (statusOrder[b.fee_agreement_status] ?? 9);
       else if (sortField === 'members') cmp = b.member_count - a.member_count;
+      else if (sortField === 'last_requested') {
+        const aDate = Math.max(
+          a.nda_requested_at ? new Date(a.nda_requested_at).getTime() : 0,
+          a.fee_agreement_requested_at ? new Date(a.fee_agreement_requested_at).getTime() : 0,
+        );
+        const bDate = Math.max(
+          b.nda_requested_at ? new Date(b.nda_requested_at).getTime() : 0,
+          b.fee_agreement_requested_at ? new Date(b.fee_agreement_requested_at).getTime() : 0,
+        );
+        if (aDate === 0 && bDate === 0) cmp = 0;
+        else if (aDate === 0) cmp = 1;
+        else if (bDate === 0) cmp = -1;
+        else cmp = bDate - aDate;
+      }
       else if (sortField === 'last_signed') {
         const aDate = Math.max(
           a.nda_signed_at ? new Date(a.nda_signed_at).getTime() : 0,
@@ -374,7 +388,6 @@ export default function DocumentTrackingPage() {
           b.nda_signed_at ? new Date(b.nda_signed_at).getTime() : 0,
           b.fee_agreement_signed_at ? new Date(b.fee_agreement_signed_at).getTime() : 0,
         );
-        // Firms with signed docs first, then by date
         if (aDate === 0 && bDate === 0) cmp = 0;
         else if (aDate === 0) cmp = 1;
         else if (bDate === 0) cmp = -1;
@@ -431,7 +444,7 @@ export default function DocumentTrackingPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <StatCard label="Total Firms" value={totalFirms} />
         <StatCard
           label="NDA Signed"
@@ -444,6 +457,12 @@ export default function DocumentTrackingPage() {
           value={feeSigned}
           subtitle={`/ ${totalFirms}`}
           color="emerald"
+        />
+        <StatCard
+          label="Pending Requests"
+          value={firms.filter(f => f.hasPendingRequest).length}
+          color="amber"
+          onClick={() => setFilterStatus('pending_requests')}
         />
         <StatCard
           label="Needs Attention"

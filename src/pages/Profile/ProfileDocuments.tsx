@@ -2,13 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  FileDown,
   Shield,
   FileSignature,
   CheckCircle,
   Loader2,
   AlertTriangle,
-  ArrowRight,
+  Mail,
+  Clock,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,8 @@ interface DocumentItem {
   label: string;
   signed: boolean;
   signedAt: string | null;
-  documentUrl: string | null;
-  hasSubmission: boolean;
+  requested: boolean;
+  requestedAt: string | null;
   status: string | null;
 }
 
@@ -36,7 +36,6 @@ function useAllDocuments() {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      // Use canonical firm resolver RPC (deterministic: email domain → company name → latest member)
       const { data: resolvedFirmId, error: resolveError } = await supabase.rpc('resolve_user_firm_id', {
         p_user_id: user.id,
       });
@@ -53,7 +52,7 @@ function useAllDocuments() {
         supabase.from('firm_agreements' as never) as unknown as ReturnType<typeof supabase.from>
       )
         .select(
-          'nda_status, nda_signed_at, nda_pandadoc_signed_url, nda_document_url, nda_pandadoc_document_id, nda_pandadoc_status, fee_agreement_status, fee_agreement_signed_at, fee_pandadoc_signed_url, fee_agreement_document_url, fee_pandadoc_document_id, fee_pandadoc_status',
+          'nda_status, nda_signed_at, nda_requested_at, fee_agreement_status, fee_agreement_signed_at, fee_agreement_requested_at',
         )
         .eq('id', firmId)
         .maybeSingle();
@@ -62,40 +61,32 @@ function useAllDocuments() {
       const firm = firmRaw as unknown as {
         nda_status: string | null;
         nda_signed_at: string | null;
-        nda_pandadoc_signed_url: string | null;
-        nda_document_url: string | null;
-        nda_pandadoc_document_id: string | null;
-        nda_pandadoc_status: string | null;
+        nda_requested_at: string | null;
         fee_agreement_status: string | null;
         fee_agreement_signed_at: string | null;
-        fee_pandadoc_signed_url: string | null;
-        fee_agreement_document_url: string | null;
-        fee_pandadoc_document_id: string | null;
-        fee_pandadoc_status: string | null;
+        fee_agreement_requested_at: string | null;
       };
 
       const docs: DocumentItem[] = [];
 
-      // Always show NDA row if firm exists
       docs.push({
         type: 'nda',
         label: 'Non-Disclosure Agreement (NDA)',
-        signed: firm.nda_status === 'signed' || !!firm.nda_signed_at || firm.nda_pandadoc_status === 'completed',
+        signed: firm.nda_status === 'signed',
         signedAt: firm.nda_signed_at,
-        documentUrl: firm.nda_pandadoc_signed_url || firm.nda_document_url || null,
-        hasSubmission: !!firm.nda_pandadoc_document_id,
-        status: firm.nda_pandadoc_status,
+        requested: !!firm.nda_requested_at && firm.nda_status !== 'signed',
+        requestedAt: firm.nda_requested_at,
+        status: firm.nda_status,
       });
 
-      // Always show Fee Agreement row if firm exists
       docs.push({
         type: 'fee_agreement',
         label: 'Fee Agreement',
-        signed: firm.fee_agreement_status === 'signed' || !!firm.fee_agreement_signed_at || firm.fee_pandadoc_status === 'completed',
+        signed: firm.fee_agreement_status === 'signed',
         signedAt: firm.fee_agreement_signed_at,
-        documentUrl: firm.fee_pandadoc_signed_url || firm.fee_agreement_document_url || null,
-        hasSubmission: !!firm.fee_pandadoc_document_id,
-        status: firm.fee_pandadoc_status,
+        requested: !!firm.fee_agreement_requested_at && firm.fee_agreement_status !== 'signed',
+        requestedAt: firm.fee_agreement_requested_at,
+        status: firm.fee_agreement_status,
       });
 
       return docs;
@@ -105,50 +96,14 @@ function useAllDocuments() {
   });
 }
 
-function DownloadOnDemandButton({ documentType }: { documentType: 'nda' | 'fee_agreement' }) {
-  const [loading, setLoading] = useState(false);
-
-  const handleDownload = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('get-agreement-document', {
-        body: { documentType },
-      });
-      if (error) throw error;
-      if (data?.documentUrl) {
-        window.open(data.documentUrl, '_blank', 'noopener,noreferrer');
-      }
-    } catch (err) {
-      console.error('Failed to fetch document:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Button variant="outline" size="sm" onClick={handleDownload} disabled={loading}>
-      {loading ? (
-        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-      ) : (
-        <FileDown className="h-3.5 w-3.5 mr-1.5" />
-      )}
-      Download
-    </Button>
-  );
-}
-
 export function ProfileDocuments() {
   const { data: documents, isLoading } = useAllDocuments();
   const [signingOpen, setSigningOpen] = useState(false);
   const [signingType, setSigningType] = useState<'nda' | 'fee_agreement'>('nda');
 
-  // Realtime sync for agreement status changes
   useAgreementStatusSync();
 
-  const pendingDocs =
-    documents?.filter(
-      (d) => !d.signed && (d.hasSubmission || d.status === 'sent' || d.status === 'awaiting'),
-    ) || [];
+  const pendingDocs = documents?.filter((d) => !d.signed && d.requested) || [];
 
   const openSigning = (type: 'nda' | 'fee_agreement') => {
     setSigningType(type);
@@ -176,8 +131,7 @@ export function ProfileDocuments() {
               <Shield className="h-5 w-5 text-muted-foreground" />
             </div>
             <p className="text-sm text-muted-foreground">
-              No signed documents yet. Once you sign your NDA or Fee Agreement, copies will be
-              available here for your compliance records.
+              No signed documents yet. Once you sign your NDA or Fee Agreement, copies will be available here.
             </p>
           </div>
         </CardContent>
@@ -187,7 +141,6 @@ export function ProfileDocuments() {
 
   return (
     <>
-      {/* Pending signing callout */}
       {pendingDocs.length > 0 && (
         <div className="rounded-lg border-2 border-amber-300/60 bg-amber-50 p-4 mb-4">
           <div className="flex items-start gap-3">
@@ -196,11 +149,10 @@ export function ProfileDocuments() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-foreground">
-                You have {pendingDocs.length} document{pendingDocs.length > 1 ? 's' : ''} ready for
-                signing
+                {pendingDocs.length} document{pendingDocs.length > 1 ? 's' : ''} requested — check your email
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Sign below to unlock full deal access and data room materials.
+                Sign and return to support@sourcecodeals.com to unlock full deal access.
               </p>
             </div>
           </div>
@@ -230,26 +182,18 @@ export function ProfileDocuments() {
                   <p className="text-sm font-medium text-foreground">{doc.label}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     {doc.signed ? (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50"
-                      >
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50">
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Signed
                       </Badge>
-                    ) : doc.hasSubmission ? (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50"
-                      >
-                        Ready to Sign
+                    ) : doc.requested ? (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Sent to Email
                       </Badge>
                     ) : (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 border-muted text-muted-foreground"
-                      >
-                        Not Sent
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted text-muted-foreground">
+                        Not Requested
                       </Badge>
                     )}
                     {doc.signedAt && (
@@ -261,25 +205,27 @@ export function ProfileDocuments() {
                 </div>
               </div>
 
-              {doc.signed && doc.documentUrl && doc.documentUrl.startsWith('https://') ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(doc.documentUrl!, '_blank', 'noopener,noreferrer')}
-                >
-                  <FileDown className="h-3.5 w-3.5 mr-1.5" />
-                  Download
-                </Button>
-              ) : doc.signed ? (
-                <DownloadOnDemandButton documentType={doc.type} />
+              {doc.signed ? (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Complete
+                </Badge>
+              ) : doc.requested ? (
+                <div className="text-right">
+                  <p className="text-[10px] text-muted-foreground">Check your inbox</p>
+                  <Button variant="outline" size="sm" className="mt-1" onClick={() => openSigning(doc.type)}>
+                    <Mail className="h-3.5 w-3.5 mr-1.5" />
+                    Resend
+                  </Button>
+                </div>
               ) : (
                 <Button
                   size="sm"
                   className="bg-sourceco hover:bg-sourceco/90 text-sourceco-foreground font-medium"
                   onClick={() => openSigning(doc.type)}
                 >
-                  Sign Now
-                  <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                  <Mail className="h-3.5 w-3.5 mr-1" />
+                  Request via Email
                 </Button>
               )}
             </div>
