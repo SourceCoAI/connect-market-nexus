@@ -40,6 +40,24 @@ export function useGPPartnerDeals() {
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // KPI card filter (URL-persisted)
+  const kpiFilter = (searchParams.get('kpi') as 'priority' | 'needs_scoring' | null) ?? null;
+  const setKpiFilter = useCallback(
+    (v: 'priority' | 'needs_scoring' | null) => {
+      setSearchParams(
+        (p) => {
+          const n = new URLSearchParams(p);
+          if (v) n.set('kpi', v);
+          else n.delete('kpi');
+          n.delete('cp');
+          return n;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   // URL-persisted filter state (survives browser Back navigation)
   const hidePushed = searchParams.get('hidePushed') === '1';
   const setHidePushed = useCallback(
@@ -135,6 +153,7 @@ export function useGPPartnerDeals() {
             is_priority_target, needs_buyer_search, needs_owner_contact,
             category, executive_summary, industry, revenue, ebitda, location,
             address_city, address_state, deal_owner_id, remarketing_status,
+            smartlead_replied_at, smartlead_reply_inbox_id, smartlead_ai_category, auto_created_from_smartlead,
             deal_owner:profiles!listings_deal_owner_id_fkey(id, first_name, last_name, email)
           `,
           )
@@ -173,6 +192,8 @@ export function useGPPartnerDeals() {
     let items = [...engineFiltered];
     if (hidePushed) items = items.filter((d) => !d.pushed_to_all_deals);
     if (hideNotFit) items = items.filter((d) => d.remarketing_status !== 'not_a_fit');
+    if (kpiFilter === 'priority') items = items.filter((d) => d.is_priority_target === true);
+    if (kpiFilter === 'needs_scoring') items = items.filter((d) => d.deal_total_score == null);
     items.sort((a, b) => {
       let valA: string | number, valB: string | number;
       switch (sortColumn) {
@@ -220,6 +241,10 @@ export function useGPPartnerDeals() {
           valA = a.created_at || '';
           valB = b.created_at || '';
           break;
+        case 'replied_at':
+          valA = a.smartlead_replied_at || a.created_at || '';
+          valB = b.smartlead_replied_at || b.created_at || '';
+          break;
         case 'pushed':
           valA = a.pushed_to_all_deals ? 1 : 0;
           valB = b.pushed_to_all_deals ? 1 : 0;
@@ -236,7 +261,7 @@ export function useGPPartnerDeals() {
       return 0;
     });
     return items;
-  }, [engineFiltered, sortColumn, sortDirection, hidePushed, hideNotFit]);
+  }, [engineFiltered, sortColumn, sortDirection, hidePushed, hideNotFit, kpiFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredDeals.length / PAGE_SIZE));
@@ -726,7 +751,7 @@ export function useGPPartnerDeals() {
   // KPI Stats
   const dateFilteredDeals = useMemo(() => {
     if (!deals) return [];
-    return deals.filter((d) => isInRange(d.created_at));
+    return deals.filter((d) => isInRange(d.smartlead_replied_at || d.created_at));
   }, [deals, isInRange]);
 
   const kpiStats = useMemo(() => {
@@ -780,13 +805,15 @@ export function useGPPartnerDeals() {
     allSelected,
     toggleSelectAll,
     toggleSelect,
+    // KPI filter
+    kpiFilter,
+    setKpiFilter,
     // Hide pushed
     hidePushed,
     setHidePushed,
     // Hide not fit
     hideNotFit,
     setHideNotFit,
-    // Action states
     // Action states
     isPushing,
     isEnriching,

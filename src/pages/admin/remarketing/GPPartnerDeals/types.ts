@@ -38,6 +38,10 @@ export interface GPPartnerDeal {
     email: string;
   } | null;
   remarketing_status: string | null;
+  smartlead_replied_at: string | null;
+  smartlead_reply_inbox_id: string | null;
+  smartlead_ai_category: string | null;
+  auto_created_from_smartlead: boolean | null;
 }
 
 export type SortColumn =
@@ -52,6 +56,7 @@ export type SortColumn =
   | 'google_review_count'
   | 'google_rating'
   | 'created_at'
+  | 'replied_at'
   | 'pushed'
   | 'priority';
 

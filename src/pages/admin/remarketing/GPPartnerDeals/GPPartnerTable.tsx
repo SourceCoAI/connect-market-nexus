@@ -154,6 +154,9 @@ export function GPPartnerTable({
                   <SortHeader column="created_at">Added</SortHeader>
                 </TableHead>
                 <TableHead>
+                  <SortHeader column="replied_at">Replied</SortHeader>
+                </TableHead>
+                <TableHead>
                   <SortHeader column="pushed">Status</SortHeader>
                 </TableHead>
                 <TableHead>
@@ -165,7 +168,7 @@ export function GPPartnerTable({
             <TableBody>
               {paginatedDeals.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={17} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={18} className="text-center py-12 text-muted-foreground">
                     <Building2 className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
                     <p className="font-medium">No GP Partner deals yet</p>
                     <p className="text-sm mt-1">Add deals manually or import a CSV spreadsheet.</p>
@@ -350,6 +353,22 @@ export function GPPartnerTable({
                       <span className="text-sm text-muted-foreground">
                         {format(new Date(deal.created_at), 'MMM d, yyyy')}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      {deal.smartlead_replied_at ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm text-muted-foreground">
+                            {format(new Date(deal.smartlead_replied_at), 'MMM d, yyyy')}
+                          </span>
+                          {deal.smartlead_ai_category && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 w-fit">
+                              {deal.smartlead_ai_category.replace('_', ' ')}
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">{'\u2014'}</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -543,7 +562,9 @@ function DealRowActions({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="text-amber-600 focus:text-amber-600"
-          onClick={() => onArchiveDeal?.(deal.id, deal.internal_company_name || deal.title || 'Unknown Deal')}
+          onClick={() =>
+            onArchiveDeal?.(deal.id, deal.internal_company_name || deal.title || 'Unknown Deal')
+          }
         >
           <Archive className="h-4 w-4 mr-2" />
           Archive Deal

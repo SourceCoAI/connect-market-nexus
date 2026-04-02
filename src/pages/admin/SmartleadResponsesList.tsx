@@ -32,6 +32,8 @@ import {
   type InboxFilter,
   type SmartleadInboxItem,
 } from '@/hooks/smartlead/use-smartlead-inbox';
+import { DraftReplyDialog } from '@/components/admin/smartlead/DraftReplyDialog';
+import { MessageSquareReply } from 'lucide-react';
 
 const CATEGORY_CONFIG: Record<string, { emoji: string; label: string }> = {
   meeting_request: { emoji: '📅', label: 'Meeting' },
@@ -53,13 +55,19 @@ function getSentimentColor(sentiment: string | null) {
 }
 
 function stripHtml(html: string) {
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
+
+const ACTIVATED_CATEGORIES = ['meeting_request', 'interested', 'question', 'referral'];
 
 export default function SmartleadResponsesList() {
   const [filter, setFilter] = useState<InboxFilter>('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [draftReplyItem, setDraftReplyItem] = useState<SmartleadInboxItem | null>(null);
   const navigate = useNavigate();
 
   const { items, stats, isLoading, refetch } = useSmartleadInbox(filter, search);
@@ -73,12 +81,48 @@ export default function SmartleadResponsesList() {
     icon: React.ReactNode;
     color: string;
   }[] = [
-    { key: 'all', label: 'Total', count: stats.total, icon: <Mail className="h-4 w-4" />, color: '' },
-    { key: 'meeting_request', label: 'Meetings', count: stats.meetings, icon: <Calendar className="h-4 w-4" />, color: 'text-blue-600' },
-    { key: 'interested', label: 'Interested', count: stats.interested, icon: <Sparkles className="h-4 w-4" />, color: 'text-green-600' },
-    { key: 'positive', label: 'Positive', count: stats.positive, icon: <ThumbsUp className="h-4 w-4" />, color: 'text-green-600' },
-    { key: 'negative', label: 'Negative', count: stats.negative, icon: <ThumbsDown className="h-4 w-4" />, color: 'text-destructive' },
-    { key: 'neutral', label: 'Neutral', count: stats.neutral, icon: <MinusCircle className="h-4 w-4" />, color: 'text-muted-foreground' },
+    {
+      key: 'all',
+      label: 'Total',
+      count: stats.total,
+      icon: <Mail className="h-4 w-4" />,
+      color: '',
+    },
+    {
+      key: 'meeting_request',
+      label: 'Meetings',
+      count: stats.meetings,
+      icon: <Calendar className="h-4 w-4" />,
+      color: 'text-blue-600',
+    },
+    {
+      key: 'interested',
+      label: 'Interested',
+      count: stats.interested,
+      icon: <Sparkles className="h-4 w-4" />,
+      color: 'text-green-600',
+    },
+    {
+      key: 'positive',
+      label: 'Positive',
+      count: stats.positive,
+      icon: <ThumbsUp className="h-4 w-4" />,
+      color: 'text-green-600',
+    },
+    {
+      key: 'negative',
+      label: 'Negative',
+      count: stats.negative,
+      icon: <ThumbsDown className="h-4 w-4" />,
+      color: 'text-destructive',
+    },
+    {
+      key: 'neutral',
+      label: 'Neutral',
+      count: stats.neutral,
+      icon: <MinusCircle className="h-4 w-4" />,
+      color: 'text-muted-foreground',
+    },
   ];
 
   const toggleSelect = (id: string) => {
@@ -111,7 +155,16 @@ export default function SmartleadResponsesList() {
 
   const handleExport = () => {
     if (items.length === 0) return;
-    const headers = ['Name', 'Email', 'Campaign', 'Category', 'Sentiment', 'Subject', 'Preview', 'Replied At'];
+    const headers = [
+      'Name',
+      'Email',
+      'Campaign',
+      'Category',
+      'Sentiment',
+      'Subject',
+      'Preview',
+      'Replied At',
+    ];
     const rows = items.map((i) => [
       i.to_name || '',
       i.to_email || i.sl_lead_email || '',
@@ -138,7 +191,9 @@ export default function SmartleadResponsesList() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Smartlead Responses</h2>
-          <p className="text-sm text-muted-foreground">AI-classified email replies from outreach campaigns</p>
+          <p className="text-sm text-muted-foreground">
+            AI-classified email replies from outreach campaigns
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport} disabled={items.length === 0}>
@@ -228,11 +283,20 @@ export default function SmartleadResponsesList() {
                 isSelected={selected.has(item.id)}
                 onToggleSelect={() => toggleSelect(item.id)}
                 onClick={() => navigate(`/admin/marketplace/messages/smartlead/${item.id}`)}
+                onDraftReply={() => setDraftReplyItem(item)}
               />
             ))}
           </div>
         </ScrollArea>
       )}
+
+      <DraftReplyDialog
+        open={!!draftReplyItem}
+        onOpenChange={(open) => !open && setDraftReplyItem(null)}
+        inboxItemId={draftReplyItem?.id || ''}
+        leadName={draftReplyItem?.to_name || draftReplyItem?.to_email || undefined}
+        category={draftReplyItem?.manual_category || draftReplyItem?.ai_category || undefined}
+      />
     </div>
   );
 }
@@ -242,11 +306,13 @@ function InboxCard({
   isSelected,
   onToggleSelect,
   onClick,
+  onDraftReply,
 }: {
   item: SmartleadInboxItem;
   isSelected: boolean;
   onToggleSelect: () => void;
   onClick: () => void;
+  onDraftReply: () => void;
 }) {
   const category = item.manual_category || item.ai_category || 'neutral';
   const sentiment = item.manual_sentiment || item.ai_sentiment;
@@ -279,7 +345,10 @@ function InboxCard({
             <span className="font-medium text-sm truncate">
               {item.to_name || item.to_email || item.sl_lead_email || 'Unknown'}
             </span>
-            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getSentimentColor(sentiment)}`}>
+            <Badge
+              variant="outline"
+              className={`text-[10px] px-1.5 py-0 ${getSentimentColor(sentiment)}`}
+            >
               {sentiment || 'neutral'}
             </Badge>
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
@@ -291,7 +360,10 @@ function InboxCard({
               </Badge>
             )}
             {item.linked_deal_id && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary">
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary"
+              >
                 🔗 Linked
               </Badge>
             )}
@@ -301,23 +373,35 @@ function InboxCard({
             {item.sequence_number && <span>• Step {item.sequence_number}</span>}
             {item.subject && <span className="truncate">• {item.subject}</span>}
           </div>
-          {preview && (
-            <p className="text-xs text-muted-foreground line-clamp-2">{preview}</p>
-          )}
+          {preview && <p className="text-xs text-muted-foreground line-clamp-2">{preview}</p>}
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           <span className="text-[10px] text-muted-foreground whitespace-nowrap">{timeAgo}</span>
-          {item.ui_master_inbox_link && (
-            <a
-              href={item.ui_master_inbox_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-muted-foreground hover:text-primary"
-            >
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
+          <div className="flex items-center gap-1">
+            {ACTIVATED_CATEGORIES.includes(category) && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDraftReply();
+                }}
+                className="text-muted-foreground hover:text-primary p-0.5"
+                title="Draft Reply"
+              >
+                <MessageSquareReply className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {item.ui_master_inbox_link && (
+              <a
+                href={item.ui_master_inbox_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-muted-foreground hover:text-primary"
+              >
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
