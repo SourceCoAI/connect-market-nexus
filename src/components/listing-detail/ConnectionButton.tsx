@@ -201,7 +201,6 @@ const ConnectionButton = ({
           <AgreementSigningModal
             open={showAgreementModal}
             onOpenChange={setShowAgreementModal}
-            documentType="nda"
           />
         )}
       </div>

@@ -290,7 +290,6 @@ const ListingCardActions = memo(function ListingCardActions({
       <AgreementSigningModal
         open={signingOpen}
         onOpenChange={setSigningOpen}
-        documentType="nda"
       />
     </>
   );

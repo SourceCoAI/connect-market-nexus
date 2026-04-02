@@ -84,8 +84,14 @@ export function AgreementSigningModal({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Icon className="h-5 w-5" />
-            {sent ? `${docLabel} Sent` : `Request ${docLabel}`}
+            {activeType ? (
+              <>
+                <Icon className="h-5 w-5" />
+                {sent ? `${docLabel} Sent` : `Request ${docLabel}`}
+              </>
+            ) : (
+              'Choose Your Agreement'
+            )}
           </DialogTitle>
         </DialogHeader>
 
