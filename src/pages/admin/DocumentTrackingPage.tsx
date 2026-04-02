@@ -253,7 +253,10 @@ type SortField = 'company' | 'nda_status' | 'fee_status' | 'members' | 'last_sig
 export default function DocumentTrackingPage() {
   const { data: firms = [], isLoading, error } = useAllFirmsTracking();
   const { data: orphanUsers = [] } = useOrphanUsers();
+  const { data: pendingRequests = [] } = usePendingRequestQueue();
+  const { user: adminUser } = useAuth();
   useRealtimeFirmAgreements();
+  const queryClient = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
