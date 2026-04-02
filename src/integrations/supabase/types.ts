@@ -5112,7 +5112,10 @@ export type Database = {
           email_sent_at: string | null
           firm_id: string
           id: string
+          recipient_email: string | null
+          recipient_name: string | null
           requested_at: string
+          requested_by_admin_id: string | null
           signed_at: string | null
           signed_toggled_by: string | null
           signed_toggled_by_name: string | null
@@ -5125,7 +5128,10 @@ export type Database = {
           email_sent_at?: string | null
           firm_id: string
           id?: string
+          recipient_email?: string | null
+          recipient_name?: string | null
           requested_at?: string
+          requested_by_admin_id?: string | null
           signed_at?: string | null
           signed_toggled_by?: string | null
           signed_toggled_by_name?: string | null
@@ -5138,7 +5144,10 @@ export type Database = {
           email_sent_at?: string | null
           firm_id?: string
           id?: string
+          recipient_email?: string | null
+          recipient_name?: string | null
           requested_at?: string
+          requested_by_admin_id?: string | null
           signed_at?: string | null
           signed_toggled_by?: string | null
           signed_toggled_by_name?: string | null
