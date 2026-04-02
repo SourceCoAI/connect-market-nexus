@@ -414,14 +414,18 @@ export const MobileUsersTable = ({
         isOpen={!!selectedUserForEmail}
         onClose={() => setSelectedUserForEmail(null)}
         onSendEmail={async (user, options) => {
-          await handleSendEmail({
-            userId: user.id,
-            userEmail: user.email,
-            subject: options?.subject || 'Fee Agreement | SourceCo',
-            content: options?.content || 'Please review and sign the attached fee agreement.',
-            attachments: options?.attachments || [],
-            useTemplate: false
+          const { error } = await supabase.functions.invoke('request-agreement-email', {
+            body: {
+              documentType: 'fee_agreement',
+              recipientEmail: user.email,
+              recipientName: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
+              adminOverride: true,
+              customSubject: options?.subject,
+              customMessage: options?.content,
+              customSignatureText: options?.customSignatureText,
+            },
           });
+          if (error) throw error;
         }}
       />
       
