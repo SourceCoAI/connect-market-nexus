@@ -165,7 +165,7 @@ export function useGPPartnerDeals() {
         if (error) throw error;
 
         if (data && data.length > 0) {
-          allData.push(...(data as GPPartnerDeal[]));
+          allData.push(...(data as unknown as GPPartnerDeal[]));
           offset += batchSize;
           hasMore = data.length === batchSize;
         } else {

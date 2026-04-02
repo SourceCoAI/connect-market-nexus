@@ -178,7 +178,7 @@ async function searchBuyerUniverses(
   if (args.search) {
     const term = (args.search as string).toLowerCase();
     results = results.filter(
-      (u) =>
+      (u: any) =>
         (u.name as string)?.toLowerCase().includes(term) ||
         (u.description as string)?.toLowerCase().includes(term) ||
         (u.fit_criteria as string)?.toLowerCase().includes(term) ||
