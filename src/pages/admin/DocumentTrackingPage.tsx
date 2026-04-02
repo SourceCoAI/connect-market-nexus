@@ -680,7 +680,7 @@ function FirmExpandableRow({
   return (
     <>
       <tr
-        className={`hover:bg-muted/30 transition-colors cursor-pointer ${isSelected ? 'bg-primary/5' : ''}`}
+        className={`hover:bg-muted/30 transition-colors cursor-pointer ${isSelected ? 'bg-primary/5' : firm.hasPendingRequest ? 'bg-amber-50/60' : ''}`}
         onClick={() => setExpanded(!expanded)}
       >
         <td
