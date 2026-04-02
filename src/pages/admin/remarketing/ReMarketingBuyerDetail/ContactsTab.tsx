@@ -9,7 +9,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Trash2, Users, Mail, Phone, Linkedin, Sparkles, Loader2, Pencil } from 'lucide-react';
+import { Plus, Trash2, Users, Mail, Linkedin, Sparkles, Loader2, Pencil } from 'lucide-react';
+import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { Contact } from './types';
 
 interface ContactsTabProps {
