@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Send, Mail } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { sendAgreementEmail } from '@/lib/agreement-email';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -55,11 +55,14 @@ export function SendAgreementDialog({
     if (!isValidEmail) return;
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke('request-agreement-email', {
-        body: { documentType, recipientEmail: email, recipientName: buyerName, firmId },
+      const result = await sendAgreementEmail({
+        documentType,
+        recipientEmail: email,
+        recipientName: buyerName,
+        firmId,
       });
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error || 'Failed to send');
 
       toast({
         title: `${docLabel} Sent`,

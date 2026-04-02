@@ -4,11 +4,13 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
 import { selfHealFirm } from '../_shared/firm-self-heal.ts';
 import { sendViaBervo } from '../_shared/brevo-sender.ts';
+import { logEmailDelivery } from '../_shared/email-logger.ts';
 
 /**
  * request-agreement-email
  * Sends NDA or Fee Agreement via email.
  * Updates both document_requests (ops queue) and firm_agreements (canonical status).
+ * Logs to email_delivery_logs for full observability.
  */
 
 serve(async (req: Request) => {
@@ -45,6 +47,9 @@ serve(async (req: Request) => {
     }
 
     const userId = auth.userId;
+    const correlationId = crypto.randomUUID();
+
+    console.log(`[request-agreement-email] START | type=${documentType} | caller=${userId} | correlationId=${correlationId}`);
 
     // Check if caller is admin
     const { data: callerRole } = await supabaseAdmin
@@ -67,6 +72,7 @@ serve(async (req: Request) => {
       buyerName = overrideName || overrideEmail;
       firmId = overrideFirmId || null;
 
+      // For admin-triggered sends, try to resolve the buyer's user_id
       if (!firmId) {
         const { data: buyerProfile } = await supabaseAdmin
           .from('profiles')
@@ -77,6 +83,9 @@ serve(async (req: Request) => {
           targetUserId = buyerProfile.id;
           const { data: firmIdResult } = await supabaseAdmin.rpc('resolve_user_firm_id', { p_user_id: buyerProfile.id });
           firmId = firmIdResult;
+        } else {
+          // No matching platform user — keep targetUserId as null marker
+          targetUserId = userId; // admin is the actor, not the target
         }
       }
 
@@ -143,13 +152,14 @@ serve(async (req: Request) => {
 
     const statusCol = documentType === 'nda' ? 'nda_status' : 'fee_agreement_status';
     if (firm && (firm as Record<string, unknown>)[statusCol] === 'signed') {
+      console.log(`[request-agreement-email] Already signed | type=${documentType} | firmId=${firmId}`);
       return new Response(JSON.stringify({ success: true, alreadySigned: true, message: 'Document already signed.' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    // Insert document request with recipient tracking
+    // Insert document request with correlation tracking
     const { data: docRequest, error: insertErr } = await supabaseAdmin
       .from('document_requests')
       .insert({
@@ -161,6 +171,7 @@ serve(async (req: Request) => {
         recipient_email: buyerEmail,
         recipient_name: buyerName,
         requested_by_admin_id: adminId,
+        email_correlation_id: correlationId,
       })
       .select('id')
       .single();
@@ -168,6 +179,8 @@ serve(async (req: Request) => {
     if (insertErr) {
       console.error('[request-agreement-email] Insert error:', insertErr);
     }
+
+    console.log(`[request-agreement-email] Request created | requestId=${docRequest?.id} | recipient=${buyerEmail} | firmId=${firmId} | correlationId=${correlationId}`);
 
     const docLabel = documentType === 'nda' ? 'NDA (Non-Disclosure Agreement)' : 'Fee Agreement';
     const docFileName = documentType === 'nda' ? 'NDA.docx' : 'FeeAgreement.docx';
@@ -220,14 +233,29 @@ serve(async (req: Request) => {
       `,
     });
 
-    // Update document request status
+    // Log delivery to email_delivery_logs
+    console.log(`[request-agreement-email] Brevo result | success=${emailResult.success} | messageId=${emailResult.messageId || 'none'} | error=${emailResult.error || 'none'} | correlationId=${correlationId}`);
+
+    await logEmailDelivery(supabaseAdmin, {
+      email: buyerEmail,
+      emailType: `agreement_${documentType}`,
+      status: emailResult.success ? 'sent' : 'failed',
+      correlationId,
+      errorMessage: emailResult.error,
+    });
+
+    // Update document request with provider details
     if (docRequest?.id) {
+      const updatePayload: Record<string, unknown> = {
+        status: emailResult.success ? 'email_sent' : 'requested',
+        email_sent_at: emailResult.success ? new Date().toISOString() : null,
+        email_provider_message_id: emailResult.messageId || null,
+        last_email_error: emailResult.error || null,
+      };
+
       await supabaseAdmin
         .from('document_requests')
-        .update({
-          status: emailResult.success ? 'email_sent' : 'requested',
-          email_sent_at: emailResult.success ? new Date().toISOString() : null,
-        })
+        .update(updatePayload)
         .eq('id', docRequest.id);
     }
 
@@ -269,7 +297,7 @@ serve(async (req: Request) => {
           title: `${docLabel} Requested`,
           message: `${buyerName} (${buyerEmail}) has requested their ${docLabel}. Check your email inbox.`,
           user_id: targetUserId,
-          metadata: { firm_id: firmId, document_type: documentType, request_id: docRequest?.id },
+          metadata: { firm_id: firmId, document_type: documentType, request_id: docRequest?.id, correlation_id: correlationId },
         }));
         await supabaseAdmin.from('admin_notifications').insert(notifications);
       }
@@ -278,19 +306,23 @@ serve(async (req: Request) => {
     }
 
     if (!emailResult.success) {
-      console.error('[request-agreement-email] Email send failed:', emailResult.error);
+      console.error(`[request-agreement-email] FAILED | recipient=${buyerEmail} | type=${documentType} | error=${emailResult.error} | correlationId=${correlationId}`);
       return new Response(JSON.stringify({
         success: false,
         error: 'Failed to send email. Our team has been notified. Please try again later.',
+        correlationId,
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
+    console.log(`[request-agreement-email] SUCCESS | recipient=${buyerEmail} | type=${documentType} | brevoMessageId=${emailResult.messageId} | correlationId=${correlationId}`);
+
     return new Response(JSON.stringify({
       success: true,
       message: `${docLabel} sent to ${buyerEmail}. Check your inbox and reply with the signed copy.`,
+      correlationId,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },

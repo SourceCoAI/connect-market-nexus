@@ -1,11 +1,13 @@
 /**
- * H-9 FIX: Brevo webhook handler for email engagement tracking.
+ * Brevo webhook handler for email engagement tracking + delivery logging.
  *
- * Receives Brevo webhook events (opens, clicks, bounces, etc.) and writes them
- * to the engagement_signals table so email engagement data flows back to the platform.
+ * Receives Brevo webhook events (opens, clicks, bounces, etc.) and:
+ * 1. Writes engagement_signals for buyer scoring
+ * 2. Writes email_delivery_logs for agreement email observability
+ * 3. Updates document_requests with bounce/block errors
  *
  * Configure in Brevo: Settings → Webhooks → Add URL pointing to this function.
- * Events to subscribe: opened, clicked, hardBounce, softBounce, unsubscribed.
+ * Events to subscribe: delivered, opened, clicked, hardBounce, softBounce, blocked, spam, unsubscribed.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
@@ -14,6 +16,7 @@ interface BrevoWebhookEvent {
   event: string;
   email: string;
   date: string;
+  reason?: string;
   'message-id'?: string;
   subject?: string;
   tag?: string;
@@ -45,7 +48,9 @@ Deno.serve(async (req: Request) => {
         const email = event.email?.toLowerCase();
         if (!email) continue;
 
-        // Map Brevo event types to our signal types and scores
+        const messageId = event['message-id'] || null;
+
+        // ── 1. Engagement signals (existing logic) ──
         const eventMap: Record<string, { signalType: string; score: number }> = {
           opened: { signalType: 'email_engagement', score: 10 },
           clicked: { signalType: 'email_engagement', score: 25 },
@@ -55,7 +60,6 @@ Deno.serve(async (req: Request) => {
         };
 
         const mapping = eventMap[event.event];
-        if (!mapping) continue;
 
         // Look up buyer by email domain or contact email
         const emailDomain = email.split('@')[1];
@@ -67,29 +71,30 @@ Deno.serve(async (req: Request) => {
           .limit(1)
           .maybeSingle();
 
-        // Insert engagement signal
-        const { error: insertError } = await supabase.from('engagement_signals').insert({
-          buyer_id: buyer?.id || null,
-          signal_type: mapping.signalType,
-          signal_source: 'email_tracking',
-          signal_value: mapping.score,
-          metadata: {
-            brevo_event: event.event,
-            email,
-            subject: event.subject || null,
-            message_id: event['message-id'] || null,
-            event_date: event.date,
-          },
-        });
+        if (mapping) {
+          const { error: insertError } = await supabase.from('engagement_signals').insert({
+            buyer_id: buyer?.id || null,
+            signal_type: mapping.signalType,
+            signal_source: 'email_tracking',
+            signal_value: mapping.score,
+            metadata: {
+              brevo_event: event.event,
+              email,
+              subject: event.subject || null,
+              message_id: messageId,
+              event_date: event.date,
+            },
+          });
 
-        if (insertError) {
-          console.error(`[brevo-webhook] Insert error for ${email}:`, insertError.message);
-          errors++;
-        } else {
-          processed++;
+          if (insertError) {
+            console.error(`[brevo-webhook] Engagement insert error for ${email}:`, insertError.message);
+            errors++;
+          } else {
+            processed++;
+          }
         }
 
-        // C-4 FIX: Handle unsubscribe events by updating buyer's email_unsubscribed flag
+        // Handle unsubscribe events
         if (event.event === 'unsubscribed' && buyer?.id) {
           await supabase
             .from('buyers')
@@ -98,6 +103,50 @@ Deno.serve(async (req: Request) => {
               email_unsubscribed_at: new Date().toISOString(),
             } as never)
             .eq('id', buyer.id);
+        }
+
+        // ── 2. Delivery logging for agreement emails ──
+        let deliveryStatus: string | null = null;
+        switch (event.event) {
+          case 'delivered':
+            deliveryStatus = 'delivered';
+            break;
+          case 'hardBounce':
+          case 'hard_bounce':
+            deliveryStatus = 'bounced';
+            break;
+          case 'softBounce':
+          case 'soft_bounce':
+            deliveryStatus = 'soft_bounced';
+            break;
+          case 'blocked':
+            deliveryStatus = 'blocked';
+            break;
+          case 'spam':
+            deliveryStatus = 'spam_complaint';
+            break;
+        }
+
+        if (deliveryStatus) {
+          // Log to email_delivery_logs
+          await supabase.from('email_delivery_logs').insert({
+            email,
+            email_type: 'brevo_webhook',
+            status: deliveryStatus,
+            correlation_id: messageId || crypto.randomUUID(),
+            error_message: event.reason || null,
+            sent_at: event.date ? new Date(event.date).toISOString() : new Date().toISOString(),
+          });
+
+          // Update document_requests for bounces/blocks
+          if (['bounced', 'blocked', 'spam_complaint'].includes(deliveryStatus) && messageId) {
+            await supabase
+              .from('document_requests' as never)
+              .update({ last_email_error: `${deliveryStatus}: ${event.reason || event.event}` } as never)
+              .eq('email_provider_message_id' as never, messageId as never);
+          }
+
+          console.log(`[brevo-webhook] Delivery: ${deliveryStatus} for ${email} | messageId=${messageId || 'unknown'}`);
         }
       } catch (err) {
         console.error(`[brevo-webhook] Event processing error:`, err);

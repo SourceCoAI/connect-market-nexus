@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { sendAgreementEmail } from '@/lib/agreement-email';
 import { Loader2, Shield, FileSignature, CheckCircle, Mail, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -61,37 +61,26 @@ export function AgreementSigningModal({
     setIsRequesting(true);
     setError(null);
 
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('request-agreement-email', {
-        body: { documentType: activeType },
+    const result = await sendAgreementEmail({ documentType: activeType! });
+
+    if (result.alreadySigned) {
+      toast({
+        title: 'Already Signed',
+        description: `Your ${docLabel} has already been signed.`,
       });
-
-      if (fnError) {
-        setError('Failed to send the document. Please try again.');
-        return;
-      }
-
-      if (data?.alreadySigned) {
-        toast({
-          title: 'Already Signed',
-          description: `Your ${docLabel} has already been signed.`,
-        });
-        invalidateAgreementQueries(queryClient, user?.id);
-        onOpenChange(false);
-        return;
-      }
-
-      if (data?.success) {
-        setSent(true);
-        invalidateAgreementQueries(queryClient, user?.id);
-      } else {
-        setError(data?.error || 'Something went wrong. Please try again.');
-      }
-    } catch {
-      setError('Something went wrong. Please try again.');
-    } finally {
+      invalidateAgreementQueries(queryClient, user?.id);
+      onOpenChange(false);
       setIsRequesting(false);
+      return;
     }
+
+    if (result.success) {
+      setSent(true);
+      invalidateAgreementQueries(queryClient, user?.id);
+    } else {
+      setError(result.error || 'Something went wrong. Please try again.');
+    }
+    setIsRequesting(false);
   };
 
   const handleClose = () => {

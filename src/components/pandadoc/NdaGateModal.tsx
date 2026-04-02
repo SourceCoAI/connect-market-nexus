@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Shield, ArrowLeft, Loader2, Mail, CheckCircle, FileSignature } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { sendAgreementEmail } from '@/lib/agreement-email';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { invalidateAgreementQueries } from '@/hooks/use-agreement-status-sync';
@@ -32,35 +32,21 @@ export function NdaGateModal({ userId, firmId: _firmId, onSigned }: NdaGateModal
     setRequestingType(docType);
     setError(null);
 
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('request-agreement-email', {
-        body: { documentType: docType },
-      });
+    const result = await sendAgreementEmail({ documentType: docType });
 
-      if (fnError) {
-        setError('Failed to send document. Please try again or contact support.');
-        return;
-      }
-
-      if (data?.alreadySigned) {
-        invalidateAgreementQueries(queryClient, userId);
-        onSigned?.();
-        return;
-      }
-
-      if (data?.success) {
-        setSent(true);
-        setSentType(docType);
-        invalidateAgreementQueries(queryClient, userId);
-      } else {
-        setError(data?.error || 'Something went wrong.');
-      }
-    } catch {
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setIsRequesting(false);
-      setRequestingType(null);
+    if (result.alreadySigned) {
+      invalidateAgreementQueries(queryClient, userId);
+      onSigned?.();
+    } else if (result.success) {
+      setSent(true);
+      setSentType(docType);
+      invalidateAgreementQueries(queryClient, userId);
+    } else {
+      setError(result.error || 'Something went wrong.');
     }
+
+    setIsRequesting(false);
+    setRequestingType(null);
   };
 
   return (

@@ -9,9 +9,9 @@ import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningMod
 import { XCircle, AlertCircle, Check, RotateCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { isProfileComplete, getProfileCompletionPercentage, getMissingFieldLabels } from '@/lib/profile-completeness';
-import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { sendAgreementEmail, docTypeLabel } from '@/lib/agreement-email';
 
 interface ConnectionButtonProps {
   connectionExists: boolean;
@@ -190,19 +190,14 @@ const ConnectionButton = ({
 
     const handleResend = async (type: 'nda' | 'fee_agreement') => {
       setResendingType(type);
-      try {
-        const { error } = await supabase.functions.invoke('request-agreement-email', {
-          body: { documentType: type },
-        });
-        if (error) throw error;
-        toast.success(`${type === 'nda' ? 'NDA' : 'Fee Agreement'} resent to your email`);
+      const result = await sendAgreementEmail({ documentType: type });
+      if (result.success) {
+        toast.success(`${docTypeLabel(type)} resent to your email`);
         queryClient.invalidateQueries({ queryKey: ['my-agreement-status'] });
-      } catch (err) {
-        toast.error('Failed to resend. Please try again.');
-        console.error('[resend-agreement]', err);
-      } finally {
-        setResendingType(null);
+      } else {
+        toast.error(result.error || 'Failed to resend. Please try again.');
       }
+      setResendingType(null);
     };
 
     const DocumentRow = ({ label, status, type }: { label: string; status: string; type: 'nda' | 'fee_agreement' }) => {

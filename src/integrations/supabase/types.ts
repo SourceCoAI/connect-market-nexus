@@ -5109,9 +5109,12 @@ export type Database = {
         Row: {
           agreement_type: string
           created_at: string
+          email_correlation_id: string | null
+          email_provider_message_id: string | null
           email_sent_at: string | null
           firm_id: string
           id: string
+          last_email_error: string | null
           recipient_email: string | null
           recipient_name: string | null
           requested_at: string
@@ -5125,9 +5128,12 @@ export type Database = {
         Insert: {
           agreement_type: string
           created_at?: string
+          email_correlation_id?: string | null
+          email_provider_message_id?: string | null
           email_sent_at?: string | null
           firm_id: string
           id?: string
+          last_email_error?: string | null
           recipient_email?: string | null
           recipient_name?: string | null
           requested_at?: string
@@ -5141,9 +5147,12 @@ export type Database = {
         Update: {
           agreement_type?: string
           created_at?: string
+          email_correlation_id?: string | null
+          email_provider_message_id?: string | null
           email_sent_at?: string | null
           firm_id?: string
           id?: string
+          last_email_error?: string | null
           recipient_email?: string | null
           recipient_name?: string | null
           requested_at?: string
