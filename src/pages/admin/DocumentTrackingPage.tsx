@@ -193,7 +193,36 @@ function useOrphanUsers() {
   });
 }
 
-// ─── Realtime subscription hook ──────────────────────────────────────
+// ─── Pending Request Queue Hook ──────────────────────────────────────
+
+interface PendingRequest {
+  id: string;
+  user_id: string | null;
+  document_type: string;
+  status: string;
+  created_at: string;
+  recipient_email: string | null;
+  recipient_name: string | null;
+  firm_id: string | null;
+}
+
+function usePendingRequestQueue() {
+  return useQuery<PendingRequest[]>({
+    queryKey: ['admin-pending-request-queue'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await untypedFrom('document_requests')
+        .select('id, user_id, document_type, status, created_at, recipient_email, recipient_name, firm_id')
+        .in('status', ['requested', 'email_sent'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return (data || []) as PendingRequest[];
+    },
+  });
+}
+
 
 function useRealtimeFirmAgreements() {
   const queryClient = useQueryClient();
