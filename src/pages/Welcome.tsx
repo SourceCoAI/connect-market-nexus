@@ -168,7 +168,7 @@ const Welcome = () => {
         {/* Process Preview */}
         <div className="text-xs text-muted-foreground border border-border/40 rounded-md px-4 py-3">
           <span className="font-medium text-foreground">How it works: </span>
-          Apply → Verify your email → Admin review → Sign NDA → Browse deals → Request access
+          Apply → Verify your email → Admin review → Sign Agreement → Browse deals → Request access
         </div>
 
         {/* Bottom Link */}

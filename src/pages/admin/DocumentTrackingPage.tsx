@@ -329,7 +329,6 @@ export default function DocumentTrackingPage() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((f) => {
-        // Search firm name, domain, primary contact
         if (
           f.primary_company_name.toLowerCase().includes(q) ||
           f.contactName?.toLowerCase().includes(q) ||
@@ -337,7 +336,6 @@ export default function DocumentTrackingPage() {
           f.email_domain?.toLowerCase().includes(q)
         )
           return true;
-        // Also search ALL member emails/names (Phase 4A)
         if (f.members?.length) {
           return f.members.some((m) => {
             const memberName = m.user
@@ -349,7 +347,9 @@ export default function DocumentTrackingPage() {
         }
         return false;
       });
-    } else if (filterStatus === 'pending_requests') {
+    }
+
+    if (filterStatus === 'pending_requests') {
       result = result.filter((f) => f.hasPendingRequest);
     }
 
