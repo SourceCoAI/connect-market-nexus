@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, untypedFrom } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 import { Checkbox } from '@/components/ui/checkbox';
 import { useShiftSelect } from '@/hooks/useShiftSelect';
