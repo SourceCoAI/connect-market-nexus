@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Mail, Linkedin, Phone, Send, Users, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { BuyerTypeBadge } from '@/components/admin/deals/buyer-introductions/shared/BuyerTypeBadge';
 import { format } from 'date-fns';
 import { DealOutreachProfileForm } from './DealOutreachProfileForm';
