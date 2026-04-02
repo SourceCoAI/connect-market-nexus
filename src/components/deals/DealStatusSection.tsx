@@ -52,15 +52,12 @@ export function DealStatusSection({
   requestStatus,
   ndaSigned,
   feeCovered,
-  feeStatus,
   requestCreatedAt,
-}: DealStatusSectionProps) {
+}: Omit<DealStatusSectionProps, 'feeStatus'>) {
   const currentIndex = getCurrentStageIndex(requestStatus, ndaSigned, feeCovered);
   const explanation = getStageExplanation(
     currentIndex,
     requestStatus,
-    ndaSigned,
-    feeCovered,
   );
   const isRejected = requestStatus === 'rejected';
 

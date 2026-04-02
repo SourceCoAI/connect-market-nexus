@@ -90,7 +90,7 @@ export function DealActionCard({
         unlock:
           'Signing completes your documentation, allowing our team to present your interest to the owner.',
         variant: 'action' as const,
-        cta: { label: 'Sign Agreement Now', onClick: () => openSigning('fee_agreement') },
+        cta: { label: 'Sign Agreement Now', onClick: () => setSigningOpen(true) },
       };
     }
 
