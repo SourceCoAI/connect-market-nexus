@@ -41,7 +41,7 @@ export function AgreementSigningModal({
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('request-agreement-email', {
-        body: { documentType },
+        body: { documentType: activeType },
       });
 
       if (fnError) {
