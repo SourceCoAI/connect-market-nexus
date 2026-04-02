@@ -10,7 +10,7 @@ import { DualFeeAgreementToggle } from "./DualFeeAgreementToggle";
 import { SimpleFeeAgreementDialog } from "./SimpleFeeAgreementDialog";
 import { DualNDAToggle } from "./DualNDAToggle";
 import { SimpleNDADialog } from "./SimpleNDADialog";
-import { useLogFeeAgreementEmail } from '@/hooks/admin/use-fee-agreement';
+
 import { supabase } from '@/integrations/supabase/client';
 import { formatFinancialRange } from '@/lib/buyer-metrics';
 
