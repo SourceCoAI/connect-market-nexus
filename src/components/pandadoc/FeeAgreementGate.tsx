@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText, ArrowLeft, Loader2, Mail, CheckCircle, ArrowRight } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { sendAgreementEmail } from '@/lib/agreement-email';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { invalidateAgreementQueries } from '@/hooks/use-agreement-status-sync';
