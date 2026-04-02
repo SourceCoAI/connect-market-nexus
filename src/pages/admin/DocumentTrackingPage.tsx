@@ -31,6 +31,23 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -254,14 +271,11 @@ type FilterStatus = 'all' | 'signed' | 'sent' | 'not_started' | 'unsigned' | 'ne
 type SortField = 'company' | 'nda_status' | 'fee_status' | 'members' | 'last_signed' | 'last_requested';
 
 export default function DocumentTrackingPage() {
-  const { user } = useAuth();
   const { data: firms = [], isLoading, error } = useAllFirmsTracking();
   const { data: orphanUsers = [] } = useOrphanUsers();
   const { data: pendingRequests = [] } = usePendingRequestQueue();
   
   useRealtimeFirmAgreements();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
@@ -569,86 +583,7 @@ export default function DocumentTrackingPage() {
           </div>
           <div className="divide-y divide-amber-200">
             {pendingRequests.map((req) => (
-              <div key={req.id} className="px-4 py-3 flex items-center justify-between hover:bg-amber-100/50 transition-colors">
-                <div className="flex items-center gap-3">
-                {req.agreement_type === 'nda' ? (
-                    <Shield className="h-4 w-4 text-primary" />
-                  ) : (
-                    <FileSignature className="h-4 w-4 text-primary" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {req.recipient_name || req.recipient_email || 'Unknown'}
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {req.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement'}
-                      </span>
-                    </p>
-                    {req.recipient_email && req.recipient_name && (
-                      <p className="text-xs text-muted-foreground">{req.recipient_email}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(req.created_at), { addSuffix: true })}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                    onClick={async () => {
-                      const adminName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : null;
-                      const now = new Date().toISOString();
-                      try {
-                        await untypedFrom('document_requests')
-                          .update({
-                            status: 'signed',
-                            updated_at: now,
-                            signed_toggled_by: user?.id || null,
-                            signed_toggled_by_name: adminName,
-                            signed_at: now,
-                          })
-                          .eq('id', req.id);
-
-                        if (req.firm_id) {
-                          const statusCol = req.agreement_type === 'nda' ? 'nda_status' : 'fee_agreement_status';
-                          const signedAtCol = req.agreement_type === 'nda' ? 'nda_signed_at' : 'fee_agreement_signed_at';
-                          const signedByCol = req.agreement_type === 'nda' ? 'nda_signed_by_name' : 'fee_agreement_signed_by_name';
-                          await supabase
-                            .from('firm_agreements')
-                            .update({
-                              [statusCol]: 'signed',
-                              [signedAtCol]: now,
-                              [signedByCol]: adminName,
-                            } as never)
-                            .eq('id', req.firm_id);
-
-                          await supabase
-                            .from('agreement_audit_log')
-                            .insert({
-                              firm_id: req.firm_id,
-                              agreement_type: req.agreement_type === 'nda' ? 'nda' : 'fee_agreement',
-                              old_status: 'sent',
-                              new_status: 'signed',
-                              changed_by: user?.id || null,
-                              changed_by_name: adminName,
-                              notes: 'Marked signed via pending request queue',
-                            });
-                        }
-
-                        queryClient.invalidateQueries({ queryKey: ['admin-pending-request-queue'] });
-                        queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
-                        queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
-                        toast({ title: 'Marked as signed', description: `${req.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement'} marked as signed.` });
-                      } catch {
-                        toast({ title: 'Failed to update', variant: 'destructive' });
-                      }
-                    }}
-                  >
-                    Mark Signed
-                  </Button>
-                </div>
-              </div>
+              <PendingRequestRow key={req.id} req={req} />
             ))}
           </div>
         </div>
@@ -855,6 +790,11 @@ function FirmExpandableRow({
           <div className="flex items-center gap-1.5">
             {expanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
             <span className="font-medium text-foreground">{firm.primary_company_name}</span>
+            {firm.hasPendingRequest && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                Requested
+              </span>
+            )}
           </div>
         </td>
         <td className="px-4 py-3 text-muted-foreground text-xs">{firm.email_domain || '--'}</td>
@@ -985,6 +925,175 @@ function FirmExpandableRow({
           </td>
         </tr>
       )}
+    </>
+  );
+}
+
+// ─── Pending Request Row (with Mark Signed dialog) ───────────────────
+
+function PendingRequestRow({ req }: { req: PendingRequest }) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [signDialogOpen, setSignDialogOpen] = useState(false);
+  const [signedByName, setSignedByName] = useState<string | null>(req.recipient_name || null);
+  const [signedByUserId, setSignedByUserId] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  const [source, setSource] = useState('manual');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleMarkSigned = async () => {
+    const adminName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : null;
+    const now = new Date().toISOString();
+    setSubmitting(true);
+    try {
+      await untypedFrom('document_requests')
+        .update({
+          status: 'signed',
+          updated_at: now,
+          signed_toggled_by: user?.id || null,
+          signed_toggled_by_name: adminName,
+          signed_at: now,
+        })
+        .eq('id', req.id);
+
+      if (req.firm_id) {
+        const statusCol = req.agreement_type === 'nda' ? 'nda_status' : 'fee_agreement_status';
+        const signedAtCol = req.agreement_type === 'nda' ? 'nda_signed_at' : 'fee_agreement_signed_at';
+        const signedByCol = req.agreement_type === 'nda' ? 'nda_signed_by_name' : 'fee_agreement_signed_by_name';
+        const signedByIdCol = req.agreement_type === 'nda' ? 'nda_signed_by' : 'fee_agreement_signed_by';
+        await supabase
+          .from('firm_agreements')
+          .update({
+            [statusCol]: 'signed',
+            [signedAtCol]: now,
+            [signedByCol]: signedByName || req.recipient_name || adminName,
+            [signedByIdCol]: signedByUserId || null,
+          } as never)
+          .eq('id', req.firm_id);
+
+        await supabase
+          .from('agreement_audit_log')
+          .insert({
+            firm_id: req.firm_id,
+            agreement_type: req.agreement_type === 'nda' ? 'nda' : 'fee_agreement',
+            old_status: 'sent',
+            new_status: 'signed',
+            changed_by: user?.id || null,
+            changed_by_name: adminName,
+            notes: notes || `Marked signed via pending queue (source: ${source})`,
+          });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-request-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
+      toast({ title: 'Marked as signed', description: `${req.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement'} marked as signed.` });
+      setSignDialogOpen(false);
+    } catch {
+      toast({ title: 'Failed to update', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="px-4 py-3 flex items-center justify-between hover:bg-amber-100/50 transition-colors">
+        <div className="flex items-center gap-3">
+          {req.agreement_type === 'nda' ? (
+            <Shield className="h-4 w-4 text-primary" />
+          ) : (
+            <FileSignature className="h-4 w-4 text-primary" />
+          )}
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {req.recipient_name || req.recipient_email || 'Unknown'}
+              <span className="ml-2 text-xs text-muted-foreground">
+                {req.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement'}
+              </span>
+            </p>
+            {req.recipient_email && req.recipient_name && (
+              <p className="text-xs text-muted-foreground">{req.recipient_email}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            {formatDistanceToNow(new Date(req.created_at), { addSuffix: true })}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+            onClick={() => setSignDialogOpen(true)}
+          >
+            Mark Signed
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={signDialogOpen} onOpenChange={setSignDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Mark {req.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement'} as Signed</DialogTitle>
+            <DialogDescription>
+              Confirm signing details for {req.recipient_name || req.recipient_email}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Signer Name</Label>
+              <Input
+                value={signedByName || ''}
+                onChange={(e) => { setSignedByName(e.target.value); setSignedByUserId(null); }}
+                placeholder="Name of person who signed..."
+                className="h-9"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Source</Label>
+              <Select value={source} onValueChange={setSource}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Email (manual exchange)</SelectItem>
+                  <SelectItem value="platform">Platform</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Admin Notes (optional)</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any notes about the signing..."
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" size="sm" onClick={() => setSignDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleMarkSigned}
+              disabled={submitting || !signedByName}
+            >
+              {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />}
+              Confirm Signed
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

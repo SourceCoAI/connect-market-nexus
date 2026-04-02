@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AgreementStatusBadge, STATUS_CONFIG } from './AgreementStatusBadge';
+import { AgreementStatusBadge } from './AgreementStatusBadge';
 import { FirmSignerSelector } from './FirmSignerSelector';
 import {
   useUpdateAgreementStatus,
@@ -34,22 +34,16 @@ import {
   type AgreementSource,
 } from '@/hooks/admin/use-firm-agreements';
 import {
-  ChevronDown, X,
-  Loader2,
+  ChevronDown, X, Loader2, Mail, Check, Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
 
-// Define valid transitions per status
-const VALID_TRANSITIONS: Record<AgreementStatus, AgreementStatus[]> = {
-  not_started: ['sent'],
-  sent: ['signed', 'redlined', 'declined'],
-  redlined: ['under_review', 'declined'],
-  under_review: ['signed', 'declined'],
-  signed: ['sent', 'expired'],
-  expired: ['sent'],
-  declined: ['sent'],
-};
+// Transitions are now handled inline in the dropdown menu items
+
+type DialogMode = 'signed' | 'send_email' | null;
 
 interface AgreementStatusDropdownProps {
   firm: FirmAgreement;
@@ -59,19 +53,24 @@ interface AgreementStatusDropdownProps {
 
 export function AgreementStatusDropdown({ firm, members, agreementType }: AgreementStatusDropdownProps) {
   const updateStatus = useUpdateAgreementStatus();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const currentStatus = (agreementType === 'nda' ? firm.nda_status : firm.fee_agreement_status) as AgreementStatus;
-  const validNextStatuses = VALID_TRANSITIONS[currentStatus] || [];
 
-  // Dialog state for statuses that need extra info
-  const [dialogStatus, setDialogStatus] = useState<AgreementStatus | null>(null);
+  // Dialog state
+  const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [signedByUserId, setSignedByUserId] = useState<string | null>(null);
   const [signedByName, setSignedByName] = useState<string | null>(null);
   const [documentUrl, setDocumentUrl] = useState('');
-  const [redlineNotes, setRedlineNotes] = useState('');
   const [customTerms, setCustomTerms] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
-  const [source, setSource] = useState<AgreementSource>('platform');
+  const [source, setSource] = useState<AgreementSource>('manual');
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  // For send email dialog - recipient
+  const [recipientEmail, setRecipientEmail] = useState('');
+  const [recipientName, setRecipientName] = useState('');
 
   const [localMembers, setLocalMembers] = useState<FirmMember[] | null>(null);
   const [_membersLoading, setMembersLoading] = useState(false);
@@ -97,50 +96,83 @@ export function AgreementStatusDropdown({ firm, members, agreementType }: Agreem
     }
   };
 
-  const handleStatusSelect = async (newStatus: AgreementStatus) => {
-    // Statuses that need a dialog for additional info
-    if (newStatus === 'signed' || newStatus === 'redlined') {
-      setDialogStatus(newStatus);
-      setSignedByUserId(null);
-      setSignedByName(null);
-      setDocumentUrl('');
-      setRedlineNotes('');
-      setCustomTerms('');
-      setExpiresAt('');
-      setSource('platform');
-      await ensureMembers();
-      return;
-    }
+  const openSignedDialog = async () => {
+    setDialogMode('signed');
+    setSignedByUserId(null);
+    setSignedByName(null);
+    setDocumentUrl('');
+    setCustomTerms('');
+    setExpiresAt('');
+    setSource('manual');
+    await ensureMembers();
+  };
 
-    // Simple transitions — just update
+  const openSendEmailDialog = async () => {
+    setDialogMode('send_email');
+    setRecipientEmail('');
+    setRecipientName('');
+    await ensureMembers();
+  };
+
+  const handleSendEmail = async () => {
+    if (!recipientEmail) return;
+    setSendingEmail(true);
+    try {
+      const { error } = await supabase.functions.invoke('request-agreement-email', {
+        body: {
+          documentType: agreementType === 'nda' ? 'nda' : 'fee_agreement',
+          recipientEmail,
+          recipientName: recipientName || recipientEmail,
+          firmId: firm.id,
+        },
+      });
+      if (error) throw error;
+
+      toast({
+        title: 'Email Sent',
+        description: `${agreementType === 'nda' ? 'NDA' : 'Fee Agreement'} sent to ${recipientEmail}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-request-queue'] });
+      setDialogMode(null);
+    } catch (err) {
+      toast({
+        title: 'Failed to send email',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const confirmSignedSubmit = async () => {
     try {
       await updateStatus.mutateAsync({
         firmId: firm.id,
         agreementType,
-        newStatus,
+        newStatus: 'signed',
+        signedByUserId,
+        signedByName,
+        documentUrl: documentUrl || undefined,
+        customTerms: customTerms || undefined,
+        expiresAt: expiresAt || undefined,
+        source,
       });
+      setDialogMode(null);
     } catch {
       // Error handled by mutation
     }
   };
 
-  const confirmDialogSubmit = async () => {
-    if (!dialogStatus) return;
-
+  const handleResetStatus = async () => {
     try {
       await updateStatus.mutateAsync({
         firmId: firm.id,
         agreementType,
-        newStatus: dialogStatus,
-        signedByUserId,
-        signedByName,
-        documentUrl: documentUrl || undefined,
-        redlineNotes: redlineNotes || undefined,
-        customTerms: customTerms || undefined,
-        expiresAt: expiresAt || undefined,
-        source,
+        newStatus: 'not_started',
       });
-      setDialogStatus(null);
     } catch {
       // Error handled by mutation
     }
@@ -170,32 +202,35 @@ export function AgreementStatusDropdown({ firm, members, agreementType }: Agreem
               <ChevronDown className="h-3 w-3 text-muted-foreground opacity-0 group-hover/toggle:opacity-100 transition-opacity" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
-            {validNextStatuses.length > 0 ? (
-              validNextStatuses.map((status) => {
-                const config = STATUS_CONFIG[status];
-                const Icon = config.icon;
-                return (
-                  <DropdownMenuItem
-                    key={status}
-                    onClick={() => handleStatusSelect(status)}
-                    className="cursor-pointer"
-                  >
-                    <Icon className="h-4 w-4 mr-2" />
-                    {config.label}
-                  </DropdownMenuItem>
-                );
-              })
-            ) : (
-              <DropdownMenuItem disabled className="text-muted-foreground text-xs">
-                No transitions available
+          <DropdownMenuContent align="start" className="w-52">
+            {/* Send Email - available from not_started, expired, declined */}
+            {(currentStatus === 'not_started' || currentStatus === 'expired' || currentStatus === 'declined') && (
+              <DropdownMenuItem onClick={openSendEmailDialog} className="cursor-pointer">
+                <Mail className="h-4 w-4 mr-2" />
+                Send Email
               </DropdownMenuItem>
             )}
+
+            {/* Mark Signed - available from sent, redlined, under_review */}
+            {(currentStatus === 'sent' || currentStatus === 'redlined' || currentStatus === 'under_review') && (
+              <>
+                <DropdownMenuItem onClick={openSignedDialog} className="cursor-pointer">
+                  <Check className="h-4 w-4 mr-2" />
+                  Mark Signed
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={openSendEmailDialog} className="cursor-pointer">
+                  <Send className="h-4 w-4 mr-2" />
+                  Resend Email
+                </DropdownMenuItem>
+              </>
+            )}
+
+            {/* Reset - always available except from not_started */}
             {currentStatus !== 'not_started' && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => handleStatusSelect('not_started')}
+                  onClick={handleResetStatus}
                   className="cursor-pointer text-destructive"
                 >
                   <X className="h-4 w-4 mr-2" />
@@ -218,116 +253,149 @@ export function AgreementStatusDropdown({ firm, members, agreementType }: Agreem
         )}
       </div>
 
-      {/* Dialog for Signed / Redlined transitions */}
-      <Dialog open={dialogStatus !== null} onOpenChange={(open) => { if (!open) setDialogStatus(null); }}>
+      {/* Send Email Dialog */}
+      <Dialog open={dialogMode === 'send_email'} onOpenChange={(open) => { if (!open) setDialogMode(null); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {dialogStatus === 'signed' ? `Mark ${typeLabel} as Signed` : `Mark ${typeLabel} as Redlined`}
-            </DialogTitle>
+            <DialogTitle>Send {typeLabel} via Email</DialogTitle>
             <DialogDescription>
-              {dialogStatus === 'signed'
-                ? `Record who signed the ${typeLabel.toLowerCase()} for ${firm.primary_company_name}`
-                : `Record the redlined version details for ${firm.primary_company_name}`
-              }
+              Select a member or enter an email to send the {typeLabel.toLowerCase()} to.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 mt-2">
-            {dialogStatus === 'signed' && (
-              <>
-                <FirmSignerSelector
-                  members={effectiveMembers}
-                  onSelect={(userId, name) => {
-                    setSignedByUserId(userId);
-                    setSignedByName(name);
-                  }}
-                  label="Who signed?"
-                />
+            <FirmSignerSelector
+              members={effectiveMembers}
+              onSelect={(userId, name) => {
+                setRecipientName(name || '');
+                // Find the email for this member
+                if (userId) {
+                  const member = effectiveMembers.find(m => m.user_id === userId);
+                  if (member?.user) {
+                    setRecipientEmail(member.user.email);
+                  }
+                } else if (name) {
+                  const member = effectiveMembers.find(m => m.lead_name === name);
+                  if (member?.lead_email) {
+                    setRecipientEmail(member.lead_email);
+                  }
+                }
+              }}
+              label="Send to"
+            />
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Source</Label>
-                  <Select value={source} onValueChange={(v) => setSource(v as AgreementSource)}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="platform">Platform (e-signed)</SelectItem>
-                      <SelectItem value="manual">Manual (uploaded PDF)</SelectItem>
-                      <SelectItem value="docusign">DocuSign</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Recipient Email</Label>
+              <Input
+                type="email"
+                placeholder="email@example.com"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                className="h-9"
+              />
+            </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Signed Document URL (optional)</Label>
-                  <Input
-                    placeholder="https://..."
-                    value={documentUrl}
-                    onChange={(e) => setDocumentUrl(e.target.value)}
-                    className="h-9"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Custom Terms / Notes (optional)</Label>
-                  <Textarea
-                    placeholder="e.g., 15% fee instead of standard 20%"
-                    value={customTerms}
-                    onChange={(e) => setCustomTerms(e.target.value)}
-                    rows={2}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Expiration Date (optional)</Label>
-                  <Input
-                    type="date"
-                    value={expiresAt}
-                    onChange={(e) => setExpiresAt(e.target.value)}
-                    className="h-9"
-                  />
-                </div>
-              </>
-            )}
-
-            {dialogStatus === 'redlined' && (
-              <>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Redline Notes</Label>
-                  <Textarea
-                    placeholder="Describe the changes requested..."
-                    value={redlineNotes}
-                    onChange={(e) => setRedlineNotes(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Redlined Document URL (optional)</Label>
-                  <Input
-                    placeholder="https://..."
-                    value={documentUrl}
-                    onChange={(e) => setDocumentUrl(e.target.value)}
-                    className="h-9"
-                  />
-                </div>
-              </>
-            )}
+            <div className="bg-muted/50 border border-border rounded-lg p-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span>Will be sent from <strong>support@sourcecodeals.com</strong></span>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" size="sm" onClick={() => setDialogStatus(null)}>
+            <Button variant="outline" size="sm" onClick={() => setDialogMode(null)}>
               Cancel
             </Button>
             <Button
               size="sm"
-              onClick={confirmDialogSubmit}
-              disabled={
-                updateStatus.isPending ||
-                (dialogStatus === 'signed' && !signedByUserId && !signedByName)
-              }
+              onClick={handleSendEmail}
+              disabled={sendingEmail || !recipientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)}
+            >
+              {sendingEmail ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> Sending...</>
+              ) : (
+                <><Mail className="h-3.5 w-3.5 mr-2" /> Send Email</>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark Signed Dialog */}
+      <Dialog open={dialogMode === 'signed'} onOpenChange={(open) => { if (!open) setDialogMode(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Mark {typeLabel} as Signed</DialogTitle>
+            <DialogDescription>
+              Record who signed the {typeLabel.toLowerCase()} for {firm.primary_company_name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            <FirmSignerSelector
+              members={effectiveMembers}
+              onSelect={(userId, name) => {
+                setSignedByUserId(userId);
+                setSignedByName(name);
+              }}
+              label="Who signed?"
+            />
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Source</Label>
+              <Select value={source} onValueChange={(v) => setSource(v as AgreementSource)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Email (manual exchange)</SelectItem>
+                  <SelectItem value="platform">Platform (e-signed)</SelectItem>
+                  <SelectItem value="docusign">DocuSign</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Signed Document URL (optional)</Label>
+              <Input
+                placeholder="https://..."
+                value={documentUrl}
+                onChange={(e) => setDocumentUrl(e.target.value)}
+                className="h-9"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Custom Terms / Notes (optional)</Label>
+              <Textarea
+                placeholder="e.g., 15% fee instead of standard 20%"
+                value={customTerms}
+                onChange={(e) => setCustomTerms(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Expiration Date (optional)</Label>
+              <Input
+                type="date"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+                className="h-9"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" size="sm" onClick={() => setDialogMode(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={confirmSignedSubmit}
+              disabled={updateStatus.isPending || (!signedByUserId && !signedByName)}
             >
               {updateStatus.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />}
               Confirm
