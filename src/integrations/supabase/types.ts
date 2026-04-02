@@ -5105,6 +5105,56 @@ export type Database = {
           },
         ]
       }
+      document_requests: {
+        Row: {
+          agreement_type: string
+          created_at: string
+          email_sent_at: string | null
+          firm_id: string
+          id: string
+          requested_at: string
+          signed_at: string | null
+          signed_toggled_by: string | null
+          signed_toggled_by_name: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          agreement_type: string
+          created_at?: string
+          email_sent_at?: string | null
+          firm_id: string
+          id?: string
+          requested_at?: string
+          signed_at?: string | null
+          signed_toggled_by?: string | null
+          signed_toggled_by_name?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          agreement_type?: string
+          created_at?: string
+          email_sent_at?: string | null
+          firm_id?: string
+          id?: string
+          requested_at?: string
+          signed_at?: string | null
+          signed_toggled_by?: string | null
+          signed_toggled_by_name?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_requests_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm_agreements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_tracked_links: {
         Row: {
           buyer_email: string
@@ -5948,6 +5998,8 @@ export type Database = {
           fee_agreement_expires_at: string | null
           fee_agreement_redline_document_url: string | null
           fee_agreement_redline_notes: string | null
+          fee_agreement_requested_at: string | null
+          fee_agreement_requested_by: string | null
           fee_agreement_scope: string | null
           fee_agreement_sent_at: string | null
           fee_agreement_signed: boolean | null
@@ -5974,6 +6026,8 @@ export type Database = {
           nda_pandadoc_status: string | null
           nda_redline_document_url: string | null
           nda_redline_notes: string | null
+          nda_requested_at: string | null
+          nda_requested_by: string | null
           nda_sent_at: string | null
           nda_signed: boolean | null
           nda_signed_at: string | null
@@ -6000,6 +6054,8 @@ export type Database = {
           fee_agreement_expires_at?: string | null
           fee_agreement_redline_document_url?: string | null
           fee_agreement_redline_notes?: string | null
+          fee_agreement_requested_at?: string | null
+          fee_agreement_requested_by?: string | null
           fee_agreement_scope?: string | null
           fee_agreement_sent_at?: string | null
           fee_agreement_signed?: boolean | null
@@ -6026,6 +6082,8 @@ export type Database = {
           nda_pandadoc_status?: string | null
           nda_redline_document_url?: string | null
           nda_redline_notes?: string | null
+          nda_requested_at?: string | null
+          nda_requested_by?: string | null
           nda_sent_at?: string | null
           nda_signed?: boolean | null
           nda_signed_at?: string | null
@@ -6052,6 +6110,8 @@ export type Database = {
           fee_agreement_expires_at?: string | null
           fee_agreement_redline_document_url?: string | null
           fee_agreement_redline_notes?: string | null
+          fee_agreement_requested_at?: string | null
+          fee_agreement_requested_by?: string | null
           fee_agreement_scope?: string | null
           fee_agreement_sent_at?: string | null
           fee_agreement_signed?: boolean | null
@@ -6078,6 +6138,8 @@ export type Database = {
           nda_pandadoc_status?: string | null
           nda_redline_document_url?: string | null
           nda_redline_notes?: string | null
+          nda_requested_at?: string | null
+          nda_requested_by?: string | null
           nda_sent_at?: string | null
           nda_signed?: boolean | null
           nda_signed_at?: string | null
