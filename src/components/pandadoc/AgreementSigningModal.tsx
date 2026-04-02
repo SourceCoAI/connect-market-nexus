@@ -95,7 +95,37 @@ export function AgreementSigningModal({
           </DialogTitle>
         </DialogHeader>
 
-        {sent ? (
+        {!activeType ? (
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Choose which agreement you'd like to sign. You only need one to access deals.
+            </p>
+            <div className="grid gap-3">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3 h-auto py-4"
+                onClick={() => setChosenType('nda')}
+              >
+                <Shield className="h-5 w-5 text-primary" />
+                <div className="text-left">
+                  <div className="font-medium">Non-Disclosure Agreement</div>
+                  <div className="text-xs text-muted-foreground">Standard NDA for deal access</div>
+                </div>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3 h-auto py-4"
+                onClick={() => setChosenType('fee_agreement')}
+              >
+                <FileSignature className="h-5 w-5 text-primary" />
+                <div className="text-left">
+                  <div className="font-medium">Fee Agreement</div>
+                  <div className="text-xs text-muted-foreground">Advisory fee agreement for deal access</div>
+                </div>
+              </Button>
+            </div>
+          </div>
+        ) : sent ? (
           <div className="flex flex-col items-center gap-4 py-6 text-center">
             <div className="p-3 rounded-full bg-emerald-100">
               <CheckCircle className="h-8 w-8 text-emerald-600" />
@@ -125,23 +155,33 @@ export function AgreementSigningModal({
               </div>
             )}
 
-            <Button
-              onClick={handleRequest}
-              disabled={isRequesting}
-              className="w-full"
-            >
-              {isRequesting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send {docLabel} to My Email
-                </>
+            <div className="flex gap-2">
+              {!documentType && (
+                <Button
+                  variant="ghost"
+                  onClick={() => { setChosenType(null); setError(null); }}
+                >
+                  Back
+                </Button>
               )}
-            </Button>
+              <Button
+                onClick={handleRequest}
+                disabled={isRequesting}
+                className="flex-1"
+              >
+                {isRequesting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send {docLabel} to My Email
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         )}
       </DialogContent>
