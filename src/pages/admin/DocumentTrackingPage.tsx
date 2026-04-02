@@ -313,6 +313,8 @@ export default function DocumentTrackingPage() {
         }
         return false;
       });
+    } else if (filterStatus === 'pending_requests') {
+      result = result.filter((f) => f.hasPendingRequest);
     }
 
     if (filterStatus === 'signed') {
