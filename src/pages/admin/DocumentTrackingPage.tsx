@@ -19,6 +19,7 @@ import {
   ChevronRight,
   History,
   UserMinus,
+  Circle,
 } from 'lucide-react';
 import { formatDistanceToNow, format, differenceInDays } from 'date-fns';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
@@ -29,8 +30,17 @@ import { useRemoveFirmMember } from '@/hooks/admin/use-firm-agreements';
 import { useAgreementAuditLog } from '@/hooks/admin/use-firm-agreements';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { FirmSignerSelector } from '@/components/admin/firm-agreements/FirmSignerSelector';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
