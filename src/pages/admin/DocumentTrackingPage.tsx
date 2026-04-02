@@ -92,6 +92,7 @@ function useAllFirmsTracking() {
     queryKey: ['admin-document-tracking'],
     staleTime: 60_000,
     queryFn: async () => {
+      // Fetch firms + members
       const { data: firms, error } = await supabase
         .from('firm_agreements')
         .select(
@@ -118,6 +119,26 @@ function useAllFirmsTracking() {
 
       if (error) throw error;
       if (!firms || firms.length === 0) return [];
+
+      // Fetch latest "signed" audit entries to get admin attribution
+      const { data: auditEntries } = await supabase
+        .from('agreement_audit_log')
+        .select('firm_id, agreement_type, changed_by_name, created_at')
+        .eq('new_status', 'signed')
+        .order('created_at', { ascending: false });
+
+      // Build lookup: firmId -> { nda: adminName, fee_agreement: adminName }
+      const adminMap = new Map<string, { nda?: string; fee_agreement?: string }>();
+      if (auditEntries) {
+        for (const entry of auditEntries) {
+          const existing = adminMap.get(entry.firm_id) || {};
+          const type = entry.agreement_type as 'nda' | 'fee_agreement';
+          if (!existing[type]) {
+            existing[type] = entry.changed_by_name || undefined;
+            adminMap.set(entry.firm_id, existing);
+          }
+        }
+      }
 
       return firms.map((firm: Record<string, unknown>) => {
         const firmMembers = (firm.firm_members || []) as Record<string, unknown>[];
@@ -154,6 +175,8 @@ function useAllFirmsTracking() {
           (feeRequestedAt && (firm.fee_agreement_status as string) !== 'signed')
         );
 
+        const adminAttribution = adminMap.get(firm.id as string);
+
         return {
           id: firm.id,
           primary_company_name: firm.primary_company_name,
@@ -165,12 +188,14 @@ function useAllFirmsTracking() {
           nda_signed_at: firm.nda_signed_at,
           nda_signed_by_name: firm.nda_signed_by_name,
           nda_requested_at: ndaRequestedAt,
+          nda_marked_by_admin: adminAttribution?.nda || null,
           fee_agreement_status: (firm.fee_agreement_status || 'not_started') as AgreementStatus,
           fee_agreement_sent_at: firm.fee_agreement_sent_at || firm.fee_agreement_email_sent_at,
           fee_agreement_email_sent_at: firm.fee_agreement_email_sent_at,
           fee_agreement_signed_at: firm.fee_agreement_signed_at,
           fee_agreement_signed_by_name: firm.fee_agreement_signed_by_name,
           fee_agreement_requested_at: feeRequestedAt,
+          fee_marked_by_admin: adminAttribution?.fee_agreement || null,
           hasPendingRequest: !!hasPendingRequest,
           contactName,
           contactEmail,
