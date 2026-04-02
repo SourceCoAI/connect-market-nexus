@@ -126,25 +126,22 @@ async function getOutreachStatus(
 
   // Parallel fetch: data_room_access + deal_data_room_access + scores with status
   const queries: Promise<unknown>[] = [
-    supabase
+    Promise.resolve(supabase
       .from('data_room_access')
       .select(
         'id, deal_id, remarketing_buyer_id, contact_id, can_view_teaser, can_view_full_memo, can_view_data_room, granted_at, granted_by, last_access_at, link_sent_at, link_sent_to_email, revoked_at',
       )
-      .eq('deal_id', dealId)
-      .then((r: unknown) => r),
-    supabase
+      .eq('deal_id', dealId)),
+    Promise.resolve(supabase
       .from('deal_data_room_access')
       .select(
         'id, deal_id, buyer_id, buyer_name, buyer_email, buyer_firm, is_active, granted_at, last_accessed_at, nda_signed_at, fee_agreement_signed_at, revoked_at',
       )
-      .eq('deal_id', dealId)
-      .then((r: unknown) => r),
-    supabase
+      .eq('deal_id', dealId)),
+    Promise.resolve(supabase
       .from('remarketing_scores')
       .select('buyer_id, status, composite_score, tier')
-      .eq('listing_id', dealId)
-      .then((r: unknown) => r),
+      .eq('listing_id', dealId)),
   ];
 
   const [accessResult, dealAccessResult, scoresResult] = (await Promise.all(queries)) as [

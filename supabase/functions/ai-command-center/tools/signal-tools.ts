@@ -202,7 +202,7 @@ async function getBuyerDecisions(
       .limit(limit);
     if (args.deal_id) approvedQuery = approvedQuery.eq('listing_id', args.deal_id as string);
     if (args.buyer_id) approvedQuery = approvedQuery.eq('buyer_id', args.buyer_id as string);
-    queries.push(approvedQuery.then((r: unknown) => r));
+    queries.push(Promise.resolve(approvedQuery));
   } else {
     queries.push(Promise.resolve({ data: [], error: null }));
   }
@@ -217,7 +217,7 @@ async function getBuyerDecisions(
     if (args.deal_id) passedQuery = passedQuery.eq('listing_id', args.deal_id as string);
     if (args.buyer_id) passedQuery = passedQuery.eq('buyer_id', args.buyer_id as string);
     if (args.pass_category) passedQuery = passedQuery.eq('pass_category', args.pass_category as string);
-    queries.push(passedQuery.then((r: unknown) => r));
+    queries.push(Promise.resolve(passedQuery));
   } else {
     queries.push(Promise.resolve({ data: [], error: null }));
   }
