@@ -41,12 +41,34 @@ function useAllDocuments() {
       });
 
       if (resolveError) {
-        console.error('Failed to resolve firm:', resolveError);
-        return [];
+        console.warn('Failed to resolve firm:', resolveError);
       }
 
       const firmId = resolvedFirmId as string | null;
-      if (!firmId) return [];
+
+      // If no firm yet, still show both docs as requestable
+      if (!firmId) {
+        return [
+          {
+            type: 'nda' as const,
+            label: 'Non-Disclosure Agreement (NDA)',
+            signed: false,
+            signedAt: null,
+            requested: false,
+            requestedAt: null,
+            status: null,
+          },
+          {
+            type: 'fee_agreement' as const,
+            label: 'Fee Agreement',
+            signed: false,
+            signedAt: null,
+            requested: false,
+            requestedAt: null,
+            status: null,
+          },
+        ];
+      }
 
       const { data: firmRaw } = await (
         supabase.from('firm_agreements' as never) as unknown as ReturnType<typeof supabase.from>
@@ -57,7 +79,13 @@ function useAllDocuments() {
         .eq('id', firmId)
         .maybeSingle();
 
-      if (!firmRaw) return [];
+      if (!firmRaw) {
+        return [
+          { type: 'nda' as const, label: 'Non-Disclosure Agreement (NDA)', signed: false, signedAt: null, requested: false, requestedAt: null, status: null },
+          { type: 'fee_agreement' as const, label: 'Fee Agreement', signed: false, signedAt: null, requested: false, requestedAt: null, status: null },
+        ];
+      }
+
       const firm = firmRaw as unknown as {
         nda_status: string | null;
         nda_signed_at: string | null;
