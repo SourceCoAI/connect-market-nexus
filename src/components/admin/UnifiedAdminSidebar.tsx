@@ -407,6 +407,7 @@ export function UnifiedAdminSidebar({
       unviewedConnectionRequestsCount,
       unviewedUsersCount,
       unviewedOwnerLeadsCount,
+      pendingDocRequestCount,
       canAccessSettings,
     ],
   );
