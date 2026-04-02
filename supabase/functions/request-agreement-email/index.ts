@@ -82,7 +82,12 @@ serve(async (req: Request) => {
 
       if (!firmId) {
         if (targetUserId !== userId) {
-          const healResult = await selfHealFirm(supabaseAdmin, targetUserId);
+          const { data: healProfile } = await supabaseAdmin
+            .from('profiles').select('email, company').eq('id', targetUserId).maybeSingle();
+          const healResult = await selfHealFirm(supabaseAdmin, targetUserId, {
+            email: healProfile?.email ?? overrideEmail,
+            company: healProfile?.company,
+          });
           firmId = healResult?.firmId ?? null;
         }
         if (!firmId && overrideFirmId) firmId = overrideFirmId;
@@ -114,7 +119,10 @@ serve(async (req: Request) => {
       firmId = firmIdResult;
 
       if (!firmId) {
-        const healResult = await selfHealFirm(supabaseAdmin, userId);
+        const healResult = await selfHealFirm(supabaseAdmin, userId, {
+          email: profile.email,
+          company: profile.company,
+        });
         firmId = healResult?.firmId ?? null;
       }
 

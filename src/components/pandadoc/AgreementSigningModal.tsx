@@ -43,7 +43,7 @@ export function AgreementSigningModal({
   // Get requested_at from the agreement status (cast to access extra fields)
   const statusAny = agreementStatus as Record<string, unknown> | undefined;
   const ndaRequestedAt = statusAny?.nda_requested_at as string | null | undefined;
-  const feeRequestedAt = statusAny?.fee_requested_at as string | null | undefined;
+  const feeRequestedAt = statusAny?.fee_agreement_requested_at as string | null | undefined;
 
   const getRequestedAt = (type: 'nda' | 'fee_agreement') => {
     const raw = type === 'nda' ? ndaRequestedAt : feeRequestedAt;

@@ -18,6 +18,8 @@ export interface AgreementCoverage {
   fee_firm_name: string | null;
   fee_parent_firm_name: string | null;
   firm_id: string | null;
+  nda_requested_at: string | null;
+  fee_agreement_requested_at: string | null;
 }
 
 const SAFE_DEFAULT_COVERAGE: AgreementCoverage = {
@@ -32,6 +34,8 @@ const SAFE_DEFAULT_COVERAGE: AgreementCoverage = {
   fee_firm_name: null,
   fee_parent_firm_name: null,
   firm_id: null,
+  nda_requested_at: null,
+  fee_agreement_requested_at: null,
 };
 
 function isRpcMissing(error: unknown): boolean {

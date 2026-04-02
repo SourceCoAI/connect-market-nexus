@@ -13376,6 +13376,7 @@ export type Database = {
       get_my_agreement_status: {
         Args: never
         Returns: {
+          fee_agreement_requested_at: string
           fee_coverage_source: string
           fee_covered: boolean
           fee_firm_name: string
@@ -13386,6 +13387,7 @@ export type Database = {
           nda_covered: boolean
           nda_firm_name: string
           nda_parent_firm_name: string
+          nda_requested_at: string
           nda_status: string
         }[]
       }
