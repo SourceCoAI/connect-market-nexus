@@ -1908,43 +1908,43 @@ export function getChatbotTestScenarios(): TestScenario[] {
       },
     },
 
-    // PandaDoc - Send NDA
+    // Email-based Agreement Sending - Send NDA
     {
       id: 'int-send-nda',
-      category: 'Integration — PandaDoc',
+      category: 'Integration — Agreements',
       name: 'Send NDA to buyer contact',
-      description: 'Tests send_document tool routing and confirmation flow.',
+      description: 'Tests send_document tool routing and confirmation flow via email.',
       userMessage: 'Send the NDA to John Smith at Trivest Partners',
       expectedBehavior: [
         'Routes to DOCUMENT_ACTION category',
         'Looks up firm and contact details',
         'Asks for confirmation before sending',
-        'Reports submission ID and delivery mode after confirmation',
+        'Reports that the document was sent via email',
       ],
       severity: 'critical',
       skipAutoRun: true,
       autoValidation: {
         expectedRouteCategories: ['DOCUMENT_ACTION', 'ACTION'],
         expectedTools: ['send_document'],
-        mustContainAny: ['NDA', 'send', 'sign', 'confirm'],
+        mustContainAny: ['NDA', 'send', 'sign', 'confirm', 'email'],
       },
     },
     {
       id: 'int-send-fee-agreement',
-      category: 'Integration — PandaDoc',
+      category: 'Integration — Agreements',
       name: 'Send fee agreement',
-      description: 'Tests fee agreement variant of send_document.',
+      description: 'Tests fee agreement variant of send_document via email.',
       userMessage: 'Send the fee agreement to the primary contact at Audax Private Equity',
       expectedBehavior: [
         'Routes to DOCUMENT_ACTION category',
         'Looks up firm and primary contact email',
-        'Asks for confirmation before sending',
+        'Asks for confirmation before sending via email',
       ],
       severity: 'high',
       skipAutoRun: true,
       autoValidation: {
         expectedRouteCategories: ['DOCUMENT_ACTION', 'ACTION'],
-        mustContainAny: ['fee agreement', 'Fee Agreement', 'send', 'sign'],
+        mustContainAny: ['fee agreement', 'Fee Agreement', 'send', 'sign', 'email'],
       },
     },
 
@@ -2780,27 +2780,27 @@ export function getChatbotTestScenarios(): TestScenario[] {
       category: 'CTO Audit — Platform Operations',
       name: '3.3.2 Closing document coordination',
       description:
-        'Tests PandaDoc integration awareness, document tracking, bottleneck identification, and workflow clarity.',
+        'Tests email-based agreement flow awareness, document tracking, bottleneck identification, and workflow clarity.',
       userMessage:
         "Where are we in the closing document process? What's outstanding and who needs to approve?",
       expectedBehavior: [
-        'References PandaDoc integration for NDA/fee agreement signing',
-        'Can track status: docs generated → sent to parties → signed → executed',
+        'References email-based NDA/fee agreement signing flow',
+        'Can track status: docs requested → sent via email → signed → confirmed by admin',
         "Identifies bottlenecks: seller hasn't signed NDA, buyer delayed, counsel reviewing",
-        'Shows what is ready: asset purchase agreement templates available',
-        'Notes integration dependency: "Once PandaDoc completes, next step is formal SPA negotiation"',
+        'Shows what is ready: agreement templates available',
+        'Notes workflow: "Once signed copy is returned via email, admin confirms in document tracking"',
         'Explains role clarity: buyer counsel handles SPA, our role is coordination',
       ],
       edgeCases: [
         'Cannot explain document workflow',
-        'No mention of PandaDoc integration',
+        'No mention of email-based agreement flow',
         'Unclear on who has what document',
         'No bottleneck identification',
       ],
       severity: 'high',
       autoValidation: {
         expectedTools: ['get_firm_agreements', 'get_nda_logs'],
-        mustContainAny: ['document', 'NDA', 'sign', 'PandaDoc', 'agreement', 'status'],
+        mustContainAny: ['document', 'NDA', 'sign', 'email', 'agreement', 'status'],
         requiresToolCalls: true,
         minResponseLength: 150,
       },

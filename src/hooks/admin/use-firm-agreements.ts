@@ -61,13 +61,6 @@ export interface FirmAgreement {
   fee_inherited_from_firm_id: string | null;
   nda_sent_at: string | null;
   fee_agreement_sent_at: string | null;
-  // PandaDoc fields (optional — columns may not exist yet)
-  nda_pandadoc_document_id?: string | null;
-  nda_pandadoc_status?: string | null;
-  nda_pandadoc_signed_url?: string | null;
-  fee_pandadoc_document_id?: string | null;
-  fee_pandadoc_status?: string | null;
-  fee_pandadoc_signed_url?: string | null;
   member_count: number;
   metadata: Record<string, unknown>;
   created_at: string;
