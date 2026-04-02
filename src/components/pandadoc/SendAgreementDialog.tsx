@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Send, Mail } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { sendAgreementEmail, docTypeLabel } from '@/lib/agreement-email';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 
