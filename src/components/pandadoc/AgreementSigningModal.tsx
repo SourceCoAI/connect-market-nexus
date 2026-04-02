@@ -75,6 +75,7 @@ export function AgreementSigningModal({
   const handleClose = () => {
     setSent(false);
     setError(null);
+    if (!documentType) setChosenType(null);
     onOpenChange(false);
   };
 
