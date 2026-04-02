@@ -36,6 +36,8 @@ const ConnectionButton = ({
 }: ConnectionButtonProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
+  const [resendingType, setResendingType] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   useRealtime();
   useAgreementStatusSync();
   const { user } = useAuth();
