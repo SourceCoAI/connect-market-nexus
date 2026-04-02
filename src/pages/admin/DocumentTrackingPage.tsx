@@ -261,6 +261,7 @@ export default function DocumentTrackingPage() {
   
   useRealtimeFirmAgreements();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
