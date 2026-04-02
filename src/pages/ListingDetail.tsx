@@ -370,6 +370,19 @@ const ListingDetail = () => {
                       </Link>
                     )}
 
+              {/* Document Status — show when agreement sent but not signed */}
+                  {!isAdmin && user && agreementStatus && !agreementStatus.nda_covered && !agreementStatus.fee_covered && (agreementStatus.nda_status === 'sent' || agreementStatus.fee_status === 'sent') && (
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-lg border bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 text-sm">
+                      <Shield className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p>
+                          Your {agreementStatus.nda_status === 'sent' ? 'NDA' : 'Fee Agreement'} has been sent to <strong>{user.email}</strong>. Review, sign, and reply to <strong>support@sourcecodeals.com</strong>.
+                        </p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">Once processed, you'll be able to request introductions.</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Enhanced Save and Share */}
                   <EnhancedSaveButton
                     listingId={id!}
