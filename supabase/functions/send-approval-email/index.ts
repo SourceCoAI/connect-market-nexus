@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import { logEmailDelivery } from '../_shared/email-logger.ts';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 
 interface SendApprovalEmailRequest {
   userId: string;
@@ -25,11 +26,6 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY');
-    if (!BREVO_API_KEY) {
-      throw new Error('BREVO_API_KEY is not configured');
-    }
-
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -57,17 +53,14 @@ const handler = async (req: Request): Promise<Response> => {
       adminId,
       adminEmail,
       adminName,
-      customSignatureHtml: _customSignatureHtml,
       customSignatureText,
     } = requestData;
 
     console.log('Sending approval email to:', userEmail);
 
     // Get admin profile for signature - use dynamic admin info
-    let senderInfo = {
-      email: Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com',
-      name: 'SourceCo Admin',
-    };
+    let senderName = 'SourceCo Admin';
+    let senderEmail = Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com';
 
     // If admin ID provided, get profile from database (preferred)
     if (adminId) {
@@ -78,76 +71,53 @@ const handler = async (req: Request): Promise<Response> => {
         .single();
 
       if (adminProfile && adminProfile.email && adminProfile.first_name && adminProfile.last_name) {
-        senderInfo = {
-          email: adminProfile.email,
-          name: `${adminProfile.first_name} ${adminProfile.last_name}`,
-        };
+        senderEmail = adminProfile.email;
+        senderName = `${adminProfile.first_name} ${adminProfile.last_name}`;
       }
     }
     // Fallback to provided admin info if available
     else if (adminEmail && adminName) {
-      senderInfo = {
-        email: adminEmail,
-        name: adminName,
-      };
+      senderEmail = adminEmail;
+      senderName = adminName;
     }
 
-    // Create simple plain text email with proper spacing and signature - FIXED LINE BREAKS
+    // Create simple plain text email with proper spacing and signature
     const textSignature =
-      customSignatureText || `\n\nQuestions? Reply to this email.\n\n${senderInfo.name}\nSourceCo`;
-
-    // Send email using Brevo - plain text only
-    const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'api-key': BREVO_API_KEY,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: {
-          name: senderInfo.name,
-          email: senderInfo.email,
-        },
-        to: [
-          {
-            email: userEmail,
-            name: userEmail.split('@')[0],
-          },
-        ],
-        subject: subject,
-        textContent: `${message}\n\n${textSignature}`,
-      }),
-    });
-
-    const emailResult = await emailResponse.json();
-
-    if (!emailResponse.ok) {
-      console.error('Brevo API error:', emailResult);
-      await logEmailDelivery(supabase, {
-        email: userEmail,
-        emailType: 'approval_email',
-        status: 'failed',
-        correlationId: crypto.randomUUID(),
-        errorMessage: emailResult.message || 'Brevo API error',
-      });
-      throw new Error(`Email API error: ${emailResult.message || 'Unknown error'}`);
-    }
-
-    console.log('Approval email sent successfully:', emailResult);
+      customSignatureText || `\n\nQuestions? Reply to this email.\n\n${senderName}\nSourceCo`;
 
     const correlationId = crypto.randomUUID();
+
+    // Send email using shared Brevo sender (with retry, unsubscribe checks, etc.)
+    const result = await sendViaBervo({
+      to: userEmail,
+      toName: userEmail.split('@')[0],
+      subject,
+      htmlContent: `<pre style="font-family: Arial, sans-serif; white-space: pre-wrap;">${message}\n\n${textSignature}</pre>`,
+      textContent: `${message}\n\n${textSignature}`,
+      senderName,
+      senderEmail,
+      isTransactional: true, // approval emails are transactional, no unsubscribe header needed
+    });
+
     await logEmailDelivery(supabase, {
       email: userEmail,
       emailType: 'approval_email',
-      status: 'sent',
+      status: result.success ? 'sent' : 'failed',
       correlationId,
+      errorMessage: result.success ? undefined : result.error,
     });
+
+    if (!result.success) {
+      console.error('Failed to send approval email:', result.error);
+      throw new Error(`Email send failed: ${result.error}`);
+    }
+
+    console.log('Approval email sent successfully:', result.messageId);
 
     return new Response(
       JSON.stringify({
         success: true,
-        messageId: emailResult.messageId || 'unknown',
+        messageId: result.messageId || 'unknown',
         message: 'Approval email sent successfully',
       }),
       {
@@ -161,7 +131,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({
         error:
           error instanceof Error ? error.message : String(error) || 'Failed to send approval email',
-        details: error.toString(),
+        details: error instanceof Error ? error.message : String(error),
       }),
       {
         status: 500,
