@@ -27,9 +27,6 @@ import { SimpleNDADialog } from './SimpleNDADialog';
 import { UserFirmBadge } from './UserFirmBadge';
 import type { BulkFirmData } from '@/hooks/admin/use-bulk-user-firms';
 
-import { useLogFeeAgreementEmail } from '@/hooks/admin/use-fee-agreement';
-import { useLogNDAEmail } from '@/hooks/admin/use-nda';
-import { useAuth } from '@/contexts/AuthContext';
 import { useAllUserRoles } from '@/hooks/permissions/useAllUserRoles';
 import { RoleBadge } from './permissions/RoleBadge';
 import { AppRole } from '@/hooks/permissions/usePermissions';
