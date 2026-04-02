@@ -159,7 +159,7 @@ const ListingDetail = () => {
   const isInactive = listing?.status === 'inactive';
 
   // Show NDA gate modal for unsigned buyers (skip for inactive/sold listings)
-  if (showNdaGate && agreementStatus?.firm_id && !isInactive && (listing?.status as string) !== 'sold') {
+  if (showNdaGate && !isInactive && (listing?.status as string) !== 'sold') {
     return (
       <NdaGateModal
         userId={user!.id}
