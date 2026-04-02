@@ -1,59 +1,87 @@
 
 
-# Redesign Sidebar Agreement Status — Show Both Documents + Re-Request
+# Revamp Document Tracking — Full Lifecycle Dashboard
 
-## Problem
+## Problem Summary
 
-The sidebar currently only shows ONE pending document (NDA takes priority via `pendingType`), even when the user requested BOTH an NDA and a Fee Agreement. From the screenshot, Adam Haile has 3 NDA requests and 1 Fee Agreement request — but the sidebar only says "NDA Sent." There's also no way to re-request or request the other document type from the listing detail sidebar without opening the full modal.
+The Document Tracking page partially works but has critical gaps:
 
-## Solution
+1. **Status dropdown only shows "Sent" from `not_started`** — correct per transition rules, but admins need the table to clearly reflect which firms have pending requests vs which are just `not_started` (never requested). Currently they look the same.
+2. **The `firm_agreements` status updates correctly to `sent` when a user requests**, but the table doesn't visually distinguish "user requested, email was sent" from "admin manually set to sent". The `Requested` column exists but isn't prominent enough.
+3. **Pending Request Queue works** (screenshot 3) but is separate from the main table — the table rows themselves should clearly indicate pending status with row highlighting and the status badge should reflect "Requested" distinctly.
+4. **No "Send Email" action from admin side** — admins can only change status manually but can't trigger the actual email from the document tracking table.
+5. **Admin attribution on sign** — the signed dialog exists in `AgreementStatusDropdown` but the "Mark Signed" in the Pending Queue doesn't use it (skips the signer selector dialog).
+6. **User-side sync** — the `ConnectionButton` sidebar correctly shows dual doc status with resend, but the user profile Documents tab may not reflect the latest state.
 
-Replace the single-status card (lines 182-197 in ConnectionButton.tsx) with a per-document status display that shows:
+## Changes Required
 
-1. **Each requested document independently** — if NDA is sent AND Fee Agreement is sent, show both
-2. **Each document's state** — not requested / sent (pending) / signed
-3. **Re-request button per document** — small "Resend" link next to each pending document
-4. **Request missing documents** — if only NDA was requested, show option to also request Fee Agreement
-5. **Open AgreementSigningModal as fallback** — "Request Agreement" button when nothing has been sent yet (existing behavior preserved)
+### 1. Simplify AgreementStatusDropdown transitions for email-based flow
 
-### Sidebar card layout when documents are pending:
+The current transitions include `redlined`, `under_review`, `expired`, `declined` — these are PandaDoc-era statuses. The new flow is simpler:
+- `not_started` → `sent` (admin sends email manually or user requests)
+- `sent` → `signed` (admin marks after receiving signed doc via email)
+- `sent` → `not_started` (reset)
+- `signed` → `not_started` (revoke)
 
-```text
-┌─────────────────────────────────────┐
-│  Documents                          │
-│                                     │
-│ ┌─ blue left border ──────────────┐ │
-│ │ NDA                    Sent ✓   │ │
-│ │ Sent to your email. Review,     │ │
-│ │ sign, reply to support@...      │ │
-│ │                      [Resend]   │ │
-│ └─────────────────────────────────┘ │
-│                                     │
-│ ┌─ blue left border ──────────────┐ │
-│ │ Fee Agreement          Sent ✓   │ │
-│ │ Sent to your email. Review,     │ │
-│ │ sign, reply to support@...      │ │
-│ │                      [Resend]   │ │
-│ └─────────────────────────────────┘ │
-│                                     │
-│ Once processed, you'll be able to   │
-│ request introductions.              │
-│                                     │
-│ [Request Another Agreement]         │
-│  (only if one type is still         │
-│   not requested)                    │
-└─────────────────────────────────────┘
-```
+Remove `redlined`, `under_review` from the dropdown transitions (keep in type for backward compat). The dropdown should show contextual actions:
+- From `not_started`: "Send Email" (triggers `request-agreement-email` edge function) 
+- From `sent`: "Mark Signed" (opens signer dialog)
+- Reset option always available
 
-When signed, the row shows a green checkmark instead.
+**File**: `src/components/admin/firm-agreements/AgreementStatusDropdown.tsx`
 
-### Design tokens (Quiet Luxury)
-- White background, `border-slate-200/60` hairline border
-- `border-l-2 border-blue-400` for pending, `border-l-2 border-emerald-400` for signed
-- `text-muted-foreground` for body copy, `text-foreground` for labels
-- Resend link: `text-xs text-blue-600 hover:underline`
+### 2. Add "Send Email" action to AgreementStatusDropdown
+
+When admin clicks "Send Email" from the dropdown:
+- Need to pick a member to send to (use `FirmSignerSelector`)
+- Call `request-agreement-email` edge function with `firmId`, `recipientEmail`, `recipientName`, `agreementType`
+- Update status to `sent` + set `nda_requested_at` / `fee_agreement_requested_at`
+- This replaces the current "just set status to sent" behavior
+
+**File**: `src/components/admin/firm-agreements/AgreementStatusDropdown.tsx`
+
+### 3. Improve Pending Request Queue — use signer dialog for Mark Signed
+
+Currently the "Mark Signed" button in the pending queue does a direct update without the signer dialog. Change it to open a simplified dialog that:
+- Pre-fills the signer name from `recipient_name`
+- Lets admin add notes
+- Records attribution (`signed_toggled_by`, `signed_toggled_by_name`)
+
+**File**: `src/pages/admin/DocumentTrackingPage.tsx` (pending queue section)
+
+### 4. Better row highlighting in main table
+
+Currently `firm.hasPendingRequest` adds `bg-amber-50/60` — make this more prominent:
+- Add a small colored dot or badge next to the firm name for pending requests
+- Show "Requested" as a distinct badge in the NDA/Fee status column when status is `sent` AND there's a `requested_at` timestamp (meaning user initiated, not admin)
+
+**File**: `src/pages/admin/DocumentTrackingPage.tsx` (FirmExpandableRow)
+
+### 5. Ensure user-side Documents tab syncs
+
+Verify that the profile Documents tab reads from `get_my_agreement_status` RPC (which reads `firm_agreements`) so it shows the correct `sent` / `signed` states.
+
+**File**: Check `src/components/profile/` for documents tab — may need verification only, no changes if already using the RPC.
+
+### 6. Add admin "Send Email" capability from the table
+
+When an admin changes status to `sent` via dropdown, instead of just toggling the DB field, actually invoke `request-agreement-email` to send the real email. This requires selecting a member/email first.
+
+**File**: `src/components/admin/firm-agreements/AgreementStatusDropdown.tsx`
 
 ## Files Changed
 
-- **`src/components/listing-detail/ConnectionButton.tsx`** — Replace lines 176-225 (the agreement gate block). Instead of checking `hasPending` as a single boolean, enumerate both NDA and Fee Agreement statuses from `coverage`. Show per-document rows. Add inline re-request logic (calls `supabase.functions.invoke('request-agreement-email')` directly with a loading state, same as AgreementSigningModal). Keep the AgreementSigningModal available for the "Request Agreement" button when nothing is sent yet.
+- **`src/components/admin/firm-agreements/AgreementStatusDropdown.tsx`** — Simplify transitions to `not_started ↔ sent ↔ signed`. Add "Send Email" action that opens a member picker dialog, calls `request-agreement-email` edge function, and updates status. Keep "Mark Signed" with signer dialog.
+- **`src/pages/admin/DocumentTrackingPage.tsx`** — Improve pending queue "Mark Signed" to use a dialog with signer pre-fill and admin notes. Enhance row highlighting for pending requests. Add visual indicator (dot/badge) on firm name for pending items.
+- **`src/hooks/admin/use-firm-agreements.ts`** — May need minor updates if the `AgreementStatus` type needs cleanup (keep all values for backward compat but simplify UI transitions).
+
+## What Already Works (No Changes Needed)
+
+- `firm_agreements` status syncs correctly when user requests docs
+- `document_requests` table tracks all requests with timestamps
+- Realtime subscriptions refresh the admin table on changes
+- Pending Request Queue shows inbound requests
+- User-side `ConnectionButton` shows dual doc status with resend
+- `check_agreement_coverage` RPC correctly resolves coverage for marketplace gates
+- Edge function `request-agreement-email` sends emails via Brevo
 
