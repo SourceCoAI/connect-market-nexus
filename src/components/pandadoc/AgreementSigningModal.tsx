@@ -26,12 +26,14 @@ export function AgreementSigningModal({
   const [isRequesting, setIsRequesting] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chosenType, setChosenType] = useState<'nda' | 'fee_agreement' | null>(documentType ?? null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const docLabel = documentType === 'nda' ? 'NDA' : 'Fee Agreement';
-  const Icon = documentType === 'nda' ? Shield : FileSignature;
+  const activeType = chosenType;
+  const docLabel = activeType === 'nda' ? 'NDA' : 'Fee Agreement';
+  const Icon = activeType === 'nda' ? Shield : FileSignature;
 
   const handleRequest = async () => {
     setIsRequesting(true);
