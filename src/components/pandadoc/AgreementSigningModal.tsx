@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useQueryClient } from '@tanstack/react-query';
-import { sendAgreementEmail, docTypeLabel } from '@/lib/agreement-email';
+import { sendAgreementEmail } from '@/lib/agreement-email';
 import { Loader2, Shield, FileSignature, CheckCircle, Mail, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
