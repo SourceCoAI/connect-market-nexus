@@ -152,7 +152,7 @@ export function PendingAgreementBanner() {
                   className="text-[11px] font-medium flex items-center gap-0.5 hover:opacity-70 transition-opacity"
                   style={{ color: '#0E101A' }}
                 >
-                  Sign
+                  Request
                   <ChevronRight className="h-3 w-3" />
                 </button>
               </>
