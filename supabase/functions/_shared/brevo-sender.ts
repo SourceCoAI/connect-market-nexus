@@ -18,6 +18,15 @@
  * 3. send-approval-email, send-marketplace-invitation (onboarding)
  */
 
+export interface BrevoAttachment {
+  /** File name */
+  name: string;
+  /** Base64-encoded content (no data-uri prefix) */
+  content: string;
+  /** MIME type (optional, Brevo auto-detects) */
+  contentType?: string;
+}
+
 export interface BrevoEmailOptions {
   /** Recipient email address */
   to: string;
@@ -41,6 +50,8 @@ export interface BrevoEmailOptions {
   disableClickTracking?: boolean;
   /** C-4 FIX: Skip unsubscribe header for transactional emails (password reset, NDA, etc.) */
   isTransactional?: boolean;
+  /** File attachments (base64-encoded) */
+  attachment?: BrevoAttachment[];
 }
 
 export interface BrevoSendResult {
@@ -94,6 +105,10 @@ export async function sendViaBervo(
 
   if (options.disableClickTracking !== false) {
     payload.params = { trackClicks: false, trackOpens: true };
+  }
+
+  if (options.attachment && options.attachment.length > 0) {
+    payload.attachment = options.attachment;
   }
 
   // C-4 FIX: Add List-Unsubscribe header for CAN-SPAM compliance on non-transactional emails.

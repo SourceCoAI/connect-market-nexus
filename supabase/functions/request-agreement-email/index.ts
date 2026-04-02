@@ -184,34 +184,54 @@ serve(async (req: Request) => {
 
     const docLabel = documentType === 'nda' ? 'NDA (Non-Disclosure Agreement)' : 'Fee Agreement';
     const docFileName = documentType === 'nda' ? 'NDA.docx' : 'FeeAgreement.docx';
-    const { data: docUrl } = supabaseAdmin.storage
-      .from('agreement-templates')
-      .getPublicUrl(docFileName);
 
-    const downloadLink = docUrl?.publicUrl
-      ? `<p style="margin:20px 0; text-align:center;">
-          <a href="${docUrl.publicUrl}" style="background:#1e293b;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">
-            Download ${docLabel} Document
-          </a>
-        </p>`
-      : '';
+    // Fetch the actual document to attach (same approach as legacy send-nda-email)
+    let attachmentList: Array<{ name: string; content: string }> = [];
+    let downloadLink = '';
+    try {
+      const { data: fileData, error: fileErr } = await supabaseAdmin.storage
+        .from('agreement-templates')
+        .download(docFileName);
+      if (!fileErr && fileData) {
+        const arrayBuffer = await fileData.arrayBuffer();
+        const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        attachmentList = [{ name: docFileName, content: base64Content }];
+        console.log(`[request-agreement-email] Attached ${docFileName} (${arrayBuffer.byteLength} bytes)`);
+      } else {
+        console.warn(`[request-agreement-email] Could not download ${docFileName}: ${fileErr?.message}`);
+        const { data: docUrl } = supabaseAdmin.storage.from('agreement-templates').getPublicUrl(docFileName);
+        if (docUrl?.publicUrl) {
+          downloadLink = `<p style="margin:20px 0; text-align:center;">
+            <a href="${docUrl.publicUrl}" style="background:#1e293b;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">
+              Download ${docLabel} Document
+            </a>
+          </p>`;
+        }
+      }
+    } catch (dlErr) {
+      console.warn('[request-agreement-email] Attachment fetch error:', dlErr);
+    }
 
-    // Send email via Brevo
+    // Use the same sender identity as known-working notification emails
+    const senderEmail = Deno.env.get('SENDER_EMAIL') || 'notifications@sourcecodeals.com';
+
+    // Send email via Brevo — matching the proven sender pattern
     const emailResult = await sendViaBervo({
       to: buyerEmail,
       toName: buyerName,
       subject: `Your ${docLabel} from SourceCo`,
-      senderEmail: 'support@sourcecodeals.com',
+      senderEmail,
       senderName: 'SourceCo',
-      replyToEmail: 'support@sourcecodeals.com',
-      replyToName: 'SourceCo Support',
+      replyToEmail: 'adam.haile@sourcecodeals.com',
+      replyToName: 'Adam Haile',
       isTransactional: true,
+      attachment: attachmentList.length > 0 ? attachmentList : undefined,
       htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #0E101A; margin-bottom: 16px;">Your ${docLabel}</h2>
           <p style="color: #555; line-height: 1.6;">Hi ${buyerName},</p>
           <p style="color: #555; line-height: 1.6;">
-            Thank you for your interest in working with SourceCo. ${downloadLink ? 'Please download your document using the button below.' : 'Your document will be sent to you shortly by our team.'}
+            Thank you for your interest in working with SourceCo. ${attachmentList.length > 0 ? 'Please find the document attached to this email.' : downloadLink ? 'Please download your document using the button below.' : 'Your document will be sent to you shortly by our team.'}
           </p>
           ${downloadLink}
           <p style="color: #555; line-height: 1.6;">
@@ -227,7 +247,7 @@ serve(async (req: Request) => {
           </p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
           <p style="color: #999; font-size: 12px;">
-            SourceCo Deals &middot; support@sourcecodeals.com
+            SourceCo Deals &middot; adam.haile@sourcecodeals.com
           </p>
         </div>
       `,
