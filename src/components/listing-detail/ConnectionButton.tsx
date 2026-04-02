@@ -5,10 +5,10 @@ import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRealtime } from '@/components/realtime/RealtimeProvider';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
+import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
 import { XCircle, AlertCircle, ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { isProfileComplete, getProfileCompletionPercentage, getMissingFieldLabels } from '@/lib/profile-completeness';
-import { APP_CONFIG } from '@/config/app';
 
 interface ConnectionButtonProps {
   connectionExists: boolean;
@@ -32,6 +32,7 @@ const ConnectionButton = ({
   listingStatus,
 }: ConnectionButtonProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
   useRealtime();
   useAgreementStatusSync();
   const { user } = useAuth();
@@ -183,10 +184,26 @@ const ConnectionButton = ({
           <p className="text-xs text-amber-700 mt-0.5">
             You must sign an NDA or Fee Agreement before requesting deal access. This is a one-time process.
           </p>
-          <p className="text-xs text-muted-foreground mt-2">
-            Contact <a href={`mailto:${APP_CONFIG.adminEmail}`} className="underline text-amber-700 hover:text-amber-900">{APP_CONFIG.adminEmail}</a> to get started.
-          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 w-full text-xs"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAgreementModal(true);
+            }}
+          >
+            <ShieldAlert className="h-3.5 w-3.5 mr-1.5" />
+            Request Agreement via Email
+          </Button>
         </div>
+        {showAgreementModal && (
+          <AgreementSigningModal
+            open={showAgreementModal}
+            onOpenChange={setShowAgreementModal}
+            documentType="nda"
+          />
+        )}
       </div>
     );
   }

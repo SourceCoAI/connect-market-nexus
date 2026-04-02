@@ -229,7 +229,7 @@ export default function DocumentTrackingPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-  const [sortField, setSortField] = useState<SortField>('last_signed');
+  const [sortField, setSortField] = useState<SortField>('last_requested');
   const [sortAsc, setSortAsc] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [orphansOpen, setOrphansOpen] = useState(false);
@@ -655,6 +655,14 @@ export default function DocumentTrackingPage() {
                     </button>
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                    <button
+                      onClick={() => toggleSort('last_requested')}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      Requested <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">
                     Primary Contact
                   </th>
                 </tr>
@@ -745,6 +753,21 @@ function FirmExpandableRow({
             <span>{formatDistanceToNow(new Date(firm.fee_agreement_sent_at), { addSuffix: true })}</span>
           ) : '--'}
         </td>
+        <td className="px-4 py-3 text-xs text-muted-foreground">
+          {(() => {
+            const reqDate = firm.nda_requested_at || firm.fee_agreement_requested_at
+              ? new Date(Math.max(
+                  firm.nda_requested_at ? new Date(firm.nda_requested_at).getTime() : 0,
+                  firm.fee_agreement_requested_at ? new Date(firm.fee_agreement_requested_at).getTime() : 0,
+                )).toISOString()
+              : null;
+            return reqDate ? (
+              <span className={firm.hasPendingRequest ? 'text-amber-600 font-medium' : ''}>
+                {formatDistanceToNow(new Date(reqDate), { addSuffix: true })}
+              </span>
+            ) : '--';
+          })()}
+        </td>
         <td className="px-4 py-3">
           {firm.contactName || firm.contactEmail ? (
             <div>
@@ -758,7 +781,7 @@ function FirmExpandableRow({
       {/* Expanded detail panel */}
       {expanded && (
         <tr>
-          <td colSpan={9} className="px-0 py-0">
+          <td colSpan={10} className="px-0 py-0">
             <div className="bg-muted/20 border-t border-b border-border px-6 py-4 space-y-4">
               {/* Members section */}
               <div>

@@ -175,14 +175,14 @@ const ListingCardActions = memo(function ListingCardActions({
     );
   }
 
-  // NDA not signed — show signing prompt
-  if (!isNdaCovered) {
+  // No agreement signed — show signing prompt
+  if (!isNdaCovered && !isFeeCovered) {
     return (
       <div className="space-y-1.5">
         <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-muted/50 border border-border">
           <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
           <span className="text-[12px] text-muted-foreground">
-            Sign NDA to request access
+            Sign an agreement to request access
           </span>
         </div>
         <Link to={listingId ? `/listing/${listingId}` : '/marketplace'} onClick={(e) => e.stopPropagation()}>
@@ -192,7 +192,7 @@ const ListingCardActions = memo(function ListingCardActions({
             className={`w-full ${viewType === 'list' ? 'h-8' : 'h-9'} text-[12px] font-medium`}
           >
             <Shield className="h-3.5 w-3.5 mr-1.5" />
-            Sign NDA
+            Sign Agreement
           </Button>
         </Link>
       </div>

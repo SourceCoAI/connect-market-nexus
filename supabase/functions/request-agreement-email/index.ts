@@ -31,7 +31,13 @@ serve(async (req: Request) => {
       });
     }
 
-    const { documentType } = await req.json() as { documentType: 'nda' | 'fee_agreement' };
+    const body = await req.json() as {
+      documentType: 'nda' | 'fee_agreement';
+      recipientEmail?: string;
+      recipientName?: string;
+      firmId?: string;
+    };
+    const { documentType, recipientEmail: overrideEmail, recipientName: overrideName, firmId: overrideFirmId } = body;
     if (!documentType || !['nda', 'fee_agreement'].includes(documentType)) {
       return new Response(JSON.stringify({ error: 'Invalid documentType' }), {
         status: 400,
@@ -41,37 +47,88 @@ serve(async (req: Request) => {
 
     const userId = auth.userId;
 
-    // Get user profile
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('email, first_name, last_name, company')
-      .eq('id', userId)
-      .single();
+    // Check if caller is admin
+    const { data: callerRole } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .in('role', ['admin', 'owner'])
+      .maybeSingle();
+    const isAdmin = !!callerRole;
 
-    if (!profile?.email) {
-      return new Response(JSON.stringify({ error: 'Profile not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
-    }
+    let buyerEmail: string;
+    let buyerName: string;
+    let firmId: string | null;
+    let targetUserId: string = userId;
 
-    const buyerName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email;
-    const buyerEmail = profile.email;
+    if (isAdmin && overrideEmail) {
+      // Admin sending to a specific buyer
+      buyerEmail = overrideEmail;
+      buyerName = overrideName || overrideEmail;
+      firmId = overrideFirmId || null;
 
-    // Resolve firm (with self-heal)
-    const { data: firmIdResult } = await supabaseAdmin.rpc('resolve_user_firm_id', { p_user_id: userId });
-    let firmId = firmIdResult;
+      // Try to resolve firm from the buyer's profile if firmId not provided
+      if (!firmId) {
+        const { data: buyerProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('email', overrideEmail)
+          .maybeSingle();
+        if (buyerProfile) {
+          targetUserId = buyerProfile.id;
+          const { data: firmIdResult } = await supabaseAdmin.rpc('resolve_user_firm_id', { p_user_id: buyerProfile.id });
+          firmId = firmIdResult;
+        }
+      }
 
-    if (!firmId) {
-      const healResult = await selfHealFirm(supabaseAdmin, userId);
-      firmId = healResult?.firmId ?? null;
-    }
+      if (!firmId) {
+        // Try self-heal for the target user
+        if (targetUserId !== userId) {
+          const healResult = await selfHealFirm(supabaseAdmin, targetUserId);
+          firmId = healResult?.firmId ?? null;
+        }
+        if (!firmId && overrideFirmId) {
+          firmId = overrideFirmId;
+        }
+        if (!firmId) {
+          return new Response(JSON.stringify({ error: 'No firm found for this buyer.' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+      }
+    } else {
+      // Self-service: buyer requesting their own document
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('email, first_name, last_name, company')
+        .eq('id', userId)
+        .single();
 
-    if (!firmId) {
-      return new Response(JSON.stringify({ error: 'No firm found. Please contact support.' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
+      if (!profile?.email) {
+        return new Response(JSON.stringify({ error: 'Profile not found' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+
+      buyerName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email;
+      buyerEmail = profile.email;
+
+      const { data: firmIdResult } = await supabaseAdmin.rpc('resolve_user_firm_id', { p_user_id: userId });
+      firmId = firmIdResult;
+
+      if (!firmId) {
+        const healResult = await selfHealFirm(supabaseAdmin, userId);
+        firmId = healResult?.firmId ?? null;
+      }
+
+      if (!firmId) {
+        return new Response(JSON.stringify({ error: 'No firm found. Please contact support.' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
     }
 
     // Check if already signed
@@ -94,7 +151,7 @@ serve(async (req: Request) => {
       .from('document_requests')
       .insert({
         firm_id: firmId,
-        user_id: userId,
+        user_id: targetUserId,
         agreement_type: documentType,
         status: 'requested',
         requested_at: new Date().toISOString(),
