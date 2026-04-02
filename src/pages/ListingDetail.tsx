@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+
 import { Link, useParams } from 'react-router-dom';
 import { useMarketplace } from '@/hooks/use-marketplace';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,7 +28,7 @@ import { EnhancedSaveButton } from '@/components/listing-detail/EnhancedSaveButt
 import { InternalCompanyInfoDisplay } from '@/components/admin/InternalCompanyInfoDisplay';
 import { BuyerDataRoom } from '@/components/marketplace/BuyerDataRoom';
 import { MFAGate } from '@/components/auth/MFAGate';
-import { NdaGateModal } from '@/components/pandadoc/NdaGateModal';
+
 import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { AgreementStatusBanner } from '@/components/marketplace/AgreementStatusBanner';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
@@ -41,7 +41,7 @@ const ListingDetail = () => {
   // Click tracking for engagement analytics
   const { getClickData, resetTracking } = useClickTracking(true);
   const { sessionId } = useSessionContext();
-  const queryClient = useQueryClient();
+  
   const hasFlushOnUnmountRef = useRef(false);
 
   const { useListing, useRequestConnection, useConnectionStatus } = useMarketplace();
@@ -56,8 +56,6 @@ const ListingDetail = () => {
   // NDA gate: check if buyer has signed NDA (skip for admins and unauthenticated)
   const { data: agreementStatus } = useMyAgreementStatus(!isAdmin && !!user);
   useAgreementStatusSync();
-  const showNdaGate =
-    !isAdmin && user && agreementStatus && !agreementStatus.nda_covered && !agreementStatus.fee_covered;
 
   useEffect(() => {
     document.title = listing ? `${listing.title} | Marketplace` : 'Listing Detail | Marketplace';
@@ -158,20 +156,8 @@ const ListingDetail = () => {
   // Extract isInactive safely with fallback to false if status is undefined
   const isInactive = listing?.status === 'inactive';
 
-  // Show NDA gate modal for unsigned buyers (skip for inactive/sold listings)
-  if (showNdaGate && !isInactive && (listing?.status as string) !== 'sold') {
-    return (
-        <NdaGateModal
-          userId={user!.id}
-          firmId={agreementStatus?.firm_id || ''}
-        onSigned={() => {
-          queryClient.invalidateQueries({ queryKey: ['buyer-nda-status'] });
-          queryClient.invalidateQueries({ queryKey: ['my-agreement-status'] });
-          queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
-        }}
-      />
-    );
-  }
+  // NDA gate modal removed — buyers can always view listings.
+  // Connection requests are blocked by ConnectionButton when unsigned.
 
   return (
     <div className="document-content min-h-screen bg-background">
@@ -381,6 +367,19 @@ const ListingDetail = () => {
                         View request status in My Deals →
                       </Link>
                     )}
+
+              {/* Document Status — show when agreement sent but not signed */}
+                  {!isAdmin && user && agreementStatus && !agreementStatus.nda_covered && !agreementStatus.fee_covered && (agreementStatus.nda_status === 'sent' || agreementStatus.fee_status === 'sent') && (
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-lg border bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 text-sm">
+                      <Shield className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p>
+                          Your {agreementStatus.nda_status === 'sent' ? 'NDA' : 'Fee Agreement'} has been sent to <strong>{user.email}</strong>. Review, sign, and reply to <strong>support@sourcecodeals.com</strong>.
+                        </p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">Once processed, you'll be able to request introductions.</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Enhanced Save and Share */}
                   <EnhancedSaveButton
