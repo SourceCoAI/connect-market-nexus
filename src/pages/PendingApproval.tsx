@@ -18,6 +18,7 @@ import {
   Info,
   RefreshCw,
   Shield,
+  FileSignature,
   XCircle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,7 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { cleanupAuthState } from '@/lib/auth-helpers';
 import { APP_CONFIG } from '@/config/app';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
+import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
 
 const PendingApproval = () => {
@@ -35,33 +36,11 @@ const PendingApproval = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [checkCooldown, setCheckCooldown] = useState(false);
-  const [ndaSigningOpen, setNdaSigningOpen] = useState(false);
+  const [signingOpen, setSigningOpen] = useState(false);
+  const [signingType, setSigningType] = useState<'nda' | 'fee_agreement'>('nda');
 
-  const { data: ndaStatus, refetch: refetchNdaStatus } = useBuyerNdaStatus(user?.id);
-  const [firmCreationAttempted, setFirmCreationAttempted] = useState(false);
-
-  // Fallback: if firm doesn't exist yet, create it now.
-  useEffect(() => {
-    if (!user || firmCreationAttempted) return;
-    if (ndaStatus === undefined) return;
-    if (ndaStatus?.hasFirm) return;
-
-    supabase.functions
-      .invoke('auto-create-firm-on-signup', {
-        body: { userId: user.id, company: user.company || '' },
-      })
-      .then(({ error }) => {
-        if (!error) {
-          setFirmCreationAttempted(true);
-          refetchNdaStatus();
-        } else {
-          console.warn('Fallback firm creation failed:', error);
-        }
-      })
-      .catch((err) => {
-        console.warn('Fallback firm creation error:', err);
-      });
-  }, [user, ndaStatus, firmCreationAttempted, refetchNdaStatus]);
+  const { data: agreementStatus } = useMyAgreementStatus(!!user);
+  const hasAnyAgreement = agreementStatus?.nda_covered || agreementStatus?.fee_covered;
 
   // Auto-poll approval status every 30s
   useEffect(() => {
@@ -75,12 +54,12 @@ const PendingApproval = () => {
   // Handle navigation for approved users
   useEffect(() => {
     if (user?.approval_status === 'approved') {
-      if (ndaStatus?.hasFirm && !ndaStatus?.ndaSigned) {
-        return; // Stay on page for NDA signing
+      if (!hasAnyAgreement) {
+        return; // Stay on page for agreement signing
       }
       navigate('/', { replace: true });
     }
-  }, [user?.approval_status, ndaStatus?.hasFirm, ndaStatus?.ndaSigned, navigate]);
+  }, [user?.approval_status, hasAnyAgreement, navigate]);
 
   if (isLoading || !user) {
     return (
@@ -151,6 +130,11 @@ const PendingApproval = () => {
     }
   };
 
+  const openSigning = (type: 'nda' | 'fee_agreement') => {
+    setSigningType(type);
+    setSigningOpen(true);
+  };
+
   const getUIState = () => {
     if (user?.approval_status === 'rejected') return 'rejected';
     else if (user?.email_verified) return 'approved_pending';
@@ -181,10 +165,10 @@ const PendingApproval = () => {
               </div>
             </div>
             <CardTitle className="text-2xl font-bold text-center">
-              {uiState === 'rejected' ? 'Application Not Approved' : uiState === 'approved_pending' ? "You're in the queue — sign your NDA for immediate access" : 'Almost there — verify your email to continue'}
+              {uiState === 'rejected' ? 'Application Not Approved' : uiState === 'approved_pending' ? "You're in the queue — sign an agreement for immediate access" : 'Almost there — verify your email to continue'}
             </CardTitle>
             <CardDescription className="text-center">
-              {uiState === 'rejected' ? 'Unfortunately, your application was not approved at this time' : uiState === 'approved_pending' ? "Our team reviews applications same day. Sign your NDA now so you have immediate access the moment you're cleared." : `We've sent a verification link to ${user.email}. Click it to continue — check your spam folder if you don't see it within a few minutes.`}
+              {uiState === 'rejected' ? 'Unfortunately, your application was not approved at this time' : uiState === 'approved_pending' ? "Our team reviews applications same day. Sign an NDA or Fee Agreement now so you have immediate access the moment you're cleared." : `We've sent a verification link to ${user.email}. Click it to continue — check your spam folder if you don't see it within a few minutes.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -216,7 +200,7 @@ const PendingApproval = () => {
                   <div className="flex gap-3 items-start">
                     <Clock className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-amber-800 text-sm font-medium">Sign your NDA to unlock the full deal pipeline</p>
+                      <p className="text-amber-800 text-sm font-medium">Sign an agreement to unlock the full deal pipeline</p>
                       <p className="text-amber-700 text-xs mt-1">One signature covers every deal on SourceCo — now and in the future.</p>
                     </div>
                   </div>
@@ -266,20 +250,20 @@ const PendingApproval = () => {
                   </div>
                 </div>
 
-                {/* NDA Signing Section — email-based */}
-                {ndaStatus?.hasFirm && !ndaStatus?.ndaSigned && (
+                {/* Agreement Signing Section — email-based */}
+                {!hasAnyAgreement && (
                   <div className="space-y-4 pt-2">
                     <div className="text-center">
                       <div className="flex items-center gap-2 justify-center">
                         <Shield className="h-4 w-4 text-primary" />
-                        <h4 className="text-sm font-semibold">Sign your NDA</h4>
+                        <h4 className="text-sm font-semibold">Sign an Agreement</h4>
                       </div>
                     </div>
 
                     <div className="bg-muted/40 border border-border rounded-md p-4">
-                      <h5 className="text-xs font-semibold mb-1">What your NDA unlocks</h5>
+                      <h5 className="text-xs font-semibold mb-1">What your agreement unlocks</h5>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        Every deal on SourceCo is live, real, and confidential — actual financials, real business names, real owner details. Your NDA opens the door to all of it.
+                        Every deal on SourceCo is live, real, and confidential — actual financials, real business names, real owner details. Your agreement opens the door to all of it.
                       </p>
                     </div>
 
@@ -290,25 +274,36 @@ const PendingApproval = () => {
                       </p>
                     </div>
 
-                    <Button
-                      className="w-full"
-                      onClick={() => setNdaSigningOpen(true)}
-                    >
-                      <Mail className="h-4 w-4 mr-2" />
-                      Request NDA via Email
-                    </Button>
+                    <div className="space-y-2">
+                      <Button
+                        className="w-full"
+                        onClick={() => openSigning('nda')}
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Request NDA via Email
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => openSigning('fee_agreement')}
+                      >
+                        <FileSignature className="h-4 w-4 mr-2" />
+                        Request Fee Agreement via Email
+                      </Button>
+                    </div>
 
                     <p className="text-[11px] text-muted-foreground text-center">
-                      Questions about the NDA? Email{' '}
+                      Questions? Email{' '}
                       <a href={`mailto:${APP_CONFIG.adminEmail}`} className="text-primary hover:underline">{APP_CONFIG.adminEmail}</a>
                     </p>
                   </div>
                 )}
-                {ndaStatus?.ndaSigned && (
+                {hasAnyAgreement && (
                   <div className="bg-green-50 border border-green-200 rounded-md p-4 text-center space-y-1">
                     <div className="flex items-center justify-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
-                      <p className="text-sm font-semibold text-green-800">NDA signed. You're ready.</p>
+                      <p className="text-sm font-semibold text-green-800">Agreement signed. You're ready.</p>
                     </div>
                     <p className="text-xs text-green-700">The moment your account is approved, you'll have full access.</p>
                   </div>
@@ -341,7 +336,7 @@ const PendingApproval = () => {
                       <p className="text-sm font-medium">After you verify:</p>
                       <ol className="text-xs text-muted-foreground mt-2 space-y-1 list-decimal list-inside">
                         <li>Our team reviews your application — usually same day</li>
-                        <li>You'll sign a single NDA that covers every deal on the platform</li>
+                        <li>You'll sign an agreement (NDA or Fee Agreement) that covers every deal</li>
                         <li>Full access to off-market deals the moment you're cleared</li>
                       </ol>
                     </div>
@@ -390,9 +385,9 @@ const PendingApproval = () => {
       </div>
 
       <AgreementSigningModal
-        open={ndaSigningOpen}
-        onOpenChange={setNdaSigningOpen}
-        documentType="nda"
+        open={signingOpen}
+        onOpenChange={setSigningOpen}
+        documentType={signingType}
       />
     </div>
   );

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Bookmark, CheckCircle2, Clock, XCircle, Send, Eye, AlertCircle, ShieldX, Shield } from "lucide-react";
 import ConnectionRequestDialog from "@/components/connection/ConnectionRequestDialog";
+import { AgreementSigningModal } from "@/components/pandadoc/AgreementSigningModal";
 
 interface ListingCardActionsProps {
   viewType: "grid" | "list";
@@ -43,6 +44,7 @@ const ListingCardActions = memo(function ListingCardActions({
   onFeeGateOpen,
 }: ListingCardActionsProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [signingOpen, setSigningOpen] = useState(false);
 
   const getConnectionButtonContent = () => {
     if (connectionExists) {
@@ -110,15 +112,9 @@ const ListingCardActions = memo(function ListingCardActions({
     // Gate: profile incomplete
     if (!isProfileComplete) return;
 
-    // Gate: NDA not covered — redirect to listing detail for signing
-    if (!isNdaCovered) {
-      window.location.href = listingId ? `/listing/${listingId}` : '/marketplace';
-      return;
-    }
-
-    // Gate: fee agreement not covered
-    if (!isFeeCovered) {
-      onFeeGateOpen?.();
+    // Gate: No agreement signed — open signing modal
+    if (!isNdaCovered && !isFeeCovered) {
+      setSigningOpen(true);
       return;
     }
 
@@ -175,27 +171,37 @@ const ListingCardActions = memo(function ListingCardActions({
     );
   }
 
-  // No agreement signed — show signing prompt
+  // No agreement signed — show signing prompt with inline modal
   if (!isNdaCovered && !isFeeCovered) {
     return (
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-muted/50 border border-border">
-          <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span className="text-[12px] text-muted-foreground">
-            Sign an agreement to request access
-          </span>
-        </div>
-        <Link to={listingId ? `/listing/${listingId}` : '/marketplace'} onClick={(e) => e.stopPropagation()}>
+      <>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-muted/50 border border-border">
+            <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="text-[12px] text-muted-foreground">
+              Sign an agreement to request access
+            </span>
+          </div>
           <Button
             variant="outline"
             size="sm"
             className={`w-full ${viewType === 'list' ? 'h-8' : 'h-9'} text-[12px] font-medium`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setSigningOpen(true);
+            }}
           >
             <Shield className="h-3.5 w-3.5 mr-1.5" />
             Sign Agreement
           </Button>
-        </Link>
-      </div>
+        </div>
+        <AgreementSigningModal
+          open={signingOpen}
+          onOpenChange={setSigningOpen}
+          documentType="nda"
+        />
+      </>
     );
   }
 
@@ -282,6 +288,12 @@ const ListingCardActions = memo(function ListingCardActions({
         onSubmit={handleDialogSubmit}
         isSubmitting={isRequesting}
         listingTitle={listingTitle}
+      />
+
+      <AgreementSigningModal
+        open={signingOpen}
+        onOpenChange={setSigningOpen}
+        documentType="nda"
       />
     </>
   );
