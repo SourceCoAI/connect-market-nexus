@@ -105,13 +105,12 @@ export const ContactsTab = ({
                   </TableCell>
                   <TableCell>
                     {contact.phone ? (
-                      <a
-                        href={`tel:${contact.phone}`}
-                        className="flex items-center gap-1 hover:underline"
-                      >
-                        <Phone className="h-3 w-3" />
-                        {contact.phone}
-                      </a>
+                      <ClickToDialPhone
+                        phone={contact.phone}
+                        name={contact.name || undefined}
+                        email={contact.email || undefined}
+                        size="sm"
+                      />
                     ) : (
                       '\u2014'
                     )}

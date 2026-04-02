@@ -673,9 +673,13 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
 
                       <div style={{ width: colWidths.phone, minWidth: 80 }} className="min-w-0 shrink-0">
                         {buyer.phone ? (
-                          <a href={`tel:${buyer.phone}`} className="text-xs text-foreground hover:underline truncate block" title={buyer.phone}>
-                            {buyer.phone}
-                          </a>
+                          <ClickToDialPhone
+                            phone={buyer.phone}
+                            name={buyer.name || undefined}
+                            email={buyer.email || undefined}
+                            company={buyer.company || undefined}
+                            size="xs"
+                          />
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}

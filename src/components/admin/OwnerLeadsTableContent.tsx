@@ -107,8 +107,13 @@ function LeadDetailsDialog({ lead, onNotesUpdate }: { lead: OwnerLead; onNotesUp
             </div>
             {lead.phone_number && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="h-4 w-4" />
-                <a href={`tel:${lead.phone_number}`} className="hover:underline">{lead.phone_number}</a>
+                <ClickToDialPhone
+                  phone={lead.phone_number}
+                  name={lead.full_name || undefined}
+                  email={lead.email || undefined}
+                  company={lead.company_name || undefined}
+                  size="sm"
+                />
               </div>
             )}
             {lead.business_website && (

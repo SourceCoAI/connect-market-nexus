@@ -350,21 +350,13 @@ export const RequestDetails = ({ request }: { request: AdminConnectionRequest })
                       <Phone className="h-3 w-3" />
                       Phone
                     </span>
-                    <a
-                      href={`tel:${request.lead_phone}`}
-                      className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                    >
-                      {(() => {
-                        const phone = request.lead_phone.toString();
-                        if (phone.length === 11 && phone.startsWith("1")) {
-                          return phone.replace(/^1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3");
-                        }
-                        if (phone.length === 10) {
-                          return phone.replace(/^(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3");
-                        }
-                        return phone;
-                      })()}
-                    </a>
+                    <ClickToDialPhone
+                      phone={request.lead_phone.toString()}
+                      name={request.lead_name || undefined}
+                      email={request.lead_email || undefined}
+                      company={request.lead_company || undefined}
+                      size="xs"
+                    />
                   </div>
                 )}
               </div>

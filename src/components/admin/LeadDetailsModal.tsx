@@ -112,10 +112,13 @@ export function LeadDetailsModal({ lead, isOpen, onClose }: LeadDetailsModalProp
               <div>
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Phone</label>
                 <div className="flex items-center gap-2 mt-1">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <a href={`tel:${lead.phone_number}`} className="text-blue-600 hover:underline">
-                    {lead.phone_number}
-                  </a>
+                  <ClickToDialPhone
+                    phone={lead.phone_number}
+                    name={lead.full_name || undefined}
+                    email={lead.email || undefined}
+                    company={lead.company_name || undefined}
+                    size="sm"
+                  />
                 </div>
               </div>
             )}

@@ -179,7 +179,15 @@ export function MatchToolLeadPanel({ lead, open, onOpenChange, onEnrich, isEnric
             <Section title="Contact">
               {lead.full_name && <InfoRow icon={User} label={lead.full_name} />}
               {lead.email && <InfoRow icon={Mail} label={lead.email} href={`mailto:${lead.email}`} />}
-              {lead.phone && <InfoRow icon={Phone} label={lead.phone} href={`tel:${lead.phone}`} />}
+              {lead.phone && (
+                <ClickToDialPhone
+                  phone={lead.phone}
+                  name={lead.full_name || undefined}
+                  email={lead.email || undefined}
+                  company={lead.company_name || undefined}
+                  size="sm"
+                />
+              )}
             </Section>
           )}
 
