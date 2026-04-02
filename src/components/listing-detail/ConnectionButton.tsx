@@ -179,47 +179,112 @@ const ConnectionButton = ({
 
   // Block users who haven't signed at least one agreement (NDA or Fee Agreement)
   if (!isAdmin && coverage && !coverage.nda_covered && !coverage.fee_covered) {
-    const hasPending = coverage.nda_status === 'sent' || coverage.fee_status === 'sent';
-    const pendingType = coverage.nda_status === 'sent' ? 'NDA' : 'Fee Agreement';
+    const ndaStatus = coverage.nda_status ?? 'not_started';
+    const feeStatus = coverage.fee_status ?? 'not_started';
+    const ndaSent = ndaStatus === 'sent';
+    const feeSent = feeStatus === 'sent';
+    const ndaSigned = coverage.nda_covered;
+    const feeSigned = coverage.fee_covered;
+    const anyPending = ndaSent || feeSent;
+    const bothNotRequested = !ndaSent && !feeSent && !ndaSigned && !feeSigned;
+
+    const handleResend = async (type: 'nda' | 'fee_agreement') => {
+      setResendingType(type);
+      try {
+        const { error } = await supabase.functions.invoke('request-agreement-email', {
+          body: { agreementType: type },
+        });
+        if (error) throw error;
+        toast.success(`${type === 'nda' ? 'NDA' : 'Fee Agreement'} resent to your email`);
+        queryClient.invalidateQueries({ queryKey: ['my-agreement-status'] });
+      } catch (err) {
+        toast.error('Failed to resend. Please try again.');
+        console.error('[resend-agreement]', err);
+      } finally {
+        setResendingType(null);
+      }
+    };
+
+    const DocumentRow = ({ label, status, type }: { label: string; status: string; type: 'nda' | 'fee_agreement' }) => {
+      const isSent = status === 'sent';
+      const isSigned = status === 'signed';
+      if (!isSent && !isSigned) return null;
+
+      return (
+        <div className="w-full border border-slate-200/60 rounded-lg overflow-hidden">
+          <div className={`border-l-2 ${isSigned ? 'border-emerald-400' : 'border-blue-400'} px-4 py-3`}>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-foreground">{label}</p>
+              {isSigned ? (
+                <span className="flex items-center gap-1 text-xs text-emerald-600">
+                  <Check className="h-3 w-3" /> Signed
+                </span>
+              ) : (
+                <span className="text-xs text-blue-600">Sent</span>
+              )}
+            </div>
+            {isSent && (
+              <>
+                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                  Sent to <span className="font-medium text-foreground">{user?.email}</span>. Review, sign, and reply to{' '}
+                  <span className="font-medium text-foreground">support@sourcecodeals.com</span>.
+                </p>
+                <button
+                  onClick={() => handleResend(type)}
+                  disabled={resendingType === type}
+                  className="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50 flex items-center gap-1"
+                >
+                  <RotateCw className={`h-3 w-3 ${resendingType === type ? 'animate-spin' : ''}`} />
+                  {resendingType === type ? 'Sending…' : 'Resend'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    };
 
     return (
       <div className="space-y-3">
-        {hasPending ? (
-          /* Sent / pending state — subtle left-accent card */
-          <div className="w-full border border-slate-200/60 rounded-lg overflow-hidden">
-            <div className="border-l-2 border-blue-400 px-4 py-4">
-              <p className="text-sm font-medium text-foreground">
-                {pendingType} Sent
-              </p>
-              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                Sent to <span className="font-medium text-foreground">{user?.email}</span>. Review, sign, and reply to{' '}
-                <span className="font-medium text-foreground">support@sourcecodeals.com</span>.
-              </p>
-              <p className="text-[11px] text-muted-foreground/70 mt-2">
-                Once processed, you'll be able to request introductions.
-              </p>
-            </div>
+        {(anyPending || ndaSigned || feeSigned) && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Documents</p>
+            <DocumentRow label="NDA" status={ndaSent ? 'sent' : ndaSigned ? 'signed' : ndaStatus} type="nda" />
+            <DocumentRow label="Fee Agreement" status={feeSent ? 'sent' : feeSigned ? 'signed' : feeStatus} type="fee_agreement" />
           </div>
-        ) : (
-          /* Not yet requested — clean prompt */
-          <div className="w-full border border-slate-200/60 rounded-lg px-4 py-4">
-            <p className="text-sm font-medium text-foreground">Sign an Agreement</p>
-            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              An NDA or Fee Agreement is required to request deal access. This is a one-time process.
-            </p>
+        )}
+
+        {anyPending && !ndaSigned && !feeSigned && (
+          <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+            Once processed, you'll be able to request introductions.
+          </p>
+        )}
+
+        {/* Show request button if at least one type hasn't been requested */}
+        {(bothNotRequested || (!ndaSent && !ndaSigned) || (!feeSent && !feeSigned)) && (
+          <div className={bothNotRequested ? 'w-full border border-slate-200/60 rounded-lg px-4 py-4' : ''}>
+            {bothNotRequested && (
+              <>
+                <p className="text-sm font-medium text-foreground">Sign an Agreement</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  An NDA or Fee Agreement is required to request deal access. This is a one-time process.
+                </p>
+              </>
+            )}
             <Button
               variant="outline"
               size="sm"
-              className="mt-3 w-full text-xs border-slate-200 hover:border-slate-300 text-foreground"
+              className={`${bothNotRequested ? 'mt-3' : ''} w-full text-xs border-slate-200 hover:border-slate-300 text-foreground`}
               onClick={(e) => {
                 e.stopPropagation();
                 setShowAgreementModal(true);
               }}
             >
-              Request Agreement via Email
+              {bothNotRequested ? 'Request Agreement via Email' : 'Request Another Agreement'}
             </Button>
           </div>
         )}
+
         {showAgreementModal && (
           <AgreementSigningModal
             open={showAgreementModal}
