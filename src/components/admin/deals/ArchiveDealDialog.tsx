@@ -142,6 +142,10 @@ export function ArchiveDealDialog({
       }
 
       onOpenChange(false);
+    } catch (err) {
+      console.error('Archive failed:', err);
+      const { toast } = await import('sonner');
+      toast.error('Failed to archive deal. Please try again.');
     } finally {
       setIsArchiving(false);
     }
