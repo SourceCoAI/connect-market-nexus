@@ -172,12 +172,6 @@ const ListingDetail = () => {
         </Link>
       </div>
 
-      {/* Agreement Status Banners (buyer-facing) */}
-      {!isAdmin && user && (
-        <div className="max-w-7xl mx-auto px-8 mb-4">
-          <AgreementStatusBanner />
-        </div>
-      )}
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-8">
