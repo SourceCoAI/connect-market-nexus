@@ -169,32 +169,34 @@ const ListingCardActions = memo(function ListingCardActions({
     );
   }
 
-  // No agreement signed — show signing prompt with inline modal
+  // No agreement signed — allow browsing but prompt signing for access
   if (!isNdaCovered && !isFeeCovered) {
     return (
       <>
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-muted/50 border border-border">
-            <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span className="text-[12px] text-muted-foreground">
-              Sign an agreement to request access
-            </span>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className={`w-full ${viewType === 'list' ? 'h-8' : 'h-9'} text-[12px] font-medium`}
+          <Link to={listingId ? `/listing/${listingId}` : '#'} onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`w-full ${viewType === 'list' ? 'h-8' : 'h-9'} text-[12px] font-medium`}
+            >
+              <Eye className="h-3.5 w-3.5 mr-1.5" />
+              View Listing
+            </Button>
+          </Link>
+          <button
+            className="w-full flex items-center justify-center gap-1.5 text-[11px] text-primary hover:text-primary/80 transition-colors py-1"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               setSigningOpen(true);
             }}
           >
-            <Shield className="h-3.5 w-3.5 mr-1.5" />
-            Sign Agreement
-          </Button>
+            <Shield className="h-3 w-3" />
+            Sign Agreement to Request Access
+          </button>
         </div>
-      <AgreementSigningModal
+        <AgreementSigningModal
           open={signingOpen}
           onOpenChange={setSigningOpen}
         />
