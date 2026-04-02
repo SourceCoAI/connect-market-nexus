@@ -56,7 +56,7 @@ export function AgreementStatusBanner({ show = 'both', className }: AgreementSta
         icon: Clock,
         message: 'Your NDA is waiting to be signed. Check your email or sign it from the pending approval page.',
       });
-    } else if ((coverage.nda_status === 'not_started' || !coverage.nda_covered) && !coverage.fee_covered) {
+    } else if (!coverage.nda_covered && !coverage.fee_covered) {
       banners.push({
         key: 'nda',
         variant: 'locked',
