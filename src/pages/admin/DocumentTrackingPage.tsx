@@ -521,6 +521,7 @@ export default function DocumentTrackingPage() {
           <option value="not_started">Not Started</option>
           <option value="unsigned">Not Fully Signed</option>
           <option value="needs_attention">Needs Attention (&gt;7d)</option>
+          <option value="pending_requests">Pending Requests</option>
         </select>
       </div>
 
