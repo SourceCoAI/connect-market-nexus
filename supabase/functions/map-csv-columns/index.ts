@@ -1,5 +1,10 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
-import { GEMINI_API_URL, getGeminiHeaders, DEFAULT_GEMINI_MODEL } from '../_shared/ai-providers.ts';
+import {
+  GEMINI_API_URL,
+  getGeminiHeaders,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiApiKey,
+} from '../_shared/ai-providers.ts';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
@@ -48,7 +53,10 @@ const BUYER_FIELDS = [
   { field: 'target_geographies', description: 'Target states or regions for acquisitions' },
   { field: 'target_services', description: 'Target services or industries' },
   { field: 'geographic_footprint', description: 'Current operating locations' },
-  { field: 'investment_date', description: 'Date PE firm invested in the platform (various date formats)' },
+  {
+    field: 'investment_date',
+    description: 'Date PE firm invested in the platform (various date formats)',
+  },
   { field: 'notes', description: 'Additional notes' },
   // Primary contact fields (creates a contact linked to the buyer)
   { field: 'contact_name', description: 'Full name of primary contact person' },
@@ -115,7 +123,7 @@ serve(async (req) => {
       ts: new Date().toISOString(),
     });
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const GEMINI_API_KEY = getGeminiApiKey();
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }
@@ -643,13 +651,19 @@ function heuristicMapping(
       // PE Firm name (check before generic company/name/firm)
       else if (
         (lower.includes('pe') || lower.includes('private equity') || lower.includes('sponsor')) &&
-        (lower.includes('name') || lower.includes('owner') || lower === 'pe firm' || lower === 'sponsor')
+        (lower.includes('name') ||
+          lower.includes('owner') ||
+          lower === 'pe firm' ||
+          lower === 'sponsor')
       ) {
         targetField = 'pe_firm_name';
         confidence = 0.85;
       }
       // Platform/Company name — generic fallback
-      else if (lower.includes('platform') && (lower.includes('company') || lower.includes('name'))) {
+      else if (
+        lower.includes('platform') &&
+        (lower.includes('company') || lower.includes('name'))
+      ) {
         targetField = 'company_name';
         confidence = 0.9;
       } else if (lower.includes('company') || lower.includes('name') || lower.includes('firm')) {

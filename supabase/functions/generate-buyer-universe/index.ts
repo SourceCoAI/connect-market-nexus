@@ -2,7 +2,11 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
-import { callGeminiWithTool, DEFAULT_GEMINI_MODEL } from '../_shared/ai-providers.ts';
+import {
+  callGeminiWithTool,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiApiKey,
+} from '../_shared/ai-providers.ts';
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -16,7 +20,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const GEMINI_API_KEY = getGeminiApiKey();
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }

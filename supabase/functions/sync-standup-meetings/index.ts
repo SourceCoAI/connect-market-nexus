@@ -2,6 +2,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { getGeminiApiKey } from '../_shared/ai-providers.ts';
 
 /**
  * Polling fallback for meeting detection.
@@ -102,7 +103,9 @@ serve(async (req) => {
     // Only process meetings with the <ds> standup tag
     const dsTagged = transcripts.filter((t: { title: string }) => hasStandupTag(t.title));
     const skippedCount = transcripts.length - dsTagged.length;
-    console.log(`${dsTagged.length} of ${transcripts.length} have <ds> tag (skipping ${skippedCount} non-<ds> meetings)`);
+    console.log(
+      `${dsTagged.length} of ${transcripts.length} have <ds> tag (skipping ${skippedCount} non-<ds> meetings)`,
+    );
 
     if (dsTagged.length === 0) {
       return new Response(
@@ -132,7 +135,7 @@ serve(async (req) => {
     console.log(`${unprocessed.length} unprocessed meetings (${processedIds.size} already done)`);
 
     // Auto-detect extraction mode: use Fireflies-native mode when Gemini key is not configured
-    const hasGeminiKey = !!(Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY'));
+    const hasGeminiKey = !!getGeminiApiKey();
     const useFirefliesActions = !hasGeminiKey;
     console.log(`Extraction mode: ${useFirefliesActions ? 'fireflies-native' : 'ai'}`);
 

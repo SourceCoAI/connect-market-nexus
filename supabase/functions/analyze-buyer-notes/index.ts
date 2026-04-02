@@ -16,13 +16,19 @@
  *
  * LAST UPDATED: 2026-03-06
  */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { normalizeStates, extractStatesFromText } from "../_shared/geography.ts";
-import { buildPriorityUpdates, updateExtractionSources } from "../_shared/source-priority.ts";
-import { isPlaceholder } from "../_shared/deal-extraction.ts";
-import { VALID_BUYER_COLUMNS } from "../_shared/buyer-extraction.ts";
-import { callGeminiWithRetry, GEMINI_API_URL, getGeminiHeaders, DEFAULT_GEMINI_MODEL } from "../_shared/ai-providers.ts";
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { normalizeStates, extractStatesFromText } from '../_shared/geography.ts';
+import { buildPriorityUpdates, updateExtractionSources } from '../_shared/source-priority.ts';
+import { isPlaceholder } from '../_shared/deal-extraction.ts';
+import { VALID_BUYER_COLUMNS } from '../_shared/buyer-extraction.ts';
+import {
+  callGeminiWithRetry,
+  GEMINI_API_URL,
+  getGeminiHeaders,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiApiKey,
+} from '../_shared/ai-providers.ts';
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 // Regex patterns for buyer-relevant financial data in notes
 const REVENUE_PATTERNS = [
@@ -112,18 +118,18 @@ Deno.serve(async (req) => {
 
     if (!isInternalCall) {
       if (!bearer) {
-        return new Response(
-          JSON.stringify({ error: 'Missing Authorization bearer token' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Missing Authorization bearer token' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
       if (bearer !== supabaseKey) {
         const { data: userData, error: userErr } = await supabase.auth.getUser(bearer);
         if (userErr || !userData?.user) {
-          return new Response(
-            JSON.stringify({ error: 'Unauthorized' }),
-            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
       }
     }
@@ -131,10 +137,10 @@ Deno.serve(async (req) => {
     const { buyerId, notesText } = await req.json();
 
     if (!buyerId) {
-      return new Response(
-        JSON.stringify({ error: 'Missing buyerId' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Missing buyerId' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Fetch existing buyer
@@ -145,10 +151,10 @@ Deno.serve(async (req) => {
       .single();
 
     if (buyerError || !buyer) {
-      return new Response(
-        JSON.stringify({ error: 'Buyer not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Buyer not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const notes = notesText || buyer.notes || '';
@@ -156,11 +162,13 @@ Deno.serve(async (req) => {
     if (!notes || notes.length < 20) {
       return new Response(
         JSON.stringify({ error: 'No notes content to analyze (minimum 20 characters)' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    console.log(`[analyze-buyer-notes] Analyzing notes for buyer ${buyerId}, length: ${notes.length}`);
+    console.log(
+      `[analyze-buyer-notes] Analyzing notes for buyer ${buyerId}, length: ${notes.length}`,
+    );
 
     // Step 1: Regex pre-extraction
     const regexExtracted = extractWithRegex(notes);
@@ -168,7 +176,7 @@ Deno.serve(async (req) => {
     console.log('[analyze-buyer-notes] Regex:', regexExtracted, 'Geography:', geographyFromNotes);
 
     // Step 2: AI extraction
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiApiKey = getGeminiApiKey();
 
     let aiExtracted: Record<string, unknown> = {};
 
@@ -196,16 +204,55 @@ Use the tool to return structured data.`;
           parameters: {
             type: 'object',
             properties: {
-              thesis_summary: { type: 'string', description: 'Investment thesis: 2-5 sentences describing what this buyer is looking for, why, and their strategic rationale.' },
-              target_services: { type: 'array', items: { type: 'string' }, description: 'Specific services the buyer targets (e.g., "fire restoration", "commercial HVAC", "pest control"). Be granular.' },
-              target_geographies: { type: 'array', items: { type: 'string' }, description: 'Target US states as 2-letter codes. Include all mentioned states and expansion targets.' },
-              target_revenue_min: { type: 'number', description: 'Minimum target revenue as raw integer (e.g., 5000000 for $5M). Null if not mentioned.' },
-              target_revenue_max: { type: 'number', description: 'Maximum target revenue as raw integer. Null if not mentioned.' },
-              target_ebitda_min: { type: 'number', description: 'Minimum target EBITDA as raw integer. Null if not mentioned.' },
-              target_ebitda_max: { type: 'number', description: 'Maximum target EBITDA as raw integer. Null if not mentioned.' },
-              acquisition_timeline: { type: 'string', description: 'Timeline for acquisitions: "immediate", "1-3 months", "3-6 months", "6-12 months", "12+ months", or specific details.' },
-              geographic_exclusions: { type: 'array', items: { type: 'string' }, description: 'States or regions the buyer explicitly wants to avoid.' },
-              acquisition_appetite: { type: 'string', description: 'How active is the buyer? "very_active", "active", "selective", "opportunistic".' },
+              thesis_summary: {
+                type: 'string',
+                description:
+                  'Investment thesis: 2-5 sentences describing what this buyer is looking for, why, and their strategic rationale.',
+              },
+              target_services: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Specific services the buyer targets (e.g., "fire restoration", "commercial HVAC", "pest control"). Be granular.',
+              },
+              target_geographies: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Target US states as 2-letter codes. Include all mentioned states and expansion targets.',
+              },
+              target_revenue_min: {
+                type: 'number',
+                description:
+                  'Minimum target revenue as raw integer (e.g., 5000000 for $5M). Null if not mentioned.',
+              },
+              target_revenue_max: {
+                type: 'number',
+                description: 'Maximum target revenue as raw integer. Null if not mentioned.',
+              },
+              target_ebitda_min: {
+                type: 'number',
+                description: 'Minimum target EBITDA as raw integer. Null if not mentioned.',
+              },
+              target_ebitda_max: {
+                type: 'number',
+                description: 'Maximum target EBITDA as raw integer. Null if not mentioned.',
+              },
+              acquisition_timeline: {
+                type: 'string',
+                description:
+                  'Timeline for acquisitions: "immediate", "1-3 months", "3-6 months", "6-12 months", "12+ months", or specific details.',
+              },
+              geographic_exclusions: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'States or regions the buyer explicitly wants to avoid.',
+              },
+              acquisition_appetite: {
+                type: 'string',
+                description:
+                  'How active is the buyer? "very_active", "active", "selective", "opportunistic".',
+              },
             },
             required: ['thesis_summary', 'target_services', 'target_geographies'],
           },
@@ -222,10 +269,20 @@ Use the tool to return structured data.`;
         tool_choice: { type: 'function', function: { name: 'extract_buyer_criteria' } },
       };
 
-      const parseToolResponse = (aiData: { choices?: { message?: { tool_calls?: { function?: { arguments?: string | Record<string, unknown> } }[] } }[] }): Record<string, unknown> | null => {
+      const parseToolResponse = (aiData: {
+        choices?: {
+          message?: {
+            tool_calls?: { function?: { arguments?: string | Record<string, unknown> } }[];
+          };
+        }[];
+      }): Record<string, unknown> | null => {
         const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
         if (toolCall?.function?.arguments) {
-          return JSON.parse(typeof toolCall.function.arguments === 'string' ? toolCall.function.arguments : JSON.stringify(toolCall.function.arguments));
+          return JSON.parse(
+            typeof toolCall.function.arguments === 'string'
+              ? toolCall.function.arguments
+              : JSON.stringify(toolCall.function.arguments),
+          );
         }
         return null;
       };
@@ -240,7 +297,7 @@ Use the tool to return structured data.`;
             getGeminiHeaders(geminiApiKey),
             requestBody,
             90000,
-            'Gemini/buyer-notes-extract'
+            'Gemini/buyer-notes-extract',
           );
           if (aiResponse.ok) {
             const parsed = parseToolResponse(await aiResponse.json());
@@ -257,8 +314,6 @@ Use the tool to return structured data.`;
           console.warn('[AI] Direct Gemini error:', e instanceof Error ? e.message : e);
         }
       }
-
-
 
       if (!aiSuccess) {
         console.warn('[AI] All AI providers failed — using regex-only extraction for buyer notes');
@@ -324,7 +379,10 @@ Use the tool to return structured data.`;
     const fieldsUpdated = Object.keys(updates);
     console.log(`[analyze-buyer-notes] Updated ${fieldsUpdated.length} fields:`, fieldsUpdated);
     if (rejected.length > 0) {
-      console.log(`[analyze-buyer-notes] ${rejected.length} fields blocked by higher-priority sources:`, rejected);
+      console.log(
+        `[analyze-buyer-notes] ${rejected.length} fields blocked by higher-priority sources:`,
+        rejected,
+      );
     }
 
     return new Response(
@@ -336,14 +394,14 @@ Use the tool to return structured data.`;
         extracted,
         regexFindings: regexExtracted,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
     console.error('[analyze-buyer-notes] Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

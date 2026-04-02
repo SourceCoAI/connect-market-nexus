@@ -4,6 +4,7 @@ import {
   getGeminiHeaders,
   DEFAULT_GEMINI_MODEL,
   callGeminiWithRetry,
+  getGeminiApiKey,
 } from '../_shared/ai-providers.ts';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
@@ -155,7 +156,7 @@ serve(async (req) => {
       );
     }
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const GEMINI_API_KEY = getGeminiApiKey();
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }

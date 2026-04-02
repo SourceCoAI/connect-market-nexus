@@ -28,7 +28,12 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { normalizeStates, mergeStates } from '../_shared/geography.ts';
 import { buildPriorityUpdates, updateExtractionSources } from '../_shared/source-priority.ts';
-import { GEMINI_API_URL, getGeminiHeaders, DEFAULT_GEMINI_MODEL } from '../_shared/ai-providers.ts';
+import {
+  GEMINI_API_URL,
+  getGeminiHeaders,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiApiKey,
+} from '../_shared/ai-providers.ts';
 import { checkProviderAvailability, reportRateLimit } from '../_shared/rate-limiter.ts';
 import { logAICallCost } from '../_shared/cost-tracker.ts';
 import { logEnrichmentEvent } from '../_shared/enrichment-events.ts';
@@ -170,7 +175,7 @@ serve(async (req) => {
       );
     }
     const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiApiKey = getGeminiApiKey();
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 

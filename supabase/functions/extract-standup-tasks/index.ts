@@ -2,7 +2,11 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
-import { fetchWithAutoRetry } from '../_shared/ai-providers.ts';
+import {
+  fetchWithAutoRetry,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiApiKey,
+} from '../_shared/ai-providers.ts';
 
 // ─── Helpers ───
 
@@ -850,7 +854,7 @@ async function extractTasksWithAI(
 ): Promise<ExtractedTask[]> {
   const systemPrompt = buildExtractionPrompt(teamMembers, today);
 
-  const apiKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY');
+  const apiKey = getGeminiApiKey();
   if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not configured');
 
   const response = await fetchWithAutoRetry(
@@ -862,7 +866,7 @@ async function extractTasksWithAI(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gemini-2.0-flash',
+        model: DEFAULT_GEMINI_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Here is the meeting transcript:\n\n${transcriptText}` },
@@ -1587,7 +1591,7 @@ serve(async (req) => {
     // action_items instead of running AI extraction. This ensures the cron job
     // and manual sync work even without a Gemini API key.
     if (body.use_fireflies_actions === undefined) {
-      const hasGeminiKey = !!(Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY'));
+      const hasGeminiKey = !!getGeminiApiKey();
       body.use_fireflies_actions = !hasGeminiKey;
       console.log(
         `[auto-detect] use_fireflies_actions not specified, using ${body.use_fireflies_actions ? 'fireflies-native' : 'ai'} mode`,

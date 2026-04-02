@@ -37,11 +37,11 @@ import { logEnrichmentEvent } from '../_shared/enrichment-events.ts';
 // Configuration - RELIABILITY-FIRST
 // Moderate parallelism to avoid rate limits across concurrent queue processors.
 // Each deal enrichment makes 1 Firecrawl + 1 Gemini + optional LinkedIn/Google calls.
-const BATCH_SIZE = 3; // Fetch 3 items per run — sequential processing within 130s function limit
-const CONCURRENCY_LIMIT = 1; // Sequential processing — each item makes 2+ Gemini calls
+const BATCH_SIZE = 10; // Fetch 10 items per run
+const CONCURRENCY_LIMIT = 5; // 5 items in parallel — OpenRouter has much higher rate limits than direct Gemini
 const MAX_ATTEMPTS = 3; // Maximum retry attempts
 const PROCESSING_TIMEOUT_MS = 120000; // 120s per item — enrich-deal processes transcripts + notes + website
-const INTER_CHUNK_DELAY_MS = 3000; // 3s between items — respect Gemini rate limits
+const INTER_CHUNK_DELAY_MS = 1000; // 1s between chunks
 
 // Stop early to avoid the platform killing the function mid-item.
 // enrich-deal uses 140s budget internally, so this worker needs at least that long.

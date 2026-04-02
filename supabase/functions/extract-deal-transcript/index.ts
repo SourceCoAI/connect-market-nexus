@@ -5,7 +5,7 @@ import { buildPriorityUpdates, updateExtractionSources } from '../_shared/source
 import { isPlaceholder } from '../_shared/deal-extraction.ts';
 // Uses Gemini 2.5 Flash (not 2.0) for superior long-context extraction on call transcripts.
 // Transcripts are the highest-priority data source (priority 100) and benefit from the newer model.
-import { GEMINI_25_FLASH_MODEL } from '../_shared/ai-providers.ts';
+import { GEMINI_25_FLASH_MODEL, getGeminiApiKey } from '../_shared/ai-providers.ts';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
@@ -175,7 +175,7 @@ serve(async (req) => {
     );
 
     // Use AI to extract intelligence
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiApiKey = getGeminiApiKey();
     if (!geminiApiKey) {
       throw new Error('GEMINI_API_KEY not configured');
     }

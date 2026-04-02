@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { GEMINI_API_BASE } from '../_shared/ai-providers.ts';
+import { GEMINI_API_BASE, getGeminiApiKey } from '../_shared/ai-providers.ts';
 import { validateUrl, ssrfErrorResponse } from '../_shared/security.ts';
 import { encode as base64Encode } from 'https://deno.land/std@0.190.0/encoding/base64.ts';
 
@@ -20,7 +20,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const _supabase = createClient(supabaseUrl, supabaseKey);
 
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiApiKey = getGeminiApiKey();
     if (!geminiApiKey) {
       throw new Error('GEMINI_API_KEY not configured');
     }

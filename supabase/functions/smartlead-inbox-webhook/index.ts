@@ -13,6 +13,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { timingSafeEqual } from '../_shared/security.ts';
 import { smartleadRequest } from '../_shared/smartlead-client.ts';
+import { DEFAULT_GEMINI_MODEL, getGeminiApiKey } from '../_shared/ai-providers.ts';
 
 /** Strip HTML tags and collapse whitespace */
 function stripHtml(html: string): string {
@@ -43,7 +44,7 @@ interface AIClassification {
 }
 
 async function classifyReply(replyText: string): Promise<AIClassification> {
-  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  const apiKey = getGeminiApiKey();
   if (!apiKey) {
     console.warn('[smartlead-inbox-webhook] GEMINI_API_KEY not set, skipping classification');
     return {
@@ -84,59 +85,62 @@ Sentiment: positive, negative, neutral
 is_positive should be true ONLY for meeting_request and interested categories.`;
 
   try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gemini-2.0-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Classify this email reply:\n\n${sanitized}` },
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'classify_reply',
-              description: 'Classify an email reply with category, sentiment, and reasoning.',
-              parameters: {
-                type: 'object',
-                properties: {
-                  category: {
-                    type: 'string',
-                    enum: [
-                      'meeting_request',
-                      'interested',
-                      'question',
-                      'referral',
-                      'not_now',
-                      'not_interested',
-                      'unsubscribe',
-                      'out_of_office',
-                      'negative_hostile',
-                      'neutral',
-                    ],
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: DEFAULT_GEMINI_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Classify this email reply:\n\n${sanitized}` },
+          ],
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'classify_reply',
+                description: 'Classify an email reply with category, sentiment, and reasoning.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    category: {
+                      type: 'string',
+                      enum: [
+                        'meeting_request',
+                        'interested',
+                        'question',
+                        'referral',
+                        'not_now',
+                        'not_interested',
+                        'unsubscribe',
+                        'out_of_office',
+                        'negative_hostile',
+                        'neutral',
+                      ],
+                    },
+                    sentiment: {
+                      type: 'string',
+                      enum: ['positive', 'negative', 'neutral'],
+                    },
+                    is_positive: { type: 'boolean' },
+                    confidence: { type: 'number' },
+                    reasoning: { type: 'string' },
                   },
-                  sentiment: {
-                    type: 'string',
-                    enum: ['positive', 'negative', 'neutral'],
-                  },
-                  is_positive: { type: 'boolean' },
-                  confidence: { type: 'number' },
-                  reasoning: { type: 'string' },
+                  required: ['category', 'sentiment', 'is_positive', 'confidence', 'reasoning'],
+                  additionalProperties: false,
                 },
-                required: ['category', 'sentiment', 'is_positive', 'confidence', 'reasoning'],
-                additionalProperties: false,
               },
             },
-          },
-        ],
-        tool_choice: { type: 'function', function: { name: 'classify_reply' } },
-      }),
-    });
+          ],
+          tool_choice: { type: 'function', function: { name: 'classify_reply' } },
+        }),
+      },
+    );
 
     if (!response.ok) {
       const errText = await response.text();
@@ -254,10 +258,9 @@ Deno.serve(async (req) => {
             eventTimestamp,
           })}`,
         );
-        return new Response(
-          JSON.stringify({ success: true, id: existing.id, duplicate: true }),
-          { headers: jsonHeaders },
-        );
+        return new Response(JSON.stringify({ success: true, id: existing.id, duplicate: true }), {
+          headers: jsonHeaders,
+        });
       }
     } else if (fromEmail && eventTimestamp) {
       const { data: existing } = await supabase
@@ -270,10 +273,9 @@ Deno.serve(async (req) => {
 
       if (existing) {
         console.log(`[smartlead-inbox-webhook] Duplicate from_email+event_timestamp`);
-        return new Response(
-          JSON.stringify({ success: true, id: existing.id, duplicate: true }),
-          { headers: jsonHeaders },
-        );
+        return new Response(JSON.stringify({ success: true, id: existing.id, duplicate: true }), {
+          headers: jsonHeaders,
+        });
       }
     }
 
@@ -286,13 +288,19 @@ Deno.serve(async (req) => {
 
     // ─── Insert record ──────────────────────────────────────────────────
     // Handle fields that may come as objects (SmartLead sends nested structures)
-    const replyMessageStr = typeof payload.reply_message === 'object' && payload.reply_message
-      ? (payload.reply_message.text || payload.reply_message.html || JSON.stringify(payload.reply_message))
-      : (payload.reply_message || null);
-    
-    const sentMessageStr = typeof payload.sent_message === 'object' && payload.sent_message
-      ? (payload.sent_message.text || payload.sent_message.html || JSON.stringify(payload.sent_message))
-      : (payload.sent_message || null);
+    const replyMessageStr =
+      typeof payload.reply_message === 'object' && payload.reply_message
+        ? payload.reply_message.text ||
+          payload.reply_message.html ||
+          JSON.stringify(payload.reply_message)
+        : payload.reply_message || null;
+
+    const sentMessageStr =
+      typeof payload.sent_message === 'object' && payload.sent_message
+        ? payload.sent_message.text ||
+          payload.sent_message.html ||
+          JSON.stringify(payload.sent_message)
+        : payload.sent_message || null;
 
     // Handle camelCase variants from SmartLead/n8n
     const leadCorrespondence = payload.lead_correspondence || payload.leadCorrespondence || null;
@@ -303,7 +311,9 @@ Deno.serve(async (req) => {
       campaign_id: payload.campaign_id ? Number(payload.campaign_id) : null,
       stats_id: payload.stats_id || null,
       sl_email_lead_id: payload.sl_email_lead_id ? String(payload.sl_email_lead_id) : null,
-      sl_email_lead_map_id: payload.sl_email_lead_map_id ? String(payload.sl_email_lead_map_id) : null,
+      sl_email_lead_map_id: payload.sl_email_lead_map_id
+        ? String(payload.sl_email_lead_map_id)
+        : null,
       sl_lead_email: payload.sl_lead_email || null,
       from_email: fromEmail,
       to_email: payload.to_email || null,
@@ -423,7 +433,10 @@ Deno.serve(async (req) => {
             console.log(`[smartlead-inbox-webhook] Enriched lead for ${lookupEmail}`);
           }
         } else {
-          console.warn(`[smartlead-inbox-webhook] Lead lookup failed for ${lookupEmail}:`, leadResult.error);
+          console.warn(
+            `[smartlead-inbox-webhook] Lead lookup failed for ${lookupEmail}:`,
+            leadResult.error,
+          );
         }
       }
     } catch (enrichError) {

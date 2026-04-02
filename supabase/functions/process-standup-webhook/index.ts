@@ -2,6 +2,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { getGeminiApiKey } from '../_shared/ai-providers.ts';
 
 /**
  * Fireflies webhook handler for meeting task extraction.
@@ -131,7 +132,7 @@ serve(async (req) => {
 
     // Trigger extraction
     // Auto-detect: use Fireflies-native mode when Gemini key is not configured
-    const hasGeminiKey = !!(Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GEMINI_API_KEY'));
+    const hasGeminiKey = !!getGeminiApiKey();
     const useFirefliesActions = !hasGeminiKey;
     console.log(
       `Processing meeting: "${meetingTitle}" (${transcriptId}) [mode: ${useFirefliesActions ? 'fireflies-native' : 'ai'}${isTaggedStandup ? ', tagged standup' : ''}]`,

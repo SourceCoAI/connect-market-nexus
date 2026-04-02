@@ -16,6 +16,7 @@ import {
   getGeminiHeaders,
   DEFAULT_GEMINI_MODEL,
   fetchWithAutoRetry,
+  getGeminiApiKey,
 } from '../../_shared/ai-providers.ts';
 
 // ---------- Types ----------
@@ -324,7 +325,7 @@ async function generateBuyerNarrative(
   });
 
   // Call Gemini to generate the narrative
-  const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+  const geminiApiKey = getGeminiApiKey();
   if (!geminiApiKey) {
     return {
       error: 'GEMINI_API_KEY not configured — cannot generate narrative',

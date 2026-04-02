@@ -12,7 +12,7 @@
  * All functions are pure or take explicit dependencies — no module-level mutable state.
  */
 
-import { callGeminiWithTool, type RateLimitConfig } from './ai-providers.ts';
+import { callGeminiWithTool, DEFAULT_GEMINI_MODEL, type RateLimitConfig } from './ai-providers.ts';
 import {
   type SourceType,
   TRANSCRIPT_PROTECTED_FIELDS,
@@ -28,7 +28,7 @@ import { normalizeState, VALID_US_STATE_CODES } from './geography.ts';
 // ============================================================================
 
 export const BUYER_AI_CONFIG = {
-  model: 'gemini-2.0-flash',
+  model: DEFAULT_GEMINI_MODEL,
   max_tokens: 4096,
   temperature: 0, // Deterministic extraction
 };
@@ -911,17 +911,17 @@ export function buildBuyerUpdateObject(
     // This map ensures compatibility with BOTH old and new constraints.
     if (field === 'buyer_type' && typeof value === 'string') {
       const BUYER_TYPE_NORMALIZE: Record<string, string> = {
-        'private_equity': 'private_equity',
-        'corporate': 'corporate',
-        'family_office': 'family_office',
-        'independent_sponsor': 'independent_sponsor',
-        'search_fund': 'search_fund',
-        'individual_buyer': 'individual_buyer',
+        private_equity: 'private_equity',
+        corporate: 'corporate',
+        family_office: 'family_office',
+        independent_sponsor: 'independent_sponsor',
+        search_fund: 'search_fund',
+        individual_buyer: 'individual_buyer',
         // Legacy values — accept if already in old format
-        'pe_firm': 'private_equity',
-        'platform': 'corporate',
-        'strategic': 'corporate',
-        'other': 'individual_buyer',
+        pe_firm: 'private_equity',
+        platform: 'corporate',
+        strategic: 'corporate',
+        other: 'individual_buyer',
       };
       const normalized = BUYER_TYPE_NORMALIZE[value.toLowerCase().trim()];
       if (normalized) {
@@ -1015,8 +1015,13 @@ export function buildBuyerUpdateObject(
 
     // Coerce integer columns — AI may return strings ("5") or floats (5.0)
     const INTEGER_COLUMNS = new Set([
-      'number_of_locations', 'total_acquisitions', 'num_platforms',
-      'target_revenue_min', 'target_revenue_max', 'target_ebitda_min', 'target_ebitda_max',
+      'number_of_locations',
+      'total_acquisitions',
+      'num_platforms',
+      'target_revenue_min',
+      'target_revenue_max',
+      'target_ebitda_min',
+      'target_ebitda_max',
     ]);
     if (INTEGER_COLUMNS.has(field)) {
       const num = typeof value === 'string' ? parseInt(value, 10) : Number(value);
