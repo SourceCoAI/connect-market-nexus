@@ -229,7 +229,7 @@ export default function DocumentTrackingPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-  const [sortField, setSortField] = useState<SortField>('last_signed');
+  const [sortField, setSortField] = useState<SortField>('last_requested');
   const [sortAsc, setSortAsc] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [orphansOpen, setOrphansOpen] = useState(false);
