@@ -454,7 +454,7 @@ export default function DocumentTrackingPage() {
         if (aDate === 0 && bDate === 0) cmp = 0;
         else if (aDate === 0) cmp = 1;
         else if (bDate === 0) cmp = -1;
-        else cmp = bDate - aDate;
+        else cmp = aDate - bDate;
       }
       else if (sortField === 'last_signed') {
         const aDate = Math.max(
@@ -468,8 +468,14 @@ export default function DocumentTrackingPage() {
         if (aDate === 0 && bDate === 0) cmp = 0;
         else if (aDate === 0) cmp = 1;
         else if (bDate === 0) cmp = -1;
-        else cmp = bDate - aDate;
+        else cmp = aDate - bDate;
       }
+
+      // Pending requests always sort to the top
+      if (a.hasPendingRequest !== b.hasPendingRequest) {
+        return a.hasPendingRequest ? -1 : 1;
+      }
+
       return sortAsc ? cmp : -cmp;
     });
 
