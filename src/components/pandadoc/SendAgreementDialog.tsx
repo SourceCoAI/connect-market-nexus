@@ -10,10 +10,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, Send, Monitor, Mail, Link2, Copy, Check } from 'lucide-react';
-import { useCreatePandaDocDocument } from '@/hooks/admin/use-pandadoc';
+import { Loader2, Send, Mail } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface SendAgreementDialogProps {
   open: boolean;
@@ -26,8 +26,7 @@ interface SendAgreementDialogProps {
 }
 
 /**
- * Dialog for sending NDA or Fee Agreement via PandaDoc.
- * Admin can choose between embedded (in-app), email, or generate a copyable link.
+ * Admin dialog for sending NDA or Fee Agreement via email.
  */
 export function SendAgreementDialog({
   open,
@@ -39,18 +38,13 @@ export function SendAgreementDialog({
   firmName,
 }: SendAgreementDialogProps) {
   const [email, setEmail] = useState(buyerEmail);
-  const [flow, setFlow] = useState<'embedded' | 'email' | 'link'>('email');
-  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const createDocument = useCreatePandaDocDocument();
+  const [sending, setSending] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (open) {
       setEmail(buyerEmail);
-      setFlow('email');
-      setGeneratedLink(null);
-      setCopied(false);
     }
   }, [open, buyerEmail]);
 
@@ -59,35 +53,29 @@ export function SendAgreementDialog({
 
   const handleSend = async () => {
     if (!isValidEmail) return;
+    setSending(true);
     try {
-      const result = await createDocument.mutateAsync({
-        firmId,
-        documentType,
-        buyerEmail: email,
-        buyerName,
-        sendEmail: flow === 'email',
+      const { error } = await supabase.functions.invoke('request-agreement-email', {
+        body: { documentType, recipientEmail: email, recipientName: buyerName, firmId },
       });
 
-      // If "link" flow, show the signing URL instead of closing
-      if (flow === 'link' && result?.embedUrl) {
-        setGeneratedLink(result.embedUrl);
-      } else {
-        onOpenChange(false);
-      }
-    } catch {
-      // Error toast shown by mutation's onError handler; dialog stays open for retry
-    }
-  };
+      if (error) throw error;
 
-  const handleCopy = async () => {
-    if (!generatedLink) return;
-    try {
-      await navigator.clipboard.writeText(generatedLink);
-      setCopied(true);
-      toast({ title: 'Link copied!', description: 'Paste it into your email or message.' });
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast({ title: 'Failed to copy', variant: 'destructive' });
+      toast({
+        title: `${docLabel} Sent`,
+        description: `Document email sent to ${email}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+      onOpenChange(false);
+    } catch (err) {
+      toast({
+        title: 'Failed to send',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSending(false);
     }
   };
 
@@ -97,131 +85,50 @@ export function SendAgreementDialog({
         <DialogHeader>
           <DialogTitle>Send {docLabel}</DialogTitle>
           <DialogDescription>
-            Send {docLabel} signing request to {firmName || buyerName}
+            Send {docLabel} to {firmName || buyerName} via email
           </DialogDescription>
         </DialogHeader>
 
-        {generatedLink ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Signing Link</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  readOnly
-                  value={generatedLink}
-                  className="text-xs font-mono"
-                  onClick={(e) => (e.target as HTMLInputElement).select()}
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="shrink-0"
-                  onClick={handleCopy}
-                >
-                  {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Share this link with the buyer. You'll be notified when they view or sign it.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Done
-              </Button>
-              <Button onClick={handleCopy}>
-                {copied ? <><Check className="h-4 w-4 mr-2" /> Copied!</> : <><Copy className="h-4 w-4 mr-2" /> Copy Link</>}
-              </Button>
-            </DialogFooter>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="buyer-email">Recipient Email</Label>
+            <Input
+              id="buyer-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
-        ) : (
-          <>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="buyer-email">Buyer Email</Label>
-                <Input
-                  id="buyer-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
 
-              <div className="space-y-2">
-                <Label>Signing Method</Label>
-                <RadioGroup
-                  value={flow}
-                  onValueChange={(v) => setFlow(v as 'embedded' | 'email' | 'link')}
-                  className="space-y-2"
-                >
-                  <div className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
-                    <RadioGroupItem value="email" id="flow-email" className="mt-0.5" />
-                    <label htmlFor="flow-email" className="cursor-pointer flex-1">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Email Link</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Buyer receives email with signing link from PandaDoc.
-                      </p>
-                    </label>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
-                    <RadioGroupItem value="link" id="flow-link" className="mt-0.5" />
-                    <label htmlFor="flow-link" className="cursor-pointer flex-1">
-                      <div className="flex items-center gap-2">
-                        <Link2 className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Generate Link</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Get a shareable signing URL to paste into your own email or message.
-                      </p>
-                    </label>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
-                    <RadioGroupItem value="embedded" id="flow-embedded" className="mt-0.5" />
-                    <label htmlFor="flow-embedded" className="cursor-pointer flex-1">
-                      <div className="flex items-center gap-2">
-                        <Monitor className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">In-App Signing</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Buyer signs next time they visit the platform.
-                      </p>
-                    </label>
-                  </div>
-                </RadioGroup>
-              </div>
+          <div className="bg-muted/50 border border-border rounded-lg p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <span>Document will be sent from <strong>support@sourcecodeals.com</strong></span>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              The recipient will receive the {docLabel.toLowerCase()} to review and sign. They should return the signed copy via email.
+            </p>
+          </div>
+        </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSend}
-                disabled={!isValidEmail || createDocument.isPending}
-              >
-                {createDocument.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {flow === 'link' ? 'Generating...' : 'Sending...'}
-                  </>
-                ) : flow === 'link' ? (
-                  <>
-                    <Link2 className="h-4 w-4 mr-2" />
-                    Generate Link
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send {docLabel}
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </>
-        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSend} disabled={!isValidEmail || sending}>
+            {sending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                Send {docLabel}
+              </>
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
