@@ -21,7 +21,7 @@ const PROVIDER_LIMITS: Record<
   { maxConcurrent: number; cooldownMs: number; softLimitRpm: number }
 > = {
   anthropic: { maxConcurrent: 8, cooldownMs: 15000, softLimitRpm: 40 },
-  gemini: { maxConcurrent: 10, cooldownMs: 10000, softLimitRpm: 30 },
+  gemini: { maxConcurrent: 5, cooldownMs: 30000, softLimitRpm: 15 },
   firecrawl: { maxConcurrent: 5, cooldownMs: 10000, softLimitRpm: 20 },
   apify: { maxConcurrent: 3, cooldownMs: 30000, softLimitRpm: 10 },
   serper: { maxConcurrent: 10, cooldownMs: 5000, softLimitRpm: 50 },
