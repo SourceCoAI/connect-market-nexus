@@ -41,16 +41,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 
-// Simplified email-based transitions
-const VALID_TRANSITIONS: Record<AgreementStatus, AgreementStatus[]> = {
-  not_started: ['sent'],
-  sent: ['signed'],
-  redlined: ['signed'],
-  under_review: ['signed'],
-  signed: [],
-  expired: ['sent'],
-  declined: ['sent'],
-};
+// Transitions are now handled inline in the dropdown menu items
 
 type DialogMode = 'signed' | 'send_email' | null;
 
