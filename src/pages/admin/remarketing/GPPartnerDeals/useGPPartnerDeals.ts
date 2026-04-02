@@ -565,7 +565,7 @@ export function useGPPartnerDeals() {
       website = `https://${website}`;
     }
 
-    const { error } = await supabase.from('listings').insert({
+    const dealData = {
       title: newDeal.company_name.trim(),
       internal_company_name: newDeal.company_name.trim(),
       website: website || null,
@@ -578,11 +578,51 @@ export function useGPPartnerDeals() {
       location: newDeal.location.trim() || null,
       revenue: newDeal.revenue ? parseFloat(newDeal.revenue) : null,
       ebitda: newDeal.ebitda ? parseFloat(newDeal.ebitda) : null,
-      deal_source: 'gp_partners',
+      deal_source: 'gp_partners' as const,
       status: 'active',
       is_internal_deal: true,
       pushed_to_all_deals: false,
-    } as never);
+    };
+
+    // Try insert first; if duplicate website, update the existing listing instead
+    const { error } = await supabase.from('listings').insert(dealData as never);
+
+    if (error?.message?.includes('idx_listings_unique_website')) {
+      // Find existing listing by website and update it
+      const { data: existing } = await supabase
+        .from('listings')
+        .select('id')
+        .ilike('website', `%${website.replace(/^https?:\/\//, '').replace(/\/$/, '')}%`)
+        .limit(1)
+        .single();
+
+      if (existing) {
+        const { title: _t, deal_source: _ds, is_internal_deal: _i, pushed_to_all_deals: _p, status: _s, ...updateData } = dealData;
+        const { error: updateError } = await supabase
+          .from('listings')
+          .update({
+            ...updateData,
+            title: dealData.title,
+            deleted_at: null, // un-delete if soft-deleted
+          } as never)
+          .eq('id', existing.id);
+
+        setIsAddingDeal(false);
+        if (updateError) {
+          sonnerToast.error(`Failed to update deal: ${updateError.message}`);
+        } else {
+          sonnerToast.success('Existing deal updated successfully');
+          setAddDealOpen(false);
+          setNewDeal(EMPTY_NEW_DEAL);
+          queryClient.invalidateQueries({ queryKey: ['remarketing', 'gp-partner-deals'] });
+        }
+        return;
+      }
+
+      setIsAddingDeal(false);
+      sonnerToast.error('A deal with this website already exists');
+      return;
+    }
 
     setIsAddingDeal(false);
     if (error) {
