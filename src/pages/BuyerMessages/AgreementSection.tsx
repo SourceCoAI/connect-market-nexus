@@ -6,7 +6,7 @@ import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningMod
 import { useAuth } from '@/contexts/AuthContext';
 import { resolveAgreementStatus, type AgreementDisplayStatus } from '@/lib/agreement-status';
 
-import { useFirmAgreementStatus, usePendingNotifications } from './useMessagesData';
+import { useFirmAgreementStatus } from './useMessagesData';
 import { useDownloadDocument } from './useMessagesActions';
 import { DocumentDialog } from './DocumentDialog';
 import type { DocItem } from './types';
