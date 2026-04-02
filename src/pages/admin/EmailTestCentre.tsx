@@ -164,56 +164,54 @@ const EMAILS: EmailDef[] = [
   {
     id: 'e06',
     num: '06',
-    title: 'NDA Signed Confirmation',
+    title: 'NDA Request Email',
     category: 'agreement',
-    trigger: 'PandaDoc webhook — NDA document completed',
+    trigger: 'Buyer clicks "Request NDA" button',
     triggerDetail:
-      'Fires automatically when PandaDoc sends a webhook confirming the NDA has been signed. Handled by confirm-agreement-signed. The buyer receives this within seconds of signing. This is a high-intent moment — the email should direct them immediately into the pipeline.',
-    file: 'supabase/functions/confirm-agreement-signed/index.ts',
-    subject: 'NDA signed — the full pipeline is open.',
-    preheader: "One signature covers every deal on SourceCo. Here's what's waiting for you.",
+      'Fires when a buyer requests their NDA via the marketplace. The request-agreement-email edge function sends the NDA document to the buyer via email from support@sourcecodeals.com. Admins are notified and can track the request in Document Tracking.',
+    file: 'supabase/functions/request-agreement-email/index.ts',
+    subject: 'Your NDA (Non-Disclosure Agreement) from SourceCo',
+    preheader: 'Review and sign your NDA to access the full SourceCo pipeline.',
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>Your NDA is signed and on file. That's the only signature you'll ever need on the platform — it covers your use of SourceCo, now and in the future.</p>
-<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Browse the Pipeline</a></p>
-<ul style="padding-left:20px;color:#374151">
-<li>Browse every deal — deal summaries and business details are now visible</li>
-<li>When you find a fit, request an introduction</li>
-<li>Tell us specifically why you're a strong match when you submit</li>
-</ul>
+<p>Thank you for your interest in working with SourceCo. Please find your NDA attached or linked below.</p>
+<p><strong>To complete the signing process:</strong></p>
+<ol>
+<li>Review the document carefully</li>
+<li>Sign where indicated</li>
+<li>Reply to this email with the signed copy attached</li>
+</ol>
 <p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
-    invokeFunction: 'confirm-agreement-signed',
+    invokeFunction: 'request-agreement-email',
     testPayload: {
       documentType: 'nda',
-      signerEmail: 'test+audit@sourcecodeals.com',
-      signerName: 'Test Buyer',
-      firmName: 'Test Firm',
     },
     status: 'live',
   },
   {
     id: 'e07',
     num: '07',
-    title: 'Fee Agreement Signed Confirmation',
+    title: 'Fee Agreement Request Email',
     category: 'agreement',
-    trigger: 'PandaDoc webhook — fee agreement completed',
+    trigger: 'Buyer clicks "Request Fee Agreement" button',
     triggerDetail:
-      "Fires automatically when PandaDoc sends a webhook confirming the fee agreement has been signed. Handled by confirm-agreement-signed. Always follows a connection request — the buyer signed because they wanted to pursue a specific deal. Email confirms they're fully set up and their request is in motion.",
-    file: 'supabase/functions/confirm-agreement-signed/index.ts',
-    subject: "Fee agreement signed — you're fully set up.",
-    preheader: 'Every deal on SourceCo is now open to you. Your introduction is being reviewed.',
+      'Fires when a buyer requests their Fee Agreement via the marketplace. The request-agreement-email edge function sends the document to the buyer via email from support@sourcecodeals.com. Admins are notified and can track the request in Document Tracking.',
+    file: 'supabase/functions/request-agreement-email/index.ts',
+    subject: "Your Fee Agreement from SourceCo",
+    preheader: 'Review and sign your Fee Agreement to complete your SourceCo setup.',
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>Your fee agreement is signed and on file. You're fully set up — every deal on SourceCo is open to you and your introduction request is now being reviewed.</p>
-<p>Our fee is success-only — nothing owed unless a deal closes.</p>
-<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">View Your Pipeline</a></p>
+<p>Thank you for your interest in working with SourceCo. Please find your Fee Agreement attached or linked below.</p>
+<p><strong>To complete the signing process:</strong></p>
+<ol>
+<li>Review the document carefully</li>
+<li>Sign where indicated</li>
+<li>Reply to this email with the signed copy attached</li>
+</ol>
 <p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
-    invokeFunction: 'confirm-agreement-signed',
+    invokeFunction: 'request-agreement-email',
     testPayload: {
       documentType: 'fee_agreement',
-      signerEmail: 'test+audit@sourcecodeals.com',
-      signerName: 'Test Buyer',
-      firmName: 'Test Firm',
     },
     status: 'live',
   },

@@ -106,8 +106,22 @@ serve(async (req: Request) => {
       console.error('[request-agreement-email] Insert error:', insertErr);
     }
 
-    // Send email via Brevo
     const docLabel = documentType === 'nda' ? 'NDA (Non-Disclosure Agreement)' : 'Fee Agreement';
+    // Build PDF download link if available in storage
+    const pdfFileName = documentType === 'nda' ? 'NDA.pdf' : 'FeeAgreement.pdf';
+    const { data: pdfUrl } = supabaseAdmin.storage
+      .from('agreement-templates')
+      .getPublicUrl(pdfFileName);
+
+    const downloadLink = pdfUrl?.publicUrl
+      ? `<p style="margin:20px 0; text-align:center;">
+          <a href="${pdfUrl.publicUrl}" style="background:#1e293b;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">
+            Download ${docLabel}
+          </a>
+        </p>`
+      : '';
+
+    // Send email via Brevo
     const emailResult = await sendViaBervo({
       to: buyerEmail,
       toName: buyerName,
@@ -122,8 +136,9 @@ serve(async (req: Request) => {
           <h2 style="color: #0E101A; margin-bottom: 16px;">Your ${docLabel}</h2>
           <p style="color: #555; line-height: 1.6;">Hi ${buyerName},</p>
           <p style="color: #555; line-height: 1.6;">
-            Thank you for your interest in working with SourceCo. Please find your ${docLabel} attached to this email or linked below.
+            Thank you for your interest in working with SourceCo. ${downloadLink ? 'Please download your document using the button below.' : 'Your document will be sent to you shortly by our team.'}
           </p>
+          ${downloadLink}
           <p style="color: #555; line-height: 1.6;">
             <strong>To complete the signing process:</strong>
           </p>
