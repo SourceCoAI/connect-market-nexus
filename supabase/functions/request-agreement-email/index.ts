@@ -151,7 +151,7 @@ serve(async (req: Request) => {
       .from('document_requests')
       .insert({
         firm_id: firmId,
-        user_id: userId,
+        user_id: targetUserId,
         agreement_type: documentType,
         status: 'requested',
         requested_at: new Date().toISOString(),
