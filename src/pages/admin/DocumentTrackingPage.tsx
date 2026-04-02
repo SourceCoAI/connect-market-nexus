@@ -1018,7 +1018,7 @@ function FirmExpandableRow({
 
 // ─── Pending Request Row (with Mark Signed dialog) ───────────────────
 
-function PendingRequestRow({ req }: { req: PendingRequest }) {
+function PendingRequestRow({ req, deliveryEvent }: { req: PendingRequest; deliveryEvent?: DeliveryEvent }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
