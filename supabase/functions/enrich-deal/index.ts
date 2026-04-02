@@ -132,7 +132,7 @@ async function inferIndustryFromContext(
     if (industry && industry.length > 1 && industry.length < 60) {
       const { error: industryError } = await supabase
         .from('listings')
-        .update({ industry } as any)
+        .update({ industry } as unknown as Record<string, never>)
         .eq('id', dealId);
       if (industryError) {
         console.error(`[inferIndustry] Failed to set industry for deal ${dealId}:`, industryError);
