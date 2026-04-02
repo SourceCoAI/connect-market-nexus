@@ -16,41 +16,13 @@ export function buildEdgeFunctionTests(): TestDef[] {
     tests.push({ id: `${category}::${name}`, name, category, fn });
 
   // ═══════════════════════════════════════════════════
-  // 14. PandaDoc Integration Tests
+  // 14. Agreement Email Flow Tests
   // ═══════════════════════════════════════════════════
-  const C14 = '14. PandaDoc Integration';
+  const C14 = '14. Agreement Email Flow';
 
-  add(C14, 'PandaDoc integration test edge function invocable', async () => {
-    const { data, error } = await supabase.functions.invoke('pandadoc-integration-test');
-    if (error) throw new Error(`Edge function invocation failed: ${error.message}`);
-    if (data?.error) throw new Error(`Test suite error: ${data.error}`);
-    if (!data?.results || !Array.isArray(data.results)) {
-      throw new Error('Unexpected response format from pandadoc-integration-test');
-    }
-
-    const failed = data.results.filter(
-      (r: { status: string; name: string; detail: string }) => r.status === 'fail',
-    );
-    const warned = data.results.filter(
-      (r: { status: string; name: string; detail: string }) => r.status === 'warn',
-    );
-    const passed = data.results.filter(
-      (r: { status: string; name: string; detail: string }) => r.status === 'pass',
-    );
-
-    if (failed.length > 0) {
-      const details = failed
-        .map((r: { status: string; name: string; detail: string }) => `${r.name}: ${r.detail}`)
-        .join('; ');
-      throw new Error(`${failed.length}/${data.results.length} sub-tests failed — ${details}`);
-    }
-
-    if (warned.length > 0 && passed.length === 0) {
-      throw new Error(
-        `All sub-tests returned warnings: ${warned.map((r: { status: string; name: string; detail: string }) => r.detail).join('; ')}`,
-      );
-    }
-    // Success: all passed (warnings are acceptable if passes also exist)
+  add(C14, 'request-agreement-email edge function reachable', async () => {
+    // Will return 401 without auth, but that confirms the function is deployed
+    await invokeEdgeFunction('request-agreement-email', { documentType: 'nda' });
   });
 
   // ═══════════════════════════════════════════════════
