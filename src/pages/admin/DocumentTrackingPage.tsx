@@ -753,6 +753,21 @@ function FirmExpandableRow({
             <span>{formatDistanceToNow(new Date(firm.fee_agreement_sent_at), { addSuffix: true })}</span>
           ) : '--'}
         </td>
+        <td className="px-4 py-3 text-xs text-muted-foreground">
+          {(() => {
+            const reqDate = firm.nda_requested_at || firm.fee_agreement_requested_at
+              ? new Date(Math.max(
+                  firm.nda_requested_at ? new Date(firm.nda_requested_at).getTime() : 0,
+                  firm.fee_agreement_requested_at ? new Date(firm.fee_agreement_requested_at).getTime() : 0,
+                )).toISOString()
+              : null;
+            return reqDate ? (
+              <span className={firm.hasPendingRequest ? 'text-amber-600 font-medium' : ''}>
+                {formatDistanceToNow(new Date(reqDate), { addSuffix: true })}
+              </span>
+            ) : '--';
+          })()}
+        </td>
         <td className="px-4 py-3">
           {firm.contactName || firm.contactEmail ? (
             <div>
