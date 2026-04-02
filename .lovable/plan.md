@@ -1,195 +1,110 @@
 
-Audit verdict: no, this is not fully implemented end-to-end. Parts of the new email flow exist, but the system is still split between old agreement assumptions, incomplete sync logic, and a live/code mismatch. The current result is exactly what you described: marketplace CTAs still behave wrong, Document Tracking is not acting like a real request inbox, and several buyer screens still assume NDA-first instead of “either doc”.
 
-What is already in place
-- Email-based request components exist: `AgreementSigningModal`, `NdaGateModal`, `FeeAgreementGate`, `SendAgreementDialog`
-- Buyer agreement coverage hook exists: `useMyAgreementStatus()`
-- Admin document page has some new fields/sorting/highlight logic in code
-- `document_requests` table exists
-- Admin manual toggle updates `document_requests` to `signed` when status is manually changed
-- Server-side connection RPC was updated to allow access with either doc
+# Document Signing Revamp — Remaining Gaps
 
-Critical verified gaps
-1. Live data is not flowing
-- `document_requests` currently has 0 rows in the database
-- Admin sidebar badge counts `document_requests`
-- Document Tracking page mostly derives “pending” from `firm_agreements.requested_at`
-- Result: sidebar, page stats, and actual request history are not using the same source of truth
+## What IS Working Correctly
 
-2. The request edge function is incomplete
-- `request-agreement-email` inserts a `document_requests` row and updates `*_requested_at`
-- It does not update canonical agreement statuses to `sent`
-- It does not update `nda_sent_at` / `fee_agreement_sent_at`
-- It does not populate document URLs on `firm_agreements`
-- So many screens never move into a clean “sent / awaiting return” state
+| Area | Status |
+|------|--------|
+| `ListingCardActions.tsx` gate logic | Uses `!isNdaCovered && !isFeeCovered` — correct "either doc" rule |
+| `ListingDetail.tsx` gate | Uses `!agreementStatus.nda_covered && !agreementStatus.fee_covered` — correct |
+| `ConnectionButton.tsx` | Has `AgreementSigningModal` trigger + "either doc" gate — correct |
+| `NdaGateModal` | Offers both NDA and Fee Agreement buttons — correct |
+| `AgreementStatusBanner` | Shows "locked" only when both are missing (line 59) — correct |
+| `DealActionCard` | Uses "either doc" (`hasAnyAgreement = ndaSigned || feeCovered`) — correct |
+| `DealDocumentsCard` | Uses "either doc" — correct |
+| `ProfileDocuments` | Email-based request/resend flow — correct |
+| `AgreementSection` (Messages) | Uses `AgreementSigningModal` for signing — correct |
+| `useDownloadDocument` | No longer calls deleted edge function — correct |
+| `DocumentTrackingPage` default sort | `last_requested` — correct |
+| `DocumentTrackingPage` amber highlighting | `hasPendingRequest` rows get `bg-amber-50/60` — correct |
+| `DocumentTrackingPage` "Requested" column | Sortable, shows timestamp — correct |
+| `DocumentTrackingPage` pending filter | "Pending Requests" filter option — correct |
+| Edge function `request-agreement-email` | Syncs `firm_agreements`, inserts `document_requests`, supports admin override — correct |
+| DB: `document_requests` columns | `recipient_email`, `recipient_name`, `requested_by_admin_id` added — correct |
 
-3. Marketplace CTA flow is still wrong
-- `ListingCardActions` still routes the user to the listing page instead of opening a real request modal from the card
-- The generic CTA still does not actually give the user a proper “choose NDA or Fee Agreement” flow
-- `NdaGateModal` is still NDA-specific in copy and behavior, even though access rule is now “either doc”
-- `FeeAgreementGate` exists but is not wired into the real marketplace path
+## What Still Needs Fixing
 
-4. My Deals is still NDA-first
-- `DealActionCard` still blocks on `!ndaSigned`
-- `DealDocumentsCard` still says “Sign your NDA” to unlock materials
-- This directly violates the new rule that either NDA or Fee Agreement should be enough
+### 1. Marketplace Card "Sign NDA to request access" Text (Medium — Screenshot Mismatch)
 
-5. Buyer Messages has a broken download path
-- `useDownloadDocument()` still calls deleted edge function `get-document-download`
-- So document download/view from Messages is still broken
-- `AgreementSection` also treats unsigned docs as “Pending” too broadly, even when not yet requested
+`ListingCardActions.tsx` line 184-195: The button text says **"Sign an agreement to request access"** and **"Sign Agreement"** — which is correct in code. However, the screenshot shows "Sign NDA to request access" and "Sign NDA". This means either:
+- The latest code hasn't deployed/rendered yet, OR
+- The screenshot is stale
 
-6. Document Tracking is still not the dashboard you described
-- Current table is still a firm summary table, not a true request queue
-- It does not give admins a first-class “recent inbound requests” inbox
-- It does not clearly separate:
-  - request received
-  - email sent
-  - signed returned
-  - manually marked signed
-  - who handled it
-- It highlights pending firms, but not as a dedicated operational workflow
+**Action**: Verify live preview matches code. If cards still show "Sign NDA", the build may be stale.
 
-7. Admin-send is only partially correct
-- Admin override support was added in the edge function
-- But if admin sends to an email not tied to a real auth user, tracking is weak because `document_requests.user_id` is required
-- That means external/manual recipients are not modeled cleanly
+### 2. Marketplace Card "Sign Agreement" Still Redirects Instead of Opening Modal (Critical)
 
-What still needs to be built or rebuilt
+`ListingCardActions.tsx` line 188: The "Sign Agreement" button wraps a `<Link to={listingId ? '/listing/${listingId}' : '/marketplace'}>` — this **redirects** the user to the listing detail page instead of opening an `AgreementSigningModal` inline. The user sees a full page navigation, then the `NdaGateModal` shows.
 
-Phase 1 — Fix the data model and state sync first
-- Make the system use:
-  - `firm_agreements` = canonical coverage/status
-  - `document_requests` = request history / ops queue
-- Update `request-agreement-email` so every send also updates:
-  - `nda_status` / `fee_agreement_status` to `sent` when appropriate
-  - `nda_sent_at` / `fee_agreement_sent_at`
-  - optional sender/recipient metadata
-- Add proper recipient tracking to `document_requests`
-  - `recipient_email`
-  - `recipient_name`
-  - `requested_by_user_id`
-  - `requested_by_admin_id`
-  - if needed, make `user_id` nullable for non-auth recipients
-- Ensure manual admin sign-off closes the matching open request row and preserves admin attribution
+**Fix**: Replace the `<Link>` redirect with an inline `AgreementSigningModal` that opens directly from the card. Add state for `signingOpen` and render the modal.
 
-Phase 2 — Rebuild Admin Document Tracking into two layers
-1. Pending Request Queue (new top section)
-- One row per open request
-- Sorted newest first
-- Highlight all unresolved rows
-- Show:
-  - recipient
-  - company/firm
-  - doc type
-  - requested time
-  - email sent time
-  - current agreement status
-  - who last handled it
-  - quick action: mark signed / mark cancelled / resend
+### 3. `handleConnectionClick` Still Has NDA-Only Gate (Medium)
 
-2. Firm Agreement Summary (existing lower table, cleaned up)
-- Keep one row per firm for overall state
-- Show latest request timestamp, latest signer, latest handler
-- Expand row to show request history from `document_requests`
+`ListingCardActions.tsx` line 114: `if (!isNdaCovered)` — this checks NDA alone. If a user has a Fee Agreement but no NDA, clicking "Request Access" redirects them to the listing page instead of opening the dialog.
 
-Also fix badge logic
-- Sidebar red badge must count unresolved `document_requests`, not inferred firm timestamps
-- Page “Pending Requests” stat must use the same exact query
+**Fix**: Change to `if (!isNdaCovered && !isFeeCovered)`.
 
-Phase 3 — Fix marketplace UX so it actually works
-Marketplace cards
-- Replace redirect-style “Sign NDA / Sign Agreement” behavior with an actual modal flow
-- Introduce a generic `AgreementRequestChooser` modal:
-  - Request NDA
-  - Request Fee Agreement
-- Clicking from a listing card should open this chooser directly
+### 4. PendingApproval Page Still NDA-Only (Medium)
 
-Listing detail gate
-- Replace `NdaGateModal` with a neutral agreement gate
-- Copy must say “Request an agreement to unlock access”
-- Offer both doc options, not NDA-only
-- Keep “either doc” gating rule
+`PendingApproval.tsx` lines 78, 184, 219, 270-306: The entire page says "Sign your NDA", "Sign NDA to unlock the full deal pipeline", checks only `ndaStatus?.ndaSigned`. It does not mention Fee Agreement as an alternative.
 
-Connection button
-- If neither document is covered, show actionable CTA, not dead-end messaging
-- If at least one doc is covered, allow request flow immediately
+**Fix**: Update copy to say "Sign an agreement (NDA or Fee Agreement)" and add Fee Agreement button alongside NDA button. Update navigation logic at line 78 to check either doc.
 
-Phase 4 — Rework buyer-facing document surfaces
-Profile Documents
-- Turn this into a real document command center:
-  - NDA card
-  - Fee Agreement card
-  - status
-  - last requested
-  - sent to which email
-  - resend
-  - if signed copy exists, download/view
-- Improve empty and pending states so they explain email workflow clearly
+### 5. PendingApproval Uses `useBuyerNdaStatus` — NDA-Only Hook (Low)
 
-My Deals
-- Update `DealActionCard`, `DealDocumentsCard`, and related copy to use:
-  - “either doc unlocks access/requesting”
-  - not NDA-only logic
-- Only prompt for a specific doc if that is the chosen next step
-- Remove misleading “Sign NDA” messaging where fee agreement also qualifies
+Line 40: `const { data: ndaStatus } = useBuyerNdaStatus(user?.id)` — this hook only returns `ndaSigned` (NDA status). It does not check fee agreement coverage.
 
-Messages
-- Replace deleted `get-document-download` dependency
-- Download/view should come from stored URLs or template links directly
-- Fix status language so “not requested”, “sent”, “signed”, and “under review” are distinct
+**Fix**: Replace with `useMyAgreementStatus` or extend `useBuyerNdaStatus` to also return fee coverage. Update the conditional logic throughout.
 
-Pending Approval
-- Revisit this screen so it doesn’t hardcode NDA as the only readiness path
-- If you still want NDA-first here, keep it intentionally as a business rule
-- Otherwise convert it to the same chooser model
+### 6. Document Tracking Has No "Pending Request Queue" Section (Medium)
 
-Phase 5 — Operational completeness
-- Add resend handling that creates/updates request history cleanly
-- Add cancellation / duplicate-request handling
-- Add template-missing protection:
-  - if `NDA.pdf` or `FeeAgreement.pdf` is missing, show admin-visible failure state instead of silent success
-- Show “handled by Admin X” on both the request queue and firm summary
-- Ensure realtime invalidates:
-  - buyer document views
-  - My Deals
-  - marketplace gates
-  - admin badge
-  - admin tracking page
+The plan called for a dedicated top section showing individual pending requests from `document_requests` table (one row per request, not per firm). Currently the page only shows the firm summary table with amber highlighting. There's no request-level inbox.
 
-Screen-by-screen status after audit
-- Admin > Document Tracking: needs major rebuild into real request workflow
-- Admin sidebar badge: logic exists, but useless until `document_requests` is truly populated
-- Marketplace listing cards: still wrong behavior
-- Listing detail gate: still conceptually NDA-shaped, not agreement-shaped
-- Connection request path: server-side rule is correct, UI still inconsistent
-- Profile > Documents: partial, needs redesign and stronger state handling
-- My Deals: still wrong copy/logic in multiple cards
-- Messages: broken download path, stale status handling
-- Pending Approval: still NDA-first and should be deliberately redefined
-- Admin send flow: needs stronger recipient/request modeling for external recipients
+**Fix**: Add a collapsible "Pending Requests" section at the top that queries `document_requests` where `status IN ('requested', 'email_sent')`, showing recipient, doc type, requested time, and a "Mark Signed" action. This is the operational inbox admins need.
 
-Technical priorities
-1. Fix `request-agreement-email` and request/firm synchronization
-2. Rebuild Document Tracking around `document_requests`
-3. Replace NDA-specific marketplace gating with agreement chooser flow
-4. Update My Deals + Profile + Messages to consume the same canonical states
-5. Remove remaining broken legacy assumptions and verify all routes end-to-end
+### 7. Admin "Mark Signed" Does Not Show Which Admin Handled It (Low)
 
-Files most likely needing work
-- `supabase/functions/request-agreement-email/index.ts`
-- `src/pages/admin/DocumentTrackingPage.tsx`
-- `src/hooks/admin/use-pending-document-requests.ts`
-- `src/components/listing/ListingCardActions.tsx`
-- `src/pages/ListingDetail.tsx`
-- `src/components/pandadoc/NdaGateModal.tsx` or replacement
-- `src/components/listing-detail/ConnectionButton.tsx`
-- `src/pages/Profile/ProfileDocuments.tsx`
-- `src/components/deals/DealActionCard.tsx`
-- `src/components/deals/DealDocumentsCard.tsx`
-- `src/pages/BuyerMessages/AgreementSection.tsx`
-- `src/pages/BuyerMessages/useMessagesActions.ts`
-- `src/pages/PendingApproval.tsx`
+The `AgreementStatusDropdown` updates `firm_agreements` status but the Document Tracking table doesn't display which admin toggled the status. The `document_requests.requested_by_admin_id` column exists but there's no `signed_by_admin_id` or `handled_by` tracking visible in the UI.
 
-Bottom line
-The foundation exists, but the revamp is only partially implemented. The main missing piece is not just “a few UI tweaks” — it is making request history, canonical agreement status, and every buyer/admin surface behave as one system. The right fix is: finish the data sync first, then rebuild Document Tracking as an actual request inbox, then replace all remaining NDA-specific buyer flows with a unified agreement workflow that supports either document.
+**Fix**: When admin toggles status to "signed", update the matching `document_requests` row with the admin's name/ID. Display "Handled by [Admin Name]" in the audit log and optionally in the table row.
+
+### 8. Admin Sidebar Badge Count May Be Zero (Low)
+
+`usePendingDocumentRequests` queries `document_requests` table for `status IN ('requested', 'email_sent')`. If no requests have flowed through the edge function yet, this will always be 0. This is correct behavior — it will populate once users start requesting.
+
+**No action needed** — this works correctly once data flows.
+
+---
+
+## Implementation Plan
+
+### Step 1: Fix ListingCardActions to Open Modal Instead of Redirect
+- Add `useState` for `signingOpen` 
+- Replace the `<Link>` at line 188 with a `<Button>` that sets `signingOpen(true)`
+- Render `<AgreementSigningModal>` at the bottom of the component
+- Fix `handleConnectionClick` line 114 to use `!isNdaCovered && !isFeeCovered`
+
+### Step 2: Fix PendingApproval to Support Either Doc
+- Replace `useBuyerNdaStatus` with `useMyAgreementStatus`
+- Update navigation logic: if either NDA or fee is covered, allow proceeding
+- Update copy: "Sign an agreement" instead of "Sign your NDA"
+- Add Fee Agreement button alongside NDA button
+- Update signed state to show "Agreement signed" when either is complete
+
+### Step 3: Add Pending Request Queue to Document Tracking
+- Add a new query hook `usePendingDocumentRequests` that fetches individual rows from `document_requests` where `status IN ('requested', 'email_sent')`
+- Render a collapsible section at the top of DocumentTrackingPage showing each pending request with: recipient name/email, doc type, requested timestamp, firm name
+- Add "Mark Signed" quick action button on each row
+- When "Mark Signed" is clicked, update both `document_requests.status = 'signed'` and the corresponding `firm_agreements` status, recording the admin's identity
+
+### Step 4: Show Admin Attribution on Status Toggles
+- When `AgreementStatusDropdown` changes status to 'signed', also update any matching open `document_requests` row to `status = 'signed'` with `requested_by_admin_id = current admin`
+- Show the admin name in the audit log entries
+
+### Files Changed
+- `src/components/listing/ListingCardActions.tsx` — modal instead of redirect + fix connection click gate
+- `src/pages/PendingApproval.tsx` — either-doc support
+- `src/pages/admin/DocumentTrackingPage.tsx` — pending request queue section
+- `src/components/admin/firm-agreements/AgreementStatusDropdown.tsx` — admin attribution on sign
+
