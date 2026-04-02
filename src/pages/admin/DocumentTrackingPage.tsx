@@ -19,7 +19,6 @@ import {
   ChevronRight,
   History,
   UserMinus,
-  Circle,
 } from 'lucide-react';
 import { formatDistanceToNow, format, differenceInDays } from 'date-fns';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
