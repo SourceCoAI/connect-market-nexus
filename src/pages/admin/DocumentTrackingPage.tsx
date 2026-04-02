@@ -43,14 +43,16 @@ interface FirmRow {
   nda_email_sent_at: string | null;
   nda_signed_at: string | null;
   nda_signed_by_name: string | null;
+  nda_requested_at: string | null;
   fee_agreement_status: AgreementStatus;
   fee_agreement_sent_at: string | null;
   fee_agreement_email_sent_at: string | null;
   fee_agreement_signed_at: string | null;
   fee_agreement_signed_by_name: string | null;
+  fee_agreement_requested_at: string | null;
+  hasPendingRequest: boolean;
   contactName: string | null;
   contactEmail: string | null;
-  // For AgreementStatusDropdown compatibility
   firmAgreement: FirmAgreement;
   members: FirmMember[];
 }
