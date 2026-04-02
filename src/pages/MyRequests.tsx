@@ -425,7 +425,6 @@ function DetailPanel({
               requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
               ndaSigned={ndaSigned}
               feeCovered={feeCovered}
-              feeStatus={feeStatus}
               requestCreatedAt={request.created_at}
             />
 
