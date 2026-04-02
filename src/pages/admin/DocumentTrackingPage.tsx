@@ -595,35 +595,51 @@ export default function DocumentTrackingPage() {
                     variant="outline"
                     className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                     onClick={async () => {
+                      const adminName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : null;
+                      const now = new Date().toISOString();
                       try {
                         await untypedFrom('document_requests')
                           .update({
                             status: 'signed',
-                            updated_at: new Date().toISOString(),
+                            updated_at: now,
                             signed_toggled_by: user?.id || null,
-                            signed_toggled_by_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : null,
-                            signed_at: new Date().toISOString(),
+                            signed_toggled_by_name: adminName,
+                            signed_at: now,
                           })
                           .eq('id', req.id);
 
-                        // Also update firm_agreements if we have a firm_id
                         if (req.firm_id) {
                           const statusCol = req.agreement_type === 'nda' ? 'nda_status' : 'fee_agreement_status';
                           const signedAtCol = req.agreement_type === 'nda' ? 'nda_signed_at' : 'fee_agreement_signed_at';
+                          const signedByCol = req.agreement_type === 'nda' ? 'nda_signed_by_name' : 'fee_agreement_signed_by_name';
                           await supabase
                             .from('firm_agreements')
                             .update({
                               [statusCol]: 'signed',
-                              [signedAtCol]: new Date().toISOString(),
+                              [signedAtCol]: now,
+                              [signedByCol]: adminName,
                             } as never)
                             .eq('id', req.firm_id);
+
+                          await supabase
+                            .from('agreement_audit_log')
+                            .insert({
+                              firm_id: req.firm_id,
+                              agreement_type: req.agreement_type === 'nda' ? 'nda' : 'fee_agreement',
+                              old_status: 'sent',
+                              new_status: 'signed',
+                              changed_by: user?.id || null,
+                              changed_by_name: adminName,
+                              notes: 'Marked signed via pending request queue',
+                            });
                         }
 
                         queryClient.invalidateQueries({ queryKey: ['admin-pending-request-queue'] });
                         queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
                         queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+                        toast({ title: 'Marked as signed', description: `${req.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement'} marked as signed.` });
                       } catch {
-                        // Silently fail
+                        toast({ title: 'Failed to update', variant: 'destructive' });
                       }
                     }}
                   >
