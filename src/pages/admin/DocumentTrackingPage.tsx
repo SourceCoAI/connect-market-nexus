@@ -125,6 +125,13 @@ function useAllFirmsTracking() {
           user: m.user || null,
         })) as FirmMember[];
 
+        const ndaRequestedAt = (firm.nda_requested_at as string) || null;
+        const feeRequestedAt = (firm.fee_agreement_requested_at as string) || null;
+        const hasPendingRequest = (
+          (ndaRequestedAt && (firm.nda_status as string) !== 'signed') ||
+          (feeRequestedAt && (firm.fee_agreement_status as string) !== 'signed')
+        );
+
         return {
           id: firm.id,
           primary_company_name: firm.primary_company_name,
@@ -135,11 +142,14 @@ function useAllFirmsTracking() {
           nda_email_sent_at: firm.nda_email_sent_at,
           nda_signed_at: firm.nda_signed_at,
           nda_signed_by_name: firm.nda_signed_by_name,
+          nda_requested_at: ndaRequestedAt,
           fee_agreement_status: (firm.fee_agreement_status || 'not_started') as AgreementStatus,
           fee_agreement_sent_at: firm.fee_agreement_sent_at || firm.fee_agreement_email_sent_at,
           fee_agreement_email_sent_at: firm.fee_agreement_email_sent_at,
           fee_agreement_signed_at: firm.fee_agreement_signed_at,
           fee_agreement_signed_by_name: firm.fee_agreement_signed_by_name,
+          fee_agreement_requested_at: feeRequestedAt,
+          hasPendingRequest: !!hasPendingRequest,
           contactName,
           contactEmail,
           firmAgreement: firm as unknown as FirmAgreement,
