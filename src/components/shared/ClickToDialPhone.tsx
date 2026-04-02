@@ -1,5 +1,6 @@
-import { Phone, Loader2 } from 'lucide-react';
-import { useQuickDial } from '@/hooks/admin/use-quick-dial';
+import { useState } from 'react';
+import { Phone } from 'lucide-react';
+import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
 import { cn } from '@/lib/utils';
 
 interface ClickToDialPhoneProps {
@@ -18,14 +19,11 @@ interface ClickToDialPhoneProps {
 }
 
 /**
- * Clickable phone number that launches a PhoneBurner dial session.
- * Falls back to a `tel:` link if PhoneBurner is unavailable.
+ * Clickable phone number that opens the Push to PhoneBurner modal
+ * to initiate a dial session with account selection.
  */
 export function ClickToDialPhone({
   phone,
-  name,
-  email,
-  company,
   entityType,
   entityId,
   label,
@@ -33,12 +31,12 @@ export function ClickToDialPhone({
   className,
   size = 'sm',
 }: ClickToDialPhoneProps) {
-  const { dial, isDialing } = useQuickDial();
+  const [dialerOpen, setDialerOpen] = useState(false);
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    dial({ phone, name, email, company, entityType, entityId });
+    setDialerOpen(true);
   };
 
   const sizeClasses = {
@@ -53,45 +51,49 @@ export function ClickToDialPhone({
     md: 'h-3.5 w-3.5',
   };
 
-  if (iconOnly) {
-    return (
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={isDialing}
-        title={`Call ${phone}`}
-        className={cn(
-          'inline-flex items-center justify-center rounded-md p-1 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50',
-          className,
-        )}
-      >
-        {isDialing ? (
-          <Loader2 className={cn(iconSizes[size], 'animate-spin')} />
-        ) : (
-          <Phone className={iconSizes[size]} />
-        )}
-      </button>
-    );
-  }
+  // Map entityType to the dialer modal's expected type
+  const dialerEntityType = entityType || 'contacts';
+
+  // Use entityId if available, otherwise fall back to phone as identifier
+  const contactIds = entityId ? [entityId] : [];
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={isDialing}
-      title={`Call ${phone} via PhoneBurner`}
-      className={cn(
-        'inline-flex items-center font-medium text-green-700 hover:text-green-900 transition-colors disabled:opacity-50',
-        sizeClasses[size],
-        className,
-      )}
-    >
-      {isDialing ? (
-        <Loader2 className={cn(iconSizes[size], 'animate-spin')} />
+    <>
+      {iconOnly ? (
+        <button
+          type="button"
+          onClick={handleClick}
+          title={`Call ${phone}`}
+          className={cn(
+            'inline-flex items-center justify-center rounded-md p-1 text-green-700 hover:bg-green-50 transition-colors',
+            className,
+          )}
+        >
+          <Phone className={iconSizes[size]} />
+        </button>
       ) : (
-        <Phone className={iconSizes[size]} />
+        <button
+          type="button"
+          onClick={handleClick}
+          title={`Call ${phone} via PhoneBurner`}
+          className={cn(
+            'inline-flex items-center font-medium text-green-700 hover:text-green-900 transition-colors',
+            sizeClasses[size],
+            className,
+          )}
+        >
+          <Phone className={iconSizes[size]} />
+          {label ?? phone}
+        </button>
       )}
-      {label ?? phone}
-    </button>
+
+      <PushToDialerModal
+        open={dialerOpen}
+        onOpenChange={setDialerOpen}
+        contactIds={contactIds}
+        contactCount={1}
+        entityType={dialerEntityType}
+      />
+    </>
   );
 }
