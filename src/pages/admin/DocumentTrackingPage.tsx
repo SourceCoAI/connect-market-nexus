@@ -236,6 +236,7 @@ function useRealtimeFirmAgreements() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'document_requests' }, () => {
         queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
         queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-pending-request-queue'] });
       })
       .subscribe();
 
