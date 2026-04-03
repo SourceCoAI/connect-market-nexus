@@ -105,7 +105,7 @@ export function ThreadView({ thread, allBuyerThreads = [], onSelectThread, onBac
   const [newMessage, setNewMessage] = useState('');
   const [reference, setReference] = useState<MessageReference | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showContext, setShowContext] = useState(true);
+  const [showContext, setShowContext] = useState(false);
 
   // Get current admin ID for claim
   const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
