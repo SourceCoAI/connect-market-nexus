@@ -52,6 +52,17 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────
 
+interface DocumentRequestRecord {
+  id: string;
+  agreement_type: string;
+  status: string;
+  created_at: string;
+  recipient_email: string | null;
+  recipient_name: string | null;
+  email_provider_message_id: string | null;
+  last_email_error: string | null;
+}
+
 interface FirmRow {
   id: string;
   primary_company_name: string;
