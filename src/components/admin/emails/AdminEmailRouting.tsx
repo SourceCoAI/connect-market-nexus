@@ -1,4 +1,4 @@
-import { ADMIN_PROFILES } from '@/lib/admin-profiles';
+// Admin email routing data is maintained inline below (derived from ADMIN_PROFILES + edge function audit)
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
