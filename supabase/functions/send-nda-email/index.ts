@@ -379,7 +379,7 @@ ${adminSignature}
 
     // Only use noreply if admin email is not from our domain
     if (!senderEmail.includes('@sourcecodeals.com')) {
-      finalSenderEmail = Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com';
+      finalSenderEmail = Deno.env.get('NOREPLY_EMAIL') || 'support@sourcecodeals.com';
       finalSenderName = `${senderName} - SourceCo`;
     }
 

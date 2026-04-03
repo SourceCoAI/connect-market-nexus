@@ -213,7 +213,7 @@ serve(async (req: Request) => {
     }
 
     // Use the same sender identity as known-working notification emails
-    const senderEmail = Deno.env.get('SENDER_EMAIL') || 'notifications@sourcecodeals.com';
+    const senderEmail = Deno.env.get('SENDER_EMAIL') || 'support@sourcecodeals.com';
 
     // Send email via Brevo — matching the proven sender pattern
     const emailResult = await sendViaBervo({

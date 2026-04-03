@@ -60,7 +60,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Get admin profile for signature - use dynamic admin info
     let senderName = 'SourceCo Admin';
-    let senderEmail = Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com';
+    let senderEmail = Deno.env.get('NOREPLY_EMAIL') || 'support@sourcecodeals.com';
 
     // If admin ID provided, get profile from database (preferred)
     if (adminId) {

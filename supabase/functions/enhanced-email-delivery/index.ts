@@ -78,8 +78,8 @@ const handler = async (req: Request): Promise<Response> => {
       subject,
       htmlContent: content,
       senderName: 'SourceCo Marketplace',
-      senderEmail: Deno.env.get('SENDER_EMAIL') || 'adam.haile@sourcecodeals.com',
-      replyToEmail: Deno.env.get('SENDER_EMAIL') || 'adam.haile@sourcecodeals.com',
+      senderEmail: Deno.env.get('SENDER_EMAIL') || 'support@sourcecodeals.com',
+      replyToEmail: Deno.env.get('SENDER_EMAIL') || 'support@sourcecodeals.com',
       replyToName: Deno.env.get('SENDER_NAME') || 'Adam Haile',
     });
 
