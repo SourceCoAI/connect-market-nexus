@@ -62,10 +62,10 @@ const BlurredFinancialTeaser = ({
             </div>
             
             <h3 className="text-lg font-bold text-slate-900 mb-3">
-              Unlock Detailed Financial Analysis
+              Unlock the Data Room
             </h3>
             <p className="text-[15px] text-slate-600 mb-6 leading-relaxed px-4">
-              Request a connection to access comprehensive financial data, historical performance, and detailed business metrics.
+              Request a connection to access the full data room, including the Confidential Information Memorandum (CIM), real company name, and complete financials.
             </p>
             
             <div className="max-w-xs mx-auto">

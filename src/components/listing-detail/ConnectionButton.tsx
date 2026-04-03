@@ -54,8 +54,8 @@ const ConnectionButton = ({
       if (listingStatus === 'inactive' || listingStatus === 'sold') return;
       // Gate: profile must be complete
       if (user && !isAdmin && !isProfileComplete(user)) return;
-      // Gate: at least ONE agreement must be signed (NDA or Fee Agreement)
-      if (!isAdmin && (!coverage || (!coverage.nda_covered && !coverage.fee_covered))) return;
+      // Gate: Fee Agreement must be signed
+      if (!isAdmin && (!coverage || !coverage.fee_covered)) return;
       setIsDialogOpen(true);
     }
   };
@@ -100,7 +100,7 @@ const ConnectionButton = ({
     }
 
     return {
-      text: 'Request Full Deal Details',
+      text: 'Request Connection and Data Room Access',
       className: 'bg-sourceco hover:bg-sourceco/90 text-sourceco-foreground border-none',
       disabled: false,
     };
@@ -177,8 +177,8 @@ const ConnectionButton = ({
     );
   }
 
-  // Block users who haven't signed at least one agreement (NDA or Fee Agreement)
-  if (!isAdmin && coverage && !coverage.nda_covered && !coverage.fee_covered) {
+  // Block users who haven't signed a Fee Agreement
+  if (!isAdmin && coverage && !coverage.fee_covered) {
     const ndaStatus = coverage.nda_status ?? 'not_started';
     const feeStatus = coverage.fee_status ?? 'not_started';
     const ndaSent = ndaStatus === 'sent';
@@ -260,12 +260,12 @@ const ConnectionButton = ({
           <div className={bothNotRequested ? 'w-full border border-slate-200/60 rounded-lg px-4 py-4' : ''}>
             {bothNotRequested && (
               <>
-                <p className="text-sm font-medium text-foreground">Sign an Agreement</p>
+                <p className="text-sm font-medium text-foreground">Sign Your Fee Agreement</p>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  An NDA or Fee Agreement is required to request deal access. This is a one-time process.
+                  A signed Fee Agreement unlocks the data room, including the CIM, real company name, and full business details.
                 </p>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                  Save this listing so you can request access after signing.
+                  Sign now to unlock full deal access.
                 </p>
               </>
             )}

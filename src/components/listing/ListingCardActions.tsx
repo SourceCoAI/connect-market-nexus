@@ -39,7 +39,7 @@ const ListingCardActions = memo(function ListingCardActions({
   profileCompletePct = 100,
   isBuyerBlocked = false,
   isFeeCovered = true,
-  isNdaCovered = true,
+  isNdaCovered: _isNdaCovered = true,
 }: ListingCardActionsProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [signingOpen, setSigningOpen] = useState(false);
@@ -110,8 +110,8 @@ const ListingCardActions = memo(function ListingCardActions({
     // Gate: profile incomplete
     if (!isProfileComplete) return;
 
-    // Gate: No agreement signed — open signing modal
-    if (!isNdaCovered && !isFeeCovered) {
+    // Gate: Fee Agreement not signed — open signing modal
+    if (!isFeeCovered) {
       setSigningOpen(true);
       return;
     }
@@ -169,8 +169,8 @@ const ListingCardActions = memo(function ListingCardActions({
     );
   }
 
-  // No agreement signed — allow browsing but prompt signing for access
-  if (!isNdaCovered && !isFeeCovered) {
+  // Fee Agreement not signed — allow browsing but prompt signing for access
+  if (!isFeeCovered) {
     return (
       <>
         <div className="space-y-1.5">
@@ -193,10 +193,10 @@ const ListingCardActions = memo(function ListingCardActions({
             }}
           >
             <Shield className="h-3 w-3" />
-            Sign Agreement to Request Access
+            Sign Fee Agreement to Unlock Access
           </button>
           <p className="text-[10px] text-muted-foreground text-center leading-relaxed px-2">
-            Save this listing for later. Sign your agreement to request access.
+            Sign your Fee Agreement to unlock the data room and request introductions.
           </p>
         </div>
         <AgreementSigningModal

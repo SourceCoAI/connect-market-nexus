@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
 
       const bodyHtml = `
         <p>${greeting}</p>
-        <p>Your ${docLabel} for ${firmName} has been recorded and confirmed. You now have full access to browse deals and request introductions on the SourceCo marketplace.</p>
+        <p>Your ${docLabel} for ${firmName} has been recorded and confirmed. You now have full access to browse deals, request introductions, and access the data room on approved deals.</p>
         <div style="text-align: center; margin: 28px 0;">
           <a href="${appUrl}/marketplace" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Browse Deals</a>
         </div>
