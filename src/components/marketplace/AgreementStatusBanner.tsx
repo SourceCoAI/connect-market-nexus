@@ -56,12 +56,12 @@ export function AgreementStatusBanner({ show = 'both', className }: AgreementSta
         icon: Clock,
         message: 'Your NDA is waiting to be signed. Check your email or sign it from the pending approval page.',
       });
-    } else if (!coverage.nda_covered && !coverage.fee_covered) {
+    } else if (!coverage.fee_covered) {
       banners.push({
         key: 'nda',
         variant: 'locked',
         icon: Lock,
-        message: 'An agreement (NDA or Fee Agreement) is required to view deal details.',
+        message: 'A signed Fee Agreement is required to request deal access and unlock the data room.',
       });
     }
   }

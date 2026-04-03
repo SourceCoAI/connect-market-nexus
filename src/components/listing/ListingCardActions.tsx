@@ -193,10 +193,10 @@ const ListingCardActions = memo(function ListingCardActions({
             }}
           >
             <Shield className="h-3 w-3" />
-            Sign Agreement to Request Access
+            Sign Fee Agreement to Unlock Access
           </button>
           <p className="text-[10px] text-muted-foreground text-center leading-relaxed px-2">
-            Save this listing for later. Sign your agreement to request access.
+            Sign your Fee Agreement to unlock the data room and request introductions.
           </p>
         </div>
         <AgreementSigningModal

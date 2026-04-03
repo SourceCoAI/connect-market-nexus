@@ -40,7 +40,7 @@ const PendingApproval = () => {
   const [signingType, setSigningType] = useState<'nda' | 'fee_agreement'>('nda');
 
   const { data: agreementStatus } = useMyAgreementStatus(!!user);
-  const hasAnyAgreement = agreementStatus?.nda_covered || agreementStatus?.fee_covered;
+  const hasAnyAgreement = agreementStatus?.fee_covered;
 
   // Auto-poll approval status every 30s
   useEffect(() => {

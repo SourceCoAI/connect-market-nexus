@@ -331,10 +331,10 @@ const ListingDetail = () => {
               <div className="bg-white/50 border border-slate-200/60 rounded-lg p-6 shadow-sm">
                 <div className="text-center mb-6">
                   <h3 className="text-base font-medium text-foreground mb-2">
-                    Request an Introduction
+                    Request Access to This Deal
                   </h3>
                   <p className="text-xs text-foreground/70 leading-relaxed">
-                    Our team will make a direct introduction to the business owner.
+                    Request a connection to unlock the data room. Once approved, you get immediate access to the CIM, real company name, and full business details.
                   </p>
                 </div>
 

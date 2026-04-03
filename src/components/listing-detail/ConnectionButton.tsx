@@ -260,12 +260,12 @@ const ConnectionButton = ({
           <div className={bothNotRequested ? 'w-full border border-slate-200/60 rounded-lg px-4 py-4' : ''}>
             {bothNotRequested && (
               <>
-                <p className="text-sm font-medium text-foreground">Sign an Agreement</p>
+                <p className="text-sm font-medium text-foreground">Sign Your Fee Agreement</p>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  An NDA or Fee Agreement is required to request deal access. This is a one-time process.
+                  A signed Fee Agreement unlocks the data room, including the CIM, real company name, and full business details.
                 </p>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                  Save this listing so you can request access after signing.
+                  Sign now to unlock full deal access.
                 </p>
               </>
             )}
