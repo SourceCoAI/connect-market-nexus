@@ -39,9 +39,11 @@ const RECIPIENT_STYLES: Record<RecipientType, string> = {
   Dynamic: 'bg-pink-500/15 text-pink-700 dark:text-pink-400 border-pink-500/20',
 };
 
-// Shared preview building blocks — zero borders, brand palette only
+// Shared preview building blocks
 const LOGO_URL = 'https://cdn.prod.website-files.com/66851dae8a2c8c3f8cd9c703/66af956d372d85d43f02f481_Group%202%20(4)%20(1).png';
-const wrapperStart = `<div style="font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #FFFFFF;">
+const outerStart = `<div style="background: #FAFAF8; padding: 40px 0;">`;
+const outerEnd = `</div>`;
+const wrapperStart = `${outerStart}<div style="font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #FFFFFF;">
   <div style="padding: 40px 40px 32px; text-align: center;">
     <img src="${LOGO_URL}" alt="SourceCo" height="36" style="height: 36px; width: auto;" />
   </div>
@@ -50,11 +52,11 @@ const wrapperEnd = `</div>
   <div style="padding: 32px 40px; text-align: center;">
     <p style="margin: 0; font-size: 11px; color: #9B9B9B;">&copy; 2026 SourceCo</p>
   </div>
-</div>`;
+</div>${outerEnd}`;
 const ctaBtn = (text: string) => `<div style="text-align: center; margin: 28px 0;"><a href="#" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">${text}</a></div>`;
-const infoBox = (text: string) => `<div style="background: #F7F6F3; padding: 24px; margin: 24px 0;"><p style="margin: 0; color: #1A1A1A; font-size: 14px;">${text}</p></div>`;
 const label = (l: string, v: string) => `<p style="margin: 4px 0; font-size: 13px;"><span style="color: #6B6B6B;">${l}:</span> ${v}</p>`;
-const detailBox = (content: string) => `<div style="background: #F7F6F3; padding: 20px; margin: 20px 0;">${content}</div>`;
+const detailBox = (content: string) => `<div style="background: #F7F6F3; padding: 20px; margin: 24px 0;">${content}</div>`;
+const signoff = `<p style="color: #6B6B6B; margin-top: 28px; font-size: 13px;">The SourceCo Team</p>`;
 
 const EMAIL_CATALOG: CatalogCategory[] = [
   {
@@ -67,7 +69,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'User creates an account',
         edgeFunction: 'Supabase Auth (built-in)',
         designNotes: 'Supabase default auth email with confirmation link',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Click the link below to confirm your email address and activate your account.</p>${ctaBtn('Confirm Email')}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>Click the link below to confirm your email address and activate your account.</p>${ctaBtn('Confirm Email')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Email Verification Resolved',
@@ -76,7 +78,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Admin resolves stuck email verification',
         edgeFunction: 'send-verification-success-email',
         designNotes: 'Branded wrapper, welcome message, CTA to explore marketplace',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Your email has been verified. You now have full access to the SourceCo marketplace.</p>${ctaBtn('Explore Marketplace')}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>Your email has been verified. You now have full access to the SourceCo marketplace.</p>${ctaBtn('Explore Marketplace')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Technical Verification Fix',
@@ -85,7 +87,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Admin fixes technical verification issue',
         edgeFunction: 'send-simple-verification-email',
         designNotes: 'Branded wrapper, apology for technical issue, CTA to access account',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">We resolved a technical issue that was preventing your email verification. Your account is now fully active.</p>${ctaBtn('Access Your Account')}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>We resolved a technical issue that was preventing your email verification. Your account is now fully active.</p>${ctaBtn('Access Your Account')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Password Reset',
@@ -94,7 +96,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'User requests password reset',
         edgeFunction: 'password-reset',
         designNotes: 'Branded wrapper, reset instructions, time-limited CTA button',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">We received a request to reset your password. Click the button below to choose a new password.</p>${ctaBtn('Reset Password')}<p style="color: #9B9B9B; font-size: 12px;">This link expires in 1 hour. If you did not request this, ignore this email.</p>${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>We received a request to reset your password. Click the button below to choose a new one.</p>${ctaBtn('Reset Password')}<p style="color: #9B9B9B; font-size: 12px;">This link expires in 1 hour. If you did not request this, ignore this email.</p>${wrapperEnd}`,
       },
       {
         name: 'Onboarding Day 2',
@@ -103,7 +105,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: '2 days after signup, no connection request',
         edgeFunction: 'send-onboarding-day2',
         designNotes: 'Branded wrapper, pipeline highlights, CTA to browse deals',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Here is a quick look at active opportunities that match your profile.</p>${infoBox('3 new deals added this week matching your criteria')}<p style="color: #1A1A1A;">Take a look and let us know if anything catches your eye.</p>${ctaBtn('Browse Deals')}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>3 new deals were added this week that match your criteria. Take a look and let us know if anything stands out.</p>${ctaBtn('Browse Deals')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Onboarding Day 7',
@@ -112,7 +114,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: '7 days after signup re-engagement',
         edgeFunction: 'send-onboarding-day7',
         designNotes: 'Branded wrapper, social proof, active deal highlights, CTA',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Here is what other buyers are pursuing right now on the marketplace.</p>${infoBox('12 active buyers exploring deals this week')}<p style="color: #1A1A1A;">New deals are added regularly. Browse the latest below.</p>${ctaBtn('View Active Deals')}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>12 active buyers are exploring deals this week. New opportunities are added regularly.</p>${ctaBtn('View Active Deals')}${signoff}${wrapperEnd}`,
       },
     ],
   },
@@ -125,8 +127,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Buyer',
         trigger: "Admin approves buyer's marketplace application",
         edgeFunction: 'approve-marketplace-buyer',
-        designNotes: 'Branded wrapper, deal details table (company, revenue, EBITDA), CTA to view deal',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">You have been approved to view this investment opportunity.</p>${detailBox(`<table style="width: 100%;"><tr><td style="padding: 6px 0; color: #6B6B6B;">Company:</td><td style="color: #1A1A1A;">Acme Services LLC</td></tr><tr><td style="padding: 6px 0; color: #6B6B6B;">Revenue:</td><td style="color: #1A1A1A;">$5,200,000</td></tr><tr><td style="padding: 6px 0; color: #6B6B6B;">EBITDA:</td><td style="color: #1A1A1A;">$1,100,000</td></tr></table>`)}${ctaBtn('View Deal Details')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, deal details table, CTA to view deal',
+        previewHtml: `${wrapperStart}<p>You have been approved to view this investment opportunity.</p>${detailBox(`<table style="width: 100%;"><tr><td style="padding: 6px 0; color: #6B6B6B;">Company</td><td>Acme Services LLC</td></tr><tr><td style="padding: 6px 0; color: #6B6B6B;">Revenue</td><td>$5,200,000</td></tr><tr><td style="padding: 6px 0; color: #6B6B6B;">EBITDA</td><td>$1,100,000</td></tr></table>`)}${ctaBtn('View Deal Details')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Marketplace Invitation',
@@ -135,7 +137,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Admin sends marketplace invitation',
         edgeFunction: 'send-marketplace-invitation',
         designNotes: 'Branded wrapper, personalized greeting, marketplace benefits, CTA to join',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Hi Jane, you have been invited to join the SourceCo Marketplace, an exclusive platform for vetted buyers.</p>${infoBox('Access curated deal flow in your target sectors')}<p style="color: #1A1A1A;">Join today to start receiving matched opportunities.</p>${ctaBtn('Accept Invitation')}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>Hi Jane, you have been invited to join the SourceCo Marketplace. It is a curated platform for vetted buyers to access deal flow in their target sectors.</p>${ctaBtn('Accept Invitation')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Buyer Rejection',
@@ -143,8 +145,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Buyer',
         trigger: 'Admin rejects buyer for a deal',
         edgeFunction: 'notify-buyer-rejection',
-        designNotes: 'Branded wrapper, professional decline message, encouragement to explore other deals',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Thank you for your interest in Acme Corp. After careful review, we have determined this opportunity may not be the best fit at this time.</p><p style="color: #1A1A1A;">We encourage you to continue exploring other opportunities on the marketplace.</p>${ctaBtn('Browse Other Deals')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, professional decline message',
+        previewHtml: `${wrapperStart}<p>Thank you for your interest in Acme Corp. After review, we have determined this opportunity is not the right fit at this time.</p>${ctaBtn('Browse Other Deals')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Connection Request Confirmation',
@@ -153,8 +155,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'User submits a connection request',
         edgeFunction: 'send-connection-notification',
         variant: 'type: user_confirmation',
-        designNotes: 'Branded wrapper, confirmation of request, next steps info',
-        previewHtml: `${wrapperStart}${infoBox('Your introduction request has been received and is being reviewed.')}<p style="color: #1A1A1A;">We will review your request and get back to you shortly. In the meantime, feel free to explore other opportunities.</p>${ctaBtn('View Your Requests')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, confirmation of request, next steps',
+        previewHtml: `${wrapperStart}<p>Your introduction request has been received and is being reviewed. We will follow up once a decision has been made.</p>${ctaBtn('View Your Requests')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Connection Approval',
@@ -163,8 +165,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Admin approves connection request',
         edgeFunction: 'send-connection-notification',
         variant: 'type: approval_notification',
-        designNotes: 'Branded wrapper, approval banner, deal details, CTA to view deal',
-        previewHtml: `${wrapperStart}${infoBox('Your introduction request has been approved.')}<p style="color: #1A1A1A;">You now have access to the full deal details. Review the information and reach out to get started.</p>${ctaBtn('View Deal')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, approval notice, CTA to view deal',
+        previewHtml: `${wrapperStart}<p>Your introduction request has been approved. You now have access to the full deal details.</p>${ctaBtn('View Deal')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Connection Admin Notification',
@@ -173,8 +175,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Buyer submits a connection request',
         edgeFunction: 'send-connection-notification',
         variant: 'type: admin_notification',
-        designNotes: 'Branded wrapper, buyer details, deal details, CTA to review in admin',
-        previewHtml: `${wrapperStart}${infoBox('Jane Smith from Apex Capital has requested an introduction.')}${detailBox(`${label('Deal', 'Project Acme')}${label('Buyer', 'Jane Smith')}${label('Firm', 'Apex Capital')}`)}${ctaBtn('Review Request')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, buyer and deal details, CTA to review',
+        previewHtml: `${wrapperStart}<p>Jane Smith from Apex Capital has requested an introduction.</p>${detailBox(`${label('Deal', 'Project Acme')}${label('Buyer', 'Jane Smith')}${label('Firm', 'Apex Capital')}`)}${ctaBtn('Review Request')}${wrapperEnd}`,
       },
       {
         name: 'Deal Alert',
@@ -182,8 +184,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Buyer',
         trigger: "New listing matches buyer's alert criteria",
         edgeFunction: 'send-deal-alert',
-        designNotes: 'Branded wrapper, deal summary card, key metrics, CTA to view listing',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">A new deal has been added that matches your acquisition criteria.</p>${detailBox(`<p style="margin: 0 0 8px; font-size: 15px; color: #1A1A1A;">IT Services Company, Southeast</p>${label('Revenue', '$3.2M')}${label('EBITDA', '$800K')}`)}${ctaBtn('View Deal')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, deal summary, key metrics, CTA to view listing',
+        previewHtml: `${wrapperStart}<p>A new deal has been added that matches your acquisition criteria.</p>${detailBox(`<p style="margin: 0 0 8px;">IT Services Company, Southeast</p>${label('Revenue', '$3.2M')}${label('EBITDA', '$800K')}`)}${ctaBtn('View Deal')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Deal Referral',
@@ -191,8 +193,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'User',
         trigger: 'User shares a deal via referral',
         edgeFunction: 'send-deal-referral',
-        designNotes: 'Branded wrapper, referrer name, optional personal message, deal card with metrics, CTA',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A; font-size: 17px;">John Doe thought you would be interested</p><p style="color: #6B6B6B; margin: 0 0 24px;">They shared a business listing with you.</p><div style="background: #F7F6F3; padding: 16px; margin: 0 0 24px;"><p style="margin: 0; font-style: italic; color: #6B6B6B;">"Take a look at this. Right in your sweet spot."</p></div>${detailBox(`<p style="margin: 0 0 8px; font-size: 15px; color: #1A1A1A;">Managed IT Services Provider</p><p style="margin: 4px 0; font-size: 12px; color: #6B6B6B;">Revenue: $2.1M  /  EBITDA: $450K</p>`)}${ctaBtn('View Full Listing')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, referrer name, optional personal message, deal card, CTA',
+        previewHtml: `${wrapperStart}<p>John Doe shared a business listing with you.</p>${detailBox(`<p style="margin: 0 0 8px;">Managed IT Services Provider</p>${label('Revenue', '$2.1M')}${label('EBITDA', '$450K')}`)}${ctaBtn('View Full Listing')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Templated Approval (NDA Signed)',
@@ -201,8 +203,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Buyer approved and has already signed NDA',
         edgeFunction: 'send-templated-approval-email',
         variant: 'NDA already signed',
-        designNotes: 'Branded wrapper, full access confirmation, CTA to view deal room',
-        previewHtml: `${wrapperStart}${infoBox("You are approved and your NDA is on file. Full access is now available.")}<p style="color: #1A1A1A;">You can now access the complete data room, financials, and all deal materials.</p>${ctaBtn('Enter Data Room')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, full access confirmation, CTA to data room',
+        previewHtml: `${wrapperStart}<p>You are approved and your NDA is on file. You can now access the complete data room, financials, and all deal materials.</p>${ctaBtn('Enter Data Room')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Templated Approval (NDA Unsigned)',
@@ -211,8 +213,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Buyer approved but NDA not yet signed',
         edgeFunction: 'send-templated-approval-email',
         variant: 'NDA not yet signed',
-        designNotes: 'Branded wrapper, approval notice with NDA requirement, CTA to sign NDA',
-        previewHtml: `${wrapperStart}${infoBox("You have been approved. Sign the NDA to unlock full access.")}<p style="color: #1A1A1A;">Please review and sign the NDA to access the full data room and financials.</p>${ctaBtn('Sign NDA Now')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, approval with NDA requirement, CTA to sign NDA',
+        previewHtml: `${wrapperStart}<p>You have been approved. Sign the NDA to unlock full access to the data room and financials.</p>${ctaBtn('Sign NDA Now')}${signoff}${wrapperEnd}`,
       },
     ],
   },
@@ -226,8 +228,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Buyer needs to sign NDA for deal access',
         edgeFunction: 'request-agreement-email',
         variant: 'docLabel = NDA',
-        designNotes: 'Branded wrapper, document request details, CTA to review and sign',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">To proceed with this opportunity, please review and sign the Non-Disclosure Agreement.</p>${detailBox(`${label('Document', 'Non-Disclosure Agreement')}${label('Deal', 'Project Acme')}`)}${ctaBtn('Review & Sign NDA')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, document request, CTA to review and sign',
+        previewHtml: `${wrapperStart}<p>To proceed with this opportunity, please review and sign the Non-Disclosure Agreement.</p>${detailBox(`${label('Document', 'Non-Disclosure Agreement')}${label('Deal', 'Project Acme')}`)}${ctaBtn('Review & Sign NDA')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Fee Agreement Request',
@@ -237,7 +239,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         edgeFunction: 'request-agreement-email',
         variant: 'docLabel = Fee Agreement',
         designNotes: 'Branded wrapper, fee agreement details, CTA to review and sign',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">To proceed with this opportunity, please review and sign the Fee Agreement.</p>${detailBox(`${label('Document', 'Fee Agreement')}${label('Deal', 'Project Acme')}`)}${ctaBtn('Review & Sign Agreement')}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>To proceed with this opportunity, please review and sign the Fee Agreement.</p>${detailBox(`${label('Document', 'Fee Agreement')}${label('Deal', 'Project Acme')}`)}${ctaBtn('Review & Sign Agreement')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Data Room Access Granted',
@@ -245,8 +247,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Buyer',
         trigger: 'Admin grants data room access',
         edgeFunction: 'grant-data-room-access',
-        designNotes: 'Branded wrapper, access confirmation, deal project name, CTA to enter data room',
-        previewHtml: `${wrapperStart}${infoBox('You now have access to the data room for Project Acme.')}<p style="color: #1A1A1A;">The data room contains financial documents, operational data, and other confidential materials for your review.</p>${ctaBtn('Enter Data Room')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, access confirmation, CTA to enter data room',
+        previewHtml: `${wrapperStart}<p>You now have access to the data room for Project Acme. It contains financial documents, operational data, and other confidential materials for your review.</p>${ctaBtn('Enter Data Room')}${signoff}${wrapperEnd}`,
       },
     ],
   },
@@ -259,8 +261,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Admin',
         trigger: 'Admin assigns deal to an owner',
         edgeFunction: 'notify-new-deal-owner',
-        designNotes: 'Branded wrapper, deal info, buyer details, responsibilities, CTA to view deal',
-        previewHtml: `${wrapperStart}${infoBox("You have been assigned as the owner of \"Project Acme\" by Sarah.")}${detailBox(`${label('Company', 'Acme Services')}${label('Buyer', 'Jane Smith / jane@apex.com')}`)}${ctaBtn('View Deal Details')}<div style="background: #F7F6F3; padding: 20px; margin: 20px 0;"><p style="margin: 0 0 8px; color: #6B6B6B; font-size: 14px;">Your responsibilities:</p><ul style="margin: 0; padding-left: 20px; color: #1A1A1A; font-size: 13px;"><li>Review deal details and buyer info</li><li>Follow up with buyer promptly</li><li>Keep deal status updated</li></ul></div>${wrapperEnd}`,
+        designNotes: 'Branded wrapper, deal info, responsibilities, CTA to view deal',
+        previewHtml: `${wrapperStart}<p>You have been assigned as the owner of Project Acme by Sarah.</p>${detailBox(`${label('Company', 'Acme Services')}${label('Buyer', 'Jane Smith / jane@apex.com')}<p style="margin: 16px 0 4px; font-size: 13px; color: #6B6B6B;">Next steps:</p><p style="margin: 4px 0; font-size: 13px;">Review deal details and buyer info. Follow up with the buyer promptly. Keep the deal status updated.</p>`)}${ctaBtn('View Deal Details')}${wrapperEnd}`,
       },
       {
         name: 'Deal Reassignment',
@@ -268,8 +270,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Admin',
         trigger: 'Deal is reassigned to a different owner or unassigned',
         edgeFunction: 'notify-deal-reassignment',
-        designNotes: 'Branded wrapper, deal info table with previous/new owner, CTA to pipeline',
-        previewHtml: `${wrapperStart}${infoBox('Your deal has been reassigned to Sarah Johnson.')}<table style="width: 100%; border-collapse: collapse;"><tr><td style="padding: 8px 0; color: #6B6B6B;">Deal:</td><td style="color: #1A1A1A;">Project Acme</td></tr><tr><td style="padding: 8px 0; color: #6B6B6B;">Previous Owner:</td><td style="color: #1A1A1A;">Adam Haile</td></tr><tr><td style="padding: 8px 0; color: #6B6B6B;">New Owner:</td><td style="color: #1A1A1A;">Sarah Johnson</td></tr></table>${ctaBtn('Open Deal in Pipeline')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, deal info with previous/new owner, CTA to pipeline',
+        previewHtml: `${wrapperStart}<p>Your deal has been reassigned to Sarah Johnson.</p>${detailBox(`${label('Deal', 'Project Acme')}${label('Previous Owner', 'Adam Haile')}${label('New Owner', 'Sarah Johnson')}`)}${ctaBtn('Open Deal in Pipeline')}${wrapperEnd}`,
       },
       {
         name: 'Deal Owner Change',
@@ -277,8 +279,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Owner',
         trigger: 'Deal details or ownership modified',
         edgeFunction: 'notify-deal-owner-change',
-        designNotes: 'Branded wrapper, modification summary, deal details, CTA to view changes',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Changes have been made to the deal for Acme Corp.</p>${detailBox(`${label('Company', 'Acme Corp')}${label('Modified by', 'Sarah Johnson')}`)}${ctaBtn('View Deal')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, modification summary, CTA to view changes',
+        previewHtml: `${wrapperStart}<p>Changes have been made to the deal for Acme Corp.</p>${detailBox(`${label('Company', 'Acme Corp')}${label('Modified by', 'Sarah Johnson')}`)}${ctaBtn('View Deal')}${wrapperEnd}`,
       },
       {
         name: 'Owner Inquiry Notification',
@@ -286,8 +288,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Admin',
         trigger: 'Owner inquiry submitted about a deal',
         edgeFunction: 'send-owner-inquiry-notification',
-        designNotes: 'Branded wrapper, inquiry details with company and revenue, CTA to review',
-        previewHtml: `${wrapperStart}${infoBox('A new owner inquiry has been submitted.')}${detailBox(`${label('Company', 'Acme Services LLC')}${label('Revenue', '$2M - $5M')}${label('Contact', 'John Owner')}`)}${ctaBtn('Review Inquiry')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, inquiry details, CTA to review',
+        previewHtml: `${wrapperStart}<p>A new owner inquiry has been submitted.</p>${detailBox(`${label('Company', 'Acme Services LLC')}${label('Revenue', '$2M - $5M')}${label('Contact', 'John Owner')}`)}${ctaBtn('Review Inquiry')}${wrapperEnd}`,
       },
       {
         name: 'Owner Intro Notification',
@@ -295,8 +297,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Admin',
         trigger: 'Buyer is introduced to deal owner',
         edgeFunction: 'send-owner-intro-notification',
-        designNotes: 'Branded wrapper, intro details with buyer to company mapping, CTA to view intro',
-        previewHtml: `${wrapperStart}${infoBox('A buyer introduction has been requested.')}${detailBox(`${label('Buyer', 'Jane Smith (Apex Capital)')}${label('Company', 'Acme Services LLC')}`)}${ctaBtn('View Introduction')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, intro details, CTA to view intro',
+        previewHtml: `${wrapperStart}<p>A buyer introduction has been requested.</p>${detailBox(`${label('Buyer', 'Jane Smith (Apex Capital)')}${label('Company', 'Acme Services LLC')}`)}${ctaBtn('View Introduction')}${wrapperEnd}`,
       },
       {
         name: 'Memo Email',
@@ -304,8 +306,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Dynamic',
         trigger: 'Admin sends a memo/CIM to a recipient',
         edgeFunction: 'send-memo-email',
-        designNotes: 'Branded wrapper, admin-composed body content, attachment links if applicable',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Please find the attached Confidential Information Memorandum for your review.</p><div style="background: #F7F6F3; padding: 16px; margin: 16px 0;"><p style="margin: 0; font-size: 13px;"><a href="#" style="color: #1A1A1A; text-decoration: underline;">Project_Acme_CIM.pdf</a></p></div><p style="color: #1A1A1A;">This document is strictly confidential. Please do not distribute without authorization.</p>${wrapperEnd}`,
+        designNotes: 'Branded wrapper, admin-composed body, attachment links',
+        previewHtml: `${wrapperStart}<p>Please find the attached Confidential Information Memorandum for your review.</p>${detailBox(`<p style="margin: 0; font-size: 13px;"><a href="#" style="color: #1A1A1A; text-decoration: underline;">Project_Acme_CIM.pdf</a></p>`)}<p style="font-size: 13px; color: #6B6B6B;">This document is strictly confidential. Do not distribute without authorization.</p>${wrapperEnd}`,
       },
     ],
   },
@@ -319,7 +321,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Admin replies in message center',
         edgeFunction: 'notify-buyer-new-message',
         designNotes: 'Branded wrapper, message preview, CTA to view full message',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">You have a new message regarding Project Acme.</p><div style="background: #F7F6F3; padding: 16px; margin: 20px 0;"><p style="margin: 0; color: #1A1A1A; font-size: 14px;">"Hi Jane, thanks for your interest. I would like to schedule a call to discuss the opportunity further..."</p></div>${ctaBtn('View Full Message')}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>You have a new message regarding Project Acme.</p>${detailBox(`<p style="margin: 0; font-size: 14px;">Hi Jane, thanks for your interest. I would like to schedule a call to discuss the opportunity further...</p>`)}<p style="font-size: 13px; color: #6B6B6B;">Log in to read the full message and reply.</p>${ctaBtn('View Full Message')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Admin New Message',
@@ -327,8 +329,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Admin',
         trigger: 'Buyer sends message via message center',
         edgeFunction: 'notify-admin-new-message',
-        designNotes: 'Branded wrapper, buyer info, message preview, CTA to reply in admin',
-        previewHtml: `${wrapperStart}${infoBox('Jane Smith sent a new message about Project Acme.')}<div style="background: #F7F6F3; padding: 16px; margin: 16px 0;"><p style="margin: 0 0 8px; font-size: 12px; color: #6B6B6B;">From: Jane Smith / Apex Capital</p><p style="margin: 0; color: #1A1A1A; font-size: 14px;">"I am very interested in this opportunity. Could we schedule a call this week?"</p></div>${ctaBtn('Reply in Admin')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, buyer info, message preview, CTA to reply',
+        previewHtml: `${wrapperStart}<p>Jane Smith sent a new message about Project Acme.</p>${detailBox(`<p style="margin: 0 0 8px; font-size: 12px; color: #6B6B6B;">From: Jane Smith / Apex Capital</p><p style="margin: 0; font-size: 14px;">I am very interested in this opportunity. Could we schedule a call this week?</p>`)}${ctaBtn('Reply in Admin')}${wrapperEnd}`,
       },
     ],
   },
@@ -342,8 +344,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'User creates an account (journey event)',
         edgeFunction: 'user-journey-notifications',
         variant: 'event_type: user_created',
-        designNotes: 'Branded wrapper, application received confirmation, next steps',
-        previewHtml: `${wrapperStart}${infoBox('Your application to SourceCo has been received.')}<p style="color: #1A1A1A;">Our team will review your application and get back to you shortly.</p><p style="color: #1A1A1A;">In the meantime, make sure your profile is complete to speed up the review process.</p>${ctaBtn('Complete Your Profile')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, application received, next steps',
+        previewHtml: `${wrapperStart}<p>Your application has been received. We will review it and follow up once a decision has been made. Make sure your profile is complete to speed up the process.</p>${ctaBtn('Complete Your Profile')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Journey: Email Verified',
@@ -352,8 +354,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'User verifies their email (journey event)',
         edgeFunction: 'user-journey-notifications',
         variant: 'event_type: email_verified',
-        designNotes: 'Branded wrapper, email confirmed notice, queue status',
-        previewHtml: `${wrapperStart}${infoBox("Your email is confirmed. You are in the review queue.")}<p style="color: #1A1A1A;">We are reviewing your application. You will hear from us once your account has been approved.</p>${wrapperEnd}`,
+        designNotes: 'Branded wrapper, email confirmed, queue status',
+        previewHtml: `${wrapperStart}<p>Your email is confirmed. You are in the review queue. We will notify you once your account has been approved.</p>${signoff}${wrapperEnd}`,
       },
       {
         name: 'Journey: Profile Approved',
@@ -362,28 +364,18 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Admin approves user profile (journey event)',
         edgeFunction: 'user-journey-notifications',
         variant: 'event_type: profile_approved',
-        designNotes: 'Branded wrapper, welcome message, getting started steps, CTA to explore',
-        previewHtml: `${wrapperStart}${infoBox('Your account has been approved. Welcome aboard.')}<p style="color: #1A1A1A;">You now have full access to the SourceCo marketplace. Here is how to get started:</p><ul style="color: #1A1A1A; line-height: 1.8;"><li>Browse active deals matching your criteria</li><li>Set up deal alerts for new opportunities</li><li>Submit connection requests for deals you are interested in</li></ul>${ctaBtn('Explore Marketplace')}${wrapperEnd}`,
-      },
-      {
-        name: 'Journey: Profile Rejected',
-        subject: 'SourceCo Account Update',
-        recipient: 'User',
-        trigger: 'Admin rejects user profile (journey event)',
-        edgeFunction: 'user-journey-notifications',
-        variant: 'event_type: profile_rejected',
-        designNotes: 'Branded wrapper, professional update message, contact info for questions',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Thank you for your interest in SourceCo. After reviewing your application, we are unable to approve your account at this time.</p><p style="color: #1A1A1A;">If you believe this was in error or have additional information to share, please do not hesitate to reach out.</p><p style="color: #6B6B6B;">Best regards,<br>The SourceCo Team</p>${wrapperEnd}`,
+        designNotes: 'Branded wrapper, approval confirmation, CTA to browse marketplace',
+        previewHtml: `${wrapperStart}<p>Your account has been approved. You now have full access to the SourceCo marketplace.</p>${ctaBtn('Browse Marketplace')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Journey: Admin New User',
-        subject: 'New User Registration: [Name] ([Email])',
+        subject: 'New user signup: [Name]',
         recipient: 'Admin',
         trigger: 'New user signs up (admin notification)',
         edgeFunction: 'user-journey-notifications',
-        variant: 'admin notification on user_created',
-        designNotes: 'Branded wrapper, new user details, buyer type, CTA to review in admin',
-        previewHtml: `${wrapperStart}${infoBox('A new user has registered on the platform.')}${detailBox(`${label('Name', 'Jane Smith')}${label('Email', 'jane@apexcapital.com')}${label('Buyer Type', 'Private Equity')}`)}${ctaBtn('Review in Admin')}${wrapperEnd}`,
+        variant: 'event_type: admin_new_user',
+        designNotes: 'Branded wrapper, new user details, CTA to review',
+        previewHtml: `${wrapperStart}<p>A new user has signed up and needs review.</p>${detailBox(`${label('Name', 'Jane Smith')}${label('Email', 'jane@apex.com')}${label('Company', 'Apex Capital')}${label('Type', 'Private Equity')}`)}${ctaBtn('Review User')}${wrapperEnd}`,
       },
     ],
   },
@@ -392,12 +384,12 @@ const EMAIL_CATALOG: CatalogCategory[] = [
     emails: [
       {
         name: 'Enhanced Admin Notification',
-        subject: 'New User Registration: Action Required',
+        subject: '[Deal]: [Action Type] Notification',
         recipient: 'Admin',
-        trigger: 'New user signs up (enhanced notification)',
-        edgeFunction: 'enhanced-admin-notification',
-        designNotes: 'Branded wrapper, detailed user info, action required banner, CTA to admin dashboard',
-        previewHtml: `${wrapperStart}${infoBox('Action required. A new user needs review.')}${detailBox(`${label('Name', 'Jane Smith')}${label('Email', 'jane@apex.com')}${label('Company', 'Apex Capital')}${label('Type', 'Private Equity')}`)}${ctaBtn('Review User')}${wrapperEnd}`,
+        trigger: 'Various admin-level events (deal updates, buyer actions, etc.)',
+        edgeFunction: 'send-enhanced-admin-notification',
+        designNotes: 'Branded wrapper, action summary, context details, CTA to admin panel',
+        previewHtml: `${wrapperStart}<p>A buyer has submitted a new connection request for Project Acme.</p>${detailBox(`${label('Deal', 'Project Acme')}${label('Buyer', 'Jane Smith')}${label('Action', 'Connection Request')}`)}${ctaBtn('View in Admin Panel')}${wrapperEnd}`,
       },
       {
         name: 'Feedback Notification',
@@ -405,8 +397,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Admin',
         trigger: 'User submits feedback',
         edgeFunction: 'send-feedback-notification',
-        designNotes: 'Branded wrapper, feedback details (category, priority, message), CTA to admin dashboard',
-        previewHtml: `${wrapperStart}<p style="color: #6B6B6B;">A user has submitted feedback that requires your attention.</p>${detailBox(`${label('Category', 'Bug Report')}${label('Priority', 'Urgent')}${label('From', 'Jane Smith')}<div style="background: #FFFFFF; padding: 15px; margin-top: 12px;"><p style="margin: 0; color: #1A1A1A;">The data room download button is not working on the Project Acme page.</p></div>`)}${ctaBtn('View in Admin Dashboard')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, feedback details, CTA to admin dashboard',
+        previewHtml: `${wrapperStart}<p>A user has submitted feedback.</p>${detailBox(`${label('Category', 'Bug Report')}${label('Priority', 'Urgent')}${label('From', 'Jane Smith')}<p style="margin: 12px 0 0; font-size: 13px; color: #1A1A1A;">The data room download button is not working on the Project Acme page.</p>`)}${ctaBtn('View in Admin Dashboard')}${wrapperEnd}`,
       },
       {
         name: 'Contact Form Response',
@@ -414,8 +406,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'User',
         trigger: 'Admin responds to user feedback via email',
         edgeFunction: 'send-contact-response',
-        designNotes: 'Branded wrapper, admin-composed reply content',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Hi Jane,</p><p style="color: #1A1A1A;">Thanks for reaching out. We have looked into the issue you reported and it has been resolved. The data room download should now be working correctly.</p><p style="color: #1A1A1A;">Please let us know if you run into any other issues.</p><p style="color: #6B6B6B;">Best regards,<br>The SourceCo Team</p>${wrapperEnd}`,
+        designNotes: 'Branded wrapper, admin-composed reply',
+        previewHtml: `${wrapperStart}<p>Hi Jane,</p><p>Thanks for reaching out. We looked into the issue you reported and it has been resolved. The data room download should now be working correctly.</p><p>Let us know if you run into any other issues.</p>${signoff}${wrapperEnd}`,
       },
       {
         name: 'Task Notification',
@@ -423,8 +415,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Admin',
         trigger: 'Task assigned to admin in deal pipeline',
         edgeFunction: 'send-task-notification-email',
-        designNotes: 'Branded wrapper, task details, assignee info, CTA to view task',
-        previewHtml: `${wrapperStart}${infoBox('A new task has been assigned to you.')}${detailBox(`${label('Task', 'Follow up with buyer on NDA')}${label('Deal', 'Project Acme')}${label('Due', 'April 5, 2026')}`)}${ctaBtn('View Task')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, task details, CTA to view task',
+        previewHtml: `${wrapperStart}<p>A new task has been assigned to you.</p>${detailBox(`${label('Task', 'Follow up with buyer on NDA')}${label('Deal', 'Project Acme')}${label('Due', 'April 5, 2026')}`)}${ctaBtn('View Task')}${wrapperEnd}`,
       },
       {
         name: 'Data Recovery Email',
@@ -433,7 +425,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Admin triggers data recovery for incomplete profiles',
         edgeFunction: 'send-data-recovery-email',
         designNotes: 'Branded wrapper, missing info notice, CTA to complete profile',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Hi there,</p><p style="color: #1A1A1A;">We noticed that some important information is missing from your profile. Completing your profile helps us match you with the right opportunities.</p>${ctaBtn('Complete Profile Now')}<p style="color: #9B9B9B; font-size: 14px;">Best regards,<br>The SourceCo Team</p>${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>Some important information is missing from your profile. Completing it helps us match you with the right opportunities.</p>${ctaBtn('Complete Profile Now')}${signoff}${wrapperEnd}`,
       },
     ],
   },
@@ -446,8 +438,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'User',
         trigger: 'System sends generic transactional email',
         edgeFunction: 'send-user-notification',
-        designNotes: 'Branded wrapper, admin-composed message, optional CTA button',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A; font-size: 15px;">Account Update</p><p style="color: #1A1A1A;">Your account settings have been updated. Please review the changes and contact us if you have any questions.</p>${ctaBtn('View Details')}${wrapperEnd}`,
+        designNotes: 'Branded wrapper, admin-composed message, optional CTA',
+        previewHtml: `${wrapperStart}<p>Your account settings have been updated. Review the changes and contact us if you have questions.</p>${ctaBtn('View Details')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'First Request Follow-up',
@@ -456,7 +448,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Follow-up after first connection request',
         edgeFunction: 'send-first-request-followup',
         designNotes: 'Branded wrapper, request status update, CTA to check status',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Just a quick update on your connection request. Our team is reviewing it and you will hear back soon.</p><p style="color: #1A1A1A;">In the meantime, feel free to explore more opportunities on the marketplace.</p>${ctaBtn('Browse Marketplace')}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>Your connection request is being reviewed. You will hear back soon.</p>${ctaBtn('Browse Marketplace')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Feedback Reply Email',
@@ -465,7 +457,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Admin replies to user feedback via email',
         edgeFunction: 'send-feedback-email',
         designNotes: 'Branded wrapper, admin-composed reply body',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Hi Jane,</p><p style="color: #1A1A1A;">Thank you for your feedback. We have reviewed your suggestion and have implemented the changes you recommended.</p><p style="color: #6B6B6B;">Best regards,<br>The SourceCo Team</p>${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>Hi Jane,</p><p>Thank you for your feedback. We reviewed your suggestion and have implemented the changes.</p>${signoff}${wrapperEnd}`,
       },
       {
         name: 'Transactional Email (Generic)',
@@ -473,8 +465,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Dynamic',
         trigger: 'Any registered transactional email template',
         edgeFunction: 'send-transactional-email',
-        designNotes: 'React Email template system, supports multiple registered templates with dynamic data',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">This is the generic transactional email sender that supports any registered React Email template.</p><div style="background: #F7F6F3; padding: 16px; margin: 16px 0;"><p style="margin: 0; font-size: 13px; color: #6B6B6B;">Templates are registered in the TEMPLATES registry and rendered server-side with dynamic data.</p></div>${wrapperEnd}`,
+        designNotes: 'React Email template system, supports multiple registered templates',
+        previewHtml: `${wrapperStart}<p>This is the generic transactional email sender. It supports any registered React Email template, rendered server-side with dynamic data.</p>${signoff}${wrapperEnd}`,
       },
     ],
   },
@@ -489,8 +481,8 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         edgeFunction: 'admin-digest',
         status: 'broken',
         statusNote: 'Calls deleted enhanced-email-delivery function. Needs migration to sendEmail().',
-        designNotes: 'Was: branded wrapper with digest summary table. Currently non-functional.',
-        previewHtml: `${wrapperStart}<p style="color: #1A1A1A;">Admin Digest</p><p style="color: #1A1A1A;">This email is currently non-functional.</p><p style="color: #1A1A1A;">This function calls the deleted enhanced-email-delivery function and will fail at runtime.</p><div style="background: #F7F6F3; padding: 16px; margin: 16px 0;"><p style="margin: 0; font-size: 13px; color: #6B6B6B;">Needs migration to use sendEmail() from _shared/email-sender.ts</p></div>${wrapperEnd}`,
+        designNotes: 'Currently non-functional.',
+        previewHtml: `${wrapperStart}<p>This email is currently non-functional. The function calls a deleted dependency and will fail at runtime.</p>${detailBox(`<p style="margin: 0; font-size: 13px; color: #6B6B6B;">Needs migration to use sendEmail() from _shared/email-sender.ts</p>`)}${wrapperEnd}`,
       },
     ],
   },
