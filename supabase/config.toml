@@ -276,6 +276,8 @@ verify_jwt = false
 verify_jwt = false
 [functions.request-agreement-email]
 verify_jwt = false
+[functions.notify-buyer-inquiry-received]
+verify_jwt = false
 [functions.brevo-webhook]
 verify_jwt = false
 [functions.grant-data-room-access]

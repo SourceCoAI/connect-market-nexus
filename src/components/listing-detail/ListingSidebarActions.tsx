@@ -143,7 +143,19 @@ export function ListingSidebarActions({
         }
       }
 
-      // Step 4: Invalidate queries so messages appear everywhere
+      // Step 4: Send confirmation email to buyer (fire-and-forget)
+      supabase.functions
+        .invoke('notify-buyer-inquiry-received', {
+          body: {
+            buyer_email: user?.email,
+            buyer_name: (user as any)?.user_metadata?.first_name || user?.email?.split('@')[0] || '',
+            deal_title: document.title?.replace(' | SourceCo Marketplace', '') || 'this deal',
+            message_preview: body,
+          },
+        })
+        .catch((err: unknown) => console.warn('[Ask a Question] Confirmation email failed:', err));
+
+      // Step 5: Invalidate queries so messages appear everywhere
       queryClient.invalidateQueries({ queryKey: ['buyer-message-threads'] });
       queryClient.invalidateQueries({ queryKey: ['deal-inquiry', listingId] });
       queryClient.invalidateQueries({ queryKey: ['saved-listing-ids'] });

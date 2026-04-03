@@ -40,6 +40,7 @@ const ALL_EMAILS: Record<Category, EmailEntry[]> = {
     { emailType: 'Admin Reply Copy', edgeFunction: 'notify-support-inbox', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Document Request', edgeFunction: 'notify-support-inbox', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Admin Reply to Buyer', edgeFunction: 'notify-buyer-new-message', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Inquiry Confirmation to Buyer', edgeFunction: 'notify-buyer-inquiry-received', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
   ],
   'Buyer Lifecycle': [
     { emailType: 'Welcome Email', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
