@@ -32,11 +32,14 @@ import { MFAGate } from '@/components/auth/MFAGate';
 
 
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
+import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
+import { ListingSidebarActions } from '@/components/listing-detail/ListingSidebarActions';
 
 const ListingDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [showDealSourcingDialog, setShowDealSourcingDialog] = useState(false);
+  const dataRoomRef = useRef<HTMLDivElement>(null);
 
   // Click tracking for engagement analytics
   const { getClickData, resetTracking } = useClickTracking(true);
@@ -52,6 +55,7 @@ const ListingDetail = () => {
   const { trackListingView, trackListingSave, trackConnectionRequest } = useAnalytics();
 
   const isAdmin = user?.is_admin === true;
+  const { data: agreementCoverage } = useMyAgreementStatus(!!user && !isAdmin);
 
   // Agreement status handled by ConnectionButton sidebar component
 
@@ -309,9 +313,11 @@ const ListingDetail = () => {
             {/* Buyer Data Room - shows memos and documents if buyer has access */}
             {/* MFA verification required when user has MFA enrolled */}
             {!isAdmin && user && (
-              <MFAGate loadingText="Verifying identity for data room access...">
-                <BuyerDataRoom dealId={id!} />
-              </MFAGate>
+              <div ref={dataRoomRef}>
+                <MFAGate loadingText="Verifying identity for data room access...">
+                  <BuyerDataRoom dealId={id!} />
+                </MFAGate>
+              </div>
             )}
 
             {isAdmin && listing.owner_notes && (
@@ -339,6 +345,18 @@ const ListingDetail = () => {
                 </div>
 
                 <div className="space-y-3">
+                  {/* Action rows: Data Room + Ask a Question */}
+                  {!isAdmin && user && (
+                    <ListingSidebarActions
+                      listingId={id!}
+                      feeCovered={agreementCoverage?.fee_covered ?? false}
+                      connectionApproved={connectionStatusValue === 'approved'}
+                      onExploreDataRoom={() => {
+                        dataRoomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                    />
+                  )}
+
                   <ConnectionButton
                     connectionExists={connectionExists}
                     connectionStatus={connectionStatusValue}
@@ -361,7 +379,6 @@ const ListingDetail = () => {
                         View request status in My Deals →
                       </Link>
                     )}
-
 
                   {/* Enhanced Save and Share */}
                   <EnhancedSaveButton
