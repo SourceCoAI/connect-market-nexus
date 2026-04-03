@@ -680,16 +680,25 @@ export function EmailCatalog() {
           </DialogHeader>
           {previewEmail && (
             <div className="flex-1 overflow-y-auto space-y-4">
+              {previewEmail.status === 'broken' && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2 text-xs text-red-700 dark:text-red-400">
+                  ⚠️ <strong>BROKEN:</strong> {previewEmail.statusNote}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-muted-foreground text-xs">Subject</span>
-                  <p className="font-mono text-xs mt-0.5">{previewEmail.subject}</p>
+                  <p className="font-mono text-xs mt-0.5"><CopyableText text={previewEmail.subject} label="Subject" /></p>
                 </div>
                 <div>
                   <span className="text-muted-foreground text-xs">Edge Function</span>
-                  <p className="font-mono text-xs mt-0.5">{previewEmail.edgeFunction}</p>
+                  <p className="font-mono text-xs mt-0.5"><CopyableText text={previewEmail.edgeFunction} label="Function" /></p>
                 </div>
-                <div className="col-span-2">
+                <div>
+                  <span className="text-muted-foreground text-xs">From</span>
+                  <p className="font-mono text-xs mt-0.5">{SENDER_EMAIL}</p>
+                </div>
+                <div>
                   <span className="text-muted-foreground text-xs">Design Notes</span>
                   <p className="text-xs mt-0.5">{previewEmail.designNotes}</p>
                 </div>
