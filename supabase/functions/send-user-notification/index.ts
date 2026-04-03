@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin, escapeHtml, escapeHtmlWithBreaks } from '../_shared/auth.ts';
 import { logEmailDelivery } from '../_shared/email-logger.ts';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 
 interface UserNotificationRequest {
   email: string;
@@ -55,14 +56,12 @@ const handler = async (req: Request): Promise<Response> => {
     const textContent = message;
 
     if (isPlainText) {
-      // Simple HTML wrapper for plain text message
       htmlContent = `
         <div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">
           <pre style="font-family: Arial, sans-serif; white-space: pre-wrap; margin: 0;">${escapeHtml(message)}</pre>
         </div>
       `;
     } else {
-      // Original styled email format for other types
       const typeColors: Record<string, string> = {
         info: '#3b82f6',
         success: '#059669',
@@ -113,52 +112,33 @@ const handler = async (req: Request): Promise<Response> => {
       `;
     }
 
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
-    if (!brevoApiKey) {
-      throw new Error('BREVO_API_KEY not configured');
-    }
+    const senderEmail = fromEmail || Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com';
 
-    const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': brevoApiKey,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        sender: {
-          name: 'SourceCo Marketplace',
-          email: fromEmail || Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
-        },
-        to: [
-          {
-            email: email,
-            name: email.split('@')[0], // Use email prefix as name fallback
-          },
-        ],
-        subject: subject,
-        htmlContent: htmlContent,
-        textContent: textContent,
-        replyTo: {
-          email: fromEmail || Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
-          name: fromEmail?.includes('bill.martin')
-            ? 'Bill Martin - SourceCo'
-            : fromEmail?.includes('tomos.mughan')
-              ? 'Tomos Mughan - SourceCo'
-              : 'Adam Haile - SourceCo',
-        },
-        // Disable click tracking to prevent broken links
-        params: {
-          trackClicks: false,
-          trackOpens: true,
-        },
-      }),
+    const result = await sendViaBervo({
+      to: email,
+      toName: email.split('@')[0],
+      subject,
+      htmlContent,
+      textContent,
+      senderName: 'SourceCo Marketplace',
+      senderEmail,
+      replyToEmail: senderEmail,
+      replyToName: fromEmail?.includes('bill.martin')
+        ? 'Bill Martin - SourceCo'
+        : fromEmail?.includes('tomos.mughan')
+          ? 'Tomos Mughan - SourceCo'
+          : 'Adam Haile - SourceCo',
     });
 
-    if (!emailResponse.ok) {
-      const errorText = await emailResponse.text();
-      console.error('Error sending email via Brevo:', errorText);
-      throw new Error(`Brevo API error: ${errorText}`);
+    if (!result.success) {
+      await logEmailDelivery(supabase, {
+        email,
+        emailType: 'user_notification',
+        status: 'failed',
+        correlationId,
+        errorMessage: result.error,
+      });
+      throw new Error(result.error || 'Failed to send email');
     }
 
     console.log('User notification sent successfully');

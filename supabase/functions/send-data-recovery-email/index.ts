@@ -1,13 +1,12 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-import { Resend } from 'resend';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin, escapeHtml } from '../_shared/auth.ts';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -19,7 +18,6 @@ interface DataRecoveryEmailRequest {
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return corsPreflightResponse(req);
   }
@@ -38,7 +36,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Processing data recovery emails for ${userIds.length} users`);
 
-    // Get user data for the specified user IDs
     const { data: users, error: usersError } = await supabase
       .from('profiles')
       .select('id, email, first_name, last_name, buyer_type')
@@ -55,11 +52,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailPromises = users.map(async (user) => {
       try {
-        const emailResponse = await resend.emails.send({
-          from: `Data Recovery <${Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com'}>`,
-          to: [user.email],
+        const result = await sendViaBervo({
+          to: user.email,
+          toName: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
           subject: 'Complete Your Profile - Missing Information',
-          html: `
+          htmlContent: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #333;">Complete Your Profile</h2>
               
@@ -70,7 +67,7 @@ const handler = async (req: Request): Promise<Response> => {
               ${escapeHtml(template)}
               
               <div style="margin: 30px 0;">
-                <a href="${supabaseUrl.replace('.supabase.co', '')}.lovableapp.com/profile" 
+                <a href="https://marketplace.sourcecodeals.com/profile" 
                    style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
                   Complete Profile Now
                 </a>
@@ -86,11 +83,15 @@ const handler = async (req: Request): Promise<Response> => {
               </p>
             </div>
           `,
+          senderName: 'SourceCo',
         });
 
-        console.log(`Email sent successfully to ${user.email}:`, emailResponse);
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to send');
+        }
 
-        // Log the email delivery
+        console.log(`Email sent successfully to ${user.email}:`, result.messageId);
+
         await supabase.from('email_delivery_logs').insert({
           email: user.email,
           email_type: 'data_recovery',
@@ -102,7 +103,6 @@ const handler = async (req: Request): Promise<Response> => {
       } catch (error) {
         console.error(`Failed to send email to ${user.email}:`, error);
 
-        // Log the failed delivery
         await supabase.from('email_delivery_logs').insert({
           email: user.email,
           email_type: 'data_recovery',

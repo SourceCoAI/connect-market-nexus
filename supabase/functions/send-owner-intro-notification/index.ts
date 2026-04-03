@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { logEmailDelivery } from '../_shared/email-logger.ts';
-
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 interface OwnerIntroRequest {
   dealId: string;
   listingId: string;
@@ -293,47 +293,30 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    // Send email via Brevo
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
-    if (!brevoApiKey) {
-      throw new Error('BREVO_API_KEY is not set');
-    }
-
     console.log('Sending owner intro notification to:', primaryOwnerData.email);
-
-    const emailPayload = {
-      sender: { name: 'SourceCo Notifications', email: 'notifications@sourcecodeals.com' },
-      to: [{ email: primaryOwnerData.email, name: ownerName }],
-      subject: subject,
-      htmlContent: htmlContent,
-    };
-
-    const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'api-key': brevoApiKey,
-      },
-      body: JSON.stringify(emailPayload),
-    });
 
     const correlationId = crypto.randomUUID();
 
-    if (!emailResponse.ok) {
-      const errorText = await emailResponse.text();
+    const result = await sendViaBervo({
+      to: primaryOwnerData.email,
+      toName: ownerName,
+      subject,
+      htmlContent,
+      senderName: 'SourceCo Notifications',
+    });
+
+    if (!result.success) {
       await logEmailDelivery(supabase, {
         email: primaryOwnerData.email,
         emailType: 'owner_intro',
         status: 'failed',
         correlationId,
-        errorMessage: errorText,
+        errorMessage: result.error,
       });
-      throw new Error(`Failed to send email: ${errorText}`);
+      throw new Error(`Failed to send email: ${result.error}`);
     }
 
-    const emailResult = await emailResponse.json();
-    console.log('Email sent successfully:', emailResult);
+    console.log('Email sent successfully:', result.messageId);
 
     await logEmailDelivery(supabase, {
       email: primaryOwnerData.email,
@@ -349,7 +332,7 @@ const handler = async (req: Request): Promise<Response> => {
       primary_owner_id: listing.primary_owner_id,
       email_status: 'sent',
       metadata: {
-        message_id: emailResult.messageId,
+        message_id: result.messageId,
         buyer_name: buyerName,
         buyer_email: buyerEmail,
         email_subject: subject,
@@ -361,7 +344,7 @@ const handler = async (req: Request): Promise<Response> => {
         success: true,
         message: 'Owner intro notification sent successfully',
         primary_owner_name: ownerName,
-        message_id: emailResult.messageId,
+        message_id: result.messageId,
         recipient: primaryOwnerData.email,
       }),
       {
