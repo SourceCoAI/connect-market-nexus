@@ -82,7 +82,7 @@ export async function sendViaBervo(
   }
 
   const senderEmail =
-    options.senderEmail || Deno.env.get('SENDER_EMAIL') || 'support@sourcecodeals.com';
+    options.senderEmail || Deno.env.get('SENDER_EMAIL') || 'adam.haile@sourcecodeals.com';
   const senderName = options.senderName || 'SourceCo Notifications';
 
   const payload: Record<string, unknown> = {

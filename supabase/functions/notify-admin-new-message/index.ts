@@ -208,7 +208,7 @@ const handler = async (req: Request): Promise<Response> => {
         htmlContent,
         textContent,
         senderName: 'SourceCo',
-        senderEmail: Deno.env.get('SENDER_EMAIL') || 'notifications@sourcecodeals.com',
+        senderEmail: Deno.env.get('SENDER_EMAIL') || 'adam.haile@sourcecodeals.com',
       });
 
       await logEmailDelivery(supabase, {
