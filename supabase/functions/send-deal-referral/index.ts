@@ -150,68 +150,31 @@ serve(async (req: Request) => {
       </html>
     `;
 
-    // Send email via Brevo
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
-    if (!brevoApiKey) {
-      throw new Error('BREVO_API_KEY not configured');
-    }
+    // Send email via shared Brevo sender
+    const { sendViaBervo } = await import('../_shared/brevo-sender.ts');
 
-    const brevoPayload: {
-      sender: { name: string; email: string };
-      to: { email: string; name: string }[];
-      subject: string;
-      htmlContent: string;
-      cc?: { email: string; name: string }[];
-    } = {
-      sender: {
-        name: 'SourceCo Marketplace',
-        email: Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com',
-      },
-      to: [
-        {
-          email: recipientEmail,
-          name: recipientName || recipientEmail,
-        },
-      ],
+    const result = await sendViaBervo({
+      to: recipientEmail,
+      toName: recipientName || recipientEmail,
       subject: `${referrerName} shared a business opportunity with you`,
       htmlContent: emailHtml,
-    };
-
-    // Add CC if requested
-    if (ccSelf && referrerEmail) {
-      brevoPayload.cc = [
-        {
-          email: referrerEmail,
-          name: referrerName,
-        },
-      ];
-    }
-
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'api-key': brevoApiKey,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(brevoPayload),
+      senderName: 'SourceCo Marketplace',
+      isTransactional: true,
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Brevo API error:', errorData);
+    if (!result.success) {
+      console.error('Brevo send error:', result.error);
       await logEmailDelivery(supabase, {
         email: recipientEmail,
         emailType: 'deal_referral',
         status: 'failed',
         correlationId: crypto.randomUUID(),
-        errorMessage: `Failed to send email: ${response.statusText}`,
+        errorMessage: result.error || 'Send failed',
       });
-      throw new Error(`Failed to send email: ${response.statusText}`);
+      throw new Error(`Failed to send email: ${result.error}`);
     }
 
-    const emailResult = await response.json();
-    console.log('Email sent successfully via Brevo:', emailResult);
+    console.log('Email sent successfully:', result.messageId);
 
     await logEmailDelivery(supabase, {
       email: recipientEmail,
@@ -233,14 +196,13 @@ serve(async (req: Request) => {
 
     if (updateError) {
       console.error('Failed to update referral record:', updateError);
-      // Don't throw - email was already sent successfully
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Referral sent successfully',
-        messageId: emailResult.messageId,
+        messageId: result.messageId,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

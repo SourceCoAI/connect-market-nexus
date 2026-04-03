@@ -187,63 +187,33 @@ View this task in the pipeline: https://marketplace.sourcecodeals.com/admin/deal
 ---
 This is an automated notification from your admin task management system.`;
 
-    // Get Brevo API key
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
-    if (!brevoApiKey) {
-      console.warn('BREVO_API_KEY not configured, skipping email notification');
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Notification created but email skipped (no API key)',
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        },
-      );
-    }
+    // Send via shared Brevo sender
+    const { sendViaBervo } = await import('../_shared/brevo-sender.ts');
 
-    // Send email using Brevo
-    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'api-key': brevoApiKey,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: {
-          name: 'SourceCo Pipeline',
-          email: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
-        },
-        to: [
-          {
-            email: assignee_email,
-            name: assignee_name,
-          },
-        ],
-        subject: `New Task Assigned: ${task_title}`,
-        htmlContent: emailHtml,
-        textContent: textContent,
-      }),
+    const result = await sendViaBervo({
+      to: assignee_email,
+      toName: assignee_name,
+      subject: `New Task Assigned: ${task_title}`,
+      htmlContent: emailHtml,
+      textContent: textContent,
+      senderName: 'SourceCo Pipeline',
+      isTransactional: true,
     });
 
-    if (!brevoResponse.ok) {
-      const errorData = await brevoResponse.text();
-      console.error('Brevo email error:', errorData);
+    if (!result.success) {
+      console.error('Brevo email error:', result.error);
       await logEmailDelivery(supabaseClient, {
         email: assignee_email,
         emailType: 'task_notification',
         status: 'failed',
         correlationId,
-        errorMessage: errorData,
+        errorMessage: result.error,
       });
-      // Don't throw - return success anyway since notification was created
       return new Response(
         JSON.stringify({
           success: true,
           warning: 'Email failed but notification created',
-          error: errorData,
+          error: result.error,
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -252,8 +222,7 @@ This is an automated notification from your admin task management system.`;
       );
     }
 
-    const result = await brevoResponse.json();
-    console.log('Email sent successfully via Brevo:', result);
+    console.log('Email sent successfully:', result.messageId);
 
     await logEmailDelivery(supabaseClient, {
       email: assignee_email,

@@ -85,6 +85,9 @@ export async function sendViaBervo(
     options.senderEmail || Deno.env.get('SENDER_EMAIL') || 'adam.haile@sourcecodeals.com';
   const senderName = options.senderName || 'SourceCo Notifications';
 
+  // Diagnostic logging — always log the resolved sender so we can debug delivery issues
+  console.log(`[brevo-sender] Sending "${options.subject}" to ${options.to} from ${senderName} <${senderEmail}>`);
+
   const payload: Record<string, unknown> = {
     sender: { name: senderName, email: senderEmail },
     to: [{ email: options.to, name: options.toName || options.to }],

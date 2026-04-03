@@ -403,38 +403,27 @@ ${adminSignature}
       try {
         console.log(`📬 Sending to ${recipient.email} (${recipient.userId})...`);
 
-        const brevoPayload: {
-          sender: { name: string; email: string };
-          to: { email: string; name: string }[];
-          subject: string;
-          textContent: string;
-          htmlContent: string;
-          replyTo: { email: string; name: string };
-          attachment?: { content: string; name: string }[];
-        } = {
-          sender: { name: senderName, email: senderEmail },
-          to: [{ email: recipient.email, name: recipient.name || recipient.email.split('@')[0] }],
+        const { sendViaBervo } = await import('../_shared/brevo-sender.ts');
+
+        const brevoResult = await sendViaBervo({
+          to: recipient.email,
+          toName: recipient.name || recipient.email.split('@')[0],
           subject: emailSubject,
-          textContent: textContent,
           htmlContent: htmlContent,
-          replyTo: { email: adminEmail, name: adminName },
-        };
-
-        if (processedAttachments.length > 0) {
-          brevoPayload.attachment = processedAttachments;
-        }
-
-        const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'api-key': brevoApiKey,
-          },
-          body: JSON.stringify(brevoPayload),
+          textContent: textContent,
+          senderName: senderName,
+          senderEmail: senderEmail,
+          replyToEmail: adminEmail,
+          replyToName: adminName,
+          isTransactional: true,
+          attachment: processedAttachments.map((a: any) => ({
+            name: a.name,
+            content: a.content,
+          })),
         });
 
-        if (!emailResponse.ok) {
-          const errorData = await emailResponse.text();
+        if (!brevoResult.success) {
+          const errorData = brevoResult.error || 'Send failed';
           console.error(`❌ Failed to send to ${recipient.email}:`, errorData);
           await logEmailDelivery(supabase, {
             email: recipient.email,
@@ -448,8 +437,7 @@ ${adminSignature}
           continue;
         }
 
-        const result = await emailResponse.json();
-        console.log(`✅ Sent to ${recipient.email}:`, result.messageId);
+        console.log(`✅ Sent to ${recipient.email}:`, brevoResult.messageId);
         await logEmailDelivery(supabase, {
           email: recipient.email,
           emailType: 'fee_agreement',
@@ -457,7 +445,7 @@ ${adminSignature}
           correlationId: crypto.randomUUID(),
         });
         successCount++;
-        emailResults.push({ email: recipient.email, success: true, messageId: result.messageId });
+        emailResults.push({ email: recipient.email, success: true, messageId: brevoResult.messageId });
 
         // Update database for this recipient
         try {

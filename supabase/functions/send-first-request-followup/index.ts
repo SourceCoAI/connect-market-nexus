@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 import { logEmailDelivery } from '../_shared/email-logger.ts';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 
 /**
  * send-first-request-followup
@@ -26,21 +27,12 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
-    if (!brevoApiKey) {
-      console.error('BREVO_API_KEY not configured');
-      return new Response(JSON.stringify({ error: 'Email service not configured' }), {
-        status: 500,
-      });
-    }
-
     const now = new Date();
     const twentyHoursAgo = new Date(now.getTime() - 20 * 60 * 60 * 1000);
     const twentyEightHoursAgo = new Date(now.getTime() - 28 * 60 * 60 * 1000);
 
     console.log('Running first request follow-up check...');
 
-    // Find connection_requests created in the 20-28hr window
     const { data: recentRequests, error: queryError } = await supabase
       .from('connection_requests')
       .select('id, user_id, listing_id, created_at, listings(title, project_name)')
@@ -64,15 +56,13 @@ serve(async (req: Request) => {
     for (const request of recentRequests) {
       if (!request.user_id) continue;
 
-      // Check it's their FIRST request (count = 1)
       const { count } = await supabase
         .from('connection_requests')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', request.user_id);
 
-      if (count !== 1) continue; // not their first request, skip
+      if (count !== 1) continue;
 
-      // Get profile for name/email
       const { data: profile } = await supabase
         .from('profiles')
         .select('email, first_name, last_name')
@@ -83,7 +73,6 @@ serve(async (req: Request) => {
 
       const recipientEmail = profile.email;
 
-      // Dedup check — only fire once per buyer
       const { data: alreadySent } = await supabase
         .from('email_delivery_logs')
         .select('id')
@@ -115,66 +104,32 @@ serve(async (req: Request) => {
 
       const correlationId = crypto.randomUUID();
 
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
+      const result = await sendViaBervo({
+        to: recipientEmail,
+        toName: safeFirstName,
+        subject,
+        htmlContent,
+        textContent,
+        senderName: 'SourceCo',
+        isTransactional: true,
+      });
 
-        let brevoResponse: Response;
-        try {
-          brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'api-key': brevoApiKey,
-            },
-            body: JSON.stringify({
-              sender: {
-                name: 'SourceCo',
-                email: Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com',
-              },
-              to: [{ email: recipientEmail, name: safeFirstName }],
-              subject,
-              htmlContent,
-              textContent,
-            }),
-            signal: controller.signal,
-          });
-        } finally {
-          clearTimeout(timeout);
-        }
-
-        if (brevoResponse.ok) {
-          sentCount++;
-          await logEmailDelivery(supabase, {
-            email: recipientEmail,
-            emailType: 'first_request_followup',
-            status: 'sent',
-            correlationId,
-          });
-        } else {
-          const errorText = await brevoResponse.text();
-          console.error(`Brevo error for ${recipientEmail}:`, errorText);
-          await logEmailDelivery(supabase, {
-            email: recipientEmail,
-            emailType: 'first_request_followup',
-            status: 'failed',
-            correlationId,
-            errorMessage: errorText,
-          });
-        }
-      } catch (emailError: unknown) {
-        const isAbort = emailError instanceof Error && emailError.name === 'AbortError';
-        console.error(`Email error for ${recipientEmail}:`, emailError);
+      if (result.success) {
+        sentCount++;
+        await logEmailDelivery(supabase, {
+          email: recipientEmail,
+          emailType: 'first_request_followup',
+          status: 'sent',
+          correlationId,
+        });
+      } else {
+        console.error(`Email error for ${recipientEmail}:`, result.error);
         await logEmailDelivery(supabase, {
           email: recipientEmail,
           emailType: 'first_request_followup',
           status: 'failed',
           correlationId,
-          errorMessage: isAbort
-            ? 'Brevo API timeout'
-            : emailError instanceof Error
-              ? emailError.message
-              : String(emailError),
+          errorMessage: result.error,
         });
       }
     }

@@ -186,48 +186,32 @@ const handler = async (req: Request): Promise<Response> => {
       </html>
     `;
 
-    // Send via Brevo (project-standard email provider)
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
-    if (!brevoApiKey) {
-      throw new Error('BREVO_API_KEY not configured');
-    }
+    // Send via shared Brevo sender with retry logic
+    const { sendViaBervo } = await import('../_shared/brevo-sender.ts');
 
-    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': brevoApiKey,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        sender: {
-          name: 'SourceCo Marketplace',
-          email: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
-        },
-        to: [{ email: user_email, name: user_email.split('@')[0] }],
-        subject: `New deal — matches your mandate.`,
-        htmlContent: emailHtml,
-        headers: {
-          "List-Unsubscribe": "<mailto:unsubscribe@sourcecodeals.com>",
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        },
-        params: { trackClicks: false, trackOpens: true },
-      }),
+    const brevoResult = await sendViaBervo({
+      to: user_email,
+      toName: user_email.split('@')[0],
+      subject: `New deal — matches your mandate.`,
+      htmlContent: emailHtml,
+      senderName: 'SourceCo Marketplace',
     });
 
+    // Simulate response interface for downstream code
+    const brevoResponse = { ok: brevoResult.success };
+    const emailResponse = { messageId: brevoResult.messageId };
+
     if (!brevoResponse.ok) {
-      const errText = await brevoResponse.text();
       await logEmailDelivery(supabaseClient, {
         email: user_email,
         emailType: 'deal_alert',
         status: 'failed',
         correlationId: crypto.randomUUID(),
-        errorMessage: `Brevo error ${brevoResponse.status}: ${errText}`,
+        errorMessage: brevoResult.error || 'Send failed',
       });
-      throw new Error(`Brevo error ${brevoResponse.status}: ${errText}`);
+      throw new Error(brevoResult.error || 'Send failed');
     }
 
-    const emailResponse = await brevoResponse.json();
     console.log('Email sent via Brevo:', emailResponse);
 
     await logEmailDelivery(supabaseClient, {

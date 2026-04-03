@@ -3,16 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import { logEmailDelivery } from '../_shared/email-logger.ts';
-
-/**
- * send-templated-approval-email
- * Sends one of two approval email templates based on whether the buyer's NDA is already signed.
- * Version A: NDA not signed — includes NDA CTA
- * Version B: NDA signed — confirms full access
- *
- * Called by the admin approval flow. Falls back to the existing send-approval-email
- * if the admin wants to send a custom message instead.
- */
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 
 interface SendTemplatedApprovalRequest {
   userId: string;
@@ -27,11 +18,6 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY');
-    if (!BREVO_API_KEY) {
-      throw new Error('BREVO_API_KEY is not configured');
-    }
-
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -40,7 +26,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // AUTH: Admin-only
     const auth = await requireAdmin(req, supabase);
     if (!auth.isAdmin) {
       return new Response(JSON.stringify({ error: auth.error }), {
@@ -51,7 +36,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { userId, userEmail }: SendTemplatedApprovalRequest = await req.json();
 
-    // Get user profile
     const { data: profile } = await supabase
       .from('profiles')
       .select('first_name, last_name, email')
@@ -65,7 +49,6 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('No email address found for user');
     }
 
-    // Check NDA status via firm membership
     let ndaSigned = false;
     const { data: membership } = await supabase
       .from('firm_members')
@@ -91,7 +74,6 @@ const handler = async (req: Request): Promise<Response> => {
     let textContent: string;
 
     if (ndaSigned) {
-      // Version B — NDA already signed
       subject = "You're in — full access is live.";
       htmlContent = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
   <p>Hi ${firstName},</p>
@@ -106,22 +88,8 @@ const handler = async (req: Request): Promise<Response> => {
   <p>Questions? Reply to this email.</p>
   <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
 </div>`;
-      textContent = `Hi ${firstName},
-
-Your SourceCo account is approved and your NDA is already on file. You have full access right now.
-
-Browse deals: ${siteUrl}/marketplace
-
-A few things to know:
-- We introduce 1-3 buyers per deal. When you request access, explain why you're a fit.
-- All deals are off-market - you won't find these anywhere else.
-- Our fee is success-only. You only pay if a deal closes.
-
-Questions? Reply to this email.
-
-— The SourceCo Team`;
+      textContent = `Hi ${firstName},\n\nYour SourceCo account is approved and your NDA is already on file. You have full access right now.\n\nBrowse deals: ${siteUrl}/marketplace\n\nQuestions? Reply to this email.\n\n— The SourceCo Team`;
     } else {
-      // Version A — NDA not signed (most common)
       subject = "You're approved — one step to full access.";
       htmlContent = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
   <p>Hi ${firstName},</p>
@@ -137,57 +105,47 @@ Questions? Reply to this email.
   <p>Questions? Reply to this email.</p>
   <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
 </div>`;
-      textContent = `Hi ${firstName}, you're approved. Sign your NDA to get full access: ${siteUrl}/pending-approval\n\nA few things to know:\n- Every deal is off-market\n- We introduce a small number of buyers per deal — be specific about why you're a fit\n- Your first introduction request will prompt a fee agreement — success-only, nothing owed unless a deal closes\n\nQuestions? Reply to this email.\n\n— The SourceCo Team`;
+      textContent = `Hi ${firstName}, you're approved. Sign your NDA to get full access: ${siteUrl}/pending-approval\n\nQuestions? Reply to this email.\n\n— The SourceCo Team`;
     }
 
-    // Send via Brevo
-    const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'api-key': BREVO_API_KEY,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: {
-          name: 'SourceCo',
-          email: Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com',
-        },
-        to: [{ email, name: firstName }],
-        subject,
-        htmlContent,
-        textContent,
-      }),
+    const result = await sendViaBervo({
+      to: email,
+      toName: firstName,
+      subject,
+      htmlContent,
+      textContent,
+      senderName: 'SourceCo',
+      isTransactional: true,
     });
 
-    const emailResult = await emailResponse.json();
+    const correlationId = crypto.randomUUID();
 
-    if (!emailResponse.ok) {
-      console.error('Brevo API error:', emailResult);
+    if (!result.success) {
+      console.error('Templated approval email failed:', result.error);
       await logEmailDelivery(supabase, {
         email,
         emailType: 'templated_approval',
         status: 'failed',
-        correlationId: crypto.randomUUID(),
-        errorMessage: emailResult.message || 'Brevo API error',
+        correlationId,
+        errorMessage: result.error,
       });
-      throw new Error(`Email API error: ${emailResult.message || 'Unknown error'}`);
+      throw new Error(`Email API error: ${result.error}`);
     }
 
-    console.log('Templated approval email sent successfully:', emailResult);
+    console.log('Templated approval email sent successfully:', result.messageId);
 
     await logEmailDelivery(supabase, {
       email,
       emailType: 'templated_approval',
       status: 'sent',
-      correlationId: crypto.randomUUID(),
+      correlationId,
     });
 
     return new Response(
       JSON.stringify({
         success: true,
         version: ndaSigned ? 'B_nda_signed' : 'A_nda_unsigned',
-        messageId: emailResult.messageId || 'unknown',
+        messageId: result.messageId || 'unknown',
       }),
       {
         status: 200,
@@ -198,8 +156,7 @@ Questions? Reply to this email.
     console.error('Error in send-templated-approval-email:', error);
     return new Response(
       JSON.stringify({
-        error:
-          error instanceof Error ? error.message : String(error) || 'Failed to send approval email',
+        error: error instanceof Error ? error.message : String(error) || 'Failed to send approval email',
       }),
       {
         status: 500,

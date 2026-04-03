@@ -392,43 +392,42 @@ ${adminSignature}
       try {
         console.log(`📬 Sending NDA to ${recipient.email} (${recipient.userId})...`);
 
-        const brevoPayload = {
-          to: [{ email: recipient.email, name: recipient.name || recipient.email.split('@')[0] }],
-          sender: { name: finalSenderName, email: finalSenderEmail },
-          replyTo: { email: senderEmail, name: senderName },
-          subject: subject,
-          textContent: textContent,
-          htmlContent: htmlContent,
-          attachment: processedAttachments,
-        };
+        const { sendViaBervo } = await import('../_shared/brevo-sender.ts');
 
-        const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'api-key': brevoApiKey,
-          },
-          body: JSON.stringify(brevoPayload),
+        const brevoResult = await sendViaBervo({
+          to: recipient.email,
+          toName: recipient.name || recipient.email.split('@')[0],
+          subject: subject,
+          htmlContent: htmlContent,
+          textContent: textContent,
+          senderName: finalSenderName,
+          senderEmail: finalSenderEmail,
+          replyToEmail: senderEmail,
+          replyToName: senderName,
+          isTransactional: true,
+          attachment: processedAttachments.map(a => ({
+            name: a.name,
+            content: a.content,
+            contentType: a.contentType,
+          })),
         });
 
         const perRecipientCorrelationId = crypto.randomUUID();
 
-        if (!brevoResponse.ok) {
-          const errorText = await brevoResponse.text();
-          console.error(`❌ Failed to send to ${recipient.email}:`, errorText);
+        if (!brevoResult.success) {
+          console.error(`❌ Failed to send to ${recipient.email}:`, brevoResult.error);
           failCount++;
-          emailResults.push({ email: recipient.email, success: false, error: errorText });
+          emailResults.push({ email: recipient.email, success: false, error: brevoResult.error });
           await logEmailDelivery(supabaseAdmin, {
             email: recipient.email,
             emailType: 'nda_email',
             status: 'failed',
             correlationId: perRecipientCorrelationId,
-            errorMessage: errorText,
+            errorMessage: brevoResult.error,
           });
           continue;
         }
 
-        const brevoResult = await brevoResponse.json();
         console.log(`✅ Sent to ${recipient.email}:`, brevoResult.messageId);
         successCount++;
         emailResults.push({

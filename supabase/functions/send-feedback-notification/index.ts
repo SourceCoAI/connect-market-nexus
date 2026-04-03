@@ -132,104 +132,45 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    // Send email using Brevo API
+    // Send email using shared Brevo sender
     try {
-      const brevoApiKey = Deno.env.get('BREVO_API_KEY');
-      if (!brevoApiKey) {
-        console.warn('BREVO_API_KEY not configured, using fallback email delivery');
-        // Log feedback for admin review instead of failing
-        console.log('Feedback submission logged for admin review:', {
-          feedbackId,
-          category,
-          priority,
-          message: message.substring(0, 100) + '...',
-          pageUrl,
-          userEmail,
-          userName,
-          adminCount: adminUsers.length,
-        });
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: `Feedback logged for admin review (${adminUsers.length} admin(s))`,
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          },
-        );
-      }
-
-      const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        headers: {
-          'api-key': brevoApiKey,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
-          sender: {
-            name: 'SourceCo Marketplace Feedback',
-            email: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
-          },
-          to: adminUsers.map((admin) => ({
-            email: admin.email,
-            name: `${admin.first_name} ${admin.last_name}`.trim(),
-          })),
-          subject: emailSubject,
-          htmlContent: emailHtml,
-          replyTo: {
-            email: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
-            name: 'SourceCo Support',
-          },
-          // Disable click tracking to prevent broken links
-          params: {
-            trackClicks: false,
-            trackOpens: true,
-          },
-        }),
-      });
-
+      const { sendViaBervo } = await import('../_shared/brevo-sender.ts');
       const correlationId = crypto.randomUUID();
 
-      if (!emailResponse.ok) {
-        const errorText = await emailResponse.text();
-        console.error('Error sending email via Brevo:', errorText);
-        // Log feedback for admin review instead of failing
-        console.log('Feedback submission logged for admin review:', {
-          feedbackId,
-          category,
-          priority,
-          message: message.substring(0, 100) + '...',
-          pageUrl,
-          userEmail,
-          userName,
-          adminCount: adminUsers.length,
+      // Send to first admin (Brevo doesn't support multiple "to" in sendViaBervo, send individually)
+      for (const admin of adminUsers) {
+        const result = await sendViaBervo({
+          to: admin.email,
+          toName: `${admin.first_name} ${admin.last_name}`.trim(),
+          subject: emailSubject,
+          htmlContent: emailHtml,
+          senderName: 'SourceCo Marketplace Feedback',
+          replyToEmail: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
+          replyToName: 'SourceCo Support',
+          isTransactional: true,
         });
-        for (const admin of adminUsers) {
-          await logEmailDelivery(supabase, {
-            email: admin.email,
-            emailType: 'feedback_notification',
-            status: 'failed',
-            correlationId,
-            errorMessage: errorText,
-          });
-        }
-      } else {
-        console.log('Email sent successfully to admin');
-        for (const admin of adminUsers) {
+
+        if (result.success) {
+          console.log(`Email sent successfully to ${admin.email}`);
           await logEmailDelivery(supabase, {
             email: admin.email,
             emailType: 'feedback_notification',
             status: 'sent',
             correlationId,
           });
+        } else {
+          console.error(`Error sending to ${admin.email}:`, result.error);
+          await logEmailDelivery(supabase, {
+            email: admin.email,
+            emailType: 'feedback_notification',
+            status: 'failed',
+            correlationId,
+            errorMessage: result.error,
+          });
         }
       }
     } catch (error) {
       console.error('Email delivery error:', error);
-      // Continue processing even if email fails
     }
 
     return new Response(
