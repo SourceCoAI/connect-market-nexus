@@ -140,7 +140,17 @@ export function GeneralChatView({
       });
       if (error) throw error;
 
-      // Admin notifications handled via realtime subscriptions (toasts + dashboard).
+      // Notify support inbox
+      supabase.functions
+        .invoke('notify-support-inbox', {
+          body: {
+            type: 'new_message',
+            buyerName: user?.email || 'Buyer',
+            buyerEmail: user?.email,
+            messagePreview: body.substring(0, 200),
+          },
+        })
+        .catch((err: unknown) => console.warn('notify-support-inbox error:', err));
 
       setNewMessage('');
       setAttachment(null);

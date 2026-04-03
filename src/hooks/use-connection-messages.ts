@@ -154,10 +154,31 @@ export function useSendMessage() {
           .catch((err: unknown) => {
             console.error('Error invoking notify-buyer-new-message:', err);
           });
-      }
 
-      // Admin message notifications are handled via realtime subscriptions (toasts + dashboard).
-      // No email is sent to admins for new buyer messages.
+        // Notify support inbox so other admins see the reply
+        supabase.functions
+          .invoke('notify-support-inbox', {
+            body: {
+              type: 'admin_reply',
+              buyerName: 'Buyer',
+              adminName: user?.email?.split('@')[0] || 'Admin',
+              messagePreview: params.body.substring(0, 200),
+            },
+          })
+          .catch((err: unknown) => console.warn('notify-support-inbox error:', err));
+      } else {
+        // Buyer sent a message — notify support inbox
+        supabase.functions
+          .invoke('notify-support-inbox', {
+            body: {
+              type: 'new_message',
+              buyerName: user?.email || 'Buyer',
+              buyerEmail: user?.email,
+              messagePreview: params.body.substring(0, 200),
+            },
+          })
+          .catch((err: unknown) => console.warn('notify-support-inbox error:', err));
+      }
 
       return data;
     },
