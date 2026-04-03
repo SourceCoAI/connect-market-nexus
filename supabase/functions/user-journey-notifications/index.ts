@@ -2,8 +2,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
-import { sendViaBervo } from '../_shared/brevo-sender.ts';
-import { logEmailDelivery } from '../_shared/email-logger.ts';
+import { sendEmail } from '../_shared/email-sender.ts';
 import { escapeHtml } from '../_shared/auth.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -11,12 +10,7 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 interface UserJourneyEvent {
-  event_type:
-    | 'user_created'
-    | 'email_verified'
-    | 'profile_approved'
-    | 'profile_rejected'
-    | 'reminder_due';
+  event_type: 'user_created' | 'email_verified' | 'profile_approved' | 'profile_rejected' | 'reminder_due';
   user_id: string;
   user_email: string;
   user_name: string;
@@ -111,10 +105,7 @@ function buildEmailVerifiedHtml(userName: string): string {
 
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
-
-  if (req.method === 'OPTIONS') {
-    return corsPreflightResponse(req);
-  }
+  if (req.method === 'OPTIONS') return corsPreflightResponse(req);
 
   try {
     const event: UserJourneyEvent = await req.json();
@@ -136,13 +127,13 @@ const handler = async (req: Request): Promise<Response> => {
       case 'user_created':
         subject = 'Your application to SourceCo is in.';
         htmlContent = buildWelcomeHtml(user_name || 'there');
-        textContent = `Hi ${user_name || 'there'}, your application is in. Verify your email to continue. Our team will review your application — typically within one business day. Log in: ${LOGIN_URL}`;
+        textContent = `Hi ${user_name || 'there'}, your application is in. Verify your email to continue. Log in: ${LOGIN_URL}`;
         break;
 
       case 'email_verified':
         subject = 'Email confirmed — you\'re in the queue.';
         htmlContent = buildEmailVerifiedHtml(user_name || 'there');
-        textContent = `Hi ${user_name || 'there'}, your email is confirmed. Your application is now with our team — we'll review it same day. You'll hear from us the moment you're approved. Log in: ${LOGIN_URL}`;
+        textContent = `Hi ${user_name || 'there'}, your email is confirmed. Your application is now with our team. Log in: ${LOGIN_URL}`;
         break;
 
       case 'profile_approved':
@@ -152,8 +143,7 @@ const handler = async (req: Request): Promise<Response> => {
         break;
 
       case 'profile_rejected': {
-        const reason =
-          (event.metadata?.rejection_reason as string) || 'Application did not meet our criteria';
+        const reason = (event.metadata?.rejection_reason as string) || 'Application did not meet our criteria';
         subject = 'SourceCo Account Update';
         htmlContent = buildRejectionHtml(user_name || 'there', reason);
         textContent = `Hi ${user_name || 'there'}, we were unable to approve your account. Reason: ${reason}`;
@@ -161,42 +151,23 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       case 'reminder_due':
-        console.log(`[${correlationId}] Skipping reminder email`);
-        return new Response(
-          JSON.stringify({ success: true, correlationId, message: 'Reminder skipped' }),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          },
-        );
+        return new Response(JSON.stringify({ success: true, correlationId, message: 'Reminder skipped' }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
 
       default:
-        console.log(`[${correlationId}] Unknown event type: ${event_type}`);
-        return new Response(
-          JSON.stringify({ success: true, correlationId, message: 'Unknown event type' }),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', ...corsHeaders },
-          },
-        );
+        return new Response(JSON.stringify({ success: true, correlationId, message: 'Unknown event type' }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
     }
 
-    // Send directly via Brevo
-    const result = await sendViaBervo({
+    const result = await sendEmail({
+      templateName: `journey_${event_type}`,
       to: user_email,
       toName: user_name || user_email,
       subject,
       htmlContent,
       textContent,
       senderName: 'SourceCo',
-    });
-
-    await logEmailDelivery(supabase, {
-      email: user_email,
-      emailType: `journey_${event_type}`,
-      status: result.success ? 'sent' : 'failed',
-      correlationId,
-      errorMessage: result.success ? undefined : result.error,
+      isTransactional: true,
     });
 
     if (!result.success) {
@@ -208,23 +179,16 @@ const handler = async (req: Request): Promise<Response> => {
     // For user_created events, also notify all admins
     if (event_type === 'user_created') {
       try {
-        const { data: adminRoles } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('role', 'admin');
-
+        const { data: adminRoles } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
         if (adminRoles?.length) {
           const adminIds = adminRoles.map((r: { user_id: string }) => r.user_id);
-          const { data: adminProfiles } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name, email')
-            .in('id', adminIds);
+          const { data: adminProfiles } = await supabase.from('profiles').select('id, first_name, last_name, email').in('id', adminIds);
 
           const company = (event.metadata?.company as string) || '';
           const adminSubject = `New User Registration: ${user_name} (${user_email})`;
           const adminHtml = `
-<!DOCTYPE html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+<!DOCTYPE html><html><head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:600px;margin:0 auto;padding:40px 24px;">
   <div style="font-size:11px;font-weight:600;letter-spacing:1.2px;color:#9A9A9A;text-transform:uppercase;margin-bottom:8px;">SOURCECO</div>
   <h1 style="color:#0E101A;font-size:20px;font-weight:700;margin:0 0 24px 0;">New User Registration</h1>
@@ -233,26 +197,23 @@ const handler = async (req: Request): Promise<Response> => {
     <div style="background:#FCF9F0;border-left:4px solid #DEC76B;padding:16px;border-radius:0 8px 8px 0;margin:0 0 24px 0;">
       <p style="margin:0;color:#3A3A3A;font-size:14px;"><strong>Name:</strong> ${escapeHtml(user_name)}<br/><strong>Email:</strong> ${escapeHtml(user_email)}${company ? `<br/><strong>Company:</strong> ${escapeHtml(company)}` : ''}</p>
     </div>
-    <p style="margin:0 0 24px 0;">The user will need to verify their email before you can review and approve their account.</p>
   </div>
   <div style="text-align:center;margin:32px 0;">
     <a href="https://marketplace.sourcecodeals.com/admin/users" style="display:inline-block;background:#0E101A;color:#ffffff;padding:14px 28px;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">Review Users</a>
-  </div>
-  <div style="margin-top:48px;padding-top:24px;border-top:1px solid #E5DDD0;">
-    <p style="color:#9A9A9A;font-size:12px;margin:0;">This is an automated notification from SourceCo.</p>
   </div>
 </div></body></html>`;
 
           for (const admin of adminProfiles || []) {
             if (!admin.email) continue;
-            const adminName =
-              `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
-            await sendViaBervo({
+            const adminName = `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
+            await sendEmail({
+              templateName: 'journey_admin_new_user',
               to: admin.email,
               toName: adminName,
               subject: adminSubject,
               htmlContent: adminHtml,
               senderName: 'SourceCo',
+              isTransactional: true,
             });
           }
           console.log(`[${correlationId}] Admin notifications sent for new user registration`);
@@ -269,9 +230,7 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: unknown) {
     console.error('Error in user-journey-notifications:', error);
     return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : String(error) || 'Internal server error',
-      }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) || 'Internal server error' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   }

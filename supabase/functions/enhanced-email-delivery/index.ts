@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { sendViaBervo } from '../_shared/brevo-sender.ts';
+import { sendEmail } from '../_shared/email-sender.ts';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
@@ -16,10 +16,7 @@ interface EmailRequest {
 
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
-
-  if (req.method === 'OPTIONS') {
-    return corsPreflightResponse(req);
-  }
+  if (req.method === 'OPTIONS') return corsPreflightResponse(req);
 
   try {
     const supabase = createClient(
@@ -27,7 +24,6 @@ const handler = async (req: Request): Promise<Response> => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    // AUTH: Admin-only — sends arbitrary emails via Brevo
     const auth = await requireAdmin(req, supabase);
     if (!auth.isAdmin) {
       return new Response(JSON.stringify({ error: auth.error }), {
@@ -36,110 +32,41 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const {
-      to,
-      subject,
-      content,
-      email_type,
-      correlation_id,
-      metadata: _metadata,
-    }: EmailRequest = await req.json();
+    const { to, subject, content, email_type, correlation_id, metadata: _metadata }: EmailRequest = await req.json();
+    console.log('Enhanced Email Delivery Request:', { to, subject, email_type, correlation_id });
 
-    console.log('Enhanced Email Delivery Request:', {
-      to,
-      subject,
-      email_type,
-      correlation_id,
-    });
-
-    // Log email delivery attempt
-    const { data: logData, error: logError } = await supabase
-      .from('email_delivery_logs')
-      .insert({
-        email: to,
-        email_type,
-        status: 'pending',
-        correlation_id,
-        error_message: null,
-      })
-      .select()
-      .single();
-
-    if (logError) {
-      console.error('Failed to log email delivery:', logError);
-      throw new Error(`Failed to log email delivery: ${logError.message}`);
-    }
-
-    console.log('Email delivery logged with ID:', logData.id);
-
-    // Send via Brevo using shared sender
-    const result = await sendViaBervo({
+    const result = await sendEmail({
+      templateName: email_type || 'enhanced_delivery',
       to,
       subject,
       htmlContent: content,
       senderName: 'SourceCo Marketplace',
-      senderEmail: Deno.env.get('SENDER_EMAIL') || 'support@sourcecodeals.com',
-      replyToEmail: Deno.env.get('SENDER_EMAIL') || 'support@sourcecodeals.com',
-      replyToName: Deno.env.get('SENDER_NAME') || 'Adam Haile',
+      isTransactional: true,
+      metadata: { correlation_id, email_type },
     });
 
-    if (result.success) {
-      // Update delivery status to success
-      await supabase
-        .from('email_delivery_logs')
-        .update({
-          status: 'delivered',
-          sent_at: new Date().toISOString(),
-        })
-        .eq('id', logData.id);
-
-      console.log('Email delivered successfully via Brevo');
-    } else {
-      // Update delivery status to failed
-      await supabase
-        .from('email_delivery_logs')
-        .update({
-          status: 'failed',
-          error_message: result.error,
-        })
-        .eq('id', logData.id);
-
+    if (!result.success) {
       console.error('Email delivery failed:', result.error);
       throw new Error(result.error || 'Email delivery failed');
     }
+
+    console.log('Email delivered successfully via unified sender');
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Email delivered successfully',
-        delivery_id: logData.id,
+        delivery_id: result.emailId,
         correlation_id,
-        message_id: result.messageId,
+        message_id: result.providerMessageId,
       }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      },
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   } catch (error: unknown) {
     console.error('Enhanced email delivery error:', error);
-
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        details: 'Failed to deliver email',
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      },
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error), details: 'Failed to deliver email' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   }
 };
