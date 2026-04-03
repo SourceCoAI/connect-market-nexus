@@ -116,6 +116,7 @@ export default function BuyerMessages() {
               onSearchChange={setSearchQuery}
               onSelectThread={handleSelectThread}
               onSelectGeneral={handleSelectGeneral}
+              onReferenceChange={setReference}
               totalUnread={totalUnread}
             />
 

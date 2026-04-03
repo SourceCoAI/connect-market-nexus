@@ -5,6 +5,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { BuyerThread } from './helpers';
 import { parseReferences } from './types';
+import type { MessageReference } from './types';
+import { NewMessagePicker } from './NewMessagePicker';
 
 // ─── ConversationList ───
 
@@ -17,6 +19,7 @@ interface ConversationListProps {
   onSearchChange: (query: string) => void;
   onSelectThread: (requestId: string) => void;
   onSelectGeneral: () => void;
+  onReferenceChange: (ref: MessageReference | null) => void;
   totalUnread?: number;
 }
 
