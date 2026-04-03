@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Mail, CheckCircle, XCircle, AlertTriangle, Eye, Search } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Mail, CheckCircle, XCircle, AlertTriangle, Eye, Search, BookOpen } from 'lucide-react';
 import { format } from 'date-fns';
+import { EmailCatalog } from '@/components/admin/emails/EmailCatalog';
 
 type TimeRange = '24h' | '7d' | '30d' | 'all';
 
@@ -107,128 +109,145 @@ export default function EmailDashboardPage() {
         <p className="text-muted-foreground">Monitor all platform email delivery across every function</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Total</span>
-            </div>
-            <p className="text-2xl font-bold mt-1">{stats.total}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <span className="text-sm text-muted-foreground">Delivered</span>
-            </div>
-            <p className="text-2xl font-bold mt-1">{stats.delivered}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-blue-500" />
-              <span className="text-sm text-muted-foreground">Opened</span>
-            </div>
-            <p className="text-2xl font-bold mt-1">{stats.opened}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center gap-2">
-              <XCircle className="h-4 w-4 text-destructive" />
-              <span className="text-sm text-muted-foreground">Failed</span>
-            </div>
-            <p className="text-2xl font-bold mt-1">{stats.failed}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
-              <span className="text-sm text-muted-foreground">Suppressed</span>
-            </div>
-            <p className="text-2xl font-bold mt-1">{suppressedCount}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="delivery" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="delivery" className="gap-1.5">
+            <Mail className="h-4 w-4" /> Delivery Log
+          </TabsTrigger>
+          <TabsTrigger value="catalog" className="gap-1.5">
+            <BookOpen className="h-4 w-4" /> Email Catalog
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="flex gap-1">
-          {(['24h', '7d', '30d', 'all'] as TimeRange[]).map(r => (
-            <Button key={r} size="sm" variant={timeRange === r ? 'default' : 'outline'} onClick={() => setTimeRange(r)}>
-              {r === '24h' ? '24h' : r === '7d' ? '7 days' : r === '30d' ? '30 days' : 'All'}
-            </Button>
-          ))}
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="delivered">Delivered</SelectItem>
-            <SelectItem value="accepted">Accepted</SelectItem>
-            <SelectItem value="opened">Opened</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
-            <SelectItem value="bounced">Bounced</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={templateFilter} onValueChange={setTemplateFilter}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Template" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All templates</SelectItem>
-            {templates.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search recipient or subject..." className="pl-8" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-        </div>
-      </div>
+        <TabsContent value="delivery" className="space-y-6 mt-0">
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Total</span>
+                </div>
+                <p className="text-2xl font-bold mt-1">{stats.total}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-emerald-500" />
+                  <span className="text-sm text-muted-foreground">Delivered</span>
+                </div>
+                <p className="text-2xl font-bold mt-1">{stats.delivered}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm text-muted-foreground">Opened</span>
+                </div>
+                <p className="text-2xl font-bold mt-1">{stats.opened}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-2">
+                  <XCircle className="h-4 w-4 text-destructive" />
+                  <span className="text-sm text-muted-foreground">Failed</span>
+                </div>
+                <p className="text-2xl font-bold mt-1">{stats.failed}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm text-muted-foreground">Suppressed</span>
+                </div>
+                <p className="text-2xl font-bold mt-1">{suppressedCount}</p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Template</TableHead>
-                <TableHead>Recipient</TableHead>
-                <TableHead>Subject</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Sent</TableHead>
-                <TableHead>Error</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No emails found</TableCell></TableRow>
-              ) : (
-                filtered.slice(0, 100).map((email: any) => {
-                  const badge = STATUS_BADGES[email.status] || { variant: 'outline' as const, label: email.status };
-                  return (
-                    <TableRow key={email.id}>
-                      <TableCell className="font-mono text-xs">{email.template_name}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{email.recipient_email}</TableCell>
-                      <TableCell className="max-w-[250px] truncate">{email.subject}</TableCell>
-                      <TableCell><Badge variant={badge.variant}>{badge.label}</Badge></TableCell>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {email.created_at ? format(new Date(email.created_at), 'MMM d, HH:mm') : '-'}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate text-xs text-destructive">{email.last_error || '-'}</TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3">
+            <div className="flex gap-1">
+              {(['24h', '7d', '30d', 'all'] as TimeRange[]).map(r => (
+                <Button key={r} size="sm" variant={timeRange === r ? 'default' : 'outline'} onClick={() => setTimeRange(r)}>
+                  {r === '24h' ? '24h' : r === '7d' ? '7 days' : r === '30d' ? '30 days' : 'All'}
+                </Button>
+              ))}
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="accepted">Accepted</SelectItem>
+                <SelectItem value="opened">Opened</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="bounced">Bounced</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={templateFilter} onValueChange={setTemplateFilter}>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Template" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All templates</SelectItem>
+                {templates.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search recipient or subject..." className="pl-8" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Table */}
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Template</TableHead>
+                    <TableHead>Recipient</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Sent</TableHead>
+                    <TableHead>Error</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                  ) : filtered.length === 0 ? (
+                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No emails found</TableCell></TableRow>
+                  ) : (
+                    filtered.slice(0, 100).map((email: any) => {
+                      const badge = STATUS_BADGES[email.status] || { variant: 'outline' as const, label: email.status };
+                      return (
+                        <TableRow key={email.id}>
+                          <TableCell className="font-mono text-xs">{email.template_name}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{email.recipient_email}</TableCell>
+                          <TableCell className="max-w-[250px] truncate">{email.subject}</TableCell>
+                          <TableCell><Badge variant={badge.variant}>{badge.label}</Badge></TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {email.created_at ? format(new Date(email.created_at), 'MMM d, HH:mm') : '-'}
+                          </TableCell>
+                          <TableCell className="max-w-[200px] truncate text-xs text-destructive">{email.last_error || '-'}</TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="catalog" className="mt-0">
+          <EmailCatalog />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
