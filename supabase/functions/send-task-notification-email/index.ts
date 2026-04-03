@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 interface TaskNotificationRequest {
   assignee_email: string;
@@ -36,45 +37,26 @@ serve(async (req) => {
 
     const priorityColor = { high: '#EF4444', medium: '#F59E0B', low: '#3B82F6' }[task_priority] || '#6B7280';
 
-    const emailHtml = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif; background-color: #f9fafb;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; padding: 40px 0;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <tr><td style="padding: 40px 40px 20px; border-bottom: 1px solid #e5e7eb;"><h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #111827;">📋 New Task Assigned</h1></td></tr>
-        <tr><td style="padding: 30px 40px;">
-          <p style="margin: 0 0 20px; font-size: 16px; color: #374151; line-height: 1.5;">Hi ${assignee_name},</p>
-          <p style="margin: 0 0 20px; font-size: 16px; color: #374151; line-height: 1.5;"><strong>${assigner_name}</strong> has assigned you a new task:</p>
-          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb; margin: 20px 0;">
-            <tr><td style="padding: 20px;">
-              <div style="display: flex; align-items: center; margin-bottom: 12px;">
-                <h2 style="margin: 0; font-size: 18px; font-weight: 600; color: #111827;">${task_title}</h2>
-                <span style="display: inline-block; margin-left: 12px; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #ffffff; background-color: ${priorityColor};">${task_priority}</span>
-              </div>
-              ${task_description ? `<p style="margin: 12px 0 0; font-size: 14px; color: #6b7280; line-height: 1.5;">${task_description}</p>` : ''}
-              <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;"><strong style="color: #374151;">Deal:</strong> ${deal_title}</p>
-                ${dueDateFormatted ? `<p style="margin: 0; font-size: 13px; color: #6b7280;"><strong style="color: #374151;">Due:</strong> ${dueDateFormatted}</p>` : ''}
-              </div>
-            </td></tr>
-          </table>
-          <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
-            <tr><td align="center">
-              <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${deal_id}&tab=tasks" style="display: inline-block; padding: 12px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">View Task in Pipeline</a>
-            </td></tr>
-          </table>
-        </td></tr>
-        <tr><td style="padding: 20px 40px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
-          <p style="margin: 0; font-size: 12px; color: #9ca3af; line-height: 1.5;">This is an automated notification from your admin task management system.</p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
+    const emailHtml = wrapEmailHtml({
+      bodyHtml: `
+        <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #111827;">📋 New Task Assigned</h1>
+        <p style="margin: 0 0 20px; font-size: 16px; color: #374151;">Hi ${assignee_name},</p>
+        <p style="margin: 0 0 20px; font-size: 16px; color: #374151;"><strong>${assigner_name}</strong> has assigned you a new task:</p>
+        <div style="background-color: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb; padding: 20px; margin: 20px 0;">
+          <h2 style="margin: 0 0 8px; font-size: 18px; font-weight: 600; color: #111827;">${task_title}</h2>
+          <span style="display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #ffffff; background-color: ${priorityColor};">${task_priority}</span>
+          ${task_description ? `<p style="margin: 12px 0 0; font-size: 14px; color: #6b7280;">${task_description}</p>` : ''}
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;"><strong style="color: #374151;">Deal:</strong> ${deal_title}</p>
+            ${dueDateFormatted ? `<p style="margin: 0; font-size: 13px; color: #6b7280;"><strong style="color: #374151;">Due:</strong> ${dueDateFormatted}</p>` : ''}
+          </div>
+        </div>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${deal_id}&tab=tasks" style="display: inline-block; padding: 12px 32px; background-color: #1a1a2e; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">View Task in Pipeline</a>
+        </div>`,
+      preheader: `New task assigned: ${task_title}`,
+      recipientEmail: assignee_email,
+    });
 
     const textContent = `Hi ${assignee_name},\n\n${assigner_name} has assigned you a new task:\n\nTask: ${task_title}\nPriority: ${task_priority.toUpperCase()}\n${task_description ? `Description: ${task_description}\n` : ''}Deal: ${deal_title}\n${dueDateFormatted ? `Due Date: ${dueDateFormatted}\n` : ''}\nView this task: https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${deal_id}&tab=tasks`;
 

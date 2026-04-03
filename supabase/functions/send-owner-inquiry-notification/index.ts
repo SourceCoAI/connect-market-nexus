@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 interface OwnerInquiryNotification {
   name: string;
@@ -37,37 +38,33 @@ const handler = async (req: Request): Promise<Response> => {
     const data: OwnerInquiryNotification = await req.json();
     console.log('Sending owner inquiry notification for:', data.companyName);
 
-    const htmlContent = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #6d2c36 0%, #8b3a47 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 20px;">
-          <h1 style="margin: 0; font-size: 24px; font-weight: 600;">🏢 New Owner Inquiry</h1>
-          <p style="margin: 10px 0 0 0; opacity: 0.9;">A business owner has submitted an inquiry through the /sell form.</p>
-        </div>
-        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px;">Contact Information</h2>
+    const htmlContent = wrapEmailHtml({
+      bodyHtml: `
+        <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 20px;">🏢 New Owner Inquiry</h2>
+        <p style="color: #64748b;">A business owner has submitted an inquiry through the /sell form.</p>
+        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin: 0 0 15px 0; color: #1e293b; font-size: 16px;">Contact Information</h3>
           <div style="margin-bottom: 12px;"><strong style="color: #475569;">Name:</strong> ${data.name}</div>
-          <div style="margin-bottom: 12px;"><strong style="color: #475569;">Email:</strong> <a href="mailto:${data.email}" style="color: #6d2c36;">${data.email}</a></div>
-          <div style="margin-bottom: 12px;"><strong style="color: #475569;">Phone:</strong> <a href="tel:${data.phone}" style="color: #6d2c36;">${data.phone}</a></div>
+          <div style="margin-bottom: 12px;"><strong style="color: #475569;">Email:</strong> <a href="mailto:${data.email}" style="color: #e94560;">${data.email}</a></div>
+          <div style="margin-bottom: 12px;"><strong style="color: #475569;">Phone:</strong> <a href="tel:${data.phone}" style="color: #e94560;">${data.phone}</a></div>
           <div style="margin-bottom: 12px;"><strong style="color: #475569;">Company:</strong> ${data.companyName}</div>
-          ${data.businessWebsite ? `<div style="margin-bottom: 12px;"><strong style="color: #475569;">Website:</strong> <a href="${data.businessWebsite}" target="_blank" style="color: #6d2c36;">${data.businessWebsite}</a></div>` : ''}
+          ${data.businessWebsite ? `<div style="margin-bottom: 12px;"><strong style="color: #475569;">Website:</strong> <a href="${data.businessWebsite}" target="_blank" style="color: #e94560;">${data.businessWebsite}</a></div>` : ''}
         </div>
-        <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
-          <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px;">Business Details</h2>
+        <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+          <h3 style="margin: 0 0 15px 0; color: #1e293b; font-size: 16px;">Business Details</h3>
           <div style="margin-bottom: 12px;"><strong style="color: #475569;">Estimated Revenue:</strong> ${formatRevenueRange(data.revenueRange)}</div>
           <div style="margin-bottom: 12px;"><strong style="color: #475569;">Sale Timeline:</strong> ${formatSaleTimeline(data.saleTimeline)}</div>
         </div>
         ${data.message ? `
-        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px;">Message</h2>
-          <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #6d2c36;">${data.message.replace(/\n/g, '<br>')}</div>
+        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin: 0 0 15px 0; color: #1e293b; font-size: 16px;">Message</h3>
+          <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #e94560;">${data.message.replace(/\n/g, '<br>')}</div>
         </div>` : ''}
         <div style="text-align: center; margin: 30px 0;">
-          <a href="https://marketplace.sourcecodeals.com/admin/marketplace/users" style="background: #6d2c36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">View in Admin Dashboard</a>
-        </div>
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 14px;">
-          <p>This notification was sent automatically when a business owner submitted an inquiry through the /sell form.</p>
-        </div>
-      </div>`;
+          <a href="https://marketplace.sourcecodeals.com/admin/marketplace/users" style="background: #1a1a2e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">View in Admin Dashboard</a>
+        </div>`,
+      preheader: `New owner inquiry: ${data.companyName} (${formatRevenueRange(data.revenueRange)})`,
+    });
 
     const recipientEmail = Deno.env.get('OWNER_INQUIRY_RECIPIENT_EMAIL') || 'adam.haile@sourcecodeals.com';
 

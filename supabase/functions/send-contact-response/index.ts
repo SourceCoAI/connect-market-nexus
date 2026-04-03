@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 interface ContactResponseData {
   to: string;
@@ -58,7 +59,11 @@ serve(async (req: Request) => {
       templateName: `contact_response_${category || 'general'}`,
       to,
       subject: emailSubject,
-      htmlContent: `<div style="font-family: Arial, sans-serif; white-space: pre-wrap;">${emailText}</div>`,
+      htmlContent: wrapEmailHtml({
+        bodyHtml: `<div style="white-space: pre-wrap;">${emailText}</div>`,
+        preheader: emailSubject,
+        recipientEmail: to,
+      }),
       textContent: emailText,
       senderName: 'SourceCo Team',
       isTransactional: true,

@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth, escapeHtml, escapeHtmlWithBreaks } from '../_shared/auth.ts';
 import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
 interface FeedbackNotificationRequest {
@@ -39,14 +40,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailSubject = `${priorityEmoji} New Feedback: ${safeCategoryLabel} ${priority === 'urgent' ? '(URGENT)' : ''}`;
 
-    const emailHtml = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 20px;">
-          <h1 style="margin: 0; font-size: 24px; font-weight: 600;">New Feedback Received</h1>
-          <p style="margin: 10px 0 0 0; opacity: 0.9;">A user has submitted feedback that requires your attention.</p>
-        </div>
-        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px;">Feedback Details</h2>
+    const emailHtml = wrapEmailHtml({
+      bodyHtml: `
+        <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 20px;">New Feedback Received</h2>
+        <p style="color: #64748b;">A user has submitted feedback that requires your attention.</p>
+        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <div style="margin-bottom: 15px;"><strong>Category:</strong> <span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px;">${safeCategoryLabel}</span></div>
           <div style="margin-bottom: 15px;"><strong>Priority:</strong> <span style="background: ${priority === 'urgent' ? '#fef2f2' : '#f0f9ff'}; padding: 4px 8px; border-radius: 4px;">${safePriority}</span></div>
           ${safeUserName ? `<div style="margin-bottom: 15px;"><strong>From:</strong> ${safeUserName}</div>` : ''}
@@ -57,9 +55,11 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         </div>
         <div style="text-align: center; margin-top: 30px;">
-          <a href="https://marketplace.sourcecodeals.com/admin" style="background: #1e293b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">View in Admin Dashboard</a>
-        </div>
-      </div>`;
+          <a href="https://marketplace.sourcecodeals.com/admin" style="background: #1a1a2e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">View in Admin Dashboard</a>
+        </div>`,
+      preheader: `${priorityEmoji} New ${safeCategoryLabel} feedback received`,
+      recipientEmail: adminUsers[0]?.email,
+    });
 
     for (const admin of adminUsers) {
       const result = await sendEmail({

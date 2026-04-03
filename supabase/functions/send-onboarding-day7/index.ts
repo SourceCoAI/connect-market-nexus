@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -74,8 +75,8 @@ serve(async (req: Request) => {
       const safeFirstName = (profile.first_name || 'there').replace(/<[^>]*>/g, '');
       const subject = `Still looking? Here's what other buyers are pursuing.`;
 
-      const htmlContent = `
-<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+      const htmlContent = wrapEmailHtml({
+        bodyHtml: `
   <p>Hi ${safeFirstName},</p>
   <p>You've been on the platform for a week. If you haven't found a fit yet, it's worth a fresh look — the pipeline gets updated regularly and what's live today may be different from when you first browsed.</p>
   <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Updated Pipeline</a></p>
@@ -85,8 +86,10 @@ serve(async (req: Request) => {
     <li>If you'd rather not wait for deals to come to market, our retained search team sources specifically for your mandate: <a href="https://www.sourcecodeals.com/private-equity" style="color: #1e293b;">sourcecodeals.com/private-equity</a></li>
   </ul>
   <p>If something felt off about the platform or you have questions about how it works, reply to this email — happy to help.</p>
-  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-</div>`;
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>`,
+        preheader: "The pipeline has been updated — worth a fresh look",
+        recipientEmail: recipientEmail,
+      });
 
       const textContent = `Hi ${safeFirstName},\n\nYou've been on the platform for a week. The pipeline gets updated regularly — worth a fresh look.\n\nView the pipeline: ${siteUrl}/marketplace\n\nIf you'd prefer deals sourced for your specific thesis: https://www.sourcecodeals.com/private-equity\n\nQuestions? Reply to this email.\n\n— The SourceCo Team`;
 

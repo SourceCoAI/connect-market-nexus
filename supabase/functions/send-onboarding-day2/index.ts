@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -74,8 +75,8 @@ serve(async (req: Request) => {
       const safeFirstName = (profile.first_name || 'there').replace(/<[^>]*>/g, '');
       const subject = `What's in the pipeline right now.`;
 
-      const htmlContent = `
-<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+      const htmlContent = wrapEmailHtml({
+        bodyHtml: `
   <p>Hi ${safeFirstName},</p>
   <p>You've been in the pipeline for a couple of days. Wanted to give you a quick picture of what's there.</p>
   <p>Every deal on SourceCo is off-market — sourced and reviewed by our team before it reaches buyers. When you find a fit, request an introduction. We review every request and select based on match quality.</p>
@@ -87,8 +88,10 @@ serve(async (req: Request) => {
     <li>If you want deals sourced specifically for your thesis, our retained search team works with a select group of active buyers: <a href="https://www.sourcecodeals.com/private-equity" style="color: #1e293b;">sourcecodeals.com/private-equity</a></li>
   </ul>
   <p>Questions? Reply to this email.</p>
-  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-</div>`;
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>`,
+        preheader: "Here's what's in the SourceCo pipeline right now",
+        recipientEmail: recipientEmail,
+      });
 
       const textContent = `Hi ${safeFirstName},\n\nYou've been in the pipeline for a couple of days. Every deal on SourceCo is off-market — sourced by our team before it reaches buyers.\n\nBrowse the pipeline: ${siteUrl}/marketplace\n\nBe specific when you request an introduction — generic messages rarely get selected.\n\nQuestions? Reply to this email.\n\n— The SourceCo Team`;
 

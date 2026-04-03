@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireAdmin, escapeHtml } from "../_shared/auth.ts";
 import { sendEmail } from "../_shared/email-sender.ts";
+import { wrapEmailHtml } from "../_shared/email-template-wrapper.ts";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -107,7 +108,7 @@ Deno.serve(async (req: Request) => {
       to: queueRecord.buyer_email,
       toName: queueRecord.buyer_name,
       subject: `Project ${deal.project_name} — Investment Opportunity`,
-      htmlContent: buildApprovalEmailHtml(projectName, buyerName, linkUrl),
+      htmlContent: buildApprovalEmailHtml(projectName, buyerName, linkUrl, queueRecord.buyer_email),
       senderName: "SourceCo Deal Team",
       replyTo: Deno.env.get("ADMIN_NOTIFICATION_EMAIL") || "deals@sourcecodeals.com",
       isTransactional: true,
@@ -130,29 +131,21 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-function buildApprovalEmailHtml(projectName: string, buyerName: string, linkUrl: string): string {
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-  body { font-family: Arial, Helvetica, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-  .header { padding-bottom: 20px; border-bottom: 2px solid #6366f1; margin-bottom: 20px; }
-  .header h1 { color: #1e293b; font-size: 22px; margin: 0; }
-  .cta-button { display: inline-block; background: #6366f1; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; margin: 20px 0; }
-  .note { background: #f8fafc; border-left: 4px solid #6366f1; padding: 12px 16px; margin: 20px 0; font-size: 14px; color: #475569; }
-  .signature { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; color: #666; font-size: 14px; }
-  .disclaimer { font-size: 12px; color: #94a3b8; margin-top: 20px; }
-</style></head>
-<body>
-  <div class="header"><h1>Project ${projectName} — Investment Opportunity</h1></div>
-  <div>
+function buildApprovalEmailHtml(projectName: string, buyerName: string, linkUrl: string, buyerEmail: string): string {
+  return wrapEmailHtml({
+    bodyHtml: `
+    <h1 style="color: #1e293b; font-size: 22px; margin: 0 0 20px 0;">Project ${projectName} — Investment Opportunity</h1>
     <p>Dear ${buyerName},</p>
     <p>Thank you for your interest in this investment opportunity. We are pleased to share the Anonymous Teaser for <strong>Project ${projectName}</strong> with you.</p>
     <p>Please click the link below to review the investment summary:</p>
-    <p><a href="${linkUrl}" class="cta-button">View Investment Teaser</a></p>
-    <div class="note">This is a private, tracked link generated exclusively for you. Please do not share or forward this link.</div>
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="${linkUrl}" style="display: inline-block; background: #1a1a2e; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">View Investment Teaser</a>
+    </div>
+    <div style="background: #f8fafc; border-left: 4px solid #e94560; padding: 12px 16px; margin: 20px 0; font-size: 14px; color: #475569;">This is a private, tracked link generated exclusively for you. Please do not share or forward this link.</div>
     <p>If this opportunity aligns with your investment criteria, please reply to this email to express your interest.</p>
-  </div>
-  <div class="signature"><p>SourceCo Deal Team<br>SourceCo</p></div>
-  <div class="disclaimer"><p>This communication is confidential and intended solely for the named recipient.</p></div>
-</body></html>`;
+    <p style="font-size: 14px; color: #666; margin-top: 30px;">SourceCo Deal Team</p>
+    <p style="font-size: 12px; color: #94a3b8; margin-top: 20px;">This communication is confidential and intended solely for the named recipient.</p>`,
+    preheader: `Investment opportunity: Project ${projectName}`,
+    recipientEmail: buyerEmail,
+  });
 }

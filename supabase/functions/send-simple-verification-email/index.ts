@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -76,7 +77,11 @@ adam.haile@sourcecodeals.com`;
       to: email,
       toName: displayName,
       subject: 'Email Verification - Technical Issue Resolved',
-      htmlContent: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"><pre style="font-family: Arial, sans-serif; white-space: pre-wrap; margin: 0;">${textContent}</pre></div>`,
+      htmlContent: wrapEmailHtml({
+        bodyHtml: `<div style="white-space: pre-wrap;">${textContent}</div>`,
+        preheader: 'Your email verification link is ready',
+        recipientEmail: email,
+      }),
       textContent,
       senderName: 'Adam Haile',
       replyTo: 'adam.haile@sourcecodeals.com',

@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 interface OwnerIntroRequest {
   dealId: string; listingId: string; buyerName: string; buyerEmail: string;
@@ -46,31 +47,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     const subject = `🤝 Owner Intro Requested: ${buyerName} → ${companyName}`;
 
-    const htmlContent = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 24px; border-radius: 8px; margin-bottom: 24px;">
-          <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.8px; color: #94a3b8; text-transform: uppercase;">SOURCECO PIPELINE</div>
-          <h1 style="color: #ffffff; font-size: 24px; font-weight: 700; margin: 8px 0 0 0;">Owner Introduction Requested</h1>
-          <p style="color: #cbd5e1; font-size: 14px; margin: 8px 0 0 0;">A qualified buyer is ready to speak with the owner</p>
-        </div>
+    const htmlContent = wrapEmailHtml({
+      bodyHtml: `
         <div style="background: #fffbeb; border-left: 4px solid #d7b65c; padding: 20px 24px; border-radius: 4px; margin-bottom: 24px;">
           <p style="margin: 0 0 12px 0; color: #78350f; font-weight: 600;">Hi ${ownerName},</p>
           <p style="margin: 0; color: #78350f; font-size: 14px; line-height: 1.6;">${dealOwnerName || 'Your deal owner'} has coordinated an introduction with <strong>${buyerName}</strong> from ${buyerCompany || 'a qualified firm'}. The buyer is ready to speak with the owner of <strong>${companyName}</strong>.</p>
         </div>
         <div style="background: #f8fafc; padding: 24px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
           <h2 style="margin: 0 0 16px 0; color: #0f172a; font-size: 16px; font-weight: 700;">Buyer Information</h2>
-          <table style="width: 100%; margin-bottom: 12px;"><tr><td style="color: #64748b; font-size: 13px; width: 120px;">Name</td><td style="color: #0f172a; font-size: 14px; font-weight: 600;">${buyerName}</td></tr></table>
-          <table style="width: 100%; margin-bottom: 12px;"><tr><td style="color: #64748b; font-size: 13px; width: 120px;">Email</td><td style="color: #0f172a; font-size: 14px; font-weight: 600;">${buyerEmail}</td></tr></table>
-          ${buyerCompany ? `<table style="width: 100%; margin-bottom: 12px;"><tr><td style="color: #64748b; font-size: 13px; width: 120px;">Company</td><td style="color: #0f172a; font-size: 14px; font-weight: 600;">${buyerCompany}</td></tr></table>` : ''}
-          <table style="width: 100%; margin-bottom: 12px;"><tr><td style="color: #64748b; font-size: 13px; width: 120px;">Deal Value</td><td style="color: #0f172a; font-size: 14px; font-weight: 600;">${dealValueText}</td></tr></table>
+          <p style="margin: 0 0 8px 0; font-size: 13px;"><span style="color: #64748b;">Name:</span> <strong style="color: #0f172a;">${buyerName}</strong></p>
+          <p style="margin: 0 0 8px 0; font-size: 13px;"><span style="color: #64748b;">Email:</span> <strong style="color: #0f172a;">${buyerEmail}</strong></p>
+          ${buyerCompany ? `<p style="margin: 0 0 8px 0; font-size: 13px;"><span style="color: #64748b;">Company:</span> <strong style="color: #0f172a;">${buyerCompany}</strong></p>` : ''}
+          <p style="margin: 0 0 8px 0; font-size: 13px;"><span style="color: #64748b;">Deal Value:</span> <strong style="color: #0f172a;">${dealValueText}</strong></p>
         </div>
         <div style="text-align: center; margin-bottom: 32px;">
-          <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${dealId}" style="background-color: #d7b65c; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; padding: 14px 40px; border-radius: 6px;">View Deal in Pipeline</a>
-        </div>
-        <div style="text-align: center; padding: 24px 0; border-top: 1px solid #e2e8f0;">
-          <p style="margin: 0; color: #94a3b8; font-size: 12px;">SourceCo Deals • M&A Advisory Platform</p>
-        </div>
-      </div>`;
+          <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${dealId}" style="background-color: #1a1a2e; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; padding: 14px 40px; border-radius: 6px;">View Deal in Pipeline</a>
+        </div>`,
+      preheader: `Owner intro requested: ${buyerName} → ${companyName}`,
+      recipientEmail: primaryOwnerData.email,
+    });
 
     const result = await sendEmail({
       templateName: 'owner_intro_notification',

@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { sendEmail } from '../_shared/email-sender.ts';
 import { escapeHtml } from '../_shared/security.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 interface DealAlertRequest {
   alert_id: string;
@@ -77,44 +78,30 @@ const handler = async (req: Request): Promise<Response> => {
 
     const siteUrl = Deno.env.get('SITE_URL') ?? 'https://marketplace.sourcecodeals.com';
 
-    const emailHtml = `
-      <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 30px 20px; border-radius: 8px 8px 0 0; text-align: center; }
-        .content { background: #fff; padding: 30px 20px; border: 1px solid #e5e7eb; }
-        .listing-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
-        .btn { display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; }
-        .footer { background: #f8fafc; padding: 20px; border-radius: 0 0 8px 8px; text-align: center; color: #64748b; font-size: 14px; }
-      </style></head>
-      <body><div class="container">
-        <div class="header"><h1>A deal matching your criteria just came in</h1></div>
-        <div class="content">
-          <div class="listing-card">
-            <div style="font-size: 20px; font-weight: bold; color: #1e293b; margin-bottom: 10px;">${safeTitle}</div>
-            <div style="color: #64748b; margin-bottom: 15px;">📍 ${safeLocation} • 🏷️ ${safeCategory}</div>
-            <div style="display: flex; gap: 20px; margin: 15px 0;">
-              <div style="flex: 1; text-align: center; background: white; padding: 15px; border-radius: 6px;">
-                <div style="font-size: 12px; color: #64748b; text-transform: uppercase;">Revenue</div>
-                <div style="font-size: 18px; font-weight: bold; color: #1e293b;">${formatCurrency(listing_data.revenue)}</div>
-              </div>
-              <div style="flex: 1; text-align: center; background: white; padding: 15px; border-radius: 6px;">
-                <div style="font-size: 12px; color: #64748b; text-transform: uppercase;">EBITDA</div>
-                <div style="font-size: 18px; font-weight: bold; color: #1e293b;">${formatCurrency(listing_data.ebitda)}</div>
-              </div>
-            </div>
-            <div style="margin: 15px 0; color: #374151;">${safeDescription}</div>
-            <a href="${siteUrl}/listing/${listing_data.id}" class="btn">View Deal →</a>
+    const emailHtml = wrapEmailHtml({
+      bodyHtml: `
+        <h2 style="margin: 0 0 16px 0; color: #1e293b;">A deal matching your criteria just came in</h2>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <div style="font-size: 20px; font-weight: bold; color: #1e293b; margin-bottom: 10px;">${safeTitle}</div>
+          <div style="color: #64748b; margin-bottom: 15px;">📍 ${safeLocation} • 🏷️ ${safeCategory}</div>
+          <div style="margin: 15px 0;">
+            <span style="display: inline-block; text-align: center; background: white; padding: 15px; border-radius: 6px; margin-right: 10px;">
+              <div style="font-size: 12px; color: #64748b; text-transform: uppercase;">Revenue</div>
+              <div style="font-size: 18px; font-weight: bold; color: #1e293b;">${formatCurrency(listing_data.revenue)}</div>
+            </span>
+            <span style="display: inline-block; text-align: center; background: white; padding: 15px; border-radius: 6px;">
+              <div style="font-size: 12px; color: #64748b; text-transform: uppercase;">EBITDA</div>
+              <div style="font-size: 18px; font-weight: bold; color: #1e293b;">${formatCurrency(listing_data.ebitda)}</div>
+            </span>
           </div>
-          <p><strong>Why you're receiving this:</strong> This deal matches your mandate on SourceCo.</p>
+          <div style="margin: 15px 0; color: #374151;">${safeDescription}</div>
+          <a href="${siteUrl}/listing/${listing_data.id}" style="display: inline-block; background: #1a1a2e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">View Deal →</a>
         </div>
-        <div class="footer">
-          <p>You're receiving this because you have an active deal alert on SourceCo.</p>
-          <p style="font-size: 12px;"><a href="${siteUrl}/profile?tab=alerts">Manage your alerts</a></p>
-        </div>
-      </div></body></html>
-    `;
+        <p><strong>Why you're receiving this:</strong> This deal matches your mandate on SourceCo.</p>
+        <p style="font-size: 12px; color: #64748b;"><a href="${siteUrl}/profile?tab=alerts" style="color: #64748b;">Manage your alerts</a></p>`,
+      preheader: `New deal matching your mandate: ${safeTitle}`,
+      recipientEmail: user_email,
+    });
 
     const result = await sendEmail({
       templateName: 'deal_alert',
