@@ -8,7 +8,7 @@
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { sendEmail, SUPPORT_REPLY_TO, SUPPORT_SENDER_NAME } from '../_shared/email-sender.ts';
 import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
 
 const SUPPORT_EMAIL = 'support@sourcecodeals.com';
 const ADMIN_BASE = 'https://marketplace.sourcecodeals.com/admin';
@@ -104,18 +104,13 @@ Deno.serve(async (req) => {
       showFooter: false,
     });
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
-
-    await sendEmail(supabaseAdmin, {
+    await sendEmail({
+      templateName: 'support-inbox-notification',
       to: SUPPORT_EMAIL,
       subject,
-      html: fullHtml,
+      htmlContent: fullHtml,
       replyTo: SUPPORT_REPLY_TO,
       senderName: SUPPORT_SENDER_NAME,
-      tags: ['support-inbox', type],
     });
 
     return new Response(
