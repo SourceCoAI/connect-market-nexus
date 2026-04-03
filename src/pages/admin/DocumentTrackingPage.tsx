@@ -1173,6 +1173,7 @@ function PendingRequestRow({ req, deliveryEvent }: { req: PendingRequest; delive
           >
             Mark Signed
           </Button>
+          <DismissButton requestId={req.id} label={req.recipient_name || req.recipient_email || 'request'} />
         </div>
       </div>
 
