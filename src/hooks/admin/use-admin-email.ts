@@ -320,8 +320,11 @@ export function useAdminEmail() {
         customSignatureText: options.customSignatureText,
       };
 
-      const { data, error } = await supabase.functions.invoke('send-approval-email', {
-        body: requestPayload,
+      const { data, error } = await supabase.functions.invoke('send-templated-approval-email', {
+        body: {
+          userId: requestPayload.userId,
+          userEmail: requestPayload.userEmail,
+        },
       });
 
       if (error || (data && !data.success)) {

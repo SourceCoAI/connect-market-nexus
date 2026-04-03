@@ -3,6 +3,7 @@ import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
 import { selfHealFirm } from '../_shared/firm-self-heal.ts';
 import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 /**
  * request-agreement-email — REBUILT from scratch on the new email architecture.
@@ -224,31 +225,23 @@ Deno.serve(async (req: Request) => {
         requestId: docRequest?.id,
         adminTriggered: !!adminId,
       },
-      htmlContent: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      htmlContent: wrapEmailHtml({
+        bodyHtml: `
           <h2 style="color: #0E101A; margin-bottom: 16px;">Your ${docLabel}</h2>
-          <p style="color: #555; line-height: 1.6;">Hi ${buyerName},</p>
-          <p style="color: #555; line-height: 1.6;">
-            Thank you for your interest in working with SourceCo. ${attachmentList.length > 0 ? 'Please find the document attached to this email.' : downloadLink ? 'Please download your document using the button below.' : 'Your document will be sent to you shortly by our team.'}
-          </p>
+          <p>Hi ${buyerName},</p>
+          <p>${attachmentList.length > 0 ? 'Please find the document attached to this email.' : downloadLink ? 'Please download your document using the button below.' : 'Your document will be sent to you shortly by our team.'}</p>
           ${downloadLink}
-          <p style="color: #555; line-height: 1.6;">
-            <strong>To complete the signing process:</strong>
-          </p>
-          <ol style="color: #555; line-height: 1.8;">
+          <p><strong>To complete the signing process:</strong></p>
+          <ol style="line-height: 1.8;">
             <li>Review the document carefully</li>
             <li>Sign where indicated</li>
             <li>Reply to this email with the signed copy attached</li>
           </ol>
-          <p style="color: #555; line-height: 1.6;">
-            If you have any questions or need modifications, simply reply to this email and we'll get back to you promptly.
-          </p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-          <p style="color: #999; font-size: 12px;">
-            SourceCo Deals &middot; adam.haile@sourcecodeals.com
-          </p>
-        </div>
-      `,
+          <p>If you have any questions or need modifications, simply reply to this email and we'll get back to you promptly.</p>
+        `,
+        preheader: `Review and sign your ${docLabel} to complete your SourceCo setup.`,
+        recipientEmail: buyerEmail,
+      }),
     });
 
     // Update document_requests with result
