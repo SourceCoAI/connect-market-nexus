@@ -95,7 +95,7 @@ export interface ThreadViewProps {
 
 // ─── Component ───
 
-export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
+export function ThreadView({ thread, allBuyerThreads = [], onSelectThread, onBack, adminProfiles }: ThreadViewProps) {
   const { data: messages = [], isLoading } = useConnectionMessages(thread.connection_request_id);
   const sendMsg = useSendMessage();
   const markRead = useMarkMessagesReadByAdmin();
