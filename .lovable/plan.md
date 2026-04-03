@@ -1,41 +1,83 @@
 
 
-# Streamline Document Request Flow in Sidebar
+# Use support@sourcecodeals.com for Buyer-Facing Emails
 
-## Problem
+## Current State
 
-When both documents are unsigned and show "Not requested," the user has to scroll down to the ConnectionButton area, click "Request Agreement via Email," then go through the modal to pick which document. The flow should be simpler: click a "Request" link right next to the document status, and if both are unsigned, one click sends both.
+All emails are sent **from** `adam.haile@sourcecodeals.com` (the only verified sender in Brevo). The `replyTo` also defaults to Adam's email. This means every email -- agreement documents, message notifications, agreement confirmations, onboarding -- all come from Adam personally.
 
-## Changes
+## The Challenge
 
-### 1. `ListingSidebarActions.tsx` — Add inline request action in Documents section
+Brevo requires the **sender** (`from`) to be a verified sender/domain. We cannot change the `from` address to `support@sourcecodeals.com` unless it is also verified in Brevo. However, we **can** change the `replyTo` address freely, and we can change the `senderName` display name.
 
-**When both documents are "Not requested":**
-- Show a single "Request documents" text button below the document rows (subtle, text-only link style)
-- Clicking it opens the `AgreementSigningModal` (or directly fires `sendAgreementEmail` for both types)
-- After sending, status updates to "Sent" automatically via query invalidation
+## Approach: Two-Tier Sender Identity
 
-**When only one is "Not requested":**
-- Show "Request" as a small clickable text next to that specific document's "Not requested" label
-- Fires request for just that document type
+Instead of one locked identity, define two sender profiles in `email-sender.ts`:
 
-**When both are sent/signed:**
-- No request action shown
+| Profile | Use Case | From (Brevo sender) | Sender Name | Reply-To |
+|---|---|---|---|---|
+| **Personal** (default) | Deal referrals, memo sends, owner-facing | adam.haile@ | Adam Haile - SourceCo | adam.haile@ |
+| **Support** | Document emails, message notifications, agreement confirmations, onboarding, verification | adam.haile@ (Brevo constraint) | SourceCo | support@ |
 
-This replaces the need for the big "Sign Your Fee Agreement" card in the ConnectionButton unsigned block.
+The **from** address stays `adam.haile@` (Brevo verified sender constraint), but the **display name** changes to "SourceCo" and **reply-to** changes to `support@` for buyer-facing operational emails. When a buyer hits "reply", it goes to `support@sourcecodeals.com`.
 
-### 2. `ConnectionButton.tsx` — Simplify unsigned block
+## Which Emails Get the Support Profile
 
-Remove the "Sign Your Fee Agreement" card with its description and "Request Agreement via Email" button (lines 200-225). Replace with a simple one-liner: "Sign your documents to unlock the data room and request introductions." No card border, no CTA button — the request action now lives in the Documents section above.
+These emails are operational/system emails where replies should go to a team inbox, not Adam personally:
 
-Keep the `anyPending` message ("Once your Fee Agreement is processed...") as-is.
+- `request-agreement-email` -- document sends (NDA/Fee Agreement)
+- `notify-agreement-confirmed` -- agreement signed confirmation
+- `notify-buyer-new-message` -- new message notification to buyer
+- `notify-admin-new-message` -- new message notification to admin (replyTo stays admin)
+- `send-verification-success-email` -- email verification success
+- `send-onboarding-day2` / `send-onboarding-day7` -- onboarding sequences
+- `approve-marketplace-buyer` -- connection approval
+- `grant-data-room-access` -- data room access granted
+- `send-connection-notification` -- connection request notifications
+- `password-reset` -- password reset
 
-### 3. Copy update
+These stay personal (Adam's identity):
+- `send-memo-email` -- personal outreach from admin
+- `send-deal-referral` -- deal referral from admin
+- `send-contact-response` -- personal response to contact form
 
-- "Sign Your Fee Agreement" → "Sign your documents" (since we send both)
-- The header intro text already says "Request a connection to unlock the data room" — this stays
+## Technical Changes
 
-### Files changed
-- `src/components/listing-detail/ListingSidebarActions.tsx` — add request links in Documents section, import AgreementSigningModal or sendAgreementEmail
-- `src/components/listing-detail/ConnectionButton.tsx` — remove the big card, replace with simple text
+### 1. `email-sender.ts` -- Add support profile constant
+
+Add a `SUPPORT_REPLY_TO` constant (`support@sourcecodeals.com`) and a `SUPPORT_SENDER_NAME` constant (`SourceCo`). No changes to how the function works -- callers just pass `replyTo` and `senderName` overrides.
+
+### 2. Each edge function -- Update `sendEmail()` calls
+
+For each operational email function listed above, add/update two fields:
+```
+senderName: 'SourceCo',
+replyTo: 'support@sourcecodeals.com',
+```
+
+This is a straightforward find-and-replace across ~10 edge functions. No logic changes.
+
+### 3. Also verify: Is support@ set up to receive email?
+
+This is outside of code -- the user needs to confirm that `support@sourcecodeals.com` is a working inbox (Google Workspace, etc.) that can receive replies. The code change is safe regardless.
+
+### 4. Future: Verify support@ as Brevo sender
+
+Once `support@sourcecodeals.com` is verified as a sender in Brevo, we can update `VERIFIED_SENDER_EMAIL` to use it as the actual `from` address for operational emails. For now, the reply-to approach gives 90% of the benefit.
+
+## Files Changed
+
+- `supabase/functions/_shared/email-sender.ts` -- add support profile constants
+- `supabase/functions/request-agreement-email/index.ts`
+- `supabase/functions/notify-agreement-confirmed/index.ts`
+- `supabase/functions/notify-buyer-new-message/index.ts`
+- `supabase/functions/send-verification-success-email/index.ts`
+- `supabase/functions/send-onboarding-day2/index.ts`
+- `supabase/functions/send-onboarding-day7/index.ts`
+- `supabase/functions/approve-marketplace-buyer/index.ts`
+- `supabase/functions/grant-data-room-access/index.ts`
+- `supabase/functions/send-connection-notification/index.ts`
+- `supabase/functions/password-reset/index.ts`
+
+All changes are adding `senderName: 'SourceCo'` and `replyTo: 'support@sourcecodeals.com'` to existing `sendEmail()` calls. Deploy all updated functions after.
 
