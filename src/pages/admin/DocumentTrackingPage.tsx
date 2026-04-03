@@ -666,7 +666,7 @@ export default function DocumentTrackingPage() {
               <AlertTriangle className="h-4 w-4" />
               Pending Requests ({pendingRequests.length})
             </h3>
-            <span className="text-xs text-amber-700">Check inbox at support@sourcecodeals.com</span>
+            <span className="text-xs text-amber-700">Check inbox at adam.haile@sourcecodeals.com</span>
           </div>
           <div className="divide-y divide-amber-200">
             {pendingRequests.map((req) => {

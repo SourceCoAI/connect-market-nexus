@@ -212,16 +212,18 @@ serve(async (req: Request) => {
       console.warn('[request-agreement-email] Attachment fetch error:', dlErr);
     }
 
-    // Use the same sender identity as known-working notification emails
-    const senderEmail = Deno.env.get('SENDER_EMAIL') || 'support@sourcecodeals.com';
+    // LOCKED sender identity — adam.haile@ is the only verified sender that delivers to Gmail
+    const senderEmail = 'adam.haile@sourcecodeals.com';
 
-    // Send email via Brevo — matching the proven sender pattern
+    console.log(`[request-agreement-email] SEND CONFIG | sender=${senderEmail} | replyTo=adam.haile@sourcecodeals.com | recipient=${buyerEmail} | attachments=${attachmentList.length} | correlationId=${correlationId}`);
+
+    // Send email via Brevo — using the proven sender identity
     const emailResult = await sendViaBervo({
       to: buyerEmail,
       toName: buyerName,
       subject: `Your ${docLabel} from SourceCo`,
       senderEmail,
-      senderName: 'SourceCo',
+      senderName: 'Adam Haile - SourceCo',
       replyToEmail: 'adam.haile@sourcecodeals.com',
       replyToName: 'Adam Haile',
       isTransactional: true,
