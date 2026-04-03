@@ -105,7 +105,7 @@ export function ThreadView({ thread, allBuyerThreads = [], onSelectThread, onBac
   const [newMessage, setNewMessage] = useState('');
   const [reference, setReference] = useState<MessageReference | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showContext, setShowContext] = useState(true);
+  const [showContext, setShowContext] = useState(false);
 
   // Get current admin ID for claim
   const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
@@ -197,7 +197,7 @@ export function ThreadView({ thread, allBuyerThreads = [], onSelectThread, onBac
       : null;
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 relative">
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3 flex-shrink-0" style={{ borderBottom: '1px solid #F0EDE6' }}>
@@ -496,14 +496,23 @@ export function ThreadView({ thread, allBuyerThreads = [], onSelectThread, onBac
         </div>
       )}
     </div>
-    {/* Buyer context panel */}
+    {/* Buyer context panel — slide-over overlay */}
     {showContext && (
-      <ThreadContextPanel
-        userId={thread.user_id}
-        buyerName={thread.buyer_name}
-        buyerEmail={thread.buyer_email}
-        buyerCompany={thread.buyer_company}
-      />
+      <>
+        <div
+          className="absolute inset-0 z-10 bg-black/10"
+          onClick={() => setShowContext(false)}
+        />
+        <div className="absolute inset-y-0 right-0 z-20 w-[340px] shadow-xl">
+          <ThreadContextPanel
+            userId={thread.user_id}
+            buyerName={thread.buyer_name}
+            buyerEmail={thread.buyer_email}
+            buyerCompany={thread.buyer_company}
+            onClose={() => setShowContext(false)}
+          />
+        </div>
+      </>
     )}
     </div>
   );
