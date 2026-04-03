@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Mail, CheckCircle, XCircle, AlertTriangle, Eye, Search } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Mail, CheckCircle, XCircle, AlertTriangle, Eye, Search, BookOpen } from 'lucide-react';
 import { format } from 'date-fns';
+import { EmailCatalog } from '@/components/admin/emails/EmailCatalog';
 
 type TimeRange = '24h' | '7d' | '30d' | 'all';
 
