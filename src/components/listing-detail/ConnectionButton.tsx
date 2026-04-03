@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRealtime } from '@/components/realtime/RealtimeProvider';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
-import { XCircle, AlertCircle, Check, RotateCw } from 'lucide-react';
+import { XCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { isProfileComplete, getProfileCompletionPercentage, getMissingFieldLabels } from '@/lib/profile-completeness';
 import { useQueryClient } from '@tanstack/react-query';
