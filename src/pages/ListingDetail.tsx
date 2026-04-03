@@ -345,6 +345,18 @@ const ListingDetail = () => {
                 </div>
 
                 <div className="space-y-3">
+                  {/* Action rows: Data Room + Ask a Question */}
+                  {!isAdmin && user && (
+                    <ListingSidebarActions
+                      listingId={id!}
+                      feeCovered={agreementCoverage?.fee_covered ?? false}
+                      connectionApproved={connectionStatusValue === 'approved'}
+                      onExploreDataRoom={() => {
+                        dataRoomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                    />
+                  )}
+
                   <ConnectionButton
                     connectionExists={connectionExists}
                     connectionStatus={connectionStatusValue}
@@ -367,7 +379,6 @@ const ListingDetail = () => {
                         View request status in My Deals →
                       </Link>
                     )}
-
 
                   {/* Enhanced Save and Share */}
                   <EnhancedSaveButton
