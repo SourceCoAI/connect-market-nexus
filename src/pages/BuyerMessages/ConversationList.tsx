@@ -32,9 +32,11 @@ export function ConversationList({
   onSearchChange,
   onSelectThread,
   onSelectGeneral,
+  onReferenceChange,
   totalUnread = 0,
 }: ConversationListProps) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
     <div
