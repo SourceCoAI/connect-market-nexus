@@ -21,6 +21,8 @@ interface CatalogEmail {
   variant?: string;
   designNotes: string;
   previewHtml: string;
+  status?: EmailStatus;
+  statusNote?: string;
 }
 
 interface CatalogCategory {
