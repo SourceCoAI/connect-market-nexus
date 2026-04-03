@@ -103,6 +103,9 @@ Deno.serve(async (req) => {
           to: email,
           subject,
           htmlContent: html,
+          senderName: 'SourceCo',
+          replyTo: 'support@sourcecodeals.com',
+          isTransactional: true,
           metadata: { firmId, agreementType, firmName },
         });
         sent++;

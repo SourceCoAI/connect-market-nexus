@@ -130,6 +130,7 @@ const handler = async (req: Request): Promise<Response> => {
             recipientEmail: email,
           }),
           senderName: 'SourceCo',
+          replyTo: 'support@sourcecodeals.com',
           isTransactional: true,
         });
         emailSent = result.success;
