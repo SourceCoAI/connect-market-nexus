@@ -150,51 +150,16 @@ serve(async (req: Request) => {
       </html>
     `;
 
-    // Send email via Brevo
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
-    if (!brevoApiKey) {
-      throw new Error('BREVO_API_KEY not configured');
-    }
+    // Send email via shared Brevo sender
+    const { sendViaBervo } = await import('../_shared/brevo-sender.ts');
 
-    const brevoPayload: {
-      sender: { name: string; email: string };
-      to: { email: string; name: string }[];
-      subject: string;
-      htmlContent: string;
-      cc?: { email: string; name: string }[];
-    } = {
-      sender: {
-        name: 'SourceCo Marketplace',
-        email: Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com',
-      },
-      to: [
-        {
-          email: recipientEmail,
-          name: recipientName || recipientEmail,
-        },
-      ],
+    const result = await sendViaBervo({
+      to: recipientEmail,
+      toName: recipientName || recipientEmail,
       subject: `${referrerName} shared a business opportunity with you`,
       htmlContent: emailHtml,
-    };
-
-    // Add CC if requested
-    if (ccSelf && referrerEmail) {
-      brevoPayload.cc = [
-        {
-          email: referrerEmail,
-          name: referrerName,
-        },
-      ];
-    }
-
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'api-key': brevoApiKey,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(brevoPayload),
+      senderName: 'SourceCo Marketplace',
+      isTransactional: true,
     });
 
     if (!response.ok) {
