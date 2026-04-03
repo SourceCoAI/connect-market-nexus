@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Mail, CheckCircle, XCircle, AlertTriangle, Eye, Search, BookOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { EmailCatalog } from '@/components/admin/emails/EmailCatalog';
+import { AdminEmailRouting } from '@/components/admin/emails/AdminEmailRouting';
 
 type TimeRange = '24h' | '7d' | '30d' | 'all';
 
