@@ -8,7 +8,7 @@
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { sendEmail, SUPPORT_REPLY_TO, SUPPORT_SENDER_NAME } from '../_shared/email-sender.ts';
 import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
 
 const SUPPORT_EMAIL = 'support@sourcecodeals.com';
 const ADMIN_BASE = 'https://marketplace.sourcecodeals.com/admin';
