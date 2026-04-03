@@ -1,42 +1,45 @@
 
 
-# Add Inquiry Confirmation Email to Buyer
+# Persist Message Notification Until Admin Replies
 
-## What
+## Problem
 
-When a buyer sends a question via "Ask a Question" on a listing page, send them a confirmation email: "We received your message about [Deal Title]. A team member will respond shortly. You'll receive a notification via email when they reply, but please respond directly on the platform."
+Currently the Messages badge only counts unread admin messages (`sender_role='admin'` + `is_read_by_buyer=false`). When a buyer sends a question and no admin has replied yet, the badge shows 0 — there's no visual indicator that they have an unanswered thread.
+
+The user wants: the red notification badge on Messages should stay visible until an admin actually replies to the buyer's message.
 
 ## Approach
 
-Use the existing Brevo email infrastructure (`sendEmail` + `wrapEmailHtml`) — same pattern as `notify-buyer-new-message`. Create a new edge function `notify-buyer-inquiry-received` that:
+Add an "awaiting reply" count to the buyer message badge. A thread is "awaiting reply" when:
+- The last message in the thread was sent by the buyer (`last_message_sender_role = 'buyer'`)
+- No admin reply exists after the buyer's last message
 
-1. Accepts `listing_id`, `buyer_email`, `buyer_name`, `deal_title`, `message_preview`
-2. Builds a branded confirmation email using `wrapEmailHtml`
-3. Sends via `sendEmail` through Brevo
+The `connection_requests` table already tracks `last_message_sender_role` (set by the DB trigger on `connection_messages` insert). We can use this directly.
 
-Then invoke it fire-and-forget from `ListingSidebarActions.tsx` after a successful message send.
+## Changes
 
-## Email Content
+### `src/hooks/use-connection-messages.ts` — `useUnreadBuyerMessageCounts`
 
-- Subject: "We received your message about [Deal Title]"
-- Body:
-  - "Hi [Name],"
-  - "Thank you for reaching out about [Deal Title]. We have received your message and a team member will review it shortly."
-  - Quote block showing their message preview
-  - "When we respond, you will receive an email notification. Please reply directly on the platform to keep all communication in one place."
-  - CTA button: "Go to Messages" → links to `/messages`
-  - Footer with SourceCo branding
+Extend the query to also count threads where `last_message_sender_role = 'buyer'` (meaning the buyer sent the last message and is awaiting a reply). Add this as `awaitingReplyTotal` to the return value, and include it in the `messagesTotal` count used by the navbar badge.
 
-## Files
+Specifically:
+1. After fetching `connection_requests`, also check which ones have `last_message_sender_role = 'buyer'`
+2. Count those as "awaiting reply" — but only if there's at least one message (not empty threads)
+3. Add `awaitingReplyCount` to the totals so the badge reflects pending conversations
 
-### New
-- `supabase/functions/notify-buyer-inquiry-received/index.ts` — new edge function using `sendEmail` + `wrapEmailHtml`, no auth required (verify_jwt=false, fire-and-forget like `notify-support-inbox`)
+### `src/components/navbar/DesktopNavItems.tsx`
 
-### Modified
-- `src/components/listing-detail/ListingSidebarActions.tsx` — after successful message send (around line 134), invoke `notify-buyer-inquiry-received` fire-and-forget with the buyer's info and listing title
-- `supabase/config.toml` — add the new function entry
-- `src/components/admin/emails/AdminEmailRouting.tsx` — add "Inquiry Confirmation to Buyer" row in the Messaging category
+The Messages badge already uses `unreadMessages?.messagesTotal`. Since we'll include awaiting-reply threads in that count, no navbar changes needed — it will automatically show the combined count.
 
-### Deploy
-- Deploy `notify-buyer-inquiry-received` edge function
+### `src/components/navbar/MobileNavItems.tsx`
+
+Same — already uses `unreadMessages?.messagesTotal`, no changes needed.
+
+### Result
+- Buyer sends a question → badge shows "1" on Messages
+- Admin replies → badge clears (unless there are other unread messages)
+- Buyer reads the reply and responds again → badge shows "1" again until admin replies
+
+### Files changed
+- `src/hooks/use-connection-messages.ts` — extend `useUnreadBuyerMessageCounts` to include awaiting-reply threads
 
