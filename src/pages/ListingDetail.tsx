@@ -313,8 +313,10 @@ const ListingDetail = () => {
             {/* Buyer Data Room - shows memos and documents if buyer has access */}
             {/* MFA verification required when user has MFA enrolled */}
             {!isAdmin && user && (
-              <MFAGate loadingText="Verifying identity for data room access...">
-                <BuyerDataRoom dealId={id!} />
+              <div ref={dataRoomRef}>
+                <MFAGate loadingText="Verifying identity for data room access...">
+                  <BuyerDataRoom dealId={id!} />
+                </MFAGate>
               </MFAGate>
             )}
 
