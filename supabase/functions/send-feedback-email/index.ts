@@ -41,21 +41,16 @@ const handler = async (req: Request): Promise<Response> => {
       templateId: _templateId,
     }: EmailData = await req.json();
 
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">Feedback Response</h1>
-        </div>
-        <div style="padding: 30px; background: #ffffff;">
+    const htmlContent = wrapEmailHtml({
+      bodyHtml: `
+        <h2 style="margin: 0 0 15px 0; color: #1e293b;">Feedback Response</h2>
+        <div style="padding: 20px; background: #f8fafc; border-radius: 8px;">
           ${escapeHtmlWithBreaks(content)}
         </div>
-        <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #dee2e6;">
-          <p style="margin: 0; color: #6c757d; font-size: 14px;">
-            This is a response to your feedback. Please do not reply to this email.
-          </p>
-        </div>
-      </div>
-    `;
+        <p style="margin-top: 20px; color: #64748b; font-size: 14px;">This is a response to your feedback. Please do not reply to this email.</p>`,
+      preheader: 'Response to your feedback',
+      recipientEmail: to,
+    });
 
     const result = await sendEmail({
       templateName: 'feedback_response',

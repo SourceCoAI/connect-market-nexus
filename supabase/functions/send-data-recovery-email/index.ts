@@ -37,17 +37,19 @@ const handler = async (req: Request): Promise<Response> => {
           to: user.email,
           toName: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
           subject: 'Complete Your Profile - Missing Information',
-          htmlContent: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #333;">Complete Your Profile</h2>
+          htmlContent: wrapEmailHtml({
+            bodyHtml: `
+              <h2 style="color: #1e293b;">Complete Your Profile</h2>
               <p>Hi ${escapeHtml(user.first_name || 'there')},</p>
               <p>We noticed that some important information is missing from your profile.</p>
               ${escapeHtml(template)}
               <div style="margin: 30px 0;">
-                <a href="https://marketplace.sourcecodeals.com/profile" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Complete Profile Now</a>
+                <a href="https://marketplace.sourcecodeals.com/profile" style="background-color: #1a1a2e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Complete Profile Now</a>
               </div>
-              <p style="color: #666; font-size: 14px;">Best regards,<br>The SourceCo Team</p>
-            </div>`,
+              <p style="color: #666; font-size: 14px;">Best regards,<br>The SourceCo Team</p>`,
+            preheader: 'Complete your SourceCo profile',
+            recipientEmail: user.email,
+          }),
           senderName: 'SourceCo',
           isTransactional: true,
         });

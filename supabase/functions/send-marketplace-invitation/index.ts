@@ -45,24 +45,20 @@ const handler = async (req: Request): Promise<Response> => {
     const safeName = escapeHtml(name);
     const safeCustomMsg = customMessage ? escapeHtml(customMessage) : '';
 
-    const htmlBody = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-        <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="font-size: 20px; font-weight: 600; color: #1a1a2e; margin: 0;">SourceCo Marketplace</h1>
-          <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Invitation to Join</p>
-        </div>
-        <p style="font-size: 15px; color: #374151;">Hi ${safeName},</p>
-        <p style="font-size: 14px; color: #374151; line-height: 1.6;">
+    const htmlBody = wrapEmailHtml({
+      bodyHtml: `
+        <p style="font-size: 15px;">Hi ${safeName},</p>
+        <p style="font-size: 14px; line-height: 1.6;">
           You've been invited to join the <strong>SourceCo Marketplace</strong> — a curated platform connecting qualified acquisition buyers with exclusive deal flow.
         </p>
         ${safeCustomMsg ? `
           <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 16px 0;">
             <p style="font-size: 13px; color: #6b7280; margin: 0 0 4px 0; font-weight: 500;">Personal note:</p>
-            <p style="font-size: 14px; color: #374151; margin: 0; line-height: 1.5;">${safeCustomMsg}</p>
+            <p style="font-size: 14px; margin: 0; line-height: 1.5;">${safeCustomMsg}</p>
           </div>
         ` : ''}
-        <p style="font-size: 14px; color: #374151; line-height: 1.6;"><strong>What you get access to:</strong></p>
-        <ul style="font-size: 14px; color: #374151; line-height: 1.8; padding-left: 20px;">
+        <p style="font-size: 14px; line-height: 1.6;"><strong>What you get access to:</strong></p>
+        <ul style="font-size: 14px; line-height: 1.8; padding-left: 20px;">
           <li>Exclusive off-market deal opportunities</li>
           <li>Direct introductions to business owners</li>
           <li>Secure data room access for diligence</li>
@@ -71,10 +67,10 @@ const handler = async (req: Request): Promise<Response> => {
         <div style="text-align: center; margin: 28px 0;">
           <a href="${signupUrl}" style="display: inline-block; background: #1a1a2e; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: 500;">Create Your Profile</a>
         </div>
-        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
-        <p style="font-size: 12px; color: #9ca3af; text-align: center;">Questions? Reply to this email or contact us at deals@sourcecodeals.com</p>
-      </div>
-    `;
+        <p style="font-size: 12px; color: #9ca3af; text-align: center;">Questions? Reply to this email or contact us at deals@sourcecodeals.com</p>`,
+      preheader: `You're invited to join SourceCo Marketplace`,
+      recipientEmail: to,
+    });
 
     const result = await sendEmail({
       templateName: 'marketplace_invitation',

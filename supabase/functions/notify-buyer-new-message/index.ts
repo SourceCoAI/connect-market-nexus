@@ -70,7 +70,7 @@ const handler = async (req: Request): Promise<Response> => {
     const loginUrl = 'https://marketplace.sourcecodeals.com/my-requests';
 
     const subject = `New message from SourceCo re: ${escapeHtml(dealTitle)}`;
-    const htmlContent = buildMessageNotificationHtml(buyerName, dealTitle, preview, loginUrl);
+    const htmlContent = buildMessageNotificationHtml(buyerName, dealTitle, preview, loginUrl, buyer.email);
 
     const result = await sendEmail({
       templateName: 'admin_message_notification',

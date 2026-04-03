@@ -59,7 +59,11 @@ serve(async (req: Request) => {
       templateName: `contact_response_${category || 'general'}`,
       to,
       subject: emailSubject,
-      htmlContent: `<div style="font-family: Arial, sans-serif; white-space: pre-wrap;">${emailText}</div>`,
+      htmlContent: wrapEmailHtml({
+        bodyHtml: `<div style="white-space: pre-wrap;">${emailText}</div>`,
+        preheader: emailSubject,
+        recipientEmail: to,
+      }),
       textContent: emailText,
       senderName: 'SourceCo Team',
       isTransactional: true,

@@ -40,7 +40,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('[notify-buyer-rejection] Sending rejection email to:', buyerEmail, 'for:', companyName);
 
     const subject = `Regarding Your Interest in ${companyName}`;
-    const htmlContent = buildRejectionHtml(buyerName, companyName);
+    const htmlContent = buildRejectionHtml(buyerName, companyName, buyerEmail);
     const textContent = `Thank you for your interest in ${companyName}. After careful review, this opportunity is no longer available for your profile at this time. Sincerely, The SourceCo Team`;
 
     const result = await sendEmail({

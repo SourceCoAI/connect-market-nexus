@@ -50,7 +50,7 @@ const handler = async (req: Request): Promise<Response> => {
       to: email,
       toName: userName,
       subject: "Email Verified Successfully — What's Next",
-      htmlContent: buildVerificationSuccessHtml(userName, loginUrl),
+      htmlContent: buildVerificationSuccessHtml(userName, loginUrl, email),
       textContent: `Email Verified Successfully!\n\nGreat news, ${userName}! Your email address has been verified.\n\nWhat happens next?\n- Our team will review your account within 24 hours.\n- You'll receive an email once approved.\n\nLog in: ${loginUrl}\n\n— The SourceCo Team`,
       senderName: 'SourceCo',
       isTransactional: true,
