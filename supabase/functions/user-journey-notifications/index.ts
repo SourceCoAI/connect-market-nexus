@@ -21,17 +21,18 @@ interface UserJourneyEvent {
 const LOGIN_URL = 'https://marketplace.sourcecodeals.com/login';
 
 function buildWelcomeHtml(userName: string): string {
-  return `
-<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+  return wrapEmailHtml({
+    bodyHtml: `
   <p>Hi ${escapeHtml(userName)},</p>
   <p>Your application is in. Our team will review it — typically within one business day — and you'll hear from us by email the moment you're cleared.</p>
   <p>While you wait, verify your email address using the link we just sent you.</p>
-  <h3 style="color: #0e101a; font-size: 16px; margin: 24px 0 8px 0;">What you're applying for</h3>
+  <h3 style="font-size: 16px; margin: 24px 0 8px 0;">What you're applying for</h3>
   <p>SourceCo is a private marketplace for off-market, founder-led businesses. Every deal in the pipeline has been sourced and qualified by our team before it reaches buyers — you're not browsing a listing aggregator, you're accessing curated deal flow.</p>
   <p>Once approved, you'll sign a single NDA that unlocks your access to the platform, then a fee agreement before your first introduction. Both take about 60 seconds each.</p>
   <p>Questions before then? Reply to this email.</p>
-  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-</div>`;
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>`,
+    preheader: "Off-market deal flow, reviewed by our team. We'll be in touch shortly.",
+  });
 }
 
 function buildApprovalHtml(userName: string): string {
