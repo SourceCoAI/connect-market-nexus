@@ -110,6 +110,7 @@ const handler = async (req: Request): Promise<Response> => {
         subject,
         htmlContent,
         senderName: 'SourceCo',
+        replyTo: 'support@sourcecodeals.com',
         isTransactional: true,
       });
 
@@ -146,6 +147,7 @@ const handler = async (req: Request): Promise<Response> => {
         subject,
         htmlContent,
         senderName: 'SourceCo',
+        replyTo: 'support@sourcecodeals.com',
         isTransactional: true,
       });
 
@@ -180,6 +182,7 @@ const handler = async (req: Request): Promise<Response> => {
           subject,
           htmlContent,
           senderName: 'SourceCo',
+          replyTo: 'support@sourcecodeals.com',
           isTransactional: true,
         });
 

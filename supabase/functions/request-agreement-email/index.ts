@@ -216,7 +216,8 @@ Deno.serve(async (req: Request) => {
       to: buyerEmail,
       toName: buyerName,
       subject: `Your ${docLabel} from SourceCo`,
-      replyTo: 'adam.haile@sourcecodeals.com',
+      senderName: 'SourceCo',
+      replyTo: 'support@sourcecodeals.com',
       isTransactional: true,
       attachments: attachmentList.length > 0 ? attachmentList : undefined,
       metadata: {

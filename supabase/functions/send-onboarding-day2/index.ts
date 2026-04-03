@@ -102,6 +102,7 @@ serve(async (req: Request) => {
         htmlContent,
         textContent,
         senderName: 'SourceCo',
+        replyTo: 'support@sourcecodeals.com',
         isTransactional: true,
       });
 

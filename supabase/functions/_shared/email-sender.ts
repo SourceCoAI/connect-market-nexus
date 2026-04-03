@@ -16,6 +16,10 @@ const VERIFIED_SENDER_EMAIL = 'adam.haile@sourcecodeals.com';
 const VERIFIED_SENDER_NAME = 'Adam Haile - SourceCo';
 const DEFAULT_REPLY_TO = 'adam.haile@sourcecodeals.com';
 
+// ── Support profile for operational/system emails ───────────────────────────
+export const SUPPORT_REPLY_TO = 'support@sourcecodeals.com';
+export const SUPPORT_SENDER_NAME = 'SourceCo';
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export interface EmailAttachment {
