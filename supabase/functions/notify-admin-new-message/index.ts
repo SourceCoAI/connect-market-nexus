@@ -82,7 +82,7 @@ const handler = async (req: Request): Promise<Response> => {
     for (const admin of adminProfiles) {
       if (!admin.email) continue;
       const adminName = `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
-      const htmlContent = buildAdminNotificationHtml(buyerName, dealTitle, preview, messageCenterUrl);
+      const htmlContent = buildAdminNotificationHtml(buyerName, dealTitle, preview, messageCenterUrl, admin.email);
 
       const result = await sendEmail({
         templateName: 'buyer_message_admin_notification',
