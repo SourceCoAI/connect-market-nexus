@@ -22,6 +22,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { sendAgreementEmail } from '@/lib/agreement-email';
 import { invalidateAgreementQueries } from '@/hooks/use-agreement-status-sync';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ListingSidebarActionsProps {
   listingId: string;
