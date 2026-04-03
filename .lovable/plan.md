@@ -1,98 +1,43 @@
 
-# Fix: Dismiss Still Fails Because the DB Constraint Was Never Updated
 
-## Root Cause
+# Status Check: Agreement Signed Email + Listing Signing Encouragement
 
-The latest screenshot gives the real error:
+## Feature 1: Email When Agreement Marked as Signed
 
-```text
-new row for relation "document_requests" violates check constraint "document_requests_status_check"
-```
+### What exists
+- Edge function `notify-agreement-confirmed/index.ts` exists with correct logic
+- Email catalog entry exists (line 253-261) with preview HTML
 
-I verified the actual table definition. `document_requests.status` still only allows:
+### What's broken / missing
+1. **Edge function is never called.** `handleMarkSigned` in `DocumentTrackingPage.tsx` (line 1131-1183) updates the DB and shows a toast but never invokes `notify-agreement-confirmed`.
+2. **`sendEmail` call has wrong field names.** The edge function passes `html` and `tags` but `sendEmail` expects `htmlContent` and does not accept `tags`. This means even if called, the email would fail silently.
 
-- `requested`
-- `email_sent`
-- `signed`
-- `cancelled`
+### Fix
+1. **Fix edge function**: Change `html` to `htmlContent`, remove `tags`, remove the second `supabase` argument from `sendEmail()` (it creates its own client internally).
+2. **Wire up the call**: After the successful DB update in `handleMarkSigned` (after line 1177), add `supabase.functions.invoke('notify-agreement-confirmed', { body: { firmId: req.firm_id, agreementType: req.agreement_type } })`. Fire-and-forget (don't block the UI).
+3. **Deploy** the fixed edge function.
 
-So the UI is trying to write:
+---
 
-```ts
-status: 'dismissed'
-```
+## Feature 2: Encourage Unsigned Buyers to Save Listings
 
-but the database rejects it before RLS even matters.
+### What exists — already implemented
+- **`ListingCardActions.tsx` (lines 172-208)**: When `!isNdaCovered && !isFeeCovered`, shows a "View Listing" button, a "Sign Agreement to Request Access" link, and copy: "Save this listing for later. Sign your agreement to request access."
+- **`ConnectionButton.tsx` (lines 180-293)**: Full agreement gate with document status rows (NDA/Fee Agreement sent/signed states), resend buttons, and encouragement copy: "Save this listing so you can request access after signing."
 
-## What is already correct
+This feature is done. The UX already encourages unsigned buyers to save/bookmark listings and sign agreements.
 
-These parts are already in place:
+---
 
-- The dismiss button exists in `DocumentTrackingPage.tsx`
-- The pending queue already excludes dismissed-like rows by filtering only `requested` and `email_sent`
-- The main table history UI already knows how to display `dismissed`
-- The newer RLS policies now look correct for update access
+## Summary
 
-So the missing piece is the schema constraint, not the front end.
+| Feature | Status |
+|---|---|
+| Email on agreement signed | Edge function exists but is broken (wrong field names) and never called from the UI |
+| Listing signing encouragement | Fully implemented in both card and detail views |
 
-## Implementation Plan
+### Files to change
+- `supabase/functions/notify-agreement-confirmed/index.ts` — fix `sendEmail` call signature
+- `src/pages/admin/DocumentTrackingPage.tsx` — add `supabase.functions.invoke` call after marking signed
+- Deploy `notify-agreement-confirmed`
 
-### 1. Add `dismissed` to the status check constraint
-Create one new migration that drops and recreates the `document_requests_status_check` constraint so `status` allows:
-
-- `requested`
-- `email_sent`
-- `signed`
-- `cancelled`
-- `dismissed`
-
-This is the actual fix for the current error.
-
-### 2. Verify all code paths stay aligned
-Review `DocumentTrackingPage.tsx` and related admin hooks so every place that reads or writes document request status is consistent with the new allowed value.
-
-Specifically verify:
-- dismiss action writes `dismissed`
-- pending queue still filters only `requested` and `email_sent`
-- history badges render `dismissed`
-- no code assumes the old 4-status set
-
-### 3. Tighten error handling for admin actions
-Keep the improved toast/error reporting so future failures show the exact database message instead of a generic failure.
-
-## Files to change
-
-- New migration in `supabase/migrations/` to update `document_requests_status_check`
-- Possibly `src/pages/admin/DocumentTrackingPage.tsx` only if a small consistency cleanup is needed after review
-
-## Technical details
-
-Current constraint found in the database:
-
-```sql
-CHECK ((status = ANY (ARRAY[
-  'requested'::text,
-  'email_sent'::text,
-  'signed'::text,
-  'cancelled'::text
-])))
-```
-
-Required replacement:
-
-```sql
-CHECK ((status = ANY (ARRAY[
-  'requested'::text,
-  'email_sent'::text,
-  'signed'::text,
-  'cancelled'::text,
-  'dismissed'::text
-])))
-```
-
-## Expected result after fix
-
-- Clicking dismiss will succeed
-- The request will disappear from the pending queue
-- The row will remain in `document_requests` for audit/history
-- The main firm table will still show that the request happened and was dismissed
