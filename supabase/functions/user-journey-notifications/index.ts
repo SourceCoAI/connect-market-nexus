@@ -167,7 +167,9 @@ const handler = async (req: Request): Promise<Response> => {
             bodyHtml: `
     <p>A new user has registered on the marketplace:</p>
     <div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin: 20px 0;">
-      <p style="margin: 0; font-size: 14px;"><strong>Name:</strong> ${escapeHtml(user_name)}<br/><strong>Email:</strong> ${escapeHtml(user_email)}${company ? `<br/><strong>Company:</strong> ${escapeHtml(company)}` : ''}</p>
+      <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Name: ${escapeHtml(user_name)}</p>
+      <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Email: ${escapeHtml(user_email)}</p>
+      ${company ? `<p style="margin: 0; font-size: 14px; color: #6B6B6B;">Company: ${escapeHtml(company)}</p>` : ''}
     </div>
     <div style="text-align: center; margin: 32px 0;">
       <a href="https://marketplace.sourcecodeals.com/admin/users" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">Review Users</a>

@@ -58,7 +58,7 @@ function buildAdminNotificationHtml(
 ): string {
   return wrapEmailHtml({
     bodyHtml: `
-    <p><strong>${escapeHtml(requesterName)}</strong> (${escapeHtml(requesterEmail)}) submitted a connection request for <strong>${escapeHtml(listingTitle)}</strong>.</p>
+    <p>${escapeHtml(requesterName)} (${escapeHtml(requesterEmail)}) submitted a connection request for ${escapeHtml(listingTitle)}.</p>
     ${message ? `
     <div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin: 20px 0;">
       <p style="margin: 0 0 4px 0; font-size: 12px; color: #9B9B9B; font-weight: 600; text-transform: uppercase;">Buyer message</p>

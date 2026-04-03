@@ -49,7 +49,7 @@ const handler = async (req: Request): Promise<Response> => {
     const htmlContent = wrapEmailHtml({
       bodyHtml: `
         <p style="margin: 0 0 16px;">Hi ${ownerName},</p>
-        <p style="margin: 0 0 16px;">${dealOwnerName || 'Your deal owner'} has coordinated an introduction with <strong>${buyerName}</strong> from ${buyerCompany || 'a qualified firm'}. The buyer is ready to speak with the owner of <strong>${companyName}</strong>.</p>
+        <p style="margin: 0 0 16px;">${dealOwnerName || 'Your deal owner'} has coordinated an introduction with ${buyerName} from ${buyerCompany || 'a qualified firm'}. The buyer is ready to speak with the owner of ${companyName}.</p>
         <div style="background: #F7F6F3; padding: 24px; margin: 24px 0;">
           <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Name: ${buyerName}</p>
           <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Email: ${buyerEmail}</p>

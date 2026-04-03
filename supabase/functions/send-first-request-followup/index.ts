@@ -59,7 +59,7 @@ serve(async (req: Request) => {
       const htmlContent = wrapEmailHtml({
         bodyHtml: `
   <p style="margin: 0 0 16px;">Hi ${safeFirstName},</p>
-  <p style="margin: 0 0 16px;">A quick note on your introduction request for <strong>${safeDealTitle}</strong>.</p>
+  <p style="margin: 0 0 16px;">A quick note on your introduction request for ${safeDealTitle}.</p>
   <p style="margin: 0 0 16px;">Our team is reviewing it now. We look at fit, mandate alignment, and deal timing before making introductions. You will hear from us with our decision shortly.</p>
   <p style="margin: 0 0 16px;">In the meantime, it is worth browsing the rest of the pipeline.</p>
   <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #000000; color: #ffffff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">Browse More Deals</a></p>
