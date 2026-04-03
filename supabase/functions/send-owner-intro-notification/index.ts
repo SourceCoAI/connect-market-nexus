@@ -332,7 +332,7 @@ const handler = async (req: Request): Promise<Response> => {
       primary_owner_id: listing.primary_owner_id,
       email_status: 'sent',
       metadata: {
-        message_id: emailResult.messageId,
+        message_id: result.messageId,
         buyer_name: buyerName,
         buyer_email: buyerEmail,
         email_subject: subject,
