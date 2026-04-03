@@ -356,6 +356,12 @@ export function ListingSidebarActions({
             </div>
           </div>
         )}
+
+        {/* Agreement Signing Modal */}
+        <AgreementSigningModal
+          open={showAgreementModal}
+          onOpenChange={setShowAgreementModal}
+        />
       </div>
     </TooltipProvider>
   );

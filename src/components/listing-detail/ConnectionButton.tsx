@@ -186,8 +186,6 @@ const ConnectionButton = ({
     const bothNotRequested = !ndaSent && !feeSent && !ndaSigned && !feeSigned;
 
 
-    // Document status display now handled by ListingSidebarActions
-
     return (
       <div className="space-y-3">
         {anyPending && !feeSigned && (
@@ -196,32 +194,10 @@ const ConnectionButton = ({
           </p>
         )}
 
-        {/* Show request button if at least one type hasn't been requested */}
-        {(bothNotRequested || (!ndaSent && !ndaSigned) || (!feeSent && !feeSigned)) && (
-          <div className={bothNotRequested ? 'w-full border border-slate-200/60 rounded-lg px-4 py-4' : ''}>
-            {bothNotRequested && (
-              <>
-                <p className="text-sm font-medium text-foreground">Sign Your Fee Agreement</p>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  A signed Fee Agreement unlocks the data room, including the CIM, real company name, and full business details.
-                </p>
-                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                  Sign now to unlock full deal access.
-                </p>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className={`${bothNotRequested ? 'mt-3' : ''} w-full text-xs border-slate-200 hover:border-slate-300 text-foreground`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowAgreementModal(true);
-              }}
-            >
-              {bothNotRequested ? 'Request Agreement via Email' : 'Request Another Agreement'}
-            </Button>
-          </div>
+        {bothNotRequested && (
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Sign your documents to unlock the data room and request introductions.
+          </p>
         )}
 
         {showAgreementModal && (
