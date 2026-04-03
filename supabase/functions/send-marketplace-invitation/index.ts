@@ -1,13 +1,12 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-import { Resend } from 'resend';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin, escapeHtml } from '../_shared/auth.ts';
+import { sendViaBervo } from '../_shared/brevo-sender.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -98,16 +97,21 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    const emailResponse = await resend.emails.send({
-      from: `SourceCo Marketplace <${Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com'}>`,
-      to: [to],
+    const result = await sendViaBervo({
+      to,
+      toName: safeName,
       subject: `${safeName}, you're invited to SourceCo Marketplace`,
-      html: htmlBody,
+      htmlContent: htmlBody,
+      senderName: 'SourceCo Marketplace',
     });
 
-    console.log(`Marketplace invitation sent to ${to}`, emailResponse);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to send invitation');
+    }
 
-    return new Response(JSON.stringify({ success: true, emailId: emailResponse?.data?.id }), {
+    console.log(`Marketplace invitation sent to ${to}`, result.messageId);
+
+    return new Response(JSON.stringify({ success: true, emailId: result.messageId }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
