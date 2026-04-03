@@ -295,6 +295,41 @@ export default function MessageCenter() {
     });
   }, [filteredThreads]);
 
+  // Group by buyer
+  const buyerGroups = useMemo((): BuyerGroup[] => {
+    const groupMap = new Map<string, BuyerGroup>();
+    filteredThreads.forEach((t) => {
+      const key = t.user_id || `anon-${t.connection_request_id}`;
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          user_id: t.user_id || key,
+          buyer_name: t.buyer_name,
+          buyer_company: t.buyer_company,
+          buyer_email: t.buyer_email,
+          buyer_type: t.buyer_type,
+          threads: [],
+          total_unread: 0,
+          last_activity: t.last_message_at || t.created_at,
+          last_message_preview: t.last_message_preview,
+          last_message_sender_role: t.last_message_sender_role,
+        });
+      }
+      const group = groupMap.get(key)!;
+      group.threads.push(t);
+      group.total_unread += t.unread_count;
+      const tTime = t.last_message_at || t.created_at;
+      if (new Date(tTime) > new Date(group.last_activity)) {
+        group.last_activity = tTime;
+        group.last_message_preview = t.last_message_preview;
+        group.last_message_sender_role = t.last_message_sender_role;
+      }
+    });
+    return Array.from(groupMap.values()).sort((a, b) => {
+      if (a.total_unread > 0 && b.total_unread === 0) return -1;
+      if (a.total_unread === 0 && b.total_unread > 0) return 1;
+      return new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime();
+    });
+  }, [filteredThreads]);
   // Counts
   const counts = useMemo(
     () => ({
