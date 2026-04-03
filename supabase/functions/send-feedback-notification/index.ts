@@ -1,86 +1,40 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth, escapeHtml, escapeHtmlWithBreaks } from '../_shared/auth.ts';
-import { logEmailDelivery } from '../_shared/email-logger.ts';
+import { sendEmail } from '../_shared/email-sender.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
 interface FeedbackNotificationRequest {
-  feedbackId: string;
-  message: string;
-  pageUrl?: string;
-  userAgent?: string;
-  category?: string;
-  priority?: string;
-  userId?: string;
-  userEmail?: string;
-  userName?: string;
+  feedbackId: string; message: string; pageUrl?: string; userAgent?: string;
+  category?: string; priority?: string; userId?: string; userEmail?: string; userName?: string;
 }
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-);
+const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
 
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
-
-  if (req.method === 'OPTIONS') {
-    return corsPreflightResponse(req);
-  }
+  if (req.method === 'OPTIONS') return corsPreflightResponse(req);
 
   try {
-    // AUTH: Requires authenticated user (users submit feedback)
     const auth = await requireAuth(req);
     if (!auth.authenticated) {
-      return new Response(JSON.stringify({ error: auth.error }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
+      return new Response(JSON.stringify({ error: auth.error }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
     }
 
     const body: FeedbackNotificationRequest = await req.json();
-    const {
-      feedbackId,
-      message,
-      pageUrl,
-      userAgent: _userAgent,
-      category,
-      priority,
-      userId: _userId,
-      userEmail,
-      userName,
-    } = body;
+    const { feedbackId, message, pageUrl, category, priority, userEmail, userName } = body;
 
-    console.log('Processing feedback notification:', { feedbackId, category, priority });
-
-    // Get admin users
-    const { data: adminUsers, error: adminError } = await supabase
-      .from('profiles')
-      .select('email, first_name, last_name')
-      .eq('is_admin', true);
-
-    if (adminError) {
-      console.error('Error fetching admin users:', adminError);
-      throw adminError;
-    }
-
+    const { data: adminUsers, error: adminError } = await supabase.from('profiles').select('email, first_name, last_name').eq('is_admin', true);
+    if (adminError) throw adminError;
     if (!adminUsers || adminUsers.length === 0) {
-      console.log('No admin users found to notify');
-      return new Response(JSON.stringify({ success: true, message: 'No admin users to notify' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ success: true, message: 'No admin users to notify' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Prepare email content — escape all user-supplied values
     const safeUserName = escapeHtml(userName || '');
     const safeUserEmail = escapeHtml(userEmail || '');
     const safePageUrl = escapeHtml(pageUrl || '');
-    const safeCategoryLabel = escapeHtml(
-      category?.charAt(0).toUpperCase() + category?.slice(1) || 'General',
-    );
+    const safeCategoryLabel = escapeHtml(category?.charAt(0).toUpperCase() + category?.slice(1) || 'General');
     const safePriority = escapeHtml((priority || 'normal').toUpperCase());
-
     const priorityEmoji = priority === 'urgent' ? '🚨' : priority === 'high' ? '⚠️' : '💬';
 
     const emailSubject = `${priorityEmoji} New Feedback: ${safeCategoryLabel} ${priority === 'urgent' ? '(URGENT)' : ''}`;
@@ -91,112 +45,46 @@ const handler = async (req: Request): Promise<Response> => {
           <h1 style="margin: 0; font-size: 24px; font-weight: 600;">New Feedback Received</h1>
           <p style="margin: 10px 0 0 0; opacity: 0.9;">A user has submitted feedback that requires your attention.</p>
         </div>
-
         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px;">Feedback Details</h2>
-
-          <div style="margin-bottom: 15px;">
-            <strong style="color: #475569;">Category:</strong>
-            <span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 14px;">${safeCategoryLabel}</span>
-          </div>
-
-          <div style="margin-bottom: 15px;">
-            <strong style="color: #475569;">Priority:</strong>
-            <span style="background: ${priority === 'urgent' ? '#fef2f2' : priority === 'high' ? '#fef3c7' : '#f0f9ff'};
-                         color: ${priority === 'urgent' ? '#dc2626' : priority === 'high' ? '#d97706' : '#0369a1'};
-                         padding: 4px 8px; border-radius: 4px; font-size: 14px;">${safePriority}</span>
-          </div>
-
-          ${safeUserName ? `<div style="margin-bottom: 15px;"><strong style="color: #475569;">From:</strong> ${safeUserName}</div>` : ''}
-          ${safeUserEmail ? `<div style="margin-bottom: 15px;"><strong style="color: #475569;">Email:</strong> ${safeUserEmail}</div>` : ''}
-          ${safePageUrl ? `<div style="margin-bottom: 15px;"><strong style="color: #475569;">Page:</strong> ${safePageUrl}</div>` : ''}
-
-          <div style="margin-top: 20px;">
-            <strong style="color: #475569;">Message:</strong>
-            <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 8px; border-left: 4px solid #3b82f6;">
-              ${escapeHtmlWithBreaks(message)}
-            </div>
+          <div style="margin-bottom: 15px;"><strong>Category:</strong> <span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px;">${safeCategoryLabel}</span></div>
+          <div style="margin-bottom: 15px;"><strong>Priority:</strong> <span style="background: ${priority === 'urgent' ? '#fef2f2' : '#f0f9ff'}; padding: 4px 8px; border-radius: 4px;">${safePriority}</span></div>
+          ${safeUserName ? `<div style="margin-bottom: 15px;"><strong>From:</strong> ${safeUserName}</div>` : ''}
+          ${safeUserEmail ? `<div style="margin-bottom: 15px;"><strong>Email:</strong> ${safeUserEmail}</div>` : ''}
+          ${safePageUrl ? `<div style="margin-bottom: 15px;"><strong>Page:</strong> ${safePageUrl}</div>` : ''}
+          <div style="margin-top: 20px;"><strong>Message:</strong>
+            <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 8px; border-left: 4px solid #3b82f6;">${escapeHtmlWithBreaks(message)}</div>
           </div>
         </div>
-
         <div style="text-align: center; margin-top: 30px;">
-          <a href="https://marketplace.sourcecodeals.com/admin"
-             style="background: #1e293b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">
-            View in Admin Dashboard
-          </a>
+          <a href="https://marketplace.sourcecodeals.com/admin" style="background: #1e293b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">View in Admin Dashboard</a>
         </div>
+      </div>`;
 
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 14px;">
-          <p>This notification was sent automatically when feedback was submitted. Reply to this email to respond directly to the user.</p>
-        </div>
-      </div>
-    `;
+    for (const admin of adminUsers) {
+      const result = await sendEmail({
+        templateName: 'feedback_notification',
+        to: admin.email,
+        toName: `${admin.first_name} ${admin.last_name}`.trim(),
+        subject: emailSubject,
+        htmlContent: emailHtml,
+        senderName: 'SourceCo Marketplace Feedback',
+        replyTo: 'adam.haile@sourcecodeals.com',
+        isTransactional: true,
+      });
 
-    // Send email using shared Brevo sender
-    try {
-      const { sendViaBervo } = await import('../_shared/brevo-sender.ts');
-      const correlationId = crypto.randomUUID();
-
-      // Send to first admin (Brevo doesn't support multiple "to" in sendViaBervo, send individually)
-      for (const admin of adminUsers) {
-        const result = await sendViaBervo({
-          to: admin.email,
-          toName: `${admin.first_name} ${admin.last_name}`.trim(),
-          subject: emailSubject,
-          htmlContent: emailHtml,
-          senderName: 'SourceCo Marketplace Feedback',
-          replyToEmail: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
-          replyToName: 'SourceCo Support',
-          isTransactional: true,
-        });
-
-        if (result.success) {
-          console.log(`Email sent successfully to ${admin.email}`);
-          await logEmailDelivery(supabase, {
-            email: admin.email,
-            emailType: 'feedback_notification',
-            status: 'sent',
-            correlationId,
-          });
-        } else {
-          console.error(`Error sending to ${admin.email}:`, result.error);
-          await logEmailDelivery(supabase, {
-            email: admin.email,
-            emailType: 'feedback_notification',
-            status: 'failed',
-            correlationId,
-            errorMessage: result.error,
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Email delivery error:', error);
+      if (result.success) console.log(`Feedback email sent to ${admin.email}`);
+      else console.error(`Error sending to ${admin.email}:`, result.error);
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Feedback notification processed for ${adminUsers.length} admin(s)`,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      },
-    );
+    return new Response(JSON.stringify({ success: true, message: `Feedback notification processed for ${adminUsers.length} admin(s)` }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+    });
   } catch (error: unknown) {
     console.error('Error in send-feedback-notification function:', error);
-    return new Response(
-      JSON.stringify({
-        error:
-          error instanceof Error
-            ? error.message
-            : String(error) || 'Failed to send feedback notification',
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      },
-    );
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500,
+    });
   }
 };
 
