@@ -81,21 +81,15 @@ const handler = async (req: Request): Promise<Response> => {
     const emailHtml = wrapEmailHtml({
       bodyHtml: `
         <p>A deal matching your criteria was just added to the pipeline.</p>
-        <div style="background: #F7F6F3; border-radius: 6px; padding: 20px; margin: 20px 0;">
-          <div style="font-size: 18px; font-weight: 600; color: #1A1A1A; margin-bottom: 12px;">${safeTitle}</div>
-          <div style="color: #6B6B6B; margin-bottom: 16px; font-size: 14px;">${safeLocation} · ${safeCategory}</div>
-          <div style="margin: 16px 0;">
-            <span style="display: inline-block; text-align: center; background: #FFFFFF; padding: 14px 20px; border-radius: 6px; margin-right: 10px; border: 1px solid #E8E4DD;">
-              <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.5px;">Revenue</div>
-              <div style="font-size: 18px; font-weight: 600; color: #1A1A1A; margin-top: 4px;">${formatCurrency(listing_data.revenue)}</div>
-            </span>
-            <span style="display: inline-block; text-align: center; background: #FFFFFF; padding: 14px 20px; border-radius: 6px; border: 1px solid #E8E4DD;">
-              <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.5px;">EBITDA</div>
-              <div style="font-size: 18px; font-weight: 600; color: #1A1A1A; margin-top: 4px;">${formatCurrency(listing_data.ebitda)}</div>
-            </span>
-          </div>
-          <div style="margin: 16px 0; color: #1A1A1A; font-size: 14px; line-height: 1.6;">${safeDescription}</div>
-          <a href="${siteUrl}/listing/${listing_data.id}" style="display: inline-block; background: #000000; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">View Deal</a>
+        <div style="background: #F7F6F3; padding: 24px; margin: 24px 0;">
+          <p style="margin: 0 0 4px; font-size: 16px; font-weight: 600; color: #1A1A1A;">${safeTitle}</p>
+          <p style="margin: 0 0 20px; font-size: 14px; color: #6B6B6B;">${safeLocation} · ${safeCategory}</p>
+          <p style="margin: 0 0 4px; font-size: 13px; color: #6B6B6B;">Revenue: ${formatCurrency(listing_data.revenue)}</p>
+          <p style="margin: 0 0 16px; font-size: 13px; color: #6B6B6B;">EBITDA: ${formatCurrency(listing_data.ebitda)}</p>
+          <p style="margin: 0; font-size: 14px; color: #1A1A1A; line-height: 1.6;">${safeDescription}</p>
+        </div>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${siteUrl}/listing/${listing_data.id}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">View Deal</a>
         </div>
         <p style="font-size: 13px; color: #6B6B6B;">You are receiving this because this deal matches your mandate on SourceCo. <a href="${siteUrl}/profile?tab=alerts" style="color: #6B6B6B;">Manage your alerts</a></p>`,
       preheader: `New deal matching your mandate: ${safeTitle}`,
@@ -109,7 +103,7 @@ const handler = async (req: Request): Promise<Response> => {
       subject: `New deal matching your mandate: ${safeTitle}`,
       htmlContent: emailHtml,
       senderName: 'SourceCo Marketplace',
-      isTransactional: false, // deal alerts are not strictly transactional
+      isTransactional: false,
       metadata: { alertId: alert_id, listingId: listing_id },
     });
 
@@ -119,7 +113,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Email sent:', result.providerMessageId);
 
-    // Update delivery log status
     await supabaseClient.from('alert_delivery_logs').update({ delivery_status: 'sent', sent_at: new Date().toISOString() })
       .eq('alert_id', alert_id).eq('listing_id', listing_id).eq('user_id', user_id);
 

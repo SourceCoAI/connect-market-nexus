@@ -40,25 +40,19 @@ const handler = async (req: Request): Promise<Response> => {
 
     const htmlContent = wrapEmailHtml({
       bodyHtml: `
-        <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">New Owner Inquiry</p>
-        <p style="margin: 0 0 16px;">A business owner has submitted an inquiry through the /sell form.</p>
-        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
-          <p style="font-weight: 600; margin: 0 0 12px;">Contact Information</p>
-          <div style="margin-bottom: 8px;"><strong>Name:</strong> ${data.name}</div>
-          <div style="margin-bottom: 8px;"><strong>Email:</strong> <a href="mailto:${data.email}" style="color: #1A1A1A; text-decoration: underline;">${data.email}</a></div>
-          <div style="margin-bottom: 8px;"><strong>Phone:</strong> <a href="tel:${data.phone}" style="color: #1A1A1A; text-decoration: underline;">${data.phone}</a></div>
-          <div style="margin-bottom: 8px;"><strong>Company:</strong> ${data.companyName}</div>
-          ${data.businessWebsite ? `<div style="margin-bottom: 8px;"><strong>Website:</strong> <a href="${data.businessWebsite}" target="_blank" style="color: #1A1A1A; text-decoration: underline;">${data.businessWebsite}</a></div>` : ''}
-        </div>
-        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
-          <p style="font-weight: 600; margin: 0 0 12px;">Business Details</p>
-          <div style="margin-bottom: 8px;"><strong>Estimated Revenue:</strong> ${formatRevenueRange(data.revenueRange)}</div>
-          <div style="margin-bottom: 8px;"><strong>Sale Timeline:</strong> ${formatSaleTimeline(data.saleTimeline)}</div>
+        <p>A business owner submitted an inquiry through the /sell form.</p>
+        <div style="background: #F7F6F3; padding: 24px; margin: 24px 0;">
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Name: ${data.name}</p>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Email: <a href="mailto:${data.email}" style="color: #1A1A1A; text-decoration: underline;">${data.email}</a></p>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Phone: <a href="tel:${data.phone}" style="color: #1A1A1A; text-decoration: underline;">${data.phone}</a></p>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Company: ${data.companyName}</p>
+          ${data.businessWebsite ? `<p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Website: <a href="${data.businessWebsite}" target="_blank" style="color: #1A1A1A; text-decoration: underline;">${data.businessWebsite}</a></p>` : ''}
+          <p style="margin: 16px 0 4px; font-size: 14px; color: #6B6B6B;">Estimated Revenue: ${formatRevenueRange(data.revenueRange)}</p>
+          <p style="margin: 0; font-size: 14px; color: #6B6B6B;">Sale Timeline: ${formatSaleTimeline(data.saleTimeline)}</p>
         </div>
         ${data.message ? `
-        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
-          <p style="font-weight: 600; margin: 0 0 12px;">Message</p>
-          <p style="margin: 0;">${data.message.replace(/\n/g, '<br>')}</p>
+        <div style="background: #F7F6F3; padding: 24px; margin: 0 0 24px;">
+          <p style="margin: 0; font-size: 14px; color: #1A1A1A;">${data.message.replace(/\n/g, '<br>')}</p>
         </div>` : ''}
         <div style="text-align: center; margin: 28px 0;">
           <a href="https://marketplace.sourcecodeals.com/admin/marketplace/users" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">View in Admin Dashboard</a>

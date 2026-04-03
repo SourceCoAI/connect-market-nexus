@@ -13,12 +13,11 @@ interface AdminNotificationRequest {
 function buildAdminNotificationHtml(buyerName: string, dealTitle: string, messagePreview: string, messageCenterUrl: string, adminEmail?: string): string {
   return wrapEmailHtml({
     bodyHtml: `
-    <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">New Buyer Message: ${escapeHtml(dealTitle)}</p>
-    <p style="margin: 0 0 16px;"><strong>${escapeHtml(buyerName)}</strong> has sent a new message regarding <strong>${escapeHtml(dealTitle)}</strong>.</p>
-    <div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin: 0 0 20px;">
+    <p>${escapeHtml(buyerName)} sent a new message regarding ${escapeHtml(dealTitle)}.</p>
+    <div style="background: #F7F6F3; padding: 20px; margin: 24px 0;">
       <p style="margin: 0; font-size: 14px; font-style: italic;">"${escapeHtmlWithBreaks(messagePreview)}"</p>
     </div>
-    <p style="margin: 0 0 24px;">Log in to the Message Center to view the full message and reply.</p>
+    <p>Log in to the Message Center to view the full message and reply.</p>
     <div style="text-align: center; margin: 28px 0;">
       <a href="${messageCenterUrl}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">View in Message Center</a>
     </div>`,

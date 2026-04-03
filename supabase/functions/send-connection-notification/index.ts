@@ -42,7 +42,7 @@ function buildUserConfirmationHtml(
     <p>In the meantime, keep browsing. New deals are added to the pipeline regularly.</p>
     <div style="text-align: center; margin: 32px 0;">
       <a href="${listingUrl}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; margin-right: 12px;">View Listing</a>
-      <a href="${loginUrl}" style="display: inline-block; background: #ffffff; color: #1A1A1A; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; border: 1px solid #E8E4DD;">Dashboard</a>
+      <a href="${loginUrl}" style="display: inline-block; background: #FAFAF8; color: #1A1A1A; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">Dashboard</a>
     </div>`,
     preheader: 'We received your introduction request. You will hear from us within 24 hours.',
   });

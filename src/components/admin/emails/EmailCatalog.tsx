@@ -41,18 +41,18 @@ const RECIPIENT_STYLES: Record<RecipientType, string> = {
 
 // Shared preview building blocks
 const LOGO_URL = 'https://cdn.prod.website-files.com/66851dae8a2c8c3f8cd9c703/66af956d372d85d43f02f481_Group%202%20(4)%20(1).png';
-const wrapperStart = `<div style="font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #FFFFFF; border: 1px solid #E8E4DD; border-radius: 8px; overflow: hidden;">
-  <div style="padding: 32px 30px 24px; text-align: center; border-bottom: 1px solid #E8E4DD;">
-    <img src="${LOGO_URL}" alt="SourceCo" height="40" style="height: 40px; width: auto;" />
+const wrapperStart = `<div style="font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #FFFFFF;">
+  <div style="padding: 40px 40px 32px; text-align: center;">
+    <img src="${LOGO_URL}" alt="SourceCo" height="36" style="height: 36px; width: auto;" />
   </div>
-  <div style="padding: 32px 30px; font-size: 15px; line-height: 1.7; color: #1A1A1A;">`;
+  <div style="padding: 0 40px 40px; font-size: 15px; line-height: 1.7; color: #1A1A1A;">`;
 const wrapperEnd = `</div>
-  <div style="padding: 24px 30px; text-align: center; border-top: 1px solid #E8E4DD;">
-    <p style="margin: 0; font-size: 12px; color: #9B9B9B;">&copy; 2026 SourceCo</p>
+  <div style="padding: 32px 40px; text-align: center;">
+    <p style="margin: 0; font-size: 11px; color: #9B9B9B;">&copy; 2026 SourceCo</p>
   </div>
 </div>`;
 const ctaBtn = (text: string) => `<div style="text-align: center; margin: 28px 0;"><a href="#" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">${text}</a></div>`;
-const infoBox = (text: string) => `<div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin-bottom: 20px;"><p style="margin: 0; color: #1A1A1A; font-size: 14px;">${text}</p></div>`;
+const infoBox = (text: string) => `<div style="background: #F7F6F3; padding: 24px; margin: 24px 0;"><p style="margin: 0; color: #1A1A1A; font-size: 14px;">${text}</p></div>`;
 
 const EMAIL_CATALOG: CatalogCategory[] = [
   {

@@ -36,17 +36,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     const htmlContent = wrapEmailHtml({
       bodyHtml: `
-        <p style="margin: 0 0 16px;">Hi ${previousOwnerName},</p>
-        <p style="margin: 0 0 16px;">${newOwnerId ? `Your deal has been reassigned to ${newOwnerName}.` : 'Your deal has been unassigned.'}</p>
-        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
-          <p style="font-weight: 600; margin: 0 0 12px;">Deal Information</p>
-          <table style="width: 100%; border-collapse: collapse;">
-            ${companyName ? `<tr><td style="padding: 6px 0; font-weight: 500;">Company:</td><td style="padding: 6px 0; font-weight: 600;">${companyName}</td></tr>` : ''}
-            <tr><td style="padding: 6px 0; font-weight: 500;">Deal Title:</td><td style="padding: 6px 0;">${dealTitle}</td></tr>
-            ${listingTitle ? `<tr><td style="padding: 6px 0; font-weight: 500;">Listing:</td><td style="padding: 6px 0;">${listingTitle}</td></tr>` : ''}
-            <tr><td style="padding: 6px 0; font-weight: 500;">Previous Owner:</td><td style="padding: 6px 0;">${previousOwnerName}</td></tr>
-            ${newOwnerId ? `<tr><td style="padding: 6px 0; font-weight: 500;">New Owner:</td><td style="padding: 6px 0;">${newOwnerName} (${newOwnerEmail})</td></tr>` : ''}
-          </table>
+        <p>Hi ${previousOwnerName},</p>
+        <p>${newOwnerId ? `Your deal has been reassigned to ${newOwnerName}.` : 'Your deal has been unassigned.'}</p>
+        <div style="background: #F7F6F3; padding: 24px; margin: 24px 0;">
+          ${companyName ? `<p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Company: ${companyName}</p>` : ''}
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Deal: ${dealTitle}</p>
+          ${listingTitle ? `<p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Listing: ${listingTitle}</p>` : ''}
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Previous Owner: ${previousOwnerName}</p>
+          ${newOwnerId ? `<p style="margin: 0; font-size: 14px; color: #6B6B6B;">New Owner: ${newOwnerName} (${newOwnerEmail})</p>` : ''}
         </div>
         <div style="text-align: center; margin: 28px 0;">
           <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${dealId}" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Open Deal in Pipeline</a>

@@ -55,17 +55,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     const htmlContent = wrapEmailHtml({
       bodyHtml: `
-        <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">New User Registration</p>
-        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
-          <p style="font-weight: 600; margin: 0 0 12px;">User Details</p>
-          <p style="margin: 0 0 8px;"><strong>Name:</strong> ${escapeHtml(first_name || '')} ${escapeHtml(last_name || '')}</p>
-          <p style="margin: 0 0 8px;"><strong>Email:</strong> ${escapeHtml(email || '')}</p>
-          <p style="margin: 0 0 8px;"><strong>Company:</strong> ${escapeHtml(company || '') || 'Not provided'}</p>
-          <p style="margin: 0;"><strong>Registration Time:</strong> ${new Date().toLocaleString()}</p>
+        <p>A new user has registered on the marketplace.</p>
+        <div style="background: #F7F6F3; padding: 24px; margin: 24px 0;">
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Name: ${escapeHtml(first_name || '')} ${escapeHtml(last_name || '')}</p>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Email: ${escapeHtml(email || '')}</p>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Company: ${escapeHtml(company || '') || 'Not provided'}</p>
+          <p style="margin: 0; font-size: 14px; color: #6B6B6B;">Registration Time: ${new Date().toLocaleString()}</p>
         </div>
-        <div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin: 0 0 20px;">
-          <p style="margin: 0; font-weight: 600;">Action Required: Review and approve or reject this user registration in the admin panel.</p>
-        </div>
+        <p>Review and approve or reject this user in the admin panel.</p>
         <div style="text-align: center; margin: 28px 0;">
           <a href="${req.headers.get('origin')}/admin/marketplace/users" style="background-color: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Review User Registration</a>
         </div>

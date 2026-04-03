@@ -43,8 +43,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const htmlContent = wrapEmailHtml({
       bodyHtml: `
-        <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">Feedback Response</p>
-        <div style="padding: 16px; background: #F7F6F3; border-radius: 6px; margin: 0 0 20px;">
+        <div style="background: #F7F6F3; padding: 24px; margin: 0 0 24px;">
           ${escapeHtmlWithBreaks(content)}
         </div>
         <p style="margin-top: 20px; color: #6B6B6B; font-size: 14px;">This is a response to your feedback. Please do not reply to this email.</p>`,

@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
       toName: buyer?.pe_firm_name || buyer?.company_name || email_address,
       subject: email_subject,
       htmlContent: wrapEmailHtml({
-        bodyHtml: `<div>${email_body}</div><p style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #E8E4DD; font-size: 14px;">${senderName}<br>SourceCo</p>`,
+        bodyHtml: `<div>${email_body}</div><p style="margin-top: 32px; font-size: 14px; color: #6B6B6B;">${senderName}<br>SourceCo</p>`,
         showHeader: false,
         recipientEmail: email_address,
       }),

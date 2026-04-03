@@ -33,28 +33,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     const htmlContent = wrapEmailHtml({
       bodyHtml: `
-        <p style="margin: 0 0 16px;">Hi ${newOwnerName},</p>
-        <p style="margin: 0 0 16px;">You have been assigned as the owner of <strong>${dealTitle}</strong>${assignedByName ? ` by ${assignedByName}` : ''}.</p>
-        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
-          <p style="font-weight: 600; margin: 0 0 12px;">Deal Information</p>
-          ${companyName ? `<p style="margin: 0 0 8px; font-size: 14px;"><strong>Company:</strong> ${companyName}</p>` : ''}
-          <p style="margin: 0 0 8px; font-size: 14px;"><strong>Contact:</strong> ${dealTitle}</p>
-          ${listingTitle ? `<p style="margin: 0 0 8px; font-size: 14px;"><strong>Listing:</strong> ${listingTitle}</p>` : ''}
-          ${buyerName ? `<p style="margin: 0 0 8px; font-size: 14px;"><strong>Buyer:</strong> ${buyerName}${buyerEmail ? ` (${buyerEmail})` : ''}</p>` : ''}
-          ${buyerCompany ? `<p style="margin: 0 0 8px; font-size: 14px;"><strong>Buyer Company:</strong> ${buyerCompany}</p>` : ''}
+        <p>Hi ${newOwnerName},</p>
+        <p>You have been assigned as the owner of ${dealTitle}${assignedByName ? ` by ${assignedByName}` : ''}.</p>
+        <div style="background: #F7F6F3; padding: 24px; margin: 24px 0;">
+          ${companyName ? `<p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Company: ${companyName}</p>` : ''}
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Contact: ${dealTitle}</p>
+          ${listingTitle ? `<p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Listing: ${listingTitle}</p>` : ''}
+          ${buyerName ? `<p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Buyer: ${buyerName}${buyerEmail ? ` (${buyerEmail})` : ''}</p>` : ''}
+          ${buyerCompany ? `<p style="margin: 0; font-size: 14px; color: #6B6B6B;">Buyer Company: ${buyerCompany}</p>` : ''}
         </div>
         <div style="text-align: center; margin: 28px 0;">
           <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${dealId}" style="background-color: #000000; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; padding: 14px 28px; border-radius: 6px;">View Deal Details</a>
         </div>
-        <div style="background: #F7F6F3; padding: 16px; border-radius: 6px;">
-          <p style="font-weight: 600; margin: 0 0 8px; font-size: 14px;">Your Responsibilities</p>
-          <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6;">
-            <li>Review the deal details and buyer information</li>
-            <li>Follow up with the buyer in a timely manner</li>
-            <li>Keep the deal status and stage updated in the pipeline</li>
-            <li>Document important communications and next steps</li>
-          </ul>
-        </div>`,
+        <p>Your responsibilities:</p>
+        <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;">
+          <li>Review the deal details and buyer information</li>
+          <li>Follow up with the buyer in a timely manner</li>
+          <li>Keep the deal status and stage updated in the pipeline</li>
+          <li>Document important communications and next steps</li>
+        </ul>`,
       preheader: `You have been assigned a new deal: ${dealTitle}`,
       recipientEmail: newOwnerEmail,
     });

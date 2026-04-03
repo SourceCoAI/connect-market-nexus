@@ -37,17 +37,14 @@ serve(async (req) => {
 
     const emailHtml = wrapEmailHtml({
       bodyHtml: `
-        <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">New Task Assigned</p>
-        <p style="margin: 0 0 16px;">Hi ${assignee_name},</p>
-        <p style="margin: 0 0 16px;"><strong>${assigner_name}</strong> has assigned you a new task.</p>
-        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
-          <p style="font-weight: 600; margin: 0 0 8px; font-size: 16px;">${task_title}</p>
-          <p style="margin: 0 0 8px; font-size: 14px;"><strong>Priority:</strong> ${task_priority.toUpperCase()}</p>
-          ${task_description ? `<p style="margin: 8px 0 0; font-size: 14px; color: #6B6B6B;">${task_description}</p>` : ''}
-          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #E8E4DD;">
-            <p style="margin: 0 0 8px; font-size: 14px;"><strong>Deal:</strong> ${deal_title}</p>
-            ${dueDateFormatted ? `<p style="margin: 0; font-size: 14px;"><strong>Due:</strong> ${dueDateFormatted}</p>` : ''}
-          </div>
+        <p>Hi ${assignee_name},</p>
+        <p>${assigner_name} assigned you a new task.</p>
+        <div style="background: #F7F6F3; padding: 24px; margin: 24px 0;">
+          <p style="margin: 0 0 8px; font-size: 15px; font-weight: 600;">${task_title}</p>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Priority: ${task_priority.toUpperCase()}</p>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Deal: ${deal_title}</p>
+          ${dueDateFormatted ? `<p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Due: ${dueDateFormatted}</p>` : ''}
+          ${task_description ? `<p style="margin: 12px 0 0; font-size: 14px; color: #6B6B6B;">${task_description}</p>` : ''}
         </div>
         <div style="text-align: center; margin: 28px 0;">
           <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${deal_id}&tab=tasks" style="display: inline-block; padding: 14px 28px; background-color: #000000; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600;">View Task in Pipeline</a>

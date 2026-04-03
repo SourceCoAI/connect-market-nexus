@@ -65,22 +65,17 @@ serve(async (req: Request) => {
       bodyHtml: `
         <p>${referrerName} shared a business listing with you on SourceCo.</p>
         ${personalMessage ? `
-          <div style="margin: 20px 0; padding: 16px; background-color: #F7F6F3; border-radius: 6px;">
+          <div style="margin: 24px 0; padding: 20px; background-color: #F7F6F3;">
             <p style="margin: 0; font-size: 14px; color: #1A1A1A; font-style: italic;">"${personalMessage}"</p>
           </div>
         ` : ''}
-        <div style="border: 1px solid #E8E4DD; border-radius: 6px; padding: 24px; margin: 24px 0;">
-          <p style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #1A1A1A;">${listing.title}</p>
-          <div style="margin-bottom: 16px;">
-            <span style="display: inline-block; padding: 4px 12px; background-color: #F7F6F3; border-radius: 4px; font-size: 12px; color: #6B6B6B; margin-right: 8px;">${listing.category}</span>
-            <span style="display: inline-block; padding: 4px 12px; background-color: #F7F6F3; border-radius: 4px; font-size: 12px; color: #6B6B6B;">${listing.location}</span>
-          </div>
-          <div style="padding-top: 16px; border-top: 1px solid #E8E4DD;">
-            <p style="margin: 0 0 4px 0; font-size: 13px; color: #6B6B6B;">Revenue: <strong style="color: #1A1A1A;">${formatCurrency(Number(listing.revenue))}</strong></p>
-            <p style="margin: 0; font-size: 13px; color: #6B6B6B;">EBITDA: <strong style="color: #1A1A1A;">${formatCurrency(Number(listing.ebitda))}</strong></p>
-          </div>
+        <div style="background: #F7F6F3; padding: 24px; margin: 24px 0;">
+          <p style="margin: 0 0 4px; font-size: 16px; font-weight: 600; color: #1A1A1A;">${listing.title}</p>
+          <p style="margin: 0 0 20px; font-size: 13px; color: #6B6B6B;">${listing.category} · ${listing.location}</p>
+          <p style="margin: 0 0 4px; font-size: 13px; color: #6B6B6B;">Revenue: ${formatCurrency(Number(listing.revenue))}</p>
+          <p style="margin: 0; font-size: 13px; color: #6B6B6B;">EBITDA: ${formatCurrency(Number(listing.ebitda))}</p>
         </div>
-        <div style="text-align: center;">
+        <div style="text-align: center; margin: 28px 0;">
           <a href="${Deno.env.get('SITE_URL') || 'https://marketplace.sourcecodeals.com'}/listing/${listingId}" style="display: inline-block; padding: 14px 32px; background-color: #000000; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600;">View Full Listing</a>
         </div>`,
       preheader: `${referrerName} shared a business opportunity with you`,
@@ -102,7 +97,6 @@ serve(async (req: Request) => {
       throw new Error(`Failed to send email: ${result.error}`);
     }
 
-    // Update referral record
     await supabase
       .from('deal_referrals')
       .update({ sent_at: new Date().toISOString(), delivery_status: 'sent' })

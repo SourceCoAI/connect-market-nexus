@@ -2,18 +2,16 @@
  * Shared HTML email layout wrapper for consistent branding.
  * All edge functions should use wrapEmailHtml() to wrap their content.
  *
- * Design: Minimal, black-and-white, Apple/Stripe-level sophistication.
+ * Design: Ultra-minimal, zero-border, Apple/Stripe-level sophistication.
  * Logo: SourceCo wordmark from CDN.
- * No emojis, no colored accents, no em dashes.
+ * No emojis, no colored accents, no em dashes, no borders.
  */
 
 const LOGO_URL = 'https://cdn.prod.website-files.com/66851dae8a2c8c3f8cd9c703/66af956d372d85d43f02f481_Group%202%20(4)%20(1).png';
 const FONT_FAMILY = "'Montserrat', 'Helvetica Neue', Arial, sans-serif";
 const BG_COLOR = '#FAFAF8';
 const CARD_BG = '#FFFFFF';
-const BORDER_COLOR = '#E8E4DD';
 const TEXT_PRIMARY = '#1A1A1A';
-const TEXT_SECONDARY = '#6B6B6B';
 const TEXT_MUTED = '#9B9B9B';
 
 export interface EmailWrapperOptions {
@@ -37,8 +35,8 @@ export function wrapEmailHtml(options: EmailWrapperOptions): string {
     : '';
 
   const headerHtml = showHeader
-    ? `<tr><td style="padding:32px 30px 24px;text-align:center;border-bottom:1px solid ${BORDER_COLOR};">
-        <img src="${LOGO_URL}" alt="SourceCo" height="40" style="height:40px;width:auto;display:inline-block;" />
+    ? `<tr><td style="padding:40px 40px 32px;text-align:center;">
+        <img src="${LOGO_URL}" alt="SourceCo" height="36" style="height:36px;width:auto;display:inline-block;" />
       </td></tr>`
     : '';
 
@@ -47,11 +45,11 @@ export function wrapEmailHtml(options: EmailWrapperOptions): string {
     : '';
 
   const footerHtml = showFooter
-    ? `<tr><td style="padding:24px 30px;border-top:1px solid ${BORDER_COLOR};text-align:center;">
-        <p style="margin:0;font-family:${FONT_FAMILY};font-size:12px;color:${TEXT_MUTED};">
+    ? `<tr><td style="padding:32px 40px;text-align:center;">
+        <p style="margin:0;font-family:${FONT_FAMILY};font-size:11px;color:${TEXT_MUTED};">
           &copy; ${new Date().getFullYear()} SourceCo
         </p>
-        ${unsubUrl ? `<p style="margin:8px 0 0;font-family:${FONT_FAMILY};font-size:11px;"><a href="${unsubUrl}" style="color:${TEXT_MUTED};text-decoration:underline;">Unsubscribe</a></p>` : ''}
+        ${unsubUrl ? `<p style="margin:6px 0 0;font-family:${FONT_FAMILY};font-size:11px;"><a href="${unsubUrl}" style="color:${TEXT_MUTED};text-decoration:underline;">Unsubscribe</a></p>` : ''}
       </td></tr>`
     : '';
 
@@ -61,10 +59,10 @@ export function wrapEmailHtml(options: EmailWrapperOptions): string {
 <body style="margin:0;padding:0;background-color:${BG_COLOR};font-family:${FONT_FAMILY};">
 ${preheaderHtml}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BG_COLOR};">
-<tr><td align="center" style="padding:32px 16px;">
-  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:${CARD_BG};border-radius:8px;overflow:hidden;border:1px solid ${BORDER_COLOR};">
+<tr><td align="center" style="padding:40px 16px;">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:${CARD_BG};">
     ${headerHtml}
-    <tr><td style="padding:32px 30px;font-family:${FONT_FAMILY};font-size:15px;line-height:1.7;color:${TEXT_PRIMARY};">
+    <tr><td style="padding:0 40px 40px;font-family:${FONT_FAMILY};font-size:15px;line-height:1.7;color:${TEXT_PRIMARY};">
       ${bodyHtml}
     </td></tr>
     ${footerHtml}

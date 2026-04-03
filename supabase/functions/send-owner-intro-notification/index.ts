@@ -50,12 +50,11 @@ const handler = async (req: Request): Promise<Response> => {
       bodyHtml: `
         <p style="margin: 0 0 16px;">Hi ${ownerName},</p>
         <p style="margin: 0 0 16px;">${dealOwnerName || 'Your deal owner'} has coordinated an introduction with <strong>${buyerName}</strong> from ${buyerCompany || 'a qualified firm'}. The buyer is ready to speak with the owner of <strong>${companyName}</strong>.</p>
-        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
-          <p style="font-weight: 600; margin: 0 0 12px;">Buyer Information</p>
-          <p style="margin: 0 0 8px; font-size: 14px;"><strong>Name:</strong> ${buyerName}</p>
-          <p style="margin: 0 0 8px; font-size: 14px;"><strong>Email:</strong> ${buyerEmail}</p>
-          ${buyerCompany ? `<p style="margin: 0 0 8px; font-size: 14px;"><strong>Company:</strong> ${buyerCompany}</p>` : ''}
-          <p style="margin: 0 0 8px; font-size: 14px;"><strong>Deal Value:</strong> ${dealValueText}</p>
+        <div style="background: #F7F6F3; padding: 24px; margin: 24px 0;">
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Name: ${buyerName}</p>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Email: ${buyerEmail}</p>
+          ${buyerCompany ? `<p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Company: ${buyerCompany}</p>` : ''}
+          <p style="margin: 0; font-size: 14px; color: #6B6B6B;">Deal Value: ${dealValueText}</p>
         </div>
         <div style="text-align: center; margin: 28px 0;">
           <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${dealId}" style="background-color: #000000; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; padding: 14px 28px; border-radius: 6px;">View Deal in Pipeline</a>
