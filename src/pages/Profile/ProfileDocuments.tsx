@@ -180,7 +180,7 @@ export function ProfileDocuments() {
                 {pendingDocs.length} document{pendingDocs.length > 1 ? 's' : ''} requested — check your email
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Sign and return to support@sourcecodeals.com to unlock full deal access.
+                Sign and return to adam.haile@sourcecodeals.com to unlock full deal access.
               </p>
             </div>
           </div>

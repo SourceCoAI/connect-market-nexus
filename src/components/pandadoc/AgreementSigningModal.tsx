@@ -166,7 +166,7 @@ export function AgreementSigningModal({
                 Check your inbox at <strong>{user?.email}</strong>.
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Review, sign, and reply to <strong>support@sourcecodeals.com</strong> with the signed copy.
+                Review, sign, and reply to <strong>adam.haile@sourcecodeals.com</strong> with the signed copy.
               </p>
             </div>
             <Button onClick={handleClose} variant="outline" className="mt-2">
