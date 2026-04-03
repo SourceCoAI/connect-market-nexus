@@ -1,82 +1,50 @@
 
 
-# Email Catalog Preview Overhaul
+# Email Catalog Refinement: Ultra-Premium Polish Pass
 
-## Problem
+## Current State
 
-The 33 production edge functions are clean. But the **EmailCatalog.tsx preview HTML** (what you see in the dashboard) still has ~60 violations of the design spec. The previews do not match what the actual emails look like.
+The catalog is clean (no em dashes, no emojis, no borders, correct brand palette). But it's not yet at Apple/Stripe level. Several patterns create visual heaviness and corporate filler that undermine the premium feel.
 
-## Issues Found (all in `src/components/admin/emails/EmailCatalog.tsx`)
+## Issues Found
 
-### Em dashes in subjects and preview copy (~15 instances)
-- Line 72: `Email Verified Successfully — What's Next`
-- Line 90: `Reset Your Password — SourceCo`
-- Line 104: `here's a quick look` / `Hi there —`
-- Line 113: `Don't miss out —`
-- Line 122: `Project [Name] — Investment Opportunity`
-- Line 149: `Introduction request received — [Deal]`
-- Line 169: `New Connection Request: [Deal] — [Buyer]`
-- Line 179: `New deal — matches your mandate.`
-- Line 193: `Take a look at this — right in your sweet spot.`
-- Line 213: `One more step —`
-- Line 242: `Data room open — Project [Name]`
-- Line 265: emoji subjects `🔄`, `📌`
-- Line 324: `New Buyer Message: [Deal] — [Buyer]`
-- Line 348: `Email confirmed —`
-- Line 457: `Hi there —`
+### 1. Stacked grey boxes create visual heaviness (~12 emails)
+Many emails chain `infoBox()` + `detailBox()` back-to-back, creating two grey `#F7F6F3` blocks in a row. This looks boxy and cluttered. Apple emails never stack tinted sections. The fix: consolidate into a single block, or replace the `infoBox` with a plain text sentence and keep only one grey block for structured data.
 
-### Emojis in subjects and preview HTML (~8 instances)
-- Line 256: `✨ New Deal Assigned`
-- Line 265: `🔄` and `📌` in reassignment subject
-- Line 283: `🏢 New Owner Inquiry`
-- Line 288: `🏢` in preview heading
-- Line 292: `🤝 Owner Intro Requested`
-- Line 297: `🤝` in preview heading
-- Line 306: `📎` paperclip icon
-- Line 402: `${priorityEmoji}` in subject
-- Line 448: `ℹ️` in preview heading
-- Line 491: `⚠️` in broken notice
+Affected: Connection Admin Notification, Deal Alert, New Deal Owner Assigned, Deal Reassignment, Owner Inquiry, Owner Intro, Enhanced Admin Notification, Task Notification, Admin New Message, Journey Admin New User, Journey User Created, Journey Email Verified, Journey Profile Approved.
 
-### Blue left-borders (not in the design spec) (~2 instances)
-- Line 320: `border-left: 4px solid #3b82f6` on message quote
-- Line 407: `border-left: 4px solid #3b82f6` on feedback message
+### 2. Corporate filler copy (~8 instances)
+Phrases like "In the meantime, feel free to explore other opportunities" and "Our team will review your application and get back to you shortly" are generic padding. Premium emails say what needs to be said and stop. Every sentence should carry information.
 
-### `<strong>` bold labels (~20 instances)
-- Lines 175, 228, 238, 261, 279, 288, 297, 306, 384, 398, 407, 425: `<strong>Deal:</strong>`, `<strong>Company:</strong>`, etc.
+### 3. Inconsistent sign-offs
+Some emails end with "Best regards, The SourceCo Team" and others just end with a CTA. Should standardize: external-facing emails (to Buyers/Users) get a brief sign-off; internal admin notifications do not.
 
-### Wrong colors (Tailwind/Slate instead of brand palette)
-- `#1e293b`, `#475569`, `#64748b`, `#0f172a`, `#334155`, `#94a3b8` used everywhere instead of `#1A1A1A` (primary) and `#6B6B6B` (secondary)
-- `#f8fafc` used instead of `#F7F6F3` for info boxes
-- `#e2e8f0` borders instead of no borders
+### 4. Preview wrapper missing outer background
+Production emails render on `#FAFAF8` background. The preview wrapper uses only `#FFFFFF`, making previews look different from production. Adding the warm off-white outer background would make previews match reality.
 
-### Borders that should not exist
-- Line 184: `border: 1px solid #e2e8f0` on deal card
-- Line 193: `border: 1px solid #e2e8f0` and `border-left: 2px solid`
-- Line 261: `border: 1px solid #e2e8f0` on deal info card
-- Line 261: `border: 1px solid #fde68a` yellow warning box
-- Line 306: `border: 1px solid #e2e8f0` on memo card
-- Line 329: `border: 1px solid #e2e8f0` on message card
-- Line 491: `border: 1px solid #fecaca` on broken notice
+### 5. Quotation marks around message excerpts
+The Messaging category emails wrap excerpts in typographic quotes (`"Hi Jane..."`). This adds unnecessary decoration. The grey background already signals it's a quote.
 
-### Yellow/amber warning box in new deal owner preview
-- Line 261: `#fffbeb` background, `#92400e` text, `#78350f` list items
-
-### `font-weight: 600` in preview tables
-- Lines 127, 270: bold values in data tables
+### 6. Some preview headings use larger font-size
+Deal Referral has `font-size: 17px` and User Notification has a pseudo-heading at `font-size: 15px`. These should be regular body text to maintain the letter-like feel.
 
 ## Plan
 
-### Single file change: `src/components/admin/emails/EmailCatalog.tsx`
+### Single file: `src/components/admin/emails/EmailCatalog.tsx`
 
-Rewrite all 42 `previewHtml` strings and all `subject` strings to:
+1. **Add outer background to wrapper**: Wrap the preview in a `#FAFAF8` container so it matches production rendering.
 
-1. **Remove every em dash** (`—`, `–`). Replace with periods or restructured sentences.
-2. **Remove every emoji** (`✨`, `🏢`, `🤝`, `📎`, `ℹ️`, `⚠️`, `🔄`, `📌`, `${priorityEmoji}`).
-3. **Remove all `<strong>` / `<b>` tags**. Use `color: #6B6B6B` for labels instead.
-4. **Replace all Tailwind/Slate colors** with brand palette: `#1A1A1A` (primary text), `#6B6B6B` (secondary/labels), `#9B9B9B` (muted), `#F7F6F3` (info box bg).
-5. **Remove all `border:`, `border-left:`, `border-top:`** from preview inline styles. Only `border-radius: 6px` on CTAs.
-6. **Remove yellow/amber warning boxes** and colored accent backgrounds.
-7. **Remove `font-weight: 600`** from data values in tables.
-8. **Ensure subjects match production** edge function subjects exactly (no em dashes, no emojis).
+2. **Eliminate stacked grey boxes**: For every email that chains `infoBox` + `detailBox`, merge into a single block or convert the `infoBox` to plain text. No two grey boxes should appear consecutively.
 
-No edge function files need changes. Only `EmailCatalog.tsx`.
+3. **Tighten copy**: Remove filler phrases. Every sentence must convey new information. Cut "In the meantime" and "feel free to" patterns. Shorten where possible.
+
+4. **Standardize sign-offs**: User/Buyer-facing emails get a simple closing line. Admin notifications do not.
+
+5. **Remove decorative quotes**: Strip `"..."` wrapping from message excerpts in Messaging emails.
+
+6. **Normalize font sizes**: Remove `font-size: 17px` and any pseudo-heading styling from body content. All body text is `15px` (inherited from wrapper).
+
+7. **Simplify Feedback Notification**: Remove the nested white `#FFFFFF` div inside the `#F7F6F3` detail box (line 409). This creates a box-within-a-box.
+
+### No edge function changes needed.
+
