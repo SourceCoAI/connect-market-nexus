@@ -61,7 +61,6 @@ serve(async (req: Request) => {
 
       if (existingRequest) continue;
 
-      // Check outbound_emails for dedup instead of legacy email_delivery_logs
       const { data: alreadySent } = await supabase
         .from('outbound_emails')
         .select('id')
@@ -77,23 +76,23 @@ serve(async (req: Request) => {
 
       const htmlContent = wrapEmailHtml({
         bodyHtml: `
-  <p>Hi ${safeFirstName},</p>
-  <p>You've been in the pipeline for a couple of days. Wanted to give you a quick picture of what's there.</p>
-  <p>Every deal on SourceCo is off-market — sourced and reviewed by our team before it reaches buyers. When you find a fit, request an introduction. We review every request and select based on match quality.</p>
-  <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Browse the Pipeline</a></p>
-  <h3 style="color: #0e101a; font-size: 16px; margin: 24px 0 8px 0;">How to get the most out of SourceCo</h3>
-  <ul style="padding-left: 20px; color: #374151;">
-    <li>Be specific in your introduction requests — tell us exactly why you're a strong fit. Generic messages rarely get selected</li>
-    <li>Set up deal alerts in your profile so new deals that match your mandate reach you immediately</li>
-    <li>If you want deals sourced specifically for your thesis, our retained search team works with a select group of active buyers: <a href="https://www.sourcecodeals.com/private-equity" style="color: #1e293b;">sourcecodeals.com/private-equity</a></li>
+  <p style="margin: 0 0 16px;">Hi ${safeFirstName},</p>
+  <p style="margin: 0 0 16px;">You joined SourceCo two days ago. Here is a quick snapshot of what is live in the pipeline.</p>
+  <p style="margin: 0 0 16px;">Every deal on SourceCo is off-market. Our team sources and reviews each one before it reaches buyers. When you find a fit, request an introduction. We evaluate every request based on match quality and select accordingly.</p>
+  <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #000000; color: #ffffff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">Browse the Pipeline</a></p>
+  <p style="font-weight: 600; margin: 24px 0 8px;">How to get the most out of SourceCo</p>
+  <ul style="padding-left: 20px; margin: 0 0 16px;">
+    <li style="margin-bottom: 8px;">Be specific in your introduction requests. Explain exactly why you are a strong fit. Generic messages rarely get selected.</li>
+    <li style="margin-bottom: 8px;">Set up deal alerts in your profile so new deals that match your mandate reach you immediately.</li>
+    <li style="margin-bottom: 8px;">If you want deals sourced specifically for your thesis, our retained search team works with a select group of active buyers: <a href="https://www.sourcecodeals.com/private-equity" style="color: #1A1A1A; text-decoration: underline;">sourcecodeals.com/private-equity</a></li>
   </ul>
-  <p>Questions? Reply to this email.</p>
-  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>`,
-        preheader: "Here's what's in the SourceCo pipeline right now",
+  <p style="margin: 0 0 16px;">Questions? Reply to this email.</p>
+  <p style="margin: 32px 0 0;">The SourceCo Team</p>`,
+        preheader: "Here is what is in the SourceCo pipeline right now",
         recipientEmail: recipientEmail,
       });
 
-      const textContent = `Hi ${safeFirstName},\n\nYou've been in the pipeline for a couple of days. Every deal on SourceCo is off-market — sourced by our team before it reaches buyers.\n\nBrowse the pipeline: ${siteUrl}/marketplace\n\nBe specific when you request an introduction — generic messages rarely get selected.\n\nQuestions? Reply to this email.\n\n— The SourceCo Team`;
+      const textContent = `Hi ${safeFirstName},\n\nYou joined SourceCo two days ago. Here is a quick snapshot of what is live in the pipeline.\n\nEvery deal on SourceCo is off-market. Our team sources and reviews each one before it reaches buyers.\n\nBrowse the pipeline: ${siteUrl}/marketplace\n\nBe specific when you request an introduction. Generic messages rarely get selected.\n\nQuestions? Reply to this email.\n\nThe SourceCo Team`;
 
       const result = await sendEmail({
         templateName: 'onboarding_day2',

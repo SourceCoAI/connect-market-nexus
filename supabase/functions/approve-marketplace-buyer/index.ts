@@ -107,7 +107,7 @@ Deno.serve(async (req: Request) => {
       templateName: 'marketplace_buyer_approval',
       to: queueRecord.buyer_email,
       toName: queueRecord.buyer_name,
-      subject: `Project ${deal.project_name} — Investment Opportunity`,
+      subject: `Project ${deal.project_name}: Investment Opportunity`,
       htmlContent: buildApprovalEmailHtml(projectName, buyerName, linkUrl, queueRecord.buyer_email),
       senderName: "SourceCo Deal Team",
       replyTo: Deno.env.get("ADMIN_NOTIFICATION_EMAIL") || "deals@sourcecodeals.com",
@@ -134,17 +134,17 @@ Deno.serve(async (req: Request) => {
 function buildApprovalEmailHtml(projectName: string, buyerName: string, linkUrl: string, buyerEmail: string): string {
   return wrapEmailHtml({
     bodyHtml: `
-    <h1 style="color: #1e293b; font-size: 22px; margin: 0 0 20px 0;">Project ${projectName} — Investment Opportunity</h1>
-    <p>Dear ${buyerName},</p>
-    <p>Thank you for your interest in this investment opportunity. We are pleased to share the Anonymous Teaser for <strong>Project ${projectName}</strong> with you.</p>
-    <p>Please click the link below to review the investment summary:</p>
-    <div style="text-align: center; margin: 24px 0;">
-      <a href="${linkUrl}" style="display: inline-block; background: #1a1a2e; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">View Investment Teaser</a>
+    <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">Project ${projectName}: Investment Opportunity</p>
+    <p style="margin: 0 0 16px;">Dear ${buyerName},</p>
+    <p style="margin: 0 0 16px;">Thank you for your interest in this investment opportunity. We are pleased to share the Anonymous Teaser for <strong>Project ${projectName}</strong> with you.</p>
+    <p style="margin: 0 0 16px;">Click below to review the investment summary.</p>
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${linkUrl}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">View Investment Teaser</a>
     </div>
-    <div style="background: #f8fafc; border-left: 4px solid #e94560; padding: 12px 16px; margin: 20px 0; font-size: 14px; color: #475569;">This is a private, tracked link generated exclusively for you. Please do not share or forward this link.</div>
-    <p>If this opportunity aligns with your investment criteria, please reply to this email to express your interest.</p>
-    <p style="font-size: 14px; color: #666; margin-top: 30px;">SourceCo Deal Team</p>
-    <p style="font-size: 12px; color: #94a3b8; margin-top: 20px;">This communication is confidential and intended solely for the named recipient.</p>`,
+    <div style="background: #F7F6F3; padding: 12px 16px; border-radius: 6px; margin: 20px 0; font-size: 14px;">This is a private, tracked link generated exclusively for you. Do not share or forward this link.</div>
+    <p style="margin: 0 0 16px;">If this opportunity aligns with your investment criteria, reply to this email to express your interest.</p>
+    <p style="margin: 32px 0 0;">SourceCo Deal Team</p>
+    <p style="font-size: 12px; color: #9B9B9B; margin-top: 16px;">This communication is confidential and intended solely for the named recipient.</p>`,
     preheader: `Investment opportunity: Project ${projectName}`,
     recipientEmail: buyerEmail,
   });

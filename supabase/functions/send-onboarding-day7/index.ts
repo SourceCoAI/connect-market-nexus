@@ -61,7 +61,6 @@ serve(async (req: Request) => {
 
       if (existingRequest) continue;
 
-      // Check outbound_emails for dedup instead of legacy email_delivery_logs
       const { data: alreadySent } = await supabase
         .from('outbound_emails')
         .select('id')
@@ -73,25 +72,25 @@ serve(async (req: Request) => {
       if (alreadySent) continue;
 
       const safeFirstName = (profile.first_name || 'there').replace(/<[^>]*>/g, '');
-      const subject = `Still looking? Here's what other buyers are pursuing.`;
+      const subject = `The pipeline has been updated since you joined.`;
 
       const htmlContent = wrapEmailHtml({
         bodyHtml: `
-  <p>Hi ${safeFirstName},</p>
-  <p>You've been on the platform for a week. If you haven't found a fit yet, it's worth a fresh look — the pipeline gets updated regularly and what's live today may be different from when you first browsed.</p>
-  <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Updated Pipeline</a></p>
-  <p>A couple of things that might help:</p>
-  <ul style="padding-left: 20px; color: #374151;">
-    <li>If the deals live right now aren't quite right, set up a deal alert in your profile — you'll hear from us the moment something matches your criteria</li>
-    <li>If you'd rather not wait for deals to come to market, our retained search team sources specifically for your mandate: <a href="https://www.sourcecodeals.com/private-equity" style="color: #1e293b;">sourcecodeals.com/private-equity</a></li>
+  <p style="margin: 0 0 16px;">Hi ${safeFirstName},</p>
+  <p style="margin: 0 0 16px;">You have been on the platform for a week. The pipeline gets updated regularly, and what is live today may be different from when you first browsed. Worth a fresh look.</p>
+  <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #000000; color: #ffffff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">View Updated Pipeline</a></p>
+  <p style="margin: 0 0 8px;">Two things that might help:</p>
+  <ul style="padding-left: 20px; margin: 0 0 16px;">
+    <li style="margin-bottom: 8px;">If the deals live right now are not quite right, set up a deal alert in your profile. You will hear from us the moment something matches your criteria.</li>
+    <li style="margin-bottom: 8px;">If you would rather not wait for deals to come to market, our retained search team sources specifically for your mandate: <a href="https://www.sourcecodeals.com/private-equity" style="color: #1A1A1A; text-decoration: underline;">sourcecodeals.com/private-equity</a></li>
   </ul>
-  <p>If something felt off about the platform or you have questions about how it works, reply to this email — happy to help.</p>
-  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>`,
-        preheader: "The pipeline has been updated — worth a fresh look",
+  <p style="margin: 0 0 16px;">If something felt off about the platform or you have questions about how it works, reply to this email.</p>
+  <p style="margin: 32px 0 0;">The SourceCo Team</p>`,
+        preheader: "The pipeline has been updated. Worth a fresh look.",
         recipientEmail: recipientEmail,
       });
 
-      const textContent = `Hi ${safeFirstName},\n\nYou've been on the platform for a week. The pipeline gets updated regularly — worth a fresh look.\n\nView the pipeline: ${siteUrl}/marketplace\n\nIf you'd prefer deals sourced for your specific thesis: https://www.sourcecodeals.com/private-equity\n\nQuestions? Reply to this email.\n\n— The SourceCo Team`;
+      const textContent = `Hi ${safeFirstName},\n\nYou have been on the platform for a week. The pipeline gets updated regularly. Worth a fresh look.\n\nView the pipeline: ${siteUrl}/marketplace\n\nIf you would prefer deals sourced for your specific thesis: https://www.sourcecodeals.com/private-equity\n\nQuestions? Reply to this email.\n\nThe SourceCo Team`;
 
       const result = await sendEmail({
         templateName: 'onboarding_day7',

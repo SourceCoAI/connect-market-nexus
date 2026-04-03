@@ -40,28 +40,28 @@ const handler = async (req: Request): Promise<Response> => {
 
     const htmlContent = wrapEmailHtml({
       bodyHtml: `
-        <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 20px;">🏢 New Owner Inquiry</h2>
-        <p style="color: #64748b;">A business owner has submitted an inquiry through the /sell form.</p>
-        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="margin: 0 0 15px 0; color: #1e293b; font-size: 16px;">Contact Information</h3>
-          <div style="margin-bottom: 12px;"><strong style="color: #475569;">Name:</strong> ${data.name}</div>
-          <div style="margin-bottom: 12px;"><strong style="color: #475569;">Email:</strong> <a href="mailto:${data.email}" style="color: #e94560;">${data.email}</a></div>
-          <div style="margin-bottom: 12px;"><strong style="color: #475569;">Phone:</strong> <a href="tel:${data.phone}" style="color: #e94560;">${data.phone}</a></div>
-          <div style="margin-bottom: 12px;"><strong style="color: #475569;">Company:</strong> ${data.companyName}</div>
-          ${data.businessWebsite ? `<div style="margin-bottom: 12px;"><strong style="color: #475569;">Website:</strong> <a href="${data.businessWebsite}" target="_blank" style="color: #e94560;">${data.businessWebsite}</a></div>` : ''}
+        <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">New Owner Inquiry</p>
+        <p style="margin: 0 0 16px;">A business owner has submitted an inquiry through the /sell form.</p>
+        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
+          <p style="font-weight: 600; margin: 0 0 12px;">Contact Information</p>
+          <div style="margin-bottom: 8px;"><strong>Name:</strong> ${data.name}</div>
+          <div style="margin-bottom: 8px;"><strong>Email:</strong> <a href="mailto:${data.email}" style="color: #1A1A1A; text-decoration: underline;">${data.email}</a></div>
+          <div style="margin-bottom: 8px;"><strong>Phone:</strong> <a href="tel:${data.phone}" style="color: #1A1A1A; text-decoration: underline;">${data.phone}</a></div>
+          <div style="margin-bottom: 8px;"><strong>Company:</strong> ${data.companyName}</div>
+          ${data.businessWebsite ? `<div style="margin-bottom: 8px;"><strong>Website:</strong> <a href="${data.businessWebsite}" target="_blank" style="color: #1A1A1A; text-decoration: underline;">${data.businessWebsite}</a></div>` : ''}
         </div>
-        <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
-          <h3 style="margin: 0 0 15px 0; color: #1e293b; font-size: 16px;">Business Details</h3>
-          <div style="margin-bottom: 12px;"><strong style="color: #475569;">Estimated Revenue:</strong> ${formatRevenueRange(data.revenueRange)}</div>
-          <div style="margin-bottom: 12px;"><strong style="color: #475569;">Sale Timeline:</strong> ${formatSaleTimeline(data.saleTimeline)}</div>
+        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
+          <p style="font-weight: 600; margin: 0 0 12px;">Business Details</p>
+          <div style="margin-bottom: 8px;"><strong>Estimated Revenue:</strong> ${formatRevenueRange(data.revenueRange)}</div>
+          <div style="margin-bottom: 8px;"><strong>Sale Timeline:</strong> ${formatSaleTimeline(data.saleTimeline)}</div>
         </div>
         ${data.message ? `
-        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="margin: 0 0 15px 0; color: #1e293b; font-size: 16px;">Message</h3>
-          <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #e94560;">${data.message.replace(/\n/g, '<br>')}</div>
+        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
+          <p style="font-weight: 600; margin: 0 0 12px;">Message</p>
+          <p style="margin: 0;">${data.message.replace(/\n/g, '<br>')}</p>
         </div>` : ''}
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="https://marketplace.sourcecodeals.com/admin/marketplace/users" style="background: #1a1a2e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">View in Admin Dashboard</a>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="https://marketplace.sourcecodeals.com/admin/marketplace/users" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">View in Admin Dashboard</a>
         </div>`,
       preheader: `New owner inquiry: ${data.companyName} (${formatRevenueRange(data.revenueRange)})`,
     });
@@ -72,9 +72,9 @@ const handler = async (req: Request): Promise<Response> => {
       templateName: 'owner_inquiry',
       to: recipientEmail,
       toName: Deno.env.get('OWNER_INQUIRY_RECIPIENT_NAME') || 'Adam Haile',
-      subject: `🏢 New Owner Inquiry: ${data.companyName} (${formatRevenueRange(data.revenueRange)})`,
+      subject: `New Owner Inquiry: ${data.companyName} (${formatRevenueRange(data.revenueRange)})`,
       htmlContent,
-      senderName: 'SourceCo Marketplace',
+      senderName: 'SourceCo',
       replyTo: data.email,
       isTransactional: true,
     });

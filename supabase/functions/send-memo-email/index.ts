@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
       toName: buyer?.pe_firm_name || buyer?.company_name || email_address,
       subject: email_subject,
       htmlContent: wrapEmailHtml({
-        bodyHtml: `<div class="email-body">${email_body}</div><div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; color: #666; font-size: 14px;"><p>${senderName}<br>SourceCo</p></div>`,
+        bodyHtml: `<div>${email_body}</div><p style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #E8E4DD; font-size: 14px;">${senderName}<br>SourceCo</p>`,
         showHeader: false,
         recipientEmail: email_address,
       }),
@@ -90,14 +90,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Log distribution
     await supabaseAdmin.from('memo_distribution_log').insert({
       deal_id: memo.deal_id, memo_id: memo.id, remarketing_buyer_id: buyer_id,
       memo_type: memo.memo_type, channel: 'email', sent_by: auth.userId,
       email_address, email_subject,
     });
 
-    // In-app notification
     const { data: buyerUsers } = await supabaseAdmin
       .from('profiles').select('id, email').eq('email', email_address).limit(1);
 
@@ -110,7 +108,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Audit event
     await supabaseAdmin.rpc('log_data_room_event', {
       p_deal_id: memo.deal_id, p_user_id: auth.userId, p_action: 'send_memo_email',
       p_metadata: { memo_id: memo.id, memo_type: memo.memo_type, buyer_id, buyer_name: buyer?.pe_firm_name || buyer?.company_name, email_address, email_subject },
@@ -129,4 +126,3 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
-

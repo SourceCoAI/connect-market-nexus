@@ -19,7 +19,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-    // Dedup check
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const { data: recentNotif } = await supabase.from('owner_intro_notifications').select('id').eq('deal_id', dealId).gte('created_at', fiveMinutesAgo).maybeSingle();
     if (recentNotif) {
@@ -45,25 +44,23 @@ const handler = async (req: Request): Promise<Response> => {
     const companyName = listing.internal_company_name || listing.title;
     const dealValueText = dealValue ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(dealValue) : 'Not specified';
 
-    const subject = `🤝 Owner Intro Requested: ${buyerName} → ${companyName}`;
+    const subject = `Owner Intro Requested: ${buyerName} to ${companyName}`;
 
     const htmlContent = wrapEmailHtml({
       bodyHtml: `
-        <div style="background: #fffbeb; border-left: 4px solid #d7b65c; padding: 20px 24px; border-radius: 4px; margin-bottom: 24px;">
-          <p style="margin: 0 0 12px 0; color: #78350f; font-weight: 600;">Hi ${ownerName},</p>
-          <p style="margin: 0; color: #78350f; font-size: 14px; line-height: 1.6;">${dealOwnerName || 'Your deal owner'} has coordinated an introduction with <strong>${buyerName}</strong> from ${buyerCompany || 'a qualified firm'}. The buyer is ready to speak with the owner of <strong>${companyName}</strong>.</p>
+        <p style="margin: 0 0 16px;">Hi ${ownerName},</p>
+        <p style="margin: 0 0 16px;">${dealOwnerName || 'Your deal owner'} has coordinated an introduction with <strong>${buyerName}</strong> from ${buyerCompany || 'a qualified firm'}. The buyer is ready to speak with the owner of <strong>${companyName}</strong>.</p>
+        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
+          <p style="font-weight: 600; margin: 0 0 12px;">Buyer Information</p>
+          <p style="margin: 0 0 8px; font-size: 14px;"><strong>Name:</strong> ${buyerName}</p>
+          <p style="margin: 0 0 8px; font-size: 14px;"><strong>Email:</strong> ${buyerEmail}</p>
+          ${buyerCompany ? `<p style="margin: 0 0 8px; font-size: 14px;"><strong>Company:</strong> ${buyerCompany}</p>` : ''}
+          <p style="margin: 0 0 8px; font-size: 14px;"><strong>Deal Value:</strong> ${dealValueText}</p>
         </div>
-        <div style="background: #f8fafc; padding: 24px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
-          <h2 style="margin: 0 0 16px 0; color: #0f172a; font-size: 16px; font-weight: 700;">Buyer Information</h2>
-          <p style="margin: 0 0 8px 0; font-size: 13px;"><span style="color: #64748b;">Name:</span> <strong style="color: #0f172a;">${buyerName}</strong></p>
-          <p style="margin: 0 0 8px 0; font-size: 13px;"><span style="color: #64748b;">Email:</span> <strong style="color: #0f172a;">${buyerEmail}</strong></p>
-          ${buyerCompany ? `<p style="margin: 0 0 8px 0; font-size: 13px;"><span style="color: #64748b;">Company:</span> <strong style="color: #0f172a;">${buyerCompany}</strong></p>` : ''}
-          <p style="margin: 0 0 8px 0; font-size: 13px;"><span style="color: #64748b;">Deal Value:</span> <strong style="color: #0f172a;">${dealValueText}</strong></p>
-        </div>
-        <div style="text-align: center; margin-bottom: 32px;">
-          <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${dealId}" style="background-color: #1a1a2e; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; padding: 14px 40px; border-radius: 6px;">View Deal in Pipeline</a>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${dealId}" style="background-color: #000000; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; padding: 14px 28px; border-radius: 6px;">View Deal in Pipeline</a>
         </div>`,
-      preheader: `Owner intro requested: ${buyerName} → ${companyName}`,
+      preheader: `Owner intro requested: ${buyerName} to ${companyName}`,
       recipientEmail: primaryOwnerData.email,
     });
 
@@ -73,7 +70,7 @@ const handler = async (req: Request): Promise<Response> => {
       toName: ownerName,
       subject,
       htmlContent,
-      senderName: 'SourceCo Notifications',
+      senderName: 'SourceCo',
       isTransactional: true,
     });
 

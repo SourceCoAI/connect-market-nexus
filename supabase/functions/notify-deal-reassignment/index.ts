@@ -31,26 +31,25 @@ const handler = async (req: Request): Promise<Response> => {
     }: DealReassignmentRequest = await req.json();
 
     const subject = newOwnerId
-      ? `🔄 Your deal "${dealTitle}" has been reassigned`
-      : `📌 Your deal "${dealTitle}" has been unassigned`;
+      ? `Deal "${dealTitle}" has been reassigned`
+      : `Deal "${dealTitle}" has been unassigned`;
 
     const htmlContent = wrapEmailHtml({
       bodyHtml: `
-        <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 4px; margin-bottom: 20px;">
-          <p style="margin: 0; color: #78350f; font-weight: 500;">
-            Hi ${previousOwnerName}, ${newOwnerId ? `your deal has been reassigned to ${newOwnerName}` : 'your deal has been unassigned'}.
-          </p>
+        <p style="margin: 0 0 16px;">Hi ${previousOwnerName},</p>
+        <p style="margin: 0 0 16px;">${newOwnerId ? `Your deal has been reassigned to ${newOwnerName}.` : 'Your deal has been unassigned.'}</p>
+        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
+          <p style="font-weight: 600; margin: 0 0 12px;">Deal Information</p>
+          <table style="width: 100%; border-collapse: collapse;">
+            ${companyName ? `<tr><td style="padding: 6px 0; font-weight: 500;">Company:</td><td style="padding: 6px 0; font-weight: 600;">${companyName}</td></tr>` : ''}
+            <tr><td style="padding: 6px 0; font-weight: 500;">Deal Title:</td><td style="padding: 6px 0;">${dealTitle}</td></tr>
+            ${listingTitle ? `<tr><td style="padding: 6px 0; font-weight: 500;">Listing:</td><td style="padding: 6px 0;">${listingTitle}</td></tr>` : ''}
+            <tr><td style="padding: 6px 0; font-weight: 500;">Previous Owner:</td><td style="padding: 6px 0;">${previousOwnerName}</td></tr>
+            ${newOwnerId ? `<tr><td style="padding: 6px 0; font-weight: 500;">New Owner:</td><td style="padding: 6px 0;">${newOwnerName} (${newOwnerEmail})</td></tr>` : ''}
+          </table>
         </div>
-        <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px;">Deal Information</h2>
-        <table style="width: 100%; border-collapse: collapse;">
-          ${companyName ? `<tr><td style="padding: 8px 0; color: #475569; font-weight: 500;">Company:</td><td style="padding: 8px 0; color: #1e293b; font-weight: 600;">${companyName}</td></tr>` : ''}
-          <tr><td style="padding: 8px 0; color: #475569; font-weight: 500;">Deal Title:</td><td style="padding: 8px 0; color: #1e293b;">${dealTitle}</td></tr>
-          ${listingTitle ? `<tr><td style="padding: 8px 0; color: #475569; font-weight: 500;">Listing:</td><td style="padding: 8px 0; color: #1e293b;">${listingTitle}</td></tr>` : ''}
-          <tr><td style="padding: 8px 0; color: #475569; font-weight: 500;">Previous Owner:</td><td style="padding: 8px 0; color: #1e293b;">${previousOwnerName}</td></tr>
-          ${newOwnerId ? `<tr><td style="padding: 8px 0; color: #475569; font-weight: 500;">New Owner:</td><td style="padding: 8px 0; color: #1e293b;">${newOwnerName} (${newOwnerEmail})</td></tr>` : ''}
-        </table>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${dealId}" style="background: #1a1a2e; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; display: inline-block;">Open Deal in Pipeline</a>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${dealId}" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Open Deal in Pipeline</a>
         </div>`,
       preheader: `Deal "${dealTitle}" has been ${newOwnerId ? 'reassigned' : 'unassigned'}`,
       recipientEmail: previousOwnerEmail,
