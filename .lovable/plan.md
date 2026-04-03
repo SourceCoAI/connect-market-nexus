@@ -1,38 +1,31 @@
 
+# Email System — Completed
 
-# Email System — Final Status & Remaining Work
+## Status: ✅ Fully Operational
 
-## What's Fully Complete
+The email system migration is complete. All functions are standardized on a single architecture.
 
-1. **Unified sender**: All 33 edge functions use `sendEmail()` from `_shared/email-sender.ts`. Zero legacy code remains.
-2. **API key**: Rotated and confirmed working.
-3. **Sender identity**: Locked to `adam.haile@sourcecodeals.com` everywhere.
-4. **Tracking**: Every send logs to `outbound_emails` + `email_events`.
-5. **Webhook**: `brevo-webhook` updates delivery status and populates `suppressed_emails`.
-6. **Bounce suppression**: Active in `sendEmail()`.
-7. **Email Dashboard**: Live at `/admin/emails`.
-8. **Legacy cleanup**: `enhanced-email-delivery`, `send-approval-email`, `send-password-reset-email`, `brevo-sender.ts`, `email-logger.ts` — all deleted.
-9. **Template wrapper**: 30 of 33 email-sending functions use `wrapEmailHtml()`.
+## Architecture
 
-## What Actually Remains
+- **Sender utility**: `_shared/email-sender.ts` → `sendEmail()` — used by all 34 edge functions
+- **Sender identity**: `adam.haile@sourcecodeals.com` (verified in Brevo)
+- **Template wrapper**: `_shared/email-template-wrapper.ts` → `wrapEmailHtml()` — used by 31 of 34 functions
+  - Exceptions: `notify-deal-owner-change` (React Email), `send-transactional-email` (generic sender), `send-memo-email` (custom PDF-style layout)
+- **Tracking**: Every send logged to `outbound_emails` + `email_events`
+- **Webhook**: `brevo-webhook` updates delivery status, populates `suppressed_emails`
+- **Bounce suppression**: Active in `sendEmail()` — checks `suppressed_emails` before sending
+- **Dashboard**: `/admin/emails` — monitors delivery stats and engagement
 
-### 1. One function still uses raw HTML (minor)
-`notify-admin-new-message` builds its own full HTML document instead of using `wrapEmailHtml()`. This is the only remaining function with raw HTML (aside from `notify-deal-owner-change` which intentionally uses React Email templates, and `send-transactional-email` which is a generic sender).
+## Legacy Code Removed
 
-**Work**: Import `wrapEmailHtml`, replace the raw HTML builder. Redeploy.
+- `enhanced-email-delivery` — deleted
+- `send-approval-email` — deleted
+- `send-password-reset-email` — deleted
+- `send-nda-email` — deleted
+- `send-fee-agreement-email` — deleted
+- `_shared/brevo-sender.ts` — deleted
+- `_shared/email-logger.ts` — deleted
 
-### 2. Update plan.md
-The `.lovable/plan.md` is completely stale — it still lists 23 functions as needing migration when only 1 remains. Needs a full rewrite to reflect the completed state.
+## No Remaining Work
 
-### 3. That's it.
-
-The email system is essentially done. Every function sends through one utility, one identity, with tracking, suppression, branded templates, and a monitoring dashboard. The only remaining item is one function needing a 5-line template wrapper change and updating the plan doc.
-
-## Implementation
-
-### Step 1
-Migrate `notify-admin-new-message` to use `wrapEmailHtml()` — replace the `buildAdminNotificationHtml` function body with a call to the shared wrapper, keeping the same inner HTML content. Redeploy.
-
-### Step 2
-Rewrite `.lovable/plan.md` to reflect the completed state: all functions migrated, all legacy code deleted, system fully operational.
-
+All email-sending functions are migrated, all legacy code is deleted, and the system is fully operational.
