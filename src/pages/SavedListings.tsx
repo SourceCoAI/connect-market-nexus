@@ -371,6 +371,7 @@ const SavedListings = () => {
                         onSave={handleSaveAnnotation}
                         onDelete={handleDeleteAnnotation}
                       />
+                      <SavedListingMessages listingId={listing.id} />
                     </div>
                   ))}
                 </div>
