@@ -156,23 +156,8 @@ export function useSendMessage() {
           });
       }
 
-      if (params.sender_role === 'buyer') {
-        supabase.functions
-          .invoke('notify-admin-new-message', {
-            body: {
-              connection_request_id: params.connection_request_id,
-              message_preview: params.body.substring(0, 200),
-            },
-          })
-          .then(({ error: fnError }) => {
-            if (fnError) {
-              console.error('Failed to send admin message notification email:', fnError);
-            }
-          })
-          .catch((err: unknown) => {
-            console.error('Error invoking notify-admin-new-message:', err);
-          });
-      }
+      // Admin message notifications are handled via realtime subscriptions (toasts + dashboard).
+      // No email is sent to admins for new buyer messages.
 
       return data;
     },
