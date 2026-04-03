@@ -203,7 +203,7 @@ export default function MessageCenter() {
   const [selectedBuyerUserId, setSelectedBuyerUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<InboxFilter>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('by_buyer');
 
   // Realtime subscription for new messages
   useEffect(() => {
