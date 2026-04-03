@@ -336,14 +336,14 @@ export default function DocumentTrackingPage() {
   const { data: orphanUsers = [] } = useOrphanUsers();
   const { data: pendingRequests = [] } = usePendingRequestQueue();
 
-  // Gather correlation IDs from pending requests for delivery event lookup
-  const correlationIds = useMemo(() =>
+  // Gather provider message IDs from pending requests for delivery event lookup
+  const providerMessageIds = useMemo(() =>
     pendingRequests
-      .map(r => r.email_correlation_id)
+      .map(r => r.email_provider_message_id)
       .filter((id): id is string => !!id),
     [pendingRequests]
   );
-  const { data: deliveryEvents = [] } = useDeliveryEvents(correlationIds);
+  const { data: deliveryEvents = [] } = useDeliveryEvents(providerMessageIds);
 
   // Build lookup: correlation_id -> latest delivery event
   const deliveryMap = useMemo(() => {
