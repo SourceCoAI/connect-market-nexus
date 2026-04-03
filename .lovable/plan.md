@@ -1,36 +1,52 @@
 
 
-# Make Document Request Prominent, Direct, and Cooldown-Protected
+# Fix Email Links + Redesign Profile Documents Tab
+
+## Issues Found
+
+1. **Message notification email** (`notify-buyer-new-message`) links to `/my-requests` (line 69) -- should link to `/my-deals` directly (the redirect works, but the URL is outdated)
+2. **Profile Documents banner** says "Sign and return to adam.haile@sourcecodeals.com" -- should say `support@sourcecodeals.com` since we migrated operational emails
+3. **Profile Documents tab** uses Card/Badge components with colored borders that don't match the Quiet Luxury minimal aesthetic used elsewhere
+4. **Request timestamps** are available in the data (`requestedAt`) but not displayed in the Documents tab -- users should see when they requested each document
 
 ## Changes
 
-### 1. `ListingSidebarActions.tsx` — Prominent request button + direct send + cooldown
+### 1. `supabase/functions/notify-buyer-new-message/index.ts` -- Fix CTA link
 
-**More prominent request button:**
-- Replace the subtle "Request documents →" text link with a proper styled button — dark background, full-width within the documents section, clear CTA copy like "Request Documents"
-- When only one document needs requesting, button says "Request Fee Agreement" or "Request NDA"
+Change line 69 from:
+```
+const loginUrl = 'https://marketplace.sourcecodeals.com/my-requests';
+```
+to:
+```
+const loginUrl = 'https://marketplace.sourcecodeals.com/my-deals';
+```
 
-**No modal — direct send:**
-- Instead of opening `AgreementSigningModal`, clicking the button directly calls `sendAgreementEmail()` for each unsigned document
-- If both are unsigned: fire two parallel `sendAgreementEmail` calls (one for `nda`, one for `fee_agreement`)
-- If only one is unsigned: fire one call for that type
-- Show loading spinner on button while sending
-- On success: show toast "Documents sent to your email"
+Deploy the function.
 
-**Post-request state + 1-minute cooldown:**
-- After successful send, update the document labels from "Not requested" to "Requested" with a subtle timestamp
-- Store `lastRequestedAt` in component state (initialized from `agreementStatus.nda_requested_at` / `fee_agreement_requested_at` if available)
-- Disable the button for 60 seconds after a successful send, showing countdown text like "Request again in 48s"
-- After cooldown expires, button re-enables with text "Resend documents"
+### 2. `src/pages/Profile/ProfileDocuments.tsx` -- Redesign + sync timestamps
 
-**Remove `AgreementSigningModal` import** — no longer needed in this component.
+**Fix support email**: Change "adam.haile@sourcecodeals.com" to "support@sourcecodeals.com" in the pending banner.
 
-### 2. `AgreementSigningModal.tsx` — Fix copy
+**Redesign to match Quiet Luxury aesthetic**: Replace Card/Badge-heavy layout with clean, minimal rows using the same pattern as the listing sidebar Documents section:
+- Remove Card wrapper, use whitespace-based separation
+- Each document row: icon + name on left, status + timestamp on right
+- Status shown as subtle text (not colored badges): "Signed", "Sent to email", "Not requested"
+- Small emerald dot for signed, hollow dot for sent, no dot for not requested
+- Show request timestamp: "Requested Mar 28, 2026" below status when available
+- Show signed timestamp: "Signed Mar 30, 2026" when available
+- Resend / Request buttons remain but styled as minimal text buttons, not outlined badges
+- Remove the redundant "Complete" badge on the right side (the signed status on the left is sufficient)
+- Pending banner: softer styling, remove amber border, use subtle background
 
-- Remove "You only need one to access deals" (no longer accurate since Fee Agreement is required)
-- This modal is still used elsewhere (e.g., marketplace card buttons), so keep it functional but update the misleading copy
+### 3. Verify other email CTAs link correctly
+
+- `notify-agreement-confirmed` links to `/marketplace` -- correct (browse deals after signing)
+- `request-agreement-email` -- no app link in body (just instructions to reply) -- correct
+- `send-connection-notification` approval links to `/my-deals` -- correct
 
 ### Files changed
-- `src/components/listing-detail/ListingSidebarActions.tsx` — prominent button, direct send, cooldown
-- `src/components/pandadoc/AgreementSigningModal.tsx` — fix "only need one" copy
+- `supabase/functions/notify-buyer-new-message/index.ts` -- fix link URL
+- `src/pages/Profile/ProfileDocuments.tsx` -- redesign + fix email + show timestamps
+- Deploy `notify-buyer-new-message`
 
