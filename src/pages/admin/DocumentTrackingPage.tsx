@@ -1241,6 +1241,48 @@ function PendingRequestRow({ req, deliveryEvent }: { req: PendingRequest; delive
   );
 }
 
+// ─── Dismiss Button ──────────────────────────────────────────────────
+
+function DismissButton({ requestId, label }: { requestId: string; label: string }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [dismissing, setDismissing] = useState(false);
+
+  const handleDismiss = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDismissing(true);
+    try {
+      const { error } = await untypedFrom('document_requests')
+        .update({ status: 'dismissed', updated_at: new Date().toISOString() })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-request-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      toast({ title: 'Request dismissed', description: `Dismissed request from ${label}` });
+    } catch {
+      toast({ title: 'Failed to dismiss', variant: 'destructive' });
+    } finally {
+      setDismissing(false);
+    }
+  };
+
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+      onClick={handleDismiss}
+      disabled={dismissing}
+      title="Dismiss this request"
+    >
+      {dismissing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+    </Button>
+  );
+}
+
 // ─── Stat Card ───────────────────────────────────────────────────────
 
 function StatCard({
