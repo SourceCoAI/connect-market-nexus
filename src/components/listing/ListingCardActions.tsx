@@ -110,8 +110,8 @@ const ListingCardActions = memo(function ListingCardActions({
     // Gate: profile incomplete
     if (!isProfileComplete) return;
 
-    // Gate: No agreement signed — open signing modal
-    if (!isNdaCovered && !isFeeCovered) {
+    // Gate: Fee Agreement not signed — open signing modal
+    if (!isFeeCovered) {
       setSigningOpen(true);
       return;
     }
