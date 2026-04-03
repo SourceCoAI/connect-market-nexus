@@ -188,17 +188,6 @@ const ConnectionButton = ({
     const anyPending = ndaSent || feeSent;
     const bothNotRequested = !ndaSent && !feeSent && !ndaSigned && !feeSigned;
 
-    const handleResend = async (type: 'nda' | 'fee_agreement') => {
-      setResendingType(type);
-      const result = await sendAgreementEmail({ documentType: type });
-      if (result.success) {
-        toast.success(`${docTypeLabel(type)} resent to your email`);
-        queryClient.invalidateQueries({ queryKey: ['my-agreement-status'] });
-      } else {
-        toast.error(result.error || 'Failed to resend. Please try again.');
-      }
-      setResendingType(null);
-    };
 
     // Document status display now handled by ListingSidebarActions
 
