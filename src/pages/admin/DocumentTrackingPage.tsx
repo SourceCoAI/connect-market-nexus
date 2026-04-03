@@ -1039,6 +1039,48 @@ function FirmExpandableRow({
                 )}
               </div>
 
+              {/* Document Requests History */}
+              {firm.documentRequests.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                    <FileSignature className="h-3.5 w-3.5" /> Document Requests ({firm.documentRequests.length})
+                  </h4>
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {firm.documentRequests.map((dr) => (
+                      <div key={dr.id} className="flex items-center justify-between text-[11px] bg-background rounded px-3 py-1.5 border border-border">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground/60 whitespace-nowrap">
+                            {format(new Date(dr.created_at), 'MMM d, yyyy')}
+                          </span>
+                          <span className="font-medium text-foreground">
+                            {dr.agreement_type === 'nda' ? 'NDA' : 'Fee Agmt'}
+                          </span>
+                          {dr.recipient_name && (
+                            <span className="text-muted-foreground">{dr.recipient_name}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${
+                            dr.status === 'signed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            dr.status === 'dismissed' ? 'bg-muted text-muted-foreground border-border' :
+                            dr.status === 'email_sent' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            'bg-muted text-muted-foreground border-border'
+                          }`}>
+                            {dr.status === 'signed' ? 'Signed' :
+                             dr.status === 'dismissed' ? 'Dismissed' :
+                             dr.status === 'email_sent' ? 'Email Sent' :
+                             'Requested'}
+                          </span>
+                          {dr.last_email_error && (
+                            <span className="text-[10px] text-destructive" title={dr.last_email_error}>Error</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Audit Log section */}
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
