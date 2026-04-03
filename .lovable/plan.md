@@ -1,77 +1,93 @@
 
-Goal
 
-Restore custom email sending on the current Brevo-based architecture by fixing the API key mismatch without changing code yet.
+# Complete Email Architecture Cleanup & Standardization
 
-What your screenshot means
+## Current State
 
-Brevo is behaving normally: after a key is created, it does not reveal the full value again. If you only see something like `**********WDeTb4`, that key cannot be recovered from the dashboard.
+**What's working now:** The `BREVO_API_KEY` was rotated and emails are now arriving. The new unified `sendEmail()` in `email-sender.ts` works correctly.
 
-What to do next
+**The problem:** Only 10 of ~26 email-sending functions use the new `sendEmail()`. The remaining 16+ still use the legacy `sendViaBervo()` from `brevo-sender.ts`, or call Brevo directly. Plus there are 21 stale test `document_requests` records to clean up.
 
-1. Create a brand-new Brevo API key in the same Brevo workspace/account where:
-   - your verified senders live
-   - your SMTP setup for signup emails lives
-   - the “Supabase - Marketplace” key is listed
+## Inventory
 
-2. Give it a clear name like:
-   - `Supabase Marketplace Replacement`
-   - or `SourceCo Custom Emails`
+### Already migrated to `sendEmail()` (10 functions — no changes needed)
+- `request-agreement-email`
+- `send-connection-notification`
+- `send-user-notification`
+- `send-approval-email`
+- `enhanced-email-delivery`
+- `user-journey-notifications`
+- `notify-deal-owner-change`
+- `notify-buyer-new-message`
+- `notify-buyer-rejection`
+- `notify-admin-new-message`
 
-3. Copy the full key immediately when Brevo shows it the first time.
+### Still on legacy `sendViaBervo()` — must migrate (16 functions)
+1. `send-transactional-email` (template-based sender)
+2. `send-contact-response`
+3. `send-feedback-email`
+4. `send-marketplace-invitation`
+5. `send-deal-referral`
+6. `send-simple-verification-email`
+7. `send-onboarding-day2`
+8. `send-onboarding-day7`
+9. `send-templated-approval-email`
+10. `send-task-notification-email`
+11. `grant-data-room-access`
+12. `approve-marketplace-buyer`
+13. `notify-deal-reassignment`
+14. `send-nda-email` (legacy, should be deleted)
+15. `send-fee-agreement-email` (legacy, should be deleted)
+16. `send-deal-alert` (likely uses sendViaBervo)
 
-4. Replace the `BREVO_API_KEY` runtime secret in Supabase with that full new key.
+### Direct Brevo API call (bypasses both shared senders)
+- `enhanced-admin-notification` — calls `api.brevo.com` directly
 
-5. Then test one custom app email again from the Admin Documents flow.
+## Plan
 
-Why this is the right move
+### Phase 1: Delete stale document_requests
+Delete all 21 pending test records from `document_requests` where status is `requested` or `email_sent` and recipient is a test address (`adambhaile00@gmail.com`, `ahaile14@gmail.com`).
 
-I checked the code paths and your custom email system still depends on `BREVO_API_KEY` in the shared senders:
-- `_shared/email-sender.ts`
-- `_shared/brevo-sender.ts`
-- plus a few remaining direct Brevo callers
+### Phase 2: Migrate remaining 14 functions to `sendEmail()`
+Each function gets the same change: replace `import { sendViaBervo } from '../_shared/brevo-sender.ts'` with `import { sendEmail } from '../_shared/email-sender.ts'` and adapt the call signature. Functions that also import `email-logger.ts` drop that import (tracking is built into `sendEmail()`).
 
-So one wrong secret can break the whole custom-email architecture while signup emails still work through SMTP.
+Functions to migrate:
+1. `send-transactional-email`
+2. `send-contact-response`
+3. `send-feedback-email`
+4. `send-marketplace-invitation`
+5. `send-deal-referral`
+6. `send-simple-verification-email`
+7. `send-onboarding-day2`
+8. `send-onboarding-day7`
+9. `send-templated-approval-email`
+10. `send-task-notification-email`
+11. `grant-data-room-access`
+12. `approve-marketplace-buyer`
+13. `notify-deal-reassignment`
+14. `enhanced-admin-notification` (direct Brevo call → `sendEmail()`)
 
-Why this should resolve the current blocker
+### Phase 3: Delete legacy email functions
+Delete these edge functions entirely (replaced by `request-agreement-email`):
+- `send-nda-email`
+- `send-fee-agreement-email`
 
-Your evidence so far strongly points to this:
-- signup emails work through SMTP
-- custom emails use Brevo API
-- Brevo dashboard shows the known dashboard key was not recently used
-- therefore the project is almost certainly authenticating with a different/orphaned API key
+### Phase 4: Delete legacy shared modules
+Once no function imports them:
+- Delete `_shared/brevo-sender.ts`
+- Delete `_shared/email-logger.ts`
 
-Since the old full key cannot be revealed, rotating to a fresh key in the correct Brevo workspace is the cleanest and fastest recovery path.
+### Phase 5: Deploy all changed functions
 
-After the new key is added, the expected confirmation signal is
+## What this achieves
+- Every email in the platform goes through one sender (`sendEmail()`) with one verified identity (`adam.haile@sourcecodeals.com`)
+- Every email is tracked in `outbound_emails` + `email_events`
+- No more fragmented sender identities or orphaned code paths
+- Legacy dead code is removed
 
-```text
-Custom app email test
-→ Brevo real-time dashboard shows activity immediately
-→ message log appears in Brevo
-→ recipient finally receives the email
-```
+## Files changed
+- 14 edge function `index.ts` files (migrate to `sendEmail()`)
+- 2 edge function directories deleted (`send-nda-email`, `send-fee-agreement-email`)
+- 2 shared files deleted (`brevo-sender.ts`, `email-logger.ts`)
+- Database: delete stale `document_requests` rows
 
-If the new key still produces “accepted” in your app but nothing appears in Brevo logs, then we can conclude with high confidence that the issue is no longer “wrong key value” and the next strategic step would be a provider-path rebuild around the working SMTP route.
-
-Implementation plan after you add the new key
-
-Phase 1
-- replace `BREVO_API_KEY` with the newly generated full key
-
-Phase 2
-- run one controlled custom email test from Admin Documents
-
-Phase 3
-- compare three signals together:
-  - app-side accepted/send status
-  - Brevo dashboard real-time/log activity
-  - actual inbox delivery
-
-Phase 4
-- if Brevo logs appear, keep the current architecture and continue cleanup
-- if Brevo logs still do not appear, stop patching and pivot to SMTP-based or fully rebuilt email transport
-
-Most important point
-
-Do not try to recover the masked key. It is not possible. The next correct move is to generate a new full API key in that exact Brevo account and replace the Supabase secret with it.
