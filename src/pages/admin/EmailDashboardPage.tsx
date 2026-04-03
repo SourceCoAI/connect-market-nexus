@@ -251,6 +251,10 @@ export default function EmailDashboardPage() {
         <TabsContent value="catalog" className="mt-0">
           <EmailCatalog />
         </TabsContent>
+
+        <TabsContent value="routing" className="mt-0">
+          <AdminEmailRouting />
+        </TabsContent>
       </Tabs>
     </div>
   );
