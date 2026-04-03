@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { sendEmail } from '../_shared/email-sender.ts';
 import { escapeHtml } from '../_shared/security.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 interface DealAlertRequest {
   alert_id: string;
