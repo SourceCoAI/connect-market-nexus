@@ -56,16 +56,18 @@ serve(async (req: Request) => {
       const listing = request.listings as { title?: string; project_name?: string } | null;
       const safeDealTitle = ((listing?.project_name || listing?.title || 'your requested deal') as string).replace(/<[^>]*>/g, '');
 
-      const htmlContent = `
-<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+      const htmlContent = wrapEmailHtml({
+        bodyHtml: `
   <p>Hi ${safeFirstName},</p>
   <p>Just a quick note on your introduction request for <strong>${safeDealTitle}</strong>.</p>
   <p>Our team is reviewing it now. We look at fit, mandate alignment, and deal timing before making introductions — you'll hear from us with our decision shortly.</p>
   <p>In the meantime, it's worth browsing the rest of the pipeline.</p>
   <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Browse More Deals</a></p>
   <p>Questions? Reply here.</p>
-  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-</div>`;
+  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>`,
+        preheader: `Update on your introduction request for ${safeDealTitle}`,
+        recipientEmail: profile.email,
+      });
 
       const result = await sendEmail({
         templateName: 'first_request_followup',
