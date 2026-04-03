@@ -200,44 +200,7 @@ const ConnectionButton = ({
       setResendingType(null);
     };
 
-    const DocumentRow = ({ label, status, type }: { label: string; status: string; type: 'nda' | 'fee_agreement' }) => {
-      const isSent = status === 'sent';
-      const isSigned = status === 'signed';
-      if (!isSent && !isSigned) return null;
-
-      return (
-        <div className="w-full border border-slate-200/60 rounded-lg overflow-hidden">
-          <div className={`border-l-2 ${isSigned ? 'border-emerald-400' : 'border-blue-400'} px-4 py-3`}>
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-foreground">{label}</p>
-              {isSigned ? (
-                <span className="flex items-center gap-1 text-xs text-emerald-600">
-                  <Check className="h-3 w-3" /> Signed
-                </span>
-              ) : (
-                <span className="text-xs text-blue-600">Sent</span>
-              )}
-            </div>
-            {isSent && (
-              <>
-                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                  Sent to <span className="font-medium text-foreground">{user?.email}</span>. Review, sign, and reply to{' '}
-                  <span className="font-medium text-foreground">adam.haile@sourcecodeals.com</span>.
-                </p>
-                <button
-                  onClick={() => handleResend(type)}
-                  disabled={resendingType === type}
-                  className="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50 flex items-center gap-1"
-                >
-                  <RotateCw className={`h-3 w-3 ${resendingType === type ? 'animate-spin' : ''}`} />
-                  {resendingType === type ? 'Sending…' : 'Resend'}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      );
-    };
+    // Document status display now handled by ListingSidebarActions
 
     return (
       <div className="space-y-3">
