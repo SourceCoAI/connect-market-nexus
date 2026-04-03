@@ -46,20 +46,20 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const verificationLink = linkData.properties.action_link;
-    const displayName = firstName && lastName ? `${firstName} ${lastName}` : firstName || 'Valued User';
+    const displayName = firstName && lastName ? `${firstName} ${lastName}` : firstName || 'there';
 
     const textContent = `Hi ${displayName},
 
 We want to apologize for the delay in your email verification. Due to some technical problems with our email delivery system over the past few days, some verification emails were not delivered as expected.
 
-These technical issues have now been resolved, and we're personally ensuring that all affected users receive their verification emails.
+These technical issues have now been resolved, and we are personally ensuring that all affected users receive their verification emails.
 
-Please verify your email address via the link below:
+Please verify your email address via the link below.
 
 What happens next:
-- Our team will pre-approved your account and you'll get access within 30 minutes of verifying your email address
-- You'll receive an email confirmation once your access is granted
-- After approval, you'll have complete access to browse off-market listings
+- Our team will pre-approve your account and you will get access within 30 minutes of verifying your email address
+- You will receive an email confirmation once your access is granted
+- After approval, you will have complete access to browse off-market listings
 
 Please verify your email below:
 ${verificationLink}
@@ -76,9 +76,9 @@ adam.haile@sourcecodeals.com`;
       templateName: 'verification',
       to: email,
       toName: displayName,
-      subject: 'Email Verification - Technical Issue Resolved',
+      subject: 'Email Verification: Technical Issue Resolved',
       htmlContent: wrapEmailHtml({
-        bodyHtml: `<div style="white-space: pre-wrap;">${textContent}</div>`,
+        bodyHtml: `<pre style="font-family: inherit; white-space: pre-wrap; margin: 0;">${textContent.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
         preheader: 'Your email verification link is ready',
         recipientEmail: email,
       }),

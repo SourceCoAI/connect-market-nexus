@@ -35,24 +35,22 @@ serve(async (req) => {
       ? new Date(task_due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
       : null;
 
-    const priorityColor = { high: '#EF4444', medium: '#F59E0B', low: '#3B82F6' }[task_priority] || '#6B7280';
-
     const emailHtml = wrapEmailHtml({
       bodyHtml: `
-        <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #111827;">📋 New Task Assigned</h1>
-        <p style="margin: 0 0 20px; font-size: 16px; color: #374151;">Hi ${assignee_name},</p>
-        <p style="margin: 0 0 20px; font-size: 16px; color: #374151;"><strong>${assigner_name}</strong> has assigned you a new task:</p>
-        <div style="background-color: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb; padding: 20px; margin: 20px 0;">
-          <h2 style="margin: 0 0 8px; font-size: 18px; font-weight: 600; color: #111827;">${task_title}</h2>
-          <span style="display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #ffffff; background-color: ${priorityColor};">${task_priority}</span>
-          ${task_description ? `<p style="margin: 12px 0 0; font-size: 14px; color: #6b7280;">${task_description}</p>` : ''}
-          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-            <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;"><strong style="color: #374151;">Deal:</strong> ${deal_title}</p>
-            ${dueDateFormatted ? `<p style="margin: 0; font-size: 13px; color: #6b7280;"><strong style="color: #374151;">Due:</strong> ${dueDateFormatted}</p>` : ''}
+        <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">New Task Assigned</p>
+        <p style="margin: 0 0 16px;">Hi ${assignee_name},</p>
+        <p style="margin: 0 0 16px;"><strong>${assigner_name}</strong> has assigned you a new task.</p>
+        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
+          <p style="font-weight: 600; margin: 0 0 8px; font-size: 16px;">${task_title}</p>
+          <p style="margin: 0 0 8px; font-size: 14px;"><strong>Priority:</strong> ${task_priority.toUpperCase()}</p>
+          ${task_description ? `<p style="margin: 8px 0 0; font-size: 14px; color: #6B6B6B;">${task_description}</p>` : ''}
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #E8E4DD;">
+            <p style="margin: 0 0 8px; font-size: 14px;"><strong>Deal:</strong> ${deal_title}</p>
+            ${dueDateFormatted ? `<p style="margin: 0; font-size: 14px;"><strong>Due:</strong> ${dueDateFormatted}</p>` : ''}
           </div>
         </div>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${deal_id}&tab=tasks" style="display: inline-block; padding: 12px 32px; background-color: #1a1a2e; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">View Task in Pipeline</a>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${deal_id}&tab=tasks" style="display: inline-block; padding: 14px 28px; background-color: #000000; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600;">View Task in Pipeline</a>
         </div>`,
       preheader: `New task assigned: ${task_title}`,
       recipientEmail: assignee_email,
@@ -67,7 +65,7 @@ serve(async (req) => {
       subject: `New Task Assigned: ${task_title}`,
       htmlContent: emailHtml,
       textContent,
-      senderName: 'SourceCo Pipeline',
+      senderName: 'SourceCo',
       isTransactional: true,
       metadata: { dealId: deal_id, taskTitle: task_title },
     });

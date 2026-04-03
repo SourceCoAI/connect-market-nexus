@@ -1,8 +1,8 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
-import { requireAdmin, escapeHtml, escapeHtmlWithBreaks } from '../_shared/auth.ts';
+import { requireAdmin } from '../_shared/auth.ts';
 import { sendEmail } from '../_shared/email-sender.ts';
 import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
@@ -39,27 +39,24 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (isPlainText) {
       htmlContent = wrapEmailHtml({
-        bodyHtml: `<pre style="font-family: inherit; white-space: pre-wrap; margin: 0;">${escapeHtml(message)}</pre>`,
+        bodyHtml: `<pre style="font-family: inherit; white-space: pre-wrap; margin: 0;">${message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
         recipientEmail: email,
       });
     } else {
-      const typeColors: Record<string, string> = { info: '#3b82f6', success: '#059669', warning: '#d97706', error: '#dc2626' };
-      const typeEmojis: Record<string, string> = { info: 'ℹ️', success: '✅', warning: '⚠️', error: '❌' };
-
       htmlContent = wrapEmailHtml({
         bodyHtml: `
-          <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 10px 0;">${typeEmojis[type] || ''} ${escapeHtml(subject)}</h1>
-          <div style="background: white; padding: 20px; border-radius: 6px; border-left: 4px solid ${typeColors[type] || '#3b82f6'}; margin: 20px 0;">
-            ${escapeHtmlWithBreaks(message)}
+          <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">${subject.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+          <div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin: 0 0 20px;">
+            ${message.replace(/\n/g, '<br>')}
           </div>
           ${actionUrl && actionText ? `
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${escapeHtml(actionUrl)}" style="background: ${typeColors[type] || '#3b82f6'}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;">
-              ${escapeHtml(actionText)}
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${actionUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">
+              ${actionText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
             </a>
           </div>` : ''}
-          <p style="margin-top: 30px; color: #64748b; font-size: 14px;">
-            If you have any questions, contact us at <a href="mailto:adam.haile@sourcecodeals.com" style="color: #059669;">adam.haile@sourcecodeals.com</a>
+          <p style="margin-top: 24px; color: #6B6B6B; font-size: 14px;">
+            If you have any questions, contact us at <a href="mailto:adam.haile@sourcecodeals.com" style="color: #1A1A1A; text-decoration: underline;">adam.haile@sourcecodeals.com</a>
           </p>
         `,
         recipientEmail: email,
@@ -73,7 +70,7 @@ const handler = async (req: Request): Promise<Response> => {
       subject,
       htmlContent,
       textContent,
-      senderName: 'SourceCo Marketplace',
+      senderName: 'SourceCo',
       isTransactional: true,
     });
 

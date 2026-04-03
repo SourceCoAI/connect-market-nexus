@@ -55,19 +55,19 @@ const handler = async (req: Request): Promise<Response> => {
 
     const htmlContent = wrapEmailHtml({
       bodyHtml: `
-        <h2 style="margin-bottom: 16px;">New User Registration</h2>
-        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="color: #1a1a2e; margin-top: 0;">User Details</h3>
-          <p><strong>Name:</strong> ${escapeHtml(first_name || '')} ${escapeHtml(last_name || '')}</p>
-          <p><strong>Email:</strong> ${escapeHtml(email || '')}</p>
-          <p><strong>Company:</strong> ${escapeHtml(company || '') || 'Not provided'}</p>
-          <p><strong>Registration Time:</strong> ${new Date().toLocaleString()}</p>
+        <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">New User Registration</p>
+        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
+          <p style="font-weight: 600; margin: 0 0 12px;">User Details</p>
+          <p style="margin: 0 0 8px;"><strong>Name:</strong> ${escapeHtml(first_name || '')} ${escapeHtml(last_name || '')}</p>
+          <p style="margin: 0 0 8px;"><strong>Email:</strong> ${escapeHtml(email || '')}</p>
+          <p style="margin: 0 0 8px;"><strong>Company:</strong> ${escapeHtml(company || '') || 'Not provided'}</p>
+          <p style="margin: 0;"><strong>Registration Time:</strong> ${new Date().toLocaleString()}</p>
         </div>
-        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-          <p style="margin: 0; color: #856404;"><strong>Action Required:</strong> Please review and approve/reject this user registration in the admin panel.</p>
+        <div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin: 0 0 20px;">
+          <p style="margin: 0; font-weight: 600;">Action Required: Review and approve or reject this user registration in the admin panel.</p>
         </div>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${req.headers.get('origin')}/admin/marketplace/users" style="background-color: #1a1a2e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Review User Registration</a>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${req.headers.get('origin')}/admin/marketplace/users" style="background-color: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Review User Registration</a>
         </div>
       `,
       preheader: `New user registration: ${first_name} ${last_name} (${email})`,
@@ -77,9 +77,9 @@ const handler = async (req: Request): Promise<Response> => {
     const result = await sendEmail({
       templateName: 'admin_new_user_notification',
       to: adminEmail,
-      subject: "New User Registration - Action Required",
+      subject: "New User Registration: Action Required",
       htmlContent,
-      senderName: 'Admin Notifications',
+      senderName: 'SourceCo',
       isTransactional: true,
       metadata: { userEmail: email, userName: `${first_name} ${last_name}` },
     });

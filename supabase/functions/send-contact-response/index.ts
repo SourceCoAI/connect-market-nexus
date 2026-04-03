@@ -29,30 +29,29 @@ serve(async (req: Request) => {
       throw new Error('Missing required fields: to, subject, or content');
     }
 
-    // Create email content based on category
     let emailText = '';
     let emailSubject = subject;
 
     if (category === 'contact') {
       emailSubject = `Thank you for your message${userName ? `, ${userName}` : ''}`;
-      emailText = `Hello${userName ? ` ${userName}` : ''},\n\nThank you for reaching out to us! We have received your message and our team will get back to you within 24 hours.\n\nYour message:\n"${content}"\n\nIn the meantime, feel free to explore our marketplace and discover great business opportunities.\n\nBest regards,\nThe SourceCo Team`;
+      emailText = `Hello${userName ? ` ${userName}` : ''},\n\nThank you for reaching out. We have received your message and our team will get back to you within 24 hours.\n\nYour message:\n"${content}"\n\nIn the meantime, feel free to explore our marketplace and discover opportunities.\n\nThe SourceCo Team`;
     } else {
       const getEmailContent = (cat: string) => {
         switch (cat) {
           case 'bug':
-            return { subject: `Thank you for reporting a bug${userName ? `, ${userName}` : ''}`, mainText: 'Thank you for helping us improve our platform by reporting this bug!' };
+            return { subject: `Thank you for reporting a bug${userName ? `, ${userName}` : ''}`, mainText: 'Thank you for helping us improve our platform by reporting this bug.' };
           case 'feature':
-            return { subject: `Thank you for your feature suggestion${userName ? `, ${userName}` : ''}`, mainText: 'Thank you for sharing your feature suggestion!' };
+            return { subject: `Thank you for your feature suggestion${userName ? `, ${userName}` : ''}`, mainText: 'Thank you for sharing your feature suggestion.' };
           case 'ui':
-            return { subject: `Thank you for your UI feedback${userName ? `, ${userName}` : ''}`, mainText: 'Thank you for helping us improve the user experience!' };
+            return { subject: `Thank you for your UI feedback${userName ? `, ${userName}` : ''}`, mainText: 'Thank you for helping us improve the user experience.' };
           default:
-            return { subject: `Thank you for your feedback${userName ? `, ${userName}` : ''}`, mainText: 'Thank you for your valuable feedback!' };
+            return { subject: `Thank you for your feedback${userName ? `, ${userName}` : ''}`, mainText: 'Thank you for your valuable feedback.' };
         }
       };
 
       const emailContent = getEmailContent(category || 'general');
       emailSubject = emailContent.subject;
-      emailText = `Hello${userName ? ` ${userName}` : ''},\n\n${emailContent.mainText}\n\nYour ${category || 'feedback'}:\n"${content}"\n\nBest regards,\nThe SourceCo Team`;
+      emailText = `Hello${userName ? ` ${userName}` : ''},\n\n${emailContent.mainText}\n\nYour ${category || 'feedback'}:\n"${content}"\n\nThe SourceCo Team`;
     }
 
     const result = await sendEmail({
@@ -60,12 +59,12 @@ serve(async (req: Request) => {
       to,
       subject: emailSubject,
       htmlContent: wrapEmailHtml({
-        bodyHtml: `<div style="white-space: pre-wrap;">${emailText}</div>`,
+        bodyHtml: `<pre style="font-family: inherit; white-space: pre-wrap; margin: 0;">${emailText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
         preheader: emailSubject,
         recipientEmail: to,
       }),
       textContent: emailText,
-      senderName: 'SourceCo Team',
+      senderName: 'SourceCo',
       isTransactional: true,
       metadata: { feedbackId, category },
     });

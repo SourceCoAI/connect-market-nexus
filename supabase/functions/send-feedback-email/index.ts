@@ -43,11 +43,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     const htmlContent = wrapEmailHtml({
       bodyHtml: `
-        <h2 style="margin: 0 0 15px 0; color: #1e293b;">Feedback Response</h2>
-        <div style="padding: 20px; background: #f8fafc; border-radius: 8px;">
+        <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">Feedback Response</p>
+        <div style="padding: 16px; background: #F7F6F3; border-radius: 6px; margin: 0 0 20px;">
           ${escapeHtmlWithBreaks(content)}
         </div>
-        <p style="margin-top: 20px; color: #64748b; font-size: 14px;">This is a response to your feedback. Please do not reply to this email.</p>`,
+        <p style="margin-top: 20px; color: #6B6B6B; font-size: 14px;">This is a response to your feedback. Please do not reply to this email.</p>`,
       preheader: 'Response to your feedback',
       recipientEmail: to,
     });
@@ -58,7 +58,7 @@ const handler = async (req: Request): Promise<Response> => {
       subject,
       htmlContent,
       textContent: content,
-      senderName: 'SourceCo Feedback',
+      senderName: 'SourceCo',
       replyTo: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
       isTransactional: true,
       metadata: { feedbackId },

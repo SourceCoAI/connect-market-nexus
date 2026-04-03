@@ -36,28 +36,29 @@ const handler = async (req: Request): Promise<Response> => {
     const safePageUrl = escapeHtml(pageUrl || '');
     const safeCategoryLabel = escapeHtml(category?.charAt(0).toUpperCase() + category?.slice(1) || 'General');
     const safePriority = escapeHtml((priority || 'normal').toUpperCase());
-    const priorityEmoji = priority === 'urgent' ? '🚨' : priority === 'high' ? '⚠️' : '💬';
 
-    const emailSubject = `${priorityEmoji} New Feedback: ${safeCategoryLabel} ${priority === 'urgent' ? '(URGENT)' : ''}`;
+    const emailSubject = priority === 'urgent'
+      ? `URGENT Feedback: ${safeCategoryLabel}`
+      : `New Feedback: ${safeCategoryLabel}`;
 
     const emailHtml = wrapEmailHtml({
       bodyHtml: `
-        <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 20px;">New Feedback Received</h2>
-        <p style="color: #64748b;">A user has submitted feedback that requires your attention.</p>
-        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <div style="margin-bottom: 15px;"><strong>Category:</strong> <span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px;">${safeCategoryLabel}</span></div>
-          <div style="margin-bottom: 15px;"><strong>Priority:</strong> <span style="background: ${priority === 'urgent' ? '#fef2f2' : '#f0f9ff'}; padding: 4px 8px; border-radius: 4px;">${safePriority}</span></div>
-          ${safeUserName ? `<div style="margin-bottom: 15px;"><strong>From:</strong> ${safeUserName}</div>` : ''}
-          ${safeUserEmail ? `<div style="margin-bottom: 15px;"><strong>Email:</strong> ${safeUserEmail}</div>` : ''}
-          ${safePageUrl ? `<div style="margin-bottom: 15px;"><strong>Page:</strong> ${safePageUrl}</div>` : ''}
-          <div style="margin-top: 20px;"><strong>Message:</strong>
-            <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 8px; border-left: 4px solid #3b82f6;">${escapeHtmlWithBreaks(message)}</div>
+        <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">New Feedback Received</p>
+        <p style="margin: 0 0 16px;">A user has submitted feedback that requires your attention.</p>
+        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
+          <div style="margin-bottom: 12px;"><strong>Category:</strong> ${safeCategoryLabel}</div>
+          <div style="margin-bottom: 12px;"><strong>Priority:</strong> ${safePriority}</div>
+          ${safeUserName ? `<div style="margin-bottom: 12px;"><strong>From:</strong> ${safeUserName}</div>` : ''}
+          ${safeUserEmail ? `<div style="margin-bottom: 12px;"><strong>Email:</strong> ${safeUserEmail}</div>` : ''}
+          ${safePageUrl ? `<div style="margin-bottom: 12px;"><strong>Page:</strong> ${safePageUrl}</div>` : ''}
+          <div style="margin-top: 16px;"><strong>Message:</strong>
+            <div style="background: #ffffff; padding: 12px; border-radius: 6px; margin-top: 8px;">${escapeHtmlWithBreaks(message)}</div>
           </div>
         </div>
-        <div style="text-align: center; margin-top: 30px;">
-          <a href="https://marketplace.sourcecodeals.com/admin" style="background: #1a1a2e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">View in Admin Dashboard</a>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="https://marketplace.sourcecodeals.com/admin" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">View in Admin Dashboard</a>
         </div>`,
-      preheader: `${priorityEmoji} New ${safeCategoryLabel} feedback received`,
+      preheader: `New ${safeCategoryLabel} feedback received`,
       recipientEmail: adminUsers[0]?.email,
     });
 
@@ -68,7 +69,7 @@ const handler = async (req: Request): Promise<Response> => {
         toName: `${admin.first_name} ${admin.last_name}`.trim(),
         subject: emailSubject,
         htmlContent: emailHtml,
-        senderName: 'SourceCo Marketplace Feedback',
+        senderName: 'SourceCo',
         replyTo: 'adam.haile@sourcecodeals.com',
         isTransactional: true,
       });
