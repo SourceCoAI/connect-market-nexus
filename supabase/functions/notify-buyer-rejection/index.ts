@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { sendEmail } from '../_shared/email-sender.ts';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 interface BuyerRejectionRequest {
   connectionRequestId: string;
