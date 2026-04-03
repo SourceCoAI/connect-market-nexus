@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { FolderOpen, MessageCircleQuestion, ChevronRight, Send, Loader2, Info } from 'lucide-react';
 import { format } from 'date-fns';
+import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -118,8 +119,14 @@ export function ListingSidebarActions({
     return '';
   };
 
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
+
   const fee = resolveDocLabel(feeCovered, feeStatus);
   const nda = resolveDocLabel(ndaCovered, ndaStatus);
+
+  const feeNeedsRequest = fee.dot === 'none';
+  const ndaNeedsRequest = nda.dot === 'none';
+  const bothNeedRequest = feeNeedsRequest && ndaNeedsRequest;
 
   const StatusDot = ({ variant }: { variant: 'signed' | 'pending' | 'none' }) => (
     <div
@@ -156,6 +163,14 @@ export function ListingSidebarActions({
                 >
                   {fee.label}
                 </span>
+                {feeNeedsRequest && !bothNeedRequest && (
+                  <button
+                    onClick={() => setShowAgreementModal(true)}
+                    className="text-[11px] font-medium text-foreground hover:text-foreground/70 transition-colors ml-1"
+                  >
+                    Request
+                  </button>
+                )}
               </div>
             </div>
             {/* NDA */}
@@ -173,9 +188,25 @@ export function ListingSidebarActions({
                 >
                   {nda.label}
                 </span>
+                {ndaNeedsRequest && !bothNeedRequest && (
+                  <button
+                    onClick={() => setShowAgreementModal(true)}
+                    className="text-[11px] font-medium text-foreground hover:text-foreground/70 transition-colors ml-1"
+                  >
+                    Request
+                  </button>
+                )}
               </div>
             </div>
           </div>
+          {bothNeedRequest && (
+            <button
+              onClick={() => setShowAgreementModal(true)}
+              className="text-xs font-medium text-foreground hover:text-foreground/70 transition-colors mt-2"
+            >
+              Request documents →
+            </button>
+          )}
         </div>
 
         {/* Actions Section */}
@@ -325,6 +356,12 @@ export function ListingSidebarActions({
             </div>
           </div>
         )}
+
+        {/* Agreement Signing Modal */}
+        <AgreementSigningModal
+          open={showAgreementModal}
+          onOpenChange={setShowAgreementModal}
+        />
       </div>
     </TooltipProvider>
   );
