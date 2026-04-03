@@ -310,6 +310,7 @@ export const useUserConnectionRequests = () => {
           `,
           )
           .eq('user_id', authUser.id)
+          .neq('listing_id', '00000000-0000-0000-0000-000000000001')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
