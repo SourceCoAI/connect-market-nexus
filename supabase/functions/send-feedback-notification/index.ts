@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth, escapeHtml, escapeHtmlWithBreaks } from '../_shared/auth.ts';
 import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 
 interface FeedbackNotificationRequest {
