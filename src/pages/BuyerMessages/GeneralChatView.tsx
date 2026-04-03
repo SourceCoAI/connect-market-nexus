@@ -140,15 +140,7 @@ export function GeneralChatView({
       });
       if (error) throw error;
 
-      // Notify admin of new buyer message (fire-and-forget)
-      supabase.functions
-        .invoke('notify-admin-new-message', {
-          body: {
-            connection_request_id: threadId,
-            message_preview: body.substring(0, 200),
-          },
-        })
-        .catch(console.error);
+      // Admin notifications handled via realtime subscriptions (toasts + dashboard).
 
       setNewMessage('');
       setAttachment(null);

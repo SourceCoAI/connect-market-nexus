@@ -1,3 +1,5 @@
+// DEPRECATED: Admin message notifications are now handled via realtime subscriptions
+// (toasts + dashboard). This function is no longer invoked but kept for reference.
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 import { sendEmail } from '../_shared/email-sender.ts';
