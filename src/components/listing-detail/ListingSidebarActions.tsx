@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { sendAgreementEmail } from '@/lib/agreement-email';
 import { invalidateAgreementQueries } from '@/hooks/use-agreement-status-sync';
+import { useSaveListingMutation, useSavedStatus } from '@/hooks/marketplace/use-saved-listings';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
