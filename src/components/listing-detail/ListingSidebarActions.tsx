@@ -148,7 +148,7 @@ export function ListingSidebarActions({
         .invoke('notify-buyer-inquiry-received', {
           body: {
             buyer_email: user?.email,
-            buyer_name: user?.user_metadata?.first_name || user?.email?.split('@')[0] || '',
+            buyer_name: (user as any)?.user_metadata?.first_name || user?.email?.split('@')[0] || '',
             deal_title: document.title?.replace(' | SourceCo Marketplace', '') || 'this deal',
             message_preview: body,
           },
