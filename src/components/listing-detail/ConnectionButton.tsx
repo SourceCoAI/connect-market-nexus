@@ -261,7 +261,7 @@ const ConnectionButton = ({
       <Button
         onClick={handleButtonClick}
         disabled={disabled || isRequesting}
-        className={`w-full bg-sourceco hover:bg-sourceco/90 text-sourceco-foreground font-medium text-xs py-2.5 h-auto rounded-md transition-colors duration-200 ${className}`}
+        className={`w-full bg-sourceco hover:bg-sourceco/90 text-sourceco-foreground font-medium text-xs py-2.5 h-auto rounded-md transition-colors duration-200 whitespace-normal text-center ${className}`}
       >
         {isRequesting ? 'Sending request...' : buttonText}
       </Button>
