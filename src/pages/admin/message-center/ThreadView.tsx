@@ -197,7 +197,7 @@ export function ThreadView({ thread, allBuyerThreads = [], onSelectThread, onBac
       : null;
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 relative">
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3 flex-shrink-0" style={{ borderBottom: '1px solid #F0EDE6' }}>
