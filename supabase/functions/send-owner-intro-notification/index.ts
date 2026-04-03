@@ -293,47 +293,30 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    // Send email via Brevo
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
-    if (!brevoApiKey) {
-      throw new Error('BREVO_API_KEY is not set');
-    }
-
     console.log('Sending owner intro notification to:', primaryOwnerData.email);
-
-    const emailPayload = {
-      sender: { name: 'SourceCo Notifications', email: 'notifications@sourcecodeals.com' },
-      to: [{ email: primaryOwnerData.email, name: ownerName }],
-      subject: subject,
-      htmlContent: htmlContent,
-    };
-
-    const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'api-key': brevoApiKey,
-      },
-      body: JSON.stringify(emailPayload),
-    });
 
     const correlationId = crypto.randomUUID();
 
-    if (!emailResponse.ok) {
-      const errorText = await emailResponse.text();
+    const result = await sendViaBervo({
+      to: primaryOwnerData.email,
+      toName: ownerName,
+      subject,
+      htmlContent,
+      senderName: 'SourceCo Notifications',
+    });
+
+    if (!result.success) {
       await logEmailDelivery(supabase, {
         email: primaryOwnerData.email,
         emailType: 'owner_intro',
         status: 'failed',
         correlationId,
-        errorMessage: errorText,
+        errorMessage: result.error,
       });
-      throw new Error(`Failed to send email: ${errorText}`);
+      throw new Error(`Failed to send email: ${result.error}`);
     }
 
-    const emailResult = await emailResponse.json();
-    console.log('Email sent successfully:', emailResult);
+    console.log('Email sent successfully:', result.messageId);
 
     await logEmailDelivery(supabase, {
       email: primaryOwnerData.email,
