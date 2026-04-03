@@ -466,11 +466,11 @@ export default function MessageCenter() {
 
       {/* Main content */}
       {isLoading ? (
-        <div className="flex-1 px-6 pb-6">
+        <div className="flex-1">
           <MessageCenterSkeleton />
         </div>
       ) : threads.length === 0 ? (
-        <div className="flex-1 px-6 pb-6">
+        <div className="flex-1">
           <MessageCenterEmpty />
         </div>
       ) : (
