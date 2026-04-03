@@ -49,7 +49,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const { first_name, last_name, email, company }: AdminNotificationRequest = await req.json();
-    const adminEmail = Deno.env.get('ADMIN_NOTIFICATION_EMAIL') || 'admin@sourcecodeals.com';
+    const adminEmail = 'support@sourcecodeals.com';
 
     console.log(`Sending admin notification for new user: ${email}`);
 

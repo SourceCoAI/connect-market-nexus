@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
       .from('profiles').select('full_name, email').eq('id', auth.userId).single();
 
     const senderName = adminProfile?.full_name || 'SourceCo Team';
-    const replyToEmail = adminProfile?.email || 'adam.haile@sourcecodeals.com';
+    const replyToEmail = adminProfile?.email || 'support@sourcecodeals.com';
 
     const emailResult = await sendEmail({
       templateName: 'memo_email',

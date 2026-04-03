@@ -57,7 +57,7 @@ function buildRejectionHtml(userName: string, reason: string): string {
       <p style="margin: 0 0 4px 0; font-size: 12px; color: #9B9B9B; font-weight: 600; text-transform: uppercase;">Reason</p>
       <p style="margin: 0; font-size: 14px;">${escapeHtml(reason)}</p>
     </div>
-    <p>If you believe this was in error or would like to discuss further, reach out to adam.haile@sourcecodeals.com.</p>`,
+    <p>If you believe this was in error or would like to discuss further, reach out to support@sourcecodeals.com.</p>`,
     preheader: 'An update on your SourceCo application.',
   });
 }
@@ -153,18 +153,13 @@ const handler = async (req: Request): Promise<Response> => {
       console.log(`[${correlationId}] ${event_type} email sent to ${user_email}`);
     }
 
-    // For user_created events, also notify all admins
+    // For user_created events, notify support inbox
     if (event_type === 'user_created') {
       try {
-        const { data: adminRoles } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
-        if (adminRoles?.length) {
-          const adminIds = adminRoles.map((r: { user_id: string }) => r.user_id);
-          const { data: adminProfiles } = await supabase.from('profiles').select('id, first_name, last_name, email').in('id', adminIds);
-
-          const company = (event.metadata?.company as string) || '';
-          const adminSubject = `New user registration: ${user_name} (${user_email})`;
-          const adminHtml = wrapEmailHtml({
-            bodyHtml: `
+        const company = (event.metadata?.company as string) || '';
+        const adminSubject = `New user registration: ${user_name} (${user_email})`;
+        const adminHtml = wrapEmailHtml({
+          bodyHtml: `
     <p>A new user has registered on the marketplace:</p>
     <div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin: 20px 0;">
       <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Name: ${escapeHtml(user_name)}</p>
@@ -174,26 +169,21 @@ const handler = async (req: Request): Promise<Response> => {
     <div style="text-align: center; margin: 32px 0;">
       <a href="https://marketplace.sourcecodeals.com/admin/users" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">Review Users</a>
     </div>`,
-            preheader: `New registration: ${user_name} (${user_email})`,
-          });
+          preheader: `New registration: ${user_name} (${user_email})`,
+        });
 
-          for (const admin of adminProfiles || []) {
-            if (!admin.email) continue;
-            const adminName = `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
-            await sendEmail({
-              templateName: 'journey_admin_new_user',
-              to: admin.email,
-              toName: adminName,
-              subject: adminSubject,
-              htmlContent: adminHtml,
-              senderName: 'SourceCo',
-              isTransactional: true,
-            });
-          }
-          console.log(`[${correlationId}] Admin notifications sent for new user registration`);
-        }
+        await sendEmail({
+          templateName: 'journey_admin_new_user',
+          to: 'support@sourcecodeals.com',
+          toName: 'SourceCo Support',
+          subject: adminSubject,
+          htmlContent: adminHtml,
+          senderName: 'SourceCo',
+          isTransactional: true,
+        });
+        console.log(`[${correlationId}] Admin notification sent to support inbox for new user registration`);
       } catch (adminErr) {
-        console.error(`[${correlationId}] Failed to notify admins of new user:`, adminErr);
+        console.error(`[${correlationId}] Failed to notify support inbox of new user:`, adminErr);
       }
     }
 

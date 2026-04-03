@@ -155,42 +155,23 @@ const handler = async (req: Request): Promise<Response> => {
       console.log('Connection approval email sent to:', recipientEmail);
 
     } else {
-      // Admin notification
-      const { data: adminRoles, error: rolesError } = await supabase
-        .from('user_roles').select('user_id').eq('role', 'admin');
-
-      if (rolesError || !adminRoles?.length) throw new Error('No admin users found');
-
-      const adminIds = adminRoles.map((r) => r.user_id);
-      const { data: adminProfiles, error: profilesError } = await supabase
-        .from('profiles').select('id, first_name, last_name, email').in('id', adminIds);
-
-      if (profilesError || !adminProfiles?.length) throw new Error('No admin profiles found');
-
+      // Admin notification — send only to support inbox
       const subject = `New Connection Request: ${listingTitle} from ${requesterName}`;
-      let sentCount = 0;
+      const htmlContent = buildAdminNotificationHtml(requesterName, requesterEmail, listingTitle, listingUrl, adminUrl, message);
 
-      for (const admin of adminProfiles) {
-        if (!admin.email) continue;
-        const adminName = `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
-        const htmlContent = buildAdminNotificationHtml(requesterName, requesterEmail, listingTitle, listingUrl, adminUrl, message);
+      const result = await sendEmail({
+        templateName: 'connection_admin_notification',
+        to: 'support@sourcecodeals.com',
+        toName: 'SourceCo Support',
+        subject,
+        htmlContent,
+        senderName: 'SourceCo',
+        replyTo: 'support@sourcecodeals.com',
+        isTransactional: true,
+      });
 
-        const result = await sendEmail({
-          templateName: 'connection_admin_notification',
-          to: admin.email,
-          toName: adminName,
-          subject,
-          htmlContent,
-          senderName: 'SourceCo',
-          replyTo: 'support@sourcecodeals.com',
-          isTransactional: true,
-        });
-
-        if (result.success) sentCount++;
-        else console.error('Failed to notify admin:', admin.email, result.error);
-      }
-
-      console.log(`Admin notifications sent: ${sentCount}/${adminProfiles.length}`);
+      if (result.success) console.log('Connection request notification sent to support inbox');
+      else console.error('Failed to notify support inbox:', result.error);
     }
 
     return new Response(

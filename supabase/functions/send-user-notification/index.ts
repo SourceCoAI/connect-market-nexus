@@ -55,7 +55,7 @@ const handler = async (req: Request): Promise<Response> => {
             </a>
           </div>` : ''}
           <p style="margin-top: 24px; color: #6B6B6B; font-size: 14px;">
-            If you have any questions, contact us at <a href="mailto:adam.haile@sourcecodeals.com" style="color: #1A1A1A; text-decoration: underline;">adam.haile@sourcecodeals.com</a>
+            If you have any questions, contact us at <a href="mailto:support@sourcecodeals.com" style="color: #1A1A1A; text-decoration: underline;">support@sourcecodeals.com</a>
           </p>
         `,
         recipientEmail: email,

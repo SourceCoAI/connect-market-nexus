@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Inbox, Users, Mail, Settings, Send, AlertTriangle } from 'lucide-react';
+import { Inbox, Users, Mail, Settings, Send, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface EmailEntry {
   emailType: string;
@@ -22,61 +22,63 @@ type Category =
   | 'System'
   | 'Deprecated';
 
+const SUPPORT_EMAIL = 'support@sourcecodeals.com';
+
 const ALL_EMAILS: Record<Category, EmailEntry[]> = {
   'Admin Notifications': [
-    { emailType: 'New User Registration', edgeFunction: 'enhanced-admin-notification', recipient: 'ADMIN_NOTIFICATION_EMAIL env var', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Listing Saved', edgeFunction: 'enhanced-admin-notification', recipient: 'ADMIN_NOTIFICATION_EMAIL env var', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Connection Request (admin copy)', edgeFunction: 'send-connection-notification', recipient: 'All admins (user_roles query)', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Feedback Submitted', edgeFunction: 'send-feedback-notification', recipient: 'All admins (profiles.is_admin)', senderName: 'SourceCo', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Admin Digest', edgeFunction: 'admin-digest', recipient: 'ADMIN_NOTIFICATION_EMAILS env var', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Task Assigned', edgeFunction: 'send-task-notification-email', recipient: 'Assigned admin (assignee_email)', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Deal Owner Change', edgeFunction: 'notify-deal-owner-change', recipient: 'Previous deal owner', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Owner Inquiry', edgeFunction: 'send-owner-inquiry-notification', recipient: 'OWNER_INQUIRY_RECIPIENT_EMAIL env var', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
+    { emailType: 'New User Registration', edgeFunction: 'enhanced-admin-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'New User Registration (journey)', edgeFunction: 'user-journey-notifications', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Connection Request (admin copy)', edgeFunction: 'send-connection-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Feedback Submitted', edgeFunction: 'send-feedback-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Admin Digest', edgeFunction: 'admin-digest', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Task Assigned', edgeFunction: 'send-task-notification-email', recipient: 'Assigned admin (assignee_email)', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Deal Owner Change', edgeFunction: 'notify-deal-owner-change', recipient: 'Previous deal owner', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Owner Inquiry', edgeFunction: 'send-owner-inquiry-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
   ],
   'Messaging': [
-    { emailType: 'New Buyer Message', edgeFunction: 'notify-support-inbox', recipient: 'support@sourcecodeals.com', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Admin Reply Copy', edgeFunction: 'notify-support-inbox', recipient: 'support@sourcecodeals.com', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Document Request', edgeFunction: 'notify-support-inbox', recipient: 'support@sourcecodeals.com', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Admin Reply to Buyer', edgeFunction: 'notify-buyer-new-message', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
+    { emailType: 'New Buyer Message', edgeFunction: 'notify-support-inbox', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Admin Reply Copy', edgeFunction: 'notify-support-inbox', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Document Request', edgeFunction: 'notify-support-inbox', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Admin Reply to Buyer', edgeFunction: 'notify-buyer-new-message', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
   ],
   'Buyer Lifecycle': [
-    { emailType: 'Welcome Email', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'Adam Haile - SourceCo', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Email Verified', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'Adam Haile - SourceCo', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Profile Approved', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'Adam Haile - SourceCo', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Profile Rejected', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'Adam Haile - SourceCo', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Verification Success', edgeFunction: 'send-verification-success-email', recipient: 'Individual buyer', senderName: 'Adam Haile', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Simple Verification', edgeFunction: 'send-simple-verification-email', recipient: 'Individual buyer', senderName: 'Adam Haile', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Password Reset', edgeFunction: 'password-reset', recipient: 'Individual user', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Onboarding Day 2', edgeFunction: 'send-onboarding-day2', recipient: 'Individual buyer', senderName: 'Adam Haile - SourceCo', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Onboarding Day 7', edgeFunction: 'send-onboarding-day7', recipient: 'Individual buyer', senderName: 'Adam Haile - SourceCo', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Marketplace Invitation', edgeFunction: 'send-marketplace-invitation', recipient: 'Invited buyer', senderName: 'SourceCo Marketplace', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Marketplace Buyer Approved', edgeFunction: 'approve-marketplace-buyer', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'First Request Followup', edgeFunction: 'send-first-request-followup', recipient: 'Individual buyer', senderName: 'Adam Haile - SourceCo', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Feedback Response', edgeFunction: 'send-feedback-email', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'User Notification', edgeFunction: 'send-user-notification', recipient: 'Individual user', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Contact Response', edgeFunction: 'send-contact-response', recipient: 'Individual user', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Templated Approval', edgeFunction: 'send-templated-approval-email', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Data Recovery', edgeFunction: 'send-data-recovery-email', recipient: 'Individual user', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
+    { emailType: 'Welcome Email', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Email Verified', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Profile Approved', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Profile Rejected', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Verification Success', edgeFunction: 'send-verification-success-email', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Simple Verification', edgeFunction: 'send-simple-verification-email', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Password Reset', edgeFunction: 'password-reset', recipient: 'Individual user', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Onboarding Day 2', edgeFunction: 'send-onboarding-day2', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Onboarding Day 7', edgeFunction: 'send-onboarding-day7', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Marketplace Invitation', edgeFunction: 'send-marketplace-invitation', recipient: 'Invited buyer', senderName: 'SourceCo Marketplace', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Marketplace Buyer Approved', edgeFunction: 'approve-marketplace-buyer', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'First Request Followup', edgeFunction: 'send-first-request-followup', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Feedback Response', edgeFunction: 'send-feedback-email', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'User Notification', edgeFunction: 'send-user-notification', recipient: 'Individual user', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Contact Response', edgeFunction: 'send-contact-response', recipient: 'Individual user', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Templated Approval', edgeFunction: 'send-templated-approval-email', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Data Recovery', edgeFunction: 'send-data-recovery-email', recipient: 'Individual user', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
   ],
   'Agreements': [
-    { emailType: 'Agreement Sent (NDA/Fee)', edgeFunction: 'request-agreement-email', recipient: 'Individual buyer', senderName: 'Adam Haile - SourceCo', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'NDA Confirmed', edgeFunction: 'notify-agreement-confirmed', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Fee Agreement Confirmed', edgeFunction: 'notify-agreement-confirmed', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
+    { emailType: 'Agreement Sent (NDA/Fee)', edgeFunction: 'request-agreement-email', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'NDA Confirmed', edgeFunction: 'notify-agreement-confirmed', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Fee Agreement Confirmed', edgeFunction: 'notify-agreement-confirmed', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
   ],
   'Deal Flow': [
-    { emailType: 'Connection User Confirmation', edgeFunction: 'send-connection-notification', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
-    { emailType: 'Connection Approved', edgeFunction: 'send-connection-notification', recipient: 'Individual buyer', senderName: 'Adam Haile - SourceCo', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Deal Alert', edgeFunction: 'send-deal-alert', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
+    { emailType: 'Connection User Confirmation', edgeFunction: 'send-connection-notification', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Connection Approved', edgeFunction: 'send-connection-notification', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Deal Alert', edgeFunction: 'send-deal-alert', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Deal Memo', edgeFunction: 'send-memo-email', recipient: 'Individual buyer', senderName: 'Calling admin profile', replyTo: 'Calling admin email' },
-    { emailType: 'Deal Referral', edgeFunction: 'send-deal-referral', recipient: 'Referred buyer', senderName: 'SourceCo Marketplace', replyTo: 'adam.haile@sourcecodeals.com' },
-    { emailType: 'Data Room Access Granted', edgeFunction: 'grant-data-room-access', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
+    { emailType: 'Deal Referral', edgeFunction: 'send-deal-referral', recipient: 'Referred buyer', senderName: 'SourceCo Marketplace', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Data Room Access Granted', edgeFunction: 'grant-data-room-access', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
   ],
   'Owner-Facing': [
-    { emailType: 'Owner Intro Notification', edgeFunction: 'send-owner-intro-notification', recipient: 'Listing primary owner', senderName: 'Adam Haile - SourceCo', replyTo: 'adam.haile@sourcecodeals.com' },
+    { emailType: 'Owner Intro Notification', edgeFunction: 'send-owner-intro-notification', recipient: 'Listing primary owner', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
   ],
   'System': [],
   'Deprecated': [
-    { emailType: 'Admin New Message (deprecated)', edgeFunction: 'notify-admin-new-message', recipient: 'All admins (no longer called)', senderName: 'SourceCo', replyTo: 'support@sourcecodeals.com' },
+    { emailType: 'Admin New Message (deprecated)', edgeFunction: 'notify-admin-new-message', recipient: 'No longer called', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
   ],
 };
 
@@ -95,7 +97,6 @@ interface AdminReceives {
   name: string;
   email: string;
   title: string;
-  receives: string[];
   sends: string[];
   sharedInbox: boolean;
 }
@@ -105,54 +106,27 @@ const ADMIN_ROUTING: AdminReceives[] = [
     name: 'Adam Haile',
     email: 'adam.haile@sourcecodeals.com',
     title: 'Founder & CEO',
-    receives: [
-      'Feedback Submitted (all admins loop)',
-      'Connection Request admin copy (all admins loop)',
-      'Admin Digest (ADMIN_NOTIFICATION_EMAILS)',
-      'Owner Inquiry (OWNER_INQUIRY_RECIPIENT_EMAIL fallback)',
-      'New User Registration (ADMIN_NOTIFICATION_EMAIL fallback)',
-      'Listing Saved (ADMIN_NOTIFICATION_EMAIL fallback)',
-    ],
-    sends: [
-      'Deal Memo (as sender profile)',
-      'All emails (FROM address: adam.haile@sourcecodeals.com)',
-    ],
+    sends: ['Deal Memo (as sender profile)'],
     sharedInbox: true,
   },
   {
     name: 'Tomos Mughan',
     email: 'tomos.mughan@sourcecodeals.com',
     title: 'CEO',
-    receives: [
-      'Feedback Submitted (all admins loop)',
-      'Connection Request admin copy (all admins loop)',
-    ],
-    sends: [
-      'Deal Memo (when sent by this admin)',
-    ],
+    sends: ['Deal Memo (when sent by this admin)'],
     sharedInbox: true,
   },
   {
     name: 'Bill Martin',
     email: 'bill.martin@sourcecodeals.com',
     title: 'Principal & SVP - Growth',
-    receives: [
-      'Feedback Submitted (all admins loop)',
-      'Connection Request admin copy (all admins loop)',
-    ],
-    sends: [
-      'Deal Memo (when sent by this admin)',
-    ],
+    sends: ['Deal Memo (when sent by this admin)'],
     sharedInbox: true,
   },
   {
     name: 'Kyle Collins',
     email: 'kyle.collins@sourcecodeals.com',
     title: 'Team Member',
-    receives: [
-      'Feedback Submitted (all admins loop)',
-      'Connection Request admin copy (all admins loop)',
-    ],
     sends: [],
     sharedInbox: true,
   },
@@ -160,10 +134,6 @@ const ADMIN_ROUTING: AdminReceives[] = [
     name: 'Daniel Kobayashi',
     email: 'daniel.kobayashi@sourcecodeals.com',
     title: 'Team Member',
-    receives: [
-      'Feedback Submitted (all admins loop)',
-      'Connection Request admin copy (all admins loop)',
-    ],
     sends: [],
     sharedInbox: true,
   },
@@ -171,25 +141,10 @@ const ADMIN_ROUTING: AdminReceives[] = [
     name: 'Oz De La Luna',
     email: 'oz.delaluna@sourcecodeals.com',
     title: 'Team Member',
-    receives: [
-      'Feedback Submitted (all admins loop)',
-      'Connection Request admin copy (all admins loop)',
-    ],
     sends: [],
     sharedInbox: true,
   },
 ];
-
-const ENV_VARS = [
-  { name: 'ADMIN_NOTIFICATION_EMAIL', description: 'Single admin email for registration and listing-saved alerts', fallback: 'admin@sourcecodeals.com', usedBy: 'enhanced-admin-notification' },
-  { name: 'ADMIN_NOTIFICATION_EMAILS', description: 'Comma-separated list for admin digest recipients', fallback: 'adam.haile@sourcecodeals.com', usedBy: 'admin-digest' },
-  { name: 'OWNER_INQUIRY_RECIPIENT_EMAIL', description: 'Receives owner inquiry form submissions from landing page', fallback: 'adam.haile@sourcecodeals.com', usedBy: 'send-owner-inquiry-notification' },
-  { name: 'ADMIN_EMAIL', description: 'General admin email fallback', fallback: 'adam.haile@sourcecodeals.com', usedBy: 'Various' },
-  { name: 'SENDER_EMAIL', description: 'FROM address for all outbound emails', fallback: 'adam.haile@sourcecodeals.com', usedBy: 'email-sender.ts' },
-  { name: 'NOREPLY_EMAIL', description: 'No-reply sender for system emails', fallback: 'noreply@sourcecodeals.com', usedBy: 'Various' },
-];
-
-const SHARED_INBOX_EMAIL = 'support@sourcecodeals.com';
 
 export function AdminEmailRouting() {
   const categories = Object.entries(ALL_EMAILS).filter(([, entries]) => entries.length > 0) as [Category, EmailEntry[]][];
@@ -197,6 +152,21 @@ export function AdminEmailRouting() {
 
   return (
     <div className="space-y-6">
+      {/* Sender Identity Banner */}
+      <Card className="border-green-200 bg-green-50/30 dark:border-green-900 dark:bg-green-950/20">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold">Sender Identity</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                All outbound emails send FROM <code className="bg-muted px-1 rounded font-semibold">{SUPPORT_EMAIL}</code> with sender name "SourceCo". No individual admin receives any notification emails from the platform. All admin notifications go exclusively to the shared support inbox.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Section 1: Master Email Table */}
       <Card>
         <CardHeader className="pb-3">
@@ -256,7 +226,7 @@ export function AdminEmailRouting() {
             <Users className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">Per-Admin Routing</CardTitle>
           </div>
-          <p className="text-sm text-muted-foreground">What each admin receives and sends</p>
+          <p className="text-sm text-muted-foreground">No individual admin receives notification emails. All notifications go to the shared support inbox. Admins only send deal memos.</p>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -276,19 +246,10 @@ export function AdminEmailRouting() {
                   )}
                 </div>
 
-                {admin.receives.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground mb-1">Receives:</p>
-                    <ul className="space-y-0.5">
-                      {admin.receives.map((r) => (
-                        <li key={r} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                          <span className="text-green-500 mt-0.5 shrink-0">&#8226;</span>
-                          {r}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">Receives:</p>
+                  <p className="text-xs text-muted-foreground italic">No individual emails. All notifications go to {SUPPORT_EMAIL}</p>
+                </div>
 
                 {admin.sends.length > 0 && (
                   <div>
@@ -315,9 +276,9 @@ export function AdminEmailRouting() {
           <div className="flex items-center gap-2">
             <Inbox className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">Shared Inbox</CardTitle>
-            <Badge variant="secondary" className="ml-auto font-mono text-xs">{SHARED_INBOX_EMAIL}</Badge>
+            <Badge variant="secondary" className="ml-auto font-mono text-xs">{SUPPORT_EMAIL}</Badge>
           </div>
-          <p className="text-sm text-muted-foreground">All admins monitor this shared inbox. Every message, reply, and document request triggers an email here.</p>
+          <p className="text-sm text-muted-foreground">ALL admin notifications go here. Every message, reply, connection request, feedback, registration, digest, and document request triggers an email to this inbox.</p>
         </CardHeader>
         <CardContent className="pt-0">
           <Table>
@@ -344,45 +305,76 @@ export function AdminEmailRouting() {
                 <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">notify-support-inbox</code></TableCell>
                 <TableCell className="text-sm text-muted-foreground">Buyer requests NDA or Fee Agreement signing</TableCell>
               </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Connection Request</TableCell>
+                <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">send-connection-notification</code></TableCell>
+                <TableCell className="text-sm text-muted-foreground">Buyer requests connection on a listing</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Feedback Submitted</TableCell>
+                <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">send-feedback-notification</code></TableCell>
+                <TableCell className="text-sm text-muted-foreground">User submits feedback from the widget</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">New User Registration</TableCell>
+                <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">user-journey-notifications</code></TableCell>
+                <TableCell className="text-sm text-muted-foreground">New user signs up on the marketplace</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Admin Digest</TableCell>
+                <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">admin-digest</code></TableCell>
+                <TableCell className="text-sm text-muted-foreground">Scheduled daily/weekly digest of platform activity</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Owner Inquiry</TableCell>
+                <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">send-owner-inquiry-notification</code></TableCell>
+                <TableCell className="text-sm text-muted-foreground">Owner submits inquiry from the landing page</TableCell>
+              </TableRow>
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {/* Section 4: Environment Variables */}
+      {/* Section 4: Sender Configuration */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Settings className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">Environment Variables</CardTitle>
+            <CardTitle className="text-lg">Sender Configuration</CardTitle>
           </div>
-          <p className="text-sm text-muted-foreground">These env vars control email routing. Set in Supabase Edge Function secrets.</p>
+          <p className="text-sm text-muted-foreground">Platform-wide email sender settings (locked in email-sender.ts)</p>
         </CardHeader>
         <CardContent className="pt-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Variable</TableHead>
+                <TableHead>Setting</TableHead>
+                <TableHead>Value</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead>Fallback</TableHead>
-                <TableHead>Used By</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {ENV_VARS.map((v) => (
-                <TableRow key={v.name}>
-                  <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded font-semibold">{v.name}</code></TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{v.description}</TableCell>
-                  <TableCell className="text-xs font-mono text-muted-foreground">{v.fallback}</TableCell>
-                  <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">{v.usedBy}</code></TableCell>
-                </TableRow>
-              ))}
+              <TableRow>
+                <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded font-semibold">VERIFIED_SENDER_EMAIL</code></TableCell>
+                <TableCell className="text-sm font-mono">{SUPPORT_EMAIL}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">FROM address for all outbound emails</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded font-semibold">VERIFIED_SENDER_NAME</code></TableCell>
+                <TableCell className="text-sm font-mono">SourceCo</TableCell>
+                <TableCell className="text-sm text-muted-foreground">Default sender display name</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded font-semibold">DEFAULT_REPLY_TO</code></TableCell>
+                <TableCell className="text-sm font-mono">{SUPPORT_EMAIL}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">Default reply-to address</TableCell>
+              </TableRow>
             </TableBody>
           </Table>
-          <div className="mt-3 p-3 bg-muted/50 rounded-md flex items-start gap-2">
+          <div className="mt-3 p-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-md flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
             <p className="text-xs text-muted-foreground">
-              <strong>Sender identity:</strong> All outbound emails send FROM <code className="bg-muted px-1 rounded">adam.haile@sourcecodeals.com</code> (locked in email-sender.ts). The sender <em>name</em> varies per function (SourceCo, Adam Haile - SourceCo, SourceCo Marketplace).
+              <strong>Brevo requirement:</strong> The FROM address <code className="bg-muted px-1 rounded">{SUPPORT_EMAIL}</code> must be verified as a sender in Brevo. If not verified, all email sends will be rejected.
             </p>
           </div>
         </CardContent>

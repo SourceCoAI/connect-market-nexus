@@ -25,11 +25,7 @@ const handler = async (req: Request): Promise<Response> => {
     const body: FeedbackNotificationRequest = await req.json();
     const { feedbackId, message, pageUrl, category, priority, userEmail, userName } = body;
 
-    const { data: adminUsers, error: adminError } = await supabase.from('profiles').select('email, first_name, last_name').eq('is_admin', true);
-    if (adminError) throw adminError;
-    if (!adminUsers || adminUsers.length === 0) {
-      return new Response(JSON.stringify({ success: true, message: 'No admin users to notify' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    const supportEmail = 'support@sourcecodeals.com';
 
     const safeUserName = escapeHtml(userName || '');
     const safeUserEmail = escapeHtml(userEmail || '');
@@ -56,24 +52,22 @@ const handler = async (req: Request): Promise<Response> => {
           <a href="https://marketplace.sourcecodeals.com/admin" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">View in Admin Dashboard</a>
         </div>`,
       preheader: `New ${safeCategoryLabel} feedback received`,
-      recipientEmail: adminUsers[0]?.email,
+      recipientEmail: supportEmail,
     });
 
-    for (const admin of adminUsers) {
-      const result = await sendEmail({
-        templateName: 'feedback_notification',
-        to: admin.email,
-        toName: `${admin.first_name} ${admin.last_name}`.trim(),
-        subject: emailSubject,
-        htmlContent: emailHtml,
-        senderName: 'SourceCo',
-        replyTo: 'adam.haile@sourcecodeals.com',
-        isTransactional: true,
-      });
+    const result = await sendEmail({
+      templateName: 'feedback_notification',
+      to: supportEmail,
+      toName: 'SourceCo Support',
+      subject: emailSubject,
+      htmlContent: emailHtml,
+      senderName: 'SourceCo',
+      replyTo: 'support@sourcecodeals.com',
+      isTransactional: true,
+    });
 
-      if (result.success) console.log(`Feedback email sent to ${admin.email}`);
-      else console.error(`Error sending to ${admin.email}:`, result.error);
-    }
+    if (result.success) console.log('Feedback email sent to support inbox');
+    else console.error('Error sending feedback email to support inbox:', result.error);
 
     return new Response(JSON.stringify({ success: true, message: `Feedback notification processed for ${adminUsers.length} admin(s)` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,

@@ -58,7 +58,7 @@ const handler = async (req: Request): Promise<Response> => {
       htmlContent,
       textContent: content,
       senderName: 'SourceCo',
-      replyTo: Deno.env.get('ADMIN_EMAIL') || 'adam.haile@sourcecodeals.com',
+      replyTo: 'support@sourcecodeals.com',
       isTransactional: true,
       metadata: { feedbackId },
     });

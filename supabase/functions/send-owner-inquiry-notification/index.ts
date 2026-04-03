@@ -60,12 +60,12 @@ const handler = async (req: Request): Promise<Response> => {
       preheader: `New owner inquiry: ${data.companyName} (${formatRevenueRange(data.revenueRange)})`,
     });
 
-    const recipientEmail = Deno.env.get('OWNER_INQUIRY_RECIPIENT_EMAIL') || 'adam.haile@sourcecodeals.com';
+    const recipientEmail = 'support@sourcecodeals.com';
 
     const result = await sendEmail({
       templateName: 'owner_inquiry',
       to: recipientEmail,
-      toName: Deno.env.get('OWNER_INQUIRY_RECIPIENT_NAME') || 'Adam Haile',
+      toName: 'SourceCo Support',
       subject: `New Owner Inquiry: ${data.companyName} (${formatRevenueRange(data.revenueRange)})`,
       htmlContent,
       senderName: 'SourceCo',
