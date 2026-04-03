@@ -1,93 +1,74 @@
 
 
-# Complete Email Architecture Cleanup & Standardization
+# Email System — Current State & What Remains
 
-## Current State
+## What's Already Done (Working Correctly)
 
-**What's working now:** The `BREVO_API_KEY` was rotated and emails are now arriving. The new unified `sendEmail()` in `email-sender.ts` works correctly.
+1. **Single sender utility**: All 34 edge functions now use `sendEmail()` from `_shared/email-sender.ts`. Zero references to legacy `sendViaBervo()`, `brevo-sender.ts`, or `email-logger.ts` remain.
+2. **Correct API key**: `BREVO_API_KEY` was rotated and confirmed working — emails are arriving via Brevo.
+3. **Locked sender identity**: Every email goes out as `adam.haile@sourcecodeals.com` with consistent reply-to.
+4. **Tracking**: Every send creates an `outbound_emails` record with status updates and `email_events` entries.
+5. **Legacy cleanup**: `send-nda-email`, `send-fee-agreement-email`, `brevo-sender.ts`, and `email-logger.ts` are all deleted.
 
-**The problem:** Only 10 of ~26 email-sending functions use the new `sendEmail()`. The remaining 16+ still use the legacy `sendViaBervo()` from `brevo-sender.ts`, or call Brevo directly. Plus there are 21 stale test `document_requests` records to clean up.
+## What Still Needs Work
 
-## Inventory
+### 1. Brevo Webhook Not Connected to New Tables
+The `brevo-webhook` edge function still writes to legacy tables (`email_delivery_logs`, `engagement_signals`, `document_requests`). It does NOT update `outbound_emails` or `email_events` — meaning delivery confirmations, bounces, opens, and clicks from Brevo are never recorded against the new tracking system.
 
-### Already migrated to `sendEmail()` (10 functions — no changes needed)
-- `request-agreement-email`
-- `send-connection-notification`
-- `send-user-notification`
-- `send-approval-email`
-- `enhanced-email-delivery`
-- `user-journey-notifications`
-- `notify-deal-owner-change`
-- `notify-buyer-new-message`
-- `notify-buyer-rejection`
-- `notify-admin-new-message`
+**Why it matters**: You can see "accepted" in the admin UI but never "delivered", "opened", or "bounced". The new tracking tables stay stuck at "accepted" forever.
 
-### Still on legacy `sendViaBervo()` — must migrate (16 functions)
-1. `send-transactional-email` (template-based sender)
-2. `send-contact-response`
-3. `send-feedback-email`
-4. `send-marketplace-invitation`
-5. `send-deal-referral`
-6. `send-simple-verification-email`
-7. `send-onboarding-day2`
-8. `send-onboarding-day7`
-9. `send-templated-approval-email`
-10. `send-task-notification-email`
-11. `grant-data-room-access`
-12. `approve-marketplace-buyer`
-13. `notify-deal-reassignment`
-14. `send-nda-email` (legacy, should be deleted)
-15. `send-fee-agreement-email` (legacy, should be deleted)
-16. `send-deal-alert` (likely uses sendViaBervo)
+**Fix**: Update `brevo-webhook` to match incoming Brevo message IDs against `outbound_emails.provider_message_id` and update status + insert `email_events`.
 
-### Direct Brevo API call (bypasses both shared senders)
-- `enhanced-admin-notification` — calls `api.brevo.com` directly
+### 2. No Consolidated Email Dashboard
+The `DocumentTrackingPage` reads from `outbound_emails` for agreement emails only. There's no single admin view showing ALL platform emails, their delivery status, open rates, or failures.
 
-## Plan
+**Why it matters**: You have no visibility into whether onboarding emails, deal alerts, task notifications, etc. are actually being delivered.
 
-### Phase 1: Delete stale document_requests
-Delete all 21 pending test records from `document_requests` where status is `requested` or `email_sent` and recipient is a test address (`adambhaile00@gmail.com`, `ahaile14@gmail.com`).
+**Fix**: Build an admin Email Dashboard page that queries `outbound_emails` with filters by template, status, date range.
 
-### Phase 2: Migrate remaining 14 functions to `sendEmail()`
-Each function gets the same change: replace `import { sendViaBervo } from '../_shared/brevo-sender.ts'` with `import { sendEmail } from '../_shared/email-sender.ts'` and adapt the call signature. Functions that also import `email-logger.ts` drop that import (tracking is built into `sendEmail()`).
+### 3. Stale/Duplicate Edge Functions
+Several edge functions do overlapping things:
+- `send-approval-email` vs `send-templated-approval-email` — both send approval emails
+- `enhanced-email-delivery` — generic wrapper that adds no value over calling `sendEmail()` directly
+- `enhanced-admin-notification` — same pattern
+- `send-password-reset-email` — may conflict with Supabase Auth's built-in password reset
 
-Functions to migrate:
-1. `send-transactional-email`
-2. `send-contact-response`
-3. `send-feedback-email`
-4. `send-marketplace-invitation`
-5. `send-deal-referral`
-6. `send-simple-verification-email`
-7. `send-onboarding-day2`
-8. `send-onboarding-day7`
-9. `send-templated-approval-email`
-10. `send-task-notification-email`
-11. `grant-data-room-access`
-12. `approve-marketplace-buyer`
-13. `notify-deal-reassignment`
-14. `enhanced-admin-notification` (direct Brevo call → `sendEmail()`)
+**Why it matters**: Maintenance burden, confusion about which function to call, potential for sending duplicate emails.
 
-### Phase 3: Delete legacy email functions
-Delete these edge functions entirely (replaced by `request-agreement-email`):
-- `send-nda-email`
-- `send-fee-agreement-email`
+**Fix**: Audit each for active callers in the frontend. Consolidate where possible, delete unused ones.
 
-### Phase 4: Delete legacy shared modules
-Once no function imports them:
-- Delete `_shared/brevo-sender.ts`
-- Delete `_shared/email-logger.ts`
+### 4. Email Templates Are Raw HTML Strings
+Most edge functions build HTML with inline string concatenation. There's no consistent branding, no shared layout, and no preview capability.
 
-### Phase 5: Deploy all changed functions
+**Why it matters**: Emails look inconsistent, are hard to maintain, and can't be previewed before sending.
 
-## What this achieves
-- Every email in the platform goes through one sender (`sendEmail()`) with one verified identity (`adam.haile@sourcecodeals.com`)
-- Every email is tracked in `outbound_emails` + `email_events`
-- No more fragmented sender identities or orphaned code paths
-- Legacy dead code is removed
+**Fix**: Create a shared HTML email layout wrapper and migrate the most important templates to use it.
 
-## Files changed
-- 14 edge function `index.ts` files (migrate to `sendEmail()`)
-- 2 edge function directories deleted (`send-nda-email`, `send-fee-agreement-email`)
-- 2 shared files deleted (`brevo-sender.ts`, `email-logger.ts`)
-- Database: delete stale `document_requests` rows
+### 5. No Suppression/Bounce Handling
+If Brevo reports a hard bounce or spam complaint, nothing prevents the system from trying to send to that address again. There's no suppression list.
+
+**Why it matters**: Repeatedly sending to bounced addresses damages sender reputation and can get the domain blocked.
+
+**Fix**: Add a `suppressed_emails` check inside `sendEmail()` before calling Brevo, populated by the webhook on bounce/complaint events.
+
+## Recommended Phases
+
+### Phase 1: Connect Brevo Webhook to New Tables
+Update `brevo-webhook/index.ts` to write delivery events to `outbound_emails` (status updates) and `email_events` (event log). This closes the tracking loop.
+
+### Phase 2: Add Bounce Suppression
+Create a `suppressed_emails` table. Populate it from webhook bounce/complaint events. Check it in `sendEmail()` before sending.
+
+### Phase 3: Consolidate Duplicate Functions
+Audit frontend call sites for overlapping email functions. Merge or delete redundant ones.
+
+### Phase 4: Email Dashboard
+Build an admin page showing all `outbound_emails` with status badges, filters, and delivery stats.
+
+### Phase 5: Template Standardization
+Create a shared HTML email wrapper with consistent branding. Migrate high-traffic templates to use it.
+
+## Summary
+
+The core sending infrastructure is solid and working. The remaining work is about closing the observability loop (webhook → tracking), preventing reputation damage (suppression), reducing complexity (consolidating duplicates), and improving visibility (dashboard). None of these are blockers for emails being sent — they're operational maturity improvements.
 
