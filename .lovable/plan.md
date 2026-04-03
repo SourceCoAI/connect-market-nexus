@@ -1,84 +1,94 @@
 
 
-# Fix Admin Replies Not Showing + Consolidate Admin Inbox by User
+# Comprehensive Admin Email Routing -- Full Audit & Rebuild
 
-## Two Issues
+## What We're Building
 
-### Issue 1: Admin replies to General Inquiry not visible to buyer
+Rebuild the Admin Routing tab to show a detailed, per-admin breakdown of every email they send or receive, plus a complete map of all 25+ email types across the platform with exact recipient routing.
 
-**Root cause**: The `resolve-buyer-message-thread` edge function returns the buyer's most recent active connection request (any deal). For this buyer, it returns the "Independent Wealth Advisory Firm" pending request instead of the General Inquiry thread. So the buyer's "SourceCo Team" chat shows messages from the deal thread, while the admin's reply went to the General Inquiry thread -- completely different `connection_request_id`.
+## Complete Email Audit Results
 
-**Fix**: Change `resolve-buyer-message-thread` to specifically look for the General Inquiry thread first (listing_id = `00000000-...01`). The "SourceCo Team" chat should always map to the General Inquiry thread, not an arbitrary deal thread. Deal-specific messages belong in the deal thread views.
+### Sender Identity
+- **All emails** send FROM `adam.haile@sourcecodeals.com` (locked in `email-sender.ts` line 15)
+- **Sender name** varies: "Adam Haile - SourceCo" (default), "SourceCo" (most operational), "Adam Haile" (verification), "SourceCo Marketplace" (invitations/referrals)
 
-Additionally, on the buyer side, the `useBuyerThreads` hook filters OUT the General Inquiry listing (line 113), which means the general inquiry thread's unread messages never show up in the conversation list. The GeneralChatView needs its own dedicated thread resolution that always returns the General Inquiry connection request.
+### Who Receives What
 
-### Issue 2: Admin inbox shows separate threads per connection request -- should consolidate by user
+**support@sourcecodeals.com (shared inbox)**:
+- New buyer message (notify-support-inbox)
+- Admin reply copy (notify-support-inbox)
+- Document request (notify-support-inbox)
 
-**Current state**: Each connection request is a separate thread in the admin inbox. One buyer with 3 connection requests = 3 inbox items.
+**ADMIN_NOTIFICATION_EMAIL env var (single address, fallback: admin@sourcecodeals.com)**:
+- New user registration (enhanced-admin-notification)
+- Listing saved (enhanced-admin-notification)
 
-**Proposed approach**: Group threads by `user_id` in the admin inbox list. Show one entry per buyer with their latest message across all threads. When an admin clicks on a buyer, show all their threads/contexts in the chat view with a thread selector to choose which connection request to reply in.
+**ADMIN_NOTIFICATION_EMAILS env var (comma-separated, fallback: adam.haile@sourcecodeals.com)**:
+- Admin digest (admin-digest)
+
+**All admins via profiles query (is_admin=true) -- loops through each**:
+- Feedback submitted (send-feedback-notification) -- queries profiles.is_admin
+- Connection request admin notification (send-connection-notification) -- queries user_roles.admin
+
+**OWNER_INQUIRY_RECIPIENT_EMAIL env var (fallback: adam.haile@sourcecodeals.com)**:
+- Owner inquiry from landing page (send-owner-inquiry-notification)
+
+**Specific admin (assigned task recipient)**:
+- Task assigned (send-task-notification-email) -- goes to assignee_email
+- Deal owner change (notify-deal-owner-change) -- goes to previous deal owner
+
+**Buyer-facing (to individual buyer)**:
+- Welcome email (user-journey-notifications: user_created)
+- Email verified confirmation (user-journey-notifications: email_verified)
+- Profile approved (user-journey-notifications: profile_approved)
+- Profile rejected (user-journey-notifications: profile_rejected)
+- Verification success (send-verification-success-email)
+- Simple verification (send-simple-verification-email)
+- Password reset (password-reset)
+- Onboarding day 2 (send-onboarding-day2)
+- Onboarding day 7 (send-onboarding-day7)
+- Connection user confirmation (send-connection-notification: user_confirmation)
+- Connection approved (send-connection-notification: approval_notification)
+- Agreement NDA/Fee sent (request-agreement-email)
+- Agreement confirmed (notify-agreement-confirmed)
+- Admin reply notification (notify-buyer-new-message)
+- Deal alert (send-deal-alert)
+- Deal memo (send-memo-email)
+- Marketplace invitation (send-marketplace-invitation)
+- Deal referral (send-deal-referral)
+- Data room access granted (grant-data-room-access)
+- Marketplace buyer approved (approve-marketplace-buyer)
+- Feedback response (send-feedback-email)
+- User notification (send-user-notification)
+- First request followup (send-first-request-followup)
+- Contact response (send-contact-response)
+- Data recovery (send-data-recovery-email)
+- Templated approval (send-templated-approval-email)
+
+**Owner-facing**:
+- Owner intro notification (send-owner-intro-notification) -- to listing primary owner
+
+**Deprecated (no longer called)**:
+- notify-admin-new-message (previously emailed all admins on new messages)
 
 ## Plan
 
-### 1. Fix `resolve-buyer-message-thread` to always return General Inquiry thread
+### `src/components/admin/emails/AdminEmailRouting.tsx` -- complete rewrite
 
-**File**: `supabase/functions/resolve-buyer-message-thread/index.ts`
+Replace current simple routing tables with a comprehensive 4-section layout:
 
-Reorder the logic:
-1. First, look for an existing General Inquiry thread (listing_id = internal UUID)
-2. If found, return it (reactivate if rejected)
-3. If not found, create one
+**Section 1: All Platform Emails** -- Master table of every email type, grouped by category (Admin Notifications, Buyer Lifecycle, Deal Flow, Agreements, Messaging, System). Columns: Email Type, Edge Function, Recipient, Sender Name, Reply-To. This is the single source of truth.
 
-This ensures the "SourceCo Team" chat always maps to the dedicated support thread, not a random deal thread.
+**Section 2: Admin-Specific Routing** -- Per-admin card for each admin in ADMIN_PROFILES showing:
+- Their email address and title
+- Which emails they personally receive (based on env var config and query logic)
+- Which emails they send (memo emails use the calling admin's profile)
+- Badge for "Shared Inbox Access" if they monitor support@
 
-### 2. Fix buyer-side General Chat to use dedicated General Inquiry thread
+**Section 3: Shared Inbox** -- Keep existing, unchanged
 
-**File**: `src/pages/BuyerMessages/useMessagesData.ts`
-
-Create a new hook `useGeneralInquiryThreadId()` that specifically queries for the connection request with `listing_id = GENERAL_INQUIRY_LISTING_ID`. The existing `useResolvedThreadId` can continue to call the edge function, but the edge function logic changes per step 1.
-
-### 3. Consolidate admin inbox by user
-
-**File**: `src/pages/admin/MessageCenter.tsx`
-
-- After fetching threads, group them by `user_id`
-- Each inbox list item shows: buyer name, company, total unread across all threads, latest message preview
-- Show a count badge of how many active threads that buyer has
-
-**File**: `src/pages/admin/message-center/ThreadListItem.tsx`
-
-- Update to show consolidated buyer entry (all their threads' info merged)
-
-**File**: `src/pages/admin/message-center/ThreadView.tsx`
-
-- Add a thread/context selector at the top showing all connection requests for that buyer
-- Admin picks which thread to reply in (e.g., "General Inquiry", "Independent Wealth Advisory Firm", "Premium Sod Farm")
-- Messages from all threads shown in a unified timeline with thread labels, OR a tab selector to switch between threads
-
-### 4. Add new types for grouped inbox
-
-**File**: `src/pages/admin/message-center/types.ts`
-
-Add a `BuyerGroup` type:
-```
-interface BuyerGroup {
-  user_id: string;
-  buyer_name: string;
-  buyer_company: string | null;
-  buyer_email: string | null;
-  threads: InboxThread[];
-  total_unread: number;
-  last_activity: string;
-  last_message_preview: string | null;
-}
-```
+**Section 4: Environment Variables** -- Show which env vars control routing: `ADMIN_NOTIFICATION_EMAIL`, `ADMIN_NOTIFICATION_EMAILS`, `OWNER_INQUIRY_RECIPIENT_EMAIL`, `ADMIN_EMAIL` -- with current fallback values
 
 ### Files changed
-- `supabase/functions/resolve-buyer-message-thread/index.ts` -- fix to always resolve General Inquiry thread
-- `src/pages/BuyerMessages/useMessagesData.ts` -- ensure GeneralChatView uses correct thread
-- `src/pages/admin/MessageCenter.tsx` -- group threads by user_id
-- `src/pages/admin/message-center/types.ts` -- add BuyerGroup type
-- `src/pages/admin/message-center/ThreadListItem.tsx` -- update for grouped display
-- `src/pages/admin/message-center/ThreadView.tsx` -- add thread selector for replying
-- Deploy `resolve-buyer-message-thread`
+- `src/components/admin/emails/AdminEmailRouting.tsx` -- full rewrite with comprehensive routing data
 
