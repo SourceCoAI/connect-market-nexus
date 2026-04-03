@@ -1,47 +1,38 @@
 
 
-# Verification: All Email Routing is Correct
+# Restructure Admin Message Center Layout
 
-## Confirmed: Everything is implemented correctly
+## Problem
 
-After auditing all edge functions and the email sender layer, I can confirm:
+The three-column layout (380px thread list + chat + 280px context panel) totals 660px of fixed widths plus 48px of horizontal margin (`mx-6`), leaving only ~543px for the chat area in a 1251px viewport. The right context panel clips off-screen with no way to scroll to it.
 
-### 1. Global Sender Identity -- CORRECT
-- `VERIFIED_SENDER_EMAIL` = `support@sourcecodeals.com`
-- `VERIFIED_SENDER_NAME` = `SourceCo`
-- `DEFAULT_REPLY_TO` = `support@sourcecodeals.com`
-- No emails send FROM `adam.haile@sourcecodeals.com` anymore
+## Solution
 
-### 2. Admin Notifications -- ALL route to support@ only
-Every edge function that previously looped through individual admins now sends a single email to `support@sourcecodeals.com`:
+Restructure the layout to use the full viewport width and better proportions:
 
-| Trigger | Edge Function | Verified |
-|---|---|---|
-| New user registration | `enhanced-admin-notification` | to: `support@sourcecodeals.com` |
-| New user (journey) | `user-journey-notifications` | to: `support@sourcecodeals.com` |
-| Connection request | `send-connection-notification` | to: `support@sourcecodeals.com` |
-| Feedback submitted | `send-feedback-notification` | to: `support@sourcecodeals.com` |
-| Admin digest | `admin-digest` | to: `support@sourcecodeals.com` |
-| Owner inquiry | `send-owner-inquiry-notification` | to: `support@sourcecodeals.com` |
-| Buyer message | `notify-support-inbox` | to: `support@sourcecodeals.com` |
-| Admin reply copy | `notify-support-inbox` | to: `support@sourcecodeals.com` |
-| Document request | `notify-support-inbox` | to: `support@sourcecodeals.com` |
+### Layout Changes
 
-### 3. Buyer/User Emails -- ALL sent FROM support@
-Every buyer-facing email (welcome, verification, approval, rejection, connection confirmation, agreement confirmation, admin reply notification, deal memo, etc.) sends FROM `support@sourcecodeals.com` with sender name "SourceCo".
+**`src/pages/admin/MessageCenter.tsx`**
+- Remove `mx-6 mb-6 rounded-xl` from the main content container -- use full bleed layout
+- Reduce thread list from `w-[380px]` to `w-[320px]`
+- Move header into a tighter top bar with less padding
 
-### 4. Only remaining `adam.haile` reference
-`_shared/admin-profiles.ts` -- this is the admin profile registry used ONLY for deal memo sender identity (personal outreach). This is correct behavior -- when Adam sends a memo, his name appears on it.
+**`src/pages/admin/message-center/ThreadContextPanel.tsx`**
+- Reduce width from `w-[280px]` to `w-[260px]`
+- Add `hidden lg:flex` so it auto-hides on smaller screens (only shows on lg+)
 
-### 5. No individual admin receives any automated notification email
+**`src/pages/admin/message-center/ThreadView.tsx`**
+- Default `showContext` to `false` so the chat gets full width on load
+- Context panel only appears when toggled, preventing the cramped 3-column default
 
-## What needs updating: AdminEmailRouting component
+### Result
+- No conversation selected: 320px list + empty state fills remaining space
+- Conversation selected (context hidden): 320px list + full chat area (~930px)
+- Conversation selected (context shown): 320px list + chat (~670px) + 260px context
+- Full width usage -- no wasted margin on a tool screen
 
-The current `AdminEmailRouting.tsx` is already accurate and complete. It correctly shows:
-- 30+ email types across 7 categories
-- All admin notifications routing to `support@sourcecodeals.com`
-- Per-admin cards showing no individual emails received
-- Sender configuration locked to `support@sourcecodeals.com`
-
-**No code changes needed.** The implementation matches the plan exactly. The Admin Routing tab is already a complete, accurate overview of all platform emails.
+### Files changed
+- `src/pages/admin/MessageCenter.tsx` -- remove margins, reduce list width
+- `src/pages/admin/message-center/ThreadView.tsx` -- default showContext to false
+- `src/pages/admin/message-center/ThreadContextPanel.tsx` -- reduce width, responsive hide
 
