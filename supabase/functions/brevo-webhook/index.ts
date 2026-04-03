@@ -133,6 +133,29 @@ Deno.serve(async (req: Request) => {
             .eq('id', buyer.id);
         }
 
+        // ── Populate suppressed_emails on hard bounce, spam, unsubscribe ──
+        const suppressionMap: Record<string, string> = {
+          hardBounce: 'hard_bounce',
+          hard_bounce: 'hard_bounce',
+          spam: 'spam_complaint',
+          complaint: 'spam_complaint',
+          unsubscribed: 'unsubscribed',
+          invalid_email: 'hard_bounce',
+        };
+        const suppressionReason = suppressionMap[event.event];
+        if (suppressionReason) {
+          await supabase.from('suppressed_emails').upsert(
+            {
+              email: email,
+              reason: suppressionReason,
+              source_event: event.event,
+              source_message_id: messageId,
+            },
+            { onConflict: 'email,reason' }
+          );
+          console.log(`[brevo-webhook] Suppressed ${email} reason=${suppressionReason}`);
+        }
+
         // ── 2. Delivery logging (legacy email_delivery_logs) ──
         const deliveryStatusMap: Record<string, string> = {
           delivered: 'delivered',

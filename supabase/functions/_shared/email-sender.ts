@@ -78,6 +78,23 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // ── Suppression check ──
+  try {
+    const { data: suppressed } = await supabase
+      .from('suppressed_emails')
+      .select('reason')
+      .eq('email', options.to.toLowerCase())
+      .limit(1)
+      .maybeSingle();
+
+    if (suppressed) {
+      console.warn(`[email-sender] SUPPRESSED | to=${options.to} | reason=${suppressed.reason} | template=${options.templateName}`);
+      return { success: false, error: `Email suppressed: ${suppressed.reason}` };
+    }
+  } catch (e) {
+    console.warn('[email-sender] Suppression check failed (proceeding anyway):', e);
+  }
+
   const correlationId = crypto.randomUUID();
   const senderEmail = VERIFIED_SENDER_EMAIL;
   const senderName = options.senderName || VERIFIED_SENDER_NAME;
