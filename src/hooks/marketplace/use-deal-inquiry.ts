@@ -74,7 +74,7 @@ export function useCreateInquiry() {
           listing_id: listingId,
           status: 'pending',
           source: 'inquiry',
-          message: 'Inquiry from listing page',
+          user_message: 'Inquiry from listing page',
         })
         .select('id')
         .single();

@@ -17,6 +17,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAllSavedListingIds } from '@/hooks/marketplace/use-saved-listings';
 import { useAllConnectionStatuses } from '@/hooks/marketplace/use-connections';
 import { SavedListingAnnotation } from '@/components/marketplace/SavedListingAnnotation';
+import { SavedListingMessages } from '@/components/marketplace/SavedListingMessages';
 
 const ANNOTATION_STORAGE_KEY = 'sourceco_saved_listing_notes';
 
@@ -370,6 +371,7 @@ const SavedListings = () => {
                         onSave={handleSaveAnnotation}
                         onDelete={handleDeleteAnnotation}
                       />
+                      <SavedListingMessages listingId={listing.id} />
                     </div>
                   ))}
                 </div>

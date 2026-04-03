@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { sendAgreementEmail } from '@/lib/agreement-email';
 import { invalidateAgreementQueries } from '@/hooks/use-agreement-status-sync';
+import { useSaveListingMutation, useSavedStatus } from '@/hooks/marketplace/use-saved-listings';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -69,6 +70,8 @@ export function ListingSidebarActions({
   const { data: inquiryRequest } = useDealInquiry(listingId);
   const createInquiry = useCreateInquiry();
   const sendMsg = useSendMessage();
+  const saveListing = useSaveListingMutation();
+  const { data: isSaved } = useSavedStatus(listingId);
   const markRead = useMarkMessagesReadByBuyer();
 
   const threadId = inquiryRequest?.id;
@@ -117,11 +120,16 @@ export function ListingSidebarActions({
         sender_role: 'buyer',
       });
       setMessage('');
+
+      // Auto-save listing when buyer sends a question
+      if (!isSaved) {
+        saveListing.mutate({ listingId, action: 'save' });
+      }
     } catch (err) {
       console.error('Failed to send message:', err);
       toast({
         title: 'Failed to send',
-        description: 'Please try again.',
+        description: err instanceof Error ? err.message : 'Please try again.',
         variant: 'destructive',
       });
     }
@@ -411,7 +419,8 @@ export function ListingSidebarActions({
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Type your question..."
-                  className="min-h-[60px] max-h-[100px] text-xs resize-none bg-background border-border/60"
+                  className="min-h-[80px] max-h-[200px] text-xs resize-none bg-background border-border/60"
+                  rows={3}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
