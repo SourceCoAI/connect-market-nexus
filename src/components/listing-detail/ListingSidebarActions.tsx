@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { FolderOpen, MessageCircleQuestion, ChevronRight, Send, Loader2, Info } from 'lucide-react';
 import { format } from 'date-fns';
+import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
