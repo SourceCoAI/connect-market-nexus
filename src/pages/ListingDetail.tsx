@@ -55,6 +55,7 @@ const ListingDetail = () => {
   const { trackListingView, trackListingSave, trackConnectionRequest } = useAnalytics();
 
   const isAdmin = user?.is_admin === true;
+  const { data: agreementCoverage } = useMyAgreementStatus(!!user && !isAdmin);
 
   // Agreement status handled by ConnectionButton sidebar component
 
