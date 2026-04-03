@@ -594,7 +594,12 @@ export default function MessageCenter() {
             {selectedThreadId && selectedThread ? (
               <ThreadView
                 thread={selectedThread}
-                onBack={() => setSelectedThreadId(null)}
+                allBuyerThreads={selectedBuyerThreads}
+                onSelectThread={(id: string) => setSelectedThreadId(id)}
+                onBack={() => {
+                  setSelectedThreadId(null);
+                  setSelectedBuyerUserId(null);
+                }}
                 adminProfiles={adminProfiles}
               />
             ) : (
