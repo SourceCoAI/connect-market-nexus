@@ -1,37 +1,53 @@
 
+# Fix notify-support-inbox Email Not Sending
 
-# Restructure Buyer Profile Panel — Slide-Over Instead of Inline Column
+## Root Cause
 
-## Problem
+The `notify-support-inbox` edge function calls `sendEmail` with the wrong signature:
 
-The 260px inline column gets cut off at the viewport edge, text truncates everywhere ("Fee Agreen...", "Independent '..."), and it competes for horizontal space with the chat area. At 1251px viewport width, 320px list + chat + 260px panel = not enough room.
+```
+// BROKEN (line 112):
+await sendEmail(supabaseAdmin, {
+  to: SUPPORT_EMAIL,
+  subject,
+  html: fullHtml,           // wrong field name
+  replyTo: ...,
+  senderName: ...,
+  tags: ['support-inbox', type],  // not a valid field
+});
+```
 
-## Solution
+But `sendEmail` expects a single `SendEmailOptions` object:
+- `templateName` (required) -- missing
+- `htmlContent` (not `html`)
+- No `supabaseAdmin` first arg -- the function creates its own client
+- No `tags` field exists
 
-Replace the fixed inline column with a **slide-over drawer** that overlays the chat area from the right. Hidden by default, toggled via the "Buyer Profile" button.
+The supabaseAdmin object gets silently interpreted as the options, so `options.to` is undefined, causing the "email is missing in to" error.
 
-### Layout changes
+## Fix
 
-**`src/pages/admin/message-center/ThreadView.tsx`**
-- Default `showContext` to `false`
-- Remove the inline `ThreadContextPanel` from the flex layout
-- Instead, render it as a positioned overlay (absolute right-0, full height) with a backdrop click to close
-- Chat area always gets full width
+**`supabase/functions/notify-support-inbox/index.ts`**
 
-**`src/pages/admin/message-center/ThreadContextPanel.tsx`**
-- Change width from `w-[260px]` to `w-[340px]` — more room for content since it's an overlay now
-- Remove `hidden lg:flex` — visibility controlled by parent toggle
-- Add a close button in the header
-- Add shadow for overlay effect (`shadow-xl`)
-- Accept an `onClose` callback prop
+- Remove the `supabaseAdmin` first argument
+- Remove the `createClient` block (lines 107-110) -- not needed
+- Change `html` to `htmlContent`
+- Add `templateName: 'support-inbox-notification'`
+- Remove `tags` (not a valid field)
 
-### Result
-- Chat always uses full available width (~930px)
-- Buyer Profile opens as a 340px overlay with proper shadow, text no longer truncates
-- Click "Buyer Profile" button or close button to toggle
-- No horizontal overflow issues
+```typescript
+await sendEmail({
+  templateName: 'support-inbox-notification',
+  to: SUPPORT_EMAIL,
+  subject,
+  htmlContent: fullHtml,
+  replyTo: SUPPORT_REPLY_TO,
+  senderName: SUPPORT_SENDER_NAME,
+});
+```
+
+- Deploy `notify-support-inbox`
 
 ### Files changed
-- `src/pages/admin/message-center/ThreadView.tsx` — default hidden, render as overlay
-- `src/pages/admin/message-center/ThreadContextPanel.tsx` — wider, add close button, remove responsive hide
-
+- `supabase/functions/notify-support-inbox/index.ts` -- fix sendEmail call signature
+- Deploy edge function
