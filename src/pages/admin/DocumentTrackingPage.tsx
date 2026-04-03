@@ -76,6 +76,7 @@ interface FirmRow {
   contactEmail: string | null;
   firmAgreement: FirmAgreement;
   members: FirmMember[];
+  documentRequests: DocumentRequestRecord[];
 }
 
 interface OrphanUser {
