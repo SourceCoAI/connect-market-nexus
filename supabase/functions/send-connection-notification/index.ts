@@ -122,36 +122,24 @@ const handler = async (req: Request): Promise<Response> => {
 
       const buyerMessagesUrl = 'https://marketplace.sourcecodeals.com/my-deals';
       const subject = `You're in — introduction to ${escapeHtml(listingTitle)} approved.`;
-      const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
-    <div style="margin-bottom: 32px;">
-      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase;">SOURCECO</div>
-    </div>
-    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0; line-height: 1.4;">Introduction Approved</h1>
-    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
-      <p style="margin: 0 0 16px 0;">Your introduction to <strong>${escapeHtml(listingTitle)}</strong> has been approved.</p>
-      <p style="margin: 0 0 16px 0;">We're making a direct introduction to the business owner. You'll receive a message from our team with next steps — typically within one business day.</p>
-      <p style="margin: 0 0 8px 0; font-weight: 600;">What to expect</p>
-      <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #3A3A3A;">
-        <li>Our team facilitates the initial introduction</li>
-        <li>You'll receive access to deal details and supporting materials</li>
-        <li>Reply to any email or message us in the platform — we support through the process</li>
-      </ul>
-      <p style="margin: 0 0 24px 0;">This is an exclusive introduction — we work with a small number of buyers per deal. Move at your own pace, but don't sit on it.</p>
-    </div>
+      const htmlContent = wrapEmailHtml({
+        bodyHtml: `
+    <h1 style="font-size: 20px; font-weight: 700; margin: 0 0 24px 0;">Introduction Approved</h1>
+    <p>Your introduction to <strong>${escapeHtml(listingTitle)}</strong> has been approved.</p>
+    <p>We're making a direct introduction to the business owner. You'll receive a message from our team with next steps — typically within one business day.</p>
+    <p style="font-weight: 600;">What to expect</p>
+    <ul style="padding-left: 20px;">
+      <li>Our team facilitates the initial introduction</li>
+      <li>You'll receive access to deal details and supporting materials</li>
+      <li>Reply to any email or message us in the platform — we support through the process</li>
+    </ul>
+    <p>This is an exclusive introduction — we work with a small number of buyers per deal. Move at your own pace, but don't sit on it.</p>
     <div style="text-align: center; margin: 32px 0;">
-      <a href="${buyerMessagesUrl}" style="display: inline-block; background: #0E101A; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">View Messages</a>
-    </div>
-    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
-      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">This is an automated notification from SourceCo. If you have questions, email us at adam.haile@sourcecodeals.com</p>
-    </div>
-  </div>
-</body>
-</html>`;
+      <a href="${buyerMessagesUrl}" style="display: inline-block; background: #1a1a2e; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">View Messages</a>
+    </div>`,
+        preheader: "Your introduction is confirmed. Here's what happens next.",
+        recipientEmail,
+      });
 
       const result = await sendEmail({
         templateName: 'connection_approval_notification',
