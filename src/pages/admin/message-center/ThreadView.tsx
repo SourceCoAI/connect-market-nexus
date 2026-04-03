@@ -206,9 +206,40 @@ export function ThreadView({ thread, allBuyerThreads = [], onSelectThread, onBac
         </Button>
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-semibold truncate" style={{ color: '#0E101A' }}>{thread.buyer_name}</h2>
-          <p className="text-[11px] truncate mt-0.5" style={{ color: '#9A9A9A' }}>
-            {[thread.buyer_company, thread.deal_title, claimedByName ? `Claimed by ${claimedByName}` : null].filter(Boolean).join(' · ')}
-          </p>
+          {/* Thread selector when multiple threads exist */}
+          {allBuyerThreads.length > 1 && onSelectThread ? (
+            <div className="flex items-center gap-1.5 mt-1 overflow-x-auto">
+              {allBuyerThreads.map((t) => (
+                <button
+                  key={t.connection_request_id}
+                  onClick={() => onSelectThread(t.connection_request_id)}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors",
+                    t.connection_request_id === thread.connection_request_id
+                      ? "shadow-sm"
+                      : "hover:opacity-80"
+                  )}
+                  style={
+                    t.connection_request_id === thread.connection_request_id
+                      ? { backgroundColor: '#0E101A', color: '#FFFFFF' }
+                      : { backgroundColor: '#F0EDE6', color: '#9A9A9A' }
+                  }
+                >
+                  {t.deal_title || 'General Inquiry'}
+                  {t.unread_count > 0 && (
+                    <span className="flex h-3.5 min-w-[14px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
+                      style={{ backgroundColor: '#DEC76B', color: '#0E101A' }}>
+                      {t.unread_count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] truncate mt-0.5" style={{ color: '#9A9A9A' }}>
+              {[thread.buyer_company, thread.deal_title, claimedByName ? `Claimed by ${claimedByName}` : null].filter(Boolean).join(' · ')}
+            </p>
+          )}
         </div>
 
         {/* Quick actions */}
