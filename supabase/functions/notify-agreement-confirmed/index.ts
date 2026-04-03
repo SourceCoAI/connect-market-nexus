@@ -2,7 +2,9 @@
  * notify-agreement-confirmed
  *
  * Sends an email to firm members when an admin marks their NDA or Fee Agreement as "signed".
- * Tells the buyer they can now browse deals and request introductions.
+ * Differentiates copy based on agreement type:
+ * - Fee Agreement: full access granted
+ * - NDA only: tells buyer to sign Fee Agreement next
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -33,14 +35,18 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Get firm name
+    // Get firm name and fee agreement status
     const { data: firm } = await supabase
       .from('firm_agreements')
-      .select('primary_company_name')
+      .select('primary_company_name, fee_agreement_signed')
       .eq('id', firmId)
       .single();
 
     const firmName = firm?.primary_company_name || 'your firm';
+    const feeAlreadySigned = firm?.fee_agreement_signed === true;
+
+    // Determine if this grants full access
+    const isFullAccess = agreementType === 'fee_agreement' || feeAlreadySigned;
 
     // Get all firm members with emails
     const { data: members } = await supabase
@@ -82,18 +88,35 @@ Deno.serve(async (req) => {
 
       const greeting = firstName ? `${firstName},` : 'Hello,';
 
-      const bodyHtml = `
-        <p>${greeting}</p>
-        <p>Your ${docLabel} for ${firmName} has been recorded and confirmed. You now have full access to browse deals, request introductions, and access the data room on approved deals.</p>
-        <div style="text-align: center; margin: 28px 0;">
-          <a href="${appUrl}/marketplace" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Browse Deals</a>
-        </div>
-        <p style="color: #6B6B6B; font-size: 13px;">The SourceCo Team</p>
-      `;
+      let bodyHtml: string;
+      let preheader: string;
+
+      if (isFullAccess) {
+        bodyHtml = `
+          <p>${greeting}</p>
+          <p>Your ${docLabel} for ${firmName} has been recorded and confirmed. You now have full access to browse deals, request introductions, and access the data room on approved deals.</p>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${appUrl}/marketplace" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Browse Deals</a>
+          </div>
+          <p style="color: #6B6B6B; font-size: 13px;">The SourceCo Team</p>
+        `;
+        preheader = `Your ${docLabel} is confirmed. You can now request deal introductions.`;
+      } else {
+        bodyHtml = `
+          <p>${greeting}</p>
+          <p>Your NDA for ${firmName} has been recorded and confirmed. To unlock full access to deals and the data room, your Fee Agreement also needs to be signed.</p>
+          <p>If you have not yet received your Fee Agreement, reply to this email and we will send it over.</p>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${appUrl}/profile?tab=documents" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">View Your Documents</a>
+          </div>
+          <p style="color: #6B6B6B; font-size: 13px;">The SourceCo Team</p>
+        `;
+        preheader = 'Your NDA is confirmed. Sign your Fee Agreement to unlock deal access.';
+      }
 
       const html = wrapEmailHtml({
         bodyHtml,
-        preheader: `Your ${docLabel} is confirmed. You can now request deal introductions.`,
+        preheader,
         recipientEmail: email,
       });
 
