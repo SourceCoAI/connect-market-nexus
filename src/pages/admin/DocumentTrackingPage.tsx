@@ -1040,10 +1040,10 @@ function FirmExpandableRow({
               </div>
 
               {/* Document Requests History */}
-              {firm.documentRequests.length > 0 && (
+              {(firm.documentRequests || []).length > 0 && (
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                    <FileSignature className="h-3.5 w-3.5" /> Document Requests ({firm.documentRequests.length})
+                    <FileSignature className="h-3.5 w-3.5" /> Document Requests ({(firm.documentRequests || []).length})
                   </h4>
                   <div className="max-h-48 overflow-y-auto space-y-1">
                     {firm.documentRequests.map((dr) => (
@@ -1136,7 +1136,6 @@ function PendingRequestRow({ req, deliveryEvent }: { req: PendingRequest; delive
       await untypedFrom('document_requests')
         .update({
           status: 'signed',
-          updated_at: now,
           signed_toggled_by: user?.id || null,
           signed_toggled_by_name: adminName,
           signed_at: now,
@@ -1327,7 +1326,7 @@ function DismissButton({ requestId, label }: { requestId: string; label: string 
     setDismissing(true);
     try {
       const { error } = await untypedFrom('document_requests')
-        .update({ status: 'dismissed', updated_at: new Date().toISOString() })
+        .update({ status: 'dismissed' })
         .eq('id', requestId);
 
       if (error) throw error;
