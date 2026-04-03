@@ -5,6 +5,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { BuyerThread } from './helpers';
 import { parseReferences } from './types';
+import type { MessageReference } from './types';
+import { NewMessagePicker } from './NewMessagePicker';
 
 // ─── ConversationList ───
 
@@ -17,6 +19,7 @@ interface ConversationListProps {
   onSearchChange: (query: string) => void;
   onSelectThread: (requestId: string) => void;
   onSelectGeneral: () => void;
+  onReferenceChange: (ref: MessageReference | null) => void;
   totalUnread?: number;
 }
 
@@ -29,9 +32,11 @@ export function ConversationList({
   onSearchChange,
   onSelectThread,
   onSelectGeneral,
+  onReferenceChange,
   totalUnread = 0,
 }: ConversationListProps) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
     <div
@@ -85,13 +90,21 @@ export function ConversationList({
               >
                 <Search className="h-3.5 w-3.5" style={{ color: '#9A9A9A' }} />
               </button>
-              <button
-                onClick={onSelectGeneral}
-                className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-[#F8F8F6] transition-colors"
-                title="New message"
+              <NewMessagePicker
+                open={pickerOpen}
+                onOpenChange={setPickerOpen}
+                threads={threads}
+                onSelectGeneral={onSelectGeneral}
+                onSelectThread={onSelectThread}
+                onReferenceChange={onReferenceChange}
               >
-                <MessageSquarePlus className="h-3.5 w-3.5" style={{ color: '#9A9A9A' }} />
-              </button>
+                <button
+                  className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-[#F8F8F6] transition-colors"
+                  title="New message"
+                >
+                  <MessageSquarePlus className="h-3.5 w-3.5" style={{ color: '#9A9A9A' }} />
+                </button>
+              </NewMessagePicker>
             </div>
           </div>
         )}
