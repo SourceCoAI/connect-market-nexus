@@ -163,6 +163,14 @@ export function ListingSidebarActions({
                 >
                   {fee.label}
                 </span>
+                {feeNeedsRequest && !bothNeedRequest && (
+                  <button
+                    onClick={() => setShowAgreementModal(true)}
+                    className="text-[11px] font-medium text-foreground hover:text-foreground/70 transition-colors ml-1"
+                  >
+                    Request
+                  </button>
+                )}
               </div>
             </div>
             {/* NDA */}
@@ -180,9 +188,25 @@ export function ListingSidebarActions({
                 >
                   {nda.label}
                 </span>
+                {ndaNeedsRequest && !bothNeedRequest && (
+                  <button
+                    onClick={() => setShowAgreementModal(true)}
+                    className="text-[11px] font-medium text-foreground hover:text-foreground/70 transition-colors ml-1"
+                  >
+                    Request
+                  </button>
+                )}
               </div>
             </div>
           </div>
+          {bothNeedRequest && (
+            <button
+              onClick={() => setShowAgreementModal(true)}
+              className="text-xs font-medium text-foreground hover:text-foreground/70 transition-colors mt-2"
+            >
+              Request documents →
+            </button>
+          )}
         </div>
 
         {/* Actions Section */}
