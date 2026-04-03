@@ -222,7 +222,7 @@ const ConnectionButton = ({
               <>
                 <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
                   Sent to <span className="font-medium text-foreground">{user?.email}</span>. Review, sign, and reply to{' '}
-                  <span className="font-medium text-foreground">support@sourcecodeals.com</span>.
+                  <span className="font-medium text-foreground">adam.haile@sourcecodeals.com</span>.
                 </p>
                 <button
                   onClick={() => handleResend(type)}

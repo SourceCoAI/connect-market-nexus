@@ -133,8 +133,7 @@ Deno.serve(async (req: Request) => {
             .eq('id', buyer.id);
         }
 
-        // ── 2. Delivery logging for agreement emails ──
-        // Map all Brevo event name variants to a canonical delivery status
+        // ── 2. Delivery logging (legacy email_delivery_logs) ──
         const deliveryStatusMap: Record<string, string> = {
           delivered: 'delivered',
           request: 'accepted',
@@ -154,8 +153,8 @@ Deno.serve(async (req: Request) => {
         const deliveryStatus = deliveryStatusMap[event.event] || null;
 
         if (deliveryStatus) {
-          // Log to email_delivery_logs
-          const { error: logErr } = await supabase.from('email_delivery_logs').insert({
+          // Legacy log
+          await supabase.from('email_delivery_logs').insert({
             email,
             email_type: 'brevo_webhook',
             status: deliveryStatus,
@@ -164,29 +163,77 @@ Deno.serve(async (req: Request) => {
             sent_at: event.date ? new Date(event.date).toISOString() : new Date().toISOString(),
           });
 
-          if (logErr) {
-            console.error(`[brevo-webhook] Delivery log insert error: ${logErr.message}`);
-          }
-
-          // Update document_requests for bounces/blocks — match on normalized message id
-          if (['bounced', 'blocked', 'spam_complaint'].includes(deliveryStatus) && messageId) {
-            // Try matching with the raw stored value (could have angle brackets or not)
-            const errorMsg = `${deliveryStatus}: ${event.reason || event.event}`;
-
-            // Match both with and without angle brackets
+          // ── 3. NEW: Update outbound_emails + email_events ──
+          if (messageId) {
+            // Find matching outbound_emails record by provider_message_id
             const variants = [messageId, `<${messageId}>`];
-            for (const variant of variants) {
-              await supabase
-                .from('document_requests' as never)
-                .update({ last_email_error: errorMsg } as never)
-                .eq('email_provider_message_id' as never, variant as never);
+            const { data: outboundMatch } = await supabase
+              .from('outbound_emails')
+              .select('id, status')
+              .in('provider_message_id', variants)
+              .limit(1)
+              .maybeSingle();
+
+            if (outboundMatch) {
+              // Map to lifecycle status
+              const lifecycleMap: Record<string, string> = {
+                delivered: 'delivered',
+                accepted: 'accepted',
+                bounced: 'bounced',
+                blocked: 'blocked',
+                spam_complaint: 'spam',
+                opened: 'opened',
+                clicked: 'clicked',
+                soft_bounced: 'bounced',
+              };
+              const lifecycleStatus = lifecycleMap[deliveryStatus];
+
+              if (lifecycleStatus) {
+                // Update outbound_emails status
+                const statusUpdate: Record<string, unknown> = { status: lifecycleStatus };
+                if (lifecycleStatus === 'delivered') statusUpdate.delivered_at = new Date().toISOString();
+                if (lifecycleStatus === 'opened') statusUpdate.opened_at = new Date().toISOString();
+                if (lifecycleStatus === 'bounced' || lifecycleStatus === 'blocked' || lifecycleStatus === 'spam') {
+                  statusUpdate.failed_at = new Date().toISOString();
+                  statusUpdate.last_error = event.reason || event.event;
+                }
+
+                await supabase
+                  .from('outbound_emails')
+                  .update(statusUpdate)
+                  .eq('id', outboundMatch.id);
+
+                // Insert event
+                await supabase.from('email_events').insert({
+                  outbound_email_id: outboundMatch.id,
+                  event_type: lifecycleStatus,
+                  provider_event_id: rawMessageId,
+                  event_data: {
+                    brevo_event: event.event,
+                    reason: event.reason,
+                    date: event.date,
+                  },
+                });
+
+                console.log(`[brevo-webhook] Updated outbound_emails ${outboundMatch.id} → ${lifecycleStatus}`);
+              }
+            }
+
+            // Update document_requests for bounces/blocks
+            if (['bounced', 'blocked', 'spam_complaint'].includes(deliveryStatus)) {
+              const errorMsg = `${deliveryStatus}: ${event.reason || event.event}`;
+              for (const variant of variants) {
+                await supabase
+                  .from('document_requests' as never)
+                  .update({ last_email_error: errorMsg } as never)
+                  .eq('email_provider_message_id' as never, variant as never);
+              }
             }
           }
 
-          console.log(`[brevo-webhook] Delivery: ${deliveryStatus} for ${email} | messageId=${messageId || 'unknown'} | reason=${event.reason || 'none'}`);
+          console.log(`[brevo-webhook] Delivery: ${deliveryStatus} for ${email} | messageId=${messageId || 'unknown'}`);
         } else {
-          // Log unrecognized events instead of silently ignoring them
-          console.warn(`[brevo-webhook] Unrecognized event type: "${event.event}" for ${email} | messageId=${messageId || 'unknown'}`);
+          console.warn(`[brevo-webhook] Unrecognized event: "${event.event}" for ${email}`);
         }
       } catch (err) {
         console.error(`[brevo-webhook] Event processing error:`, err);

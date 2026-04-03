@@ -280,7 +280,7 @@ function usePendingRequestQueue() {
   });
 }
 
-/** Fetch latest delivery events from brevo webhook logs for given provider message IDs */
+/** Fetch latest delivery events — checks new outbound_emails first, falls back to legacy email_delivery_logs */
 function useDeliveryEvents(providerMessageIds: string[]) {
   return useQuery<DeliveryEvent[]>({
     queryKey: ['admin-delivery-events', providerMessageIds],
@@ -288,8 +288,27 @@ function useDeliveryEvents(providerMessageIds: string[]) {
     enabled: providerMessageIds.length > 0,
     queryFn: async () => {
       if (providerMessageIds.length === 0) return [];
-      // Normalize: strip angle brackets so we match both <id> and id formats
       const normalized = providerMessageIds.map(id => id.replace(/^<|>$/g, '').trim());
+      const withBrackets = normalized.map(id => `<${id}>`);
+      const allVariants = [...normalized, ...withBrackets];
+
+      // Try new outbound_emails table first
+      const { data: newData } = await untypedFrom('outbound_emails')
+        .select('recipient_email, status, provider_message_id, last_error, delivered_at, opened_at, failed_at')
+        .in('provider_message_id', allVariants)
+        .order('created_at', { ascending: false });
+
+      if (newData && newData.length > 0) {
+        return (newData as Array<Record<string, unknown>>).map(row => ({
+          email: row.recipient_email as string,
+          status: row.status as string,
+          correlation_id: (row.provider_message_id as string)?.replace(/^<|>$/g, '').trim() || null,
+          error_message: row.last_error as string | null,
+          sent_at: (row.delivered_at || row.opened_at || row.failed_at) as string | null,
+        }));
+      }
+
+      // Fallback to legacy
       const { data, error } = await supabase
         .from('email_delivery_logs')
         .select('email, status, correlation_id, error_message, sent_at')
@@ -1131,7 +1150,7 @@ function PendingRequestRow({ req, deliveryEvent }: { req: PendingRequest; delive
                 </span>
               ) : req.status === 'email_sent' ? (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                  ✉ Sent to provider
+                  ✉ Accepted by Brevo
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground border border-border">

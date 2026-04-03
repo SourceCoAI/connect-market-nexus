@@ -5345,6 +5345,41 @@ export type Database = {
         }
         Relationships: []
       }
+      email_events: {
+        Row: {
+          created_at: string
+          event_data: Json | null
+          event_type: Database["public"]["Enums"]["email_lifecycle_status"]
+          id: string
+          outbound_email_id: string
+          provider_event_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json | null
+          event_type: Database["public"]["Enums"]["email_lifecycle_status"]
+          id?: string
+          outbound_email_id: string
+          provider_event_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json | null
+          event_type?: Database["public"]["Enums"]["email_lifecycle_status"]
+          id?: string
+          outbound_email_id?: string
+          provider_event_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_events_outbound_email_id_fkey"
+            columns: ["outbound_email_id"]
+            isOneToOne: false
+            referencedRelation: "outbound_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engagement_scores: {
         Row: {
           activity_streak: number | null
@@ -8476,6 +8511,78 @@ export type Database = {
           request_count?: number
           updated_at?: string
           window_start?: string
+        }
+        Relationships: []
+      }
+      outbound_emails: {
+        Row: {
+          accepted_at: string | null
+          correlation_id: string
+          created_at: string
+          delivered_at: string | null
+          failed_at: string | null
+          has_attachment: boolean | null
+          id: string
+          last_error: string | null
+          metadata: Json | null
+          opened_at: string | null
+          provider_message_id: string | null
+          recipient_email: string
+          recipient_name: string | null
+          reply_to_email: string | null
+          send_attempts: number | null
+          sender_email: string
+          sender_name: string
+          status: Database["public"]["Enums"]["email_lifecycle_status"]
+          subject: string | null
+          template_name: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          correlation_id?: string
+          created_at?: string
+          delivered_at?: string | null
+          failed_at?: string | null
+          has_attachment?: boolean | null
+          id?: string
+          last_error?: string | null
+          metadata?: Json | null
+          opened_at?: string | null
+          provider_message_id?: string | null
+          recipient_email: string
+          recipient_name?: string | null
+          reply_to_email?: string | null
+          send_attempts?: number | null
+          sender_email?: string
+          sender_name?: string
+          status?: Database["public"]["Enums"]["email_lifecycle_status"]
+          subject?: string | null
+          template_name: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          correlation_id?: string
+          created_at?: string
+          delivered_at?: string | null
+          failed_at?: string | null
+          has_attachment?: boolean | null
+          id?: string
+          last_error?: string | null
+          metadata?: Json | null
+          opened_at?: string | null
+          provider_message_id?: string | null
+          recipient_email?: string
+          recipient_name?: string | null
+          reply_to_email?: string | null
+          send_attempts?: number | null
+          sender_email?: string
+          sender_name?: string
+          status?: Database["public"]["Enums"]["email_lifecycle_status"]
+          subject?: string | null
+          template_name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -14096,6 +14203,17 @@ export type Database = {
         | "waiting_on_admin"
         | "claimed"
         | "closed"
+      email_lifecycle_status:
+        | "queued"
+        | "accepted"
+        | "delivered"
+        | "opened"
+        | "clicked"
+        | "bounced"
+        | "blocked"
+        | "spam"
+        | "failed"
+        | "unsubscribed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -14230,6 +14348,18 @@ export const Constants = {
         "waiting_on_admin",
         "claimed",
         "closed",
+      ],
+      email_lifecycle_status: [
+        "queued",
+        "accepted",
+        "delivered",
+        "opened",
+        "clicked",
+        "bounced",
+        "blocked",
+        "spam",
+        "failed",
+        "unsubscribed",
       ],
     },
   },

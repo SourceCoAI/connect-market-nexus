@@ -168,7 +168,7 @@ const EMAILS: EmailDef[] = [
     category: 'agreement',
     trigger: 'Buyer clicks "Request NDA" button',
     triggerDetail:
-      'Fires when a buyer requests their NDA via the marketplace. The request-agreement-email edge function sends the NDA document to the buyer via email from support@sourcecodeals.com. Admins are notified and can track the request in Document Tracking.',
+      'Fires when a buyer requests their NDA via the marketplace. The request-agreement-email edge function sends the NDA document to the buyer via email from adam.haile@sourcecodeals.com. Admins are notified and can track the request in Document Tracking.',
     file: 'supabase/functions/request-agreement-email/index.ts',
     subject: 'Your NDA (Non-Disclosure Agreement) from SourceCo',
     preheader: 'Review and sign your NDA to access the full SourceCo pipeline.',
@@ -195,7 +195,7 @@ const EMAILS: EmailDef[] = [
     category: 'agreement',
     trigger: 'Buyer clicks "Request Fee Agreement" button',
     triggerDetail:
-      'Fires when a buyer requests their Fee Agreement via the marketplace. The request-agreement-email edge function sends the document to the buyer via email from support@sourcecodeals.com. Admins are notified and can track the request in Document Tracking.',
+      'Fires when a buyer requests their Fee Agreement via the marketplace. The request-agreement-email edge function sends the document to the buyer via email from adam.haile@sourcecodeals.com. Admins are notified and can track the request in Document Tracking.',
     file: 'supabase/functions/request-agreement-email/index.ts',
     subject: "Your Fee Agreement from SourceCo",
     preheader: 'Review and sign your Fee Agreement to complete your SourceCo setup.',

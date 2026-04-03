@@ -106,7 +106,7 @@ export function SendAgreementDialog({
           <div className="bg-muted/50 border border-border rounded-lg p-3">
             <div className="flex items-center gap-2 text-sm">
               <Mail className="h-4 w-4 text-muted-foreground" />
-              <span>Document will be sent from <strong>support@sourcecodeals.com</strong></span>
+              <span>Document will be sent from <strong>adam.haile@sourcecodeals.com</strong></span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               The recipient will receive the {docLabel.toLowerCase()} to review and sign. They should return the signed copy via email.

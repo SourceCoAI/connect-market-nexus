@@ -61,7 +61,7 @@ export function FeeAgreementGate({ userId, firmId: _firmId, listingTitle: _listi
             <div>
               <h2 className="text-2xl font-bold text-emerald-800">Fee Agreement Sent!</h2>
               <p className="text-muted-foreground mt-2">
-                Check your inbox at <strong>{user?.email}</strong>. Review, sign, and reply to <strong>support@sourcecodeals.com</strong> with the signed copy.
+                Check your inbox at <strong>{user?.email}</strong>. Review, sign, and reply to <strong>adam.haile@sourcecodeals.com</strong> with the signed copy.
               </p>
               <p className="text-muted-foreground mt-2">
                 Once processed, you'll be able to request deal introductions.

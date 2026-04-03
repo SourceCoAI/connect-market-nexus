@@ -87,7 +87,7 @@ export function useDownloadDocument() {
     // No URL available — inform the user
     toast({
       title: 'Not Available',
-      description: 'Document is not yet available for download. Contact support@sourcecodeals.com for a copy.',
+      description: 'Document is not yet available for download. Contact adam.haile@sourcecodeals.com for a copy.',
       variant: 'destructive',
     });
   };

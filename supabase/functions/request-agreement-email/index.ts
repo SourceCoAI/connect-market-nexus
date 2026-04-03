@@ -1,19 +1,20 @@
-import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
 import { selfHealFirm } from '../_shared/firm-self-heal.ts';
-import { sendViaBervo } from '../_shared/brevo-sender.ts';
-import { logEmailDelivery } from '../_shared/email-logger.ts';
+import { sendEmail } from '../_shared/email-sender.ts';
 
 /**
- * request-agreement-email
- * Sends NDA or Fee Agreement via email.
- * Updates both document_requests (ops queue) and firm_agreements (canonical status).
- * Logs to email_delivery_logs for full observability.
+ * request-agreement-email — REBUILT from scratch on the new email architecture.
+ *
+ * Uses the unified email-sender.ts (Phase 3) which:
+ * - Logs every email to outbound_emails + email_events
+ * - Uses the locked verified sender identity
+ * - Has retry with exponential backoff
+ * - Returns both internal ID and provider message ID
  */
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return corsPreflightResponse(req);
 
@@ -24,6 +25,7 @@ serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    // Auth
     const auth = await requireAuth(req);
     if (!auth.authenticated || !auth.userId) {
       return new Response(JSON.stringify({ error: auth.error }), {
@@ -38,6 +40,7 @@ serve(async (req: Request) => {
       recipientName?: string;
       firmId?: string;
     };
+
     const { documentType, recipientEmail: overrideEmail, recipientName: overrideName, firmId: overrideFirmId } = body;
     if (!documentType || !['nda', 'fee_agreement'].includes(documentType)) {
       return new Response(JSON.stringify({ error: 'Invalid documentType' }), {
@@ -47,9 +50,7 @@ serve(async (req: Request) => {
     }
 
     const userId = auth.userId;
-    const correlationId = crypto.randomUUID();
-
-    console.log(`[request-agreement-email] START | type=${documentType} | caller=${userId} | correlationId=${correlationId}`);
+    console.log(`[request-agreement-email] START | type=${documentType} | caller=${userId}`);
 
     // Check if caller is admin
     const { data: callerRole } = await supabaseAdmin
@@ -72,7 +73,6 @@ serve(async (req: Request) => {
       buyerName = overrideName || overrideEmail;
       firmId = overrideFirmId || null;
 
-      // For admin-triggered sends, try to resolve the buyer's user_id
       if (!firmId) {
         const { data: buyerProfile } = await supabaseAdmin
           .from('profiles')
@@ -84,8 +84,7 @@ serve(async (req: Request) => {
           const { data: firmIdResult } = await supabaseAdmin.rpc('resolve_user_firm_id', { p_user_id: buyerProfile.id });
           firmId = firmIdResult;
         } else {
-          // No matching platform user — keep targetUserId as null marker
-          targetUserId = userId; // admin is the actor, not the target
+          targetUserId = userId;
         }
       }
 
@@ -152,40 +151,16 @@ serve(async (req: Request) => {
 
     const statusCol = documentType === 'nda' ? 'nda_status' : 'fee_agreement_status';
     if (firm && (firm as Record<string, unknown>)[statusCol] === 'signed') {
-      console.log(`[request-agreement-email] Already signed | type=${documentType} | firmId=${firmId}`);
       return new Response(JSON.stringify({ success: true, alreadySigned: true, message: 'Document already signed.' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    // Insert document request with correlation tracking
-    const { data: docRequest, error: insertErr } = await supabaseAdmin
-      .from('document_requests')
-      .insert({
-        firm_id: firmId,
-        user_id: targetUserId,
-        agreement_type: documentType,
-        status: 'requested',
-        requested_at: new Date().toISOString(),
-        recipient_email: buyerEmail,
-        recipient_name: buyerName,
-        requested_by_admin_id: adminId,
-        email_correlation_id: correlationId,
-      })
-      .select('id')
-      .single();
-
-    if (insertErr) {
-      console.error('[request-agreement-email] Insert error:', insertErr);
-    }
-
-    console.log(`[request-agreement-email] Request created | requestId=${docRequest?.id} | recipient=${buyerEmail} | firmId=${firmId} | correlationId=${correlationId}`);
-
+    // Fetch document attachment
     const docLabel = documentType === 'nda' ? 'NDA (Non-Disclosure Agreement)' : 'Fee Agreement';
     const docFileName = documentType === 'nda' ? 'NDA.docx' : 'FeeAgreement.docx';
 
-    // Fetch the actual document to attach (same approach as legacy send-nda-email)
     let attachmentList: Array<{ name: string; content: string }> = [];
     let downloadLink = '';
     try {
@@ -212,22 +187,43 @@ serve(async (req: Request) => {
       console.warn('[request-agreement-email] Attachment fetch error:', dlErr);
     }
 
-    // LOCKED sender identity — adam.haile@ is the only verified sender that delivers to Gmail
-    const senderEmail = 'adam.haile@sourcecodeals.com';
+    // Insert document_requests record
+    const correlationId = crypto.randomUUID();
+    const { data: docRequest, error: insertErr } = await supabaseAdmin
+      .from('document_requests')
+      .insert({
+        firm_id: firmId,
+        user_id: targetUserId,
+        agreement_type: documentType,
+        status: 'requested',
+        requested_at: new Date().toISOString(),
+        recipient_email: buyerEmail,
+        recipient_name: buyerName,
+        requested_by_admin_id: adminId,
+        email_correlation_id: correlationId,
+      })
+      .select('id')
+      .single();
 
-    console.log(`[request-agreement-email] SEND CONFIG | sender=${senderEmail} | replyTo=adam.haile@sourcecodeals.com | recipient=${buyerEmail} | attachments=${attachmentList.length} | correlationId=${correlationId}`);
+    if (insertErr) {
+      console.error('[request-agreement-email] Insert error:', insertErr);
+    }
 
-    // Send email via Brevo — using the proven sender identity
-    const emailResult = await sendViaBervo({
+    // ── SEND via new unified email-sender ──
+    const emailResult = await sendEmail({
+      templateName: `agreement_${documentType}`,
       to: buyerEmail,
       toName: buyerName,
       subject: `Your ${docLabel} from SourceCo`,
-      senderEmail,
-      senderName: 'Adam Haile - SourceCo',
-      replyToEmail: 'adam.haile@sourcecodeals.com',
-      replyToName: 'Adam Haile',
+      replyTo: 'adam.haile@sourcecodeals.com',
       isTransactional: true,
-      attachment: attachmentList.length > 0 ? attachmentList : undefined,
+      attachments: attachmentList.length > 0 ? attachmentList : undefined,
+      metadata: {
+        firmId,
+        documentType,
+        requestId: docRequest?.id,
+        adminTriggered: !!adminId,
+      },
       htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #0E101A; margin-bottom: 16px;">Your ${docLabel}</h2>
@@ -255,33 +251,21 @@ serve(async (req: Request) => {
       `,
     });
 
-    // Log delivery to email_delivery_logs
-    console.log(`[request-agreement-email] Brevo result | success=${emailResult.success} | messageId=${emailResult.messageId || 'none'} | error=${emailResult.error || 'none'} | correlationId=${correlationId}`);
-
-    await logEmailDelivery(supabaseAdmin, {
-      email: buyerEmail,
-      emailType: `agreement_${documentType}`,
-      status: emailResult.success ? 'sent' : 'failed',
-      correlationId,
-      errorMessage: emailResult.error,
-    });
-
-    // Update document request with provider details
+    // Update document_requests with result
     if (docRequest?.id) {
-      const updatePayload: Record<string, unknown> = {
-        status: emailResult.success ? 'email_sent' : 'requested',
-        email_sent_at: emailResult.success ? new Date().toISOString() : null,
-        email_provider_message_id: emailResult.messageId || null,
-        last_email_error: emailResult.error || null,
-      };
-
       await supabaseAdmin
         .from('document_requests')
-        .update(updatePayload)
+        .update({
+          status: emailResult.success ? 'email_sent' : 'requested',
+          email_sent_at: emailResult.success ? new Date().toISOString() : null,
+          email_provider_message_id: emailResult.providerMessageId || null,
+          email_correlation_id: emailResult.correlationId || correlationId,
+          last_email_error: emailResult.error || null,
+        })
         .eq('id', docRequest.id);
     }
 
-    // Update firm_agreements: request timestamp + canonical status to 'sent'
+    // Update firm_agreements
     const now = new Date().toISOString();
     const requestedAtCol = documentType === 'nda' ? 'nda_requested_at' : 'fee_agreement_requested_at';
     const requestedByCol = documentType === 'nda' ? 'nda_requested_by' : 'fee_agreement_requested_by';
@@ -304,7 +288,7 @@ serve(async (req: Request) => {
       .update(firmUpdate)
       .eq('id', firmId);
 
-    // Notify all admins
+    // Admin notifications
     try {
       const { data: adminRoles } = await supabaseAdmin
         .from('user_roles')
@@ -313,13 +297,19 @@ serve(async (req: Request) => {
 
       const admins = (adminRoles || []).map((r: { user_id: string }) => r.user_id);
       if (admins.length > 0) {
-        const notifications = admins.map((adminId: string) => ({
-          admin_id: adminId,
+        const notifications = admins.map((aid: string) => ({
+          admin_id: aid,
           notification_type: 'document_signing_requested',
           title: `${docLabel} Requested`,
-          message: `${buyerName} (${buyerEmail}) has requested their ${docLabel}. Check your email inbox.`,
+          message: `${buyerName} (${buyerEmail}) has requested their ${docLabel}.`,
           user_id: targetUserId,
-          metadata: { firm_id: firmId, document_type: documentType, request_id: docRequest?.id, correlation_id: correlationId },
+          metadata: {
+            firm_id: firmId,
+            document_type: documentType,
+            request_id: docRequest?.id,
+            outbound_email_id: emailResult.emailId,
+            correlation_id: emailResult.correlationId,
+          },
         }));
         await supabaseAdmin.from('admin_notifications').insert(notifications);
       }
@@ -328,23 +318,21 @@ serve(async (req: Request) => {
     }
 
     if (!emailResult.success) {
-      console.error(`[request-agreement-email] FAILED | recipient=${buyerEmail} | type=${documentType} | error=${emailResult.error} | correlationId=${correlationId}`);
       return new Response(JSON.stringify({
         success: false,
-        error: 'Failed to send email. Our team has been notified. Please try again later.',
-        correlationId,
+        error: 'Failed to send email. Our team has been notified.',
+        correlationId: emailResult.correlationId,
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    console.log(`[request-agreement-email] SUCCESS | recipient=${buyerEmail} | type=${documentType} | brevoMessageId=${emailResult.messageId} | correlationId=${correlationId}`);
-
     return new Response(JSON.stringify({
       success: true,
       message: `${docLabel} sent to ${buyerEmail}. Check your inbox and reply with the signed copy.`,
-      correlationId,
+      correlationId: emailResult.correlationId,
+      emailId: emailResult.emailId,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
