@@ -195,6 +195,9 @@ const ListingCardActions = memo(function ListingCardActions({
             <Shield className="h-3 w-3" />
             Sign Agreement to Request Access
           </button>
+          <p className="text-[10px] text-muted-foreground text-center leading-relaxed px-2">
+            Save this listing for later. Sign your agreement to request access.
+          </p>
         </div>
         <AgreementSigningModal
           open={signingOpen}

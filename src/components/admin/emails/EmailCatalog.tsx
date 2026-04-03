@@ -250,6 +250,15 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         designNotes: 'Branded wrapper, access confirmation, CTA to enter data room',
         previewHtml: `${wrapperStart}<p>You now have access to the data room for Project Acme. It contains financial documents, operational data, and other confidential materials for your review.</p>${ctaBtn('Enter Data Room')}${signoff}${wrapperEnd}`,
       },
+      {
+        name: 'Agreement Confirmed',
+        subject: 'Your [NDA/Fee Agreement] has been confirmed',
+        recipient: 'Buyer',
+        trigger: 'Admin marks agreement status as signed',
+        edgeFunction: 'notify-agreement-confirmed',
+        designNotes: 'Branded wrapper, confirmation message, CTA to browse marketplace',
+        previewHtml: `${wrapperStart}<p>Jane,</p><p>Your Fee Agreement for Apex Capital has been recorded and confirmed. You now have full access to browse deals and request introductions on the SourceCo marketplace.</p>${ctaBtn('Browse Deals')}${signoff}${wrapperEnd}`,
+      },
     ],
   },
   {

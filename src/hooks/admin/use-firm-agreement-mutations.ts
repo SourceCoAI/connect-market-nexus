@@ -231,7 +231,7 @@ export function useUpdateAgreementStatus() {
       return { previousData };
     },
     onSuccess: async (_data, params) => {
-      // If status is being set to 'signed', update any pending document_requests
+      // If status is being set to 'signed', update any pending document_requests and notify firm members
       if (params.newStatus === 'signed') {
         try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -255,6 +255,18 @@ export function useUpdateAgreementStatus() {
           }
         } catch (err) {
           console.warn('Failed to update document_requests on sign toggle:', err);
+        }
+
+        // Send confirmation email to firm members
+        try {
+          await supabase.functions.invoke('notify-agreement-confirmed', {
+            body: {
+              firmId: params.firmId,
+              agreementType: params.agreementType,
+            },
+          });
+        } catch (err) {
+          console.warn('Failed to send agreement confirmation email:', err);
         }
       }
 
