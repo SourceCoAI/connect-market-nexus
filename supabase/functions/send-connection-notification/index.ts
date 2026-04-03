@@ -26,7 +26,7 @@ function buildUserConfirmationHtml(
 ): string {
   return wrapEmailHtml({
     bodyHtml: `
-    <p>We received your introduction request for <strong>${escapeHtml(listingTitle)}</strong>.</p>
+    <p>We received your introduction request for ${escapeHtml(listingTitle)}.</p>
     <p>Our team reviews every request and selects buyers based on fit. You will hear from us within 24 hours.</p>
     ${message ? `
     <div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin: 20px 0;">
