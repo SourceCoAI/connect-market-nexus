@@ -110,10 +110,23 @@ export function ListingSidebarActions({
     if (!body) return;
 
     try {
+      // Step 1: Resolve or create thread
       let requestId = threadId;
       if (!requestId) {
-        requestId = await createInquiry.mutateAsync(listingId);
+        try {
+          requestId = await createInquiry.mutateAsync(listingId);
+        } catch (err) {
+          console.error('[Ask a Question] Thread creation failed:', err);
+          toast({
+            title: 'Could not start conversation',
+            description: err instanceof Error ? err.message : 'Please try again.',
+            variant: 'destructive',
+          });
+          return;
+        }
       }
+
+      // Step 2: Send the message
       await sendMsg.mutateAsync({
         connection_request_id: requestId!,
         body,
@@ -121,12 +134,21 @@ export function ListingSidebarActions({
       });
       setMessage('');
 
-      // Auto-save listing when buyer sends a question
+      // Step 3: Auto-save listing
       if (!isSaved) {
-        saveListing.mutate({ listingId, action: 'save' });
+        try {
+          saveListing.mutate({ listingId, action: 'save' });
+        } catch (saveErr) {
+          console.warn('[Ask a Question] Auto-save failed:', saveErr);
+        }
       }
+
+      // Step 4: Invalidate queries so messages appear everywhere
+      queryClient.invalidateQueries({ queryKey: ['buyer-message-threads'] });
+      queryClient.invalidateQueries({ queryKey: ['deal-inquiry', listingId] });
+      queryClient.invalidateQueries({ queryKey: ['saved-listing-ids'] });
     } catch (err) {
-      console.error('Failed to send message:', err);
+      console.error('[Ask a Question] Send failed:', err);
       toast({
         title: 'Failed to send',
         description: err instanceof Error ? err.message : 'Please try again.',

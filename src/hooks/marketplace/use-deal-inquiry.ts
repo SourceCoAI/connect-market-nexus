@@ -73,7 +73,7 @@ export function useCreateInquiry() {
           user_id: user.id,
           listing_id: listingId,
           status: 'pending',
-          source: 'inquiry',
+          source: 'marketplace',
           user_message: 'Inquiry from listing page',
         })
         .select('id')
