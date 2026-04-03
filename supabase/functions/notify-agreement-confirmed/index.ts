@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
 
     const docLabel = agreementType === 'nda' ? 'NDA' : 'Fee Agreement';
     const subject = `Your ${docLabel} has been confirmed`;
-    const appUrl = 'https://app.sourcecodeals.com';
+    const appUrl = 'https://marketplace.sourcecodeals.com';
 
     let sent = 0;
 

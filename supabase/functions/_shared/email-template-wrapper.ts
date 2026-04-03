@@ -41,7 +41,7 @@ export function wrapEmailHtml(options: EmailWrapperOptions): string {
     : '';
 
   const unsubUrl = recipientEmail
-    ? `https://app.sourcecodeals.com/unsubscribe?email=${encodeURIComponent(recipientEmail)}`
+    ? `https://marketplace.sourcecodeals.com/unsubscribe?email=${encodeURIComponent(recipientEmail)}`
     : '';
 
   const footerHtml = showFooter

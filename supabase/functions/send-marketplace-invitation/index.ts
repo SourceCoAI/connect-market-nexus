@@ -41,7 +41,7 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const signupUrl = `${Deno.env.get('SITE_URL') || 'https://app.sourcecodeals.com'}/welcome`;
+    const signupUrl = `${Deno.env.get('SITE_URL') || 'https://marketplace.sourcecodeals.com'}/welcome`;
     const safeName = escapeHtml(name);
     const safeCustomMsg = customMessage ? escapeHtml(customMessage) : '';
 

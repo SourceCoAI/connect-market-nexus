@@ -66,7 +66,7 @@ const handler = async (req: Request): Promise<Response> => {
     const buyerName = `${buyer.first_name || ''} ${buyer.last_name || ''}`.trim() || 'there';
     const dealTitle = listing?.title || 'a deal';
     const preview = (message_preview || '').substring(0, 200);
-    const loginUrl = 'https://marketplace.sourcecodeals.com/my-deals';
+    const loginUrl = 'https://marketplace.sourcecodeals.com/messages';
 
     const subject = `New message from SourceCo re: ${escapeHtml(dealTitle)}`;
     const htmlContent = buildMessageNotificationHtml(buyerName, dealTitle, preview, loginUrl, buyer.email);

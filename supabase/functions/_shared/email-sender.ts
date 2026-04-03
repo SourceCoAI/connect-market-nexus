@@ -159,7 +159,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 
   // Transactional emails don't get unsubscribe headers
   if (!options.isTransactional) {
-    const platformUrl = Deno.env.get('PLATFORM_URL') || 'https://app.sourcecodeals.com';
+    const platformUrl = Deno.env.get('PLATFORM_URL') || 'https://marketplace.sourcecodeals.com';
     const unsubUrl = `${platformUrl}/unsubscribe?email=${encodeURIComponent(options.to)}`;
     payload.headers = {
       'List-Unsubscribe': `<${unsubUrl}>`,
