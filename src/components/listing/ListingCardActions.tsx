@@ -39,7 +39,7 @@ const ListingCardActions = memo(function ListingCardActions({
   profileCompletePct = 100,
   isBuyerBlocked = false,
   isFeeCovered = true,
-  isNdaCovered = true,
+  isNdaCovered: _isNdaCovered = true,
 }: ListingCardActionsProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [signingOpen, setSigningOpen] = useState(false);
