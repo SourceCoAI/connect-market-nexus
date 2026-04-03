@@ -43,17 +43,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailHtml = wrapEmailHtml({
       bodyHtml: `
-        <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">New Feedback Received</p>
-        <p style="margin: 0 0 16px;">A user has submitted feedback that requires your attention.</p>
-        <div style="background: #F7F6F3; padding: 20px; border-radius: 6px; margin: 0 0 20px;">
-          <div style="margin-bottom: 12px;"><strong>Category:</strong> ${safeCategoryLabel}</div>
-          <div style="margin-bottom: 12px;"><strong>Priority:</strong> ${safePriority}</div>
-          ${safeUserName ? `<div style="margin-bottom: 12px;"><strong>From:</strong> ${safeUserName}</div>` : ''}
-          ${safeUserEmail ? `<div style="margin-bottom: 12px;"><strong>Email:</strong> ${safeUserEmail}</div>` : ''}
-          ${safePageUrl ? `<div style="margin-bottom: 12px;"><strong>Page:</strong> ${safePageUrl}</div>` : ''}
-          <div style="margin-top: 16px;"><strong>Message:</strong>
-            <div style="background: #ffffff; padding: 12px; border-radius: 6px; margin-top: 8px;">${escapeHtmlWithBreaks(message)}</div>
-          </div>
+        <p>A user has submitted feedback that requires your attention.</p>
+        <div style="background: #F7F6F3; padding: 24px; margin: 24px 0;">
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Category: ${safeCategoryLabel}</p>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Priority: ${safePriority}</p>
+          ${safeUserName ? `<p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">From: ${safeUserName}</p>` : ''}
+          ${safeUserEmail ? `<p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Email: ${safeUserEmail}</p>` : ''}
+          ${safePageUrl ? `<p style="margin: 0 0 4px; font-size: 14px; color: #6B6B6B;">Page: ${safePageUrl}</p>` : ''}
+          <div style="margin-top: 16px; background: #ffffff; padding: 16px;">${escapeHtmlWithBreaks(message)}</div>
         </div>
         <div style="text-align: center; margin: 28px 0;">
           <a href="https://marketplace.sourcecodeals.com/admin" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">View in Admin Dashboard</a>

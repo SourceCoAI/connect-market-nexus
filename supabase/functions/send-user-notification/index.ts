@@ -45,8 +45,7 @@ const handler = async (req: Request): Promise<Response> => {
     } else {
       htmlContent = wrapEmailHtml({
         bodyHtml: `
-          <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">${subject.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-          <div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin: 0 0 20px;">
+          <div style="background: #F7F6F3; padding: 24px; margin: 0 0 24px;">
             ${message.replace(/\n/g, '<br>')}
           </div>
           ${actionUrl && actionText ? `

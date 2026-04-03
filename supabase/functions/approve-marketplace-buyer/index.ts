@@ -134,16 +134,15 @@ Deno.serve(async (req: Request) => {
 function buildApprovalEmailHtml(projectName: string, buyerName: string, linkUrl: string, buyerEmail: string): string {
   return wrapEmailHtml({
     bodyHtml: `
-    <p style="font-size: 18px; font-weight: 600; margin: 0 0 20px;">Project ${projectName}: Investment Opportunity</p>
-    <p style="margin: 0 0 16px;">Dear ${buyerName},</p>
-    <p style="margin: 0 0 16px;">Thank you for your interest in this investment opportunity. We are pleased to share the Anonymous Teaser for <strong>Project ${projectName}</strong> with you.</p>
-    <p style="margin: 0 0 16px;">Click below to review the investment summary.</p>
+    <p>Dear ${buyerName},</p>
+    <p>Thank you for your interest in this investment opportunity. We are pleased to share the Anonymous Teaser for Project ${projectName} with you.</p>
+    <p>Click below to review the investment summary.</p>
     <div style="text-align: center; margin: 28px 0;">
       <a href="${linkUrl}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">View Investment Teaser</a>
     </div>
-    <div style="background: #F7F6F3; padding: 12px 16px; border-radius: 6px; margin: 20px 0; font-size: 14px;">This is a private, tracked link generated exclusively for you. Do not share or forward this link.</div>
-    <p style="margin: 0 0 16px;">If this opportunity aligns with your investment criteria, reply to this email to express your interest.</p>
-    <p style="margin: 32px 0 0;">SourceCo Deal Team</p>
+    <div style="background: #F7F6F3; padding: 16px; margin: 24px 0; font-size: 14px;">This is a private, tracked link generated exclusively for you. Do not share or forward this link.</div>
+    <p>If this opportunity aligns with your investment criteria, reply to this email to express your interest.</p>
+    <p style="margin: 32px 0 0; color: #6B6B6B;">SourceCo Deal Team</p>
     <p style="font-size: 12px; color: #9B9B9B; margin-top: 16px;">This communication is confidential and intended solely for the named recipient.</p>`,
     preheader: `Investment opportunity: Project ${projectName}`,
     recipientEmail: buyerEmail,
