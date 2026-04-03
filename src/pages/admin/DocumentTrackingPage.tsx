@@ -1150,7 +1150,7 @@ function PendingRequestRow({ req, deliveryEvent }: { req: PendingRequest; delive
                 </span>
               ) : req.status === 'email_sent' ? (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                  ✉ Sent to provider
+                  ✉ Accepted by Brevo
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground border border-border">
