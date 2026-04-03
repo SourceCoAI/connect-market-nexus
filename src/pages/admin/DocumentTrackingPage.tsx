@@ -280,19 +280,21 @@ function usePendingRequestQueue() {
   });
 }
 
-/** Fetch latest delivery events from brevo webhook logs for given correlation IDs */
-function useDeliveryEvents(correlationIds: string[]) {
+/** Fetch latest delivery events from brevo webhook logs for given provider message IDs */
+function useDeliveryEvents(providerMessageIds: string[]) {
   return useQuery<DeliveryEvent[]>({
-    queryKey: ['admin-delivery-events', correlationIds],
+    queryKey: ['admin-delivery-events', providerMessageIds],
     staleTime: 30_000,
-    enabled: correlationIds.length > 0,
+    enabled: providerMessageIds.length > 0,
     queryFn: async () => {
-      if (correlationIds.length === 0) return [];
+      if (providerMessageIds.length === 0) return [];
+      // Normalize: strip angle brackets so we match both <id> and id formats
+      const normalized = providerMessageIds.map(id => id.replace(/^<|>$/g, '').trim());
       const { data, error } = await supabase
         .from('email_delivery_logs')
         .select('email, status, correlation_id, error_message, sent_at')
         .eq('email_type', 'brevo_webhook')
-        .in('correlation_id', correlationIds)
+        .in('correlation_id', normalized)
         .order('sent_at', { ascending: false });
 
       if (error) throw error;
@@ -334,16 +336,16 @@ export default function DocumentTrackingPage() {
   const { data: orphanUsers = [] } = useOrphanUsers();
   const { data: pendingRequests = [] } = usePendingRequestQueue();
 
-  // Gather correlation IDs from pending requests for delivery event lookup
-  const correlationIds = useMemo(() =>
+  // Gather provider message IDs from pending requests for delivery event lookup
+  const providerMessageIds = useMemo(() =>
     pendingRequests
-      .map(r => r.email_correlation_id)
+      .map(r => r.email_provider_message_id)
       .filter((id): id is string => !!id),
     [pendingRequests]
   );
-  const { data: deliveryEvents = [] } = useDeliveryEvents(correlationIds);
+  const { data: deliveryEvents = [] } = useDeliveryEvents(providerMessageIds);
 
-  // Build lookup: correlation_id -> latest delivery event
+  // Build lookup: normalized provider message id -> latest delivery event
   const deliveryMap = useMemo(() => {
     const map = new Map<string, DeliveryEvent>();
     for (const ev of deliveryEvents) {
@@ -664,12 +666,15 @@ export default function DocumentTrackingPage() {
               <AlertTriangle className="h-4 w-4" />
               Pending Requests ({pendingRequests.length})
             </h3>
-            <span className="text-xs text-amber-700">Check inbox at support@sourcecodeals.com</span>
+            <span className="text-xs text-amber-700">Check inbox at adam.haile@sourcecodeals.com</span>
           </div>
           <div className="divide-y divide-amber-200">
-            {pendingRequests.map((req) => (
-              <PendingRequestRow key={req.id} req={req} deliveryEvent={req.email_correlation_id ? deliveryMap.get(req.email_correlation_id) : undefined} />
-            ))}
+            {pendingRequests.map((req) => {
+              const normalizedId = req.email_provider_message_id?.replace(/^<|>$/g, '').trim();
+              return (
+                <PendingRequestRow key={req.id} req={req} deliveryEvent={normalizedId ? deliveryMap.get(normalizedId) : undefined} />
+              );
+            })}
           </div>
         </div>
       )}
