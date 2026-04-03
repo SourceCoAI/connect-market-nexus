@@ -70,6 +70,8 @@ export function ListingSidebarActions({
   const { data: inquiryRequest } = useDealInquiry(listingId);
   const createInquiry = useCreateInquiry();
   const sendMsg = useSendMessage();
+  const saveListing = useSaveListingMutation();
+  const { data: isSaved } = useSavedStatus(listingId);
   const markRead = useMarkMessagesReadByBuyer();
 
   const threadId = inquiryRequest?.id;
