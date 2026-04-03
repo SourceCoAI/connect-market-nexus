@@ -36,29 +36,16 @@ function buildWelcomeHtml(userName: string): string {
 }
 
 function buildApprovalHtml(userName: string): string {
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
-    <div style="margin-bottom: 32px;">
-      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase;">SOURCECO</div>
-    </div>
-    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0;">Account Approved!</h1>
-    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
-      <p style="margin: 0 0 16px 0;">Great news, <strong>${escapeHtml(userName)}</strong>! Your SourceCo account has been approved. You now have full access to our business marketplace.</p>
-      <p style="margin: 0 0 24px 0;">Log in now to browse deals, submit connection requests, and start exploring opportunities.</p>
-    </div>
+  return wrapEmailHtml({
+    bodyHtml: `
+    <h1 style="font-size: 20px; font-weight: 700; margin: 0 0 24px 0;">Account Approved!</h1>
+    <p>Great news, <strong>${escapeHtml(userName)}</strong>! Your SourceCo account has been approved. You now have full access to our business marketplace.</p>
+    <p>Log in now to browse deals, submit connection requests, and start exploring opportunities.</p>
     <div style="text-align: center; margin: 32px 0;">
-      <a href="${LOGIN_URL}" style="display: inline-block; background: #0E101A; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Browse Deals</a>
-    </div>
-    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
-      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">This is an automated notification from SourceCo.</p>
-    </div>
-  </div>
-</body>
-</html>`;
+      <a href="${LOGIN_URL}" style="display: inline-block; background: #1a1a2e; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Browse Deals</a>
+    </div>`,
+    preheader: 'Your SourceCo account has been approved. Browse deals now.',
+  });
 }
 
 function buildRejectionHtml(userName: string, reason: string): string {
