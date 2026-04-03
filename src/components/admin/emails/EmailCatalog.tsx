@@ -611,14 +611,26 @@ export function EmailCatalog() {
                   </TableHeader>
                   <TableBody>
                     {category.emails.map(email => (
-                      <TableRow key={email.edgeFunction + email.name}>
+                      <TableRow key={email.edgeFunction + email.name} className={email.status === 'broken' ? 'bg-red-500/5' : ''}>
                         <TableCell className="font-medium text-sm">
-                          {email.name}
+                          <div className="flex items-center gap-1.5">
+                            {email.name}
+                            {email.status && email.status !== 'active' && (
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase border ${STATUS_STYLES[email.status]}`}>
+                                {email.status}
+                              </span>
+                            )}
+                          </div>
                           {email.variant && (
                             <span className="block text-xs text-muted-foreground mt-0.5 font-normal">{email.variant}</span>
                           )}
+                          {email.statusNote && (
+                            <span className="block text-xs text-red-600 dark:text-red-400 mt-0.5 font-normal">{email.statusNote}</span>
+                          )}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground font-mono text-xs">{email.subject}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          <CopyableText text={email.subject} label="Subject line" />
+                        </TableCell>
                         <TableCell>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${RECIPIENT_STYLES[email.recipient]}`}>
                             {email.recipient}
