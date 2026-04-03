@@ -118,15 +118,18 @@ const handler = async (req: Request): Promise<Response> => {
           templateName: 'password_reset',
           to: email,
           subject: 'Reset Your Password — SourceCo',
-          htmlContent: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333; line-height: 1.6;">
+          htmlContent: wrapEmailHtml({
+            bodyHtml: `
             <p>Hi,</p>
             <p>We received a request to reset your password. Click the button below to set a new password:</p>
             <p style="margin: 24px 0; text-align: center;">
-              <a href="${resetUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Reset Password</a>
+              <a href="${resetUrl}" style="display: inline-block; background: #1a1a2e; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Reset Password</a>
             </p>
             <p>This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.</p>
-            <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-          </div>`,
+            <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>`,
+            preheader: 'Reset your SourceCo password',
+            recipientEmail: email,
+          }),
           senderName: 'SourceCo',
           isTransactional: true,
         });

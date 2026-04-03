@@ -141,7 +141,7 @@ Deno.serve(async (req: Request) => {
       to: emailTrimmed,
       toName: buyer_name,
       subject: `Data room open — Project ${deal.project_name || deal.title || 'Confidential'}`,
-      htmlContent: buildDataRoomEmailHtml(projectName, escapedBuyerName, dataRoomUrl),
+      htmlContent: buildDataRoomEmailHtml(projectName, escapedBuyerName, dataRoomUrl, emailTrimmed),
       senderName: 'SourceCo Deal Team',
       replyTo: Deno.env.get('ADMIN_NOTIFICATION_EMAIL') || 'deals@sourcecodeals.com',
       isTransactional: true,
