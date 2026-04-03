@@ -264,6 +264,9 @@ const ConnectionButton = ({
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                   An NDA or Fee Agreement is required to request deal access. This is a one-time process.
                 </p>
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                  Save this listing so you can request access after signing.
+                </p>
               </>
             )}
             <Button
