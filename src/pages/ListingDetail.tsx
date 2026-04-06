@@ -40,7 +40,7 @@ const ListingDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [showDealSourcingDialog, setShowDealSourcingDialog] = useState(false);
-  const dataRoomRef = useRef<HTMLDivElement>(null);
+  const [dataRoomOpen, setDataRoomOpen] = useState(false);
 
   // Click tracking for engagement analytics
   const { getClickData, resetTracking } = useClickTracking(true);
