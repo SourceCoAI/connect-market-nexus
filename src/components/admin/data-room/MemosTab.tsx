@@ -614,7 +614,16 @@ ${sections.map(s => `<h2>${s.title}</h2><div class="section-content">${s.content
                         ) : (
                           <Download className="h-3.5 w-3.5 mr-1.5" />
                         )}
-                        Download .docx
+                        .docx
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={handleDownloadPdf}
+                      >
+                        <FileText className="h-3.5 w-3.5 mr-1.5" />
+                        .pdf
                       </Button>
                       <Button
                         variant="outline"
