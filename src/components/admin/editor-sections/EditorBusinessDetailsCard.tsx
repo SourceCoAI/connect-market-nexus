@@ -214,13 +214,16 @@ export function EditorBusinessDetailsCard({ form }: EditorBusinessDetailsCardPro
             />
           </div>
 
-          {/* Visibility note */}
-          <div className="pt-3 border-t border-border/40">
+          {/* Guidance + visibility note */}
+          <div className="pt-3 border-t border-border/40 space-y-1.5">
+            <p className="text-[11px] text-muted-foreground">
+              Keep entries concise. Long descriptions belong in the listing body above.
+            </p>
             <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
               <Eye className="h-3 w-3 mt-0.5 shrink-0" />
               <span>
                 These fields are visible to all marketplace users browsing this listing.
-                Financial details (revenue, EBITDA, margins) are only visible after connection approval.
+                Financials are only visible after connection approval.
               </span>
             </div>
           </div>
