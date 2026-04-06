@@ -58,7 +58,7 @@ export function ListingHeader({
       </div>
 
       {/* Full-Width Hero Image */}
-      <div className="w-full h-56 border border-slate-200/40 bg-slate-50 rounded-lg overflow-hidden shadow-sm mt-2">
+      <div className="w-full h-40 sm:h-56 border border-slate-200/40 bg-slate-50 rounded-lg overflow-hidden shadow-sm mt-2">
         {imageData.type === 'image' ? (
           <img
             src={imageData.value}
