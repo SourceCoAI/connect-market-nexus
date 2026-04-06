@@ -168,7 +168,7 @@ const ListingDetail = () => {
   return (
     <div className="document-content min-h-screen bg-background">
       {/* Navigation */}
-      <div className="max-w-7xl mx-auto px-8 py-3">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3">
         <Link
           to="/marketplace"
           className="inline-flex items-center text-xs text-slate-600 hover:text-slate-900 transition-colors font-medium"
