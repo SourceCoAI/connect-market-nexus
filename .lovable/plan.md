@@ -1,58 +1,43 @@
 
 
-# Fix Admin-Bound Emails: Sender Identity + Verify All Support Notifications Exist
+# Simplify Pending Approval: Single "Request Documents" Button + Unified Copy
 
 ## Problem
 
-All emails sent TO `support@sourcecodeals.com` are currently sent FROM `support@sourcecodeals.com` via Brevo. Outlook sees this as suspicious because the email didn't originate from your mail server — it came from Brevo's SMTP, but claims to be from your own address. This triggers SmartScreen/spam filtering.
-
-**Fix**: Change the sender for all admin/support-bound notification emails to `noreply@sourcecodeals.com`. These are system notifications — they don't need to come from "support". The `replyTo` can stay as `support@` where appropriate.
-
-## Emails That Send TO support@sourcecodeals.com
-
-| Email | Edge Function | Current From | New From |
-|---|---|---|---|
-| New User Registration | `enhanced-admin-notification` | support@ | noreply@ |
-| New Connection Request (admin) | `send-connection-notification` (type: admin_notification) | support@ | noreply@ |
-| New Buyer Message | `notify-support-inbox` (type: new_message) | support@ | noreply@ |
-| Admin Reply Copy | `notify-support-inbox` (type: admin_reply) | support@ | noreply@ |
-| Document Request | `notify-support-inbox` (type: document_request) | support@ | noreply@ |
-| Owner Inquiry (/sell form) | `send-owner-inquiry-notification` | support@ | noreply@ |
-| Feedback Submitted | `send-feedback-email` | support@ | noreply@ |
-| Admin Digest | `admin-digest` | support@ | noreply@ (broken function, but fix anyway) |
+1. Two separate buttons ("Request NDA via Email" / "Request Fee Agreement via Email") confuse users. Clicking one doesn't send the other, and can falsely imply the other was already sent.
+2. Two info boxes ("What your agreement unlocks" / "What you're agreeing to") are redundant and verbose.
 
 ## Changes
 
-### 1. `supabase/functions/_shared/email-sender.ts`
-Add a new constant:
-```
-export const NOREPLY_SENDER_EMAIL = 'noreply@sourcecodeals.com';
-export const NOREPLY_SENDER_NAME = 'SourceCo Notifications';
-```
+### 1. `src/pages/PendingApproval.tsx` (lines 253-300)
 
-### 2. Edge functions sending TO support@ — use `noreply@` as sender
+**Merge two info boxes into one:**
+Replace the two `bg-muted/40` boxes with a single concise block:
+- Title: "Your agreements unlock full deal access"
+- Body: "Every deal on SourceCo is live, real, and confidential. You'll sign two standard documents: an NDA to protect deal details, and a Fee Agreement that applies only if you close a deal sourced through our platform. One set of signatures covers every deal, now and in the future."
 
-Each of these functions needs `senderEmail: 'noreply@sourcecodeals.com'` and `senderName: 'SourceCo Notifications'` added to their `sendEmail()` call:
+**Replace two buttons with one:**
+Remove both the NDA and Fee Agreement buttons. Replace with a single button:
+- Label: "Request Documents via Email"
+- Icon: `Mail`
+- Style: Primary (`className="w-full"`)
+- On click: calls a new handler `handleRequestBothDocuments` that sends both emails in parallel
 
-- **`enhanced-admin-notification/index.ts`** (line 79) — add `senderEmail`
-- **`send-connection-notification/index.ts`** (line 162, admin_notification branch) — add `senderEmail`
-- **`notify-support-inbox/index.ts`** (line 107) — add `senderEmail`
-- **`send-owner-inquiry-notification/index.ts`** (line 65) — add `senderEmail`
-- **`send-feedback-email/index.ts`** — add `senderEmail`
-- **`admin-digest/index.ts`** — add `senderEmail` (even though it's broken, fix the identity for when it's repaired)
+**New handler** `handleRequestBothDocuments`:
+- Sets a loading state
+- Calls `sendAgreementEmail({ documentType: 'nda' })` and `sendAgreementEmail({ documentType: 'fee_agreement' })` via `Promise.all`
+- Shows a single success toast: "Documents sent to your email"
+- On error, shows a toast with the first error message
+- No modal needed — just inline toast feedback + loading spinner on the button
 
-### 3. Verify `noreply@sourcecodeals.com` is a verified sender in Brevo
-This needs to be verified in Brevo's dashboard. The user should add `noreply@sourcecodeals.com` as a verified sender if not already done.
+**Remove** the `signingOpen`/`signingType` state and `AgreementSigningModal` import since the pending approval page won't use the modal anymore. The modal is still used elsewhere (listing cards, deal pages).
 
-### 4. `src/components/admin/emails/AdminEmailRouting.tsx`
-Update all "Admin Notifications" and "Messaging" entries that go to `support@` to show `senderName: 'SourceCo Notifications'` and note the `noreply@` sender.
+### 2. No other files changed
 
-### 5. `src/components/admin/emails/EmailCatalog.tsx`
-Update preview metadata for admin-bound emails to reflect `noreply@sourcecodeals.com` sender.
-
-### 6. Deploy all modified edge functions
+The `AgreementSigningModal` component stays as-is for use in listing sidebars and deal pages. Only the pending approval screen gets simplified.
 
 ### Summary
-- Buyer-facing emails: unchanged (still from `support@` or `adam.haile@`)
-- Admin/support-bound notifications: now from `noreply@` so Outlook stops flagging them as self-spoofed
+- Two info boxes become one
+- Two buttons become one "Request Documents via Email" that sends both NDA + Fee Agreement in parallel
+- No modal popup needed — single click sends both, toast confirms
 
