@@ -13104,7 +13104,7 @@ export type Database = {
           p_lead_phone?: string
           p_lead_role?: string
           p_listing_id: string
-          p_user_message: string
+          p_user_message?: string
         }
         Returns: Json
       }
