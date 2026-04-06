@@ -58,7 +58,7 @@ export function ListingHeader({
       </div>
 
       {/* Full-Width Hero Image */}
-      <div className="w-full h-56 border border-slate-200/40 bg-slate-50 rounded-lg overflow-hidden shadow-sm mt-2">
+      <div className="w-full h-40 sm:h-56 border border-slate-200/40 bg-slate-50 rounded-lg overflow-hidden shadow-sm mt-2">
         {imageData.type === 'image' ? (
           <img
             src={imageData.value}
@@ -79,7 +79,7 @@ export function ListingHeader({
       <div className="mt-6 mb-8">
         {/* Title */}
         <div className="mb-3">
-          <h1 className="!text-[30px] !leading-[38px] !font-[300] !tracking-tight text-foreground">
+          <h1 className="!text-[22px] sm:!text-[30px] !leading-[28px] sm:!leading-[38px] !font-[300] !tracking-tight text-foreground">
             <EditableTitle
               listingId={listing.id}
               initialValue={listing.title}
@@ -89,7 +89,7 @@ export function ListingHeader({
         </div>
 
         {/* Location, Industry, and Listed Date - All in one row */}
-        <div className="flex items-center gap-3 flex-wrap text-foreground/80 mb-4">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap text-foreground/80 mb-4">
           <div className="flex items-center">
             <MapPin size={12} className="mr-1" />
             <span className="text-xs font-semibold tracking-wide uppercase">

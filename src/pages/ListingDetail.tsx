@@ -327,7 +327,7 @@ const ListingDetail = () => {
           <div className="lg:col-span-3">
             <div className="space-y-8">
               {/* Interested in This Deal? - Premium CTA */}
-              <div className="bg-white/50 border border-slate-200/60 rounded-lg p-6 shadow-sm">
+              <div className="bg-white/50 border border-slate-200/60 rounded-lg p-4 sm:p-6 shadow-sm">
                 <div className="text-center mb-6">
                   <h3 className="text-base font-medium text-foreground mb-2">
                     Request Access to This Deal
@@ -386,8 +386,8 @@ const ListingDetail = () => {
               </div>
 
               {/* Exclusive Deal Flow */}
-              <div className="bg-white/50 border border-slate-200/60 rounded-lg p-6 shadow-sm">
-                <div className="mt-6 pt-4 border-t border-slate-200/50">
+              <div className="bg-white/50 border border-slate-200/60 rounded-lg p-4 sm:p-6 shadow-sm">
+                <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-200/50">
                   <div className="text-center space-y-3">
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-foreground">
@@ -416,7 +416,7 @@ const ListingDetail = () => {
               <DealAdvisorCard presentedByAdminId={listing.presented_by_admin_id} listingId={id!} />
 
               {/* Download Executive Summary */}
-              <div className="bg-white/40 border border-slate-200/60 rounded-lg p-6 shadow-sm">
+              <div className="bg-white/40 border border-slate-200/60 rounded-lg p-4 sm:p-6 shadow-sm">
                 <h4 className="text-xs font-medium text-foreground mb-4 uppercase tracking-wider">
                   Executive Summary
                 </h4>

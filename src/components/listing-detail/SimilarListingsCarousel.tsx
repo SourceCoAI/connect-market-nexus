@@ -24,7 +24,7 @@ export function SimilarListingsCarousel({ currentListing }: SimilarListingsCarou
         <h2 className="text-xl font-semibold text-foreground">Similar listings</h2>
         <div className="flex gap-3 overflow-hidden">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="min-w-[320px] h-[320px] bg-muted rounded-lg animate-pulse" />
+            <div key={i} className="min-w-[280px] sm:min-w-[320px] h-[320px] bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
       </div>
