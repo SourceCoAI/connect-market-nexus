@@ -1,78 +1,116 @@
 
 
-# Reorganize Listings Management for Clear Publish Workflow
+# Overhaul Listing Editor and Detail Page
 
-## Current Problem
+## What's Wrong
 
-The tabs are:
-- **All Listings (7727)** - everything mixed together
-- **Published (65)** - listings live on marketplace (`is_internal_deal = false`)
-- **Internal/Drafts (7662)** - all remarketing deals AND unpublished marketplace drafts lumped together
+**Editor**: Scattered layout with a 2-column grid (internal card left, financials/image/business details right), then hero and body description below. The "Business Details" card (services, customer types, revenue model, growth trajectory, etc.) creates separate structured fields that render as ugly, raw data dumps on the listing detail page. The editor flow does not match how the listing actually displays.
 
-When you create a listing from the marketplace queue, it lands in "Internal/Drafts" buried among 7,662 remarketing deals. There is no way to find it quickly or know it needs publishing. The publish action is hidden inside a dropdown menu (three-dot menu > "Publish to Marketplace").
+**Listing Detail Page**: Shows a "Business Details" grid with raw AI-generated text dumped into small badge/chip fields (services showing full paragraphs as chips, customer types as wall-of-text). Then below that, a "Business Overview" section with `description_html`, then `custom_sections` (Deal Snapshot, Key Facts, Growth Context, Owner Objectives) as separate cards. The result is repetitive, disorganized, and unprofessional.
 
-## How Publishing Works Today
+**Reference (good listing)**: The Pacific Northwest Window listing shows a clean flow: Image, Title, Hero text, Financial metrics, then rich content cards with proper H2 headings (investment thesis cards), then service lines/customer profile in a clean 2-column layout at the bottom. All content lives in the body description as formatted rich text.
 
-A listing created from the queue has `is_internal_deal = false` but no `published_at`. To publish:
-1. Find it in Listings Management
-2. Click Edit (or three-dot menu)
-3. In the editor, use the `PublishStatusBanner` toggle at the top
-4. OR from the card's dropdown menu, click "Publish to Marketplace"
+## Plan
 
-This calls the `publish-listing` edge function which validates quality gates and sets `published_at`.
+### Phase 1: Restructure the Editor Layout
 
-## New Tab Structure
+**File: `src/components/admin/ImprovedListingEditor.tsx`**
+
+Change the layout from the current 2-column grid to a single-column cascading flow that mirrors the listing detail page:
 
 ```text
-  Ready to Publish (2)  |  Live on Marketplace (65)  |  All Internal (7662)
+1. [Publish Status Banner]
+2. [Featured Image upload]
+3. [Title + AI Generate] + [Geography] + [Industry] + [Type] - single row
+4. [Hero Description] (short pitch textarea)
+5. [Financial Metrics] (Revenue, EBITDA, Custom metrics, subtitles)
+6. [Body Description] (rich text editor - THE main content area)
+7. [Internal Admin Fields] (collapsed section: company name, deal owner, CRM links, status, tags, buyer visibility)
+8. [Featured Deals]
+9. [Save button]
 ```
 
-**Tab 1: Ready to Publish** (default tab)
-- Query: `is_internal_deal = false AND published_at IS NULL AND deleted_at IS NULL`
-- These are listings created from the queue that need review and publishing
-- Each card gets a prominent **"Publish"** button directly on the card (not buried in a dropdown)
-- Empty state: "No listings waiting to be published. Push deals from the Marketplace Queue to get started."
+Remove `EditorBusinessDetailsCard` from the layout entirely. All business detail content (services, customer types, revenue model, business model, growth trajectory) should be written into the body description as formatted rich text, not as separate database fields.
 
-**Tab 2: Live on Marketplace**
-- Query: `is_internal_deal = false AND published_at IS NOT NULL AND deleted_at IS NULL`
-- Currently published and visible to buyers
-- Cards show "Unpublish" action prominently
+Remove the `EditorBusinessDetailsCard` import and rendering.
 
-**Tab 3: All Internal**
-- Query: `is_internal_deal = true AND deleted_at IS NULL`
-- The 7,662 remarketing deals (unchanged from current "Internal/Drafts")
+Remove `EditorVisibilityPanel` (it's redundant - buyer visibility is already in InternalCard).
 
-## Files Changed
+### Phase 2: Remove Business Details from Listing Detail Page
 
-### File 1: `src/hooks/admin/listings/use-listings-by-type.ts`
-- Change `ListingType` from `'marketplace' | 'research' | 'all'` to `'ready_to_publish' | 'live' | 'internal' | 'all'`
-- **ready_to_publish** query: `.eq('is_internal_deal', false).is('published_at', null)`
-- **live** query: `.eq('is_internal_deal', false).not('published_at', 'is', null)`
-- **internal** query: `.eq('is_internal_deal', true)` (same as current 'research')
-- Update `useListingTypeCounts` to return counts for all three new types
+**File: `src/pages/ListingDetail.tsx`**
 
-### File 2: `src/components/admin/ListingsManagementTabs.tsx`
-- Replace three tabs with new labels: "Ready to Publish", "Live on Marketplace", "All Internal"
-- Default active tab: `'ready_to_publish'` (so you land on what needs action)
-- Update subtitle: "Review, publish, and manage marketplace listings"
-- Remove em dash from subtitle
+Remove the `<BusinessDetailsGrid>` component rendering (lines 257-265). All that information now lives in the body description as rich text content.
 
-### File 3: `src/components/admin/ListingsTabContent.tsx`
-- Update empty state messages for each new tab type
-- Pass new type values to `useListingsByType`
+Remove the separate `custom_sections` rendering (lines 289-301). These sections should be part of the body description HTML instead of separate cards.
 
-### File 4: `src/components/admin/AdminListingCard.tsx`
-- When `listingType === 'ready_to_publish'`: Add a visible **"Publish to Marketplace"** button directly on the card (not in the dropdown). Use the existing `publishListing` from `usePublishListing` hook.
-- When `listingType === 'live'`: Show a visible **"Unpublish"** button
-- Keep the dropdown menu actions as they are for additional options
+The detail page flow becomes:
+```text
+1. ListingHeader (image, title, location, categories, hero text)
+2. Financial Grid (revenue, EBITDA, custom metrics)
+3. Body Description (rich HTML with H2/H3 sections, bullet points, everything)
+4. Similar Listings
+5. Financial Teaser / Data Room
+```
 
-### File 5: `src/hooks/admin/listings/use-listings-query.ts`
-- Update the status mapping to work with the new `ListingType` values (this is used by other admin hooks)
+### Phase 3: Refactor EditorInternalCard
 
-## Outcome
-- You create a listing from the queue, it appears immediately under "Ready to Publish"
-- One click to publish it live
-- "Live on Marketplace" shows exactly what buyers see
-- Internal deals are separated and clearly labeled
-- No more hunting through 7,000+ records to find the listing you just created
+**File: `src/components/admin/editor-sections/EditorInternalCard.tsx`**
+
+Split this into two distinct concerns:
+- **Top-level marketplace fields** (title, geography, industry, type) - these get extracted OUT of the card and placed directly in the main editor flow
+- **Internal admin section** (company name, deal owner, CRM links, status, status tag, buyer visibility) - stays as a collapsible card at the bottom
+
+Create a new lightweight component `EditorMarketplaceFields.tsx` that contains:
+- Title with AI Generate
+- Geography (location select)
+- Industry (category select)  
+- Type (platform/add-on toggle)
+
+The remaining `EditorInternalCard` becomes purely admin-only fields.
+
+### Phase 4: Clean Up Schema
+
+**File: `src/components/admin/ImprovedListingEditor.tsx`** (schema section)
+
+Remove `services`, `geographic_states`, `number_of_locations`, `customer_types`, `revenue_model`, `business_model`, `growth_trajectory` from the form schema. These fields still exist in the DB but are no longer edited via separate form fields. All that content goes into the rich text body.
+
+### Phase 5: Merge custom_sections into description_html
+
+**File: `src/components/admin/editor-sections/EditorDescriptionSection.tsx`**
+
+When loading a listing that has `custom_sections` but no `description_html`, auto-convert the custom_sections array into HTML content and inject it into the rich text editor. This way existing AI-generated content gets merged into the single body editor.
+
+Update the section template to match the good listing pattern:
+```html
+<h2>Business Overview</h2><p></p>
+<h2>Financial Highlights</h2><ul><li></li></ul>
+<h2>Market Position</h2><p></p>
+<h2>Growth Opportunities</h2><ul><li></li></ul>
+<h2>Transaction Overview</h2><p></p>
+```
+
+### Files Changed Summary
+
+| File | Change |
+|------|--------|
+| `ImprovedListingEditor.tsx` | Restructure to single-column cascading layout, remove BusinessDetailsCard and VisibilityPanel |
+| `EditorInternalCard.tsx` | Extract marketplace fields, keep only admin-only fields |
+| New: `EditorMarketplaceFields.tsx` | Title, geography, industry, type in a compact row |
+| `EditorBusinessDetailsCard.tsx` | Delete file (no longer used) |
+| `EditorVisibilityPanel.tsx` | Delete file (redundant) |
+| `EditorDescriptionSection.tsx` | Add custom_sections-to-HTML merge logic on load |
+| `ListingDetail.tsx` | Remove BusinessDetailsGrid and custom_sections rendering |
+| `EditorHeroDescriptionSection.tsx` | No structural changes, just reposition in layout |
+| `EditorFinancialCard.tsx` | No structural changes, just reposition in layout |
+
+### What stays the same
+- Rich text editor (PremiumRichTextEditor) with full H1/H2/H3, bold, italic, lists, etc.
+- AI generation buttons (regenerate with AI for hero + body)
+- Financial metrics with custom metric support
+- All admin-only internal fields
+- Publish/unpublish flow
+- Featured deals section
+- Live preview section
+- The form schema for core fields (title, description, revenue, ebitda, etc.)
 
