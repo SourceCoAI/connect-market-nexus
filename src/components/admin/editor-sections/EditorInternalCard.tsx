@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { EDITOR_DESIGN } from '@/lib/editor-design-system';
 import { cn } from '@/lib/utils';
 import { STATUS_TAGS } from '@/constants/statusTags';
-import { ChevronDown, Sparkles, Loader2 } from 'lucide-react';
+import { ChevronDown, Sparkles, Loader2, Lock, Eye } from 'lucide-react';
 import { EnhancedMultiCategorySelect } from '@/components/ui/enhanced-category-select';
 import { EnhancedMultiLocationSelect } from '@/components/ui/enhanced-location-select';
 import { stateToRegion } from '@/lib/deal-to-listing-anonymizer';
