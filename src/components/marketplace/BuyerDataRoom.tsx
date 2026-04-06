@@ -70,24 +70,51 @@ export function BuyerDataRoom({ dealId }: BuyerDataRoomProps) {
   if (access?.can_view_data_room) allowedCategories.add('data_room');
 
   // Fetch documents filtered by status, then client-filter by category
+  // Falls back to source_deal_id documents for listings pushed from marketplace queue
   const { data: documents = [], isLoading: _isLoading } = useQuery({
     queryKey: ['buyer-data-room-documents', dealId, Array.from(allowedCategories).sort().join(',')],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const selectCols =
+        'id, folder_name, file_name, file_type, file_size_bytes, document_category, allow_download, created_at';
+
+      // Primary: documents directly on this deal/listing
+      const { data: primaryDocs, error } = await supabase
         .from('data_room_documents')
-        .select(
-          'id, folder_name, file_name, file_type, file_size_bytes, document_category, allow_download, created_at',
-        )
+        .select(selectCols)
         .eq('deal_id', dealId)
         .eq('status', 'active')
         .order('folder_name')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      let allDocs = (primaryDocs || []) as BuyerDocument[];
+
+      // Fallback: if no documents found, check if the listing has a source_deal_id
+      if (allDocs.length === 0) {
+        const { data: listingRow } = await supabase
+          .from('listings')
+          .select('source_deal_id')
+          .eq('id', dealId)
+          .maybeSingle();
+
+        if (listingRow?.source_deal_id) {
+          const { data: sourceDocs } = await supabase
+            .from('data_room_documents')
+            .select(selectCols)
+            .eq('deal_id', listingRow.source_deal_id)
+            .eq('status', 'active')
+            .order('folder_name')
+            .order('created_at', { ascending: false });
+
+          if (sourceDocs) {
+            allDocs = sourceDocs as BuyerDocument[];
+          }
+        }
+      }
+
       // Filter by allowed categories based on buyer's access toggles
-      return (data as BuyerDocument[]).filter(
-        (doc) => allowedCategories.has(doc.document_category),
-      );
+      return allDocs.filter((doc) => allowedCategories.has(doc.document_category));
     },
     enabled: !!dealId && !!access && allowedCategories.size > 0,
   });

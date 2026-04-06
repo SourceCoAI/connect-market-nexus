@@ -134,6 +134,43 @@ export function useConnectionRequestActions({
           });
       }
 
+      // Auto-provision data_room_access so buyer can see documents immediately
+      if (listing?.id && user.id) {
+        const { data: existingAccess } = await supabase
+          .from('data_room_access')
+          .select('id')
+          .eq('deal_id', listing.id)
+          .eq('marketplace_user_id', user.id)
+          .is('revoked_at', null)
+          .maybeSingle();
+
+        if (!existingAccess) {
+          const buyerDisplayName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || '';
+          const buyerCompany = firmInfo?.firm_name || user.company || '';
+          const feeAgreementSigned = hasFeeAgreement;
+
+          const { error: accessErr } = await supabase
+            .from('data_room_access')
+            .insert({
+              deal_id: listing.id,
+              marketplace_user_id: user.id,
+              buyer_name: buyerDisplayName,
+              buyer_company: buyerCompany,
+              can_view_teaser: true,
+              can_view_full_memo: feeAgreementSigned,
+              can_view_data_room: feeAgreementSigned,
+            });
+
+          if (accessErr) {
+            console.error('[data-room-access] Failed to auto-provision access:', accessErr);
+          } else {
+            // Invalidate access queries so admin UI reflects the new record
+            queryClient.invalidateQueries({ queryKey: ['buyer-access', listing.id, user.id] });
+            queryClient.invalidateQueries({ queryKey: ['data-room-access', listing.id] });
+          }
+        }
+      }
+
       toast({ title: 'Request approved', description: 'Buyer has been notified.' });
     } catch (err) {
       toast({
