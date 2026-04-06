@@ -102,6 +102,15 @@ const listingFormSchema = z.object({
 
   // Content sections (populated by lead memo generator)
   custom_sections: z.unknown().nullable().optional(),
+
+  // Buyer-facing business details
+  services: z.array(z.string()).nullable().optional(),
+  geographic_states: z.array(z.string()).nullable().optional(),
+  number_of_locations: z.number().int().min(0).nullable().optional(),
+  customer_types: z.string().nullable().optional(),
+  revenue_model: z.string().nullable().optional(),
+  business_model: z.string().nullable().optional(),
+  growth_trajectory: z.string().nullable().optional(),
 });
 
 type ListingFormInput = {
