@@ -1,51 +1,57 @@
 
 
-# Auto-Populate Featured Deals via Similarity Scoring
+# Fix Metrics: Smart Defaults, AI Generation, and Editor Visibility
 
-## Problem
+## Problems
 
-Featured deals on listing pages are either manually selected or default to "most recent" listings. There's no intelligent matching. The admin has to manually pick 2 deals every time, which is tedious and often skipped.
+1. **"Team Size: 0"** — The default metric 3 shows `Team Size` with value `0` and subtitle `0 FT, 0 PT` when no employee data exists. This looks terrible.
+2. **"Profitability metric"** — The default metric 4 subtitle is a hardcoded placeholder string `'Profitability metric'`. Useless.
+3. **Metrics 3 and 4 are not editable in the editor** — `EditorFinancialCard.tsx` only has Revenue and EBITDA fields. There is no UI to configure metric 3 (Team Size or custom) or metric 4 (EBITDA Margin or custom), their labels, values, or subtitles.
+4. **AI generation does not populate metrics** — The `generate-listing-content` edge function only generates title, hero, and body description. It does not set `metric_3_*`, `metric_4_*`, `revenue_metric_subtitle`, or `ebitda_metric_subtitle`.
 
 ## Solution
 
-When `featured_deal_ids` is null (no manual override), automatically select the 2 most similar active marketplace listings using the same scoring algorithm already in `use-similar-listings.ts` (category overlap, revenue proximity, location match, EBITDA margin similarity). The manual override stays as-is.
+### 1. Add Metrics 3 and 4 to Editor (`EditorFinancialCard.tsx`)
 
-## Changes
+Below Revenue and EBITDA, add two configurable metric slots:
 
-### File 1: `src/hooks/useDealLandingPage.ts`
+**Metric 3**: Toggle between "Team Size" (auto-calculated from `full_time_employees` + `part_time_employees` fields) and "Custom" (free-text label/value/subtitle). Include FT/PT employee inputs when in Team Size mode.
 
-Replace the default fallback (lines 148-160) that fetches "most recent" listings. Instead, fetch up to 50 active marketplace listings and score them against the current deal using category, revenue, location, and EBITDA similarity. Return the top 3 by score.
+**Metric 4**: Toggle between "EBITDA Margin" (auto-calculated) and "Custom" (free-text). When in EBITDA Margin mode, show the auto-calculated value with an editable subtitle field (replacing the hardcoded "Profitability metric").
 
-The scoring logic (already proven in `use-similar-listings.ts`):
-- Category overlap: +60
-- Revenue within 30%: +35
-- Location match: +25 exact, +10 same country
-- EBITDA margin within 5pp: +20
-- Recent (30 days): +15
+Each metric slot: a small toggle (Team Size / Custom or EBITDA Margin / Custom), then the relevant inputs.
 
-This runs client-side on a small dataset (50 listings max), so no edge function needed.
+### 2. Fix Default Display When Data is Missing (`ListingDetail.tsx` + `ListingPreview.tsx`)
 
-### File 2: `src/components/admin/editor-sections/EditorFeaturedDealsSection.tsx`
+**Metric 3 (Team Size default)**: If `full_time_employees + part_time_employees === 0`, hide this metric entirely or show em-dash instead of "0". Change subtitle from "0 FT, 0 PT" to nothing.
 
-Add an "Auto-select similar deals" button next to the manual selectors. When clicked, it:
-1. Fetches the current listing's category, revenue, ebitda, location
-2. Scores all active marketplace listings against it (same algorithm)
-3. Pre-fills the top 2 matches
-4. Calls `onChange` with those IDs
+**Metric 4 (EBITDA Margin default)**: Change subtitle from `'Profitability metric'` to something computed like the category name, or just remove the subtitle entirely.
 
-Update the helper text from "Leave empty for automatic selection" to "Leave empty to auto-match similar deals, or pick manually."
+### 3. AI Generate Populates Metric Subtitles (`generate-listing-content`)
 
-### File 3: `src/components/admin/ImprovedListingEditor.tsx`
+When generating content, also return and save:
+- `revenue_metric_subtitle`: Use the primary category/industry (e.g., "Restoration", "HVAC")
+- `ebitda_metric_subtitle`: Use a computed string like `~33.3% margin profile` (already used as fallback, just save it explicitly)
+- `metric_3_type`: If deal has employee data, keep as `employees`. Otherwise set to `custom` with a relevant metric from the deal (e.g., "Locations" if `number_of_locations` exists, or "Years in Business" if `founded_year` exists)
+- `metric_4_custom_subtitle`: Remove hardcoded "Profitability metric", use category or empty
 
-Pass `listing` data (category, categories, revenue, ebitda, location) to `EditorFeaturedDealsSection` so it can run similarity scoring without an extra DB fetch.
+The AI function will intelligently pick the best metric 3 and 4 based on available deal data:
+- Has employees? -> Team Size with FT/PT breakdown
+- Has locations? -> Custom "Locations" metric
+- Has years? -> Custom "Years Established"
+- Otherwise -> hide metric 3 (set to custom with empty values)
 
-## How It Works
+### 4. Update Live Preview (`EditorLivePreview.tsx`)
 
-**For buyers (landing page)**: When `featured_deal_ids` is null, `useRelatedDeals` automatically scores and returns the 3 most similar listings instead of the 3 most recent. Manual overrides still take priority.
+Update the preview's financial grid (lines 320-348) to match the same logic: use form values for metric 3/4, show smart defaults, hide empty metrics.
 
-**For admins (editor)**: The section shows an "Auto-select" button. Click it to populate the 2 best matches. Clear them to revert to automatic. Pick manually to override.
+## Files Changed
 
-## No edge function or migration needed
-
-All scoring is client-side on small datasets (50-100 listings). The similarity algorithm is already proven in the codebase.
+| File | Change |
+|------|--------|
+| `src/components/admin/editor-sections/EditorFinancialCard.tsx` | Add metric 3 and 4 configuration UI with toggles, employee inputs, custom fields |
+| `src/pages/ListingDetail.tsx` | Fix Team Size 0 display, remove "Profitability metric" hardcode |
+| `src/pages/ListingPreview.tsx` | Same fixes as ListingDetail |
+| `src/components/admin/editor-sections/EditorLivePreview.tsx` | Update preview financial grid to use form metric values |
+| `supabase/functions/generate-listing-content/index.ts` | Generate and save metric subtitles and smart metric 3/4 values |
 
