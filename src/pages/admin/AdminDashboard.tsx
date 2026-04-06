@@ -127,7 +127,7 @@ const AdminDashboard = () => {
       <div className="min-h-screen bg-background">
         {/* Header */}
         <div className="border-b border-border/50 bg-background sticky top-0 z-10">
-          <div className="px-8 py-5">
+          <div className="px-4 md:px-8 py-5">
             <div className="flex flex-col gap-5">
               {/* Title Row */}
               <div className="flex items-center justify-between">
