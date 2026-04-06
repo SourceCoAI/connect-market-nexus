@@ -613,7 +613,7 @@ export function EditorLivePreview({ formValues, imagePreview, listingId }: Edito
           <TabsContent value="full" className="mt-0">
             <div className="p-4">
               <p className="text-xs text-muted-foreground mb-3">
-                Full listing page — what a buyer sees after clicking into the deal from the
+                Full listing page. What a buyer sees after clicking into the deal from the
                 marketplace.
               </p>
               <FullListingPreview formValues={formValues} imagePreview={imagePreview} />
