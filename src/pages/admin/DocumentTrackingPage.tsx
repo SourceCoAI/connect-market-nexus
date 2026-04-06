@@ -309,7 +309,25 @@ function usePendingRequestQueue() {
         .limit(50);
 
       if (error) throw error;
-      return (data || []) as PendingRequest[];
+      const requests = (data || []) as Omit<PendingRequest, 'approval_status'>[];
+
+      // Fetch approval status for all unique user_ids
+      const userIds = [...new Set(requests.map(r => r.user_id).filter((id): id is string => !!id))];
+      let approvalMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, approval_status')
+          .in('id', userIds);
+        if (profiles) {
+          approvalMap = Object.fromEntries(profiles.map(p => [p.id, p.approval_status]));
+        }
+      }
+
+      return requests.map(r => ({
+        ...r,
+        approval_status: r.user_id ? (approvalMap[r.user_id] || null) : null,
+      }));
     },
   });
 }
