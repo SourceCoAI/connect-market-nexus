@@ -1,75 +1,83 @@
-
-
-# Phase 5: My Deals Deep Dive — Mobile Optimization
+# Phase 6: Navbar, Auth Pages, Modals & Cross-Cutting — Mobile Optimization
 
 ## Audit Summary
 
-Phase 4 applied broad responsive fixes (padding, stacking). This deep dive catches remaining issues across My Deals, Messages, Saved Listings, and Profile at 375px.
+Tested Navbar, auth pages (Login, Welcome, Signup, ForgotPassword, PendingApproval), notification popovers, AgreementAlertModal, and DealSourcingCriteriaDialog at 375px viewport.
 
 ## Issues Found
 
-### Issue 1: DealDetailHeader — `px-6` Not Responsive
-**File:** `src/components/deals/DealDetailHeader.tsx` line 56
-The header container uses `px-6` (24px). All sibling sections (tabs, tab content) were updated to `px-4 sm:px-6` in Phase 4, but the header was missed.
+### Issue 1: NavbarLogo — "Marketplace" Text Crowds on Mobile
+**File:** `src/components/navbar/NavbarLogo.tsx` line 17-19
+Logo text "SourceCo Marketplace" takes ~200px. Combined with avatar + bell icon on 375px, the middle gap disappears or elements wrap.
 
-**Fix:** Change `px-6` to `px-4 sm:px-6`.
+**Fix:** Hide "Marketplace" text on mobile: `<span className="text-xl text-muted-foreground ml-1 font-light hidden sm:inline">Marketplace</span>`
 
-### Issue 2: DealDocumentsCard Locked-State Text Too Wide on Mobile
-**File:** `src/components/deals/DealDocumentsCard.tsx` lines 330-345
-The locked placeholder rows use `pl-[30px]` left indent. On 375px, long labels like "Confidential Company Profile" and "Detailed Financial Statements" overflow or wrap awkwardly.
+### Issue 2: MobileNavItems — Uses Old Lucide Icons Instead of Custom NavIcons
+**File:** `src/components/navbar/MobileNavItems.tsx` lines 3, 29, 38, 45, 56
+Desktop nav uses custom `NavIcons` (`MarketplaceIcon`, `SavedIcon`, etc.) but mobile menu uses generic Lucide icons (`Store`, `Heart`, `Briefcase`, `MessageSquare`). Visual inconsistency.
 
-**Fix:** Change `pl-[30px]` to `pl-4 sm:pl-[30px]` on the locked content wrapper (lines 330, 355, 361).
+**Fix:** Import and use the same `NavIcons` from `@/components/icons/NavIcons` to match desktop nav. Not a layout break, but a polish item.
 
-### Issue 3: Messages Page — No Mobile Back Navigation When Thread Selected
-**File:** `src/pages/BuyerMessages/index.tsx` line 108
-The two-column layout shows both ConversationList and ThreadView side-by-side. `ConversationList` hides itself on mobile when a thread/general is selected (line 44-45 of ConversationList). The ThreadView has a back button (`md:hidden`). This works correctly. No fix needed.
+### Issue 3: BuyerNotificationBell Popover Width
+**File:** `src/components/buyer/BuyerNotificationBell.tsx` line 183
+`w-80 sm:w-96` — on 375px, `w-80` (320px) leaves only 55px for margins. The popover uses `align="end"` so it can overflow left.
 
-### Issue 4: SavedListings — Title `text-3xl` + Pagination "Previous"/"Next" Text
-**File:** `src/pages/SavedListings.tsx` line 259, 389-391, 410-417
-Title is `text-3xl` — should be `text-2xl sm:text-3xl`. Pagination buttons show full "Previous"/"Next" text which overflows on 375px with page numbers.
+**Fix:** Change to `w-[calc(100vw-2rem)] sm:w-96` to ensure it never overflows the viewport.
 
-**Fix:** 
-- Line 259: Change `text-3xl` to `text-2xl sm:text-3xl`
-- Lines 389, 416: Hide "Previous"/"Next" text on mobile, keep chevron icons
+### Issue 4: AgreementAlertModal — `p-8` Padding Excessive on Mobile
+**File:** `src/components/buyer/AgreementAlertModal.tsx` line 41
+`p-8` (32px) on a forced-open modal leaves only ~311px of content width on 375px.
 
-### Issue 5: SavedListings — "Results per page:" Label Wastes Space on Mobile
-**File:** `src/pages/SavedListings.tsx` line 273
-The label "Results per page:" takes ~120px on mobile, cramping the toolbar.
+**Fix:** Change to `p-5 sm:p-8`.
 
-**Fix:** Hide the label on mobile: `<span className="text-sm hidden sm:inline">Results per page:</span>`
+### Issue 5: AgreementAlertModal — Title `text-2xl` + Description `text-base` Large on Mobile
+**File:** `src/components/buyer/AgreementAlertModal.tsx` lines 52, 57
+Title and description are fine for desktop but push the CTA button below the fold on 375px.
 
-### Issue 6: SavedListings — Skeleton Card `p-6` Padding Excessive
-**File:** `src/pages/SavedListings.tsx` line 233
-Skeleton cards use `p-6` which matches the grid card fix from Phase 2 where we used `p-4 sm:p-6`.
+**Fix:** Change title to `text-xl sm:text-2xl`, description to `text-sm sm:text-base`.
 
-**Fix:** Change to `p-4 sm:p-6`.
+### Issue 6: PendingApproval — CardTitle `text-2xl` Long Text Overflows
+**File:** `src/pages/PendingApproval.tsx` line 180
+Title "You're in the queue — sign an agreement for immediate access" at `text-2xl` wraps to 4+ lines on mobile.
 
-### Issue 7: DealMessagesTab Compose Bar Padding Not Responsive
-**File:** `src/components/deals/DealMessagesTab.tsx` — the compose area uses `px-5`. On mobile within the My Deals detail panel, this is fine at 375px since it's inset in the tab content. No change needed.
+**Fix:** Change to `text-lg sm:text-2xl`.
 
-### Issue 8: BuyerMessages Loading Skeleton Height Too Tall on Mobile
-**File:** `src/pages/BuyerMessages/MessageThread.tsx` line 252
-`min-h-[500px]` fills the entire mobile viewport during loading.
+### Issue 7: PendingApproval — No Horizontal Padding on Mobile
+**File:** `src/pages/PendingApproval.tsx` line 161
+The `max-w-md` container has no `px` padding, so on 375px it touches screen edges.
 
-**Fix:** Change to `min-h-[300px] sm:min-h-[500px]`.
+**Fix:** Add `px-4` to the container: `<div className="w-full max-w-md space-y-6 px-4">`
 
-### Issue 9: Profile Container Padding
-**File:** `src/pages/Profile/index.tsx` line 49
-Uses `container max-w-4xl py-8` — the `container` class includes responsive padding by default. This is fine. No change needed.
+### Issue 8: Welcome Page — Right Content `pr-8` Unnecessary on Mobile
+**File:** `src/pages/Welcome.tsx` line 24
+`pr-8` on the right content div. The right panel is `hidden lg:flex` so this doesn't affect mobile. No fix needed.
+
+### Issue 9: AuthLayout Already Responsive
+**File:** `src/components/layout/AuthLayout.tsx`
+Uses `grid-cols-1 lg:grid-cols-2`, right column hidden on mobile (`hidden lg:flex`). Container uses `px-4`. All good. No fix needed.
+
+### Issue 10: Login Page Already Responsive
+**File:** `src/pages/Login.tsx`
+Uses `max-w-md mx-auto` with `container mx-auto px-4`. Card uses default padding. All responsive. No fix needed.
+
+### Issue 11: DealSourcingCriteriaDialog Already Responsive
+**File:** `src/components/listing-detail/DealSourcingCriteriaDialog.tsx` line 112
+Already uses `max-w-[92vw]` and responsive text sizes throughout. No fix needed.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/deals/DealDetailHeader.tsx` | Responsive padding `px-4 sm:px-6` |
-| `src/components/deals/DealDocumentsCard.tsx` | Reduce locked-state indent on mobile |
-| `src/pages/SavedListings.tsx` | Smaller title, hidden pagination text, hidden "Results per page" label, responsive skeleton padding |
-| `src/pages/BuyerMessages/MessageThread.tsx` | Responsive skeleton min-height |
+| `src/components/navbar/NavbarLogo.tsx` | Hide "Marketplace" text on mobile |
+| `src/components/navbar/MobileNavItems.tsx` | Use custom NavIcons for consistency |
+| `src/components/buyer/BuyerNotificationBell.tsx` | Viewport-safe popover width |
+| `src/components/buyer/AgreementAlertModal.tsx` | Responsive padding and text sizes |
+| `src/pages/PendingApproval.tsx` | Smaller title, add container padding |
 
 ## Implementation Order
 
-1. DealDetailHeader responsive padding
-2. DealDocumentsCard locked indent
-3. SavedListings title + pagination + toolbar + skeleton
-4. BuyerMessages skeleton height
-
+1. NavbarLogo hide "Marketplace" on mobile
+2. MobileNavItems use NavIcons
+3. BuyerNotificationBell popover width
+4. AgreementAlertModal responsive padding + text
+5. PendingApproval title size + container padding
