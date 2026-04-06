@@ -180,7 +180,7 @@ export function BuyerNotificationBell() {
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-80 sm:w-96 p-0" align="end">
+        <PopoverContent className="w-[calc(100vw-2rem)] sm:w-96 p-0" align="end">
           <div className="flex items-center justify-between px-4 py-3 border-b">
             <h3 className="font-semibold text-sm">Notifications</h3>
             {hasUnread && (

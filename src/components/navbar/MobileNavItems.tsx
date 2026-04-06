@@ -1,9 +1,10 @@
 
 import { Link } from "react-router-dom";
-import { Store, Briefcase, Heart, Shield, MessageSquare } from "lucide-react";
+import { Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUserNotifications } from "@/hooks/use-user-notifications";
 import { useUnreadBuyerMessageCounts } from "@/hooks/use-connection-messages";
+import { MarketplaceIcon, SavedIcon, DealsIcon, MessagesIcon } from "@/components/icons/NavIcons";
 
 interface MobileNavItemsProps {
   isAdmin: boolean;
@@ -26,7 +27,7 @@ const MobileNavItems = ({ isAdmin, isApproved, onNavigateToAdmin }: MobileNavIte
         to="/"
         className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
       >
-        <Store className="h-4 w-4" />
+        <MarketplaceIcon className="h-4 w-4" />
         Marketplace
       </Link>
 
@@ -34,7 +35,7 @@ const MobileNavItems = ({ isAdmin, isApproved, onNavigateToAdmin }: MobileNavIte
         to="/saved-listings"
         className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
       >
-        <Heart className="h-4 w-4" />
+        <SavedIcon className="h-4 w-4" />
         Saved Listings
       </Link>
 
@@ -42,7 +43,7 @@ const MobileNavItems = ({ isAdmin, isApproved, onNavigateToAdmin }: MobileNavIte
         to="/my-deals"
         className="relative flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
       >
-        <Briefcase className="h-4 w-4" strokeWidth={1.5} />
+        <DealsIcon className="h-4 w-4" />
         My Deals
         {totalDealsUnread > 0 && (
           <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-600 ring-1 ring-white shadow-sm"></span>
@@ -53,7 +54,7 @@ const MobileNavItems = ({ isAdmin, isApproved, onNavigateToAdmin }: MobileNavIte
         to="/messages"
         className="relative flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
       >
-        <MessageSquare className="h-4 w-4" strokeWidth={1.5} />
+        <MessagesIcon className="h-4 w-4" />
         Messages
         {(unreadMessages?.messagesTotal || 0) > 0 && (
           <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-600 ring-1 ring-white shadow-sm"></span>

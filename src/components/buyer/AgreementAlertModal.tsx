@@ -54,7 +54,7 @@ export function AgreementAlertModal({ open, documentType, onDismiss }: Agreement
           </h2>
 
           {/* Description */}
-          <p className="text-muted-foreground text-base leading-relaxed max-w-sm mx-auto">
+          <p className="text-muted-foreground text-sm sm:text-base leading-relaxed max-w-sm mx-auto">
             {isNda
               ? 'This is our standard NDA so we can freely exchange information about the companies on our platform. Sign it to unlock full deal access.'
               : 'Here is our fee agreement — you only pay a fee if you close a deal you meet on our platform. No upfront cost, ever.'}
