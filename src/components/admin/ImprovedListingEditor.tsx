@@ -22,6 +22,7 @@ import { EditorInternalCard } from './editor-sections/EditorInternalCard';
 import { EditorMarketplaceFields } from './editor-sections/EditorMarketplaceFields';
 import { EditorLivePreview } from './editor-sections/EditorLivePreview';
 import { EditorFeaturedDealsSection } from './editor-sections/EditorFeaturedDealsSection';
+import { EditorDocumentsSection } from './editor-sections/EditorDocumentsSection';
 
 // Form schema
 const listingFormSchema = z.object({
