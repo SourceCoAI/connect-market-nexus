@@ -253,7 +253,7 @@ const MyRequests = () => {
                   </span>
                 </div>
               </div>
-              <div className="p-2 space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto">
+              <div className="p-2 space-y-0.5 max-h-[300px] md:max-h-[calc(100vh-200px)] overflow-y-auto">
                 {sortedRequests.map((request) => {
                   const unreadForRequest =
                     (unreadByRequest[request.id] || 0) +
