@@ -10,7 +10,7 @@ export function useListingsQuery(status?: 'active' | 'inactive' | 'all', enabled
   // but we pass undefined status as 'all' to match the expected behavior.
   const mappedStatus = status || 'all';
 
-  const result = useListingsByType('all', mappedStatus === 'all' ? undefined : mappedStatus as 'active' | 'inactive' | 'archived');
+  const result = useListingsByType('all' as const, mappedStatus === 'all' ? undefined : mappedStatus as 'active' | 'inactive' | 'archived');
 
   // If explicitly disabled, return empty data
   if (enabled === false) {
