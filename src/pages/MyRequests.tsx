@@ -227,7 +227,7 @@ const MyRequests = () => {
   return (
     <div className="w-full bg-white min-h-screen">
       {/* Page Header */}
-      <div className="max-w-[1280px] mx-auto px-6 pt-8 pb-5">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-8 pb-5">
         <h1 className="text-xl font-semibold text-[#0E101A] tracking-tight">My Deals</h1>
       </div>
 
