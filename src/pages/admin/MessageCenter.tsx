@@ -425,7 +425,7 @@ export default function MessageCenter() {
               }
             >
               <Users className="w-3.5 h-3.5" />
-              By Buyer
+              <span className="hidden sm:inline">By Buyer</span>
             </button>
           </div>
         </div>
