@@ -84,7 +84,7 @@ const handler = async (req: Request): Promise<Response> => {
   <ul style="padding-left: 20px; line-height: 1.8;">
     <li>Every deal is off-market. You will not find these anywhere else.</li>
     <li>We introduce a small number of buyers per deal. Tell us specifically why you are a strong fit. Generic messages rarely get selected.</li>
-    <li>Your first introduction request will prompt you to sign a fee agreement. It is success-only. Nothing is owed unless a deal closes. It covers every introduction we make on your behalf.</li>
+    <li>Before your first introduction, you will need a Fee Agreement in place. It is success-only. Nothing is owed unless a deal closes. You can request it anytime from any listing page, or reply to this email.</li>
   </ul>
   <p>Questions? Reply to this email.</p>
   <p style="color: #6B6B6B; margin-top: 32px;">The SourceCo Team</p>`,

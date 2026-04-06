@@ -323,14 +323,14 @@ const EMAILS: EmailDef[] = [
     triggerDetail:
       'Fired by pg_cron daily at 9am UTC. send-nda-reminder checks for buyers whose NDA email was sent 6.5–7.5 days ago and nda_signed = false. This is the final automated nudge — offers a direct reply and call option for buyers who have genuine questions about the agreement.',
     file: 'supabase/functions/send-nda-reminder/index.ts',
-    subject: 'A week in — your deal pipeline is still waiting.',
-    preheader: "If something's holding you back on the NDA, reply and we'll sort it.",
+    subject: 'One week in. Your documents are still unsigned.',
+    preheader: 'Questions about the NDA or Fee Agreement? Reply and we will sort it out.',
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>It's been a week since you were approved and the pipeline is still locked for you.</p>
-<p>If something's holding you back — questions about the agreement, concerns about specific language, or you just haven't had the 60 seconds — reply to this email and we'll get it sorted.</p>
-<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Sign Your NDA Now</a></p>
-<p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
+<p>It has been a week since you were approved. Your NDA and Fee Agreement are still unsigned, which means deal details and introductions remain locked.</p>
+<p>You can browse the marketplace anytime. To unlock full access, sign both documents. If something is holding you back, questions about the agreements, concerns about specific language, or you just have not had the 60 seconds, reply to this email and we will get it sorted.</p>
+<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Sign Your Documents</a></p>
+<p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
     invokeFunction: 'send-nda-reminder',
     testPayload: {},
     status: 'live',
