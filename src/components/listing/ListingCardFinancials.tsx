@@ -64,7 +64,7 @@ const ListingCardFinancials = memo(function ListingCardFinancials({
           EMPLOYEES
         </p>
         <p className={`${viewType === "grid" ? "text-[21px]" : "text-[16px]"} font-normal text-slate-900 tracking-[-0.025em]`}>
-          {totalEmployees > 0 ? totalEmployees : '—'}
+          {totalEmployees > 0 ? totalEmployees : '-'}
         </p>
       </div>
     </div>

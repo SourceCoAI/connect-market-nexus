@@ -61,12 +61,12 @@ function generateSmartTitle(form: UseFormReturn<any>): string {
   const revenueDescriptor =
     revenue >= 10_000_000 ? 'Scaled' : revenue >= 5_000_000 ? 'Growth-Stage' : '';
 
-  // Pattern: [Margin/Scale Descriptor] [Industry] [Type] — [Region]
+  // Pattern: [Margin/Scale Descriptor] [Industry] [Type] | [Region]
   const descriptors = [marginDescriptor, revenueDescriptor].filter(Boolean);
   const prefix = descriptors.length > 0 ? descriptors[0] + ' ' : '';
 
   if (region) {
-    return `${prefix}${industry} ${typeLabel} — ${region}`.trim();
+    return `${prefix}${industry} ${typeLabel} | ${region}`.trim();
   }
   return `${prefix}${industry} ${typeLabel} Opportunity`.trim();
 }
@@ -255,7 +255,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
                 <FormItem>
                   <FormControl>
                     <Input
-                      placeholder="e.g. Profitable HVAC Platform — South Central"
+                      placeholder="e.g. Profitable HVAC Platform | South Central"
                       {...field}
                       value={field.value || ''}
                       className={cn(

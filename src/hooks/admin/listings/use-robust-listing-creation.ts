@@ -113,6 +113,8 @@ interface DatabaseListingInsert {
   customer_types?: string | null;
   revenue_model?: string | null;
   end_market_description?: string | null;
+  number_of_locations?: number | null;
+  growth_trajectory?: string | null;
 
   // Deal enrichment detail fields
   service_mix?: string | null;
@@ -268,6 +270,8 @@ export function useRobustListingCreation() {
           customer_types: listing.customer_types || null,
           revenue_model: listing.revenue_model || null,
           end_market_description: listing.end_market_description || null,
+          number_of_locations: (listing as any).number_of_locations ?? null,
+          growth_trajectory: (listing as any).growth_trajectory || null,
         };
 
         // Step 3: Insert listing with isolated transaction

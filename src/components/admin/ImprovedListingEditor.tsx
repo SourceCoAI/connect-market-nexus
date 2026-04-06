@@ -19,6 +19,8 @@ import { EditorHeroDescriptionSection } from './editor-sections/EditorHeroDescri
 import { EditorVisualsSection } from './editor-sections/EditorVisualsSection';
 import { EditorInternalCard } from './editor-sections/EditorInternalCard';
 import { EditorLivePreview } from './editor-sections/EditorLivePreview';
+import { EditorBusinessDetailsCard } from './editor-sections/EditorBusinessDetailsCard';
+import { EditorVisibilityPanel } from './editor-sections/EditorVisibilityPanel';
 import { EditorFeaturedDealsSection } from './editor-sections/EditorFeaturedDealsSection';
 
 // Form schema - location accepts array from select component and transforms to string
@@ -100,6 +102,15 @@ const listingFormSchema = z.object({
 
   // Content sections (populated by lead memo generator)
   custom_sections: z.unknown().nullable().optional(),
+
+  // Buyer-facing business details
+  services: z.array(z.string()).nullable().optional(),
+  geographic_states: z.array(z.string()).nullable().optional(),
+  number_of_locations: z.number().int().min(0).nullable().optional(),
+  customer_types: z.string().nullable().optional(),
+  revenue_model: z.string().nullable().optional(),
+  business_model: z.string().nullable().optional(),
+  growth_trajectory: z.string().nullable().optional(),
 });
 
 type ListingFormInput = {
@@ -147,6 +158,14 @@ type ListingFormInput = {
   main_contact_linkedin?: string;
   // Content sections (populated by lead memo generator)
   custom_sections?: unknown;
+  // Buyer-facing business details
+  services?: string[] | null;
+  geographic_states?: string[] | null;
+  number_of_locations?: number | null;
+  customer_types?: string | null;
+  revenue_model?: string | null;
+  business_model?: string | null;
+  growth_trajectory?: string | null;
 };
 
 type ListingFormValues = z.infer<typeof listingFormSchema>;
@@ -209,6 +228,14 @@ const convertListingToFormInput = (listing?: AdminListing): ListingFormInput => 
     main_contact_linkedin: listing?.main_contact_linkedin || '',
     // Content sections (populated by lead memo generator)
     custom_sections: listing?.custom_sections || null,
+    // Buyer-facing business details
+    services: listing?.services || null,
+    geographic_states: listing?.geographic_states || null,
+    number_of_locations: (listing as any)?.number_of_locations ?? null,
+    customer_types: listing?.customer_types || null,
+    revenue_model: listing?.revenue_model || null,
+    business_model: listing?.business_model || null,
+    growth_trajectory: (listing as any)?.growth_trajectory || null,
   };
 };
 
@@ -496,6 +523,14 @@ export function ImprovedListingEditor({
         main_contact_linkedin: formData.main_contact_linkedin || null,
         // Content sections (populated by lead memo generator)
         custom_sections: formData.custom_sections || null,
+        // Buyer-facing business details
+        services: (formData as any).services || null,
+        geographic_states: (formData as any).geographic_states || null,
+        number_of_locations: (formData as any).number_of_locations ?? null,
+        customer_types: (formData as any).customer_types || null,
+        revenue_model: (formData as any).revenue_model || null,
+        business_model: (formData as any).business_model || null,
+        growth_trajectory: (formData as any).growth_trajectory || null,
         // Featured deals for landing page
         ...(featuredDealIds ? { featured_deal_ids: featuredDealIds } : {}),
       };
@@ -561,15 +596,17 @@ export function ImprovedListingEditor({
                 dealIdentifier={listing?.deal_identifier}
               />
 
-              {/* Right: Financial + Image stacked */}
+              {/* Right: Financial + Image + Business Details + Visibility */}
               <div className="space-y-6">
-                <EditorFinancialCard form={formForSections} isReadOnly={isDealSourced} />
+                <EditorFinancialCard form={formForSections} isReadOnly={isDealSourced} sourceDealId={effectiveDealId} />
                 <EditorVisualsSection
                   imagePreview={imagePreview}
                   imageError={imageError}
                   onImageSelect={handleImageSelect}
                   onRemoveImage={handleRemoveImage}
                 />
+                <EditorBusinessDetailsCard form={formForSections} />
+                <EditorVisibilityPanel />
               </div>
             </div>
 
