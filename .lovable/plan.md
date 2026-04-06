@@ -1,77 +1,103 @@
 
 
-# Audit: What Was and Wasn't Implemented from the Strategic Plan
+# Audit: Implementation Status and Remaining Gaps
 
-## CRITICAL 1: `check_data_room_access` RPC — NOT FIXED
+## What's DONE and Working
 
-The RPC still only checks `WHERE deal_id = p_deal_id`. It has **zero awareness** of `source_deal_id`. The comment in `data-room-download/index.ts` line 87 says "the RPC now handles dual-ID (source_deal_id) awareness" — but **this is a lie**. The actual SQL does a simple `deal_id = p_deal_id` match only.
+| Item | Status |
+|------|--------|
+| `check_data_room_access` RPC with dual-ID | DONE — verified in database |
+| RLS policy on `data_room_documents` with dual-ID | DONE — verified in database |
+| Fee agreement auto-upgrade trigger | DONE — `trg_auto_upgrade_data_room_on_fee_sign` exists |
+| Backfill of 122 access records | DONE |
+| Editor Documents Section | DONE |
+| BuyerDataRoom empty state ("access being set up") | DONE |
+| Auto-provision access on connection accept | DONE |
 
-**Result**: Buyer clicks "View" on a source deal document -> RPC checks access for source_deal_id -> no match -> **403 Access Denied**.
+## What's BROKEN or MISSING
 
-**Fix needed**: Update the RPC to also check `SELECT id FROM listings WHERE source_deal_id = p_deal_id` and look for access records on those listing IDs.
+### BUG 1 (CRITICAL): Category Name Mismatch — Teaser Documents Invisible
 
-## CRITICAL 2: RLS Policy on `data_room_documents` — NOT FIXED
+`BuyerDataRoom.tsx` line 69:
+```
+if (access?.can_view_teaser) allowedCategories.add('teaser');
+```
 
-The RLS policy `Buyers can view granted documents` still joins `a.deal_id = data_room_documents.deal_id` with no source_deal_id awareness.
+But the actual document category in the database is `anonymous_teaser`, not `teaser`. Every teaser document will be filtered out by the client-side category check on line 118 (`allowedCategories.has(doc.document_category)`).
 
-**Result**: The fallback query in `BuyerDataRoom.tsx` (lines 103-109) that fetches source deal documents will be **blocked by RLS** and return empty results. The client-side fallback code exists but is dead code because RLS won't let it through.
+A buyer with teaser access will see **zero teaser documents** even though they exist and RLS allows them through.
 
-**Fix needed**: Update the RLS policy to include `OR EXISTS (SELECT 1 FROM listings l WHERE l.source_deal_id = data_room_documents.deal_id AND l.id = a.deal_id)`.
+**Fix**: Change `'teaser'` to `'anonymous_teaser'` on line 69.
 
-## CRITICAL 3: Backfill — DONE
+### BUG 2 (HIGH): BuyerDataRoom Access Query Doesn't Use Dual-ID
 
-122 `data_room_access` records were inserted via migration. Confirmed in database.
+The access check query (lines 50-65) only looks for `deal_id = dealId` (the listing ID). If for any reason the `data_room_access` record was created against the source deal ID instead of the listing ID, the buyer would see nothing. The RPC and RLS have dual-ID awareness, but this client-side query does not.
 
-## HIGH 1: Editor Documents Section — DONE
+This is currently not causing issues because the auto-provisioning code creates access against the listing ID. But it's a fragility — if an admin manually adds access via the data room panel on the source deal, the buyer won't see it.
 
-`EditorDocumentsSection.tsx` exists, shows documents from both listing ID and source_deal_id with category badges. Read-only (no upload capability added, but that was a recommendation, not a requirement).
+**Fix**: After the primary query returns null, also check via the listing's `source_deal_id` (same pattern as the document fallback).
 
-## HIGH 2: BuyerDataRoom Empty State — DONE
+### BUG 3 (HIGH): Fee Agreement Trigger Uses Company Name Matching
 
-Lines 144-161 show a "Your access is being set up" message when `connectionApproved` is true but no access record exists.
+The trigger `auto_upgrade_access_on_fee_agreement` matches users via:
+```sql
+WHERE p.company = NEW.primary_company_name
+```
 
-## HIGH 3: Fee Agreement Auto-Upgrade Trigger — NOT IMPLEMENTED
+This is fragile. If `profiles.company` doesn't exactly match `firm_agreements.primary_company_name` (different casing, extra whitespace, abbreviations), the upgrade silently fails. There's no error — it just updates zero rows.
 
-No trigger named anything like `auto_upgrade_data_room_on_fee_agreement` exists. The migration file only contains the backfill INSERT. The trigger was supposed to automatically upgrade `can_view_full_memo` and `can_view_data_room` to `true` when `firm_agreements.fee_agreement_status` changes to `signed`.
+Checked the data: for the 5 signed agreements, each has 1-5 matching profiles. So it works for current data. But this is a ticking time bomb for new firms with any naming inconsistency.
 
-**Result**: A buyer who gets approved BEFORE signing the fee agreement is stuck with teaser-only access forever — their toggles never upgrade.
+**Better approach**: Match via `marketplace_buyers.firm_id` → `firm_agreements.id`, or via the user's email domain matching the firm. However, this would require understanding the firm_agreements ↔ profiles linkage better. For now, the company name match works but should be documented as a known fragility.
 
-**Fix needed**: Create a trigger on `firm_agreements` that, on UPDATE of `fee_agreement_status` to `signed`, runs an UPDATE on `data_room_access` for all marketplace users belonging to that firm.
+### GAP 4 (MEDIUM): No Backfill for the Restoration Listing
 
-## LOW 1: Audit Trail Gap — NOT ADDRESSED (acceptable as low priority)
-## LOW 2: Access Expiry — NOT ADDRESSED (business decision, acceptable)
+The restoration listing (`d543b05b`) has:
+- 0 `data_room_access` records
+- 1 pending connection request (never accepted)
+- 2 documents on source deal, 0 on listing itself
 
----
+The backfill only inserted records for previously approved connections. Since this listing's connection is still `pending`, no access exists. This is correct behavior — but once the admin accepts it, the auto-provisioning should kick in. Just needs testing.
 
-## Summary of Gaps to Fix
+### GAP 5 (MEDIUM): No Document Upload in Listing Editor
 
-| Item | Status | Severity |
-|------|--------|----------|
-| `check_data_room_access` RPC dual-ID | NOT DONE | CRITICAL |
-| RLS policy dual-ID awareness | NOT DONE | CRITICAL |
-| `data-room-download` edge function | Comment says fixed, but relies on broken RPC | CRITICAL |
-| Backfill existing connections | DONE | -- |
-| Editor documents section | DONE | -- |
-| BuyerDataRoom empty state | DONE | -- |
-| Fee agreement upgrade trigger | NOT DONE | HIGH |
+The `EditorDocumentsSection` is read-only. It shows documents from both listing and source deal with badges, but admins cannot upload documents from the editor. They must go to the separate Data Room tab for the source deal.
 
-## Implementation Plan
+This was noted as a recommendation, not a requirement, in the original plan. But it means admins have no way to add documents directly to a listing — only to the source deal. If the listing has no source deal (created directly as a marketplace listing), there's no upload path at all from the editor.
 
-### Migration SQL (single migration)
+### GAP 6 (LOW): Audit Trail Still Logs Source Deal ID
 
-1. **Replace `check_data_room_access` RPC** to add a second EXISTS check: if `p_deal_id` is a source deal, look up listings referencing it and check access on those listing IDs.
+The `data-room-download` edge function logs `doc.deal_id` (the source deal ID) in the audit trail. An admin looking at analytics for the listing won't see these events. The listing ID context is lost.
 
-2. **Drop and recreate the `Buyers can view granted documents` RLS policy** on `data_room_documents` to add the same source_deal_id join logic.
+## Additional Considerations Beyond the Original Plan
 
-3. **Create trigger function `auto_upgrade_access_on_fee_agreement()`** on `firm_agreements` — when `fee_agreement_status` is updated to `signed`, UPDATE all `data_room_access` rows for users in that firm to set `can_view_full_memo = true, can_view_data_room = true`.
+### 1. Publish Gate: Document Warning
 
-4. **Create trigger** `trg_auto_upgrade_data_room_on_fee_sign` AFTER UPDATE on `firm_agreements`.
+When `publish-listing` runs, it checks for memo PDFs using `source_deal_id` fallback. But it doesn't warn if there are zero `data_room` category documents. For a production marketplace, having only a teaser and memo (no financials, tax returns, etc.) might be insufficient. Consider adding a non-blocking warning.
 
-### Edge Function
+### 2. Connection Request Flow on This Specific Listing
 
-No changes needed to `data-room-download/index.ts` — it already calls the RPC correctly, the RPC just needs to be fixed.
+The pending connection request for the restoration listing needs to be accepted to test the full flow. Once accepted:
+1. `data_room_access` should be auto-created (with `can_view_full_memo` and `can_view_data_room` based on fee agreement status)
+2. The RLS policy should allow the source deal documents through
+3. BuyerDataRoom should display the 2 documents (teaser + memo)
+4. Clicking "View" should call `data-room-download`, which should pass the dual-ID RPC check
 
-### No Frontend Changes
+### 3. What Happens If Documents Are Added After Publishing?
 
-All frontend code (BuyerDataRoom fallback, editor section, empty state) is already correctly implemented. The fixes are purely database-level.
+If an admin uploads new documents to the source deal after the listing is live, those documents are immediately visible to buyers (since the dual-ID RLS policy checks in real-time). This is the correct behavior for Option B (dual-ID awareness). No action needed.
+
+## Implementation Plan (Fixes Only)
+
+### Fix 1: `src/components/marketplace/BuyerDataRoom.tsx`
+- Line 69: Change `'teaser'` to `'anonymous_teaser'`
+
+### Fix 2: `src/components/marketplace/BuyerDataRoom.tsx`
+- Lines 50-65: Add fallback to check `source_deal_id` for access records if primary query returns null
+
+### Fix 3 (Optional): Document the company name matching fragility
+- Add a comment to the migration noting the limitation
+- Consider a future migration to use a more robust firm ↔ user linkage
+
+No database changes, no edge function changes. Two small frontend fixes.
 
