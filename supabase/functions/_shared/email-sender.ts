@@ -20,6 +20,10 @@ const DEFAULT_REPLY_TO = 'support@sourcecodeals.com';
 export const SUPPORT_REPLY_TO = 'support@sourcecodeals.com';
 export const SUPPORT_SENDER_NAME = 'SourceCo';
 
+// ── Noreply identity for admin-bound system notifications ───────────────────
+export const NOREPLY_SENDER_EMAIL = 'noreply@sourcecodeals.com';
+export const NOREPLY_SENDER_NAME = 'SourceCo Notifications';
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export interface EmailAttachment {

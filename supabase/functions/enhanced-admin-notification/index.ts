@@ -76,7 +76,8 @@ const handler = async (req: Request): Promise<Response> => {
       to: adminEmail,
       subject: "New User Registration: Action Required",
       htmlContent,
-      senderName: 'SourceCo',
+      senderName: 'SourceCo Notifications',
+      senderEmail: 'noreply@sourcecodeals.com',
       isTransactional: true,
       metadata: { userEmail: email, userName: `${first_name} ${last_name}` },
     });

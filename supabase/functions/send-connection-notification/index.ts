@@ -165,7 +165,8 @@ const handler = async (req: Request): Promise<Response> => {
         toName: 'SourceCo Support',
         subject,
         htmlContent,
-        senderName: 'SourceCo',
+        senderName: 'SourceCo Notifications',
+        senderEmail: 'noreply@sourcecodeals.com',
         replyTo: 'support@sourcecodeals.com',
         isTransactional: true,
       });

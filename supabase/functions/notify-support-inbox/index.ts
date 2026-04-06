@@ -6,7 +6,7 @@
  */
 
 import { getCorsHeaders } from '../_shared/cors.ts';
-import { sendEmail, SUPPORT_REPLY_TO, SUPPORT_SENDER_NAME } from '../_shared/email-sender.ts';
+import { sendEmail, SUPPORT_REPLY_TO, NOREPLY_SENDER_EMAIL, NOREPLY_SENDER_NAME } from '../_shared/email-sender.ts';
 import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 
@@ -110,7 +110,8 @@ Deno.serve(async (req) => {
       subject,
       htmlContent: fullHtml,
       replyTo: SUPPORT_REPLY_TO,
-      senderName: SUPPORT_SENDER_NAME,
+      senderName: NOREPLY_SENDER_NAME,
+      senderEmail: NOREPLY_SENDER_EMAIL,
     });
 
     return new Response(

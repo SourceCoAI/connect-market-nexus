@@ -28,19 +28,19 @@ const SUPPORT_EMAIL = 'support@sourcecodeals.com';
 
 const ALL_EMAILS: Record<Category, EmailEntry[]> = {
   'Admin Notifications': [
-    { emailType: 'New User Registration', edgeFunction: 'enhanced-admin-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
-    { emailType: 'New User Registration (journey)', edgeFunction: 'user-journey-notifications', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
-    { emailType: 'Connection Request (admin copy)', edgeFunction: 'send-connection-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
-    { emailType: 'Feedback Submitted', edgeFunction: 'send-feedback-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
-    { emailType: 'Admin Digest', edgeFunction: 'admin-digest', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'New User Registration', edgeFunction: 'enhanced-admin-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo Notifications', replyTo: SUPPORT_EMAIL },
+    { emailType: 'New User Registration (journey)', edgeFunction: 'user-journey-notifications', recipient: SUPPORT_EMAIL, senderName: 'SourceCo Notifications', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Connection Request (admin copy)', edgeFunction: 'send-connection-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo Notifications', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Feedback Submitted', edgeFunction: 'send-feedback-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo Notifications', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Admin Digest', edgeFunction: 'admin-digest', recipient: SUPPORT_EMAIL, senderName: 'SourceCo Notifications', replyTo: SUPPORT_EMAIL },
     { emailType: 'Task Assigned', edgeFunction: 'send-task-notification-email', recipient: 'Assigned admin (assignee_email)', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Deal Owner Change', edgeFunction: 'notify-deal-owner-change', recipient: 'Previous deal owner', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
-    { emailType: 'Owner Inquiry', edgeFunction: 'send-owner-inquiry-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Owner Inquiry', edgeFunction: 'send-owner-inquiry-notification', recipient: SUPPORT_EMAIL, senderName: 'SourceCo Notifications', replyTo: SUPPORT_EMAIL },
   ],
   'Messaging': [
-    { emailType: 'New Buyer Message', edgeFunction: 'notify-support-inbox', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
-    { emailType: 'Admin Reply Copy', edgeFunction: 'notify-support-inbox', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
-    { emailType: 'Document Request', edgeFunction: 'notify-support-inbox', recipient: SUPPORT_EMAIL, senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'New Buyer Message', edgeFunction: 'notify-support-inbox', recipient: SUPPORT_EMAIL, senderName: 'SourceCo Notifications', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Admin Reply Copy', edgeFunction: 'notify-support-inbox', recipient: SUPPORT_EMAIL, senderName: 'SourceCo Notifications', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Document Request', edgeFunction: 'notify-support-inbox', recipient: SUPPORT_EMAIL, senderName: 'SourceCo Notifications', replyTo: SUPPORT_EMAIL },
     { emailType: 'Admin Reply to Buyer', edgeFunction: 'notify-buyer-new-message', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Inquiry Confirmation to Buyer', edgeFunction: 'notify-buyer-inquiry-received', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
   ],
@@ -182,7 +182,7 @@ export function AdminEmailRouting() {
             <div>
               <p className="text-sm font-semibold">Sender Identity</p>
               <p className="text-sm text-muted-foreground mt-0.5">
-                All outbound emails send FROM <code className="bg-muted px-1 rounded font-semibold">{SUPPORT_EMAIL}</code> with sender name "SourceCo". No individual admin receives any notification emails from the platform. All admin notifications go exclusively to the shared support inbox.
+                Default outbound emails send FROM <code className="bg-muted px-1 rounded font-semibold">{SUPPORT_EMAIL}</code> with sender name "SourceCo". Admin-bound notifications (to the support inbox) send FROM <code className="bg-muted px-1 rounded font-semibold">noreply@sourcecodeals.com</code> with sender name "SourceCo Notifications" to avoid Outlook spam filtering.
               </p>
             </div>
           </div>

@@ -68,7 +68,8 @@ const handler = async (req: Request): Promise<Response> => {
       toName: 'SourceCo Support',
       subject: `New Owner Inquiry: ${data.companyName} (${formatRevenueRange(data.revenueRange)})`,
       htmlContent,
-      senderName: 'SourceCo',
+      senderName: 'SourceCo Notifications',
+      senderEmail: 'noreply@sourcecodeals.com',
       replyTo: data.email,
       isTransactional: true,
     });
