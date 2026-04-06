@@ -145,8 +145,6 @@ export function useConnectionRequestActions({
           .maybeSingle();
 
         if (!existingAccess) {
-          const buyerDisplayName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || '';
-          const buyerCompany = firmInfo?.firm_name || user.company || '';
           const feeAgreementSigned = hasFeeAgreement;
 
           const { error: accessErr } = await supabase
@@ -154,8 +152,6 @@ export function useConnectionRequestActions({
             .insert({
               deal_id: listing.id,
               marketplace_user_id: user.id,
-              buyer_name: buyerDisplayName,
-              buyer_company: buyerCompany,
               can_view_teaser: true,
               can_view_full_memo: feeAgreementSigned,
               can_view_data_room: feeAgreementSigned,

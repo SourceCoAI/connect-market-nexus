@@ -84,7 +84,7 @@ Deno.serve(async (req: Request) => {
     const { data: isAdmin } = await supabaseAdmin.rpc("is_admin", { user_id: auth.userId });
 
     if (!isAdmin) {
-      // Buyer access check
+      // Buyer access check — the RPC now handles dual-ID (source_deal_id) awareness
       const hasAccess = await supabaseAdmin.rpc("check_data_room_access", {
         p_deal_id: doc.deal_id,
         p_user_id: auth.userId,

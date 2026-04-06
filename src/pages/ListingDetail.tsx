@@ -306,7 +306,7 @@ const ListingDetail = () => {
             {!isAdmin && user && (
               <div ref={dataRoomRef}>
                 <MFAGate loadingText="Verifying identity for data room access...">
-                  <BuyerDataRoom dealId={id!} />
+                  <BuyerDataRoom dealId={id!} connectionApproved={connectionStatusValue === 'approved'} />
                 </MFAGate>
               </div>
             )}

@@ -22,6 +22,7 @@ import { EditorInternalCard } from './editor-sections/EditorInternalCard';
 import { EditorMarketplaceFields } from './editor-sections/EditorMarketplaceFields';
 import { EditorLivePreview } from './editor-sections/EditorLivePreview';
 import { EditorFeaturedDealsSection } from './editor-sections/EditorFeaturedDealsSection';
+import { EditorDocumentsSection } from './editor-sections/EditorDocumentsSection';
 
 // Form schema
 const listingFormSchema = z.object({
@@ -650,7 +651,15 @@ export function ImprovedListingEditor({
               dealIdentifier={listing?.deal_identifier}
             />
 
-            {/* 7. Featured Deals */}
+            {/* 7. Documents Overview */}
+            {listing?.id && (
+              <EditorDocumentsSection
+                listingId={listing.id}
+                sourceDealId={effectiveDealId !== listing.id ? effectiveDealId : null}
+              />
+            )}
+
+            {/* 8. Featured Deals */}
             <EditorFeaturedDealsSection
               featuredDealIds={featuredDealIds}
               onChange={setFeaturedDealIds}
