@@ -53,7 +53,8 @@ export default function CreateListingFromDeal() {
           founded_year, number_of_locations,
           customer_geography, customer_types, end_market_description,
           investment_thesis, competitive_position, ownership_structure,
-          seller_motivation, business_model, revenue_model, growth_drivers
+          seller_motivation, business_model, revenue_model, growth_drivers,
+          growth_trajectory
         `,
         )
         .eq('id', dealId!)
