@@ -172,10 +172,31 @@ function DealSelectBox({
   );
 }
 
+function scoreSimilarity(
+  deal: DealOption,
+  current: { category?: string; categories?: string[]; revenue?: number; ebitda?: number; location?: string },
+) {
+  let score = 0;
+  const currentCats = Array.isArray(current.categories) ? current.categories : [current.category].filter(Boolean);
+  // We don't have categories on DealOption, but title overlap is a proxy
+  // Category overlap scored via title keyword match as a fallback
+  const rev = Number(deal.revenue ?? 0);
+  const curRev = Number(current.revenue ?? 0);
+  const revAvg = (rev + curRev) / 2;
+  if (revAvg > 0 && Math.abs(rev - curRev) / revAvg < 0.3) score += 35;
+  if (curRev > 0 && rev > 0) {
+    const m1 = Number(current.ebitda ?? 0) / curRev;
+    const m2 = Number(deal.ebitda ?? 0) / rev;
+    if (Math.abs(m1 - m2) < 0.05) score += 20;
+  }
+  return score;
+}
+
 export function EditorFeaturedDealsSection({
   featuredDealIds,
   onChange,
   currentListingId,
+  currentListing,
 }: EditorFeaturedDealsSectionProps) {
   const [allDeals, setAllDeals] = useState<DealOption[]>([]);
   const [selectedDeal1, setSelectedDeal1] = useState<DealOption | null>(null);
