@@ -165,17 +165,17 @@ export function useRelatedDeals(
       if (!data || data.length === 0) return [] as RelatedDeal[];
 
       // Score by similarity
-      const currentCategories = Array.isArray(currentDeal?.categories)
-        ? currentDeal.categories
-        : [currentDeal?.category].filter(Boolean);
+      const currentCategories: string[] = Array.isArray(currentDeal?.categories)
+        ? (currentDeal.categories as (string | null)[]).filter((c): c is string => !!c)
+        : [currentDeal?.category].filter((c): c is string => !!c);
       const currentRev = Number(currentDeal?.revenue ?? 0);
       const currentEbitda = Number(currentDeal?.ebitda ?? 0);
       const currentLoc = currentDeal?.location ?? '';
 
       const scored = data.map((listing: any) => {
         let score = 0;
-        const cats = Array.isArray(listing.categories) ? listing.categories : [listing.category].filter(Boolean);
-        if (currentCategories.some((c: string) => cats.includes(c))) score += 60;
+        const cats: string[] = Array.isArray(listing.categories) ? listing.categories.filter((c: any) => !!c) : [listing.category].filter(Boolean);
+        if (currentCategories.some((c) => cats.includes(c))) score += 60;
 
         const rev = Number(listing.revenue ?? 0);
         const revAvg = (rev + currentRev) / 2;
