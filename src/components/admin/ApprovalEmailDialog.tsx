@@ -7,13 +7,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, User, Mail, AlertTriangle } from 'lucide-react';
 import { User as UserType } from '@/types';
-import { EditableSignature } from './EditableSignature';
 
 interface ApprovalEmailDialogProps {
   open: boolean;
@@ -30,68 +26,31 @@ interface ApprovalEmailDialogProps {
   ) => Promise<void>;
 }
 
-const DEFAULT_APPROVAL_EMAIL = {
-  subject: 'Your SourceCo account is now approved',
-  message: `Your SourceCo account is now approved.
-
-Access granted to:
-
-• Off-market business acquisition opportunities
-• Ability to request connections directly to the owners
-• Request full access to listings that match your criteria
-
-Next steps:
-• Explore the marketplace: https://marketplace.sourcecodeals.com
-• Set up deal alerts for automated notifications of new opportunities matching your criteria (new deals added every week)
-• Fully complete your profile for enhanced matching (let us know exactly what targets you are looking for)
-
-Questions? Reply to this email.`,
-};
-
 export function ApprovalEmailDialog({
   open,
   onOpenChange,
   user,
   onSendApprovalEmail,
 }: ApprovalEmailDialogProps) {
-  const [customSubject, setCustomSubject] = useState('');
-  const [customMessage, setCustomMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [customSignatureHtml, setCustomSignatureHtml] = useState('');
-  const [customSignatureText, setCustomSignatureText] = useState('');
 
   const userName =
     user?.first_name && user?.last_name
       ? `${user.first_name} ${user.last_name}`
       : user?.first_name || user?.email?.split('@')[0] || '';
 
-  const defaultSubject = DEFAULT_APPROVAL_EMAIL.subject;
-  const defaultMessage = DEFAULT_APPROVAL_EMAIL.message.replace(/{{userName}}/g, userName);
-
   const handleSend = async () => {
-    if (!user) {
-      console.error('[ApprovalDialog] handleSend called but user is null');
-      return;
-    }
+    if (!user) return;
 
     setIsLoading(true);
     setErrorMessage(null);
 
-    const payload = {
-      subject: customSubject || defaultSubject,
-      message: customMessage || defaultMessage,
-      customSignatureHtml: customSignatureHtml || undefined,
-      customSignatureText: customSignatureText || undefined,
-    };
-
     try {
-      await onSendApprovalEmail(user, payload);
-      // Reset form after successful approval - dialog closure is handled by parent (UserActions)
-      setCustomSubject('');
-      setCustomMessage('');
-      setCustomSignatureHtml('');
-      setCustomSignatureText('');
+      await onSendApprovalEmail(user, {
+        subject: '',
+        message: '',
+      });
       setErrorMessage(null);
     } catch (error) {
       console.error('[ApprovalDialog] Error in approval flow:', error);
@@ -106,14 +65,13 @@ export function ApprovalEmailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-3 sm:p-6">
-        <DialogHeader className="space-y-2 sm:space-y-3">
-          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
-            <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-primary" />
-            Approve User & Send Welcome Email
+      <DialogContent className="max-w-lg p-6">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="text-base font-semibold">
+            Approve User
           </DialogTitle>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            This will approve the user's account and send them a professional welcome email.
+          <p className="text-sm text-muted-foreground">
+            This will approve their account and send a welcome email.
           </p>
         </DialogHeader>
 
@@ -124,96 +82,72 @@ export function ApprovalEmailDialog({
           </div>
         )}
 
-        <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          {/* User Information */}
-          <div className="bg-gradient-to-r from-primary/5 to-primary/10 p-2 sm:p-3 md:p-4 rounded-lg border border-primary/20">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 md:gap-3">
-              <User className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                <span className="font-medium text-foreground text-sm sm:text-base">{userName}</span>
-                <Badge variant="outline" className="w-fit text-xs">
-                  {user.email}
-                </Badge>
-              </div>
+        <div className="space-y-4">
+          {/* User info */}
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
+            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+              <User className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="text-xs sm:text-sm text-muted-foreground mt-1 sm:mt-2">
-              Current status: <span className="capitalize">{user.approval_status}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground truncate">{userName}</p>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             </div>
+            <Badge variant="outline" className="text-xs capitalize shrink-0">
+              {user.approval_status}
+            </Badge>
           </div>
 
-          {/* Email Customization */}
-          <div className="space-y-3 sm:space-y-4">
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="subject" className="text-xs sm:text-sm font-medium">
-                Email Subject
-              </Label>
-              <Input
-                id="subject"
-                placeholder={defaultSubject}
-                value={customSubject}
-                onChange={(e) => setCustomSubject(e.target.value)}
-                className="text-xs sm:text-sm h-8 sm:h-9 md:h-10"
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave empty to use default: "{defaultSubject}"
-              </p>
-            </div>
-
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="message" className="text-xs sm:text-sm font-medium">
-                Welcome Message
-              </Label>
-              <Textarea
-                id="message"
-                placeholder={defaultMessage}
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                rows={6}
-                className="resize-none text-xs sm:text-sm min-h-[120px] sm:min-h-[160px]"
-              />
-              <p className="text-xs text-muted-foreground">
-                Customize the welcome message or leave empty to use the professional default
-                template
-              </p>
-            </div>
-
-            {/* Email Signature */}
-            <div className="space-y-1 sm:space-y-2">
-              <Label className="text-xs sm:text-sm font-medium">Email Signature</Label>
-              <EditableSignature
-                showInline
-                onSignatureChange={(html, text) => {
-                  setCustomSignatureHtml(html);
-                  setCustomSignatureText(text);
-                }}
-              />
+          {/* Email preview */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email preview</p>
+            <div className="rounded-lg border border-border p-4 space-y-3 text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Mail className="h-3.5 w-3.5" />
+                <span className="text-xs">Subject:</span>
+                <span className="text-foreground text-xs font-medium">Welcome to SourceCo — Your account is approved</span>
+              </div>
+              <hr className="border-border" />
+              <ul className="space-y-1.5 text-xs text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-muted-foreground/60 mt-0.5">•</span>
+                  <span>Account approved, access to off-market deal pipeline</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-muted-foreground/60 mt-0.5">•</span>
+                  <span>CTA: Browse the Marketplace</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-muted-foreground/60 mt-0.5">•</span>
+                  <span>Secondary: Instructions to sign NDA + Fee Agreement for full access</span>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 pt-3 sm:pt-4">
+        <DialogFooter className="gap-3 pt-2">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="w-full sm:w-auto h-9 sm:h-10 text-sm min-h-[44px] sm:min-h-[40px]"
             disabled={isLoading}
+            className="border-[#E5E5E5] text-muted-foreground hover:bg-muted/50"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSend}
             disabled={isLoading}
-            className="w-full sm:w-auto bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary h-9 sm:h-10 text-sm min-h-[44px] sm:min-h-[40px]"
+            className="bg-[#0E101A] text-white hover:bg-[#1a1d2e]"
           >
             {isLoading ? (
               <>
-                <Mail className="h-3 w-3 sm:h-4 sm:w-4 mr-2 animate-spin" />
-                Approving & Sending...
+                <Mail className="h-4 w-4 mr-2 animate-spin" />
+                Approving...
               </>
             ) : (
               <>
-                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                Approve User & Send Email
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Approve & Send Email
               </>
             )}
           </Button>
