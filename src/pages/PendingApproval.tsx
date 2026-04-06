@@ -29,6 +29,8 @@ const PendingApproval = () => {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [checkCooldown, setCheckCooldown] = useState(false);
   const [isRequestingDocs, setIsRequestingDocs] = useState(false);
+  const [docCooldown, setDocCooldown] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   const { data: agreementStatus } = useMyAgreementStatus(!!user);
   const hasAnyAgreement = agreementStatus?.fee_covered;
