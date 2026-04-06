@@ -1,0 +1,2 @@
+DROP TRIGGER IF EXISTS trg_auto_create_deal_from_connection ON public.connection_requests;
+DROP FUNCTION IF EXISTS auto_create_deal_from_approved_connection();
