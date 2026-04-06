@@ -55,7 +55,7 @@ const ALL_EMAILS: Record<Category, EmailEntry[]> = {
     { emailType: 'Onboarding Day 2', edgeFunction: 'send-onboarding-day2', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Onboarding Day 7', edgeFunction: 'send-onboarding-day7', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Marketplace Invitation', edgeFunction: 'send-marketplace-invitation', recipient: 'Invited buyer', senderName: 'SourceCo Marketplace', replyTo: SUPPORT_EMAIL },
-    { emailType: 'Marketplace Buyer Approved', edgeFunction: 'approve-marketplace-buyer', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Marketplace Buyer Approved', edgeFunction: 'approve-marketplace-buyer', recipient: 'Individual buyer', senderName: 'Adam Haile', replyTo: 'adam.haile@sourcecodeals.com' },
     { emailType: 'First Request Followup', edgeFunction: 'send-first-request-followup', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Feedback Response', edgeFunction: 'send-feedback-email', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'User Notification', edgeFunction: 'send-user-notification', recipient: 'Individual user', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },

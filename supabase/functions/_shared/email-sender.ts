@@ -102,7 +102,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
   }
 
   const correlationId = crypto.randomUUID();
-  const senderEmail = VERIFIED_SENDER_EMAIL;
+  const senderEmail = options.senderEmail || VERIFIED_SENDER_EMAIL;
   const senderName = options.senderName || VERIFIED_SENDER_NAME;
   const replyTo = options.replyTo || DEFAULT_REPLY_TO;
 
