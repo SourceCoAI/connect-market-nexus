@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 import { Link, useParams } from 'react-router-dom';
 import { useMarketplace } from '@/hooks/use-marketplace';
