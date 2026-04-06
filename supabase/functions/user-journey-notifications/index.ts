@@ -24,15 +24,17 @@ function buildWelcomeHtml(userName: string): string {
   return wrapEmailHtml({
     bodyHtml: `
   <p>Hi ${escapeHtml(userName)},</p>
-  <p>Your application is in. Our team will review it, typically within one business day, and you will hear from us by email the moment you are cleared.</p>
-  <p>While you wait, verify your email address using the link we just sent you.</p>
-  <p>If you have already verified your email, a team member will manually review your profile and approve your access shortly — typically within a few hours.</p>
-  <p style="font-weight: 600; margin: 24px 0 8px 0;">What you are applying for</p>
-  <p>SourceCo is a private marketplace for off-market, founder-led businesses. Every deal in the pipeline has been sourced and qualified by our team before it reaches buyers. You are not browsing a listing aggregator. You are accessing curated deal flow.</p>
-  <p>Once approved, you will sign a single NDA that unlocks your access to the platform, then a fee agreement before your first introduction. Both take about 60 seconds each.</p>
-  <p>Questions before then? Reply to this email.</p>
+  <p>Your application is in. Our team will review it and you will hear from us by email the moment you are approved, typically within a few hours.</p>
+  <p>While you wait, verify your email address using the link we sent you. If you have already verified, sit tight. A team member is reviewing your profile now.</p>
+  <p style="font-weight: 600; margin: 24px 0 8px 0;">What happens when you are approved</p>
+  <ol style="padding-left: 20px; line-height: 1.8;">
+    <li>We send you two documents to sign: an NDA and a Fee Agreement. Both are standard, take about 60 seconds each.</li>
+    <li>Once signed, you get full access to the deal pipeline, including confidential business details, financials, and direct introductions.</li>
+  </ol>
+  <p>The NDA protects the information we share with you. The Fee Agreement only applies if you close a deal sourced through SourceCo. No upfront cost.</p>
+  <p>Questions? Reply to this email.</p>
   <p style="color: #6B6B6B; margin-top: 32px;">The SourceCo Team</p>`,
-    preheader: 'Off-market deal flow, reviewed by our team. We will be in touch shortly.',
+    preheader: 'Your application is in. We will email you the moment you are approved.',
   });
 }
 
@@ -69,13 +71,13 @@ function buildEmailVerifiedHtml(userName: string): string {
   <p>Hi ${escapeHtml(userName)},</p>
   <p>Your email is confirmed. Your application is now with our team.</p>
   <p>We review applications same day during business hours. You will get an email the moment you are approved, typically within a few hours, never more than one business day.</p>
-  <p style="font-weight: 600; margin: 24px 0 8px 0;">What happens when you are approved</p>
-  <ul style="padding-left: 20px; line-height: 1.8;">
-    <li>You sign a single NDA. Covers your use of the platform. Takes about 60 seconds.</li>
-    <li>Full access to browse every deal in the pipeline immediately after.</li>
-    <li>When you find a fit, request an introduction. We handle it from there.</li>
-  </ul>
-  <p style="margin: 24px 0;"><a href="${LOGIN_URL}" style="display: inline-block; background-color: #000000; color: #ffffff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 600;">Log In</a></p>
+  <p style="font-weight: 600; margin: 24px 0 8px 0;">What happens next</p>
+  <ol style="padding-left: 20px; line-height: 1.8;">
+    <li>Our team reviews and approves your profile.</li>
+    <li>You sign two documents: an NDA and a Fee Agreement. Both are standard, sent to your email, 60 seconds each.</li>
+    <li>Full access to the deal pipeline: confidential details, financials, and direct introductions to founders.</li>
+  </ol>
+  <p>Nothing for you to do right now. We will email you the moment you are cleared.</p>
   <p style="color: #6B6B6B; margin-top: 32px;">The SourceCo Team</p>`,
     preheader: 'Our team reviews applications same day. We will email you the moment you are cleared.',
   });
