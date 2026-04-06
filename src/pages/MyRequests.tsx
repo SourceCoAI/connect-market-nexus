@@ -349,7 +349,7 @@ function DetailPanel({
 
       {/* Tabs */}
       <Tabs value={innerTab} onValueChange={onInnerTabChange} className="flex-1 flex flex-col">
-        <div className="border-b border-[#F0EDE6] px-6 bg-white">
+        <div className="border-b border-[#F0EDE6] px-4 sm:px-6 bg-white">
           <TabsList className="inline-flex h-auto items-center bg-transparent p-0 gap-0 w-full justify-start rounded-none">
             <TabsTrigger
               value="overview"
