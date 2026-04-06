@@ -239,8 +239,9 @@ export function useRobustListingCreation() {
           custom_sections: listing.custom_sections || null,
 
           // REQUIRED by DB (NOT NULL + non-empty CHECK constraint)
-          website: (listing as Record<string, unknown>).website
-            ? sanitizeStringField((listing as Record<string, unknown>).website)
+          website: sanitizeStringField((listing as Record<string, unknown>).website)
+            && !String((listing as Record<string, unknown>).website).endsWith('.placeholder')
+            ? `${sanitizeStringField((listing as Record<string, unknown>).website)}-${crypto.randomUUID().slice(0, 8)}`
             : `listing-${crypto.randomUUID().slice(0, 8)}.placeholder`,
 
           // Computed financial metric
