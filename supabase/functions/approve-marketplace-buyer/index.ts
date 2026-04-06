@@ -110,7 +110,7 @@ Deno.serve(async (req: Request) => {
       subject: `Project ${deal.project_name}: Investment Opportunity`,
       htmlContent: buildApprovalEmailHtml(projectName, buyerName, linkUrl, queueRecord.buyer_email),
       senderEmail: 'adam.haile@sourcecodeals.com',
-      senderName: 'Adam Haile',
+      senderName: 'Adam Haile - SourceCo',
       replyTo: 'adam.haile@sourcecodeals.com',
       isTransactional: true,
       metadata: { dealId: queueRecord.deal_id, approvalQueueId: approval_queue_id },
