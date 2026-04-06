@@ -410,7 +410,7 @@ export default function MessageCenter() {
               }
             >
               <FolderOpen className="w-3.5 h-3.5" />
-              By Deal
+              <span className="hidden sm:inline">By Deal</span>
             </button>
             <button
               onClick={() => setViewMode('by_buyer')}
