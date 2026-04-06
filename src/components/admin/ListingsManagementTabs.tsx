@@ -70,7 +70,7 @@ const ListingsManagementTabs = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-[1600px] mx-auto px-6 lg:px-10 py-8 space-y-8">
+      <div className="max-w-[1600px] mx-auto px-2 sm:px-6 lg:px-10 py-8 space-y-8">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="space-y-1">
