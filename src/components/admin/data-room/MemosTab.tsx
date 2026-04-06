@@ -368,8 +368,28 @@ function MemoSlotCard({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
+  const handlePreviewPdf = () => {
+    if (!document) return;
+    setIsPreviewing(true);
+    documentUrl.mutate(
+      { documentId: document.id, action: 'view' },
+      {
+        onSuccess: (data) => {
+          if (data?.url) {
+            window.open(data.url, '_blank');
+          }
+          setIsPreviewing(false);
+        },
+        onError: () => setIsPreviewing(false),
+      },
+    );
+  };
+
   const handleDownloadPdf = () => {
     if (!document) return;
+    setIsPreviewing(false);
     documentUrl.mutate(
       { documentId: document.id, action: 'download' },
       {
