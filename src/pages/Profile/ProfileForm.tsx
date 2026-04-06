@@ -22,7 +22,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DEAL_INTENT_OPTIONS } from '@/lib/signup-field-options';
 import { ProfileSettings } from './ProfileSettings';
 import { Progress } from '@/components/ui/progress';
-import { getMissingFieldLabels, getProfileCompletionPercentage, isProfileComplete } from '@/lib/profile-completeness';
+import { getMissingFieldLabels, getMissingRequiredFields, getProfileCompletionPercentage, isProfileComplete } from '@/lib/profile-completeness';
+import { FIELD_LABELS } from '@/lib/buyer-type-fields';
 import type { ProfileFormProps } from './types';
 
 export function ProfileForm({
