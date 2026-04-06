@@ -15,6 +15,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '@/components/ui/tooltip';
+import {
   Shield,
   CheckCircle,
   XCircle,
@@ -71,56 +77,82 @@ export function ApprovalSection({
     <>
       {/* ── DECISION BANNER ── */}
       {requestStatus === 'pending' && (
-        <div className="bg-sourceco-muted rounded-xl overflow-hidden shadow-md border border-sourceco/30">
+        <div className="bg-muted/40 rounded-xl overflow-hidden border border-border">
           <div className="px-6 py-5 flex items-center justify-between gap-6">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-sourceco/20 flex items-center justify-center shrink-0">
-                <Scale className="h-6 w-6 text-sourceco" />
-              </div>
+            <div className="flex items-center gap-3 min-w-0">
+              <Scale className="h-5 w-5 text-muted-foreground shrink-0" />
               <div>
-                <p className="text-lg font-extrabold text-foreground tracking-tight">
+                <p className="text-sm font-semibold uppercase tracking-wide text-foreground">
                   Decision Required
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  Review this connection request — only approved requests advance to the active
-                  pipeline
+                <p className="text-xs text-muted-foreground">
+                  Only approved requests advance to the active pipeline
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <Button
-                onClick={handleAccept}
-                disabled={isStatusPending}
-                className="bg-sourceco text-foreground font-bold shadow-sm hover:bg-sourceco/90 h-10 px-5 text-sm"
-              >
-                <CheckCircle className="h-4 w-4 mr-1.5" />
-                Accept Request
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowRejectDialog(true)}
-                disabled={isStatusPending}
-                className="border-foreground/20 text-foreground bg-transparent hover:bg-foreground/5 h-10 px-5 text-sm"
-              >
-                <XCircle className="h-4 w-4 mr-1.5" />
-                Decline
-              </Button>
-              {handleOnHold && (
-                <Button
-                  variant="outline"
-                  onClick={handleOnHold}
-                  disabled={isStatusPending}
-                  className="border-amber-300 text-amber-700 bg-transparent hover:bg-amber-50 h-10 px-5 text-sm"
-                >
-                  <Clock className="h-4 w-4 mr-1.5" />
-                  On Hold
-                </Button>
-              )}
-              {flagButton}
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-foreground/5 rounded-full px-4 py-1.5">
-                Awaiting Action
-              </span>
-            </div>
+            <TooltipProvider delayDuration={200}>
+              <div className="flex items-center gap-2.5 shrink-0">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleAccept}
+                      disabled={isStatusPending}
+                      className="bg-[#0E101A] text-white hover:bg-[#1a1d2e] h-9 px-4 text-sm font-medium"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1.5" />
+                      Accept
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                    Approves the buyer, sends approval email, adds to pipeline, and posts a deal thread message
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowRejectDialog(true)}
+                      disabled={isStatusPending}
+                      className="border-border text-foreground h-9 px-4 text-sm font-medium"
+                    >
+                      <XCircle className="h-4 w-4 mr-1.5" />
+                      Decline
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                    Rejects the request, sends rejection email to buyer with optional note
+                  </TooltipContent>
+                </Tooltip>
+                {handleOnHold && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        onClick={handleOnHold}
+                        disabled={isStatusPending}
+                        className="border-border text-muted-foreground h-9 px-4 text-sm font-medium"
+                      >
+                        <Clock className="h-4 w-4 mr-1.5" />
+                        On Hold
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                      Pauses the request without notifying the buyer — no email or notification sent
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {flagButton && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>{flagButton}</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                      Flags for a team member to review — no buyer impact, creates an internal task
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </TooltipProvider>
           </div>
         </div>
       )}
@@ -173,7 +205,7 @@ export function ApprovalSection({
         </div>
       )}
 
-      {/* Status banner — on hold (Phase 95 + 97: add Accept/Decline alongside Undo) */}
+      {/* Status banner — on hold */}
       {requestStatus === 'on_hold' && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
