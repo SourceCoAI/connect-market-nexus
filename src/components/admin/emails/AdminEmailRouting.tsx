@@ -47,8 +47,9 @@ const ALL_EMAILS: Record<Category, EmailEntry[]> = {
   'Buyer Lifecycle': [
     { emailType: 'Welcome Email', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Email Verified', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
-    { emailType: 'Profile Approved', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Marketplace Signup Approved', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Profile Rejected', edgeFunction: 'user-journey-notifications', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
+    { emailType: 'Buyer Rejection', edgeFunction: 'notify-buyer-rejection', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Verification Success', edgeFunction: 'send-verification-success-email', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Simple Verification', edgeFunction: 'send-simple-verification-email', recipient: 'Individual buyer', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
     { emailType: 'Password Reset', edgeFunction: 'password-reset', recipient: 'Individual user', senderName: 'SourceCo', replyTo: SUPPORT_EMAIL },
