@@ -53,6 +53,7 @@ const FOLLOW_UP_PRESETS = [
   { label: '1 month', days: 30 },
   { label: '3 months', days: 90 },
   { label: '6 months', days: 180 },
+  { label: '1 year', days: 365 },
 ] as const;
 
 /** Minimal deal info needed by the dialog */
@@ -336,6 +337,9 @@ export function ArchiveDealDialog({
                         }}
                         disabled={(date) => date < new Date()}
                         initialFocus
+                        captionLayout="dropdown-buttons"
+                        fromYear={new Date().getFullYear()}
+                        toYear={new Date().getFullYear() + 5}
                       />
                     </PopoverContent>
                   </Popover>
