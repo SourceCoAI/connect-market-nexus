@@ -26,6 +26,7 @@ function buildWelcomeHtml(userName: string): string {
   <p>Hi ${escapeHtml(userName)},</p>
   <p>Your application is in. Our team will review it, typically within one business day, and you will hear from us by email the moment you are cleared.</p>
   <p>While you wait, verify your email address using the link we just sent you.</p>
+  <p>If you have already verified your email, a team member will manually review your profile and approve your access shortly — typically within a few hours.</p>
   <p style="font-weight: 600; margin: 24px 0 8px 0;">What you are applying for</p>
   <p>SourceCo is a private marketplace for off-market, founder-led businesses. Every deal in the pipeline has been sourced and qualified by our team before it reaches buyers. You are not browsing a listing aggregator. You are accessing curated deal flow.</p>
   <p>Once approved, you will sign a single NDA that unlocks your access to the platform, then a fee agreement before your first introduction. Both take about 60 seconds each.</p>

@@ -74,6 +74,7 @@ const EMAILS: EmailDef[] = [
 <p>Hi [First Name],</p>
 <p>Your application is in. Our team will review it — typically within one business day — and you'll hear from us by email the moment you're cleared.</p>
 <p>While you wait, verify your email address using the link we just sent you.</p>
+<p>If you have already verified your email, a team member will manually review your profile and approve your access shortly — typically within a few hours.</p>
 <h3 style="color:#0e101a;font-size:15px;margin:20px 0 6px">What you're applying for</h3>
 <p>SourceCo is a private marketplace for off-market, founder-led businesses. Every deal in the pipeline has been sourced and qualified by our team before it reaches buyers.</p>
 <p>Once approved, you'll sign a single NDA that unlocks your access to the platform, then a fee agreement before your first introduction. Both take about 60 seconds each.</p>
