@@ -1,68 +1,79 @@
 
 
-# Phase 2: Marketplace Browse — Mobile Optimization
+# Phase 3: Listing Detail — Mobile Optimization
 
 ## Issues Found
 
-### Issue 1: List View Card Layout Breaks on Mobile
-**File:** `src/components/listing/ListingCardImage.tsx` line 37
-The list view image uses `w-1/4 min-w-[200px]`. On a 375px screen, the image takes 200px leaving only 175px for all content — title, financials, description, and actions get crushed.
+### Issue 1: EnhancedFinancialGrid — 4 Columns Overflow on Mobile
+**File:** `src/components/listing-detail/EnhancedFinancialGrid.tsx` line 18
+The grid uses `grid-cols-4` / `grid-cols-3` with no responsive breakpoint. On 375px, 4 columns of financial metrics are each ~80px wide — values like "$1,250,000" overflow or wrap badly.
 
-**Fix:** On mobile, force list view cards to stack vertically like grid cards. In `ListingCard.tsx` line 114, change the list layout from `flex flex-row` to `flex flex-col sm:flex-row`. In `ListingCardImage.tsx` line 37, change `w-1/4 min-w-[200px]` to `w-full sm:w-1/4 sm:min-w-[200px]`.
+**Fix:** Add responsive prefix: `grid-cols-2 sm:grid-cols-4` (and `sm:grid-cols-3` for 3 metrics). Keep `gap-8` on desktop, reduce to `gap-4` on mobile.
 
-### Issue 2: Financials Grid — 4 Columns Overflow on Mobile List View
-**File:** `src/components/listing/ListingCardFinancials.tsx` line 29
-In list view, financials use `grid-cols-4`. On mobile this creates 4 tiny columns with text wrapping. In grid view, `grid-cols-2` works fine.
+### Issue 2: ListingHeader Title Font Size Too Large on Mobile
+**File:** `src/components/listing-detail/ListingHeader.tsx` line 82
+Title uses `!text-[30px] !leading-[38px]`. Long listing titles wrap to 4+ lines on 375px.
 
-**Fix:** Change list view grid to `grid-cols-2 sm:grid-cols-4` so financials stack 2x2 on mobile.
+**Fix:** Change to `!text-[22px] sm:!text-[30px] !leading-[28px] sm:!leading-[38px]`.
 
-### Issue 3: Pagination "Previous" / "Next" Labels Cause Overflow
-**File:** `src/components/ui/pagination.tsx` lines 72-73, 88-89
-`PaginationPrevious` renders "Previous" and `PaginationNext` renders "Next" text. Combined with page numbers, this overflows on 375px.
+### Issue 3: Hero Image Height Fixed at h-56 — Too Tall on Mobile
+**File:** `src/components/listing-detail/ListingHeader.tsx` line 61
+`h-56` (224px) takes over 60% of the viewport on 375px, pushing all content below the fold.
 
-**Fix:** Hide text labels on mobile: wrap `<span>` in `<span className="hidden sm:inline">`. Keep chevron icons always visible.
+**Fix:** Change to `h-40 sm:h-56`.
 
-### Issue 4: Title "Off-Market, Founder-Led Deals" Too Long on Mobile
-**File:** `src/pages/Marketplace.tsx` line 179
-The `text-3xl` heading wraps to 3 lines on 375px.
+### Issue 4: ListingHeader Location Row Wraps Poorly on Mobile
+**File:** `src/components/listing-detail/ListingHeader.tsx` line 92
+`flex items-center gap-3 flex-wrap` works but `gap-3` is generous. On mobile, location + categories + "Listed Xd ago" stack with too much vertical gap.
 
-**Fix:** Change to `text-2xl sm:text-3xl`.
+**Fix:** Change to `gap-2 sm:gap-3`.
 
-### Issue 5: Listing Card Padding `p-6` Excessive on Mobile Grid
-**File:** `src/components/ListingCard.tsx` line 151
-Grid cards use `p-6` (24px), which eats 48px of horizontal space on a 375px screen.
+### Issue 5: Sidebar Cards p-6 Padding Excessive on Mobile
+**File:** `src/pages/ListingDetail.tsx` lines 330, 389, 419
+Multiple sidebar cards use `p-6` (24px). On mobile where sidebar stacks below main content, this is fine for readability but consistent with Phase 1 fix pattern.
 
-**Fix:** Change to `p-4 sm:p-6` for grid view.
+**Fix:** Change to `p-4 sm:p-6` on all three sidebar card containers.
 
-### Issue 6: Listing Card Status Badges Wrap Poorly on Mobile
-**File:** `src/components/listing/ListingCardTitle.tsx` lines 26-83
-The "Request Pending" badge + "View Status" link render side-by-side (`flex items-center gap-2`). On mobile they overflow the card.
+### Issue 6: "Exclusive Deal Flow" Card Has mt-6 Inside Creating Top Gap
+**File:** `src/pages/ListingDetail.tsx` line 390
+The second sidebar card has `<div className="mt-6 pt-4 border-t ...">` as its first child, creating a dead space at the top of the card on mobile.
 
-**Fix:** Change to `flex flex-wrap items-center gap-2` so they stack naturally.
+**Fix:** Change to `mt-4 sm:mt-6 pt-3 sm:pt-4`.
 
-### Issue 7: Financial Numbers Too Large on Mobile
-**File:** `src/components/listing/ListingCardFinancials.tsx` line 36
-Grid view financial numbers are `text-[21px]`. On 375px with 2 columns this works but is tight for longer currency strings.
+### Issue 7: Similar Listings Carousel — Cards min-w Too Wide
+**File:** `src/components/listing-detail/SimilarListingsCarousel.tsx` line 27
+Loading skeleton uses `min-w-[320px]` which overflows on 375px (375 - padding = ~327px).
 
-**Fix:** Change to `text-[18px] sm:text-[21px]` for breathing room.
+**Fix:** Change to `min-w-[280px] sm:min-w-[320px]`.
+
+### Issue 8: BlurredFinancialTeaser — Inner Grid 3 Columns on Mobile
+**File:** `src/components/listing-detail/BlurredFinancialTeaser.tsx` line 43
+The blurred preview uses `grid-cols-3` which is fine since it's decorative/blurred, but the CTA text and button should be checked. The `px-6` on the overlay (line 59) is tight on 375px.
+
+**Fix:** Change to `px-4 sm:px-6`.
+
+### Issue 9: ListingSidebarActions Inline Chat Textarea Takes Too Much Space
+**File:** `src/components/listing-detail/ListingSidebarActions.tsx` line 460
+`min-h-[80px]` for the textarea is reasonable but on mobile within the sidebar it's fine. No change needed.
+
+### Issue 10: DealSourcingCriteriaDialog Already Responsive
+This dialog already uses `max-w-[92vw]` and responsive text sizes. No changes needed.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/Marketplace.tsx` | Smaller heading on mobile |
-| `src/components/ListingCard.tsx` | Responsive padding, list view stacks vertically on mobile |
-| `src/components/listing/ListingCardImage.tsx` | Full-width image on mobile list view |
-| `src/components/listing/ListingCardFinancials.tsx` | 2-col grid on mobile list view, smaller numbers |
-| `src/components/listing/ListingCardTitle.tsx` | flex-wrap on status badges |
-| `src/components/ui/pagination.tsx` | Hide "Previous"/"Next" text on mobile |
+| `src/components/listing-detail/EnhancedFinancialGrid.tsx` | Responsive grid-cols-2 on mobile, smaller gap |
+| `src/components/listing-detail/ListingHeader.tsx` | Smaller title font, shorter hero image, tighter location row gap |
+| `src/pages/ListingDetail.tsx` | Responsive padding on sidebar cards, tighter mt/pt on deal flow card |
+| `src/components/listing-detail/SimilarListingsCarousel.tsx` | Smaller skeleton min-width |
+| `src/components/listing-detail/BlurredFinancialTeaser.tsx` | Tighter overlay padding on mobile |
 
 ## Implementation Order
 
-1. Marketplace heading size
-2. ListingCard padding + list-view stacking
-3. ListingCardImage full-width mobile
-4. ListingCardFinancials responsive grid + font
-5. ListingCardTitle flex-wrap
-6. Pagination text hidden on mobile
+1. EnhancedFinancialGrid responsive columns
+2. ListingHeader title + image + gap
+3. ListingDetail sidebar padding
+4. SimilarListingsCarousel skeleton width
+5. BlurredFinancialTeaser overlay padding
 
