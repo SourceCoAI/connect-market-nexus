@@ -17,15 +17,19 @@ import {
   Eye,
   Loader2,
   ShieldCheck,
+  X,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
 
 interface BuyerDataRoomProps {
   dealId: string;
   connectionApproved?: boolean;
+  onClose?: () => void;
 }
 
 interface BuyerDocument {
@@ -39,7 +43,7 @@ interface BuyerDocument {
   created_at: string;
 }
 
-export function BuyerDataRoom({ dealId, connectionApproved }: BuyerDataRoomProps) {
+export function BuyerDataRoom({ dealId, connectionApproved, onClose }: BuyerDataRoomProps) {
   const { user } = useAuth();
   const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
 
@@ -155,15 +159,41 @@ export function BuyerDataRoom({ dealId, connectionApproved }: BuyerDataRoomProps
     enabled: !!dealId && !!access,
   });
 
+  // Fetch buyer's own audit log entries for document timestamps
+  const { data: auditEvents = [] } = useQuery({
+    queryKey: ['buyer-doc-audit', dealId, user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('data_room_audit_log')
+        .select('document_id, action, created_at')
+        .eq('deal_id', dealId)
+        .eq('user_id', user?.id ?? '')
+        .in('action', ['view', 'download'])
+        .order('created_at', { ascending: false });
+
+      if (error) return [];
+      return data as Array<{ document_id: string; action: string; created_at: string }>;
+    },
+    enabled: !!dealId && !!user?.id,
+  });
+
+  // Build lookup: doc_id -> latest event
+  const docTimestamps = new Map<string, { action: string; created_at: string }>();
+  for (const evt of auditEvents) {
+    if (evt.document_id && !docTimestamps.has(evt.document_id)) {
+      docTimestamps.set(evt.document_id, { action: evt.action, created_at: evt.created_at });
+    }
+  }
+
   if (
     !access ||
     (!access.can_view_teaser && !access.can_view_full_memo && !access.can_view_data_room)
   ) {
     if (connectionApproved) {
       return (
-        <div className="space-y-4 py-2">
-          <VaultHeader />
-          <div className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="flex flex-col max-h-[80vh]">
+          <VaultHeader onClose={onClose} />
+          <div className="flex flex-col items-center justify-center py-12 text-center px-5">
             <ShieldCheck className="h-8 w-8 text-muted-foreground/30 mb-3" />
             <p className="text-sm text-muted-foreground">
               Your data room is being prepared.
@@ -183,17 +213,26 @@ export function BuyerDataRoom({ dealId, connectionApproved }: BuyerDataRoomProps
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
-      if (!session) return;
+      if (!session) {
+        toast.error('Please sign in to view documents.');
+        return;
+      }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/data-room-download?document_id=${docId}&action=view`,
+        `${SUPABASE_URL}/functions/v1/data-room-download?document_id=${docId}&action=view`,
         { headers: { Authorization: `Bearer ${session.access_token}` } },
       );
 
-      if (response.ok) {
-        const data = await response.json();
-        window.open(data.url, '_blank');
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        toast.error(errBody?.error || 'Failed to load document. Please try again.');
+        return;
       }
+
+      const data = await response.json();
+      window.open(data.url, '_blank');
+    } catch (err) {
+      toast.error('Failed to load document. Please try again.');
     } finally {
       setLoadingDoc(null);
     }
@@ -204,17 +243,26 @@ export function BuyerDataRoom({ dealId, connectionApproved }: BuyerDataRoomProps
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
-      if (!session) return;
+      if (!session) {
+        toast.error('Please sign in to download documents.');
+        return;
+      }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/data-room-download?document_id=${docId}&action=download`,
+        `${SUPABASE_URL}/functions/v1/data-room-download?document_id=${docId}&action=download`,
         { headers: { Authorization: `Bearer ${session.access_token}` } },
       );
 
-      if (response.ok) {
-        const data = await response.json();
-        window.open(data.url, '_blank');
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        toast.error(errBody?.error || 'Failed to download document. Please try again.');
+        return;
       }
+
+      const data = await response.json();
+      window.open(data.url, '_blank');
+    } catch (err) {
+      toast.error('Failed to download document. Please try again.');
     } finally {
       setLoadingDoc(null);
     }
@@ -252,7 +300,7 @@ export function BuyerDataRoom({ dealId, connectionApproved }: BuyerDataRoomProps
   return (
     <div className="flex flex-col max-h-[80vh]">
       {/* Vault Header */}
-      <VaultHeader />
+      <VaultHeader onClose={onClose} />
 
       {/* Access Tier + Security Metadata */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-border/20">
@@ -295,9 +343,6 @@ export function BuyerDataRoom({ dealId, connectionApproved }: BuyerDataRoomProps
                 <span className="text-xs font-medium text-foreground">
                   {memo.memo_type === 'anonymous_teaser' ? 'Teaser' : 'Full Memo'}
                 </span>
-                <span className="text-[10px] text-muted-foreground/50">
-                  {memo.published_at && new Date(memo.published_at).toLocaleDateString()}
-                </span>
               </div>
               {memo.html_content ? (
                 <div
@@ -338,56 +383,64 @@ export function BuyerDataRoom({ dealId, connectionApproved }: BuyerDataRoomProps
                   {folder}
                 </p>
                 <div className="border-t border-border/30" />
-                {docs.map((doc, i) => (
-                  <div
-                    key={doc.id}
-                    className={`group flex items-center gap-3 py-3 transition-all duration-150 hover:translate-x-0.5 hover:bg-muted/10 -mx-2 px-2 rounded ${
-                      i < docs.length - 1 ? 'border-b border-border/10' : ''
-                    }`}
-                  >
-                    <div className="border-l-2 border-transparent group-hover:border-emerald-500/40 pl-2 transition-colors duration-150">
-                      {getFileIcon(doc.file_type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{doc.file_name}</p>
-                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                        {formatFileSize(doc.file_size_bytes)}
-                        {doc.file_size_bytes ? ' | ' : ''}
-                        {new Date(doc.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewDocument(doc.id)}
-                        disabled={loadingDoc === doc.id}
-                        className="h-7 rounded-full px-3 text-[11px] border-border/40 text-muted-foreground hover:text-foreground"
-                      >
-                        {loadingDoc === doc.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <>
-                            <Eye className="h-3 w-3 mr-1" />
-                            View
-                          </>
-                        )}
-                      </Button>
-                      {doc.allow_download && (
+                {docs.map((doc, i) => {
+                  const lastEvent = docTimestamps.get(doc.id);
+                  return (
+                    <div
+                      key={doc.id}
+                      className={`group flex items-center gap-3 py-3 transition-all duration-150 hover:translate-x-0.5 hover:bg-muted/10 -mx-2 px-2 rounded ${
+                        i < docs.length - 1 ? 'border-b border-border/10' : ''
+                      }`}
+                    >
+                      <div className="border-l-2 border-transparent group-hover:border-emerald-500/40 pl-2 transition-colors duration-150">
+                        {getFileIcon(doc.file_type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{doc.file_name}</p>
+                        <p className="text-[10px] text-muted-foreground/50 mt-0.5">
+                          {formatFileSize(doc.file_size_bytes)}
+                          {lastEvent && (
+                            <>
+                              {doc.file_size_bytes ? ' · ' : ''}
+                              {lastEvent.action === 'download' ? 'Downloaded' : 'Viewed'}{' '}
+                              {formatDistanceToNow(new Date(lastEvent.created_at), { addSuffix: true })}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDownloadDocument(doc.id)}
+                          onClick={() => handleViewDocument(doc.id)}
                           disabled={loadingDoc === doc.id}
                           className="h-7 rounded-full px-3 text-[11px] border-border/40 text-muted-foreground hover:text-foreground"
                         >
-                          <Download className="h-3 w-3 mr-1" />
-                          Download
+                          {loadingDoc === doc.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Eye className="h-3 w-3 mr-1" />
+                              View
+                            </>
+                          )}
                         </Button>
-                      )}
+                        {doc.allow_download && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadDocument(doc.id)}
+                            disabled={loadingDoc === doc.id}
+                            className="h-7 rounded-full px-3 text-[11px] border-border/40 text-muted-foreground hover:text-foreground"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Download
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ))}
         </div>
@@ -418,8 +471,8 @@ export function BuyerDataRoom({ dealId, connectionApproved }: BuyerDataRoomProps
   );
 }
 
-/** Dark vault header with security signal */
-function VaultHeader() {
+/** Dark vault header with security signal and custom close button */
+function VaultHeader({ onClose }: { onClose?: () => void }) {
   return (
     <div className="bg-[#0E101A] rounded-t-lg px-5 py-4 flex items-center justify-between">
       <div className="flex items-center gap-2.5">
@@ -428,9 +481,20 @@ function VaultHeader() {
           Secure Data Room
         </h3>
       </div>
-      <span className="text-[10px] text-white/30 tracking-widest uppercase">
-        Confidential
-      </span>
+      <div className="flex items-center gap-3">
+        <span className="text-[10px] text-white/30 tracking-widest uppercase">
+          Confidential
+        </span>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="rounded-sm p-0.5 text-white/40 hover:text-white/80 transition-colors focus:outline-none focus:ring-1 focus:ring-white/20"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
