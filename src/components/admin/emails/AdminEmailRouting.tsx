@@ -1,7 +1,9 @@
 // Admin email routing data is maintained inline below (derived from ADMIN_PROFILES + edge function audit)
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Inbox, Users, Mail, Settings, Send, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface EmailEntry {
@@ -148,8 +150,24 @@ const ADMIN_ROUTING: AdminReceives[] = [
 ];
 
 export function AdminEmailRouting() {
+  const [view, setView] = useState<'category' | 'recipient'>('category');
   const categories = Object.entries(ALL_EMAILS).filter(([, entries]) => entries.length > 0) as [Category, EmailEntry[]][];
   const totalEmails = categories.reduce((sum, [, entries]) => sum + entries.length, 0);
+
+  // Build recipient-grouped view
+  const allFlat: (EmailEntry & { category: Category })[] = [];
+  for (const [cat, entries] of categories) {
+    for (const e of entries) {
+      allFlat.push({ ...e, category: cat });
+    }
+  }
+  const byRecipient: Record<string, (EmailEntry & { category: Category })[]> = {};
+  for (const e of allFlat) {
+    const key = e.recipient;
+    if (!byRecipient[key]) byRecipient[key] = [];
+    byRecipient[key].push(e);
+  }
+  const recipientGroups = Object.entries(byRecipient).sort(([a], [b]) => a.localeCompare(b));
 
   return (
     <div className="space-y-6">
@@ -176,47 +194,95 @@ export function AdminEmailRouting() {
             <CardTitle className="text-lg">All Platform Emails</CardTitle>
             <Badge variant="secondary" className="ml-auto">{totalEmails} email types</Badge>
           </div>
-          <p className="text-sm text-muted-foreground">Complete map of every email the platform sends, grouped by category</p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-sm text-muted-foreground">
+              {view === 'category' ? 'Grouped by email category' : 'Grouped by recipient address'}
+            </p>
+            <Tabs value={view} onValueChange={(v) => setView(v as 'category' | 'recipient')}>
+              <TabsList className="h-8">
+                <TabsTrigger value="category" className="text-xs px-3 py-1">By Category</TabsTrigger>
+                <TabsTrigger value="recipient" className="text-xs px-3 py-1">By Recipient</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </CardHeader>
         <CardContent className="pt-0 space-y-4">
-          {categories.map(([category, entries]) => (
-            <div key={category}>
-              <div className="flex items-center gap-2 mb-2">
-                <span>{CATEGORY_ICONS[category]}</span>
-                <h4 className="font-semibold text-sm">{category}</h4>
-                <Badge variant="outline" className="text-xs">{entries.length}</Badge>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[200px]">Email Type</TableHead>
-                    <TableHead className="w-[220px]">Edge Function</TableHead>
-                    <TableHead>Recipient</TableHead>
-                    <TableHead className="w-[180px]">Sender Name</TableHead>
-                    <TableHead className="w-[200px]">Reply-To</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {entries.map((e) => (
-                    <TableRow key={e.emailType} className={category === 'Deprecated' ? 'opacity-50' : ''}>
-                      <TableCell className="font-medium text-sm">
-                        {e.emailType}
-                        {category === 'Deprecated' && (
-                          <Badge variant="destructive" className="ml-2 text-[10px]">Deprecated</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{e.edgeFunction}</code>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{e.recipient}</TableCell>
-                      <TableCell className="text-sm">{e.senderName}</TableCell>
-                      <TableCell className="text-xs font-mono text-muted-foreground">{e.replyTo}</TableCell>
+          {view === 'category' ? (
+            categories.map(([category, entries]) => (
+              <div key={category}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span>{CATEGORY_ICONS[category]}</span>
+                  <h4 className="font-semibold text-sm">{category}</h4>
+                  <Badge variant="outline" className="text-xs">{entries.length}</Badge>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[200px]">Email Type</TableHead>
+                      <TableHead className="w-[220px]">Edge Function</TableHead>
+                      <TableHead>Recipient</TableHead>
+                      <TableHead className="w-[180px]">Sender Name</TableHead>
+                      <TableHead className="w-[200px]">Reply-To</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ))}
+                  </TableHeader>
+                  <TableBody>
+                    {entries.map((e) => (
+                      <TableRow key={e.emailType} className={category === 'Deprecated' ? 'opacity-50' : ''}>
+                        <TableCell className="font-medium text-sm">
+                          {e.emailType}
+                          {category === 'Deprecated' && (
+                            <Badge variant="destructive" className="ml-2 text-[10px]">Deprecated</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{e.edgeFunction}</code>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{e.recipient}</TableCell>
+                        <TableCell className="text-sm">{e.senderName}</TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">{e.replyTo}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ))
+          ) : (
+            recipientGroups.map(([recipient, entries]) => (
+              <div key={recipient}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Inbox className="h-4 w-4 text-muted-foreground" />
+                  <h4 className="font-semibold text-sm font-mono">{recipient}</h4>
+                  <Badge variant="outline" className="text-xs">{entries.length}</Badge>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[200px]">Email Type</TableHead>
+                      <TableHead className="w-[160px]">Category</TableHead>
+                      <TableHead className="w-[220px]">Edge Function</TableHead>
+                      <TableHead className="w-[180px]">Sender Name</TableHead>
+                      <TableHead className="w-[200px]">Reply-To</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {entries.map((e) => (
+                      <TableRow key={e.emailType + e.category} className={e.category === 'Deprecated' ? 'opacity-50' : ''}>
+                        <TableCell className="font-medium text-sm">{e.emailType}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-[10px]">{e.category}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{e.edgeFunction}</code>
+                        </TableCell>
+                        <TableCell className="text-sm">{e.senderName}</TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">{e.replyTo}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
 
