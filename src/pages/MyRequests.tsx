@@ -469,7 +469,7 @@ function DetailPanel({
             )}
           </TabsContent>
 
-          <TabsContent value="messages" className="mt-0 p-6">
+          <TabsContent value="messages" className="mt-0 p-4 sm:p-6">
             <DealMessagesTab requestId={request.id} requestStatus={requestStatus} />
           </TabsContent>
 
