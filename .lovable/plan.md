@@ -1,40 +1,49 @@
 
 
-# Add Tooltips to Decision Banner + Clean Up Design
+# Fix Misnamed "Marketplace Approval" Email + Correct Catalog
 
-## What Each Action Does (for tooltip content)
+## The Core Confusion
 
-| Action | DB Status | Buyer Sees | Email Sent | Notification |
-|--------|-----------|------------|------------|-------------|
-| **Accept** | `approved` | Deal thread message: "We have sent you a brief overview..." | Approval email via `send-connection-notification` | Bell: "Connection Approved" |
-| **Decline** | `rejected` | Thread message with admin's note or "Request declined" | Rejection email via `notify-buyer-rejection` | Bell: "Connection Update — not approved" |
-| **On Hold** | `on_hold` | Thread message: "placed on hold for further evaluation" | None | None |
-| **Flag for Review** | No status change | Nothing | None | Creates internal admin task |
+There are two completely different concepts being conflated:
 
-## Changes — Single File
+1. **Deal Access Approval** (what `approve-marketplace-buyer` actually does): Admin approves a buyer's request for a *specific deal* and sends them a tracked anonymous teaser link. This is a per-deal action, not a signup action.
 
-### `src/components/admin/connection-request-actions/ApprovalSection.tsx`
+2. **Marketplace Signup Approval** (what the user expected "Marketplace Approval" to mean): When a buyer signs up and gets approved to browse the marketplace. This is handled by `user-journey-notifications` (the "Profile Approved" event at line 50 of AdminEmailRouting.tsx).
 
-**1. Add tooltips to each button** using the existing `Tooltip` / `TooltipTrigger` / `TooltipContent` from `@/components/ui/tooltip`:
+The catalog entry at line 125 of `EmailCatalog.tsx` is named "Marketplace Approval" but actually represents the deal-level anonymous teaser release. The name, subject, and description all need to accurately reflect what the edge function does.
 
-- **Accept Request**: "Approves the buyer, sends approval email, adds to pipeline, and posts a deal thread message"
-- **Decline**: "Rejects the request, sends rejection email to buyer with optional note"
-- **On Hold**: "Pauses the request without notifying the buyer — no email or notification sent"
-- **Flag for Review**: "Flags for a team member to review — no buyer impact, creates an internal task"
-- **Awaiting Action**: No tooltip needed (just a status label)
+## Changes
 
-**2. Design cleanup** — make the banner more minimal and aligned with the quiet luxury aesthetic:
+### 1. `src/components/admin/emails/EmailCatalog.tsx`
 
-- Remove the heavy `bg-sourceco-muted` background and `shadow-md` — use a subtle `bg-muted/40` with a thin `border border-border` instead
-- Replace the large 48px gold icon box with a smaller, simpler treatment
-- Reduce the "Decision Required" text from `text-lg font-extrabold` to `text-sm font-semibold uppercase tracking-wide` — more understated
-- Subtitle: lighter weight, `text-xs`
-- Buttons: uniform outline style with subtle differentiation — Accept gets a filled dark button (`bg-[#0E101A] text-white`), Decline stays outline, On Hold stays outline with muted amber. Remove the bold gold Accept button.
-- Remove the "AWAITING ACTION" pill — redundant with "Decision Required" header
-- Use consistent `h-9 px-4 text-sm font-medium` sizing for all action buttons
-- Wrap the entire button row in `<TooltipProvider>` for hover tooltips
+**Rename the existing entry** (line 125-133):
+- **name**: "Marketplace Approval" → "Anonymous Teaser Release"
+- **subject**: Keep `Project [Name]: Investment Opportunity` (this is correct for the actual email)
+- **trigger**: "Admin approves buyer's deal access request from the marketplace approval queue"
+- **designNotes**: Update to mention it sends the anonymous teaser tracked link
+- Keep the current `previewHtml` (the anonymous teaser content we fixed last time is correct for this entry)
 
-**3. Status banners** (approved/rejected/on_hold) — leave as-is, they're already clean and informative.
+**Add a NEW entry** in the "Buyer Lifecycle" category for the actual marketplace signup approval:
+- **name**: "Marketplace Signup Approved"
+- **subject**: "Welcome to the SourceCo Marketplace"
+- **recipient**: Buyer
+- **trigger**: "Admin approves buyer's marketplace profile/signup"
+- **edgeFunction**: "user-journey-notifications" (variant: profile_approved)
+- **designNotes**: "Branded wrapper, welcome message, brief explanation of marketplace, CTA to browse deals"
+- **previewHtml**: Content explaining they've been approved to browse the marketplace, what the marketplace is (curated platform for off-market deal flow), how it works (browse listings, request introductions, receive teasers), and a CTA to "Browse Deals"
 
-### No other files changed.
+### 2. `src/components/admin/emails/AdminEmailRouting.tsx`
+
+**Rename** line 58:
+- "Marketplace Buyer Approved" → "Anonymous Teaser Release" to match the catalog
+
+No other files or edge functions change. This is purely a catalog/labeling fix to accurately represent what each email does.
+
+## Summary of email naming after fix
+
+| Catalog Name | Edge Function | What It Actually Does |
+|---|---|---|
+| Marketplace Signup Approved | user-journey-notifications | Buyer's profile approved, welcome to marketplace |
+| Anonymous Teaser Release | approve-marketplace-buyer | Buyer approved for specific deal, sends teaser link |
+| Connection Approval | send-connection-notification | Connection request approved for a deal |
 
