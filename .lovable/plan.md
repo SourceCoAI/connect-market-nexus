@@ -1,81 +1,227 @@
 
+# Fix Marketplace Queue Listing Creation Properly
 
-# Marketplace Queue to Live: Data Population Audit + Copy Cleanup
+## What is actually broken
 
-## Findings
+This is not just a copy issue.
 
-### 1. Financials ARE Populating Correctly
-The screenshot shows revenue (4,500,000) and EBITDA (1,500,000) filled in. The data flow works:
-- `CreateListingFromDeal` fetches deal data including `revenue` and `ebitda`
-- `anonymizeDealToListing` passes them through
-- `convertListingToFormInput` converts them to strings for the form
-- `useRobustListingCreation` sanitizes them back to numbers via `parseCurrency`
+### 1. Some fields populate into memory but never make it through the actual listing flow
+The queue-to-listing page fetches a fairly rich deal payload, but several fields are either:
+- not passed into the form
+- not editable anywhere
+- not persisted on create/update
+- not rendered in the preview or buyer view
 
-The "Financials inherited from source deal" lock is intentional: when creating from a deal, financial fields are read-only to prevent drift between the deal and its listing. To edit financials, you go to the source deal.
+That creates the feeling that data is “not populating” even when parts of it were fetched earlier.
 
-### 2. Admin-Only Fields (Never Visible to Buyers)
-These fields exist on the listing but are excluded from `MARKETPLACE_SAFE_COLUMNS`:
-- `internal_company_name` (real company name)
-- `internal_notes` (admin notes)
-- `internal_deal_memo_link` (company website / memo link)
+### 2. Financials are creating confusion in two different ways
+- In the current create-from-deal editor, revenue and EBITDA are intentionally locked when the listing comes from a deal.
+- They do populate, but the UI does not clearly explain the source of truth.
+- The admin preview currently shows buyer-facing financial blocks even though actual buyers only see full financials after approval. So the preview is misleading.
+
+### 3. Admin-only vs buyer-visible is not organized clearly
+The code enforces privacy reasonably well through `MARKETPLACE_SAFE_COLUMNS`, but the admin creation flow does not explain:
+- what stays internal
+- what becomes buyer-visible before approval
+- what only appears after connection approval
+- what never leaves admin view
+
+### 4. The editor and preview are incomplete relative to the available data
+Right now the listing editor focuses on:
+- title
+- categories
+- location
+- revenue / EBITDA
+- description
+- image
+- some internal metadata
+
+But important marketplace-facing structured fields already exist and are allowed for buyers:
+- `services`
+- `geographic_states`
+- `number_of_locations`
+- `customer_types`
+- `revenue_model`
+- `business_model`
+- `growth_trajectory`
+
+Several of these are either not populated end to end or not shown anywhere meaningful.
+
+### 5. Copy still needs a full standards pass
+There are still em dashes and vague copy in related admin surfaces, especially:
+- editor title generator and placeholder text
+- preview text
+- some financial / listing labels
+
+## Root causes I found
+
+### A. The create-from-deal mapper is incomplete
+`CreateListingFromDeal.tsx` fetches more than the editor fully uses. Some fields are carried in `prefilled`, but not all are represented in the editing UI or preview.
+
+### B. The editor form schema is too narrow for the marketplace listing model
+`ImprovedListingEditor.tsx` does not expose several buyer-visible structured fields, so they cannot be reviewed or corrected before publish.
+
+### C. The preview is not a faithful representation of the buyer journey
+`EditorLivePreview` currently hardcodes some fields to `null` and shows buyer-facing financial blocks more openly than the real marketplace flow. That creates false confidence.
+
+### D. Title-generation copy still contains banned punctuation
+`EditorInternalCard.tsx` still uses em dashes in generated titles and placeholders.
+
+## What to build
+
+### Phase 1. Fix data mapping and source-of-truth rules
+Update the create-from-deal flow so every intended field has a clear path:
+
+```text
+Queue deal
+  -> fetched from source deal
+  -> mapped into prefilled listing
+  -> editable or locked in editor
+  -> saved to listing
+  -> shown in preview
+  -> shown to buyers only if allowed
+```
+
+Concretely:
+- audit and complete the mapping for all listing-relevant fields
+- keep revenue / EBITDA locked for deal-sourced listings
+- add plain language source-of-truth copy:
+  - financials come from the source deal
+  - edit them in the deal, not the listing
+- make sure fields like `number_of_locations` and `growth_trajectory` are not silently dropped
+
+### Phase 2. Reorganize the editor into clean sections
+Split the editor into clearer groups:
+
+1. Internal Only
+   - real company name
+   - owner
+   - CRM links
+   - internal notes
+   - contact info
+
+2. Marketplace Basics
+   - public title
+   - geography
+   - industry
+   - acquisition type
+   - featured image
+   - hero description
+
+3. Financial Snapshot
+   - revenue
+   - EBITDA
+   - subtitles
+   - team size / metric fields
+   - source-of-truth notice
+
+4. Buyer-Facing Business Details
+   - services
+   - states served
+   - number of locations
+   - customer types
+   - revenue model
+   - business model
+   - growth trajectory
+
+5. Buyer Visibility Controls
+   - visible buyer types
+   - publish state
+   - what is public vs gated
+
+This makes the admin mental model much clearer.
+
+### Phase 3. Add an explicit visibility model in the UI
+Add a compact “Visibility” panel that explains:
+
+#### Admin only
+- `internal_company_name`
 - `internal_salesforce_link`
+- `internal_deal_memo_link`
 - `internal_contact_info`
-- `main_contact_first_name`, `main_contact_last_name`, `main_contact_email`, `main_contact_phone`, `main_contact_linkedin`
-- `primary_owner_id`, `presented_by_admin_id`
-- `source_deal_id`
-- `investment_thesis`, `competitive_position`, `ownership_structure`, `seller_motivation`
-- `pushed_to_marketplace`, `pushed_to_marketplace_at`, `pushed_to_marketplace_by`
+- `internal_notes`
+- contact PII
+- owner assignments
+- source linkage fields
 
-Buyers only see the columns in `src/lib/marketplace-columns.ts`, which excludes all `internal_*` fields and contact PII.
+#### Visible to approved marketplace users browsing listings
+- title
+- image
+- description
+- hero description
+- categories
+- location / geography
+- selected structured business details
+- buyer-type restrictions
 
-### 3. Em Dash / En Dash Violations
-Found across multiple files in user-facing copy:
+#### Visible only after connection approval
+- financial grid
+- teaser / memo / data room based on access toggles
 
-**`src/lib/deal-to-listing-anonymizer.ts`** (BUYER-FACING, highest priority):
-- Title templates use ` — ` as separator (e.g., `High-Margin Restoration Business — Southeast`)
-- Description section headers use em dashes in comments (harmless) but the title separator appears in generated listing titles
+This should reflect actual platform behavior, not a rough guess.
 
-**`src/pages/admin/CreateListingFromDeal.tsx`** (admin-facing):
-- 6 toast messages and 1 banner use em dashes
-- `formatCurrency` in `MarketplaceQueue.tsx` returns `'—'` for null values
+### Phase 4. Make preview match reality
+Refactor the admin preview so it has distinct modes:
 
-**`src/components/admin/ImprovedListingEditor.tsx`** and **`EditorFinancialCard.tsx`**: comments only (harmless)
+- Public / browsing view
+- Approved buyer view
+- Admin view
 
-### 4. What Actually Needs Fixing
+This solves the current mismatch where admins think buyers see more than they actually do.
 
-**Problem A: Title separator in anonymizer uses em dash**
-The generated titles like `"High-Margin Restoration Business — Southeast"` use em dashes. These titles end up on the marketplace, visible to buyers. Should use a pipe `|` or comma instead.
+Also stop nulling out structured fields in preview when form data exists.
 
-**Problem B: Admin toast/banner copy uses em dashes**
-All toast messages in `CreateListingFromDeal.tsx` contain em dashes. These should use periods or commas.
+### Phase 5. Tighten buyer-facing rendering
+Expand buyer-facing detail components so the populated fields are actually used:
+- geography
+- services
+- number of locations
+- customer types
+- revenue model
+- business model
+- growth trajectory
 
-**Problem C: Null currency display uses em dash**
-`MarketplaceQueue.tsx` line 53 returns `'—'` for null values. Should use `'N/A'` or `'-'`.
+Right now the marketplace detail page underuses the safe fields already allowed.
 
-**Problem D: Banner copy is wordy**
-The "Placeholder description" banner (lines 509-518) contains fluff. Should be direct and actionable.
+### Phase 6. Full copy cleanup
+Apply the platform style rules everywhere touched by this flow:
+- no em dashes
+- no en dashes
+- no filler
+- no soft / vague language
+- no “AI magic” phrasing
 
-## Changes
+Examples:
+- “AI is generating listing content...” -> “Generating listing content.”
+- “Placeholder description...” -> direct, operational warning
+- title placeholders and generated title logic should use `|` or plain punctuation only
 
-### File 1: `src/lib/deal-to-listing-anonymizer.ts`
-- Replace ` — ` with ` | ` in all 4 title templates (lines 378, 386, 396, 435)
-- These are the only em dashes that reach buyers
+## Technical details
 
-### File 2: `src/pages/admin/CreateListingFromDeal.tsx`
-- Line 282: `'AI listing generated with validation warnings — review carefully before saving.'` → `'AI listing generated with validation warnings. Review carefully before saving.'`
-- Line 285: `'AI content generated — review and edit before saving.'` → `'AI content generated. Review and edit before saving.'`
-- Line 290: `'AI listing generation failed — using placeholder description.'` → `'AI listing generation failed. Using placeholder description.'`
-- Line 405: `'Marketplace listing created — opening editor for review.'` → `'Marketplace listing created. Opening editor for review.'`
-- Lines 509-518: Rewrite banner:
-  ```
-  Placeholder description. The text below was auto-generated from deal fields
-  and is not suitable for publication. To generate a professional listing:
-  create a Full Lead Memo in the Data Room first, then re-create this listing.
-  ```
+### Files that need updates
+- `src/pages/admin/CreateListingFromDeal.tsx`
+- `src/components/admin/ImprovedListingEditor.tsx`
+- `src/components/admin/editor-sections/EditorInternalCard.tsx`
+- `src/components/admin/editor-sections/EditorFinancialCard.tsx`
+- `src/components/admin/editor-sections/EditorLivePreview.tsx`
+- `src/pages/ListingPreview.tsx`
+- `src/pages/ListingDetail.tsx`
+- `src/components/listing-detail/BusinessDetailsGrid.tsx`
+- possibly a new buyer-facing details section component for structured listing metadata
+- possibly shared constants for visibility labels / field groups
 
-### File 3: `src/pages/admin/MarketplaceQueue.tsx`
-- Line 53: Replace `'—'` with `'-'` for null currency values
+### Important implementation decisions
+- Do not make financials editable in deal-sourced listings.
+- Do not expand buyer-facing queries beyond `MARKETPLACE_SAFE_COLUMNS`.
+- Do not expose internal fields in preview modes meant to simulate buyers.
+- Do make the preview mirror actual gating behavior.
 
-### No structural/data-flow changes needed
-The financial population, admin-only field isolation, and data flow from deal to listing are all working correctly. This is purely a copy/typography cleanup.
+## Expected outcome
 
+After this:
+- all intended marketplace fields populate consistently
+- admins know exactly what is internal vs buyer-visible
+- financials are clearly sourced and no longer confusing
+- the create-from-queue flow feels organized and deliberate
+- previews match real user experience
+- copy is clean, concrete, and on-brand
