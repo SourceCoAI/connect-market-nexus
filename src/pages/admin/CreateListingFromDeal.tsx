@@ -279,15 +279,15 @@ export default function CreateListingFromDeal() {
         const validation = data?.validation;
         if (validation && !validation.pass) {
           toast.warning(
-            'AI listing generated with validation warnings — review carefully before saving.',
+            'AI listing generated with validation warnings. Review carefully before saving.',
           );
         } else {
-          toast.success('AI content generated — review and edit before saving.');
+          toast.success('AI content generated. Review and edit before saving.');
         }
       } catch (err) {
         console.error('[CreateListingFromDeal] AI content generation error:', err);
         setDescriptionSource('anonymizer');
-        toast.warning('AI listing generation failed — using placeholder description.');
+        toast.warning('AI listing generation failed. Using placeholder description.');
       } finally {
         setIsGeneratingContent(false);
       }
@@ -402,7 +402,7 @@ export default function CreateListingFromDeal() {
         queryClient.invalidateQueries({ queryKey: ['admin-listings'] });
       }
 
-      toast.success('Marketplace listing created — opening editor for review.');
+      toast.success('Marketplace listing created. Opening editor for review.');
       // Navigate to edit the newly created listing instead of back to queue
       if (newListing?.id) {
         navigate(`/admin/marketplace/listings`);
@@ -509,11 +509,7 @@ export default function CreateListingFromDeal() {
           <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 mb-4">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <div>
-              <strong>Placeholder description — not buyer-grade.</strong> The body below was
-              auto-generated from deal fields and is not suitable for publication. To get a
-              professional AI teaser: generate a <strong>Full Lead Memo</strong> from the Data Room
-              first, then re-create this listing. The teaser will be written from the memo
-              automatically.
+              <strong>Placeholder description.</strong> Auto-generated from deal fields. Not suitable for publication. Create a <strong>Full Lead Memo</strong> in the Data Room first, then re-create this listing.
             </div>
           </div>
         </div>

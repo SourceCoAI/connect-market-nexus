@@ -375,7 +375,7 @@ const TITLE_GENERATORS: Array<(industry: string, region: string, deal: DealData)
         ? Math.round((deal.ebitda / deal.revenue) * 100)
         : 0;
     const descriptor = margin >= 25 ? 'High-Margin' : margin >= 15 ? 'Profitable' : 'Established';
-    if (region) return `${descriptor} ${industry} Business — ${region}`;
+    if (region) return `${descriptor} ${industry} Business | ${region}`;
     return `${descriptor} ${industry} Business`;
   },
   // Pattern 2: Scale-anchored (leads with business scale)
@@ -383,7 +383,7 @@ const TITLE_GENERATORS: Array<(industry: string, region: string, deal: DealData)
     const rev = deal.revenue || 0;
     const descriptor =
       rev >= 10_000_000 ? 'Scaled' : rev >= 5_000_000 ? 'Growth-Stage' : 'Established';
-    if (region) return `${descriptor} ${industry} Business — ${region}`;
+    if (region) return `${descriptor} ${industry} Business | ${region}`;
     return `${descriptor} ${industry} Business`;
   },
   // Pattern 3: Tenure-anchored (use vague ranges to avoid identifying the company)
@@ -393,7 +393,7 @@ const TITLE_GENERATORS: Array<(industry: string, region: string, deal: DealData)
         ? new Date().getFullYear() - deal.founded_year
         : 0;
     const yearsDesc = years >= 20 ? 'Long-Standing' : years >= 10 ? 'Multi-Decade' : 'Established';
-    if (region) return `${yearsDesc} ${industry} Business — ${region}`;
+    if (region) return `${yearsDesc} ${industry} Business | ${region}`;
     return `${yearsDesc} ${industry} Business`;
   },
 ];
@@ -432,7 +432,7 @@ function generateAnonymousTitle(deal: DealData): string {
     return TITLE_GENERATORS[2](industry, region, deal);
   }
   // Default fallback
-  if (region) return `Established ${industry} Business — ${region}`;
+  if (region) return `Established ${industry} Business | ${region}`;
   return `${industry} Business Opportunity`;
 }
 
