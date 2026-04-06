@@ -438,7 +438,7 @@ function MemoSlotCard({
     }
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadDraftPdf = () => {
     const sections = getMemoSections();
     if (!sections) return;
     const title = slotType === 'anonymous_teaser'
