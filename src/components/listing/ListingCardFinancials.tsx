@@ -43,7 +43,7 @@ const ListingCardFinancials = memo(function ListingCardFinancials({
         <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 ${viewType === "grid" ? "mb-2" : "mb-0.5"}`}>
           EBITDA
         </p>
-        <p className={`${viewType === "grid" ? "text-[21px]" : "text-[16px]"} font-normal text-slate-900 tracking-[-0.025em]`}>
+        <p className={`${viewType === "grid" ? "text-[18px] sm:text-[21px]" : "text-[16px]"} font-normal text-slate-900 tracking-[-0.025em]`}>
           {formatCurrency(ebitda)}
         </p>
       </div>
