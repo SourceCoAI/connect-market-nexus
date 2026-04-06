@@ -64,10 +64,12 @@ export function EditorDescriptionSection({
   const isFieldGenerating = isGenerating && generatingField === 'description';
   const [isRegenerating, setIsRegenerating] = useState(false);
 
-  // Use existing content, or fall back to the section template for new listings
+  // Use existing HTML content, or merge custom_sections, or fall back to template
   const existingHtml = form.getValues('description_html');
   const existingPlain = form.getValues('description');
-  const initialContent = existingHtml || existingPlain || SECTION_TEMPLATE;
+  const customSections = form.getValues('custom_sections');
+  const mergedFromSections = !existingHtml && !existingPlain ? mergeCustomSectionsToHtml(customSections) : null;
+  const initialContent = existingHtml || mergedFromSections || existingPlain || SECTION_TEMPLATE;
 
   const handleRegenerate = useCallback(async () => {
     if (!dealId) return;
