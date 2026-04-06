@@ -22,11 +22,25 @@ import { stripHtml } from '@/lib/sanitize';
  */
 const SECTION_TEMPLATE = [
   '<h2>Business Overview</h2><p></p>',
-  '<h2>Deal Snapshot</h2><ul><li></li></ul>',
-  '<h2>Key Facts</h2><ul><li></li></ul>',
-  '<h2>Growth Context</h2><ul><li></li></ul>',
-  '<h2>Owner Objectives</h2><ul><li></li></ul>',
+  '<h2>Financial Highlights</h2><ul><li></li></ul>',
+  '<h2>Market Position</h2><p></p>',
+  '<h2>Growth Opportunities</h2><ul><li></li></ul>',
+  '<h2>Transaction Overview</h2><p></p>',
 ].join('');
+
+/**
+ * Convert custom_sections array into HTML content for the rich text editor.
+ */
+function mergeCustomSectionsToHtml(sections: unknown): string | null {
+  if (!Array.isArray(sections) || sections.length === 0) return null;
+  return sections
+    .map((s: { title?: string; description?: string }) => {
+      const title = s.title || 'Section';
+      const desc = s.description || '';
+      return `<h2>${title}</h2><p>${desc}</p>`;
+    })
+    .join('');
+}
 
 interface EditorDescriptionSectionProps {
   form: UseFormReturn<any>;
