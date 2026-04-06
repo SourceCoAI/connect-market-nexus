@@ -127,7 +127,7 @@ const AdminDashboard = () => {
       <div className="min-h-screen bg-background">
         {/* Header */}
         <div className="border-b border-border/50 bg-background sticky top-0 z-10">
-          <div className="px-8 py-5">
+          <div className="px-4 md:px-8 py-5">
             <div className="flex flex-col gap-5">
               {/* Title Row */}
               <div className="flex items-center justify-between">
@@ -247,7 +247,7 @@ const AdminDashboard = () => {
           {/* Marketplace sub-tabs (only when marketplace is active) */}
           {activeDashboard === 'marketplace' && (
             <Tabs defaultValue="analytics" className="w-full">
-              <div className="px-8">
+              <div className="px-4 md:px-8 overflow-x-auto">
                 <TabsList className="inline-flex h-11 items-center justify-start rounded-none border-b-0 bg-transparent p-0 gap-6">
                   {[
                     { value: 'analytics', label: 'Analytics' },
@@ -270,7 +270,7 @@ const AdminDashboard = () => {
                 </TabsList>
               </div>
 
-              <div className="px-8 py-8">
+              <div className="px-4 md:px-8 py-8">
                 <TabsContent value="overview" className="mt-0 space-y-6">
                   <Suspense fallback={<TabFallback />}>
                     <StripeOverviewTab />

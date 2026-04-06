@@ -190,7 +190,7 @@ const ContactListDetailPage = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-40">
-        <div className="px-8 py-6">
+        <div className="px-4 md:px-8 py-6">
           <div className="flex items-center gap-3 mb-3">
             <Link to="/admin/lists">
               <Button variant="ghost" size="sm" className="gap-1">
@@ -248,7 +248,7 @@ const ContactListDetailPage = () => {
         </div>
       </div>
 
-      <div className="px-8 py-6 space-y-4">
+      <div className="px-4 md:px-8 py-6 space-y-4">
         {/* Search & selection info */}
         <div className="flex items-center gap-4">
           <div className="relative flex-1 max-w-md">

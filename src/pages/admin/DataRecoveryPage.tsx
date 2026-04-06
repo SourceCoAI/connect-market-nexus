@@ -15,7 +15,7 @@ const DataRecoveryPage = () => {
     >
       <div className="min-h-screen bg-background">
         <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
-          <div className="px-8 py-6">
+          <div className="px-4 md:px-8 py-6">
             <div className="space-y-1">
               <h1 className="text-2xl font-semibold tracking-tight">Data Recovery</h1>
               <p className="text-sm text-muted-foreground">
@@ -25,7 +25,7 @@ const DataRecoveryPage = () => {
           </div>
         </div>
 
-        <div className="px-8 py-8">
+        <div className="px-4 md:px-8 py-8">
           <DataRecoveryTab users={usersData} />
         </div>
       </div>

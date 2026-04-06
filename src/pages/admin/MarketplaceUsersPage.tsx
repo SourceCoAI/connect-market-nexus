@@ -164,7 +164,7 @@ const MarketplaceUsersPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-40">
-        <div className="px-8 py-6">
+        <div className="px-4 md:px-8 py-6">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <h1 className="text-2xl font-semibold tracking-tight">Marketplace Users</h1>
@@ -186,7 +186,7 @@ const MarketplaceUsersPage = () => {
         </div>
       </div>
 
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-8 py-8">
         {linkedBuyerCount > 0 && (
           <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
             <Users className="h-4 w-4 shrink-0" />

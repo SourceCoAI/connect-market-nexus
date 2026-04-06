@@ -148,7 +148,7 @@ const DailyTaskDashboard = () => {
   };
 
   return (
-    <div className="px-8 py-6 space-y-5">
+    <div className="px-4 md:px-8 py-6 space-y-5">
       {/* Header */}
       <DashboardHeader
         onSyncMeetings={() => syncMeetings.mutate()}

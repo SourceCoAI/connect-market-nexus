@@ -371,7 +371,7 @@ export default function MessageCenter() {
       style={{ fontFamily: 'Montserrat, Inter, sans-serif' }}
     >
       {/* Header */}
-      <div className="px-6 pt-6 pb-4 flex-shrink-0">
+      <div className="px-3 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold tracking-tight" style={{ color: '#0E101A' }}>
             Inbox{counts.unread > 0 ? ` (${counts.unread})` : ''}
@@ -395,7 +395,7 @@ export default function MessageCenter() {
               }
             >
               <LayoutList className="w-3.5 h-3.5" />
-              All
+              <span className="hidden sm:inline">All</span>
             </button>
             <button
               onClick={() => setViewMode('by_deal')}
@@ -410,7 +410,7 @@ export default function MessageCenter() {
               }
             >
               <FolderOpen className="w-3.5 h-3.5" />
-              By Deal
+              <span className="hidden sm:inline">By Deal</span>
             </button>
             <button
               onClick={() => setViewMode('by_buyer')}
@@ -425,7 +425,7 @@ export default function MessageCenter() {
               }
             >
               <Users className="w-3.5 h-3.5" />
-              By Buyer
+              <span className="hidden sm:inline">By Buyer</span>
             </button>
           </div>
         </div>
@@ -481,7 +481,7 @@ export default function MessageCenter() {
           {/* Thread List (left panel) */}
           <div
             className={cn(
-              'w-[320px] flex-shrink-0 flex flex-col min-h-0',
+              'w-full md:w-[320px] flex-shrink-0 flex flex-col min-h-0',
               selectedThreadId ? 'hidden md:flex' : 'flex',
             )}
             style={{ borderRight: '1px solid #F0EDE6' }}

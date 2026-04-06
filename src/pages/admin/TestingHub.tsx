@@ -779,7 +779,7 @@ export default function TestingHub() {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-40">
-        <div className="px-8 py-6">
+        <div className="px-4 md:px-8 py-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1 min-w-0">
               <h1 className="text-2xl font-semibold tracking-tight">Testing & Diagnostics</h1>
@@ -839,7 +839,7 @@ export default function TestingHub() {
       </div>
 
       {showTracker && (
-        <div ref={trackerRef} className="px-8 pt-6">
+        <div ref={trackerRef} className="px-4 md:px-8 pt-6">
           <Suspense fallback={<Loading />}>
             <TestRunTracker
               runs={tracking.runs}
@@ -852,7 +852,7 @@ export default function TestingHub() {
         </div>
       )}
 
-      <div className="px-8 py-6">
+      <div className="px-4 md:px-8 py-6">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="system" className="gap-2">
