@@ -45,6 +45,8 @@ export interface SendEmailOptions {
   replyTo?: string;
   /** Sender name override (defaults to "SourceCo") */
   senderName?: string;
+  /** Sender email override (defaults to support@sourcecodeals.com) */
+  senderEmail?: string;
   /** Is transactional (skips unsubscribe header) */
   isTransactional?: boolean;
   /** Attachments */
