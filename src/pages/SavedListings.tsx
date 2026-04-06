@@ -256,7 +256,7 @@ const SavedListings = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col gap-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <h1 className="text-3xl font-bold">Saved Listings</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Saved Listings</h1>
           </div>
 
           <div className="flex flex-col gap-4">
