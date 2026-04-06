@@ -379,11 +379,8 @@ const PendingApproval = () => {
         </Card>
       </div>
 
-      <AgreementSigningModal
-        open={signingOpen}
-        onOpenChange={setSigningOpen}
-        documentType={signingType}
-      />
+
+
     </div>
   );
 };
