@@ -260,7 +260,7 @@ const MarketplaceContent = () => {
 
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm">View:</span>
+                    <span className="text-sm hidden sm:inline">View:</span>
                     <Button
                       variant="outline"
                       size="sm"
