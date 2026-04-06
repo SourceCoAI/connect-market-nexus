@@ -177,9 +177,7 @@ function scoreSimilarity(
   current: { category?: string; categories?: string[]; revenue?: number; ebitda?: number; location?: string },
 ) {
   let score = 0;
-  const currentCats = Array.isArray(current.categories) ? current.categories : [current.category].filter(Boolean);
-  // We don't have categories on DealOption, but title overlap is a proxy
-  // Category overlap scored via title keyword match as a fallback
+  // Revenue proximity
   const rev = Number(deal.revenue ?? 0);
   const curRev = Number(current.revenue ?? 0);
   const revAvg = (rev + curRev) / 2;

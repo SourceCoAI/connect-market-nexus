@@ -646,7 +646,7 @@ export function ImprovedListingEditor({
                 categories: listing?.categories ?? form.watch('categories'),
                 revenue: listing?.revenue ?? Number(form.watch('revenue') || 0),
                 ebitda: listing?.ebitda ?? Number(form.watch('ebitda') || 0),
-                location: listing?.location ?? form.watch('location') as string,
+                location: listing?.location ?? (form.watch('location') as unknown as string) ?? '',
               }}
             />
 
