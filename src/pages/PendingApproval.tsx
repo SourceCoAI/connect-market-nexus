@@ -29,6 +29,8 @@ const PendingApproval = () => {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [checkCooldown, setCheckCooldown] = useState(false);
   const [isRequestingDocs, setIsRequestingDocs] = useState(false);
+  const [docCooldown, setDocCooldown] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   const { data: agreementStatus } = useMyAgreementStatus(!!user);
   const hasAnyAgreement = agreementStatus?.fee_covered;
@@ -129,6 +131,18 @@ const PendingApproval = () => {
         toast({ variant: 'destructive', title: 'Failed to send documents', description: firstError });
       } else {
         toast({ title: 'Documents sent', description: 'Check your email for the NDA and Fee Agreement.' });
+        setDocCooldown(true);
+        setCooldownSeconds(120);
+        const interval = setInterval(() => {
+          setCooldownSeconds(prev => {
+            if (prev <= 1) {
+              clearInterval(interval);
+              setDocCooldown(false);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
       }
     } catch {
       toast({ variant: 'destructive', title: 'Something went wrong', description: 'Please try again.' });
@@ -297,17 +311,21 @@ const PendingApproval = () => {
                 <Button
                   className="w-full bg-[#0E101A] hover:bg-[#0E101A]/90 text-white"
                   onClick={handleRequestBothDocuments}
-                  disabled={isRequestingDocs}
+                  disabled={isRequestingDocs || docCooldown}
                 >
                   {isRequestingDocs ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending...</>
+                  ) : docCooldown ? (
+                    <><CheckCircle className="h-4 w-4 mr-2" />Documents requested — request again in {Math.floor(cooldownSeconds / 60)}:{(cooldownSeconds % 60).toString().padStart(2, '0')}</>
                   ) : (
                     <><Mail className="h-4 w-4 mr-2" />Request Documents via Email</>
                   )}
                 </Button>
 
                 <p className="text-[11px] text-muted-foreground text-center">
-                  One signature covers every deal, now and in the future.
+                  {docCooldown
+                    ? 'Check your email for the NDA and Fee Agreement.'
+                    : 'One signature covers every deal, now and in the future.'}
                 </p>
               </>
             )}
