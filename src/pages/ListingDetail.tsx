@@ -345,6 +345,7 @@ const ListingDetail = () => {
                       ndaStatus={agreementCoverage?.nda_status ?? 'not_started'}
                       feeStatus={agreementCoverage?.fee_status ?? 'not_started'}
                       connectionApproved={connectionStatusValue === 'approved'}
+                      connectionStatus={connectionStatusValue}
                       onExploreDataRoom={() => {
                         dataRoomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                       }}

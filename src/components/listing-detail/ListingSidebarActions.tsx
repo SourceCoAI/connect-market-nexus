@@ -32,6 +32,7 @@ interface ListingSidebarActionsProps {
   ndaStatus: string;
   feeStatus: string;
   connectionApproved: boolean;
+  connectionStatus?: string | null;
   onExploreDataRoom?: () => void;
 }
 
@@ -49,6 +50,7 @@ export function ListingSidebarActions({
   ndaStatus,
   feeStatus,
   connectionApproved,
+  connectionStatus,
   onExploreDataRoom,
 }: ListingSidebarActionsProps) {
   const { user } = useAuth();
@@ -173,6 +175,8 @@ export function ListingSidebarActions({
 
   const getDataRoomTooltip = () => {
     if (!feeCovered) return 'Sign your Fee Agreement to unlock the data room.';
+    if (connectionStatus === 'pending') return 'Your connection request is pending admin approval.';
+    if (connectionStatus === 'on_hold') return 'Your connection request is under review.';
     if (!connectionApproved) return 'Request a connection to access the data room.';
     return '';
   };
