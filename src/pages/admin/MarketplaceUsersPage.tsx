@@ -164,7 +164,7 @@ const MarketplaceUsersPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-40">
-        <div className="px-8 py-6">
+        <div className="px-4 md:px-8 py-6">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <h1 className="text-2xl font-semibold tracking-tight">Marketplace Users</h1>
