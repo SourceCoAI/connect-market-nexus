@@ -523,6 +523,14 @@ export function ImprovedListingEditor({
         main_contact_linkedin: formData.main_contact_linkedin || null,
         // Content sections (populated by lead memo generator)
         custom_sections: formData.custom_sections || null,
+        // Buyer-facing business details
+        services: (formData as any).services || null,
+        geographic_states: (formData as any).geographic_states || null,
+        number_of_locations: (formData as any).number_of_locations ?? null,
+        customer_types: (formData as any).customer_types || null,
+        revenue_model: (formData as any).revenue_model || null,
+        business_model: (formData as any).business_model || null,
+        growth_trajectory: (formData as any).growth_trajectory || null,
         // Featured deals for landing page
         ...(featuredDealIds ? { featured_deal_ids: featuredDealIds } : {}),
       };
