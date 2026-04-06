@@ -97,7 +97,7 @@ const ContactListsPage = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-40">
-        <div className="px-8 py-6">
+        <div className="px-4 md:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <h1 className="text-2xl font-semibold tracking-tight">Lists</h1>
