@@ -1,3 +1,4 @@
+
 # Phase 6: Navbar, Auth Pages, Modals & Cross-Cutting — Mobile Optimization
 
 ## Audit Summary
@@ -49,20 +50,10 @@ The `max-w-md` container has no `px` padding, so on 375px it touches screen edge
 **Fix:** Add `px-4` to the container: `<div className="w-full max-w-md space-y-6 px-4">`
 
 ### Issue 8: Welcome Page — Right Content `pr-8` Unnecessary on Mobile
-**File:** `src/pages/Welcome.tsx` line 24
-`pr-8` on the right content div. The right panel is `hidden lg:flex` so this doesn't affect mobile. No fix needed.
+The right panel is `hidden lg:flex` so this doesn't affect mobile. No fix needed.
 
-### Issue 9: AuthLayout Already Responsive
-**File:** `src/components/layout/AuthLayout.tsx`
-Uses `grid-cols-1 lg:grid-cols-2`, right column hidden on mobile (`hidden lg:flex`). Container uses `px-4`. All good. No fix needed.
-
-### Issue 10: Login Page Already Responsive
-**File:** `src/pages/Login.tsx`
-Uses `max-w-md mx-auto` with `container mx-auto px-4`. Card uses default padding. All responsive. No fix needed.
-
-### Issue 11: DealSourcingCriteriaDialog Already Responsive
-**File:** `src/components/listing-detail/DealSourcingCriteriaDialog.tsx` line 112
-Already uses `max-w-[92vw]` and responsive text sizes throughout. No fix needed.
+### Issue 9: AuthLayout, Login, ForgotPassword, DealSourcingCriteriaDialog
+All already responsive. No fixes needed.
 
 ## Files Changed
 
