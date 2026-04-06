@@ -389,7 +389,7 @@ function DetailPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <TabsContent value="overview" className="mt-0 p-6 space-y-5">
+          <TabsContent value="overview" className="mt-0 p-4 sm:p-6 space-y-5">
             {/* Row 1: Action Card — full width */}
             <DealActionCard
               requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
