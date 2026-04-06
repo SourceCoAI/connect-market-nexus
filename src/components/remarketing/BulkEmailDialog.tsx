@@ -65,7 +65,7 @@ export const BulkEmailDialog = ({
         revenue: listing.revenue,
         ebitda: listing.ebitda,
         category: listing.category,
-        description: listing.description,
+        executive_summary: listing.executive_summary,
       }
     : { id: "", title: "Unknown Deal" };
 

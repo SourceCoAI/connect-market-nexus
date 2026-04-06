@@ -95,7 +95,7 @@ LISTING:
 - Location: ${listing.location || 'N/A'}
 - Revenue: ${listing.revenue ? `$${listing.revenue.toLocaleString()}` : 'N/A'}
 - EBITDA: ${listing.ebitda ? `$${listing.ebitda.toLocaleString()}` : 'N/A'}
-- Description: ${listing.description?.substring(0, 500) || 'N/A'}
+- Description: ${listing.executive_summary?.substring(0, 500) || 'N/A'}
 
 AVAILABLE UNIVERSES:
 ${unlinkedUniverses

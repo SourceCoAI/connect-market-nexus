@@ -98,7 +98,6 @@ async function inferIndustryFromContext(
     deal.executive_summary && `Summary: ${String(deal.executive_summary).substring(0, 300)}`,
     deal.services && `Services: ${String(deal.services).substring(0, 200)}`,
     deal.category && `Category: ${deal.category}`,
-    deal.description && `Description: ${String(deal.description).substring(0, 200)}`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -412,7 +411,6 @@ serve(async (req) => {
       deal.internal_notes,
       deal.owner_response,
       deal.captarget_call_notes,
-      deal.description,
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -656,7 +654,6 @@ serve(async (req) => {
       if (!deal.executive_summary && websiteContent.length > 200) {
         updates.executive_summary = websiteContent.substring(0, 500).trim() + '...';
       }
-
       const { error: updateError } = await supabase
         .from('listings')
         .update(updates)

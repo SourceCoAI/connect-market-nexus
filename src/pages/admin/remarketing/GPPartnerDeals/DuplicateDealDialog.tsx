@@ -22,7 +22,7 @@ interface ExistingDeal {
   main_contact_phone: string | null;
   main_contact_title: string | null;
   industry: string | null;
-  description: string | null;
+  executive_summary: string | null;
   location: string | null;
   revenue: number | null;
   ebitda: number | null;
@@ -40,7 +40,7 @@ type FieldKey =
   | 'contact_phone'
   | 'contact_title'
   | 'industry'
-  | 'description'
+  | 'executive_summary'
   | 'location'
   | 'revenue'
   | 'ebitda';
@@ -108,10 +108,10 @@ const FIELDS: FieldDef[] = [
     newValue: (n) => (n.ebitda ? `$${Number(n.ebitda).toLocaleString()}` : '—'),
   },
   {
-    key: 'description',
-    label: 'Description',
-    existingValue: (e) => e.description || '—',
-    newValue: (n) => n.description || '—',
+    key: 'executive_summary',
+    label: 'Executive Summary',
+    existingValue: (e) => e.executive_summary || '—',
+    newValue: (n) => n.executive_summary || '—',
   },
 ];
 

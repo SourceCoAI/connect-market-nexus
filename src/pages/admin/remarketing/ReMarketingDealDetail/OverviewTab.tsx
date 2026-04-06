@@ -70,7 +70,7 @@ interface DealRecord {
   technology_systems: string | null;
   real_estate_info: string | null;
   growth_trajectory: string | null;
-  description: string | null;
+  description?: string | null;
   extraction_sources: Record<string, unknown> | null;
   general_notes: string | null;
   created_at: string;
@@ -376,16 +376,6 @@ export function OverviewTab({
         }}
       />
 
-      {deal.description && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Description</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground whitespace-pre-wrap">{deal.description}</p>
-          </CardContent>
-        </Card>
-      )}
 
       <DealTranscriptSection
         dealId={dealId}

@@ -486,7 +486,7 @@ function formatIntoParagraphs(text: string): string {
  * section, and additional sections are appended from deal fields for depth.
  */
 function generateAnonymousDescription(deal: DealData): string {
-  const source = deal.executive_summary || deal.description || '';
+  const source = deal.executive_summary || '';
 
   // Build a structured description from deal fields — be EXHAUSTIVE
   // Mix short narrative sentences with bullet points for clean, digestible content

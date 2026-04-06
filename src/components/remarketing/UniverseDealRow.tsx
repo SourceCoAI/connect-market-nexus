@@ -115,9 +115,9 @@ export const UniverseDealRow = ({
       </TableCell>
 
       <TableCell style={{ width: w('description') }}>
-        {deal.listing.description || deal.listing.executive_summary ? (
+        {deal.listing.executive_summary ? (
           <p className="text-sm text-muted-foreground line-clamp-2 overflow-hidden">
-            {deal.listing.description || deal.listing.executive_summary}
+            {deal.listing.executive_summary}
           </p>
         ) : (
           <span className="text-sm text-muted-foreground">&mdash;</span>

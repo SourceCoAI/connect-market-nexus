@@ -402,7 +402,7 @@ export default function CapTargetDeals() {
                           key: 'company',
                           content: <SortHeader column="company_name">Company</SortHeader>,
                         },
-                        { key: 'description', content: 'Description' },
+                        { key: 'description', content: 'Executive Summary' },
                         {
                           key: 'industry',
                           content: <SortHeader column="client_name">Industry</SortHeader>,

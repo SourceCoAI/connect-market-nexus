@@ -129,12 +129,12 @@ export const AddDealForm = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
+        <Label htmlFor="executive_summary">Executive Summary</Label>
         <Textarea
-          id="description"
+          id="executive_summary"
           placeholder="Brief description of the business..."
-          value={formData.description}
-          onChange={(e) => onFormChange('description', e.target.value)}
+          value={formData.executive_summary}
+          onChange={(e) => onFormChange('executive_summary', e.target.value)}
           rows={3}
         />
       </div>

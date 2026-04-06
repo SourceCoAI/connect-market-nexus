@@ -122,7 +122,7 @@ export function GPPartnerTable({
                 <TableHead>
                   <SortHeader column="company_name">Company</SortHeader>
                 </TableHead>
-                <TableHead className="max-w-[200px]">Description</TableHead>
+                <TableHead className="max-w-[200px]">Executive Summary</TableHead>
                 <TableHead>
                   <SortHeader column="industry">Industry</SortHeader>
                 </TableHead>
@@ -235,7 +235,7 @@ export function GPPartnerTable({
                     </TableCell>
                     <TableCell className="max-w-[200px]">
                       <span className="text-xs text-muted-foreground line-clamp-3">
-                        {deal.description || deal.executive_summary || '\u2014'}
+                        {deal.executive_summary || '\u2014'}
                       </span>
                     </TableCell>
                     <TableCell>

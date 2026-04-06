@@ -522,7 +522,7 @@ Deno.serve(async (req) => {
                 smartlead_reply_inbox_id: inserted.id,
                 smartlead_replied_at: record.time_replied || new Date().toISOString(),
                 smartlead_ai_category: classification.category,
-                description: `Auto-created from Smartlead GP response. Category: ${classification.category}. Campaign: ${record.campaign_name}`,
+                executive_summary: `Auto-created from Smartlead GP response. Category: ${classification.category}. Campaign: ${record.campaign_name}`,
               })
               .select('id')
               .single();

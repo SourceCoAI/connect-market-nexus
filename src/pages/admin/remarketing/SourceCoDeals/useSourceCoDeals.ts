@@ -141,7 +141,7 @@ export function useSourceCoDeals() {
           .select(
             `
             id, title, internal_company_name, main_contact_name, main_contact_email,
-            main_contact_title, main_contact_phone, website, description,
+            main_contact_title, main_contact_phone, website, executive_summary,
             pushed_to_all_deals, pushed_to_all_deals_at, deal_source, status,
             created_at, enriched_at, deal_total_score, linkedin_employee_count,
             linkedin_employee_range, google_rating, google_review_count,
@@ -624,7 +624,7 @@ export function useSourceCoDeals() {
       main_contact_phone: newDeal.contact_phone.trim() || null,
       main_contact_title: newDeal.contact_title.trim() || null,
       industry: newDeal.industry.trim() || null,
-      description: newDeal.description.trim() || null,
+      executive_summary: newDeal.executive_summary.trim() || null,
       location: newDeal.location.trim() || null,
       revenue: newDeal.revenue ? parseFloat(newDeal.revenue) : null,
       ebitda: newDeal.ebitda ? parseFloat(newDeal.ebitda) : null,

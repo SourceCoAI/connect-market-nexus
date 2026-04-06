@@ -62,7 +62,7 @@ export async function runPipelineChecks(dealId: string): Promise<PipelineReport>
     { label: 'EBITDA', check: () => deal.ebitda != null },
     { label: 'Location / Geography', check: () => !!(deal.address_state || deal.location) },
     { label: 'Category / Industry', check: () => !!(deal.category || deal.industry) },
-    { label: 'Description', check: () => !!(deal.executive_summary || deal.description) },
+    { label: 'Executive Summary', check: () => !!deal.executive_summary },
     { label: 'Main contact name', check: () => !!deal.main_contact_name },
     { label: 'Main contact email', check: () => !!deal.main_contact_email },
     { label: 'Hero description', check: () => !!deal.hero_description },

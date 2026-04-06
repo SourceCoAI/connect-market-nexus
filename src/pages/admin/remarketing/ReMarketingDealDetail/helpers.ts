@@ -36,7 +36,6 @@ export const getEffectiveWebsite = (
 export const calculateDataCompleteness = (
   deal: {
     title?: string | null;
-    description?: string | null;
     location?: string | null;
     revenue?: number | null;
     ebitda?: number | null;
@@ -51,7 +50,6 @@ export const calculateDataCompleteness = (
 
   const fields = [
     deal.title,
-    deal.description,
     deal.location,
     deal.revenue,
     deal.ebitda,
