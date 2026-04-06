@@ -93,25 +93,26 @@ const handler = async (req: Request): Promise<Response> => {
       });
       textContent = `Hi ${firstName},\n\nYour SourceCo account is approved and your NDA is on file. You have full access now.\n\nBrowse deals: ${siteUrl}/marketplace\n\nQuestions? Reply to this email.\n\nThe SourceCo Team`;
     } else {
-      subject = "You're approved. One step to full access.";
+      subject = "Welcome to SourceCo — Your account is approved";
       htmlContent = wrapEmailHtml({
         bodyHtml: `
   <p>Hi ${firstName},</p>
-  <p>Your account is approved.</p>
-  <p>Before you can browse deal details and request introductions, you need to sign your NDA. It covers your use of the platform. One signature and you are in for good. Takes about 60 seconds.</p>
-  <p style="margin: 24px 0;"><a href="${siteUrl}/pending-approval" style="display: inline-block; background-color: #000000; color: #ffffff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 600;">Sign Your NDA</a></p>
-  <p style="font-weight: 600; margin: 24px 0 8px 0;">A few things to know before you start</p>
+  <p>Your account has been approved. You now have access to our curated pipeline of off-market acquisition opportunities.</p>
+  <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #000000; color: #ffffff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 600;">Browse the Marketplace</a></p>
+  <p style="font-weight: 600; margin: 24px 0 8px 0;">Unlock full access</p>
+  <p>To view full deal details, access data rooms, and request introductions, you will need to sign two standard documents: an NDA and a Fee Agreement. You can request these from your profile or any listing page. It takes about 60 seconds.</p>
+  <p style="font-weight: 600; margin: 24px 0 8px 0;">A few things to know</p>
   <ul style="padding-left: 20px; line-height: 1.8;">
     <li>Every deal on SourceCo is off-market. You will not find these anywhere else.</li>
     <li>We introduce a small number of buyers per deal. When you request an introduction, tell us specifically why you are a strong fit. Generic messages rarely get selected.</li>
-    <li>Before your first introduction request, you will be asked to sign a fee agreement. It is success-only. Nothing is owed unless a deal closes.</li>
+    <li>The Fee Agreement is success-only. Nothing is owed unless a deal closes. It covers every introduction we make on your behalf.</li>
   </ul>
   <p>Questions? Reply to this email.</p>
   <p style="color: #6B6B6B; margin-top: 32px;">The SourceCo Team</p>`,
-        preheader: 'Sign your NDA in 60 seconds and the full deal pipeline is yours.',
+        preheader: 'Your account is approved. Browse off-market acquisition opportunities now.',
         recipientEmail: email,
       });
-      textContent = `Hi ${firstName}, you are approved. Sign your NDA to get full access: ${siteUrl}/pending-approval\n\nQuestions? Reply to this email.\n\nThe SourceCo Team`;
+      textContent = `Hi ${firstName},\n\nYour account has been approved. You now have access to our curated pipeline of off-market acquisition opportunities.\n\nBrowse the Marketplace: ${siteUrl}/marketplace\n\nTo unlock full access, sign your NDA and Fee Agreement from your profile or any listing page.\n\nQuestions? Reply to this email.\n\nThe SourceCo Team`;
     }
 
     const result = await sendEmail({
