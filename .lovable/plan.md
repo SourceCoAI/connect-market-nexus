@@ -1,80 +1,58 @@
 
 
-# End-to-End Email Audit: Findings and Fixes
+# Fix Admin-Bound Emails: Sender Identity + Verify All Support Notifications Exist
 
-## Methodology
+## Problem
 
-I cross-referenced three sources:
-1. **AdminEmailRouting.tsx** (35 email entries across 8 categories)
-2. **EmailCatalog.tsx** (43 email entries across 7 categories)
-3. **Actual edge functions** in `supabase/functions/`
+All emails sent TO `support@sourcecodeals.com` are currently sent FROM `support@sourcecodeals.com` via Brevo. Outlook sees this as suspicious because the email didn't originate from your mail server — it came from Brevo's SMTP, but claims to be from your own address. This triggers SmartScreen/spam filtering.
 
-## Issues Found
+**Fix**: Change the sender for all admin/support-bound notification emails to `noreply@sourcecodeals.com`. These are system notifications — they don't need to come from "support". The `replyTo` can stay as `support@` where appropriate.
 
-### Issue 1: EmailCatalog references non-existent edge function
-The "Enhanced Admin Notification" entry in EmailCatalog (line 409) references `send-enhanced-admin-notification`, but the actual function is named `enhanced-admin-notification` (no `send-` prefix). The AdminEmailRouting correctly uses `enhanced-admin-notification`.
+## Emails That Send TO support@sourcecodeals.com
 
-**Fix**: Change `edgeFunction` from `send-enhanced-admin-notification` to `enhanced-admin-notification` in EmailCatalog.tsx line 409.
+| Email | Edge Function | Current From | New From |
+|---|---|---|---|
+| New User Registration | `enhanced-admin-notification` | support@ | noreply@ |
+| New Connection Request (admin) | `send-connection-notification` (type: admin_notification) | support@ | noreply@ |
+| New Buyer Message | `notify-support-inbox` (type: new_message) | support@ | noreply@ |
+| Admin Reply Copy | `notify-support-inbox` (type: admin_reply) | support@ | noreply@ |
+| Document Request | `notify-support-inbox` (type: document_request) | support@ | noreply@ |
+| Owner Inquiry (/sell form) | `send-owner-inquiry-notification` | support@ | noreply@ |
+| Feedback Submitted | `send-feedback-email` | support@ | noreply@ |
+| Admin Digest | `admin-digest` | support@ | noreply@ (broken function, but fix anyway) |
 
-### Issue 2: Missing emails in EmailCatalog (present in AdminEmailRouting but not in Catalog)
-These emails exist in AdminEmailRouting and have working edge functions, but are missing from the EmailCatalog with previews:
+## Changes
 
-- **New Buyer Message to Support** (`notify-support-inbox`) — When a buyer sends a message, support gets notified
-- **Admin Reply Copy to Support** (`notify-support-inbox`, variant: admin_reply) — When admin replies, support inbox gets a copy
-- **Document Request to Support** (`notify-support-inbox`, variant: document_request) — Document request notification
-- **Inquiry Confirmation to Buyer** (`notify-buyer-inquiry-received`) — Confirmation email when buyer asks a question
-- **Marketplace Signup Approved** — Present in EmailCatalog's Buyer Lifecycle section but missing from AdminEmailRouting (already fixed in last change)
+### 1. `supabase/functions/_shared/email-sender.ts`
+Add a new constant:
+```
+export const NOREPLY_SENDER_EMAIL = 'noreply@sourcecodeals.com';
+export const NOREPLY_SENDER_NAME = 'SourceCo Notifications';
+```
 
-**Fix**: Add these 4 missing emails to EmailCatalog with proper previews matching their actual edge function output.
+### 2. Edge functions sending TO support@ — use `noreply@` as sender
 
-### Issue 3: Missing emails in AdminEmailRouting (present in Catalog but not in Routing)
-These emails have catalog entries and working edge functions but are missing from AdminEmailRouting:
+Each of these functions needs `senderEmail: 'noreply@sourcecodeals.com'` and `senderName: 'SourceCo Notifications'` added to their `sendEmail()` call:
 
-- **Buyer Rejection** (`notify-buyer-rejection`)
-- **Deal Reassignment** (`notify-deal-reassignment`) 
-- **New Deal Owner** (`notify-new-deal-owner`)
-- **Marketplace Signup Approved** (`user-journey-notifications`, variant: `profile_approved`) — The new entry we just added to the catalog
+- **`enhanced-admin-notification/index.ts`** (line 79) — add `senderEmail`
+- **`send-connection-notification/index.ts`** (line 162, admin_notification branch) — add `senderEmail`
+- **`notify-support-inbox/index.ts`** (line 107) — add `senderEmail`
+- **`send-owner-inquiry-notification/index.ts`** (line 65) — add `senderEmail`
+- **`send-feedback-email/index.ts`** — add `senderEmail`
+- **`admin-digest/index.ts`** — add `senderEmail` (even though it's broken, fix the identity for when it's repaired)
 
-**Fix**: Add these 4 entries to the correct categories in AdminEmailRouting.
+### 3. Verify `noreply@sourcecodeals.com` is a verified sender in Brevo
+This needs to be verified in Brevo's dashboard. The user should add `noreply@sourcecodeals.com` as a verified sender if not already done.
 
-### Issue 4: Verified working — no issues
-These emails are correctly cataloged, correctly routed, and have working edge functions:
-- All Buyer Lifecycle emails (welcome, verification, approval, anonymous teaser release, invitation, connection request/approval)
-- All Agreement emails (NDA, Fee Agreement, Agreement Confirmed)
-- All Deal Flow emails (deal alert, deal referral, memo, data room access)
-- Messaging: buyer new message, admin new message
-- User Journey Notifications (all 4 variants)
-- All onboarding emails (day 2, day 7)
-- Password reset, verification fix, feedback, task notification, etc.
+### 4. `src/components/admin/emails/AdminEmailRouting.tsx`
+Update all "Admin Notifications" and "Messaging" entries that go to `support@` to show `senderName: 'SourceCo Notifications'` and note the `noreply@` sender.
 
-### Issue 5: Admin Digest correctly flagged as broken
-The `admin-digest` function calls a deleted `enhanced-email-delivery` dependency. It is correctly flagged as "broken" in the catalog. No action needed now.
+### 5. `src/components/admin/emails/EmailCatalog.tsx`
+Update preview metadata for admin-bound emails to reflect `noreply@sourcecodeals.com` sender.
 
-## Changes — 2 Files
+### 6. Deploy all modified edge functions
 
-### 1. `src/components/admin/emails/EmailCatalog.tsx`
-
-- **Fix edge function name**: Line 409, change `send-enhanced-admin-notification` to `enhanced-admin-notification`
-- **Add 4 missing entries**:
-  - In "Messaging" category: add "Support Inbox: New Message", "Support Inbox: Admin Reply", "Support Inbox: Document Request" (all `notify-support-inbox` with different variants), and "Inquiry Confirmation" (`notify-buyer-inquiry-received`)
-
-### 2. `src/components/admin/emails/AdminEmailRouting.tsx`
-
-- **Add to Buyer Lifecycle**: "Marketplace Signup Approved" (`user-journey-notifications`, Profile Approved variant)
-- **Add to Buyer Lifecycle**: "Buyer Rejection" (`notify-buyer-rejection`)
-- **Add to Deal Flow**: "Deal Reassignment" (`notify-deal-reassignment`) and "New Deal Owner Assigned" (`notify-new-deal-owner`)
-
-## Summary
-
-| Check | Result |
-|---|---|
-| All edge functions exist on disk | Pass (except `admin-digest` dependency, already flagged) |
-| Catalog edge function names match actual | 1 fix needed (`send-enhanced-admin-notification` typo) |
-| All emails in Routing also in Catalog | 4 missing, will add |
-| All emails in Catalog also in Routing | 4 missing, will add |
-| Sender identity correct | Pass (all use `support@`, except Anonymous Teaser uses `adam.haile@`) |
-| Preview HTML matches actual email content | Pass (all previews accurately represent edge function output) |
-| `senderEmail` override works for marketplace approval | Pass (verified in `email-sender.ts` and `approve-marketplace-buyer`) |
-
-No edge function code changes needed. This is purely a catalog/routing dashboard sync.
+### Summary
+- Buyer-facing emails: unchanged (still from `support@` or `adam.haile@`)
+- Admin/support-bound notifications: now from `noreply@` so Outlook stops flagging them as self-spoofed
 
