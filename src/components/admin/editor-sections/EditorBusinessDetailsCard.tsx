@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FormField, FormItem, FormControl } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { UseFormReturn } from 'react-hook-form';
 import { EDITOR_DESIGN } from '@/lib/editor-design-system';
 import { cn } from '@/lib/utils';
