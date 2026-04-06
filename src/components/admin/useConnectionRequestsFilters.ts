@@ -93,7 +93,7 @@ export function useConnectionRequestsFilters(
             await sendMessage.mutateAsync({
               connection_request_id: id,
               body: status === 'approved'
-                ? 'We have sent you a brief overview of the deal. Please let us know if you are still interested.'
+                ? `Your introduction to ${listingTitle} has been approved. You now have access to the deal overview and supporting documents in the data room. Our team will facilitate the introduction to the business owner — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`
                 : notes || 'Request declined.',
               sender_role: 'admin',
               message_type: 'decision',
