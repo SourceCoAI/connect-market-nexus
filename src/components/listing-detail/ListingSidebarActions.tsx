@@ -50,6 +50,7 @@ export function ListingSidebarActions({
   ndaStatus,
   feeStatus,
   connectionApproved,
+  connectionStatus,
   onExploreDataRoom,
 }: ListingSidebarActionsProps) {
   const { user } = useAuth();
