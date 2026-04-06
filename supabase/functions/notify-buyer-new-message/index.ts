@@ -8,13 +8,17 @@ import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 interface NewMessageNotificationRequest {
   connection_request_id: string;
   message_preview: string;
+  admin_name?: string;
 }
 
-function buildMessageNotificationHtml(buyerName: string, dealTitle: string, messagePreview: string, loginUrl: string, buyerEmail: string): string {
+function buildMessageNotificationHtml(buyerName: string, dealTitle: string, messagePreview: string, loginUrl: string, buyerEmail: string, adminName?: string): string {
+  const fromLine = adminName
+    ? `from <strong>${escapeHtml(adminName)}</strong> at SourceCo`
+    : 'from the SourceCo team';
   return wrapEmailHtml({
     bodyHtml: `
     <p>Hi ${escapeHtml(buyerName)},</p>
-    <p>You have a new message from the SourceCo team regarding ${escapeHtml(dealTitle)}.</p>
+    <p>You have a new message ${fromLine} regarding ${escapeHtml(dealTitle)}.</p>
     <div style="background: #F7F6F3; padding: 20px; margin: 24px 0;">
       <p style="margin: 0; font-size: 14px; font-style: italic;">"${escapeHtmlWithBreaks(messagePreview)}"</p>
     </div>
@@ -22,7 +26,7 @@ function buildMessageNotificationHtml(buyerName: string, dealTitle: string, mess
     <div style="text-align: center; margin: 28px 0;">
       <a href="${loginUrl}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">View Message</a>
     </div>`,
-    preheader: `New message from SourceCo regarding ${escapeHtml(dealTitle)}`,
+    preheader: `New message from ${adminName || 'SourceCo'} regarding ${escapeHtml(dealTitle)}`,
     recipientEmail: buyerEmail,
   });
 }
@@ -37,7 +41,7 @@ const handler = async (req: Request): Promise<Response> => {
       return new Response(JSON.stringify({ error: auth.error }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
     }
 
-    const { connection_request_id, message_preview }: NewMessageNotificationRequest = await req.json();
+    const { connection_request_id, message_preview, admin_name }: NewMessageNotificationRequest = await req.json();
     if (!connection_request_id) {
       return new Response(JSON.stringify({ success: false, error: 'connection_request_id is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
@@ -68,8 +72,10 @@ const handler = async (req: Request): Promise<Response> => {
     const preview = (message_preview || '').substring(0, 200);
     const loginUrl = 'https://marketplace.sourcecodeals.com/messages';
 
-    const subject = `New message from SourceCo re: ${escapeHtml(dealTitle)}`;
-    const htmlContent = buildMessageNotificationHtml(buyerName, dealTitle, preview, loginUrl, buyer.email);
+    const subject = admin_name
+      ? `New message from ${escapeHtml(admin_name)} re: ${escapeHtml(dealTitle)}`
+      : `New message from SourceCo re: ${escapeHtml(dealTitle)}`;
+    const htmlContent = buildMessageNotificationHtml(buyerName, dealTitle, preview, loginUrl, buyer.email, admin_name);
 
     const result = await sendEmail({
       templateName: 'admin_message_notification',

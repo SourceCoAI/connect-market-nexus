@@ -139,11 +139,64 @@ export function useSendMessage() {
       // Send email notification to the other party.
       // Fire-and-forget: don't block the UI on email delivery.
       if (params.sender_role === 'admin') {
+        // Resolve admin's full name, buyer name, and deal title for emails
+        let adminFullName = user?.email?.split('@')[0] || 'Admin';
+        let buyerName = 'Buyer';
+        let dealTitle = 'General';
+
+        try {
+          // Get admin profile name
+          const { data: adminProfile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', user.id)
+            .single();
+          if (adminProfile) {
+            const name = `${adminProfile.first_name || ''} ${adminProfile.last_name || ''}`.trim();
+            if (name) adminFullName = name;
+          }
+          // Fallback to static admin profiles map
+          if (adminFullName === user?.email?.split('@')[0]) {
+            const { getAdminProfile } = await import('@/lib/admin-profiles');
+            const staticProfile = getAdminProfile(user.email || '');
+            if (staticProfile?.name) adminFullName = staticProfile.name;
+          }
+
+          // Get buyer name and deal title from connection request
+          const { data: connReq } = await supabase
+            .from('connection_requests')
+            .select('user_id, listing_id')
+            .eq('id', params.connection_request_id)
+            .single();
+          if (connReq) {
+            const { data: buyerProfile } = await supabase
+              .from('profiles')
+              .select('first_name, last_name, email')
+              .eq('id', connReq.user_id as string)
+              .single();
+            if (buyerProfile) {
+              const bName = `${buyerProfile.first_name || ''} ${buyerProfile.last_name || ''}`.trim();
+              buyerName = bName || buyerProfile.email || 'Buyer';
+            }
+            if (connReq.listing_id) {
+              const { data: listing } = await supabase
+                .from('listings')
+                .select('title')
+                .eq('id', connReq.listing_id)
+                .single();
+              if (listing?.title) dealTitle = listing.title;
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to resolve email context names:', e);
+        }
+
         supabase.functions
           .invoke('notify-buyer-new-message', {
             body: {
               connection_request_id: params.connection_request_id,
               message_preview: params.body.substring(0, 200),
+              admin_name: adminFullName,
             },
           })
           .then(({ error: fnError }) => {
@@ -160,8 +213,9 @@ export function useSendMessage() {
           .invoke('notify-support-inbox', {
             body: {
               type: 'admin_reply',
-              buyerName: 'Buyer',
-              adminName: user?.email?.split('@')[0] || 'Admin',
+              buyerName,
+              adminName: adminFullName,
+              dealTitle,
               messagePreview: params.body.substring(0, 200),
             },
           })
