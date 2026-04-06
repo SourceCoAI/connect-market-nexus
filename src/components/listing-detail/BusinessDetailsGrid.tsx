@@ -34,8 +34,8 @@ export function BusinessDetailsGrid({
     <div className="py-8 border-t border-slate-100 space-y-5">
       <h3 className="text-sm font-medium text-foreground">Business Details</h3>
       <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-        {/* Geography */}
-        {geographic_states && geographic_states.length > 0 && (
+        {/* Geography - only show when multiple states (single state shown in header) */}
+        {geographic_states && geographic_states.length > 1 && (
           <div className="flex items-start gap-3">
             <MapPin className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
