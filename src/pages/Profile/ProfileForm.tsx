@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { MultiCategorySelect } from '@/components/ui/category-select';
 import { MultiLocationSelect } from '@/components/ui/location-select';
