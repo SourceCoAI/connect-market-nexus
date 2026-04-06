@@ -406,7 +406,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         subject: '[Deal]: [Action Type] Notification',
         recipient: 'Admin',
         trigger: 'Various admin-level events (deal updates, buyer actions, etc.)',
-        edgeFunction: 'send-enhanced-admin-notification',
+        edgeFunction: 'enhanced-admin-notification',
         designNotes: 'Branded wrapper, action summary, context details, CTA to admin panel',
         previewHtml: `${wrapperStart}<p>A buyer has submitted a new connection request for Project Acme.</p>${detailBox(`${label('Deal', 'Project Acme')}${label('Buyer', 'Jane Smith')}${label('Action', 'Connection Request')}`)}${ctaBtn('View in Admin Panel')}${wrapperEnd}`,
       },
