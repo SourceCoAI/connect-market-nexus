@@ -158,6 +158,10 @@ export default function CreateListingFromDeal() {
           anonymized.geographic_states.length > 0
             ? anonymized.geographic_states
             : ((deal as Record<string, unknown>).geographic_states as string[]) || null,
+        number_of_locations:
+          ((deal as Record<string, unknown>).number_of_locations as number) ?? null,
+        growth_trajectory:
+          ((deal as Record<string, unknown>).growth_trajectory as string) ?? null,
         custom_sections: [],
         tags: [],
         status: 'active',
