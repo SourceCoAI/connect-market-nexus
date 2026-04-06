@@ -395,7 +395,7 @@ export default function MessageCenter() {
               }
             >
               <LayoutList className="w-3.5 h-3.5" />
-              All
+              <span className="hidden sm:inline">All</span>
             </button>
             <button
               onClick={() => setViewMode('by_deal')}
