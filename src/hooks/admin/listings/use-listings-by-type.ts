@@ -5,12 +5,14 @@ import { withPerformanceMonitoring } from '@/lib/performance-monitor';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTabAwareQuery } from '@/hooks/use-tab-aware-query';
 
-export type ListingType = 'marketplace' | 'research' | 'all';
+export type ListingType = 'ready_to_publish' | 'live' | 'internal' | 'all';
 
 /**
  * Hook for fetching admin listings filtered by type:
- * - marketplace: Public-facing listings (is_internal_deal = false, has image)
- * - research: Remarketing deals (is_internal_deal = true, no image - data-focused)
+ * - ready_to_publish: Marketplace listings not yet published (is_internal_deal=false, published_at IS NULL)
+ * - live: Published marketplace listings (is_internal_deal=false, published_at IS NOT NULL)
+ * - internal: Remarketing deals (is_internal_deal=true)
+ * - all: Everything
  */
 export function useListingsByType(
   type: ListingType,
@@ -47,14 +49,14 @@ export function useListingsByType(
             .is('deleted_at', null);
 
           // Filter by listing type
-          if (type === 'marketplace') {
-            // Marketplace: published listings (is_internal_deal=false is sufficient)
-            query = query.eq('is_internal_deal', false);
-          } else if (type === 'research') {
-            // Research: internal deals without images (remarketing deals)
+          if (type === 'ready_to_publish') {
+            query = query.eq('is_internal_deal', false).is('published_at', null);
+          } else if (type === 'live') {
+            query = query.eq('is_internal_deal', false).not('published_at', 'is', null);
+          } else if (type === 'internal') {
             query = query.eq('is_internal_deal', true);
           }
-          // type === 'all': no additional filter — show everything
+          // type === 'all': no additional filter
 
           // Apply status filter if provided
           if (status && status !== 'all') {
@@ -97,7 +99,7 @@ export function useListingsByType(
 }
 
 /**
- * Hook to get counts for both listing types
+ * Hook to get counts for listing types
  */
 export function useListingTypeCounts() {
   const { user, authChecked } = useAuth();
@@ -118,17 +120,25 @@ export function useListingTypeCounts() {
     ['admin-listings-counts'],
     async () => {
       if (!isAdminUser) {
-        return { marketplace: 0, research: 0 };
+        return { ready_to_publish: 0, live: 0, internal: 0 };
       }
 
-      const [marketplaceResult, researchResult] = await Promise.all([
-        // Marketplace: published listings
+      const [readyResult, liveResult, internalResult] = await Promise.all([
+        // Ready to publish: marketplace listings not yet published
         supabase
           .from('listings')
           .select('id', { count: 'exact', head: true })
           .is('deleted_at', null)
-          .eq('is_internal_deal', false),
-        // Research: internal deals without images (remarketing)
+          .eq('is_internal_deal', false)
+          .is('published_at', null),
+        // Live: published marketplace listings
+        supabase
+          .from('listings')
+          .select('id', { count: 'exact', head: true })
+          .is('deleted_at', null)
+          .eq('is_internal_deal', false)
+          .not('published_at', 'is', null),
+        // Internal: remarketing deals
         supabase
           .from('listings')
           .select('id', { count: 'exact', head: true })
@@ -137,8 +147,9 @@ export function useListingTypeCounts() {
       ]);
 
       return {
-        marketplace: marketplaceResult.count || 0,
-        research: researchResult.count || 0,
+        ready_to_publish: readyResult.count || 0,
+        live: liveResult.count || 0,
+        internal: internalResult.count || 0,
       };
     },
     {

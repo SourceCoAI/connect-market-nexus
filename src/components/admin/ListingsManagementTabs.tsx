@@ -12,7 +12,7 @@ import { ListingType } from '@/hooks/admin/listings/use-listings-by-type';
 const ListingsManagementTabs = () => {
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [editingListing, setEditingListing] = useState<AdminListing | null>(null);
-  const [activeTab, setActiveTab] = useState<ListingType>('all');
+  const [activeTab, setActiveTab] = useState<ListingType>('ready_to_publish');
 
   const { useCreateListing, useUpdateListing } = useAdmin();
   const { mutateAsync: createListing, isPending: isCreating } = useCreateListing();
@@ -78,7 +78,7 @@ const ListingsManagementTabs = () => {
               Listings Management
             </h1>
             <p className="text-sm text-muted-foreground">
-              Manage all listings — marketplace, internal, and queued deals
+              Review, publish, and manage marketplace listings
             </p>
           </div>
         </div>
@@ -86,49 +86,49 @@ const ListingsManagementTabs = () => {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ListingType)}>
           <TabsList>
-            <TabsTrigger value="all" className="gap-2">
-              All Listings
+            <TabsTrigger value="ready_to_publish" className="gap-2">
+              Ready to Publish
               {counts && (
                 <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
-                  {(counts.marketplace || 0) + (counts.research || 0)}
+                  {counts.ready_to_publish || 0}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="marketplace" className="gap-2">
-              Published
+            <TabsTrigger value="live" className="gap-2">
+              Live on Marketplace
               {counts && (
                 <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
-                  {counts.marketplace || 0}
+                  {counts.live || 0}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="research" className="gap-2">
-              Internal / Drafts
+            <TabsTrigger value="internal" className="gap-2">
+              All Internal
               {counts && (
                 <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
-                  {counts.research || 0}
+                  {counts.internal || 0}
                 </Badge>
               )}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="all">
+          <TabsContent value="ready_to_publish">
             <ListingsTabContent
-              type="all"
+              type="ready_to_publish"
               onEdit={setEditingListing}
               onCreateNew={() => setIsCreateFormOpen(true)}
             />
           </TabsContent>
-          <TabsContent value="marketplace">
+          <TabsContent value="live">
             <ListingsTabContent
-              type="marketplace"
+              type="live"
               onEdit={setEditingListing}
               onCreateNew={() => setIsCreateFormOpen(true)}
             />
           </TabsContent>
-          <TabsContent value="research">
+          <TabsContent value="internal">
             <ListingsTabContent
-              type="research"
+              type="internal"
               onEdit={setEditingListing}
               onCreateNew={() => setIsCreateFormOpen(true)}
             />
