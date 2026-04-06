@@ -59,14 +59,36 @@ export function BuyerDataRoom({ dealId, connectionApproved }: BuyerDataRoomProps
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      if (data) return data;
+
+      // Dual-ID fallback: check if access exists on the source deal
+      const { data: listingRow } = await supabase
+        .from('listings')
+        .select('source_deal_id')
+        .eq('id', dealId)
+        .maybeSingle();
+
+      if (listingRow?.source_deal_id) {
+        const { data: sourceAccess, error: sourceErr } = await supabase
+          .from('data_room_access')
+          .select('can_view_teaser, can_view_full_memo, can_view_data_room')
+          .eq('deal_id', listingRow.source_deal_id)
+          .eq('marketplace_user_id', user?.id ?? '')
+          .is('revoked_at', null)
+          .maybeSingle();
+
+        if (sourceErr) throw sourceErr;
+        return sourceAccess;
+      }
+
+      return null;
     },
     enabled: !!dealId && !!user?.id,
   });
 
   // Phase 102: Build allowed categories from access toggles
   const allowedCategories = new Set<string>();
-  if (access?.can_view_teaser) allowedCategories.add('teaser');
+  if (access?.can_view_teaser) allowedCategories.add('anonymous_teaser');
   if (access?.can_view_full_memo) allowedCategories.add('full_memo');
   if (access?.can_view_data_room) allowedCategories.add('data_room');
 
