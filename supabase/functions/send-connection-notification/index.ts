@@ -130,9 +130,9 @@ const handler = async (req: Request): Promise<Response> => {
     <ul style="padding-left: 20px; line-height: 1.8;">
       <li>Our team facilitates the initial introduction</li>
       <li>You receive access to deal details and supporting materials</li>
-      <li>Reply to any email or message us in the platform for support</li>
+      <li>Message us directly on the platform for support. All conversations are tracked there for your records</li>
     </ul>
-    <p>This is an exclusive introduction. We work with a small number of buyers per deal. Move at your own pace, but do not sit on it.</p>
+    <p>This is an exclusive introduction. We work with a small number of buyers per deal. Move at your own pace, but do not sit on it. Please do not reply to this email.</p>
     <div style="text-align: center; margin: 32px 0;">
       <a href="${buyerMessagesUrl}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">View Messages</a>
     </div>`,
