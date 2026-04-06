@@ -1,34 +1,44 @@
 
 
-# Audit: Plan Implementation Status
+# Show Data Room Documents in My Deals Card
 
-## All 5 Plan Items — Verified
+## Problem
 
-| # | Plan Item | Status | Evidence |
-|---|-----------|--------|----------|
-| 1 | Close button: hide default, custom white X in VaultHeader | DONE | `[&>button]:hidden` on DialogContent (line 308 ListingDetail.tsx). Custom `<button>` with white X in VaultHeader (lines 488-496 BuyerDataRoom.tsx). |
-| 2 | Remove document dates from buyer view | DONE | No `created_at` rendering in document rows. Only `file_size_bytes` and audit timestamps shown (lines 400-408). |
-| 3 | View/Download uses `SUPABASE_URL` from client + error toasts | DONE | Import on line 23: `import { supabase, SUPABASE_URL } from '@/integrations/supabase/client'`. Error toasts on lines 228, 235, 258, 265. |
-| 4 | Buyer-side audit timestamps on documents | DONE (but **broken**) | Query exists (lines 163-178), lookup built (lines 181-186), rendered in UI (lines 402-408). **However, the action filter is wrong.** |
-| 5 | Sidebar "Viewed" indicator after opening data room | DONE | `useDataRoomLastAccess` hook queried on line 71 of ListingSidebarActions, rendered as "Viewed [date]" on lines 360-364. |
+The `DealDocumentsCard` on My Deals shows "No documents shared yet" even when the buyer has full access. Two bugs:
 
-## Bug Found: Audit Timestamp Query Uses Wrong Action Names
+1. **No dual-ID fallback** on the access query (line 57), doc count query (line 74), and memo count query (line 88) — all query by `listing_id` but documents live on the `source_deal_id`
+2. **No inline document list** — even when counts work, the card only shows "X documents available" with a link to open the listing page. The user wants actual documents shown here with the same premium vault aesthetic.
 
-**The edge function** (`data-room-download/index.ts` line 126) logs actions as:
-- `'view_document'`
-- `'download_document'`
+## Plan
 
-**The buyer query** (`BuyerDataRoom.tsx` line 171) filters for:
-- `'view'`
-- `'download'`
+### File: `src/components/deals/DealDocumentsCard.tsx`
 
-These never match. The "Viewed 2 hours ago" / "Downloaded 3 hours ago" labels will **never appear** on any document.
+**Fix dual-ID on all 3 queries:**
+- Access query: add fallback to check `source_deal_id` (same pattern as `BuyerDataRoom.tsx` lines 65-83)
+- Doc count query: if primary returns 0, check `source_deal_id`
+- Memo count query: same fallback
 
-### Fix
+**Replace "X documents available" text with actual document rows:**
+- Fetch full document list (not just count) + published memos, with dual-ID fallback
+- Render each document as a compact row matching the vault aesthetic: monochrome icon, file name, file size, and a View/Download action
+- Use the same `getFileIcon` and `formatFileSize` helpers from `BuyerDataRoom.tsx` (extract to shared util or inline)
+- Clicking View/Download calls the `data-room-download` edge function (same as `BuyerDataRoom`)
+- Keep the card compact — show up to ~5 docs with a "View all in Data Room" link if more exist
 
-**File: `src/components/marketplace/BuyerDataRoom.tsx`**
-- Line 171: Change `.in('action', ['view', 'download'])` to `.in('action', ['view_document', 'download_document'])`
-- Lines 405: Change `lastEvent.action === 'download'` to `lastEvent.action === 'download_document'`
+**Maintain the locked state UI** — no changes to the locked/gated view, only enhance the unlocked view.
 
-Two-line fix. Everything else is correctly implemented.
+### Aesthetic
+
+- Same premium feel: subtle hover states, monochrome file icons, ghost pill buttons
+- Document rows: `text-[13px]` file name, `text-[10px]` file size in muted, small View button on hover
+- Keep within the existing card border/padding structure
+- No dark vault header here (that's for the full modal) — just clean document rows
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/components/deals/DealDocumentsCard.tsx` | Add dual-ID fallback to all queries, replace count-only display with inline document list, add view/download handlers |
+
+One file change. No database or edge function changes needed.
 
