@@ -231,7 +231,7 @@ const convertListingToFormInput = (listing?: AdminListing): ListingFormInput => 
     // Buyer-facing business details
     services: listing?.services || null,
     geographic_states: listing?.geographic_states || null,
-    number_of_locations: listing?.number_of_locations ?? null,
+    number_of_locations: (listing as any)?.number_of_locations ?? null,
     customer_types: listing?.customer_types || null,
     revenue_model: listing?.revenue_model || null,
     business_model: listing?.business_model || null,
