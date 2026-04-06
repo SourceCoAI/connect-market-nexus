@@ -227,11 +227,11 @@ const MyRequests = () => {
   return (
     <div className="w-full bg-white min-h-screen">
       {/* Page Header */}
-      <div className="max-w-[1280px] mx-auto px-6 pt-8 pb-5">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-8 pb-5">
         <h1 className="text-xl font-semibold text-[#0E101A] tracking-tight">My Deals</h1>
       </div>
 
-      <div className="max-w-[1280px] mx-auto px-6 pb-8">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 pb-8">
         {/* Main container */}
         <div className="rounded-xl border border-[#F0EDE6] overflow-hidden">
           {/* Two-column layout */}
@@ -253,7 +253,7 @@ const MyRequests = () => {
                   </span>
                 </div>
               </div>
-              <div className="p-2 space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto">
+              <div className="p-2 space-y-0.5 max-h-[300px] md:max-h-[calc(100vh-200px)] overflow-y-auto">
                 {sortedRequests.map((request) => {
                   const unreadForRequest =
                     (unreadByRequest[request.id] || 0) +
@@ -349,7 +349,7 @@ function DetailPanel({
 
       {/* Tabs */}
       <Tabs value={innerTab} onValueChange={onInnerTabChange} className="flex-1 flex flex-col">
-        <div className="border-b border-[#F0EDE6] px-6 bg-white">
+        <div className="border-b border-[#F0EDE6] px-4 sm:px-6 bg-white">
           <TabsList className="inline-flex h-auto items-center bg-transparent p-0 gap-0 w-full justify-start rounded-none">
             <TabsTrigger
               value="overview"
@@ -389,7 +389,7 @@ function DetailPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <TabsContent value="overview" className="mt-0 p-6 space-y-5">
+          <TabsContent value="overview" className="mt-0 p-4 sm:p-6 space-y-5">
             {/* Row 1: Action Card — full width */}
             <DealActionCard
               requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
@@ -469,11 +469,11 @@ function DetailPanel({
             )}
           </TabsContent>
 
-          <TabsContent value="messages" className="mt-0 p-6">
+          <TabsContent value="messages" className="mt-0 p-4 sm:p-6">
             <DealMessagesTab requestId={request.id} requestStatus={requestStatus} />
           </TabsContent>
 
-          <TabsContent value="activity" className="mt-0 p-6">
+          <TabsContent value="activity" className="mt-0 p-4 sm:p-6">
             <DealActivityLog requestId={request.id} requestStatus={requestStatus} />
           </TabsContent>
         </div>

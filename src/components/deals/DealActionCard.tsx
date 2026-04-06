@@ -132,7 +132,7 @@ export function DealActionCard({
   return (
     <>
       <div className={cn('rounded-lg border p-5', variantStyles[action.variant])}>
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-start gap-3.5 flex-1 min-w-0">
             <Icon className={cn('h-5 w-5 shrink-0 mt-0.5', iconStyles[action.variant])} />
             <div className="flex-1 min-w-0">
@@ -152,7 +152,7 @@ export function DealActionCard({
           {action.cta && (
             <button
               onClick={action.cta.onClick}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md text-[13px] font-semibold bg-[#0E101A] text-white hover:bg-[#0E101A]/85 transition-colors shrink-0 mt-0.5"
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-md text-[13px] font-semibold bg-[#0E101A] text-white hover:bg-[#0E101A]/85 transition-colors shrink-0 w-full sm:w-auto"
             >
               {action.cta.label}
               <ArrowRight className="h-3.5 w-3.5" />

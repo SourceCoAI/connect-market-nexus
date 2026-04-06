@@ -482,7 +482,7 @@ function VaultHeader({ onClose }: { onClose?: () => void }) {
         </h3>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-[10px] text-white/30 tracking-widest uppercase">
+        <span className="text-[10px] text-white/30 tracking-widest uppercase hidden sm:inline">
           Confidential
         </span>
         {onClose && (
