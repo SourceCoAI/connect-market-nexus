@@ -249,7 +249,7 @@ export function BuyerThreadView({
 
 export function BuyerMessagesSkeleton() {
   return (
-    <div className="flex min-h-[500px]" style={{ backgroundColor: '#FFFFFF' }}>
+    <div className="flex min-h-[300px] sm:min-h-[500px]" style={{ backgroundColor: '#FFFFFF' }}>
       <div className="w-full md:w-[300px] p-5 space-y-5" style={{ borderRight: '1px solid #F0EDE6' }}>
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="flex items-center gap-3">

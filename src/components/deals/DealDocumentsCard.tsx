@@ -327,7 +327,7 @@ export function DealDocumentsCard({
           </div>
 
           {docsLocked ? (
-            <div className="space-y-2 pl-[30px]">
+            <div className="space-y-2 pl-4 sm:pl-[30px]">
               <div className="flex items-center gap-2.5 opacity-40">
                 <Building2 className="h-3.5 w-3.5 text-[#0E101A]/50 shrink-0" />
                 <span className="text-[12px] text-[#0E101A]/60">Confidential Company Profile</span>
@@ -352,13 +352,13 @@ export function DealDocumentsCard({
               </p>
             </div>
           ) : totalDocs === 0 ? (
-            <div className="pl-[30px]">
+            <div className="pl-4 sm:pl-[30px]">
               <p className="text-[12px] text-[#0E101A]/40">
                 Documents will appear here once released by the advisor.
               </p>
             </div>
           ) : (
-            <div className="pl-[30px] space-y-0.5">
+            <div className="pl-4 sm:pl-[30px] space-y-0.5">
               {visibleDocs.map((doc) => {
                 const Icon = getFileIcon(doc.file_type);
                 const isLoading = loadingDoc === doc.id;

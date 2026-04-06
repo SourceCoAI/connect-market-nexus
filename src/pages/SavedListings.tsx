@@ -230,7 +230,7 @@ const SavedListings = () => {
           key={`skeleton-${index}`}
           className="bg-white rounded-lg border border-border overflow-hidden h-full flex flex-col"
         >
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <div className="flex space-x-2 mb-2">
               <div className="h-6 w-16 bg-muted rounded skeleton"></div>
               <div className="h-6 w-20 bg-muted rounded skeleton"></div>
@@ -256,7 +256,7 @@ const SavedListings = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col gap-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <h1 className="text-3xl font-bold">Saved Listings</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Saved Listings</h1>
           </div>
 
           <div className="flex flex-col gap-4">
@@ -270,7 +270,7 @@ const SavedListings = () => {
 
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">Results per page:</span>
+                  <span className="text-sm hidden sm:inline">Results per page:</span>
                   <Select value={String(filters.perPage || 20)} onValueChange={handlePerPageChange}>
                     <SelectTrigger className="w-[80px]">
                       <SelectValue placeholder="20" />
@@ -386,8 +386,8 @@ const SavedListings = () => {
                         onClick={() => handlePageChange(pagination.currentPage - 1)}
                         disabled={pagination.currentPage === 1}
                       >
-                        <ChevronLeft className="h-4 w-4 mr-1" />
-                        Previous
+                        <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Previous</span>
                       </Button>
 
                       {getPageNumbers().map((pageNum, idx) =>
@@ -413,8 +413,8 @@ const SavedListings = () => {
                         onClick={() => handlePageChange(pagination.currentPage + 1)}
                         disabled={pagination.currentPage === pagination.totalPages}
                       >
-                        Next
-                        <ChevronRight className="h-4 w-4 ml-1" />
+                        <span className="hidden sm:inline">Next</span>
+                        <ChevronRight className="h-4 w-4 sm:ml-1" />
                       </Button>
                     </div>
                   </div>
