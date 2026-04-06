@@ -156,8 +156,8 @@ Deno.serve(async (req: Request) => {
     if (!deal.industry && !deal.category) missingCritical.push('industry/category');
     if (deal.ebitda == null) missingCritical.push('EBITDA');
     if (deal.revenue == null) missingCritical.push('revenue');
-    if (!deal.description && !deal.executive_summary && !(transcripts && transcripts.length > 0)) {
-      missingCritical.push('description or transcripts');
+    if (!deal.executive_summary && !(transcripts && transcripts.length > 0)) {
+      missingCritical.push('executive summary or transcripts');
     }
     if (missingCritical.length > 0) {
       return new Response(

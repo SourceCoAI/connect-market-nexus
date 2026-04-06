@@ -97,7 +97,7 @@ serve(async (req) => {
       listing.ebitda ? `EBITDA: $${(listing.ebitda / 1000000).toFixed(1)}M` : null,
       listing.acquisition_type ? `Acquisition type: ${listing.acquisition_type}` : null,
       listing.hero_description ? `Summary: ${listing.hero_description}` : null,
-      listing.description ? `Description: ${listing.description.substring(0, 500)}` : null,
+      listing.executive_summary ? `Executive Summary: ${listing.executive_summary.substring(0, 500)}` : null,
       listing.ownership_structure ? `Ownership: ${listing.ownership_structure}` : null,
       listing.seller_motivation ? `Seller motivation: ${listing.seller_motivation}` : null,
       listing.timeline_preference ? `Timeline: ${listing.timeline_preference}` : null,

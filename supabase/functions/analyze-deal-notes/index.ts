@@ -232,7 +232,6 @@ serve(async (req) => {
       deal.internal_notes,
       deal.owner_response,
       deal.captarget_call_notes,
-      deal.description,
     ].filter(Boolean).join('\n\n');
     
     if (!notes || notes.length < 20) {

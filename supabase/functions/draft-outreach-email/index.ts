@@ -126,7 +126,7 @@ Location: ${deal.address_state || deal.location}
 Revenue: ${deal.revenue ? `$${(deal.revenue / 1000000).toFixed(1)}M` : 'Not disclosed'}
 EBITDA: ${deal.ebitda ? `$${(deal.ebitda / 1000000).toFixed(1)}M` : 'Not disclosed'}
 Services: ${deal.services || deal.service_mix || 'Not specified'}
-Description: ${deal.executive_summary || deal.description || ''}
+Description: ${deal.executive_summary || ''}
 
 BUYER INFO:
 Firm: ${buyer.pe_firm_name || buyer.company_name}

@@ -93,7 +93,7 @@ Industry: ${deal.industry || deal.category || 'Not specified'}
 Location: ${deal.location || 'Not specified'}
 ${deal.revenue ? `Revenue: $${(deal.revenue / 1000000).toFixed(1)}M` : ''}
 ${deal.ebitda ? `EBITDA: $${(deal.ebitda / 1000000).toFixed(1)}M` : ''}
-Summary: ${deal.executive_summary || deal.description || 'Not available'}`;
+Summary: ${deal.executive_summary || 'Not available'}`;
       }
     }
 

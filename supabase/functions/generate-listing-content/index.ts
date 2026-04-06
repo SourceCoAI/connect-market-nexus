@@ -299,7 +299,6 @@ async function generateFromRawData(
   const dataPoints: string[] = [];
 
   // Basic info
-  if (deal.description) dataPoints.push(`Description: ${deal.description}`);
   if (deal.executive_summary) dataPoints.push(`Executive Summary: ${deal.executive_summary}`);
 
   // Financials

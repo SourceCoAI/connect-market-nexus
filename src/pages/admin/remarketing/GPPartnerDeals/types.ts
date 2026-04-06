@@ -7,7 +7,7 @@ export interface GPPartnerDeal {
   main_contact_title: string | null;
   main_contact_phone: string | null;
   website: string | null;
-  description: string | null;
+  executive_summary: string | null;
   pushed_to_all_deals: boolean | null;
   pushed_to_all_deals_at: string | null;
   deal_source: string | null;
@@ -70,7 +70,7 @@ export interface NewDealForm {
   contact_phone: string;
   contact_title: string;
   industry: string;
-  description: string;
+  executive_summary: string;
   location: string;
   revenue: string;
   ebitda: string;
@@ -84,7 +84,7 @@ export const EMPTY_NEW_DEAL: NewDealForm = {
   contact_phone: '',
   contact_title: '',
   industry: '',
-  description: '',
+  executive_summary: '',
   location: '',
   revenue: '',
   ebitda: '',

@@ -162,10 +162,9 @@ function validateDealFields(deal: Record<string, unknown>): string[] {
   // At least one description field must be populated
   const hasDescription =
     (deal.executive_summary as string)?.trim() ||
-    (deal.description as string)?.trim() ||
     (deal.hero_description as string)?.trim();
   if (!hasDescription)
-    missing.push('description (executive_summary, description, or hero_description)');
+    missing.push('description (executive_summary or hero_description)');
 
   // Industry and categories are alternatives — only flag if NEITHER is present
   const dealCats = deal.categories as string[] | null;
@@ -203,7 +202,6 @@ function buildPass1UserPrompt(deal: Record<string, unknown>): string {
 
   const description =
     (deal.executive_summary as string) ||
-    (deal.description as string) ||
     (deal.hero_description as string) ||
     'No description available';
 
@@ -637,7 +635,6 @@ Deno.serve(async (req: Request) => {
     if (!hasIndustryOrCat) {
       const descText =
         (deal.executive_summary as string)?.trim() ||
-        (deal.description as string)?.trim() ||
         (deal.hero_description as string)?.trim() ||
         '';
       if (descText) {

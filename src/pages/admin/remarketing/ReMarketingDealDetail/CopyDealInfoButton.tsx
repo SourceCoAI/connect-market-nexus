@@ -117,10 +117,6 @@ export function formatDealAsText(deal: CopyDealDeal): string {
     text += section('EXECUTIVE SUMMARY', str(deal, 'executive_summary')!);
   }
 
-  if (str(deal, 'description')) {
-    text += section('DESCRIPTION', str(deal, 'description')!);
-  }
-
   text += section('SERVICES & GEOGRAPHY',
     line('Service Mix', safeJoin(deal.service_mix)) +
     line('Services', safeJoin(deal.services)) +

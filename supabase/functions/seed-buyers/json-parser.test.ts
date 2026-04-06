@@ -332,7 +332,6 @@ describe('Deal field validation (from seed-buyers)', () => {
     const missing: string[] = [];
     const hasDescription =
       (deal.executive_summary as string)?.trim() ||
-      (deal.description as string)?.trim() ||
       (deal.hero_description as string)?.trim();
     if (!hasDescription) missing.push('description');
     if (!(deal.industry as string)?.trim()) missing.push('industry');

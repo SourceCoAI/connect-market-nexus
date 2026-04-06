@@ -114,7 +114,7 @@ export const EmailPreviewDialog = ({
               revenue: deal.revenue,
               ebitda: deal.ebitda,
               category: deal.category,
-              description: deal.description,
+              executive_summary: deal.executive_summary,
             },
             contactName: buyer.contacts?.[0]?.name,
           }
@@ -122,7 +122,7 @@ export const EmailPreviewDialog = ({
 
         if (error) throw error;
 
-        setEmails(prev => prev.map((e, idx) => 
+        setEmails(prev => prev.map((e, idx) =>
           idx === i ? {
             ...e,
             subject: data.subject || `Introduction: ${deal.title}`,
@@ -132,7 +132,7 @@ export const EmailPreviewDialog = ({
         ));
       } catch (error) {
         // Generation failed — falling back to template
-        setEmails(prev => prev.map((e, idx) => 
+        setEmails(prev => prev.map((e, idx) =>
           idx === i ? {
             ...e,
             subject: `Introduction: ${deal.title}`,
@@ -143,7 +143,7 @@ export const EmailPreviewDialog = ({
         ));
       }
     }
-    
+
     setIsGenerating(false);
   };
   generateAllEmailsRef.current = generateAllEmails;
@@ -151,7 +151,7 @@ export const EmailPreviewDialog = ({
   const regenerateEmail = async (index: number) => {
     const buyer = buyers[index];
     setEmails(prev => prev.map((e, i) => i === index ? { ...e, isLoading: true, error: undefined } : e));
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('generate-buyer-intro', {
         body: {
@@ -167,7 +167,7 @@ export const EmailPreviewDialog = ({
             revenue: deal.revenue,
             ebitda: deal.ebitda,
             category: deal.category,
-            description: deal.description,
+            executive_summary: deal.executive_summary,
           },
           contactName: buyer.contacts?.[0]?.name,
         }

@@ -121,10 +121,10 @@ export function AddDealDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Description</Label>
+            <Label>Executive Summary</Label>
             <Textarea
-              value={newDeal.description}
-              onChange={(e) => setNewDeal(d => ({ ...d, description: e.target.value }))}
+              value={newDeal.executive_summary}
+              onChange={(e) => setNewDeal(d => ({ ...d, executive_summary: e.target.value }))}
               placeholder="Brief description of the company..."
               rows={3}
             />
