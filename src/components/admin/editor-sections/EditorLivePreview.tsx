@@ -604,7 +604,7 @@ export function EditorLivePreview({ formValues, imagePreview, listingId }: Edito
           <TabsContent value="card" className="mt-0">
             <div className="p-4">
               <p className="text-xs text-muted-foreground mb-3">
-                Marketplace browse view — the tile buyers see when browsing deals.
+                Marketplace browse view. The tile buyers see when browsing deals.
               </p>
               <MarketplaceCardPreview formValues={formValues} imagePreview={imagePreview} />
             </div>
