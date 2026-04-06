@@ -151,18 +151,20 @@ const EMAILS: EmailDef[] = [
     triggerDetail:
       'Fires when an admin approves a buyer who has already signed their NDA — less common, but happens when NDA is signed during the pending-approval wait period. Sent by send-templated-approval-email with ndaSigned=true. Buyer gets immediate full access.',
     file: 'supabase/functions/send-templated-approval-email/index.ts',
-    subject: "You're in — full access is live.",
+    subject: 'Your account is active. Full access is live.',
     preheader: 'Your NDA is on file. Browse deals and request introductions now.',
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>You're in. Your NDA is already on file — you have full access to the deal pipeline right now.</p>
+<p>Your account is approved and your NDA is on file. You have full access to the deal pipeline now.</p>
 <p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Browse Deals</a></p>
+<p style="font-weight:600;margin:20px 0 6px">Before you submit your first request</p>
 <ul style="padding-left:20px;color:#374151">
-<li>Every deal is off-market</li>
-<li>We introduce a small number of buyers per deal — be specific about why you're a fit</li>
-<li>Your first introduction request will prompt a fee agreement — success-only</li>
+<li>Every deal is off-market. You will not find these anywhere else.</li>
+<li>We introduce a small number of buyers per deal. Tell us specifically why you are a strong fit. Generic messages rarely get selected.</li>
+<li>Before your first introduction, you will need a Fee Agreement in place. It is success-only. Nothing is owed unless a deal closes. You can request it anytime from any listing page, or reply to this email.</li>
 </ul>
-<p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
+<p>Questions? Reply to this email.</p>
+<p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
     invokeFunction: 'send-templated-approval-email',
     testPayload: { email: 'test+audit@sourcecodeals.com', firstName: 'Test', ndaSigned: true },
     status: 'live',
