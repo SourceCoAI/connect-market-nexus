@@ -86,9 +86,10 @@ export function useConnectionRequestActions({
     if (!requestId || updateStatus.isPending) return;
     try {
       await updateStatus.mutateAsync({ requestId, status: 'approved' });
+      const listingName = listing?.title || 'this deal';
       await sendMessage.mutateAsync({
         connection_request_id: requestId,
-        body: 'We have sent you a brief overview of the deal. Please let us know if you are still interested.',
+        body: `Your introduction to ${listingName} has been approved. You now have access to the deal overview and supporting documents in the data room. Our team will facilitate the introduction to the business owner — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`,
         sender_role: 'admin',
         message_type: 'decision',
       });
