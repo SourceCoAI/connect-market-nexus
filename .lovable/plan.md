@@ -1,103 +1,68 @@
 
 
-# Audit: Implementation Status and Remaining Gaps
+# Investigation: Data Room Access on Pending Connection
 
-## What's DONE and Working
-
-| Item | Status |
-|------|--------|
-| `check_data_room_access` RPC with dual-ID | DONE — verified in database |
-| RLS policy on `data_room_documents` with dual-ID | DONE — verified in database |
-| Fee agreement auto-upgrade trigger | DONE — `trg_auto_upgrade_data_room_on_fee_sign` exists |
-| Backfill of 122 access records | DONE |
-| Editor Documents Section | DONE |
-| BuyerDataRoom empty state ("access being set up") | DONE |
-| Auto-provision access on connection accept | DONE |
-
-## What's BROKEN or MISSING
-
-### BUG 1 (CRITICAL): Category Name Mismatch — Teaser Documents Invisible
-
-`BuyerDataRoom.tsx` line 69:
-```
-if (access?.can_view_teaser) allowedCategories.add('teaser');
-```
-
-But the actual document category in the database is `anonymous_teaser`, not `teaser`. Every teaser document will be filtered out by the client-side category check on line 118 (`allowedCategories.has(doc.document_category)`).
-
-A buyer with teaser access will see **zero teaser documents** even though they exist and RLS allows them through.
-
-**Fix**: Change `'teaser'` to `'anonymous_teaser'` on line 69.
-
-### BUG 2 (HIGH): BuyerDataRoom Access Query Doesn't Use Dual-ID
-
-The access check query (lines 50-65) only looks for `deal_id = dealId` (the listing ID). If for any reason the `data_room_access` record was created against the source deal ID instead of the listing ID, the buyer would see nothing. The RPC and RLS have dual-ID awareness, but this client-side query does not.
-
-This is currently not causing issues because the auto-provisioning code creates access against the listing ID. But it's a fragility — if an admin manually adds access via the data room panel on the source deal, the buyer won't see it.
-
-**Fix**: After the primary query returns null, also check via the listing's `source_deal_id` (same pattern as the document fallback).
-
-### BUG 3 (HIGH): Fee Agreement Trigger Uses Company Name Matching
-
-The trigger `auto_upgrade_access_on_fee_agreement` matches users via:
-```sql
-WHERE p.company = NEW.primary_company_name
-```
-
-This is fragile. If `profiles.company` doesn't exactly match `firm_agreements.primary_company_name` (different casing, extra whitespace, abbreviations), the upgrade silently fails. There's no error — it just updates zero rows.
-
-Checked the data: for the 5 signed agreements, each has 1-5 matching profiles. So it works for current data. But this is a ticking time bomb for new firms with any naming inconsistency.
-
-**Better approach**: Match via `marketplace_buyers.firm_id` → `firm_agreements.id`, or via the user's email domain matching the firm. However, this would require understanding the firm_agreements ↔ profiles linkage better. For now, the company name match works but should be documented as a known fragility.
-
-### GAP 4 (MEDIUM): No Backfill for the Restoration Listing
+## Current State
 
 The restoration listing (`d543b05b`) has:
-- 0 `data_room_access` records
-- 1 pending connection request (never accepted)
-- 2 documents on source deal, 0 on listing itself
+- **Connection request status: `pending`** — the admin has never accepted it
+- **0 `data_room_access` records** — these are only created when the admin clicks "Accept"
+- **2 documents on the source deal** (`d136656a`): Anonymous Teaser PDF + Lead Memo PDF
+- **0 documents on the listing itself**
+- **Fee Agreement: Signed**, NDA: Signed (both shown green in sidebar)
 
-The backfill only inserted records for previously approved connections. Since this listing's connection is still `pending`, no access exists. This is correct behavior — but once the admin accepts it, the auto-provisioning should kick in. Just needs testing.
+## Why You Can't Access the Data Room
 
-### GAP 5 (MEDIUM): No Document Upload in Listing Editor
+The "Explore data room" button is visible in the sidebar but it does nothing useful because `connectionApproved` is `false` (the connection is `pending`, not `approved`). The `BuyerDataRoom` component at the bottom of the page checks `connectionApproved` — since it's false and no `data_room_access` record exists, it renders nothing.
 
-The `EditorDocumentsSection` is read-only. It shows documents from both listing and source deal with badges, but admins cannot upload documents from the editor. They must go to the separate Data Room tab for the source deal.
+**This is working as designed.** The flow is:
 
-This was noted as a recommendation, not a requirement, in the original plan. But it means admins have no way to add documents directly to a listing — only to the source deal. If the listing has no source deal (created directly as a marketplace listing), there's no upload path at all from the editor.
+```text
+1. Buyer requests connection  →  status = "pending"
+2. Admin accepts connection   →  status = "approved"
+                              →  data_room_access row auto-created
+                              →  BuyerDataRoom becomes visible
+                              →  Documents from source deal visible via dual-ID
+```
 
-### GAP 6 (LOW): Audit Trail Still Logs Source Deal ID
+You are stuck at step 1. The admin needs to accept the connection request.
 
-The `data-room-download` edge function logs `doc.deal_id` (the source deal ID) in the audit trail. An admin looking at analytics for the listing won't see these events. The listing ID context is lost.
+## What Should Happen — The Intended Flow
 
-## Additional Considerations Beyond the Original Plan
+1. **Buyer visits listing, has signed Fee Agreement + NDA** → sidebar shows documents as "Signed", connection button enabled
+2. **Buyer clicks "Request Access"** → connection_request created with status `pending`
+3. **Admin sees request in queue, clicks "Accept"** → status changes to `approved`, `data_room_access` record auto-created with full permissions (since fee agreement is signed)
+4. **Buyer returns to listing** → "Explore data room" scrolls to the data room section, which now shows the Anonymous Teaser and Lead Memo PDFs from the source deal
 
-### 1. Publish Gate: Document Warning
+## Action Required
 
-When `publish-listing` runs, it checks for memo PDFs using `source_deal_id` fallback. But it doesn't warn if there are zero `data_room` category documents. For a production marketplace, having only a teaser and memo (no financials, tax returns, etc.) might be insufficient. Consider adding a non-blocking warning.
+**Go to the admin connection requests queue and accept the pending connection request for this listing.** That will trigger the auto-provisioning of `data_room_access` and unlock the data room.
 
-### 2. Connection Request Flow on This Specific Listing
+## Potential UX Improvements (Optional)
 
-The pending connection request for the restoration listing needs to be accepted to test the full flow. Once accepted:
-1. `data_room_access` should be auto-created (with `can_view_full_memo` and `can_view_data_room` based on fee agreement status)
-2. The RLS policy should allow the source deal documents through
-3. BuyerDataRoom should display the 2 documents (teaser + memo)
-4. Clicking "View" should call `data-room-download`, which should pass the dual-ID RPC check
+There are no bugs here — the system is gated correctly. However, two UX improvements could be considered:
 
-### 3. What Happens If Documents Are Added After Publishing?
+1. **Clearer "Explore data room" state when pending**: Currently the button appears clickable but has a tooltip saying "Request a connection to access the data room." Since the user already HAS a pending request, the tooltip is misleading. It should say "Your connection request is pending approval" instead.
 
-If an admin uploads new documents to the source deal after the listing is live, those documents are immediately visible to buyers (since the dual-ID RLS policy checks in real-time). This is the correct behavior for Option B (dual-ID awareness). No action needed.
+2. **Sidebar should differentiate "no connection" vs "pending connection"**: The data room tooltip doesn't distinguish between "you haven't requested access yet" and "you've requested but it hasn't been approved." The messaging should reflect the actual state.
 
-## Implementation Plan (Fixes Only)
+## Implementation (2 small changes)
 
-### Fix 1: `src/components/marketplace/BuyerDataRoom.tsx`
-- Line 69: Change `'teaser'` to `'anonymous_teaser'`
+### File: `src/components/listing-detail/ListingSidebarActions.tsx`
 
-### Fix 2: `src/components/marketplace/BuyerDataRoom.tsx`
-- Lines 50-65: Add fallback to check `source_deal_id` for access records if primary query returns null
+Update `getDataRoomTooltip()` (line 174-178) to check whether a connection request exists but is pending:
 
-### Fix 3 (Optional): Document the company name matching fragility
-- Add a comment to the migration noting the limitation
-- Consider a future migration to use a more robust firm ↔ user linkage
+```typescript
+const getDataRoomTooltip = () => {
+  if (!feeCovered) return 'Sign your Fee Agreement to unlock the data room.';
+  if (!connectionApproved) return 'Your connection request is pending admin approval.';
+  return '';
+};
+```
 
-No database changes, no edge function changes. Two small frontend fixes.
+This requires passing `connectionExists` as a prop (or a `connectionPending` boolean) to distinguish "no request" from "pending request". If no connection exists at all, the tooltip should say "Request a connection to access the data room." If pending, it should say "Your connection request is pending approval."
+
+### File: `src/components/listing-detail/ListingSidebarActions.tsx`
+
+Disable the "Explore data room" button visually when connection is not approved (it already doesn't scroll to anything useful, but it looks clickable in the screenshot).
 
