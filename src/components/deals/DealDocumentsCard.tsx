@@ -352,7 +352,7 @@ export function DealDocumentsCard({
               </p>
             </div>
           ) : totalDocs === 0 ? (
-            <div className="pl-[30px]">
+            <div className="pl-4 sm:pl-[30px]">
               <p className="text-[12px] text-[#0E101A]/40">
                 Documents will appear here once released by the advisor.
               </p>
