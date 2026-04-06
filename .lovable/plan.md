@@ -1,63 +1,81 @@
 
 
-# Marketplace Queue End-to-End Audit: Findings
+# Marketplace Queue End-to-End Audit: Deep Dive Findings
 
 ## Methodology
-Cross-referenced: MarketplaceQueue.tsx, publish-listing edge function, ListingsManagementTabs, use-listings-by-type, DealMarketplacePanel, buyer-facing hooks (use-listings.ts), connection_requests data, data_room_documents, and live database state.
 
-## Architecture Summary (Working Correctly)
+Cross-referenced: MarketplaceQueue.tsx, publish-listing edge function, ListingsManagementTabs, use-listings-by-type, DealMarketplacePanel, buyer-facing hooks (use-listings.ts), ConnectionButton, enhanced_merge_or_create_connection_request RPC, connection_requests data, data_room_documents, and live database state.
 
-The flow is: **Remarketing Deal → Push to Queue → Create Listing → Publish to Marketplace**
+## Architecture Summary
 
-1. **Push to Queue**: Sets `pushed_to_marketplace=true` on the deal (listings table, `is_internal_deal=true`)
-2. **Queue Page** (`/admin/marketplace/queue`): Queries `pushed_to_marketplace=true AND is_internal_deal=true` — correct
-3. **Create Listing**: Creates a new `listings` row with `source_deal_id` linking back, `is_internal_deal=true` (draft)
-4. **Publish**: `publish-listing` edge function validates quality + memo PDFs, sets `is_internal_deal=false`, clears source deal's `pushed_to_marketplace` flag
-5. **Buyer-facing**: `use-listings.ts` filters `.eq('is_internal_deal', false)` with safe columns — correct
-6. **Gating**: ConnectionButton enforces auth → email verified → approved → buyer type → 90% profile → Fee Agreement → active listing
+```text
+Remarketing Deal ──Push──▸ Queue ──Create Listing──▸ Draft ──Publish──▸ Marketplace
+(is_internal=true)      (pushed_to_marketplace=true)    (is_internal=true)   (is_internal=false)
+                                                         source_deal_id set    published_at set
+```
+
+## What's Working Correctly
+
+| Area | Status | Detail |
+|------|--------|--------|
+| Queue query | Pass | Filters `pushed_to_marketplace=true AND is_internal_deal=true` |
+| Stale flag cleanup | Pass | Previous migration fixed it — 0 published listings with `pushed_to_marketplace=true` |
+| Publish validation | Pass | Edge function gates on title, description, category, location, revenue, image, both memo PDFs |
+| Auto-cleanup on publish | Pass | `publish-listing` clears `pushed_to_marketplace` on source deal |
+| Buyer-facing isolation | Pass | `use-listings.ts` enforces `.eq('is_internal_deal', false)` with `MARKETPLACE_SAFE_COLUMNS` |
+| Profile completeness gate | Pass | ConnectionButton blocks at 90% threshold |
+| Fee Agreement gate (client) | Pass | ConnectionButton checks `coverage.fee_covered` |
+| Fee Agreement gate (server) | Pass | `enhanced_merge_or_create_connection_request` RPC checks `check_agreement_coverage` |
+| Business owner block (client+server) | Pass | Both ConnectionButton and RPC block `businessOwner` type |
+| Duplicate request prevention | Pass | RPC merges instead of creating duplicates |
+| Memo PDF prerequisite in queue | Pass | "Create Listing" disables when teaser/memo missing |
+| DealMarketplacePanel | Pass | Shows publish/unpublish with analytics (views + connection requests) |
+| Listing status tags | Pass | Published (green), Draft, Unpublished (orange) in admin view |
+
+## Single Source of Truth: Where You Manage All Listings
+
+**`/admin/marketplace/listings`** (Listings Management page) is the single source of truth with three tabs:
+- **All Listings**: 65 marketplace + 7,661 research = everything
+- **Published** (Marketplace tab): 65 listings where `is_internal_deal=false` (61 active, 4 inactive)
+- **Internal / Drafts** (Research tab): 7,661 remarketing deals where `is_internal_deal=true`
+
+This is accessible from sidebar under **Marketplace > Manage Listings**.
 
 ## Issues Found
 
-### Issue 1: HVAC Listing — Stale `pushed_to_marketplace` Flag (Data)
-**Listing `b28846a6`** ("Multi-Location HVACR Platform") is `is_internal_deal=false` (published) but still has `pushed_to_marketplace=true`. This means it shows up in the Marketplace Queue even though it's already live. This happened because it was published *before* the auto-cleanup logic was added to `publish-listing`. **Fix**: One-time data cleanup migration to set `pushed_to_marketplace=false` for all listings where `is_internal_deal=false`.
+### Issue 1: Server-Side RPC Does NOT Gate Against Internal Deals (Medium Risk)
+The `enhanced_merge_or_create_connection_request` RPC does **not** check `is_internal_deal` on the listing. A technically savvy user could craft a direct RPC call with an internal deal's ID and create a connection request against it. Currently, 107 connection requests exist against internal deals (across 12 deals) — these are legacy records from before proper isolation was added, but the gap remains open.
 
-### Issue 2: No `source_deal_id` on Any Published Listing (Architecture Gap)
-All 20+ published listings have `source_deal_id = null`. This means none were created through the queue → create listing flow. They were all created directly. The `existingListingsMap` query in MarketplaceQueue checks `source_deal_id` to show the "Listing Created" badge, but since the current flow creates listings as *new rows* with `source_deal_id` pointing back, **the badge/duplicate-prevention system has never been used in production**. This works correctly in theory but is untested with real data.
-
-### Issue 3: Connection Requests on Internal Deals (Orphaned Data)
-5 connection requests exist against `is_internal_deal=true` listings (including a "General Inquiry" phantom listing `00000000-...`). These are likely legacy/test records. They don't affect buyers since the marketplace only shows `is_internal_deal=false` listings. **Low priority** — no action needed unless you want cleanup.
-
-### Issue 4: Missing Teaser PDFs in Queue (Gating Works Correctly)
-Several queued deals are missing anonymous teaser PDFs (e.g., JumpstartMD, National Tab Intelligence, Sharp Interiors, Saks Metering). The "Create Listing" button correctly disables for these, and `publish-listing` would reject them. **Working as designed.**
-
-### Issue 5: `nda_pandadoc_signed_url` Column Missing (Unrelated but Active Error)
-The `get_user_firm_agreement_status` RPC references `fa.nda_pandadoc_signed_url` which doesn't exist in the `firm_agreements` table. This fires on every page load for every admin user, generating dozens of console warnings. **Should be fixed** — the RPC needs updating to remove this column reference.
-
-### Issue 6: Published Listings Not Visible in "All" View with Source Linking
-The Listings Management page (`/admin/marketplace`) has "All", "Marketplace", and "Research" tabs. Published listings (`is_internal_deal=false`) appear under "Marketplace" tab. Queue deals (`is_internal_deal=true`) appear under "Research". **This is the single source of truth** for seeing all listings, but there's no way to trace a marketplace listing back to its source deal from this view (no `source_deal_id` column displayed).
-
-## Recommended Fixes
-
-### Fix 1: Data cleanup migration
+**Recommended fix**: Add a check in the RPC:
 ```sql
-UPDATE listings 
-SET pushed_to_marketplace = false 
-WHERE is_internal_deal = false 
-  AND pushed_to_marketplace = true;
+SELECT is_internal_deal INTO v_is_internal FROM public.listings WHERE id = p_listing_id;
+IF v_is_internal IS TRUE THEN
+  RAISE EXCEPTION 'Cannot request connection to an internal deal';
+END IF;
 ```
 
-### Fix 2: Fix `get_user_firm_agreement_status` RPC
-Remove the `nda_pandadoc_signed_url` column reference that's causing the repeated console errors.
+### Issue 2: No `source_deal_id` on Any Published Listing (Known, Low Risk)
+All 65 published listings have `source_deal_id = null` — they were all created directly, not through the queue flow. The queue's duplicate-prevention badge system (`existingListingsMap`) has never been exercised in production. **Architecturally sound but untested with real data.**
 
-### Fix 3: No code changes needed for queue flow
-The queue → create listing → publish flow is architecturally sound. Gating (quality validation, memo PDFs, admin auth) all work correctly. Buyer-facing isolation (`is_internal_deal` filter, safe columns) is properly enforced.
+### Issue 3: Queue Deals Missing Teaser PDFs (Working as Designed)
+4 queued deals lack anonymous teasers: JumpstartMD, National Tab Intelligence, Saks Metering, Sharp Interiors. 2 deals lack both memo and teaser: Classic Restoration, Clear Choice Windows. The "Create Listing" button correctly disables for these. **No fix needed.**
 
-## What's Working Well
-- Quality validation gate in `publish-listing` (title, description, category, location, revenue, image, memos)
-- Memo PDF prerequisite checking in queue UI
-- Auto-cleanup of `pushed_to_marketplace` flag on publish
-- Duplicate listing prevention via `source_deal_id` check
-- Buyer data isolation via `MARKETPLACE_SAFE_COLUMNS`
-- Connection request gating (auth, profile, agreements)
-- DealMarketplacePanel shows correct publish/unpublish state with analytics
+### Issue 4: 107 Legacy Connection Requests Against Internal Deals (Data)
+These include deals like "National Painting" (29 requests), "Regional Fire Protection" (18 requests). All of these internal deals have `published_at = null` and statuses of `inactive` or `archived`, confirming they were never properly published. These are legacy records that don't affect buyers (marketplace only shows `is_internal_deal=false`), but they clutter admin views.
+
+**Optional cleanup**: These could be archived or annotated, but they don't cause functional issues.
+
+### Issue 5: `get_user_firm_agreement_status` RPC (Fixed)
+Previously returning errors due to missing `nda_pandadoc_signed_url` column — **already fixed** in our last migration with `NULL::text` fallbacks.
+
+## Recommended Fix
+
+Only one fix is recommended — it's a security hardening for the server-side RPC:
+
+**Add `is_internal_deal` check to `enhanced_merge_or_create_connection_request`** to prevent crafted requests against internal deals. This is the only gap where a determined user could bypass client-side gating.
+
+### Files changed
+- One SQL migration: Add `is_internal_deal` check to the `enhanced_merge_or_create_connection_request` RPC
+
+No frontend code changes needed. The queue flow, gating, listing management, and buyer isolation are all working correctly.
 
