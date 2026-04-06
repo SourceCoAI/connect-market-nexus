@@ -28,6 +28,7 @@ import { DataRoomOrientation } from './DataRoomOrientation';
 
 interface BuyerDataRoomProps {
   dealId: string;
+  connectionApproved?: boolean;
 }
 
 interface BuyerDocument {
