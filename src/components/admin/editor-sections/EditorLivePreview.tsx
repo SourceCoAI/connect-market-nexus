@@ -436,10 +436,10 @@ function formValuesToLandingPageDeal(
     geographic_states: formValues.geographic_states || null,
     services: formValues.services || null,
     number_of_locations: formValues.number_of_locations || null,
-    customer_types: null,
-    revenue_model: null,
-    business_model: null,
-    growth_trajectory: null,
+    customer_types: formValues.customer_types || null,
+    revenue_model: formValues.revenue_model || null,
+    business_model: formValues.business_model || null,
+    growth_trajectory: formValues.growth_trajectory || null,
     featured_deal_ids: null,
   };
 }
