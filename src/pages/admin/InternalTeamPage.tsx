@@ -120,7 +120,7 @@ const InternalTeamPage = () => {
         </div>
       </div>
 
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-8 py-8">
         <Tabs defaultValue="active" className="space-y-6">
           <TabsList>
             <TabsTrigger value="active" className="gap-2">

@@ -87,7 +87,8 @@ const ListingsManagementTabs = () => {
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ListingType)}>
           <TabsList>
             <TabsTrigger value="ready_to_publish" className="gap-2">
-              Ready to Publish
+              <span className="sm:hidden">Ready</span>
+              <span className="hidden sm:inline">Ready to Publish</span>
               {counts && (
                 <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
                   {counts.ready_to_publish || 0}
@@ -95,7 +96,8 @@ const ListingsManagementTabs = () => {
               )}
             </TabsTrigger>
             <TabsTrigger value="live" className="gap-2">
-              Live on Marketplace
+              <span className="sm:hidden">Live</span>
+              <span className="hidden sm:inline">Live on Marketplace</span>
               {counts && (
                 <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
                   {counts.live || 0}
@@ -103,7 +105,8 @@ const ListingsManagementTabs = () => {
               )}
             </TabsTrigger>
             <TabsTrigger value="internal" className="gap-2">
-              All Internal
+              <span className="sm:hidden">Internal</span>
+              <span className="hidden sm:inline">All Internal</span>
               {counts && (
                 <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
                   {counts.internal || 0}

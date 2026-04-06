@@ -270,7 +270,7 @@ const AdminDashboard = () => {
                 </TabsList>
               </div>
 
-              <div className="px-8 py-8">
+              <div className="px-4 md:px-8 py-8">
                 <TabsContent value="overview" className="mt-0 space-y-6">
                   <Suspense fallback={<TabFallback />}>
                     <StripeOverviewTab />

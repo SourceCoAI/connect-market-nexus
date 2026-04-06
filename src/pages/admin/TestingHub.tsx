@@ -852,7 +852,7 @@ export default function TestingHub() {
         </div>
       )}
 
-      <div className="px-8 py-6">
+      <div className="px-4 md:px-8 py-6">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="system" className="gap-2">

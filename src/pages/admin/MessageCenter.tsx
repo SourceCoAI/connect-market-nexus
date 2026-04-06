@@ -481,7 +481,7 @@ export default function MessageCenter() {
           {/* Thread List (left panel) */}
           <div
             className={cn(
-              'w-[320px] flex-shrink-0 flex flex-col min-h-0',
+              'w-full md:w-[320px] flex-shrink-0 flex flex-col min-h-0',
               selectedThreadId ? 'hidden md:flex' : 'flex',
             )}
             style={{ borderRight: '1px solid #F0EDE6' }}

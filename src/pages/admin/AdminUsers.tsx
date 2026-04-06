@@ -396,7 +396,7 @@ const AdminUsers = () => {
       </div>
 
       {/* Main content */}
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-8 py-8">
         {/* Remarketing linked buyers banner */}
         {isBuyersView && linkedBuyerCount > 0 && (
           <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">

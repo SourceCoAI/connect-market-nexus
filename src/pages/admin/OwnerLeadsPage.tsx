@@ -135,7 +135,7 @@ const OwnerLeadsPage = () => {
         </div>
       </div>
 
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-8 py-8">
         <div className="space-y-6 mb-6">
           <OwnerLeadsStats leads={ownerLeads} />
           <OwnerLeadsFilters leads={ownerLeads} onFilteredLeadsChange={setFilteredOwnerLeads} />
