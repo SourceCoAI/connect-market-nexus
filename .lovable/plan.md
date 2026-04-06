@@ -1,113 +1,86 @@
 
 
-# Pending Approval Page Redesign
+# Fix Welcome + Email Verified Emails: Accurate Process Copy
 
-## Current Problems
+## Problems
 
-1. **Too narrow** (`max-w-md` = 448px) — cramped, feels like a small form, not a premium experience
-2. **Too much redundant content** — "Submitted Information" card repeats what the user already knows; "Estimated Review Time" box and the bottom text say the same thing twice; "Questions?" appears twice
-3. **Information hierarchy is flat** — everything is the same visual weight. Progress steps, agreement CTA, review time, submitted info all compete equally
-4. **The agreement CTA is buried** — it's below 4 other sections. The most actionable thing on the page is the hardest to find
-5. **Card-in-a-page pattern** — a Card inside a full-screen container wastes vertical space and makes it feel like an error page, not a dashboard
+### Email 1: Welcome (user_created)
+- Says "sign a single NDA that unlocks your access" then mentions fee agreement as a secondary thing "before your first introduction" - buries it
+- Says "verify your email address using the link we just sent you" but this email now arrives 60 seconds AFTER signup, so the verification email has already been sent separately
+- The "What you are applying for" section is fine but the document signing copy needs to match reality: both NDA + Fee Agreement are sent together
 
-## Design Strategy
+### Email 2: Email Verified
+- Lists only NDA signing. Completely omits Fee Agreement
+- Says "Full access to browse every deal in the pipeline immediately after" NDA - misleading. Fee Agreement is required for data rooms and connection requests
+- Says "While you wait, log in and complete your profile" - this is NOT possible while pending approval. The user sees the pending approval screen, not their profile
+- The "Log In" CTA is pointless since they can't do anything after logging in except see the pending screen
 
-**Where they are mentally:** They just signed up. They're excited but uncertain. They want to know: "Did it work? What happens next? How long? Can I do anything right now?"
+## Updated Copy
 
-**What we need to communicate (in order of priority):**
-1. You're in. Application received. (Relief)
-2. Here's what you can do RIGHT NOW to get ahead. (Agency)
-3. Here's the timeline. (Certainty)
+### Email 1: Welcome (subject: "Your application to SourceCo is in.")
 
-**Layout concept:** Two-column on desktop (wide), single-column on mobile. Left side = status + timeline. Right side = the action (sign documents). This mirrors Stripe's onboarding pattern where status is contextual and the CTA is always visible.
+```
+Hi [Name],
 
-## New Layout
+Your application is in. Our team will review it and you will hear from us
+by email the moment you are approved, typically within a few hours.
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│                    SourceCo Logo                        │
-│                                                         │
-│          Application received                           │
-│   A team member will review your profile and            │
-│   approve access, usually within a few hours.           │
-│                                                         │
-│  ┌──────────────────────┐  ┌──────────────────────┐     │
-│  │  YOUR STATUS         │  │  GET AHEAD            │     │
-│  │                      │  │                       │     │
-│  │  ✓ Account created   │  │  While you wait,      │     │
-│  │  ✓ Email verified    │  │  sign your documents  │     │
-│  │  ○ Admin review      │  │  so you have instant  │     │
-│  │    (few hours)       │  │  access the moment    │     │
-│  │  ○ Full access       │  │  you're approved.     │     │
-│  │                      │  │                       │     │
-│  │  ──────────────────  │  │  NDA — protects the   │     │
-│  │  Adam Haile          │  │  information we share  │     │
-│  │  adambhaile@...      │  │                       │     │
-│  │  TestCo              │  │  Fee Agreement — you   │     │
-│  │  Private Equity      │  │  only pay if you close │     │
-│  │                      │  │  a deal from SourceCo  │     │
-│  └──────────────────────┘  │                       │     │
-│                            │  [Request Documents]   │     │
-│                            │                       │     │
-│                            │  One signature covers  │     │
-│                            │  every deal, now and   │     │
-│                            │  in the future.        │     │
-│                            └──────────────────────┘     │
-│                                                         │
-│  [Check Status]              [Sign out]                 │
-│  Questions? adam.haile@sourcecodeals.com                 │
-└─────────────────────────────────────────────────────────┘
+While you wait, verify your email address using the link we sent you.
+If you have already verified, sit tight. A team member is reviewing your
+profile now.
+
+What happens when you are approved
+
+1. We send you two documents to sign: an NDA and a Fee Agreement.
+   Both are standard, take about 60 seconds each.
+2. Once signed, you get full access to the deal pipeline, including
+   confidential business details, financials, and direct introductions.
+
+The NDA protects the information we share with you. The Fee Agreement
+only applies if you close a deal sourced through SourceCo. No upfront cost.
+
+Questions? Reply to this email.
+
+The SourceCo Team
 ```
 
-On mobile (375px), the two columns stack vertically — status first, then the document CTA.
+Changes: Removed "What you are applying for" fluff paragraph. Replaced with concrete numbered steps. Made both documents equally prominent. Removed misleading "single NDA unlocks access" framing.
 
-## Exact Copy
+### Email 2: Email Verified (subject: "Email confirmed. You are in the queue.")
 
-**Headline:** "Application received"
-**Subhead:** "A team member will review your profile and approve access, usually within a few hours."
+```
+Hi [Name],
 
-**Left column title:** "Your status"
-- Step 1: "Account created" (green check)
-- Step 2: "Email verified" (green check)
-- Step 3: "Admin review" (amber dot, "Usually a few hours")
-- Step 4: "Full access" (grey dot, "After approval")
+Your email is confirmed. Your application is now with our team.
 
-Below steps, a subtle divider, then user details (Name, Email, Company, Type) in a compact list — no card wrapper, just quiet metadata.
+We review applications same day during business hours. You will get an
+email the moment you are approved, typically within a few hours, never
+more than one business day.
 
-**Right column title:** "Get ahead while you wait"
-**Right column body:** "Sign your documents now so you have instant access the moment you're approved."
+What happens next
 
-Two compact items:
-- "NDA" — "Protects the confidential information we share with you"
-- "Fee Agreement" — "Only applies if you close a deal sourced through SourceCo. No upfront cost."
+1. Our team reviews and approves your profile.
+2. You sign two documents: an NDA and a Fee Agreement. Both are
+   standard, sent to your email, 60 seconds each.
+3. Full access to the deal pipeline: confidential details, financials,
+   and direct introductions to founders.
 
-CTA button: "Request Documents via Email"
-Footer note: "One signature covers every deal, now and in the future."
+Nothing for you to do right now. We will email you the moment you
+are cleared.
 
-If already signed: green confirmation replacing the entire right column.
+The SourceCo Team
+```
 
-## Visual Design Details
-
-- **Width:** `max-w-3xl` (768px) — much wider, premium feel
-- **Background:** Clean white page, no grey muted background
-- **No Card wrapper** — the content breathes directly on the page
-- **Progress steps:** Minimal dots (not big circles), thin connecting line
-- **Right column:** Subtle `bg-stone-50` panel with `rounded-xl` and `border border-stone-200`
-- **Typography:** Title in `text-2xl font-semibold`, subhead in `text-base text-muted-foreground`
-- **CTA:** Full-width dark button (`bg-[#0E101A]`) inside the right panel
-- **Footer actions:** `Check Status` and `Sign out` as ghost buttons in a row, not stacked
+Changes: Removed the bullet list that only mentioned NDA. Removed "log in and complete your profile" (not possible). Removed "Log In" CTA button (nothing to do there). Added "Nothing for you to do right now" for clarity. Made both documents equally visible.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/PendingApproval.tsx` | Complete rewrite of the JSX layout and styling. Same hooks and handlers preserved. Two-column grid layout, new copy, removed redundant sections. |
+| `supabase/functions/user-journey-notifications/index.ts` | Rewrite `buildWelcomeHtml` and `buildEmailVerifiedHtml` with corrected copy. Remove Log In CTA from email verified. |
+| `src/pages/admin/EmailTestCentre.tsx` | Update preview HTML for emails e02 (welcome) and e03 (email verified) to match |
 
-## Implementation Notes
+## Post-Change
 
-- All existing handlers (`handleRequestBothDocuments`, `handleCheckStatus`, `handleLogout`, `handleResendVerification`) are preserved as-is
-- The `email_not_verified` state keeps its own simpler single-column layout with the resend button
-- The `rejected` state keeps its own layout
-- Only the `approved_pending` state gets the two-column redesign
-- Responsive: `grid-cols-1 md:grid-cols-2` with proper gap
+Edge function `user-journey-notifications` must be redeployed.
 
