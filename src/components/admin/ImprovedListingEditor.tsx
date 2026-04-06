@@ -47,7 +47,7 @@ const listingFormSchema = z.object({
   description_json: z.unknown().optional(),
   hero_description: z
     .string()
-    .max(500, 'Hero description must be 500 characters or less')
+    .max(280, 'Hero description must be 280 characters or less')
     .nullable()
     .optional(),
   owner_notes: z.string().nullable().optional(),

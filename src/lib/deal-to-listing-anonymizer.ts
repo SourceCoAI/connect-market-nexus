@@ -845,14 +845,10 @@ export function anonymizeDealToListing(deal: DealData): AnonymizedListingData {
   // Normalize fields that may arrive as strings from the DB but are used as arrays
   const serviceMix = toStringArray(deal.service_mix);
 
+  // Categories only come from category + industry — never from raw services
   const categories: string[] = [];
   if (deal.category) categories.push(deal.category);
   if (deal.industry && deal.industry !== deal.category) categories.push(deal.industry);
-  // Only include clean, short service names — not raw text/notes
-  const cleanServices = filterCleanServices(serviceMix);
-  for (const s of cleanServices) {
-    if (!categories.includes(s)) categories.push(s);
-  }
 
   const rawLocation = deal.address_state || deal.location || '';
   const location = rawLocation ? stateToRegion(rawLocation) : '';

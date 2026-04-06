@@ -431,21 +431,38 @@ async function callAIAndRespond(
   markdownText = stripDashes(markdownText);
   markdownText = sanitizeAnonymityBreaches(markdownText);
 
-  // Extract hero description from BUSINESS OVERVIEW
+  // Extract HERO_DESCRIPTION as a separate block (not from BUSINESS OVERVIEW)
   let heroDescription = '';
-  const overviewMatch = markdownText.match(/## BUSINESS OVERVIEW\n([\s\S]*?)(?=\n## |$)/);
-  if (overviewMatch) {
-    heroDescription = overviewMatch[1]
+  const heroMatch = markdownText.match(/## HERO_DESCRIPTION\n([\s\S]*?)(?=\n## |$)/);
+  if (heroMatch) {
+    heroDescription = heroMatch[1]
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/\*(.*?)\*/g, '$1')
       .replace(/^[-*]\s*/gm, '')
       .replace(/\n+/g, ' ')
       .trim();
-    if (heroDescription.length > 500) {
-      const trimmed = heroDescription.substring(0, 500);
-      const lastPeriod = trimmed.lastIndexOf('.');
-      heroDescription = lastPeriod > 100 ? trimmed.substring(0, lastPeriod + 1).trim() : trimmed.trim();
-    }
+    // Remove HERO_DESCRIPTION section from the body markdown
+    markdownText = markdownText.replace(/## HERO_DESCRIPTION\n[\s\S]*?(?=\n## |$)/, '').trim();
+  }
+
+  // Enforce 280 char limit
+  if (heroDescription.length > 280) {
+    const trimmed = heroDescription.substring(0, 280);
+    const lastPeriod = trimmed.lastIndexOf('.');
+    heroDescription = lastPeriod > 80 ? trimmed.substring(0, lastPeriod + 1).trim() : trimmed.trim();
+  }
+
+  // Fallback: build from metrics if AI didn't produce a hero
+  if (!heroDescription) {
+    const industry = (deal.industry || deal.category || 'services') as string;
+    const rev = deal.revenue ? formatRevenue(deal.revenue as number) : null;
+    const ebitdaVal = deal.ebitda ? formatRevenue(deal.ebitda as number) : null;
+    const regionDesc = resolveRegion((deal.address_state || deal.location || '') as string);
+    const parts: string[] = [];
+    parts.push(`${industry} business${regionDesc ? ` in the ${regionDesc}` : ''}`);
+    if (rev) parts.push(`generating ~${rev} in revenue`);
+    if (ebitdaVal) parts.push(`with ~${ebitdaVal} EBITDA`);
+    heroDescription = parts.join(' ') + '.';
   }
 
   // Generate title

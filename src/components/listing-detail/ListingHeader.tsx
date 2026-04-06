@@ -105,7 +105,7 @@ export function ListingHeader({
         </div>
 
         {/* Description */}
-        <div className="text-foreground/80 text-sm font-normal leading-relaxed max-w-2xl line-clamp-3">
+        <div className="text-foreground/80 text-sm font-normal leading-relaxed max-w-2xl">
           {listing.hero_description || listing.description}
         </div>
       </div>

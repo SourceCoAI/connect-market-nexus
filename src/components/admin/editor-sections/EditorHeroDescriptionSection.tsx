@@ -30,7 +30,7 @@ export function EditorHeroDescriptionSection({
 }: EditorHeroDescriptionSectionProps) {
   const heroDescriptionValue = form.watch('hero_description') || '';
   const charCount = heroDescriptionValue.length;
-  const maxChars = 500;
+  const maxChars = 280;
   const isFieldGenerating = isGenerating && generatingField === 'hero_description';
   const [isRegenerating, setIsRegenerating] = useState(false);
 
