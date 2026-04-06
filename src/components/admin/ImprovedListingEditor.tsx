@@ -315,6 +315,20 @@ export function ImprovedListingEditor({
       }
       if (data.location) form.setValue('location', [data.location], { shouldDirty: true });
 
+      // Apply metric subtitles and smart metrics from AI
+      if (data.revenue_metric_subtitle) form.setValue('revenue_metric_subtitle', data.revenue_metric_subtitle, { shouldDirty: true });
+      if (data.ebitda_metric_subtitle) form.setValue('ebitda_metric_subtitle', data.ebitda_metric_subtitle, { shouldDirty: true });
+      if (data.metric_3_type) {
+        form.setValue('metric_3_type', data.metric_3_type, { shouldDirty: true });
+        if (data.metric_3_type === 'custom') {
+          if (data.metric_3_custom_label) form.setValue('metric_3_custom_label', data.metric_3_custom_label, { shouldDirty: true });
+          if (data.metric_3_custom_value) form.setValue('metric_3_custom_value', data.metric_3_custom_value, { shouldDirty: true });
+          if (data.metric_3_custom_subtitle) form.setValue('metric_3_custom_subtitle', data.metric_3_custom_subtitle, { shouldDirty: true });
+        }
+      }
+      if (data.metric_4_type) form.setValue('metric_4_type', data.metric_4_type, { shouldDirty: true });
+      if (data.metric_4_custom_subtitle) form.setValue('metric_4_custom_subtitle', data.metric_4_custom_subtitle, { shouldDirty: true });
+
       sonnerToast.success('All listing content generated. Review and edit before publishing.');
     } catch (err) {
       console.error('[ImprovedListingEditor] AI generate all error:', err);
