@@ -572,8 +572,30 @@ export function ImprovedListingEditor({
                   Preview Landing Page
                 </a>
               </div>
-            )}
+             )}
 
+            {/* AI Generate All Content */}
+            {effectiveDealId && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAiGenerateAll}
+                disabled={isGeneratingAll || isGenerating}
+                className="w-full gap-2 h-11 text-sm font-medium border-primary/20 hover:bg-primary/5"
+              >
+                {isGeneratingAll ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating title, hero, and description from deal data...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    AI Generate All Content
+                  </>
+                )}
+              </Button>
+            )}
             {/* 1. Featured Image */}
             <EditorVisualsSection
               imagePreview={imagePreview}
