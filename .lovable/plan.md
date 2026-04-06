@@ -1,45 +1,78 @@
 
 
-# Fix: Duplicate Website Unique Constraint on Listing Creation
+# Reorganize Listings Management for Clear Publish Workflow
 
-## Root Cause
+## Current Problem
 
-The `fromDeal` parameter (`d136656a`) points to an **existing listing** in the `listings` table (not a separate deals table). This listing already has `website: https://protegrityrestoration.com/`.
+The tabs are:
+- **All Listings (7727)** - everything mixed together
+- **Published (65)** - listings live on marketplace (`is_internal_deal = false`)
+- **Internal/Drafts (7662)** - all remarketing deals AND unpublished marketplace drafts lumped together
 
-When "Update Listing" is clicked, the code in `CreateListingFromDeal.tsx` line 334 copies the source listing's website verbatim into the new listing INSERT. The `idx_listings_unique_website` unique index rejects this because the original listing already owns that website value.
+When you create a listing from the marketplace queue, it lands in "Internal/Drafts" buried among 7,662 remarketing deals. There is no way to find it quickly or know it needs publishing. The publish action is hidden inside a dropdown menu (three-dot menu > "Publish to Marketplace").
 
-The secondary error ("AI content generation could not complete") is the `generate-marketplace-listing` edge function timing out or failing silently — separate issue, non-blocking since the form falls back to manual entry.
+## How Publishing Works Today
 
-## Fix
+A listing created from the queue has `is_internal_deal = false` but no `published_at`. To publish:
+1. Find it in Listings Management
+2. Click Edit (or three-dot menu)
+3. In the editor, use the `PublishStatusBanner` toggle at the top
+4. OR from the card's dropdown menu, click "Publish to Marketplace"
 
-### File 1: `src/pages/admin/CreateListingFromDeal.tsx`
+This calls the `publish-listing` edge function which validates quality gates and sets `published_at`.
 
-**Line 334-336**: The website for the NEW listing must always be unique. Never copy the source listing's website directly. Generate a unique placeholder:
+## New Tab Structure
 
-```typescript
-// Always use a unique placeholder for the new listing's website field
-// The source deal's website is stored internally but the new marketplace
-// listing needs its own unique value to satisfy the DB constraint
-website: `listing-${crypto.randomUUID().slice(0, 8)}.placeholder`,
+```text
+  Ready to Publish (2)  |  Live on Marketplace (65)  |  All Internal (7662)
 ```
 
-This ensures no collision with the source listing's website or any other listing.
+**Tab 1: Ready to Publish** (default tab)
+- Query: `is_internal_deal = false AND published_at IS NULL AND deleted_at IS NULL`
+- These are listings created from the queue that need review and publishing
+- Each card gets a prominent **"Publish"** button directly on the card (not buried in a dropdown)
+- Empty state: "No listings waiting to be published. Push deals from the Marketplace Queue to get started."
 
-### File 2: `src/hooks/admin/listings/use-robust-listing-creation.ts`
+**Tab 2: Live on Marketplace**
+- Query: `is_internal_deal = false AND published_at IS NOT NULL AND deleted_at IS NULL`
+- Currently published and visible to buyers
+- Cards show "Unpublish" action prominently
 
-**Line 242-244**: Same fix — if somehow a website value from the source gets passed through, the robust creation hook should still guarantee uniqueness:
+**Tab 3: All Internal**
+- Query: `is_internal_deal = true AND deleted_at IS NULL`
+- The 7,662 remarketing deals (unchanged from current "Internal/Drafts")
 
-```typescript
-website: sanitizeStringField((listing as Record<string, unknown>).website) 
-  && !String((listing as Record<string, unknown>).website).endsWith('.placeholder')
-  ? `${sanitizeStringField((listing as Record<string, unknown>).website)}-${crypto.randomUUID().slice(0, 8)}`
-  : `listing-${crypto.randomUUID().slice(0, 8)}.placeholder`,
-```
+## Files Changed
 
-This appends a UUID suffix to real website values to avoid collisions, and uses a full placeholder for empty/placeholder values.
+### File 1: `src/hooks/admin/listings/use-listings-by-type.ts`
+- Change `ListingType` from `'marketplace' | 'research' | 'all'` to `'ready_to_publish' | 'live' | 'internal' | 'all'`
+- **ready_to_publish** query: `.eq('is_internal_deal', false).is('published_at', null)`
+- **live** query: `.eq('is_internal_deal', false).not('published_at', 'is', null)`
+- **internal** query: `.eq('is_internal_deal', true)` (same as current 'research')
+- Update `useListingTypeCounts` to return counts for all three new types
 
-### No other files changed.
+### File 2: `src/components/admin/ListingsManagementTabs.tsx`
+- Replace three tabs with new labels: "Ready to Publish", "Live on Marketplace", "All Internal"
+- Default active tab: `'ready_to_publish'` (so you land on what needs action)
+- Update subtitle: "Review, publish, and manage marketplace listings"
+- Remove em dash from subtitle
 
-## AI Content Generation Error
-The `generate-marketplace-listing` edge function appears to time out (logs show it starts but never completes). This is a separate issue — the current fallback ("fill in content manually") works. Can be investigated separately if needed.
+### File 3: `src/components/admin/ListingsTabContent.tsx`
+- Update empty state messages for each new tab type
+- Pass new type values to `useListingsByType`
+
+### File 4: `src/components/admin/AdminListingCard.tsx`
+- When `listingType === 'ready_to_publish'`: Add a visible **"Publish to Marketplace"** button directly on the card (not in the dropdown). Use the existing `publishListing` from `usePublishListing` hook.
+- When `listingType === 'live'`: Show a visible **"Unpublish"** button
+- Keep the dropdown menu actions as they are for additional options
+
+### File 5: `src/hooks/admin/listings/use-listings-query.ts`
+- Update the status mapping to work with the new `ListingType` values (this is used by other admin hooks)
+
+## Outcome
+- You create a listing from the queue, it appears immediately under "Ready to Publish"
+- One click to publish it live
+- "Live on Marketplace" shows exactly what buyers see
+- Internal deals are separated and clearly labeled
+- No more hunting through 7,000+ records to find the listing you just created
 
