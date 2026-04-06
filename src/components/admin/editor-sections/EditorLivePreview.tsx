@@ -8,6 +8,7 @@ import ListingCardBadges from '@/components/listing/ListingCardBadges';
 import ListingCardTitle from '@/components/listing/ListingCardTitle';
 import ListingCardFinancials from '@/components/listing/ListingCardFinancials';
 import { RichTextDisplay } from '@/components/ui/rich-text-display';
+import { BusinessDetailsGrid } from '@/components/listing-detail/BusinessDetailsGrid';
 import { formatCurrency } from '@/lib/currency-utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRelatedDeals } from '@/hooks/useDealLandingPage';
