@@ -331,9 +331,9 @@ export default function CreateListingFromDeal() {
         // Ensure it's created as an internal draft
         is_internal_deal: true,
         // website is NOT NULL in DB with non-empty CHECK constraint
-        website: (deal as Record<string, unknown>)?.website
-          ? String((deal as Record<string, unknown>).website)
-          : `listing-${crypto.randomUUID().slice(0, 8)}.placeholder`,
+        // Always generate a unique placeholder — never copy the source deal's website
+        // because the original listing already owns that value (unique index)
+        website: `listing-${crypto.randomUUID().slice(0, 8)}.placeholder`,
       };
 
       const newListing = await createListing({ listing: listingData as never, image });
