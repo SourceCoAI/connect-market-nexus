@@ -1,40 +1,63 @@
 
-# Redesign Profile Completeness Banner with Jump Links
 
-## Problem
-The current banner uses amber/yellow background tints, colored text, and dot-list formatting that clashes with the platform's quiet luxury aesthetic. Missing fields are listed passively with no way to jump to them.
+# Marketplace Queue End-to-End Audit: Findings
 
-## Changes — Single File
+## Methodology
+Cross-referenced: MarketplaceQueue.tsx, publish-listing edge function, ListingsManagementTabs, use-listings-by-type, DealMarketplacePanel, buyer-facing hooks (use-listings.ts), connection_requests data, data_room_documents, and live database state.
 
-### `src/pages/Profile/ProfileForm.tsx` (lines 52-74)
+## Architecture Summary (Working Correctly)
 
-**Redesign the banner:**
-- Remove `bg-amber-50 border-amber-200` yellow box. Replace with a clean white/transparent container using only a subtle `border border-[#E5E5E5]` and `rounded-lg`.
-- Remove the `AlertCircle` icon with amber coloring. Use a minimal thin progress indicator instead.
-- Header: `text-sm font-medium text-[#0E101A]` — "{completionPct}% complete"
-- Subtext: `text-xs text-[#6B6B6B]` — "Fill in the remaining fields to request introductions."
-- Progress bar: Replace the amber-tinted `<Progress>` with a thin `h-1` bar using `bg-[#E5E5E5]` track and `bg-[#0E101A]` fill (matching the platform's dark minimal style).
+The flow is: **Remarketing Deal → Push to Queue → Create Listing → Publish to Marketplace**
 
-**Make missing fields clickable jump links:**
-- Replace the passive `<ul>` dot-list with inline clickable items.
-- Each missing field becomes a `<button>` styled as a subtle pill/link: `text-xs text-[#0E101A] font-medium underline-offset-2 hover:underline cursor-pointer`.
-- On click, scroll to the corresponding form field using `document.getElementById(fieldKey)?.scrollIntoView({ behavior: 'smooth', block: 'center' })` and optionally `focus()` the input.
-- This works because form fields already have `id` attributes matching the field keys (e.g., `id="first_name"`, `id="phone_number"`, `id="fund_size"`).
+1. **Push to Queue**: Sets `pushed_to_marketplace=true` on the deal (listings table, `is_internal_deal=true`)
+2. **Queue Page** (`/admin/marketplace/queue`): Queries `pushed_to_marketplace=true AND is_internal_deal=true` — correct
+3. **Create Listing**: Creates a new `listings` row with `source_deal_id` linking back, `is_internal_deal=true` (draft)
+4. **Publish**: `publish-listing` edge function validates quality + memo PDFs, sets `is_internal_deal=false`, clears source deal's `pushed_to_marketplace` flag
+5. **Buyer-facing**: `use-listings.ts` filters `.eq('is_internal_deal', false)` with safe columns — correct
+6. **Gating**: ConnectionButton enforces auth → email verified → approved → buyer type → 90% profile → Fee Agreement → active listing
 
-**Add `getMissingRequiredFields` import** from `@/lib/profile-completeness` (already exports it) to get both the raw keys (for scrolling) and labels (for display), pairing them together.
+## Issues Found
 
-### Layout
-```text
-┌──────────────────────────────────────────────┐
-│  88% complete                                │
-│  Fill in the remaining fields below.         │
-│  ████████████████████████░░░░  (thin bar)    │
-│                                              │
-│  Readiness Window · Equity Source             │
-│  (clickable, scrolls to field)               │
-└──────────────────────────────────────────────┘
+### Issue 1: HVAC Listing — Stale `pushed_to_marketplace` Flag (Data)
+**Listing `b28846a6`** ("Multi-Location HVACR Platform") is `is_internal_deal=false` (published) but still has `pushed_to_marketplace=true`. This means it shows up in the Marketplace Queue even though it's already live. This happened because it was published *before* the auto-cleanup logic was added to `publish-listing`. **Fix**: One-time data cleanup migration to set `pushed_to_marketplace=false` for all listings where `is_internal_deal=false`.
+
+### Issue 2: No `source_deal_id` on Any Published Listing (Architecture Gap)
+All 20+ published listings have `source_deal_id = null`. This means none were created through the queue → create listing flow. They were all created directly. The `existingListingsMap` query in MarketplaceQueue checks `source_deal_id` to show the "Listing Created" badge, but since the current flow creates listings as *new rows* with `source_deal_id` pointing back, **the badge/duplicate-prevention system has never been used in production**. This works correctly in theory but is untested with real data.
+
+### Issue 3: Connection Requests on Internal Deals (Orphaned Data)
+5 connection requests exist against `is_internal_deal=true` listings (including a "General Inquiry" phantom listing `00000000-...`). These are likely legacy/test records. They don't affect buyers since the marketplace only shows `is_internal_deal=false` listings. **Low priority** — no action needed unless you want cleanup.
+
+### Issue 4: Missing Teaser PDFs in Queue (Gating Works Correctly)
+Several queued deals are missing anonymous teaser PDFs (e.g., JumpstartMD, National Tab Intelligence, Sharp Interiors, Saks Metering). The "Create Listing" button correctly disables for these, and `publish-listing` would reject them. **Working as designed.**
+
+### Issue 5: `nda_pandadoc_signed_url` Column Missing (Unrelated but Active Error)
+The `get_user_firm_agreement_status` RPC references `fa.nda_pandadoc_signed_url` which doesn't exist in the `firm_agreements` table. This fires on every page load for every admin user, generating dozens of console warnings. **Should be fixed** — the RPC needs updating to remove this column reference.
+
+### Issue 6: Published Listings Not Visible in "All" View with Source Linking
+The Listings Management page (`/admin/marketplace`) has "All", "Marketplace", and "Research" tabs. Published listings (`is_internal_deal=false`) appear under "Marketplace" tab. Queue deals (`is_internal_deal=true`) appear under "Research". **This is the single source of truth** for seeing all listings, but there's no way to trace a marketplace listing back to its source deal from this view (no `source_deal_id` column displayed).
+
+## Recommended Fixes
+
+### Fix 1: Data cleanup migration
+```sql
+UPDATE listings 
+SET pushed_to_marketplace = false 
+WHERE is_internal_deal = false 
+  AND pushed_to_marketplace = true;
 ```
 
-No color tints, no icons, no amber. Just typography, spacing, and a dark progress bar. Missing field items separated by `·` or displayed as minimal inline links.
+### Fix 2: Fix `get_user_firm_agreement_status` RPC
+Remove the `nda_pandadoc_signed_url` column reference that's causing the repeated console errors.
 
-### No other files changed.
+### Fix 3: No code changes needed for queue flow
+The queue → create listing → publish flow is architecturally sound. Gating (quality validation, memo PDFs, admin auth) all work correctly. Buyer-facing isolation (`is_internal_deal` filter, safe columns) is properly enforced.
+
+## What's Working Well
+- Quality validation gate in `publish-listing` (title, description, category, location, revenue, image, memos)
+- Memo PDF prerequisite checking in queue UI
+- Auto-cleanup of `pushed_to_marketplace` flag on publish
+- Duplicate listing prevention via `source_deal_id` check
+- Buyer data isolation via `MARKETPLACE_SAFE_COLUMNS`
+- Connection request gating (auth, profile, agreements)
+- DealMarketplacePanel shows correct publish/unpublish state with analytics
+
