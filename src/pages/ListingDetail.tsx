@@ -253,16 +253,7 @@ const ListingDetail = () => {
               />
             </div>}
 
-            {/* Structured Business Details */}
-            <BusinessDetailsGrid
-              geographic_states={listing.geographic_states}
-              services={listing.services}
-              number_of_locations={listing.number_of_locations}
-              customer_types={listing.customer_types}
-              revenue_model={listing.revenue_model}
-              business_model={listing.business_model}
-              growth_trajectory={listing.growth_trajectory}
-            />
+            {/* Business Details removed - all content now in body description */}
 
             {/* Internal Company Information - Admin Only */}
             {isAdmin && listing && (
