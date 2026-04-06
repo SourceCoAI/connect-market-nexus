@@ -1,49 +1,80 @@
 
 
-# Fix Misnamed "Marketplace Approval" Email + Correct Catalog
+# End-to-End Email Audit: Findings and Fixes
 
-## The Core Confusion
+## Methodology
 
-There are two completely different concepts being conflated:
+I cross-referenced three sources:
+1. **AdminEmailRouting.tsx** (35 email entries across 8 categories)
+2. **EmailCatalog.tsx** (43 email entries across 7 categories)
+3. **Actual edge functions** in `supabase/functions/`
 
-1. **Deal Access Approval** (what `approve-marketplace-buyer` actually does): Admin approves a buyer's request for a *specific deal* and sends them a tracked anonymous teaser link. This is a per-deal action, not a signup action.
+## Issues Found
 
-2. **Marketplace Signup Approval** (what the user expected "Marketplace Approval" to mean): When a buyer signs up and gets approved to browse the marketplace. This is handled by `user-journey-notifications` (the "Profile Approved" event at line 50 of AdminEmailRouting.tsx).
+### Issue 1: EmailCatalog references non-existent edge function
+The "Enhanced Admin Notification" entry in EmailCatalog (line 409) references `send-enhanced-admin-notification`, but the actual function is named `enhanced-admin-notification` (no `send-` prefix). The AdminEmailRouting correctly uses `enhanced-admin-notification`.
 
-The catalog entry at line 125 of `EmailCatalog.tsx` is named "Marketplace Approval" but actually represents the deal-level anonymous teaser release. The name, subject, and description all need to accurately reflect what the edge function does.
+**Fix**: Change `edgeFunction` from `send-enhanced-admin-notification` to `enhanced-admin-notification` in EmailCatalog.tsx line 409.
 
-## Changes
+### Issue 2: Missing emails in EmailCatalog (present in AdminEmailRouting but not in Catalog)
+These emails exist in AdminEmailRouting and have working edge functions, but are missing from the EmailCatalog with previews:
+
+- **New Buyer Message to Support** (`notify-support-inbox`) — When a buyer sends a message, support gets notified
+- **Admin Reply Copy to Support** (`notify-support-inbox`, variant: admin_reply) — When admin replies, support inbox gets a copy
+- **Document Request to Support** (`notify-support-inbox`, variant: document_request) — Document request notification
+- **Inquiry Confirmation to Buyer** (`notify-buyer-inquiry-received`) — Confirmation email when buyer asks a question
+- **Marketplace Signup Approved** — Present in EmailCatalog's Buyer Lifecycle section but missing from AdminEmailRouting (already fixed in last change)
+
+**Fix**: Add these 4 missing emails to EmailCatalog with proper previews matching their actual edge function output.
+
+### Issue 3: Missing emails in AdminEmailRouting (present in Catalog but not in Routing)
+These emails have catalog entries and working edge functions but are missing from AdminEmailRouting:
+
+- **Buyer Rejection** (`notify-buyer-rejection`)
+- **Deal Reassignment** (`notify-deal-reassignment`) 
+- **New Deal Owner** (`notify-new-deal-owner`)
+- **Marketplace Signup Approved** (`user-journey-notifications`, variant: `profile_approved`) — The new entry we just added to the catalog
+
+**Fix**: Add these 4 entries to the correct categories in AdminEmailRouting.
+
+### Issue 4: Verified working — no issues
+These emails are correctly cataloged, correctly routed, and have working edge functions:
+- All Buyer Lifecycle emails (welcome, verification, approval, anonymous teaser release, invitation, connection request/approval)
+- All Agreement emails (NDA, Fee Agreement, Agreement Confirmed)
+- All Deal Flow emails (deal alert, deal referral, memo, data room access)
+- Messaging: buyer new message, admin new message
+- User Journey Notifications (all 4 variants)
+- All onboarding emails (day 2, day 7)
+- Password reset, verification fix, feedback, task notification, etc.
+
+### Issue 5: Admin Digest correctly flagged as broken
+The `admin-digest` function calls a deleted `enhanced-email-delivery` dependency. It is correctly flagged as "broken" in the catalog. No action needed now.
+
+## Changes — 2 Files
 
 ### 1. `src/components/admin/emails/EmailCatalog.tsx`
 
-**Rename the existing entry** (line 125-133):
-- **name**: "Marketplace Approval" → "Anonymous Teaser Release"
-- **subject**: Keep `Project [Name]: Investment Opportunity` (this is correct for the actual email)
-- **trigger**: "Admin approves buyer's deal access request from the marketplace approval queue"
-- **designNotes**: Update to mention it sends the anonymous teaser tracked link
-- Keep the current `previewHtml` (the anonymous teaser content we fixed last time is correct for this entry)
-
-**Add a NEW entry** in the "Buyer Lifecycle" category for the actual marketplace signup approval:
-- **name**: "Marketplace Signup Approved"
-- **subject**: "Welcome to the SourceCo Marketplace"
-- **recipient**: Buyer
-- **trigger**: "Admin approves buyer's marketplace profile/signup"
-- **edgeFunction**: "user-journey-notifications" (variant: profile_approved)
-- **designNotes**: "Branded wrapper, welcome message, brief explanation of marketplace, CTA to browse deals"
-- **previewHtml**: Content explaining they've been approved to browse the marketplace, what the marketplace is (curated platform for off-market deal flow), how it works (browse listings, request introductions, receive teasers), and a CTA to "Browse Deals"
+- **Fix edge function name**: Line 409, change `send-enhanced-admin-notification` to `enhanced-admin-notification`
+- **Add 4 missing entries**:
+  - In "Messaging" category: add "Support Inbox: New Message", "Support Inbox: Admin Reply", "Support Inbox: Document Request" (all `notify-support-inbox` with different variants), and "Inquiry Confirmation" (`notify-buyer-inquiry-received`)
 
 ### 2. `src/components/admin/emails/AdminEmailRouting.tsx`
 
-**Rename** line 58:
-- "Marketplace Buyer Approved" → "Anonymous Teaser Release" to match the catalog
+- **Add to Buyer Lifecycle**: "Marketplace Signup Approved" (`user-journey-notifications`, Profile Approved variant)
+- **Add to Buyer Lifecycle**: "Buyer Rejection" (`notify-buyer-rejection`)
+- **Add to Deal Flow**: "Deal Reassignment" (`notify-deal-reassignment`) and "New Deal Owner Assigned" (`notify-new-deal-owner`)
 
-No other files or edge functions change. This is purely a catalog/labeling fix to accurately represent what each email does.
+## Summary
 
-## Summary of email naming after fix
+| Check | Result |
+|---|---|
+| All edge functions exist on disk | Pass (except `admin-digest` dependency, already flagged) |
+| Catalog edge function names match actual | 1 fix needed (`send-enhanced-admin-notification` typo) |
+| All emails in Routing also in Catalog | 4 missing, will add |
+| All emails in Catalog also in Routing | 4 missing, will add |
+| Sender identity correct | Pass (all use `support@`, except Anonymous Teaser uses `adam.haile@`) |
+| Preview HTML matches actual email content | Pass (all previews accurately represent edge function output) |
+| `senderEmail` override works for marketplace approval | Pass (verified in `email-sender.ts` and `approve-marketplace-buyer`) |
 
-| Catalog Name | Edge Function | What It Actually Does |
-|---|---|---|
-| Marketplace Signup Approved | user-journey-notifications | Buyer's profile approved, welcome to marketplace |
-| Anonymous Teaser Release | approve-marketplace-buyer | Buyer approved for specific deal, sends teaser link |
-| Connection Approval | send-connection-notification | Connection request approved for a deal |
+No edge function code changes needed. This is purely a catalog/routing dashboard sync.
 
