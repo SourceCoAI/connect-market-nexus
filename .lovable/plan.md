@@ -1,31 +1,32 @@
 
 
-# Add Cooldown to "Request Documents" Button on Pending Approval
+# Differentiate Unapproved Users in Document Tracking Pending Queue
 
-## Current State
+## Problem
 
-- The `handleRequestBothDocuments` function calls `sendAgreementEmail` for both NDA and Fee Agreement
-- It inserts into `document_requests` table with `status: 'requested'` — admin dashboard tracks these correctly via the Document Tracking page
-- **No cooldown exists** — after the request completes, the button is immediately clickable again, allowing spam
+When a user requests documents from the Pending Approval screen (before being approved), the request appears in the admin Document Tracking "Pending Requests" queue identically to requests from approved users. Admins have no way to tell whether the requester is still pending approval or already approved.
+
+## Solution
+
+Add a small "Pending Approval" badge next to the user's name in the Pending Request queue rows when the requesting user's `approval_status` is not `approved`.
 
 ## Changes
 
-### File: `src/pages/PendingApproval.tsx`
+### File: `src/pages/admin/DocumentTrackingPage.tsx`
 
-1. **Add cooldown state**: `docCooldown` boolean + `cooldownSeconds` number (counts down from 120)
-2. **After successful request**: Set `docCooldown = true`, start a countdown interval from 120 to 0, then reset
-3. **Button text changes**:
-   - During request: "Sending..." (existing)
-   - After success, during cooldown: "Documents requested — request again in 1:45"
-   - After cooldown expires: back to "Request Documents via Email"
-4. **Button disabled** during both `isRequestingDocs` and `docCooldown`
-5. **Show confirmation text** below button when cooldown is active: "Check your email for the NDA and Fee Agreement." (replaces the "One signature covers..." text during cooldown)
+1. **Extend `usePendingRequestQueue` query**: After fetching pending requests, do a secondary lookup on `profiles` for all unique `user_id` values to get their `approval_status`. Return this as a map alongside the requests.
 
-No other files need changes — the admin tracking already works correctly via the `document_requests` table insert in the edge function.
+2. **Extend `PendingRequest` interface or pass approval map**: Add an `approval_status` field resolved from the profiles lookup.
+
+3. **Update `PendingRequestRow` component**: When `approval_status !== 'approved'`, render a small orange/amber badge: `⏳ Pending Approval` next to the user's name. This gives admins immediate context — the user hasn't been approved yet, so documents shouldn't necessarily be sent until approval happens.
+
+### Implementation Detail
+
+In `usePendingRequestQueue`, after fetching document_requests, extract unique `user_id` values, query `profiles` for `id, approval_status`, and merge the status back into each request object. The badge renders inline next to the name/email, styled consistently with existing badges (small, amber).
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/PendingApproval.tsx` | Add 2-minute cooldown timer after successful document request |
+| `src/pages/admin/DocumentTrackingPage.tsx` | Fetch user approval status in pending queue query; show "Pending Approval" badge on unapproved user rows |
 
