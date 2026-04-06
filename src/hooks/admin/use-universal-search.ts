@@ -100,7 +100,7 @@ export function useUniversalSearch() {
           supabase
             .from('listings')
             .select(
-              'id, title, internal_company_name, real_company_name, description, location, category, industry, website, deal_source, remarketing_status, main_contact_name, main_contact_email, captarget_client_name, address_state, status',
+              'id, title, internal_company_name, description, location, category, industry, website, deal_source, remarketing_status, main_contact_name, main_contact_email, captarget_client_name, address_state, status',
             )
             .is('deleted_at', null)
             .order('created_at', { ascending: false })
