@@ -41,7 +41,7 @@ const handler = async (req: Request): Promise<Response> => {
       return new Response(JSON.stringify({ error: auth.error }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
     }
 
-    const { connection_request_id, message_preview }: NewMessageNotificationRequest = await req.json();
+    const { connection_request_id, message_preview, admin_name }: NewMessageNotificationRequest = await req.json();
     if (!connection_request_id) {
       return new Response(JSON.stringify({ success: false, error: 'connection_request_id is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
