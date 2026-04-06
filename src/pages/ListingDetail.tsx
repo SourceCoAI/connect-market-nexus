@@ -17,7 +17,7 @@ import BlurredFinancialTeaser from '@/components/listing-detail/BlurredFinancial
 import { ExecutiveSummaryGenerator } from '@/components/listing-detail/ExecutiveSummaryGenerator';
 import { ListingHeader } from '@/components/listing-detail/ListingHeader';
 import { EnhancedFinancialGrid } from '@/components/listing-detail/EnhancedFinancialGrid';
-import { BusinessDetailsGrid } from '@/components/listing-detail/BusinessDetailsGrid';
+
 import { DealAdvisorCard } from '@/components/listing-detail/DealAdvisorCard';
 import { DealSourcingCriteriaDialog } from '@/components/listing-detail/DealSourcingCriteriaDialog';
 

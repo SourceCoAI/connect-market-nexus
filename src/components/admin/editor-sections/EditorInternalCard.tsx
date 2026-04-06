@@ -38,7 +38,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
   const { data: sourceCoAdmins, isLoading: loadingAdmins } = useSourceCoAdmins();
   const { user } = useAuthState();
   const visibleToBuyerTypes = form.watch('visible_to_buyer_types') || [];
-  const acquisitionType = form.watch('acquisition_type');
+  
 
   // Auto-assign Deal Owner to current admin user if not already set
   useEffect(() => {
