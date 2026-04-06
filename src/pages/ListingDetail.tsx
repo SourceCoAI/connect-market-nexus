@@ -11,6 +11,7 @@ import { useSessionContext } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ExternalLink, Shield } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency-utils';
+import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
 import ConnectionButton from '@/components/listing-detail/ConnectionButton';
 import BlurredFinancialTeaser from '@/components/listing-detail/BlurredFinancialTeaser';
 
@@ -295,6 +296,8 @@ const ListingDetail = () => {
                 listingId={id!}
                 listingStatusValue={listing.status}
                 isAdmin={isAdmin}
+                profileComplete={user ? isProfileComplete(user) : true}
+                profileCompletionPct={user ? getProfileCompletionPercentage(user) : 0}
               />
             </div>
 
