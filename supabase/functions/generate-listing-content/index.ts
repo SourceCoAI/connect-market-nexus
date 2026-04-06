@@ -177,8 +177,7 @@ serve(async (req: Request) => {
 
     // Auth check
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-    const authHeader = req.headers.get('Authorization') || '';
-    const adminResult = await requireAdmin(authHeader, supabaseAdmin);
+    const adminResult = await requireAdmin(req, supabaseAdmin);
     if (adminResult.error) {
       return new Response(
         JSON.stringify({ error: adminResult.error }),
