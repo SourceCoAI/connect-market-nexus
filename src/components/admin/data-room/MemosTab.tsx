@@ -717,10 +717,24 @@ ${sections.map(s => `<h2>${s.title}</h2><div class="section-content">${s.content
                         variant="outline"
                         size="sm"
                         className="flex-1"
+                        onClick={handlePreviewPdf}
+                        disabled={documentUrl.isPending}
+                      >
+                        {documentUrl.isPending && isPreviewing ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5 mr-1.5" />
+                        )}
+                        Preview
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
                         onClick={handleDownloadPdf}
                         disabled={documentUrl.isPending}
                       >
-                        {documentUrl.isPending ? (
+                        {documentUrl.isPending && !isPreviewing ? (
                           <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                         ) : (
                           <Download className="h-3.5 w-3.5 mr-1.5" />
