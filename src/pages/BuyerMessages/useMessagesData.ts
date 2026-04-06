@@ -86,7 +86,8 @@ export function useBuyerThreads() {
           .select('connection_request_id')
           .in('connection_request_id', requestIds)
           .eq('is_read_by_buyer', false)
-          .eq('sender_role', 'admin');
+          .eq('sender_role', 'admin')
+          .not('message_type', 'in', '("decision","system")');
         unreadMsgs = data;
       }
 

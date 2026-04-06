@@ -302,6 +302,7 @@ export function useUnreadBuyerMessageCounts() {
         .select('connection_request_id')
         .eq('is_read_by_buyer', false)
         .eq('sender_role', 'admin')
+        .not('message_type', 'in', '("decision","system")')
         .in('connection_request_id', requestIds);
 
       if (error) throw error;
@@ -318,22 +319,6 @@ export function useUnreadBuyerMessageCounts() {
           messagesTotal++;
         } else {
           dealTotal++;
-        }
-      });
-
-      // Also count threads where buyer sent the last message (awaiting admin reply)
-      // but only if there's actually a last_message_at (not empty threads)
-      (requests || []).forEach((r) => {
-        if (r.last_message_sender_role === 'buyer' && r.last_message_at && !byRequest[r.id]) {
-          // Thread is awaiting admin reply — count as 1 notification
-          byRequest[r.id] = (byRequest[r.id] || 0); // don't inflate per-request unread
-          const listingId = requestListingMap[r.id];
-          if (listingId === GENERAL_INQUIRY_LISTING_ID) {
-            messagesTotal++;
-          } else {
-            dealTotal++;
-          }
-          total++;
         }
       });
 
