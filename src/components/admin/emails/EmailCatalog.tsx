@@ -127,7 +127,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         recipient: 'Buyer',
         trigger: 'Admin approves buyer from marketplace approval queue',
         edgeFunction: 'approve-marketplace-buyer',
-        senderEmail: 'adam.haile@sourcecodeals.com',
+        
         designNotes: 'Branded wrapper, anonymous teaser link, confidentiality notice, CTA to view teaser',
         previewHtml: `${wrapperStart}<p>Dear Jane,</p><p>Thank you for your interest in this investment opportunity. We are pleased to share the Anonymous Teaser for Project Atlas with you.</p><p>Click below to review the investment summary.</p>${ctaBtn('View Investment Teaser')}${detailBox('This is a private, tracked link generated exclusively for you. Do not share or forward this link.')}<p>If this opportunity aligns with your investment criteria, reply to this email to express your interest.</p>${signoff}<p style="font-size: 12px; color: #9B9B9B; margin-top: 16px;">This communication is confidential and intended solely for the named recipient.</p>${wrapperEnd}`,
       },
