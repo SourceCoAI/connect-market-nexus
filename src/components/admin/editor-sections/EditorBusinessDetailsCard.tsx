@@ -137,11 +137,12 @@ export function EditorBusinessDetailsCard({ form }: EditorBusinessDetailsCardPro
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Input
+                    <Textarea
                       placeholder="e.g. Residential, Commercial, Government"
+                      rows={2}
                       {...field}
                       value={field.value || ''}
-                      className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
+                      className={cn('text-sm min-h-[48px]', EDITOR_DESIGN.inputBg)}
                     />
                   </FormControl>
                 </FormItem>
