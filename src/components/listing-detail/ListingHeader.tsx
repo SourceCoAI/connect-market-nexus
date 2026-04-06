@@ -79,7 +79,7 @@ export function ListingHeader({
       <div className="mt-6 mb-8">
         {/* Title */}
         <div className="mb-3">
-          <h1 className="!text-[30px] !leading-[38px] !font-[300] !tracking-tight text-foreground">
+          <h1 className="!text-[22px] sm:!text-[30px] !leading-[28px] sm:!leading-[38px] !font-[300] !tracking-tight text-foreground">
             <EditableTitle
               listingId={listing.id}
               initialValue={listing.title}
