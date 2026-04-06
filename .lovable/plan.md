@@ -1,77 +1,69 @@
 
 
-# End-to-End Verification: What Was Implemented vs. What's Still Missing
+# Fix Editor Organization: Separate Admin vs. Buyer Fields + Merge Long-Text Business Details into Description
 
-## What WAS Implemented Correctly
+## Problems
 
-### Phase 1: Data Mapping (DONE)
-- `CreateListingFromDeal.tsx` fetches all structured fields (`services`, `geographic_states`, `number_of_locations`, `customer_types`, `revenue_model`, `business_model`, `growth_trajectory`)
-- These are correctly mapped into the `prefilled` listing object (lines 149-165)
-- `use-robust-listing-creation.ts` persists all of them to the database (lines 259-274)
+### 1. "Company Overview" mixes admin-only and buyer-facing fields with no distinction
+The `EditorInternalCard` contains both:
+- **Admin-only**: Company name, Deal Owner, Company URL, Salesforce URL
+- **Buyer-facing**: Title, Geography, Type, Industry, Status, Tag, Visible To
 
-### Phase 2: Editor Sections (DONE)
-- `EditorBusinessDetailsCard.tsx` created with all 7 fields, editable with proper array handling
-- `EditorVisibilityPanel.tsx` created with 3-tier visibility rules
-- Both integrated into `ImprovedListingEditor.tsx` (lines 608-609)
-- Form schema includes all 7 business detail fields (lines 107-113)
-- `handleSubmit` passes them through (lines 527-533)
+These are in one card labeled "Company Overview" with no separation. The admin cannot tell what buyers will see.
 
-### Phase 3: Visibility Panel (DONE)
-- Clear 3-tier breakdown: Admin Only, Marketplace (All Buyers), After Approval
+### 2. Business Details card uses single-line inputs for paragraph-length content
+The screenshot shows fields like "Services", "Customer Types", "Business Model", "Growth Trajectory" containing full sentences that get truncated in small `<Input>` elements. These are not short tag-like values — they are AI-generated paragraphs.
 
-### Phase 5: Buyer-Facing Rendering (DONE)
-- `BusinessDetailsGrid.tsx` renders all 7 fields on `ListingDetail.tsx`
-- `MARKETPLACE_SAFE_COLUMNS` includes all these fields
+### 3. Long business detail text should merge into the description
+Fields like `customer_types: "The customer base is heavily influenced..."` and `business_model: "Emergency restoration services, p..."` are full narrative text. They belong in the body description, not in separate metadata inputs. The structured Business Details card should only contain short, scannable values (comma-separated tags, numbers, short labels).
 
-### Phase 4: Preview (PARTIALLY DONE)
-- Landing Page preview (FullFidelityLandingPreview) correctly passes business details via `formValuesToLandingPageDeal` (lines 440-446)
-- BUT: the "Full Listing" preview (FullListingPreview, lines 224-395) does NOT render BusinessDetailsGrid. It shows financial grid, description, and sidebar CTA but skips business details entirely.
-
-## What's Still Missing or Broken
-
-### Issue 1: Full Listing Preview Missing Business Details
-The `FullListingPreview` component (line 224) does not render `BusinessDetailsGrid`. Buyers who click into a listing from the marketplace see business details, but the admin preview labeled "Full listing page" does not show them. This is misleading.
-
-**Fix**: Import and render `BusinessDetailsGrid` in `FullListingPreview` using form values.
-
-### Issue 2: Em Dashes Still Present in User-Facing Copy
-Found em dashes (`—`) in several admin-facing surfaces that users see:
-
-- `EditorDescriptionSection.tsx` line 77: `'AI listing regenerated with validation warnings — review carefully.'`
-- `EditorDescriptionSection.tsx` line 79: `'Listing description regenerated — review and edit before saving.'`
-- `EditorDescriptionSection.tsx` line 137: `'bullet points for key data — present information...'`
-- `EditorHeroDescriptionSection.tsx` line 52: `'Hero description regenerated — review and edit before saving.'`
-- `EditorFeaturedDealsSection.tsx` line 26: `return '—'` (null currency display)
-- `EditorLivePreview.tsx` lines 592, 601, 613: preview tab descriptions use em dashes
-- `EditorInternalCard.tsx` line 58: comment only (harmless)
-
-**Fix**: Replace all user-facing em dashes with periods, commas, or hyphens.
-
-### Issue 3: No Distinct Preview Modes (Public vs. Approved Buyer vs. Admin)
-The plan called for preview modes showing what buyers see before vs. after connection approval (e.g., financials hidden in public mode). Currently all three preview tabs show financials openly. The "Full Listing" preview shows the financial grid without any indication that unapproved buyers cannot see it.
-
-**Fix**: Add a visual indicator or blur/lock overlay on the financial grid in the "Card" and "Full Listing" preview tabs with a note like "Visible after connection approval only." This matches actual gating behavior without requiring complex mode switching.
+### 4. Financials ARE populating
+The screenshots confirm revenue (4,500,000) and EBITDA (1,500,000) are present. The "not populating" concern may stem from the confusing layout where admin-only and buyer-facing fields blur together, making it hard to trust what's actually going through.
 
 ## Changes
 
-### File 1: `src/components/admin/editor-sections/EditorLivePreview.tsx`
-- Import `BusinessDetailsGrid` 
-- Add it to `FullListingPreview` after the description section, passing form values
-- Replace 3 em dashes in preview tab descriptions with periods/commas
-- Add a subtle "Gated: visible after approval" label above the financial grid in `FullListingPreview`
+### File 1: `src/components/admin/editor-sections/EditorInternalCard.tsx`
+**Split into two clearly labeled sections within the same card:**
 
-### File 2: `src/components/admin/editor-sections/EditorDescriptionSection.tsx`
-- Line 77: `'AI listing regenerated with validation warnings. Review carefully.'`
-- Line 79: `'Listing description regenerated. Review and edit before saving.'`
-- Line 137: replace em dash with period
+**Section A: "Internal (Admin Only)"** with a subtle lock icon or "(admin only)" label
+- Company name
+- Deal Owner
+- Company URL
+- Salesforce URL
 
-### File 3: `src/components/admin/editor-sections/EditorHeroDescriptionSection.tsx`
-- Line 52: `'Hero description regenerated. Review and edit before saving.'`
+**Section B: "Marketplace Listing (Visible to Buyers)"** with an eye icon
+- Title + AI Generate
+- Geography + Type
+- Industry
+- Status + Tag
+- Visible To (buyer type filters)
 
-### File 4: `src/components/admin/editor-sections/EditorFeaturedDealsSection.tsx`
-- Line 26: `return '-'` instead of `return '—'`
+This is a visual reorganization within the same component — add a divider and two distinct sub-headers with visibility labels.
 
-## Beyond the Original Plan
+### File 2: `src/components/admin/editor-sections/EditorBusinessDetailsCard.tsx`
+**Convert long-text fields to `<Textarea>` and keep short fields as `<Input>`:**
 
-Nothing critical missing. The data pipeline from deal to listing to buyer is complete. The three remaining issues above are refinements that close the gap between admin perception and buyer reality.
+Short fields (keep as `<Input>`):
+- States Served (comma-separated abbreviations)
+- Number of Locations (number)
+- Revenue Model (short label like "Recurring contracts, Project-based")
+- Growth Trajectory (short label like "Growing 10-15% YoY")
+
+Long fields (change to `<Textarea>` with 3-row minimum):
+- Services (can be long descriptions from AI)
+- Customer Types (can be paragraph-length)
+- Business Model (can be paragraph-length)
+
+Also add a note: "Keep entries concise. Long descriptions belong in the body description below."
+
+### File 3: `src/components/admin/editor-sections/EditorVisibilityPanel.tsx`
+No changes needed — already clear.
+
+### No data flow changes
+The financial population, persistence, and buyer isolation all work correctly. This is purely a UI organization fix.
+
+## Summary
+- Split "Company Overview" into "Internal (Admin Only)" and "Marketplace Listing (Visible to Buyers)" sub-sections
+- Convert truncated business detail inputs to textareas where content is paragraph-length
+- Add clear visibility labels so the admin always knows what buyers see
 
