@@ -1,76 +1,68 @@
 
 
-# Fix: Approval System Message Content
+# Fix: Data Room Access + Premium Buyer Experience
 
-## Problem
+## Three Issues Found
 
-When an admin accepts a connection request, two emails fire:
+### Issue 1: Access toggles not auto-enabled despite signed Fee Agreement
 
-1. **Approval email** (`send-connection-notification`, type `approval_notification`) — This is good. It says "Your introduction has been approved, here's what to expect."
+**Root cause**: When the admin accepted this connection, the `handleAccept` code (line 149) evaluated `hasFeeAgreement` from local frontend state, which was `false` even though Sony's firm agreement is `signed`. The access record was created with `can_view_teaser: true, can_view_full_memo: false, can_view_data_room: false`.
 
-2. **Message notification email** (`notify-buyer-new-message`) — This is the screenshot. It wraps the hardcoded system message: *"We have sent you a brief overview of the deal. Please let us know if you are still interested."*
+The auto-upgrade trigger (`trg_auto_upgrade_data_room_on_fee_sign`) only fires on UPDATE to `firm_agreements`, but Sony's fee agreement was already signed before the connection was approved. So the trigger never ran for this record.
 
-The second email is bad because:
-- The buyer already expressed interest (they requested the connection)
-- "Please let us know if you are still interested" is backwards — they should be getting welcomed, not re-qualified
-- It duplicates the approval email but with worse content
-- It reads like a cold outreach follow-up, not a deal confirmation
-
-## Root Cause
-
-Line 91 in `useConnectionRequestActions.ts`:
-```typescript
-body: 'We have sent you a brief overview of the deal. Please let us know if you are still interested.',
-```
-
-This hardcoded message is sent as a `decision` type system message. Since it's an admin message, the `use-connection-messages.ts` hook (line 141) fires `notify-buyer-new-message`, which wraps it in an email.
-
-## Strategy: What Should This Message Say?
-
-At this point in the flow, the buyer:
-- Has been browsing the marketplace
-- Found a deal they liked
-- Submitted a connection request
-- Just got approved
-
-The system message in the thread should serve as the **kickoff** of the deal conversation. It should:
-1. Confirm their access is live
-2. Tell them what they now have access to (data room, documents)
-3. Set expectations for next steps (SourceCo facilitates intro to owner)
-4. Feel like a personal welcome to the deal, not a robot notification
-
-## Fix
-
-### File: `src/components/admin/connection-request-actions/useConnectionRequestActions.ts`
-
-**Line 91**: Replace the hardcoded message with something contextually appropriate:
+**Fix**: Change `handleAccept` to query `firm_agreements` directly from the database instead of relying on the frontend `hasFeeAgreement` prop, which is derived from the connection request card's local state and can be stale.
 
 ```typescript
-body: `Your introduction to ${listing?.title || 'this deal'} has been approved. You now have access to the deal overview and supporting documents in the data room. Our team will facilitate the introduction to the business owner - expect to hear from us within one business day. If you have any questions in the meantime, reply here.`,
+// In handleAccept, before inserting data_room_access:
+const { data: firmAgreement } = await supabase
+  .from('firm_agreements')
+  .select('fee_agreement_status')
+  .eq('primary_company_name', user.company)  // or however firm is resolved
+  .maybeSingle();
+
+const feeAgreementSigned = firmAgreement?.fee_agreement_status === 'signed';
 ```
 
-This message:
-- Confirms what just happened (approved)
-- Tells them what's unlocked (data room access)
-- Sets the next step expectation (intro to owner, 1 business day)
-- Invites engagement (reply here)
-- Matches the tone of the approval email without duplicating it
+**Also**: Write a one-time migration to fix the existing access record for this buyer:
+```sql
+UPDATE data_room_access
+SET can_view_full_memo = true, can_view_data_room = true
+WHERE deal_id = 'd543b05b-2649-4327-a1dd-2a2589e73427'
+  AND marketplace_user_id = '06b29c2a-3220-466c-b161-b92082808f39';
+```
 
-### Consider: Should the message notification email even fire for decision messages?
+### Issue 2: Admin can't toggle Full Memo / Data Room when fee agreement IS signed
 
-The approval email (`send-connection-notification`) already covers the notification. The system message email (`notify-buyer-new-message`) is a duplicate notification. Two options:
+In the screenshot, the toggles show lock icons and are disabled because `hasFeeAgreement` is false in the connection request card. Same root cause as Issue 1: the prop is stale. The `AccessMatrixSection` needs the same server-side fee agreement check so the admin can always toggle access when the firm has signed.
 
-**Option A**: Fix the message content (above) and accept both emails. The approval email is "here's the process," the message notification is "here's your thread kickoff." They complement each other.
+**Fix**: The `hasFeeAgreement` boolean passed to `AccessMatrixSection` should be derived from `firm_agreements` table, not just the connection request's local state. Update the data-fetching in the parent component that renders this section to query firm agreement status.
 
-**Option B**: Skip the `notify-buyer-new-message` email for `decision` type messages, since the approval email already covers it.
+### Issue 3: Premium Data Room Redesign
 
-I recommend **Option A** for now — fix the content so both emails are useful. The message email reinforces that there's an active thread they should check. If the user later reports "too many emails on approval," we can suppress `decision` type messages from triggering the notification.
+The current `BuyerDataRoom` uses standard Card/CardHeader components with purple gradients and badges. It needs a premium, minimal design matching the platform's "Quiet Luxury" aesthetic.
 
-## Files Changed
+**Design direction**:
+- Remove the purple `DataRoomOrientation` card entirely (it adds noise, not value)
+- Clean section header: just "Data Room" with a subtle lock icon, no cards
+- Documents listed as clean rows with generous whitespace: file icon, name, size/date in muted text, and ghost View/Download buttons on the right
+- Folder grouping via subtle uppercase labels with hairline dividers, not card borders
+- No badges, no colored backgrounds, no gradients
+- Empty state: minimal centered text, no oversized icons
+
+## Files to Change
 
 | File | Change |
 |------|--------|
-| `src/components/admin/connection-request-actions/useConnectionRequestActions.ts` | Replace hardcoded approval message on line 91 with contextual deal kickoff message |
+| `src/components/admin/connection-request-actions/useConnectionRequestActions.ts` | Query `firm_agreements` directly in `handleAccept` instead of relying on `hasFeeAgreement` prop |
+| `src/components/admin/connection-request-actions/ConnectionRequestDetail.tsx` (or parent) | Fetch firm agreement status from DB for `AccessMatrixSection` props |
+| `src/components/marketplace/BuyerDataRoom.tsx` | Redesign to premium minimal layout |
+| `src/components/marketplace/DataRoomOrientation.tsx` | Remove or replace with subtle inline text |
+| Migration SQL | Fix existing access record for the restoration buyer |
 
-One-line change. No edge function changes needed.
+## Implementation Order
+
+1. Migration: fix existing access record (immediate unblock)
+2. Fix `handleAccept` to query firm agreements from DB (prevent recurrence)
+3. Fix `AccessMatrixSection` hasFeeAgreement resolution (admin can toggle)
+4. Redesign `BuyerDataRoom` to premium layout
 
