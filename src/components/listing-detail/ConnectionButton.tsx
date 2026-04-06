@@ -128,46 +128,39 @@ const ConnectionButton = ({
   // Block users with incomplete profiles from requesting connections
   if (user && !isAdmin && !isProfileComplete(user)) {
     const pct = getProfileCompletionPercentage(user);
+    const missingLabels = getMissingFieldLabels(user);
     return (
-      <div className="space-y-3">
-        <div className="w-full px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <AlertCircle className="h-4 w-4 text-amber-500" />
-            <p className="text-sm font-medium text-amber-900">Complete Your Profile</p>
-          </div>
-          <p className="text-xs text-amber-700 mt-0.5">
-            Complete your buyer profile before requesting deal access.
+      <div className="w-full space-y-4">
+        <div className="w-full px-5 py-4 border border-border rounded-lg">
+          <p className="text-sm font-semibold text-foreground mb-1">Complete your profile</p>
+          <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+            Finish your buyer profile to request deal access.
           </p>
-          {(() => {
-            const missingLabels = getMissingFieldLabels(user);
-            return missingLabels.length > 0 ? (
-              <ul className="mt-2 text-xs text-amber-800 list-disc list-inside space-y-0.5 text-left">
-                {missingLabels.map((label) => (
-                  <li key={label}>{label}</li>
-                ))}
-              </ul>
-            ) : null;
-          })()}
+          {missingLabels.length > 0 && (
+            <p className="text-[11px] text-muted-foreground/80 mb-3">
+              Missing: {missingLabels.join(' · ')}
+            </p>
+          )}
           {pct > 0 && (
-            <div className="mt-2 space-y-1">
+            <div className="space-y-1.5 mb-4">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-amber-600">{pct}% complete</span>
+                <span className="text-[11px] text-muted-foreground">{pct}%</span>
               </div>
-              <div className="h-1 bg-amber-100 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-amber-500 transition-all duration-300"
+                  className="h-full bg-[#0E101A] rounded-full transition-all duration-300"
                   style={{ width: `${pct}%` }}
                 />
               </div>
             </div>
           )}
+          <Link
+            to="/profile?tab=profile&complete=1"
+            className="block w-full text-center text-xs font-medium py-2.5 px-3 rounded-md bg-[#0E101A] text-white hover:bg-[#0E101A]/90 transition-colors"
+          >
+            Complete Profile
+          </Link>
         </div>
-        <Link
-          to="/profile?tab=profile&complete=1"
-          className="block w-full text-center text-xs font-medium py-2.5 px-3 rounded-md bg-sourceco text-sourceco-foreground hover:bg-sourceco/90 transition-colors"
-        >
-          Complete My Profile
-        </Link>
       </div>
     );
   }
