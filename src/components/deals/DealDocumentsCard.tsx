@@ -378,7 +378,7 @@ export function DealDocumentsCard({
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <div className="flex items-center gap-1 max-md:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       {isLoading ? (
                         <Loader2 className="h-3 w-3 animate-spin text-[#0E101A]/30" />
                       ) : (

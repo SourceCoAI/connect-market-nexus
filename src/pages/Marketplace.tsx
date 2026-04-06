@@ -278,7 +278,7 @@ const MarketplaceContent = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-sm">Results per page:</span>
+                    <span className="text-sm hidden sm:inline">Results per page:</span>
                     <Select
                       value={pagination.state.perPage.toString()}
                       onValueChange={(value) => pagination.setPerPage(parseInt(value))}

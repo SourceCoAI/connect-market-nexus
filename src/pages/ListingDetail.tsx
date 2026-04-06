@@ -305,7 +305,7 @@ const ListingDetail = () => {
             {/* Data Room Modal */}
             {!isAdmin && user && (
               <Dialog open={dataRoomOpen} onOpenChange={setDataRoomOpen}>
-                <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden border-border/30 bg-background [&>button]:hidden">
+                <DialogContent className="max-w-[calc(100vw-16px)] sm:max-w-3xl max-h-[calc(100vh-32px)] sm:max-h-[85vh] p-0 gap-0 overflow-hidden border-border/30 bg-background [&>button]:hidden">
                   <MFAGate loadingText="Verifying identity for data room access...">
                     <BuyerDataRoom dealId={id!} connectionApproved={connectionStatusValue === 'approved'} onClose={() => setDataRoomOpen(false)} />
                   </MFAGate>

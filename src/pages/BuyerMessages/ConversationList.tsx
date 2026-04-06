@@ -41,7 +41,7 @@ export function ConversationList({
   return (
     <div
       className={cn(
-        'w-[300px] flex-shrink-0 flex flex-col min-h-0',
+        'w-full md:w-[300px] flex-shrink-0 flex flex-col min-h-0',
         selectedThreadId || showGeneralChat ? 'hidden md:flex' : 'flex',
       )}
       style={{ borderRight: '1px solid #F0EDE6' }}
