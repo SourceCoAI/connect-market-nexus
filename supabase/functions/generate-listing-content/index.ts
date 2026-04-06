@@ -370,7 +370,7 @@ IMPORTANT: Only include sections where you have real data. If the data is thin, 
 === DEAL DATA ===
 ${dataPoints.join('\n\n')}
 
-Apply all anonymization rules strictly. Return markdown only - no preamble, no explanation, no code fences. Start directly with ## BUSINESS OVERVIEW.`;
+Apply all anonymization rules strictly. Return markdown only - no preamble, no explanation, no code fences. Start directly with ## HERO_DESCRIPTION.`;
 
   return await callAIAndRespond(deal, userPrompt, dealId, listingId, anthropicApiKey, supabaseAdmin, corsHeaders);
 }
