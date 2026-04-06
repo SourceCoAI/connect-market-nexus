@@ -327,7 +327,7 @@ export function DealDocumentsCard({
           </div>
 
           {docsLocked ? (
-            <div className="space-y-2 pl-[30px]">
+            <div className="space-y-2 pl-4 sm:pl-[30px]">
               <div className="flex items-center gap-2.5 opacity-40">
                 <Building2 className="h-3.5 w-3.5 text-[#0E101A]/50 shrink-0" />
                 <span className="text-[12px] text-[#0E101A]/60">Confidential Company Profile</span>
