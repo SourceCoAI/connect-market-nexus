@@ -1,91 +1,60 @@
 
 
-# Phase 7: Admin Panel — Mobile Optimization
+# Phase 8: Profile Page — Mobile Optimization
 
 ## Audit Summary
 
-Tested AdminLayout, AdminNavbar, AdminDashboard, AdminUsers, AdminRequests, MessageCenter, ListingsManagementTabs, AdminNotificationBell, CreateDealModal, and UniversalSearchDialog at 375px viewport. The AdminNavbar (mobile hamburger with Sheet drawer) is already well-built with touch-friendly 44px tap targets and responsive widths.
+Audited at 375px: Profile index, ProfileForm, ProfileSettings, ProfileDocuments, ProfileTeamMembers, ProfileSecurity, DealAlertsTab, DealAlertCard.
 
 ## Issues Found
 
-### Issue 1: Global `px-8` Padding on All Admin Pages
-**Files:** AdminDashboard.tsx (lines 130, 250, 273), AdminUsers.tsx (lines 347, 399), InternalTeamPage.tsx (105, 123), OwnerLeadsPage.tsx (127, 138), ContactListsPage.tsx (100, 121), ContactListDetailPage.tsx (193, 251), MarketplaceUsersPage.tsx (167, 189), TestingHub.tsx (782, 842, 855), StandupTracker.tsx (416), DailyTaskDashboard.tsx (151)
+### Issue 1: DealAlertCard Header Overflows on Mobile
+**File:** `src/components/deal-alerts/DealAlertCard.tsx` lines 64-90
+The header has `flex items-start justify-between` with left side (checkbox + icon + title) and right side (badge + switch). On 375px with card padding, title like "My Custom Alert Name" pushes badge+switch off-screen. The criteria text (line 95) with bullet-separated parts also overflows.
 
-`px-8` = 64px total horizontal padding. On 375px inside AdminLayout (which adds `p-4` = 16px each side), content width shrinks to ~279px. Every admin page uses this pattern.
+**Fix:** Stack the header on mobile. Change the outer div to `flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2`. Move badge+switch to wrap below title on mobile. Also stack the footer actions (lines 97-126) — the "Created" date + Edit/Delete buttons overflow on mobile.
 
-**Fix:** Change all `px-8` to `px-4 md:px-8` across these files. This is the single highest-impact fix.
+### Issue 2: DealAlertsTab Toolbar Overflows on Mobile
+**File:** `src/components/deal-alerts/DealAlertsTab.tsx` lines 144-178
+The `flex items-center justify-between` row has Select All + count on left, bulk delete + active/paused count on right. On 375px this is too wide.
 
-### Issue 2: AdminDashboard — Dashboard Switcher Overflows on Mobile
-**File:** `src/pages/admin/AdminDashboard.tsx` lines 209-243
-The three-button switcher (Daily Tasks / Remarketing / Marketplace) uses `px-4` per button. On 375px with reduced padding, the row still fits ~300px of buttons. But the marketplace sub-tabs row (line 251) has 8 tabs that will overflow.
+**Fix:** Stack to `flex flex-col gap-2` on mobile: `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2`.
 
-**Fix:** Add `overflow-x-auto` to the marketplace sub-tabs container (line 251). Dashboard switcher is fine as-is.
+### Issue 3: ProfileTeamMembers Invite Form — Button Below Input on Mobile
+**File:** `src/pages/Profile/ProfileTeamMembers.tsx` line 189
+`flex items-end gap-3` keeps the input and "Send Invite" button side by side. On 375px, the button gets crushed.
 
-### Issue 3: AdminNotificationBell Popover Width
-**File:** `src/components/admin/AdminNotificationBell.tsx` line 115
-`w-96` (384px) overflows 375px viewport.
+**Fix:** Change to `flex flex-col sm:flex-row sm:items-end gap-3`. Make the button full-width on mobile.
 
-**Fix:** Change to `w-[calc(100vw-2rem)] sm:w-96`.
+### Issue 4: ProfileDocuments — Document Row Cramped on Mobile
+**File:** `src/pages/Profile/ProfileDocuments.tsx` line 175
+`flex items-center justify-between py-4` — the label "Non-Disclosure Agreement (NDA)" plus status dots plus the Request/Resend button can get tight. The timestamp in the status line (line 189-193) can wrap awkwardly.
 
-### Issue 4: MessageCenter Thread List Fixed 320px Width
-**File:** `src/pages/admin/MessageCenter.tsx` line 484
-`w-[320px]` is hardcoded. On mobile, this takes the full 375px viewport leaving no room for content. The show/hide logic (`hidden md:flex` / `flex`) already works correctly for mobile — when a thread is selected the list hides and thread view shows. But when no thread is selected, the 320px list doesn't fill the screen.
+**Fix:** Hide timestamp on mobile using `hidden sm:inline` on the dot separator and timestamp span. This keeps the status clean.
 
-**Fix:** Change `w-[320px]` to `w-full md:w-[320px]` so the list fills mobile width.
+### Issue 5: ProfileSecurity — Deactivation Dialog Footer Buttons Stack
+**File:** `src/pages/Profile/ProfileSecurity.tsx` line 186
+`DialogFooter` already stacks on mobile by default (Shadcn behavior). No fix needed.
 
-### Issue 5: MessageCenter View Mode Toggle Overflows on Mobile
-**File:** `src/pages/admin/MessageCenter.tsx` lines 382-430
-Three buttons (All / By Deal / By Buyer) in a row next to the "Inbox" title. On narrow screens, the buttons compress.
+### Issue 6: ProfileForm — Container Padding Already Handled
+The profile page uses `container max-w-4xl py-8` which provides responsive padding. The form uses `grid-cols-1 md:grid-cols-2` which is already mobile-first. No padding issues.
 
-**Fix:** Hide labels on mobile, show only icons: wrap text in `<span className="hidden sm:inline">`. The icons alone are sufficient with their distinct shapes.
-
-### Issue 6: ListingsManagementTabs — Tab Labels Too Long for Mobile
-**File:** `src/components/admin/ListingsManagementTabs.tsx` lines 88-113
-Three tabs: "Ready to Publish", "Live on Marketplace", "All Internal" — with badges. On 375px these overflow the TabsList.
-
-**Fix:** Use shorter labels on mobile: "Ready" / "Live" / "Internal" using `<span className="sm:hidden">` / `<span className="hidden sm:inline">` pattern.
-
-### Issue 7: ListingsManagementTabs — `px-6 lg:px-10` Container Padding
-**File:** `src/components/admin/ListingsManagementTabs.tsx` line 73
-`px-6` = 48px total, stacked on AdminLayout's `p-4`. Leaves ~263px on 375px.
-
-**Fix:** Change to `px-2 sm:px-6 lg:px-10`.
-
-### Issue 8: MessageCenter Header `px-6` Excessive
-**File:** `src/pages/admin/MessageCenter.tsx` line 374
-Same stacking issue with AdminLayout's `p-4`.
-
-**Fix:** Change `px-6 pt-6 pb-4` to `px-3 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4`.
-
-### Issue 9: CreateDealModal Already Responsive
-`max-w-2xl max-h-[90vh] md:max-h-[85vh] overflow-y-auto` — this is fine on mobile. No fix needed.
-
-### Issue 10: UniversalSearchDialog Uses CommandDialog
-CommandDialog renders as a centered overlay. No mobile issues. No fix needed.
+### Issue 7: Profile Tabs — Already Fixed in Phase 4
+Tabs already use `flex-wrap h-auto gap-1` and short mobile labels. No fix needed.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/admin/AdminDashboard.tsx` | `px-4 md:px-8` on 3 containers; `overflow-x-auto` on marketplace sub-tabs |
-| `src/pages/admin/AdminUsers.tsx` | `px-4 md:px-8` on header + content |
-| `src/pages/admin/InternalTeamPage.tsx` | `px-4 md:px-8` |
-| `src/pages/admin/OwnerLeadsPage.tsx` | `px-4 md:px-8` |
-| `src/pages/admin/ContactListsPage.tsx` | `px-4 md:px-8` |
-| `src/pages/admin/ContactListDetailPage.tsx` | `px-4 md:px-8` |
-| `src/pages/admin/MarketplaceUsersPage.tsx` | `px-4 md:px-8` |
-| `src/pages/admin/TestingHub.tsx` | `px-4 md:px-8` |
-| `src/pages/admin/remarketing/StandupTracker.tsx` | `px-4 md:px-8` |
-| `src/pages/admin/remarketing/DailyTaskDashboard.tsx` | `px-4 md:px-8` |
-| `src/components/admin/AdminNotificationBell.tsx` | Viewport-safe popover width |
-| `src/pages/admin/MessageCenter.tsx` | Full-width thread list on mobile; responsive padding; compact view toggle |
-| `src/components/admin/ListingsManagementTabs.tsx` | Shorter tab labels on mobile; reduced container padding |
+| `src/components/deal-alerts/DealAlertCard.tsx` | Stack header and footer on mobile |
+| `src/components/deal-alerts/DealAlertsTab.tsx` | Stack toolbar on mobile |
+| `src/pages/Profile/ProfileTeamMembers.tsx` | Stack invite form on mobile |
+| `src/pages/Profile/ProfileDocuments.tsx` | Hide timestamp on mobile for cleaner rows |
 
 ## Implementation Order
 
-1. Global `px-8` → `px-4 md:px-8` across all 10 admin page files
-2. AdminNotificationBell popover width
-3. MessageCenter thread list width + padding + view toggle
-4. ListingsManagementTabs tabs + padding
-5. AdminDashboard marketplace sub-tabs overflow
+1. DealAlertCard header + footer stacking
+2. DealAlertsTab toolbar stacking
+3. ProfileTeamMembers invite form stacking
+4. ProfileDocuments timestamp hiding
 
