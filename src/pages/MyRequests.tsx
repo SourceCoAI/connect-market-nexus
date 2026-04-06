@@ -473,7 +473,7 @@ function DetailPanel({
             <DealMessagesTab requestId={request.id} requestStatus={requestStatus} />
           </TabsContent>
 
-          <TabsContent value="activity" className="mt-0 p-6">
+          <TabsContent value="activity" className="mt-0 p-4 sm:p-6">
             <DealActivityLog requestId={request.id} requestStatus={requestStatus} />
           </TabsContent>
         </div>

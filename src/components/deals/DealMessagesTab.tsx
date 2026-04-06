@@ -89,7 +89,7 @@ export function DealMessagesTab({ requestId, requestStatus }: DealMessagesTabPro
       )}
 
       {/* Message thread */}
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="relative min-h-[300px] max-h-[500px] overflow-y-auto px-5 py-4 space-y-3 flex-1 bg-[#FAFAF8]">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="relative min-h-[200px] sm:min-h-[300px] max-h-[350px] sm:max-h-[500px] overflow-y-auto px-5 py-4 space-y-3 flex-1 bg-[#FAFAF8]">
         {messagesLoading ? (
           <div className="space-y-3 py-4">
             <div className="flex justify-start">

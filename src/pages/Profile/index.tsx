@@ -47,13 +47,19 @@ const Profile = () => {
 
   return (
     <div className="container max-w-4xl py-8">
-      <h1 className="text-3xl font-bold mb-6">My Profile</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6">My Profile</h1>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="profile">Profile Information</TabsTrigger>
+        <TabsList className="mb-6 flex-wrap h-auto gap-1">
+          <TabsTrigger value="profile">
+            <span className="sm:hidden">Profile</span>
+            <span className="hidden sm:inline">Profile Information</span>
+          </TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="deal-alerts">Deal Alerts</TabsTrigger>
+          <TabsTrigger value="deal-alerts">
+            <span className="sm:hidden">Alerts</span>
+            <span className="hidden sm:inline">Deal Alerts</span>
+          </TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>

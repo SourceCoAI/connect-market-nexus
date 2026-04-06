@@ -55,7 +55,7 @@ export function DealDetailHeader({
   return (
     <div className="px-6 py-5 border-b border-[#F0EDE6]">
       {/* Top: Title + Status + View link */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold text-[#0E101A] truncate">{title}</h2>
