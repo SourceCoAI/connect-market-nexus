@@ -406,8 +406,10 @@ export function BuyerDataRoom({ dealId, connectionApproved }: BuyerDataRoomProps
         </div>
       )}
 
+      </ScrollArea>
+
       {/* Security Footer */}
-      <div className="border-t border-border/20 px-5 py-3 mt-2">
+      <div className="border-t border-border/20 px-5 py-3 shrink-0">
         <p className="text-[10px] text-muted-foreground/40 text-center">
           Documents shared under NDA. Unauthorized distribution is prohibited.
         </p>
