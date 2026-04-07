@@ -1,0 +1,324 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import type {
+  PortalDealPush,
+  PortalDealPushWithDetails,
+  PortalDealResponse,
+  PushDealToPortalInput,
+  SubmitDealResponseInput,
+  DealSnapshot,
+} from '@/types/portal';
+
+const PORTAL_PUSHES_KEY = 'portal-deal-pushes';
+
+/** Admin: fetch all pushes for a portal org */
+export function usePortalDealPushes(portalOrgId: string | undefined) {
+  return useQuery({
+    queryKey: [PORTAL_PUSHES_KEY, portalOrgId],
+    queryFn: async (): Promise<PortalDealPushWithDetails[]> => {
+      if (!portalOrgId) return [];
+      const { data, error } = await supabase
+        .from('portal_deal_pushes')
+        .select(`
+          *,
+          pushed_by_profile:profiles!portal_deal_pushes_pushed_by_fkey(
+            id, first_name, last_name
+          )
+        `)
+        .eq('portal_org_id', portalOrgId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch latest response for each push
+      const pushIds = (data || []).map((p: PortalDealPush) => p.id);
+      if (pushIds.length === 0) return [];
+
+      const { data: responses } = await supabase
+        .from('portal_deal_responses')
+        .select('*')
+        .in('push_id', pushIds)
+        .order('created_at', { ascending: false });
+
+      const latestByPush: Record<string, PortalDealResponse> = {};
+      const countByPush: Record<string, number> = {};
+      (responses || []).forEach((r: PortalDealResponse) => {
+        countByPush[r.push_id] = (countByPush[r.push_id] || 0) + 1;
+        if (!latestByPush[r.push_id]) latestByPush[r.push_id] = r;
+      });
+
+      return (data || []).map((push: PortalDealPush & { pushed_by_profile: PortalDealPushWithDetails['pushed_by_profile'] }) => ({
+        ...push,
+        latest_response: latestByPush[push.id] || null,
+        response_count: countByPush[push.id] || 0,
+      }));
+    },
+    enabled: !!portalOrgId,
+  });
+}
+
+/** Client portal: fetch pushes visible to a portal user */
+export function useMyPortalDeals(portalOrgId: string | undefined) {
+  return useQuery({
+    queryKey: ['my-portal-deals', portalOrgId],
+    queryFn: async (): Promise<PortalDealPushWithDetails[]> => {
+      if (!portalOrgId) return [];
+      const { data, error } = await supabase
+        .from('portal_deal_pushes')
+        .select('*')
+        .eq('portal_org_id', portalOrgId)
+        .neq('status', 'archived')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as PortalDealPushWithDetails[];
+    },
+    enabled: !!portalOrgId,
+  });
+}
+
+/** Single push detail */
+export function usePortalDealPush(pushId: string | undefined) {
+  return useQuery({
+    queryKey: ['portal-deal-push', pushId],
+    queryFn: async () => {
+      if (!pushId) return null;
+      const { data, error } = await supabase
+        .from('portal_deal_pushes')
+        .select(`
+          *,
+          pushed_by_profile:profiles!portal_deal_pushes_pushed_by_fkey(
+            id, first_name, last_name
+          ),
+          portal_org:portal_organizations!portal_deal_pushes_portal_org_id_fkey(
+            id, name, portal_slug
+          )
+        `)
+        .eq('id', pushId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as PortalDealPushWithDetails | null;
+    },
+    enabled: !!pushId,
+  });
+}
+
+/** Responses for a single push */
+export function usePortalDealResponses(pushId: string | undefined) {
+  return useQuery({
+    queryKey: ['portal-deal-responses', pushId],
+    queryFn: async (): Promise<(PortalDealResponse & { responder?: { name: string } })[]> => {
+      if (!pushId) return [];
+      const { data, error } = await supabase
+        .from('portal_deal_responses')
+        .select(`
+          *,
+          responder:portal_users!portal_deal_responses_responded_by_fkey(name)
+        `)
+        .eq('push_id', pushId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!pushId,
+  });
+}
+
+/** Build a deal snapshot from a listing */
+async function buildDealSnapshot(listingId: string): Promise<DealSnapshot> {
+  const { data, error } = await supabase
+    .from('marketplace_listings')
+    .select('id, title, category, categories, city, state, revenue, ebitda, asking_price, description, number_of_employees, years_in_business')
+    .eq('id', listingId)
+    .maybeSingle();
+
+  if (error || !data) {
+    // Fallback: fetch from listings directly with safe columns
+    const { data: listing, error: listError } = await supabase
+      .from('listings')
+      .select('id, title, category, categories, city, state, revenue, ebitda, asking_price, description, number_of_employees, years_in_business')
+      .eq('id', listingId)
+      .maybeSingle();
+
+    if (listError || !listing) throw new Error('Listing not found');
+
+    return {
+      headline: listing.title || 'Untitled Deal',
+      industry: listing.category || '',
+      geography: [listing.city, listing.state].filter(Boolean).join(', '),
+      state: listing.state || undefined,
+      ebitda: listing.ebitda,
+      revenue: listing.revenue,
+      asking_price: listing.asking_price,
+      number_of_employees: listing.number_of_employees,
+      years_in_business: listing.years_in_business,
+      business_description: listing.description || undefined,
+      category: listing.category || undefined,
+    };
+  }
+
+  return {
+    headline: data.title || 'Untitled Deal',
+    industry: data.category || '',
+    geography: [data.city, data.state].filter(Boolean).join(', '),
+    state: data.state || undefined,
+    ebitda: data.ebitda,
+    revenue: data.revenue,
+    asking_price: data.asking_price,
+    number_of_employees: data.number_of_employees,
+    years_in_business: data.years_in_business,
+    business_description: data.description || undefined,
+    category: data.category || undefined,
+  };
+}
+
+/** Push a deal to a portal */
+export function usePushDealToPortal() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (input: PushDealToPortalInput) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Check for duplicates
+      const { data: existing } = await supabase
+        .from('portal_deal_pushes')
+        .select('id, status, created_at')
+        .eq('portal_org_id', input.portal_org_id)
+        .eq('listing_id', input.listing_id)
+        .neq('status', 'archived')
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error(`This deal was already pushed to this portal on ${new Date(existing.created_at).toLocaleDateString()}. Status: ${existing.status}`);
+      }
+
+      const snapshot = await buildDealSnapshot(input.listing_id);
+
+      const { data, error } = await supabase
+        .from('portal_deal_pushes')
+        .insert({
+          portal_org_id: input.portal_org_id,
+          listing_id: input.listing_id,
+          pushed_by: user.id,
+          push_note: input.push_note || null,
+          priority: input.priority || 'standard',
+          response_due_by: input.response_due_by || null,
+          deal_snapshot: snapshot,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Log activity
+      await supabase.from('portal_activity_log').insert({
+        portal_org_id: input.portal_org_id,
+        actor_id: user.id,
+        actor_type: 'admin',
+        action: 'deal_pushed',
+        push_id: data.id,
+        metadata: { listing_id: input.listing_id, headline: snapshot.headline, priority: input.priority },
+      });
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [PORTAL_PUSHES_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['portal-organizations'] });
+      toast({ title: 'Deal pushed to portal', description: 'The deal has been sent to the client portal.' });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Error pushing deal', description: err.message, variant: 'destructive' });
+    },
+  });
+}
+
+/** Submit a response to a pushed deal (client portal) */
+export function useSubmitDealResponse() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (input: SubmitDealResponseInput & { portal_user_id: string; portal_org_id: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Create response
+      const { data, error } = await supabase
+        .from('portal_deal_responses')
+        .insert({
+          push_id: input.push_id,
+          responded_by: input.portal_user_id,
+          response_type: input.response_type,
+          notes: input.notes || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update push status
+      const statusMap: Record<string, string> = {
+        interested: 'interested',
+        pass: 'passed',
+        need_more_info: 'needs_info',
+        reviewing: 'reviewing',
+        internal_review: 'reviewing',
+      };
+
+      await supabase
+        .from('portal_deal_pushes')
+        .update({
+          status: statusMap[input.response_type] || input.response_type,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', input.push_id);
+
+      // Log activity
+      await supabase.from('portal_activity_log').insert({
+        portal_org_id: input.portal_org_id,
+        actor_id: user.id,
+        actor_type: 'portal_user',
+        action: 'response_submitted',
+        push_id: input.push_id,
+        metadata: { response_type: input.response_type },
+      });
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-portal-deals'] });
+      queryClient.invalidateQueries({ queryKey: ['portal-deal-push'] });
+      queryClient.invalidateQueries({ queryKey: ['portal-deal-responses'] });
+      toast({ title: 'Response submitted' });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Error submitting response', description: err.message, variant: 'destructive' });
+    },
+  });
+}
+
+/** Check if a deal has already been pushed to a portal */
+export function useCheckDuplicatePush(portalOrgId: string | undefined, listingId: string | undefined) {
+  return useQuery({
+    queryKey: ['check-duplicate-push', portalOrgId, listingId],
+    queryFn: async () => {
+      if (!portalOrgId || !listingId) return null;
+      const { data } = await supabase
+        .from('portal_deal_pushes')
+        .select('id, status, created_at, pushed_by')
+        .eq('portal_org_id', portalOrgId)
+        .eq('listing_id', listingId)
+        .neq('status', 'archived')
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!portalOrgId && !!listingId,
+  });
+}

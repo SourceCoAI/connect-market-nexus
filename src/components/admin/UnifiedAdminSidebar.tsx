@@ -60,6 +60,7 @@ import {
   User,
   GraduationCap,
   Archive,
+  FolderOpen,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -224,6 +225,19 @@ export function UnifiedAdminSidebar({
             label: 'Buyer Contacts',
             href: '/admin/buyers/contacts',
             icon: <Contact className="h-4 w-4" />,
+          },
+        ],
+      },
+      {
+        id: 'portals',
+        label: 'Client Portals',
+        icon: <FolderOpen className="h-4 w-4" />,
+        items: [
+          {
+            label: 'All Portals',
+            href: '/admin/client-portals',
+            icon: <FolderOpen className="h-4 w-4" />,
+            exact: true,
           },
         ],
       },
