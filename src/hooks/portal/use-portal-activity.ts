@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { untypedFrom } from '@/integrations/supabase/client';
 import type { PortalActivityLog } from '@/types/portal';
 
 export function usePortalActivity(portalOrgId: string | undefined) {
@@ -7,8 +7,7 @@ export function usePortalActivity(portalOrgId: string | undefined) {
     queryKey: ['portal-activity', portalOrgId],
     queryFn: async (): Promise<PortalActivityLog[]> => {
       if (!portalOrgId) return [];
-      const { data, error } = await supabase
-        .from('portal_activity_log')
+      const { data, error } = await untypedFrom('portal_activity_log')
         .select('*')
         .eq('portal_org_id', portalOrgId)
         .order('created_at', { ascending: false })
@@ -27,8 +26,7 @@ export function usePortalAnalytics(portalOrgId: string | undefined) {
     queryFn: async () => {
       if (!portalOrgId) return null;
 
-      const { data: pushes, error } = await supabase
-        .from('portal_deal_pushes')
+      const { data: pushes, error } = await untypedFrom('portal_deal_pushes')
         .select('id, status, created_at, updated_at')
         .eq('portal_org_id', portalOrgId);
 

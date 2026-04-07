@@ -5,8 +5,6 @@ import {
   Building2,
   MapPin,
   DollarSign,
-  Users,
-  Calendar,
   CheckCircle,
   XCircle,
   HelpCircle,
@@ -146,33 +144,6 @@ export default function PortalDealDetail() {
                       <div>
                         <p className="text-xs text-muted-foreground">Revenue</p>
                         <p className="font-medium text-sm">{formatCurrency(snapshot.revenue)}</p>
-                      </div>
-                    </div>
-                  )}
-                  {snapshot?.asking_price != null && (
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Asking Price</p>
-                        <p className="font-medium text-sm">{formatCurrency(snapshot.asking_price)}</p>
-                      </div>
-                    </div>
-                  )}
-                  {snapshot?.number_of_employees != null && (
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Employees</p>
-                        <p className="font-medium text-sm">{snapshot.number_of_employees}</p>
-                      </div>
-                    </div>
-                  )}
-                  {snapshot?.years_in_business != null && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Years in Business</p>
-                        <p className="font-medium text-sm">{snapshot.years_in_business}</p>
                       </div>
                     </div>
                   )}

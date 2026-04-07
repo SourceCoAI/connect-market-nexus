@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, untypedFrom } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type {
   PortalDealPush,
@@ -18,8 +18,7 @@ export function usePortalDealPushes(portalOrgId: string | undefined) {
     queryKey: [PORTAL_PUSHES_KEY, portalOrgId],
     queryFn: async (): Promise<PortalDealPushWithDetails[]> => {
       if (!portalOrgId) return [];
-      const { data, error } = await supabase
-        .from('portal_deal_pushes')
+      const { data, error } = await untypedFrom('portal_deal_pushes')
         .select(`
           *,
           pushed_by_profile:profiles!portal_deal_pushes_pushed_by_fkey(
@@ -35,8 +34,7 @@ export function usePortalDealPushes(portalOrgId: string | undefined) {
       const pushIds = (data || []).map((p: PortalDealPush) => p.id);
       if (pushIds.length === 0) return data || [];
 
-      const { data: responses } = await supabase
-        .from('portal_deal_responses')
+      const { data: responses } = await untypedFrom('portal_deal_responses')
         .select('*')
         .in('push_id', pushIds)
         .order('created_at', { ascending: false });
@@ -64,8 +62,7 @@ export function useMyPortalDeals(portalOrgId: string | undefined) {
     queryKey: ['my-portal-deals', portalOrgId],
     queryFn: async (): Promise<PortalDealPushWithDetails[]> => {
       if (!portalOrgId) return [];
-      const { data, error } = await supabase
-        .from('portal_deal_pushes')
+      const { data, error } = await untypedFrom('portal_deal_pushes')
         .select('*')
         .eq('portal_org_id', portalOrgId)
         .neq('status', 'archived')
@@ -84,8 +81,7 @@ export function usePortalDealPush(pushId: string | undefined) {
     queryKey: ['portal-deal-push', pushId],
     queryFn: async () => {
       if (!pushId) return null;
-      const { data, error } = await supabase
-        .from('portal_deal_pushes')
+      const { data, error } = await untypedFrom('portal_deal_pushes')
         .select(`
           *,
           pushed_by_profile:profiles!portal_deal_pushes_pushed_by_fkey(
@@ -111,8 +107,7 @@ export function usePortalDealResponses(pushId: string | undefined) {
     queryKey: ['portal-deal-responses', pushId],
     queryFn: async (): Promise<(PortalDealResponse & { responder?: { name: string } })[]> => {
       if (!pushId) return [];
-      const { data, error } = await supabase
-        .from('portal_deal_responses')
+      const { data, error } = await untypedFrom('portal_deal_responses')
         .select(`
           *,
           responder:portal_users!portal_deal_responses_responded_by_fkey(name)
@@ -127,19 +122,20 @@ export function usePortalDealResponses(pushId: string | undefined) {
   });
 }
 
-/** Build a deal snapshot from a listing */
+/** Build a deal snapshot from a listing using actual DB columns */
 async function buildDealSnapshot(listingId: string): Promise<DealSnapshot> {
+  // Try marketplace_listings view first (buyer-safe, active deals only)
   const { data, error } = await supabase
     .from('marketplace_listings')
-    .select('id, title, category, categories, city, state, revenue, ebitda, asking_price, description, number_of_employees, years_in_business')
+    .select('id, title, category, categories, location, revenue, ebitda, description')
     .eq('id', listingId)
     .maybeSingle();
 
   if (error || !data) {
-    // Fallback: fetch from listings directly with safe columns
+    // Fallback: fetch from listings directly (for internal/inactive deals)
     const { data: listing, error: listError } = await supabase
       .from('listings')
-      .select('id, title, category, categories, city, state, revenue, ebitda, asking_price, description, number_of_employees, years_in_business')
+      .select('id, title, category, categories, location, revenue, ebitda, description')
       .eq('id', listingId)
       .maybeSingle();
 
@@ -148,13 +144,9 @@ async function buildDealSnapshot(listingId: string): Promise<DealSnapshot> {
     return {
       headline: listing.title || 'Untitled Deal',
       industry: listing.category || '',
-      geography: [listing.city, listing.state].filter(Boolean).join(', '),
-      state: listing.state || undefined,
+      geography: listing.location || '',
       ebitda: listing.ebitda,
       revenue: listing.revenue,
-      asking_price: listing.asking_price,
-      number_of_employees: listing.number_of_employees,
-      years_in_business: listing.years_in_business,
       business_description: listing.description || undefined,
       category: listing.category || undefined,
     };
@@ -163,13 +155,9 @@ async function buildDealSnapshot(listingId: string): Promise<DealSnapshot> {
   return {
     headline: data.title || 'Untitled Deal',
     industry: data.category || '',
-    geography: [data.city, data.state].filter(Boolean).join(', '),
-    state: data.state || undefined,
+    geography: data.location || '',
     ebitda: data.ebitda,
     revenue: data.revenue,
-    asking_price: data.asking_price,
-    number_of_employees: data.number_of_employees,
-    years_in_business: data.years_in_business,
     business_description: data.description || undefined,
     category: data.category || undefined,
   };
@@ -186,8 +174,7 @@ export function usePushDealToPortal() {
       if (!user) throw new Error('Not authenticated');
 
       // Check for duplicates
-      const { data: existing } = await supabase
-        .from('portal_deal_pushes')
+      const { data: existing } = await untypedFrom('portal_deal_pushes')
         .select('id, status, created_at')
         .eq('portal_org_id', input.portal_org_id)
         .eq('listing_id', input.listing_id)
@@ -200,8 +187,7 @@ export function usePushDealToPortal() {
 
       const snapshot = await buildDealSnapshot(input.listing_id);
 
-      const { data, error } = await supabase
-        .from('portal_deal_pushes')
+      const { data, error } = await untypedFrom('portal_deal_pushes')
         .insert({
           portal_org_id: input.portal_org_id,
           listing_id: input.listing_id,
@@ -217,7 +203,7 @@ export function usePushDealToPortal() {
       if (error) throw error;
 
       // Log activity
-      await supabase.from('portal_activity_log').insert({
+      await untypedFrom('portal_activity_log').insert({
         portal_org_id: input.portal_org_id,
         actor_id: user.id,
         actor_type: 'admin',
@@ -250,8 +236,7 @@ export function useSubmitDealResponse() {
       if (!user) throw new Error('Not authenticated');
 
       // Create response
-      const { data, error } = await supabase
-        .from('portal_deal_responses')
+      const { data, error } = await untypedFrom('portal_deal_responses')
         .insert({
           push_id: input.push_id,
           responded_by: input.portal_user_id,
@@ -272,8 +257,7 @@ export function useSubmitDealResponse() {
         internal_review: 'reviewing',
       };
 
-      await supabase
-        .from('portal_deal_pushes')
+      await untypedFrom('portal_deal_pushes')
         .update({
           status: statusMap[input.response_type] || input.response_type,
           updated_at: new Date().toISOString(),
@@ -281,7 +265,7 @@ export function useSubmitDealResponse() {
         .eq('id', input.push_id);
 
       // Log activity
-      await supabase.from('portal_activity_log').insert({
+      await untypedFrom('portal_activity_log').insert({
         portal_org_id: input.portal_org_id,
         actor_id: user.id,
         actor_type: 'portal_user',
@@ -310,8 +294,7 @@ export function useCheckDuplicatePush(portalOrgId: string | undefined, listingId
     queryKey: ['check-duplicate-push', portalOrgId, listingId],
     queryFn: async () => {
       if (!portalOrgId || !listingId) return null;
-      const { data } = await supabase
-        .from('portal_deal_pushes')
+      const { data } = await untypedFrom('portal_deal_pushes')
         .select('id, status, created_at, pushed_by')
         .eq('portal_org_id', portalOrgId)
         .eq('listing_id', listingId)
@@ -352,8 +335,7 @@ export function useConvertToPipelineDeal() {
       if (!user) throw new Error('Not authenticated');
 
       // Resolve the portal org's linked buyer profile (if any)
-      const { data: portalOrg } = await supabase
-        .from('portal_organizations')
+      const { data: portalOrg } = await untypedFrom('portal_organizations')
         .select('buyer_id, profile_id, name')
         .eq('id', portalOrgId)
         .single();
@@ -412,8 +394,7 @@ export function useConvertToPipelineDeal() {
       }
 
       // Update portal push status to under_nda
-      const { error: updateError } = await supabase
-        .from('portal_deal_pushes')
+      const { error: updateError } = await untypedFrom('portal_deal_pushes')
         .update({
           status: 'under_nda',
           updated_at: new Date().toISOString(),
@@ -423,7 +404,7 @@ export function useConvertToPipelineDeal() {
       if (updateError) throw updateError;
 
       // Log activity
-      await supabase.from('portal_activity_log').insert({
+      await untypedFrom('portal_activity_log').insert({
         portal_org_id: portalOrgId,
         actor_id: user.id,
         actor_type: 'admin',

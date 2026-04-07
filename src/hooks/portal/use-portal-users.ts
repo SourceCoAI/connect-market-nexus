@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, untypedFrom } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { PortalUser, InvitePortalUserInput } from '@/types/portal';
 
@@ -8,8 +8,7 @@ export function usePortalUsers(portalOrgId: string | undefined) {
     queryKey: ['portal-users', portalOrgId],
     queryFn: async (): Promise<PortalUser[]> => {
       if (!portalOrgId) return [];
-      const { data, error } = await supabase
-        .from('portal_users')
+      const { data, error } = await untypedFrom('portal_users')
         .select('*')
         .eq('portal_org_id', portalOrgId)
         .order('created_at', { ascending: false });
@@ -30,8 +29,7 @@ export function useInvitePortalUser() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase
-        .from('portal_users')
+      const { data, error } = await untypedFrom('portal_users')
         .insert({
           portal_org_id: input.portal_org_id,
           contact_id: input.contact_id || null,
@@ -47,7 +45,7 @@ export function useInvitePortalUser() {
       if (error) throw error;
 
       // Log activity
-      await supabase.from('portal_activity_log').insert({
+      await untypedFrom('portal_activity_log').insert({
         portal_org_id: input.portal_org_id,
         actor_id: user.id,
         actor_type: 'admin',
@@ -76,14 +74,13 @@ export function useDeactivatePortalUser() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
-        .from('portal_users')
+      const { error } = await untypedFrom('portal_users')
         .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('id', userId);
 
       if (error) throw error;
 
-      await supabase.from('portal_activity_log').insert({
+      await untypedFrom('portal_activity_log').insert({
         portal_org_id: portalOrgId,
         actor_id: user.id,
         actor_type: 'admin',
@@ -111,8 +108,7 @@ export function useMyPortalUser(slug: string | undefined) {
       if (!user) return null;
 
       // First resolve the org by slug
-      const { data: org } = await supabase
-        .from('portal_organizations')
+      const { data: org } = await untypedFrom('portal_organizations')
         .select('id')
         .eq('portal_slug', slug)
         .is('deleted_at', null)
@@ -120,8 +116,7 @@ export function useMyPortalUser(slug: string | undefined) {
 
       if (!org) return null;
 
-      const { data, error } = await supabase
-        .from('portal_users')
+      const { data, error } = await untypedFrom('portal_users')
         .select(`
           *,
           portal_org:portal_organizations!portal_users_portal_org_id_fkey(

@@ -99,12 +99,8 @@ export interface DealSnapshot {
   industry: string;
   sub_industry?: string;
   geography: string;
-  state?: string;
   ebitda: number | null;
   revenue: number | null;
-  asking_price: number | null;
-  number_of_employees?: number | null;
-  years_in_business?: number | null;
   business_description?: string;
   category?: string;
 }

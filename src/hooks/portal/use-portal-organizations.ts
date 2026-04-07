@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, untypedFrom } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type {
   PortalOrganization,
@@ -13,8 +13,7 @@ export function usePortalOrganizations() {
   return useQuery({
     queryKey: PORTAL_ORGS_KEY,
     queryFn: async (): Promise<PortalOrganizationWithDetails[]> => {
-      const { data, error } = await supabase
-        .from('portal_organizations')
+      const { data, error } = await untypedFrom('portal_organizations')
         .select(`
           *,
           relationship_owner:profiles!portal_organizations_relationship_owner_id_fkey(
@@ -31,13 +30,11 @@ export function usePortalOrganizations() {
       if (orgIds.length === 0) return [];
 
       const [usersRes, pushesRes] = await Promise.all([
-        supabase
-          .from('portal_users')
+        untypedFrom('portal_users')
           .select('portal_org_id')
           .in('portal_org_id', orgIds)
           .eq('is_active', true),
-        supabase
-          .from('portal_deal_pushes')
+        untypedFrom('portal_deal_pushes')
           .select('portal_org_id')
           .in('portal_org_id', orgIds)
           .neq('status', 'archived'),
@@ -66,8 +63,7 @@ export function usePortalOrganization(slug: string | undefined) {
     queryKey: ['portal-organization', slug],
     queryFn: async (): Promise<PortalOrganizationWithDetails | null> => {
       if (!slug) return null;
-      const { data, error } = await supabase
-        .from('portal_organizations')
+      const { data, error } = await untypedFrom('portal_organizations')
         .select(`
           *,
           relationship_owner:profiles!portal_organizations_relationship_owner_id_fkey(
@@ -94,8 +90,7 @@ export function useCreatePortalOrg() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase
-        .from('portal_organizations')
+      const { data, error } = await untypedFrom('portal_organizations')
         .insert({
           name: input.name,
           buyer_id: input.buyer_id || null,
@@ -117,7 +112,7 @@ export function useCreatePortalOrg() {
       if (error) throw error;
 
       // Log activity
-      await supabase.from('portal_activity_log').insert({
+      await untypedFrom('portal_activity_log').insert({
         portal_org_id: data.id,
         actor_id: user.id,
         actor_type: 'admin',
@@ -143,8 +138,7 @@ export function useUpdatePortalOrg() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<PortalOrganization> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('portal_organizations')
+      const { data, error } = await untypedFrom('portal_organizations')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
