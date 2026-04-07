@@ -167,6 +167,7 @@ const ObjectionTrackerPage = lazyWithRetry(
   () => import('@/features/objection-tracker/ObjectionTrackerPage'),
 );
 
+<<<<<<< claude/build-client-portal-P2QuA
 // Client Portal pages
 const ClientPortalsList = lazyWithRetry(
   () => import('@/pages/admin/client-portals/ClientPortalsList'),
@@ -177,6 +178,13 @@ const ClientPortalDetail = lazyWithRetry(
 const PortalDashboard = lazyWithRetry(() => import('@/pages/portal/PortalDashboard'));
 const PortalDealTracker = lazyWithRetry(() => import('@/pages/portal/PortalDealTracker'));
 const PortalDealDetail = lazyWithRetry(() => import('@/pages/portal/PortalDealDetail'));
+=======
+// Outlook Email Integration
+const OutlookSettingsPage = lazyWithRetry(
+  () => import('@/pages/admin/settings/OutlookSettingsPage'),
+);
+const OutlookCallback = lazyWithRetry(() => import('@/pages/auth/OutlookCallback'));
+>>>>>>> main
 
 // ReMarketing pages (now rendered inside AdminLayout via shared sidebar)
 const ReMarketingLayout = lazyWithRetry(() =>
@@ -302,6 +310,7 @@ function App() {
             <Route path="/dataroom/:accessToken" element={<RouteErrorBoundary name="PublicRoutes"><DataRoomPortal /></RouteErrorBoundary>} />
             <Route path="/view/:linkToken" element={<RouteErrorBoundary name="PublicRoutes"><TrackedDocumentViewer /></RouteErrorBoundary>} />
             <Route path="/deals/:id" element={<RouteErrorBoundary name="PublicRoutes"><DealLandingPage /></RouteErrorBoundary>} />
+            <Route path="/auth/outlook/callback" element={<RouteErrorBoundary name="PublicRoutes"><OutlookCallback /></RouteErrorBoundary>} />
 
             {/* ─── BUYER-FACING (unchanged) ─── */}
             <Route
@@ -671,6 +680,7 @@ function App() {
                   </RoleGate>
                 }
               />
+              <Route path="settings/outlook" element={<OutlookSettingsPage />} />
               {/* FEATURE IDEAS */}
               <Route path="feature-ideas" element={<AdminFeatureIdeas />} />
 
