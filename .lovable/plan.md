@@ -1,30 +1,36 @@
 
 
-# Push Clear Choice Windows & Doors Live
+# Fix: Documents Showing as Missing for Queue-Pushed Listings
 
-## Current Blockers
+## Root Cause
 
-The listing exists (`9f08d1a8-3308-4944-a48e-2eb994876b74`) with `is_internal_deal: true` and has never been published. The `publish-listing` edge function rejects it because:
+The `useListingsByType` hook does NOT include `source_deal_id` in its SELECT query. When a listing card is opened for editing, the listing object passed to `ImprovedListingEditor` has no `source_deal_id` field.
 
-1. **Description is null** — gate requires ≥ 50 characters
-2. **Image is null** — gate requires a non-empty `image_url`
+The editor then falls back to using the listing's own ID for document queries. Since documents are stored against the source deal (the original remarketing deal), the editor finds 0 documents and shows "No Teaser / No Memo".
 
-Memo PDFs (Lead Memo + Teaser) are both uploaded. Revenue, EBITDA, category, location all present.
+## Fix
 
-## Plan
+**Single change in one file**: Add `source_deal_id` to the SELECT columns in `use-listings-by-type.ts`.
 
-### 1. Auto-populate description from executive summary
-The listing has a good executive summary (200+ chars). Update the `publish-listing` edge function to **fall back to `executive_summary`** when `description` is empty, so deals with a summary but no separate description can still pass the gate.
+| File | Change |
+|------|--------|
+| `src/hooks/admin/listings/use-listings-by-type.ts` (line 47) | Add `source_deal_id` to the select string |
 
-### 2. Make image optional for publishing
-Remove the image requirement from the publish gate. Many deals don't have custom images. The marketplace card/detail page should gracefully handle missing images (it likely already does with a placeholder).
+### Current (line 47):
+```
+'id, title, description, category, categories, status, revenue, ebitda, image_url, is_internal_deal, created_at, updated_at, location, internal_company_name, deal_owner_id, published_at'
+```
 
-### 3. Deploy and publish
+### Fixed:
+```
+'id, title, description, category, categories, status, revenue, ebitda, image_url, is_internal_deal, created_at, updated_at, location, internal_company_name, deal_owner_id, published_at, source_deal_id'
+```
 
-| Step | File | Change |
-|------|------|--------|
-| 1 | `supabase/functions/publish-listing/index.ts` | In `validateListingQuality`: use `executive_summary` as fallback for description check; remove image_url requirement |
-| 2 | Deploy `publish-listing` edge function | |
+This single addition means:
+- `listing.source_deal_id` will be populated (e.g., `9f08d1a8-...` for Clear Choice)
+- `effectiveDealId` in the editor will resolve to the source deal ID
+- `EditorDocumentsSection` will query documents from the source deal
+- Teaser and Memo badges will show green checkmarks
 
-After deployment, the existing "Publish to Marketplace" button in the admin UI will work for this listing without any manual data entry.
+No other files need changes. The editor, documents section, and all downstream logic already handle `source_deal_id` correctly -- they just never receive it because the query doesn't fetch it.
 
