@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PipelineSummaryCard } from '@/components/remarketing';
 import { DealTranscriptSection } from '@/components/remarketing/DealTranscriptSection';
 import {

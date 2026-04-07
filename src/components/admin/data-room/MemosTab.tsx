@@ -45,6 +45,7 @@ import {
 import { generateMemoDocx } from '@/lib/generate-memo-docx';
 import { format } from 'date-fns';
 import { extractCompanyInfo } from '@/lib/memo-utils';
+import { buildMemoPdfHtml, openPrintWindow } from '@/lib/memo-pdf-template';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -461,39 +462,18 @@ function MemoSlotCard({
   const handleDownloadDraftPdf = () => {
     const sections = getMemoSections();
     if (!sections) return;
-    const title = slotType === 'anonymous_teaser'
-      ? `Anonymous Teaser – ${projectName || 'Deal'}`
-      : `Lead Memo – ${dealTitle || 'Deal'}`;
+    const displayTitle = slotType === 'anonymous_teaser'
+      ? (projectName || 'Deal')
+      : (dealTitle || 'Deal');
 
-    const htmlContent = `<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8">
-<title>${title}</title>
-<style>
-  @page { margin: 1in; size: letter; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color: #1a1a1a; line-height: 1.6; max-width: 100%; margin: 0; padding: 0; font-size: 11pt; }
-  h1 { font-size: 18pt; font-weight: 700; margin: 0 0 6pt 0; letter-spacing: -0.02em; }
-  h2 { font-size: 13pt; font-weight: 600; margin: 20pt 0 8pt 0; padding-bottom: 4pt; border-bottom: 1px solid #e5e5e5; }
-  p { margin: 0 0 8pt 0; }
-  .subtitle { font-size: 10pt; color: #666; margin-bottom: 20pt; }
-  .section-content { white-space: pre-wrap; }
-  .confidential { font-size: 8pt; color: #999; text-align: center; margin-top: 30pt; border-top: 1px solid #e5e5e5; padding-top: 8pt; }
-  @media print { body { -webkit-print-color-adjust: exact; } }
-</style>
-</head><body>
-<h1>${title}</h1>
-<p class="subtitle">Prepared by SourceCo Advisors &bull; ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-${sections.map(s => `<h2>${s.title}</h2><div class="section-content">${s.content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>`).join('\n')}
-<p class="confidential">CONFIDENTIAL — This document contains proprietary information and is intended solely for the recipient.</p>
-</body></html>`;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.onload = () => {
-      setTimeout(() => printWindow.print(), 300);
-    };
+    const html = buildMemoPdfHtml({
+      sections,
+      memoType: slotType,
+      dealTitle: displayTitle,
+      branding: 'SourceCo',
+      content: draft!.content as Record<string, unknown>,
+    });
+    openPrintWindow(html);
   };
 
   const isUploading = uploadDocument.isPending;
