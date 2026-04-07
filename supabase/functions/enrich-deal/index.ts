@@ -204,12 +204,14 @@ serve(async (req) => {
     }
 
     if (!geminiApiKey) {
-      console.error('[enrich-deal] GEMINI_API_KEY is not set — transcript extraction will fail');
+      console.error(
+        '[enrich-deal] Neither OPENROUTER_API_KEY nor GEMINI_API_KEY is set — transcript extraction will fail',
+      );
       return new Response(
         JSON.stringify({
           success: false,
           error:
-            'GEMINI_API_KEY is not configured. Please add it to Supabase Edge Function secrets.',
+            'AI API key is not configured. Please add OPENROUTER_API_KEY to Supabase Edge Function secrets.',
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );

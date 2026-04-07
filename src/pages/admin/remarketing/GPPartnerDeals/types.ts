@@ -91,6 +91,7 @@ export const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   rating: 70,
   score: 70,
   date: 90,
+  replied: 80,
   status: 80,
   priority: 70,
   actions: 50,

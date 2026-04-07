@@ -211,7 +211,7 @@ export function GPPartnerTable({
                   <SortHeader column="created_at">Added</SortHeader>
                 </ResizableHeader>
                 <ResizableHeader
-                  width={columnWidths.replied ?? 80}
+                  width={columnWidths.replied}
                   onResize={(w) => handleColumnResize('replied', w)}
                   minWidth={60}
                 >
