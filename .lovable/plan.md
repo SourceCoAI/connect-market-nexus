@@ -1,73 +1,101 @@
 
 
-# Memo v5 Assessment: Almost There — One Issue Remains
+# Data Room Access: Findings and Proposed Fixes
 
-## What's Correct (verified against all sources)
+## Current State (What Already Works)
 
-| Data Point | Memo Value | Source | Verdict |
-|---|---|---|---|
-| Revenue | $6,250,000 | Call 3 transcript + enrichment | Correct |
-| EBITDA | $650,000 | Enrichment/general_notes | Correct (analyst notes flag as unverified) |
-| EBITDA Margin | 10.4% | Calculated ($650K/$6.25M) | Correct — better than using enrichment's 10.83% |
-| Google Rating | 4.7 (46 reviews) | listings.google_rating | Correct — NEW, wasn't in v4 |
-| Founded | 1999 | listings.founded_year | Correct |
-| Locations | 2 (Sebring, South Daytona) | listings.number_of_locations + real_estate_info | Correct |
-| Growth Drivers | Geographic, commercial, Directorii | listings.growth_drivers | Correct — NEW |
-| Certified Valuation | Mentioned | listings.general_notes | Correct — NEW |
-| Transition Plan | Tim and Tracy, 6 months | Call 3 transcript | Correct |
-| Directorii Partnership | Mentioned | listings.competitive_position | Correct |
-| Services | Roofing + metal supply | Call 3 + enrichment | Correct |
-| No omission language | — | — | Fixed — no "not on file" in memo body |
-| No third-party platform language | — | — | Fixed — no Latite/Sun Capital/centralized system |
+| Feature | Status |
+|---------|--------|
+| On approval, `data_room_access` row is auto-created with `can_view_teaser: true` | Working |
+| Fee agreement status determines `can_view_full_memo` and `can_view_data_room` | Working |
+| Admin toggles in connection request dropdown (Teaser / Full Memo / Data Room) | Working |
+| `trg_auto_upgrade_data_room_on_fee_sign` auto-upgrades access when fee agreement is signed | Working |
+| Buyer vault UI filters documents by `document_category` vs access toggles | Working |
+| Edge function `data-room-download` checks access before serving signed URLs | Working |
 
-## One Remaining Issue
+## Issues Found
 
-**"Headcount: 25 full-time employees; 15 per LinkedIn employee count"** — This line in MANAGEMENT AND STAFFING still contrasts two data sources. The prompt rule says "pick the highest-priority figure and state it alone." It should just say "25 full-time employees."
+### 1. Published memos are NOT filtered by access level (Security Bug)
 
-### Root Cause
+`BuyerDataRoom.tsx` line 146-160 fetches ALL published memos for the deal regardless of `memo_type`. A buyer with only teaser access (`can_view_teaser: true`) can see `full_memo` type memos in the vault. The query needs a filter:
+- If `can_view_teaser` only: show memos where `memo_type = 'anonymous_teaser'`
+- If `can_view_full_memo`: show both types
 
-The phrase "per LinkedIn employee count" doesn't match the current `SOURCE_CONTRAST_PATTERNS`. The only LinkedIn pattern is `/\bLinkedIn[\s-]*report/i` which catches "LinkedIn-reported" but NOT "per LinkedIn employee count." The line also survives the source-contrast check in the semicolon splitter because "15 per LinkedIn employee count" matches neither pattern.
+### 2. Sidebar "Explore data room" is gated on Fee Agreement (Too Restrictive)
 
-## Analyst Notes Assessment: Excellent
+`ListingSidebarActions.tsx` line 68: `const canExploreDataRoom = feeCovered && connectionApproved;`
 
-The analyst notes correctly:
-- Flag EBITDA as unverified (only in enrichment, not owner-confirmed)
-- Note revenue is from Call 3 third-party meeting context
-- Flag the 1-location vs 2-location conflict in general_notes vs enrichment
-- Flag key quotes as third-party characterizations
-- Note the EBITDA margin discrepancy (10.83% stored vs 10.4% calculated)
-- List all known data gaps accurately
+This means a buyer whose connection is approved but hasn't signed the fee agreement can't open the data room at all — even though they have teaser access (`can_view_teaser: true`). The gate should be `connectionApproved` only. The access toggles already control what they see inside.
 
-One minor note: the analyst notes say "Enrichment data lists 25 full-time employees" — but `full_time_employees: 25` is on the listings table directly (the enrichment source), while `linkedin_employee_count: 15` is a separate field. Both are correct characterizations.
+### 3. Messaging over-promises "full data room"
 
-## Fix
+Multiple places tell buyers they'll get the CIM, real company name, and full financials:
 
-### File: `supabase/functions/generate-lead-memo/index.ts`
+| Location | Current Copy | Problem |
+|----------|-------------|---------|
+| `BlurredFinancialTeaser.tsx` | "Request access to view the CIM, real company name, and full financials." | Most buyers will only get the anonymous teaser initially |
+| `ListingSidebarActions.tsx` tooltip | "Sign your Fee Agreement to unlock the data room." | Implies fee agreement = full access, but admin still controls toggles |
+| Approval message (`useConnectionRequestActions.ts` line 92) | "You now have access to the deal overview and supporting documents in the data room." | Over-promises — they may only have the teaser |
+| `ConnectionButton.tsx` line 190 | "Sign your documents to unlock the data room and request introductions." | Same issue |
 
-**1. Broaden LinkedIn source-contrast pattern** (line 812)
+### 4. Vault empty state messaging is vague
 
-Change `/\bLinkedIn[\s-]*report/i` to a broader pattern that catches all LinkedIn source references:
+When a buyer has teaser-only access and there are no teaser documents uploaded yet, they see "Your data room is being prepared. Documents will appear here once released by the advisor." This is fine but could be more specific about what they have access to.
+
+## Proposed Changes
+
+### File 1: `src/components/marketplace/BuyerDataRoom.tsx`
+
+**Filter memos by access level.** Before rendering memos, filter:
 ```
-/\bLinkedIn\b/i
-```
-
-This catches "LinkedIn-reported", "per LinkedIn employee count", "LinkedIn data", etc. There is no legitimate reason for the word "LinkedIn" to appear in an investor-facing memo.
-
-**2. Add "per [source]" pattern**
-
-Add a new pattern to catch "per LinkedIn", "per enrichment", "per internal data" etc.:
-```
-/\bper\s+LinkedIn\b/i
+const visibleMemos = memos.filter(m => {
+  if (m.memo_type === 'anonymous_teaser') return access?.can_view_teaser;
+  if (m.memo_type === 'full_memo') return access?.can_view_full_memo;
+  return false;
+});
 ```
 
-Actually the broad `/\bLinkedIn\b/i` pattern above covers this. One pattern suffices.
+### File 2: `src/components/listing-detail/ListingSidebarActions.tsx`
 
-## Files Changed
+**Change data room gate** from `feeCovered && connectionApproved` to just `connectionApproved`.
 
-| File | Change |
-|---|---|
-| `supabase/functions/generate-lead-memo/index.ts` | Broaden LinkedIn pattern from `/\bLinkedIn[\s-]*report/i` to `/\bLinkedIn\b/i` |
+**Update tooltip** — remove fee agreement language when connection is approved. If connection is approved but fee not signed, no tooltip (they can open the vault; they'll see teaser-only content inside).
 
-## Post-Change
-Redeploy edge function. Regenerate memo to verify the headcount line shows only "25 full-time employees" without the LinkedIn contrast.
+### File 3: `src/components/listing-detail/BlurredFinancialTeaser.tsx`
+
+**Tone down the promise.** Change copy from:
+> "Request access to view the CIM, real company name, and full financials."
+
+To:
+> "Request access to receive deal materials from the advisor."
+
+This is accurate for all cases — teaser-only or full access.
+
+### File 4: `src/components/admin/connection-request-actions/useConnectionRequestActions.ts`
+
+**Tone down approval message.** Change from:
+> "You now have access to the deal overview and supporting documents in the data room."
+
+To:
+> "Your introduction to [listing] has been approved. Deal materials have been made available in your data room. Our team will facilitate the introduction to the business owner — expect to hear from us within one business day."
+
+This is accurate whether they get a teaser or full access.
+
+### File 5: `src/components/listing-detail/ConnectionButton.tsx`
+
+**Change copy** from "unlock the data room" to "unlock deal materials" — more accurate when most buyers get teasers only.
+
+## What Does NOT Change
+
+- Admin access toggles (already work correctly)
+- Auto-provisioning on approval (already sets teaser=true, full/data_room based on fee agreement)
+- Auto-upgrade trigger on fee agreement signing (already works)
+- Edge function download access checks (already works)
+- MFA gate on vault (already works)
+
+## Implementation Order
+
+1. Fix memo filtering in BuyerDataRoom (security fix)
+2. Fix sidebar gate (teaser-only buyers can open vault)
+3. Update all buyer-facing copy (5 strings across 4 files)
 
