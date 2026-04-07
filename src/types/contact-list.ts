@@ -21,6 +21,7 @@ export interface ContactList {
 export interface ContactListMember {
   id: string;
   list_id: string;
+  contact_id: string | null;
   contact_email: string;
   contact_name: string | null;
   contact_phone: string | null;
@@ -30,6 +31,15 @@ export interface ContactListMember {
   entity_id: string;
   added_at: string;
   removed_at: string | null;
+  // Joined from contacts table via contact_id FK (fresh data)
+  contact?: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    phone: string | null;
+    title: string | null;
+    company_name: string | null;
+  } | null;
   // Joined deal owner fields
   deal_owner_name?: string | null;
   deal_owner_id?: string | null;

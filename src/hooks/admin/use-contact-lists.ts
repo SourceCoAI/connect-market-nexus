@@ -77,7 +77,7 @@ export function useContactList(listId: string | undefined) {
 
       const { data: members, error: membersError } = await supabase
         .from('contact_list_members')
-        .select('*')
+        .select('*, contact:contacts(first_name, last_name, email, phone, title, company_name)')
         .eq('list_id', listId!)
         .is('removed_at', null)
         .order('added_at', { ascending: false });
@@ -115,7 +115,13 @@ export function useContactList(listId: string | undefined) {
       }
 
       // Fetch deal owners for all deal-type members
-      const DEAL_ENTITY_TYPES = ['deal', 'listing', 'sourceco_deal', 'gp_partner_deal', 'referral_deal'];
+      const DEAL_ENTITY_TYPES = [
+        'deal',
+        'listing',
+        'sourceco_deal',
+        'gp_partner_deal',
+        'referral_deal',
+      ];
       const dealMembers = (members ?? []).filter((m) => DEAL_ENTITY_TYPES.includes(m.entity_type));
       const dealOwnerMap: Record<string, { name: string; id: string }> = {};
 

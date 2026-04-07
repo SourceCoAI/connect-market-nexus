@@ -455,20 +455,32 @@ function MemberRow({
       </TableCell>
       <TableCell>
         <div className="flex flex-col">
-          <span className="font-medium text-sm">{member.contact_name || 'Unknown'}</span>
-          {member.contact_role && (
-            <span className="text-xs text-muted-foreground">{member.contact_role}</span>
+          <span className="font-medium text-sm">
+            {member.contact?.first_name || member.contact?.last_name
+              ? `${member.contact.first_name ?? ''} ${member.contact.last_name ?? ''}`.trim()
+              : member.contact_name || 'Unknown'}
+          </span>
+          {(member.contact?.title || member.contact_role) && (
+            <span className="text-xs text-muted-foreground">
+              {member.contact?.title || member.contact_role}
+            </span>
           )}
         </div>
       </TableCell>
       <TableCell>
-        <span className="text-sm text-muted-foreground">{member.contact_email}</span>
+        <span className="text-sm text-muted-foreground">
+          {member.contact?.email || member.contact_email}
+        </span>
       </TableCell>
       <TableCell>
-        <span className="text-sm text-muted-foreground">{member.contact_phone || '--'}</span>
+        <span className="text-sm text-muted-foreground">
+          {member.contact?.phone || member.contact_phone || '--'}
+        </span>
       </TableCell>
       <TableCell>
-        <span className="text-sm">{member.contact_company || '--'}</span>
+        <span className="text-sm">
+          {member.contact?.company_name || member.contact_company || '--'}
+        </span>
       </TableCell>
       <TableCell>
         {member.deal_owner_name ? (
