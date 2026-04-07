@@ -14,6 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
+      _deprecated_remarketing_buyer_contacts: {
+        Row: {
+          buyer_id: string
+          company_type: string | null
+          created_at: string
+          email: string | null
+          email_confidence: string | null
+          id: string
+          is_deal_team: boolean | null
+          is_primary: boolean
+          is_primary_contact: boolean | null
+          linkedin_url: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          priority_level: number | null
+          role: string | null
+          role_category: string | null
+          salesforce_id: string | null
+          source: string | null
+          source_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          buyer_id: string
+          company_type?: string | null
+          created_at?: string
+          email?: string | null
+          email_confidence?: string | null
+          id?: string
+          is_deal_team?: boolean | null
+          is_primary?: boolean
+          is_primary_contact?: boolean | null
+          linkedin_url?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          priority_level?: number | null
+          role?: string | null
+          role_category?: string | null
+          salesforce_id?: string | null
+          source?: string | null
+          source_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          buyer_id?: string
+          company_type?: string | null
+          created_at?: string
+          email?: string | null
+          email_confidence?: string | null
+          id?: string
+          is_deal_team?: boolean | null
+          is_primary?: boolean
+          is_primary_contact?: boolean | null
+          linkedin_url?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          priority_level?: number | null
+          role?: string | null
+          role_category?: string | null
+          salesforce_id?: string | null
+          source?: string | null
+          source_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "remarketing_buyer_contacts_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remarketing_buyer_contacts_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "remarketing_buyers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_connection_requests_views: {
         Row: {
           admin_id: string
@@ -2771,6 +2855,7 @@ export type Database = {
           added_at: string
           contact_company: string | null
           contact_email: string
+          contact_id: string | null
           contact_name: string | null
           contact_phone: string | null
           contact_role: string | null
@@ -2784,6 +2869,7 @@ export type Database = {
           added_at?: string
           contact_company?: string | null
           contact_email: string
+          contact_id?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           contact_role?: string | null
@@ -2797,6 +2883,7 @@ export type Database = {
           added_at?: string
           contact_company?: string | null
           contact_email?: string
+          contact_id?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           contact_role?: string | null
@@ -2807,6 +2894,13 @@ export type Database = {
           removed_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contact_list_members_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contact_list_members_list_id_fkey"
             columns: ["list_id"]
@@ -9915,90 +10009,6 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "user_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      remarketing_buyer_contacts: {
-        Row: {
-          buyer_id: string
-          company_type: string | null
-          created_at: string
-          email: string | null
-          email_confidence: string | null
-          id: string
-          is_deal_team: boolean | null
-          is_primary: boolean
-          is_primary_contact: boolean | null
-          linkedin_url: string | null
-          name: string
-          notes: string | null
-          phone: string | null
-          priority_level: number | null
-          role: string | null
-          role_category: string | null
-          salesforce_id: string | null
-          source: string | null
-          source_url: string | null
-          updated_at: string
-        }
-        Insert: {
-          buyer_id: string
-          company_type?: string | null
-          created_at?: string
-          email?: string | null
-          email_confidence?: string | null
-          id?: string
-          is_deal_team?: boolean | null
-          is_primary?: boolean
-          is_primary_contact?: boolean | null
-          linkedin_url?: string | null
-          name: string
-          notes?: string | null
-          phone?: string | null
-          priority_level?: number | null
-          role?: string | null
-          role_category?: string | null
-          salesforce_id?: string | null
-          source?: string | null
-          source_url?: string | null
-          updated_at?: string
-        }
-        Update: {
-          buyer_id?: string
-          company_type?: string | null
-          created_at?: string
-          email?: string | null
-          email_confidence?: string | null
-          id?: string
-          is_deal_team?: boolean | null
-          is_primary?: boolean
-          is_primary_contact?: boolean | null
-          linkedin_url?: string | null
-          name?: string
-          notes?: string | null
-          phone?: string | null
-          priority_level?: number | null
-          role?: string | null
-          role_category?: string | null
-          salesforce_id?: string | null
-          source?: string | null
-          source_url?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "remarketing_buyer_contacts_buyer_id_fkey"
-            columns: ["buyer_id"]
-            isOneToOne: false
-            referencedRelation: "buyers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "remarketing_buyer_contacts_buyer_id_fkey"
-            columns: ["buyer_id"]
-            isOneToOne: false
-            referencedRelation: "remarketing_buyers"
             referencedColumns: ["id"]
           },
         ]
