@@ -1,5 +1,4 @@
 import { PipelineSummaryCard } from '@/components/remarketing';
-import { PipelineSummaryCard } from '@/components/remarketing';
 import { DealTranscriptSection } from '@/components/remarketing/DealTranscriptSection';
 import {
   GeneralNotesSection,
