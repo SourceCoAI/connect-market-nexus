@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -14,7 +14,6 @@ const CAPTURED_SEARCH = window.location.search;
 
 /**
  * Parse auth tokens from the captured URL hash fragment.
- * Uses CAPTURED_HASH (frozen at module load) instead of live window.location.hash.
  */
 function parseHashTokens(): { access_token: string; refresh_token: string } | null {
   if (!CAPTURED_HASH) return null;
@@ -36,6 +35,7 @@ function getPKCECode(): string | null {
 export default function AuthCallback() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isConsumedLink, setIsConsumedLink] = useState(false);
   const navigate = useNavigate();
   const { sendVerificationSuccessEmail } = useVerificationSuccessEmail();
 
@@ -48,10 +48,8 @@ export default function AuthCallback() {
         const pkceCode = getPKCECode();
 
         if (hashTokens) {
-          // Clear any existing local session to avoid conflicts
-          await supabase.auth.signOut({ scope: 'local' });
-
-          // Directly set the session using the tokens from the URL hash
+          // Directly set the session using tokens from the URL hash.
+          // DO NOT call signOut first — that destroys the session Supabase just created.
           const { data, error: setSessionError } = await supabase.auth.setSession({
             access_token: hashTokens.access_token,
             refresh_token: hashTokens.refresh_token,
@@ -59,18 +57,16 @@ export default function AuthCallback() {
           if (setSessionError) throw setSessionError;
           authUser = data.user;
         } else if (pkceCode) {
-          // Clear any existing local session to avoid conflicts
-          await supabase.auth.signOut({ scope: 'local' });
-
-          // Exchange the PKCE code for a session
+          // Exchange the PKCE code for a session — no signOut first.
           const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(pkceCode);
           if (exchangeError) throw exchangeError;
           authUser = data.user;
         } else {
-          // No tokens in URL - just check the existing session
-          const { data: { user }, error: getUserError } = await supabase.auth.getUser();
-          if (getUserError) throw getUserError;
-          authUser = user;
+          // No tokens in URL — Supabase may have already consumed them and
+          // established a session automatically. Check the existing session.
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) throw sessionError;
+          authUser = session?.user ?? null;
         }
 
         if (authUser) {
@@ -90,22 +86,25 @@ export default function AuthCallback() {
                 )
               : fetchedProfile;
 
-          // Check if this is a fresh email verification
+          // Navigate FIRST, then fire emails in the background
           const emailConfirmed = !!authUser.email_confirmed_at;
 
-          // Send verification success email if user just verified their email
-          if (emailConfirmed && profile) {
-            try {
-              await sendVerificationSuccessEmail({
-                email: profile.email as string,
-                firstName: (profile.first_name || '') as string,
-                lastName: (profile.last_name || '') as string,
-              });
-            } catch (emailError) {
-              console.error('Failed to send verification success email:', emailError);
-            }
+          if (emailConfirmed && profile?.approval_status === 'approved') {
+            navigate(profile.is_admin ? '/admin' : '/');
+          } else {
+            navigate('/pending-approval');
+          }
 
-            // Also send branded email_verified notification
+          // Fire-and-forget: send verification success email + journey notification
+          if (emailConfirmed && profile) {
+            sendVerificationSuccessEmail({
+              email: profile.email as string,
+              firstName: (profile.first_name || '') as string,
+              lastName: (profile.last_name || '') as string,
+            }).catch((emailError) => {
+              console.error('Failed to send verification success email:', emailError);
+            });
+
             const userName =
               `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'there';
             supabase.functions
@@ -121,17 +120,25 @@ export default function AuthCallback() {
                 console.error('Failed to send email_verified journey notification:', err);
               });
           }
-
-          if (emailConfirmed && profile?.approval_status === 'approved') {
-            navigate(profile.is_admin ? '/admin' : '/');
-          } else {
-            navigate('/pending-approval');
-          }
         } else {
-          navigate('/login');
+          // No user found at all — the link may have already been consumed
+          setIsConsumedLink(true);
+          setIsLoading(false);
+          return;
         }
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Authentication failed');
+        const message = err instanceof Error ? err.message : 'Authentication failed';
+        // If the error indicates an expired/consumed token, show friendly UI
+        if (
+          message.includes('expired') ||
+          message.includes('invalid') ||
+          message.includes('already been used') ||
+          message.includes('flow_state_not_found')
+        ) {
+          setIsConsumedLink(true);
+        } else {
+          setError(message);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -139,6 +146,22 @@ export default function AuthCallback() {
 
     handleCallback();
   }, [navigate]);
+
+  if (isConsumedLink) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="text-center max-w-md space-y-4">
+          <h1 className="text-2xl font-bold">Verification link already used</h1>
+          <p className="text-muted-foreground">
+            This verification link has already been processed. Your email may already be verified.
+          </p>
+          <Link to="/login">
+            <Button className="w-full">Go to Login</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
