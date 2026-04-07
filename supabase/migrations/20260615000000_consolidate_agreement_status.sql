@@ -222,3 +222,56 @@ BEGIN
   );
 END;
 $$;
+
+-- Merged from: 20260615000000_fix_pipeline_from_introductions.sql
+-- Fix pipeline creation from buyer introductions
+-- Root cause: multiple constraint/schema mismatches prevented pipeline entries from being created
+
+-- 1. Add 'remarketing' to deal_pipeline source constraint
+ALTER TABLE deal_pipeline DROP CONSTRAINT IF EXISTS deals_source_check;
+ALTER TABLE deal_pipeline ADD CONSTRAINT deals_source_check CHECK (
+  source = ANY (ARRAY[
+    'manual', 'marketplace', 'webflow', 'salesforce', 'valuation_calculator',
+    'valuation_lead', 'smartlead', 'gp_partners', 'sourceco', 'captarget',
+    'match_tool', 'website', 'referral', 'salesforce_remarketing', 'remarketing'
+  ])
+);
+
+-- 2. Add 'deal_created' to buyer_introductions status constraint
+ALTER TABLE buyer_introductions DROP CONSTRAINT IF EXISTS buyer_introductions_introduction_status_check;
+ALTER TABLE buyer_introductions ADD CONSTRAINT buyer_introductions_introduction_status_check CHECK (
+  introduction_status = ANY (ARRAY[
+    'need_to_show_deal', 'outreach_initiated', 'meeting_scheduled',
+    'not_a_fit', 'fit_and_interested', 'deal_created'
+  ])
+);
+
+-- 3. Prevent duplicate pipeline deals for same buyer+listing
+CREATE UNIQUE INDEX IF NOT EXISTS idx_deal_pipeline_unique_remarketing_buyer
+  ON deal_pipeline (listing_id, remarketing_buyer_id)
+  WHERE remarketing_buyer_id IS NOT NULL AND deleted_at IS NULL;
+
+-- 4. Invalidate recommendation cache when listing changes
+CREATE OR REPLACE FUNCTION invalidate_recommendation_cache_on_listing_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.industry IS DISTINCT FROM NEW.industry
+    OR OLD.category IS DISTINCT FROM NEW.category
+    OR OLD.categories IS DISTINCT FROM NEW.categories
+    OR OLD.address_state IS DISTINCT FROM NEW.address_state
+    OR OLD.geographic_states IS DISTINCT FROM NEW.geographic_states
+    OR OLD.executive_summary IS DISTINCT FROM NEW.executive_summary
+  THEN
+    UPDATE buyer_recommendation_cache
+    SET expires_at = now()
+    WHERE listing_id = NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_invalidate_recommendation_cache ON listings;
+CREATE TRIGGER trg_invalidate_recommendation_cache
+  AFTER UPDATE ON listings
+  FOR EACH ROW
+  EXECUTE FUNCTION invalidate_recommendation_cache_on_listing_change();
