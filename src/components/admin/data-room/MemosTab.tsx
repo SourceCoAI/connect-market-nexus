@@ -926,7 +926,7 @@ function DraftPreview({ draft }: { draft: LeadMemo }) {
           return (
             <div key={sectionTitle || sectionContent?.slice(0, 40)}>
               {sectionTitle && (
-                <h3 className="text-sm font-semibold mb-1 text-[#1a1a2e] border-b border-muted pb-1">
+                <h3 className="text-xs font-semibold mb-1 text-[#1a1a2e] uppercase tracking-widest">
                   {sectionTitle}
                 </h3>
               )}
@@ -945,6 +945,23 @@ function DraftPreview({ draft }: { draft: LeadMemo }) {
             </div>
           );
         })}
+
+      {/* Analyst Notes - admin only, never in exports */}
+      {(() => {
+        const analystNotes = (draft.content as { analyst_notes?: string })?.analyst_notes;
+        if (!analystNotes || analystNotes === 'None.') return null;
+        return (
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-2 w-full mt-4 pt-4 border-t border-amber-200 text-sm font-medium text-amber-700 hover:text-amber-900 transition-colors">
+              <ChevronRight className="h-4 w-4 transition-transform data-[state=open]:rotate-90" />
+              Analyst Notes - Data Quality Findings
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+              <p className="text-xs text-amber-800 whitespace-pre-wrap">{analystNotes}</p>
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })()}
     </div>
   );
 }

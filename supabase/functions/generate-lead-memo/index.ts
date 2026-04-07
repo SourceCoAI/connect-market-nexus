@@ -1730,7 +1730,7 @@ function sectionsToHtml(memo: MemoContent, memoType: string, branding: string): 
     if (section.key === 'header_block' || section.key === 'contact_information') continue;
 
     html += `<div class="memo-section" data-key="${escapeHtmlForMemo(section.key)}" style="margin-bottom: 20px;">`;
-    html += `<h2 style="font-size: 16px; margin: 0 0 8px 0; color: #1a1a2e; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px;">${escapeHtmlForMemo(section.title)}</h2>`;
+    html += `<h2 style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 8px 0; color: #1a1a2e; padding: 0; border: none;">${escapeHtmlForMemo(section.title)}</h2>`;
     html += `<div class="section-content" style="font-size: 14px;">${markdownToHtml(section.content)}</div>`;
     html += `</div>`;
   }
