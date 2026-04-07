@@ -58,7 +58,6 @@ import {
   Layers,
   LogOut,
   User,
-  GraduationCap,
   Archive,
   FolderOpen,
 } from 'lucide-react';
@@ -309,18 +308,6 @@ export function UnifiedAdminSidebar({
             label: 'Transcript Analytics',
             href: '/admin/analytics/transcripts',
             icon: <ClipboardList className="h-4 w-4" />,
-          },
-        ],
-      },
-      {
-        id: 'coaching',
-        label: 'Coaching',
-        icon: <GraduationCap className="h-4 w-4" />,
-        items: [
-          {
-            label: 'Training Center',
-            href: '/admin/training-center',
-            icon: <GraduationCap className="h-4 w-4" />,
           },
         ],
       },
