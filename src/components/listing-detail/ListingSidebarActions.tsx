@@ -174,8 +174,8 @@ export function ListingSidebarActions({
   const isSending = sendMsg.isPending || createInquiry.isPending;
 
   const getDataRoomTooltip = () => {
-    if (connectionStatus === 'pending') return 'Your connection request is pending admin approval.';
-    if (connectionStatus === 'on_hold') return 'Your connection request is under review.';
+    if (connectionStatus === 'pending') return 'Your connection request is pending admin approval. You will receive an email once approved.';
+    if (connectionStatus === 'on_hold') return 'Your connection request is under review. You will receive an email once there is an update.';
     if (!connectionApproved) return 'Request a connection to access deal materials.';
     return '';
   };

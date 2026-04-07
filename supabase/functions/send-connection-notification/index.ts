@@ -36,7 +36,7 @@ function buildUserConfirmationHtml(
     <p>What happens if you are selected</p>
     <ul style="padding-left: 20px; line-height: 1.8;">
       <li>We make a direct introduction to the business owner</li>
-      <li>You receive access to deal details and supporting materials</li>
+      <li>You receive access to the data room and supporting deal materials directly on the platform</li>
       <li>Our team supports you through the process</li>
     </ul>
     <p>In the meantime, keep browsing. New deals are added to the pipeline regularly.</p>

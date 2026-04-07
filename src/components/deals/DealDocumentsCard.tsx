@@ -347,7 +347,7 @@ export function DealDocumentsCard({
                 {!hasAnyAgreement
                   ? 'Sign an agreement (NDA or Fee Agreement) to begin unlocking these materials.'
                   : requestStatus === 'pending'
-                    ? 'Available once your request is approved by the owner.'
+                    ? 'Your request is under review. Once approved, these materials will be unlocked and you will receive an email notification.'
                     : 'Documents are being prepared by our team.'}
               </p>
             </div>
