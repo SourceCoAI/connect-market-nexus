@@ -128,8 +128,8 @@ const EMAILS: EmailDef[] = [
 <p>Hi [First Name],</p>
 <p>Your account has been approved. You now have access to our curated pipeline of off-market acquisition opportunities.</p>
 <p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Browse the Marketplace</a></p>
-<p style="font-weight:600;margin:20px 0 6px">Unlock full access</p>
-<p>To view full deal details, access data rooms, and request introductions, you will need to sign two standard documents: an NDA and a Fee Agreement. You can request these from your profile or any listing page. It takes about 60 seconds.</p>
+<p style="font-weight:600;margin:20px 0 6px">Receive deal materials</p>
+<p>To receive deal materials and request introductions, you will need to sign a Fee Agreement. You can request one from your profile or any listing page. It takes about 60 seconds.</p>
 <p style="font-weight:600;margin:20px 0 6px">A few things to know</p>
 <ul style="padding-left:20px;color:#374151">
 <li>Every deal on SourceCo is off-market. You will not find these anywhere else.</li>

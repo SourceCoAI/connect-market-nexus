@@ -73,7 +73,7 @@ export function NdaGateModal({ userId, firmId: _firmId, onSigned }: NdaGateModal
                 Check your inbox at <strong>{user?.email}</strong>.
               </p>
               <p className="text-sm text-emerald-700">
-                Review, sign, and reply to <strong>adam.haile@sourcecodeals.com</strong> with the signed copy. Once processed, you'll have full access.
+                Review, sign, and reply to <strong>adam.haile@sourcecodeals.com</strong> with the signed copy. Once processed, you'll be able to request deal introductions and receive deal materials.
               </p>
             </div>
           ) : (

@@ -99,8 +99,8 @@ const handler = async (req: Request): Promise<Response> => {
   <p>Hi ${firstName},</p>
   <p>Your account has been approved. You now have access to our curated pipeline of off-market acquisition opportunities.</p>
   <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #000000; color: #ffffff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 600;">Browse the Marketplace</a></p>
-  <p style="font-weight: 600; margin: 24px 0 8px 0;">Unlock full access</p>
-  <p>To view full deal details, access data rooms, and request introductions, you will need to sign two standard documents: an NDA and a Fee Agreement. You can request these from your profile or any listing page. It takes about 60 seconds.</p>
+  <p style="font-weight: 600; margin: 24px 0 8px 0;">Receive deal materials</p>
+  <p>To receive deal materials and request introductions, you will need to sign a Fee Agreement. You can request one from your profile or any listing page. It takes about 60 seconds.</p>
   <p style="font-weight: 600; margin: 24px 0 8px 0;">A few things to know</p>
   <ul style="padding-left: 20px; line-height: 1.8;">
     <li>Every deal on SourceCo is off-market. You will not find these anywhere else.</li>
@@ -112,7 +112,7 @@ const handler = async (req: Request): Promise<Response> => {
         preheader: 'Your account is approved. Browse off-market acquisition opportunities now.',
         recipientEmail: email,
       });
-      textContent = `Hi ${firstName},\n\nYour account has been approved. You now have access to our curated pipeline of off-market acquisition opportunities.\n\nBrowse the Marketplace: ${siteUrl}/marketplace\n\nTo unlock full access, sign your NDA and Fee Agreement from your profile or any listing page.\n\nQuestions? Reply to this email.\n\nThe SourceCo Team`;
+      textContent = `Hi ${firstName},\n\nYour account has been approved. You now have access to our curated pipeline of off-market acquisition opportunities.\n\nBrowse the Marketplace: ${siteUrl}/marketplace\n\nTo receive deal materials and request introductions, sign a Fee Agreement from your profile or any listing page.\n\nQuestions? Reply to this email.\n\nThe SourceCo Team`;
     }
 
     const result = await sendEmail({

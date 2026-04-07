@@ -97,7 +97,7 @@ export default function DealSidebar({ listingId, presentedByAdminId }: DealSideb
               fontWeight: 300,
             }}
           >
-            Get full access to detailed financials and business metrics.
+            Get access to deal materials and business details.
           </div>
         </div>
         <div style={{ padding: '0 22px 22px', display: 'flex', flexDirection: 'column', gap: 8 }}>
