@@ -217,7 +217,7 @@ function ConnectionRequestsCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('connection_requests')
-        .select('id, user_id, listing_id, created_at, profiles!connection_requests_user_id_fkey(first_name, last_name), listings!inner(title)')
+        .select('id, user_id, listing_id, created_at, profiles!connection_requests_user_id_profiles_fkey(first_name, last_name), listings!inner(title)')
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
         .limit(5);
