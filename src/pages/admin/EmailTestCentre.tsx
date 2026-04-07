@@ -101,8 +101,7 @@ const EMAILS: EmailDef[] = [
 <h3 style="color:#0e101a;font-size:15px;margin:20px 0 6px">What happens next</h3>
 <ol style="padding-left:20px;color:#374151">
 <li>Our team reviews and approves your profile.</li>
-<li>You sign two documents: an NDA and a Fee Agreement. Both are standard, sent to your email, 60 seconds each.</li>
-<li>Full access to the deal pipeline: confidential details, financials, and direct introductions to founders.</li>
+<li>To receive deal materials and request introductions, you sign a Fee Agreement. It is success-only and takes about 60 seconds.</li>
 </ol>
 <p>Nothing for you to do right now. We will email you the moment you are cleared.</p>
 <p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
