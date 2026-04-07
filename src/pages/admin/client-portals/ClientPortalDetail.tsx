@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Send, Users, Activity, Settings, Plus } from 'lucide-react';
+import { ChevronLeft, Send, Users, Activity, Settings, Plus, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { usePortalOrganization, useUpdatePortalOrg } from '@/hooks/portal/use-portal-organizations';
 import { usePortalUsers, useDeactivatePortalUser } from '@/hooks/portal/use-portal-users';
-import { usePortalDealPushes } from '@/hooks/portal/use-portal-deals';
+import { usePortalDealPushes, useConvertToPipelineDeal } from '@/hooks/portal/use-portal-deals';
 import { usePortalActivity, usePortalAnalytics } from '@/hooks/portal/use-portal-activity';
 import { OrgStatusBadge, PushStatusBadge, PriorityBadge } from '@/components/portal/PortalStatusBadge';
 import { InvitePortalUserDialog } from '@/components/portal/InvitePortalUserDialog';
@@ -49,6 +49,7 @@ export default function ClientPortalDetail() {
   const { data: analytics } = usePortalAnalytics(org?.id);
   const updateOrg = useUpdatePortalOrg();
   const deactivateUser = useDeactivatePortalUser();
+  const convertToPipeline = useConvertToPipelineDeal();
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -204,13 +205,21 @@ export default function ClientPortalDetail() {
                     <TableHead>Days</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPushes.map((push) => (
                     <TableRow key={push.id}>
-                      <TableCell className="font-medium max-w-[200px] truncate">
-                        {push.deal_snapshot?.headline || 'Untitled'}
+                      <TableCell className="max-w-[250px]">
+                        <div className="font-medium truncate">
+                          {push.deal_snapshot?.headline || 'Untitled'}
+                        </div>
+                        {push.latest_response?.notes && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5 italic">
+                            "{push.latest_response.notes}"
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm">
                         {push.deal_snapshot?.industry || '-'}
@@ -232,6 +241,30 @@ export default function ClientPortalDetail() {
                       </TableCell>
                       <TableCell>
                         <PriorityBadge priority={push.priority} />
+                      </TableCell>
+                      <TableCell>
+                        {push.status === 'interested' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs gap-1 text-green-700 border-green-200 hover:bg-green-50"
+                            disabled={convertToPipeline.isPending}
+                            onClick={() =>
+                              convertToPipeline.mutate({
+                                pushId: push.id,
+                                portalOrgId: org.id,
+                                listingId: push.listing_id,
+                                portalOrgName: org.name,
+                              })
+                            }
+                          >
+                            <ArrowRight className="h-3 w-3" />
+                            Convert to Deal
+                          </Button>
+                        )}
+                        {push.status === 'under_nda' && (
+                          <span className="text-xs text-emerald-600 font-medium">In Pipeline</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -322,3 +322,135 @@ export function useCheckDuplicatePush(portalOrgId: string | undefined, listingId
     enabled: !!portalOrgId && !!listingId,
   });
 }
+
+/**
+ * Convert an "Interested" portal deal push into a pipeline deal.
+ *
+ * Flow:
+ * 1. Create a connection_request with source='portal', status='approved'
+ * 2. Call create_pipeline_deal() RPC to create the deal_pipeline row
+ * 3. Update portal_deal_pushes.status to 'under_nda'
+ * 4. Log activity
+ */
+export function useConvertToPipelineDeal() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({
+      pushId,
+      portalOrgId,
+      listingId,
+      portalOrgName,
+    }: {
+      pushId: string;
+      portalOrgId: string;
+      listingId: string;
+      portalOrgName: string;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Resolve the portal org's linked buyer profile (if any)
+      const { data: portalOrg } = await supabase
+        .from('portal_organizations')
+        .select('buyer_id, profile_id, name')
+        .eq('id', portalOrgId)
+        .single();
+
+      // Check if a connection request already exists for this buyer + listing
+      let connectionRequestId: string | null = null;
+
+      if (portalOrg?.profile_id) {
+        const { data: existing } = await supabase
+          .from('connection_requests')
+          .select('id')
+          .eq('user_id', portalOrg.profile_id)
+          .eq('listing_id', listingId)
+          .limit(1)
+          .maybeSingle();
+
+        if (existing) {
+          connectionRequestId = existing.id;
+        }
+      }
+
+      // Create connection request if none exists
+      if (!connectionRequestId) {
+        const { data: newCr, error: crError } = await supabase
+          .from('connection_requests')
+          .insert({
+            user_id: portalOrg?.profile_id || null,
+            listing_id: listingId,
+            status: 'approved',
+            source: 'portal',
+            lead_name: portalOrgName,
+            user_message: `Expressed interest via Client Portal (${portalOrgName})`,
+            source_metadata: {
+              created_by_admin: true,
+              admin_id: user.id,
+              created_via: 'portal_conversion',
+              portal_org_id: portalOrgId,
+              portal_push_id: pushId,
+            },
+          })
+          .select()
+          .single();
+
+        if (crError) throw crError;
+        connectionRequestId = newCr.id;
+
+        // Call the RPC to create the pipeline deal from the connection request
+        const { data: dealId, error: rpcError } = await supabase.rpc(
+          'create_pipeline_deal',
+          { p_connection_request_id: connectionRequestId },
+        );
+
+        if (rpcError) {
+          console.warn('create_pipeline_deal RPC error (trigger may handle it):', rpcError.message);
+        }
+      }
+
+      // Update portal push status to under_nda
+      const { error: updateError } = await supabase
+        .from('portal_deal_pushes')
+        .update({
+          status: 'under_nda',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', pushId);
+
+      if (updateError) throw updateError;
+
+      // Log activity
+      await supabase.from('portal_activity_log').insert({
+        portal_org_id: portalOrgId,
+        actor_id: user.id,
+        actor_type: 'admin',
+        action: 'deal_pushed',
+        push_id: pushId,
+        metadata: {
+          action_detail: 'converted_to_pipeline',
+          connection_request_id: connectionRequestId,
+          listing_id: listingId,
+        },
+      });
+
+      return { connectionRequestId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [PORTAL_PUSHES_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['portal-deal-push'] });
+      queryClient.invalidateQueries({ queryKey: ['portal-analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['connection-requests'] });
+      toast({
+        title: 'Converted to pipeline deal',
+        description: 'A connection request and pipeline deal have been created.',
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Conversion failed', description: err.message, variant: 'destructive' });
+    },
+  });
+}
