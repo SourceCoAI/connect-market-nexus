@@ -105,7 +105,16 @@ const AdminDashboard = () => {
       ? 'remarketing'
       : viewParam === 'marketplace'
         ? 'marketplace'
-        : 'daily-tasks';
+        : viewParam === 'operations'
+          ? 'operations'
+          : 'daily-tasks';
+
+  const subtitleMap: Record<string, string> = {
+    'daily-tasks': 'Tasks from daily standup meetings',
+    remarketing: 'Deal pipeline overview',
+    operations: 'Actionable items across all workflows',
+    marketplace: 'Manage and monitor your marketplace',
+  };
 
   const handleRefresh = () => {
     window.location.reload();
