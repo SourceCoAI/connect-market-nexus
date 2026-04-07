@@ -1,36 +1,21 @@
 
 
-# Fix: Documents Showing as Missing for Queue-Pushed Listings
+# Add Document Preview to Listing Editor
 
-## Root Cause
+## Summary
+Make each document row in `EditorDocumentsSection` clickable so admins can preview/download documents directly from the listing editor.
 
-The `useListingsByType` hook does NOT include `source_deal_id` in its SELECT query. When a listing card is opened for editing, the listing object passed to `ImprovedListingEditor` has no `source_deal_id` field.
-
-The editor then falls back to using the listing's own ID for document queries. Since documents are stored against the source deal (the original remarketing deal), the editor finds 0 documents and shows "No Teaser / No Memo".
-
-## Fix
-
-**Single change in one file**: Add `source_deal_id` to the SELECT columns in `use-listings-by-type.ts`.
+## Changes
 
 | File | Change |
 |------|--------|
-| `src/hooks/admin/listings/use-listings-by-type.ts` (line 47) | Add `source_deal_id` to the select string |
+| `src/components/admin/editor-sections/EditorDocumentsSection.tsx` | Add `storage_path` to the query SELECT; add a preview button (Eye icon) and download button per document row; use `data-room-download` edge function with the admin's session token to generate signed URLs and open in new tab |
 
-### Current (line 47):
-```
-'id, title, description, category, categories, status, revenue, ebitda, image_url, is_internal_deal, created_at, updated_at, location, internal_company_name, deal_owner_id, published_at'
-```
-
-### Fixed:
-```
-'id, title, description, category, categories, status, revenue, ebitda, image_url, is_internal_deal, created_at, updated_at, location, internal_company_name, deal_owner_id, published_at, source_deal_id'
-```
-
-This single addition means:
-- `listing.source_deal_id` will be populated (e.g., `9f08d1a8-...` for Clear Choice)
-- `effectiveDealId` in the editor will resolve to the source deal ID
-- `EditorDocumentsSection` will query documents from the source deal
-- Teaser and Memo badges will show green checkmarks
-
-No other files need changes. The editor, documents section, and all downstream logic already handle `source_deal_id` correctly -- they just never receive it because the query doesn't fetch it.
+### Implementation Details
+- Fetch `storage_path` alongside existing fields in the documents query
+- Add an `Eye` (preview) icon button on each document row that calls the `data-room-download` edge function with `action=view`, opens the returned signed URL in a new tab
+- Add a `Download` icon button that calls with `action=download`
+- Use `supabase.auth.getSession()` for the auth token, same pattern as `use-data-room-mutations.ts`
+- Show a loading spinner on the clicked button while the URL is being fetched
+- No new files or edge function changes needed -- the existing `data-room-download` function already supports admin access
 
