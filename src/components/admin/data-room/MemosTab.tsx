@@ -10,6 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -31,6 +32,7 @@ import {
   BookOpen,
   Save,
   Tag,
+  ChevronDown,
 } from 'lucide-react';
 import {
   useDataRoomDocuments,
@@ -340,9 +342,18 @@ function MemoSlotCard({
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const prevDraftId = useRef<string | null>(null);
   const hasDocument = !!document;
   const hasDraft = !!draft;
 
+  // Auto-open analyst notes once when a new draft is generated
+  useEffect(() => {
+    if (draft?.id && draft.id !== prevDraftId.current) {
+      setNotesOpen(true);
+      prevDraftId.current = draft.id;
+    }
+  }, [draft?.id]);
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
@@ -640,6 +651,29 @@ function MemoSlotCard({
                         Regenerate
                       </Button>
                     </div>
+
+                    {/* Analyst Notes — outside preview, in the card */}
+                    {(() => {
+                      const analystNotes = (draft.content as { analyst_notes?: string })?.analyst_notes;
+                      if (!analystNotes || analystNotes === 'None.' || analystNotes.trim() === '') return null;
+                      return (
+                        <Collapsible open={notesOpen} onOpenChange={setNotesOpen}>
+                          <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 px-3 rounded-md border border-amber-200 bg-amber-50/50 hover:bg-amber-50 transition-colors text-left">
+                            <ChevronDown className={`h-3.5 w-3.5 text-amber-600 transition-transform ${notesOpen ? 'rotate-0' : '-rotate-90'}`} />
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                            <span className="text-xs font-medium text-amber-800">Analyst Notes</span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-600 ml-auto">
+                              Internal only
+                            </Badge>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="mt-1.5 px-3 py-2.5 rounded-md border border-amber-200 bg-amber-50/30">
+                              <p className="text-xs text-amber-800 whitespace-pre-wrap leading-relaxed">{analystNotes}</p>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -947,25 +981,6 @@ function DraftPreview({ draft }: { draft: LeadMemo }) {
           );
         })}
 
-      {/* Internal Analyst Notes — separate from memo, admin-only */}
-      {(() => {
-        const analystNotes = (draft.content as { analyst_notes?: string })?.analyst_notes;
-        if (!analystNotes || analystNotes === 'None.' || analystNotes.trim() === '') return null;
-        return (
-          <div className="mt-6 border border-amber-200 rounded-lg bg-amber-50/50">
-            <div className="px-4 py-3 border-b border-amber-200">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <h4 className="text-sm font-semibold text-amber-800">Internal Analyst Notes</h4>
-              </div>
-              <p className="text-[11px] text-amber-600 mt-0.5">For internal review only — not included in PDF or DOCX exports.</p>
-            </div>
-            <div className="px-4 py-3">
-              <p className="text-xs text-amber-800 whitespace-pre-wrap leading-relaxed">{analystNotes}</p>
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 }
