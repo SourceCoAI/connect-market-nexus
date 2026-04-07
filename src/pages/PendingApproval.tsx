@@ -251,7 +251,7 @@ const PendingApproval = () => {
               <StatusStep icon={<CheckCircle className="h-4 w-4 text-white" />} bg="bg-emerald-500" label="Account created" done />
               <StatusStep icon={<CheckCircle className="h-4 w-4 text-white" />} bg="bg-emerald-500" label="Email verified" done />
               <StatusStep icon={<Clock className="h-3.5 w-3.5 text-white" />} bg="bg-amber-500" label="Admin review" sublabel="Usually a few hours" />
-              <StatusStep icon={<CheckCircle className="h-3.5 w-3.5 text-muted-foreground/40" />} bg="bg-muted" label="Full access" sublabel="After approval" last />
+              <StatusStep icon={<CheckCircle className="h-3.5 w-3.5 text-muted-foreground/40" />} bg="bg-muted" label="Access granted" sublabel="After approval" last />
             </div>
 
             {/* User details */}
