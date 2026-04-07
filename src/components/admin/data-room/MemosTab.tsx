@@ -644,6 +644,29 @@ function MemoSlotCard({
                         Regenerate
                       </Button>
                     </div>
+
+                    {/* Analyst Notes — outside preview, in the card */}
+                    {(() => {
+                      const analystNotes = (draft.content as { analyst_notes?: string })?.analyst_notes;
+                      if (!analystNotes || analystNotes === 'None.' || analystNotes.trim() === '') return null;
+                      return (
+                        <Collapsible open={notesOpen} onOpenChange={setNotesOpen}>
+                          <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 px-3 rounded-md border border-amber-200 bg-amber-50/50 hover:bg-amber-50 transition-colors text-left">
+                            <ChevronDown className={`h-3.5 w-3.5 text-amber-600 transition-transform ${notesOpen ? 'rotate-0' : '-rotate-90'}`} />
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                            <span className="text-xs font-medium text-amber-800">Analyst Notes</span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-600 ml-auto">
+                              Internal only
+                            </Badge>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="mt-1.5 px-3 py-2.5 rounded-md border border-amber-200 bg-amber-50/30">
+                              <p className="text-xs text-amber-800 whitespace-pre-wrap leading-relaxed">{analystNotes}</p>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <div className="space-y-1.5">
