@@ -1314,11 +1314,15 @@ Then output a bulleted list of any data discrepancies, unverified figures, sourc
     console.warn('Full memo warnings:', warnings);
   }
 
+  const analystNotes = (bestSections as any).__analystNotes || '';
+  delete (bestSections as any).__analystNotes;
+
   return {
     sections: bestSections,
     memo_type: 'full_memo',
     branding,
     generated_at: new Date().toISOString(),
+    analyst_notes: analystNotes || undefined,
     ...companyMeta,
   };
 }
