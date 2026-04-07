@@ -22,7 +22,6 @@ export interface SourceCoDeal {
   is_priority_target: boolean | null;
   needs_owner_contact: boolean | null;
   category: string | null;
-  executive_summary: string | null;
   industry: string | null;
   revenue: number | null;
   ebitda: number | null;
