@@ -162,10 +162,6 @@ const FirefliesIntegrationPage = lazyWithRetry(
   () => import('@/pages/admin/FirefliesIntegrationPage'),
 );
 
-// Training Center / Objection Tracker
-const ObjectionTrackerPage = lazyWithRetry(
-  () => import('@/features/objection-tracker/ObjectionTrackerPage'),
-);
 
 <<<<<<< claude/build-client-portal-P2QuA
 // Client Portal pages
@@ -570,8 +566,6 @@ function App() {
                 }
               />
 
-              {/* TRAINING CENTER */}
-              <Route path="training-center" element={<ObjectionTrackerPage />} />
 
               {/* CLIENT PORTALS (admin) */}
               <Route path="client-portals" element={<ClientPortalsList />} />
