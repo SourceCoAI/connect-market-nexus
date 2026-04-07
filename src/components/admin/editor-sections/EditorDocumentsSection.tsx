@@ -1,13 +1,16 @@
 /**
  * EditorDocumentsSection: Shows documents attached to a listing and its source deal.
- * Read-only overview for admins to verify document readiness before publishing.
+ * Admins can preview/download documents directly from here.
  */
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { SUPABASE_URL } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, CheckCircle2, AlertCircle, FolderOpen } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { FileText, CheckCircle2, AlertCircle, FolderOpen, Eye, Download, Loader2 } from 'lucide-react';
 
 interface EditorDocumentsSectionProps {
   listingId?: string;
@@ -21,6 +24,7 @@ interface DocRecord {
   file_size_bytes: number | null;
   status: string;
   created_at: string;
+  deal_id: string;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -31,6 +35,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export function EditorDocumentsSection({ listingId, sourceDealId }: EditorDocumentsSectionProps) {
   const dealIds = [listingId, sourceDealId].filter(Boolean) as string[];
+  const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
 
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ['editor-documents', ...dealIds],
@@ -45,10 +50,36 @@ export function EditorDocumentsSection({ listingId, sourceDealId }: EditorDocume
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as (DocRecord & { deal_id: string })[];
+      return (data || []) as DocRecord[];
     },
     enabled: dealIds.length > 0,
   });
+
+  const handleDocAction = async (docId: string, action: 'view' | 'download') => {
+    setLoadingDoc(`${docId}-${action}`);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Not authenticated');
+
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/data-room-download?document_id=${docId}&action=${action}`,
+        { headers: { Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '' } }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to get URL');
+      }
+
+      const { url } = await res.json();
+      window.open(url, '_blank');
+    } catch (e: any) {
+      console.error('Document action error:', e);
+    } finally {
+      setLoadingDoc(null);
+    }
+  };
 
   if (!listingId && !sourceDealId) return null;
 
@@ -124,18 +155,46 @@ export function EditorDocumentsSection({ listingId, sourceDealId }: EditorDocume
                     {group.docs.map((doc) => (
                       <div
                         key={doc.id}
-                        className="flex items-center gap-2 text-sm py-1.5 px-2 rounded hover:bg-muted/50"
+                        className="flex items-center gap-2 text-sm py-1.5 px-2 rounded hover:bg-muted/50 group"
                       >
                         <FileText className="h-3.5 w-3.5 text-red-500 shrink-0" />
                         <span className="truncate flex-1">{doc.file_name}</span>
                         <span className="text-xs text-muted-foreground shrink-0">
                           {formatSize(doc.file_size_bytes)}
                         </span>
-                        {sourceDealId && (doc as { deal_id: string }).deal_id === sourceDealId && (
+                        {sourceDealId && doc.deal_id === sourceDealId && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                             Source Deal
                           </Badge>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleDocAction(doc.id, 'view')}
+                          disabled={!!loadingDoc}
+                          title="Preview"
+                        >
+                          {loadingDoc === `${doc.id}-view` ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleDocAction(doc.id, 'download')}
+                          disabled={!!loadingDoc}
+                          title="Download"
+                        >
+                          {loadingDoc === `${doc.id}-download` ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Download className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
                       </div>
                     ))}
                   </div>
