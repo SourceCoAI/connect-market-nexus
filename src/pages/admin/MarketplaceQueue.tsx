@@ -142,7 +142,7 @@ const MarketplaceQueue = () => {
     if (!deal.category && !deal.industry) gaps.push('Category / Industry');
     if (!deal.executive_summary) gaps.push('Executive Summary');
     if (!deal.main_contact_name) gaps.push('Main contact name');
-    if (!deal.main_contact_email) gaps.push('Main contact email');
+    
     const memos = memoStatusByDeal[deal.id];
     if (!memos?.hasLeadMemo) gaps.push('Lead Memo PDF');
     if (!memos?.hasTeaser) gaps.push('Teaser PDF');
