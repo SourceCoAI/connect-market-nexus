@@ -1,62 +1,53 @@
 
-Root cause is now clear.
 
-What is actually happening:
-1. The verification link does work.
-2. Supabase verifies the email and creates a valid session for the new user.
-3. The profile sync updates `profiles.email_verified`, which is why the admin dashboard shows the user as verified.
-4. Your app then destroys that freshly-created session inside `/auth/callback`, so the callback page errors even though verification already succeeded.
-5. Manual login works afterward because it creates a brand-new session.
+# Indicate "Data Room Access Coming Soon" After Pending Connection Request
 
-Why I’m confident:
-- In the callback code, `src/pages/auth/callback.tsx` explicitly does `supabase.auth.signOut({ scope: 'local' })` before `setSession()` / `exchangeCodeForSession()`.
-- The auth logs show the exact sequence:
-  - `/verify` succeeds
-  - implicit login happens for `adambhaile00@gmail.com`
-  - `/user` succeeds
-  - `/logout` happens immediately after
-  - then `/user` fails with session-not-found / auth-missing
-- That means the app is logging the user out right after Supabase signs them in from the email link.
+## Summary of All Touchpoints
 
-Why previous fixes failed:
-- We focused on token-capture timing.
-- But the deeper issue is not “missing tokens first”; it is “session created, then immediately revoked by our own callback logic.”
-- So even a perfect hash capture cannot survive if the callback logs out the active session first.
+After investigating the full codebase, here are **all the places** where a buyer sees their pending connection request status, and what each currently says vs. what should change:
 
-Plan to fix:
-1. Rewrite `src/pages/auth/callback.tsx` to be non-destructive.
-   - Remove both pre-emptive `signOut({ scope: 'local' })` calls.
-   - Never sign out inside the callback.
-2. Change callback resolution order:
-   - If hash tokens exist: call `setSession()` directly.
-   - Else if PKCE code exists: call `exchangeCodeForSession()` directly.
-   - Else: use `getSession()` instead of `getUser()` as the fallback source of truth.
-3. Add a “session already exists” success path.
-   - If token processing fails but `getSession()` already has a user, continue instead of throwing.
-   - This handles the case where Supabase already restored the session automatically before our callback code runs.
-4. Make the callback fast.
-   - Redirect to `/pending-approval` or the final destination immediately after session/profile resolution.
-   - Move verification-success emails / journey notifications to fire-and-forget after navigation so the user does not sit on a loading screen.
-5. Reduce auth noise that can interfere during first load.
-   - Update `src/hooks/use-initial-session-tracking.ts` to avoid calling `getUser()` on cold anonymous loads; use `getSession()` or a softer check first.
-   - This won’t be the main fix, but it will reduce “Auth session missing” churn during startup.
-6. Improve the fallback UX.
-   - If the verification link has already been consumed, show a friendly “Email already verified — try logging in” state instead of a raw authentication error.
+---
 
-Files to change:
-- `src/pages/auth/callback.tsx` — main fix
-- `src/hooks/use-initial-session-tracking.ts` — reduce startup auth races/noise
-- optionally `src/pages/SignupSuccess.tsx` — better “already verified / link already used” guidance
+### 1. Listing Sidebar (ListingSidebarActions.tsx)
+**Current**: "Request pending" button (disabled) + data room tooltip says "Your connection request is pending admin approval."
+**Change**: Add a subtle reassurance line below the "Request pending" button: "An admin will review your request shortly. You will receive an email once approved."
 
-Expected result after this fix:
-- Clicking the email link verifies the user
-- The callback keeps the new session alive instead of revoking it
-- The user is redirected straight to the pending-approval screen
-- Admin still shows verified
-- Logging in later also continues to work
-- Callback becomes much faster because it no longer waits on extra work before redirecting
+### 2. Listing Card (ListingCardTitle.tsx)
+**Current**: Shows "Request Pending" badge + "View Status" link
+**No change needed** - this is compact and links to My Deals where the detail lives.
 
-Technical note:
-The admin “verified” badge is not the bug. It is correct. The real bug is frontend callback session handling after verification, not verification itself.
+### 3. My Deals / Deal Detail (MyRequests.tsx + DealStatusSection.tsx)
+**Current - DealStatusSection**: When at "Review" stage (index 2): "Your interest is being presented to the owner alongside other qualified buyers. Decisions typically take 3-7 business days."
+**Change**: When NDA is signed and status is pending, update explanation to mention data room access: "Your interest is being reviewed by our team. Once approved, you will receive access to the data room and deal materials. Expect to hear from us within 1-2 business days."
 
-No database migration is needed for this fix.
+### 4. My Deals / DealDocumentsCard (DealDocumentsCard.tsx)
+**Current**: When pending with agreements signed, shows locked docs with: "Available once your request is approved by the owner."
+**Change**: More specific: "Your request is under review. Once approved, these materials will be unlocked and you will receive an email notification."
+
+### 5. Connection Button (ConnectionButton.tsx)
+**Current**: Shows "Request pending" (disabled button)
+**No change needed** - minimal space, serves its purpose.
+
+### 6. User Confirmation Email (send-connection-notification edge function)
+**Current**: "Our team reviews every request and selects buyers based on fit. You will hear from us within 24 hours." + Lists what happens if selected (introduction, deal details access, team support).
+**Change**: Add explicit mention of data room: "If selected, you will receive access to the data room and supporting deal materials directly on the platform."
+
+### 7. Toast after request submission (use-connections.ts)
+**Current**: "We'll review your request within 1-2 business days. You'll be notified by email. Track your request in My Deals."
+**Change**: Add data room mention: "We'll review your request within 1-2 business days. Once approved, you'll receive data room access and an email notification. Track your request in My Deals."
+
+---
+
+## Files to Change
+
+| File | Change |
+|------|--------|
+| `src/components/listing-detail/ListingSidebarActions.tsx` | Add reassurance text below "Request pending" button |
+| `src/components/deals/DealStatusSection.tsx` | Update review stage explanation to mention data room access |
+| `src/components/deals/DealDocumentsCard.tsx` | Update locked-docs message when pending + agreements signed |
+| `src/hooks/marketplace/use-connections.ts` | Update success toast to mention data room access |
+| `supabase/functions/send-connection-notification/index.ts` | Update user confirmation email to mention data room access (requires redeploy) |
+
+## Edge Function Redeployment
+`send-connection-notification` must be redeployed after the email copy change.
+
