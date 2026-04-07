@@ -816,6 +816,10 @@ function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
     /\bbroader.*platform\b/i,
     /\bintegrat(e|ion|ing)\s*into\b/i,
     /\bback-office\s*(support|integration)\b/i,
+    /\bdiscussions?\s*regarding\s*integration\b/i,
+    /\bcompeting\s*buyers?\b/i,
+    /\bacquisition\s*platform\b/i,
+    /\bcentralized\s*back-office\b/i,
   ];
 
   const isOmission = (text: string) => OMISSION_PATTERNS.some(p => p.test(text));
@@ -825,8 +829,7 @@ function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
     const lines = s.content.split('\n');
     const filtered = lines.filter(line => {
       const trimmed = line.trim();
-      // Only filter bullet lines (starting with -, *, or •)
-      if (!/^[-*•]\s/.test(trimmed)) return true;
+      if (!trimmed) return true; // keep blank lines
       // Keep lines that contain a dollar amount or percentage (factual data)
       const hasFactualData = /\$[\d,]+|\d+(\.\d+)?%/.test(trimmed);
       // Remove lines whose primary content is an omission apology
@@ -835,16 +838,18 @@ function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
       if (isSourceContrast(trimmed)) return false;
       return true;
     });
-    // Second pass: clean semicolon-joined fragments within surviving bullets
+    // Second pass: clean semicolon-joined fragments within surviving lines
     const cleaned = filtered.map(line => {
       const trimmed = line.trim();
-      if (!/^[-*•]\s/.test(trimmed)) return line;
-      if (!trimmed.includes(';')) return line;
-      const bullet = trimmed.match(/^([-*•]\s*)/)?.[1] || '- ';
-      const fragments = trimmed.slice(bullet.length).split(';').map(f => f.trim());
+      if (!trimmed || !trimmed.includes(';')) return line;
+      // Detect bullet prefix if any
+      const bulletMatch = trimmed.match(/^([-*•]\s*)/);
+      const prefix = bulletMatch ? bulletMatch[1] : '';
+      const body = prefix ? trimmed.slice(prefix.length) : trimmed;
+      const fragments = body.split(';').map(f => f.trim());
       const kept = fragments.filter(f => !isOmission(f) && !isSourceContrast(f));
-      if (kept.length === 0) return null; // entire bullet was omission
-      return bullet + kept.join('; ');
+      if (kept.length === 0) return null; // entire line was omission
+      return (prefix || '') + kept.join('; ');
     }).filter((l): l is string => l !== null);
     return { ...s, content: cleaned.join('\n') };
   });
@@ -1253,11 +1258,11 @@ FORMAT
 Use only these section headers, in this order. COMPANY OVERVIEW is always included. Omit any section that has no data. Never create an "INFORMATION NOT YET PROVIDED" section.
 
 COMPANY OVERVIEW
-One paragraph, 3–5 sentences. What the company does, where it operates, how it is structured. Legal name, DBA, founded year, HQ, locations, headcount, ownership, core industry. When available, weave in customer geography (service territory, regional footprint), competitive positioning (partnerships, market standing), and end market context. If google_rating and google_review_count are available, include as a reputation indicator (e.g., "4.7-star Google rating across 46 reviews"). Plain terms.
+One paragraph, 3–5 sentences. What the company does, where it operates, how it is structured. Legal name, DBA, founded year, HQ, locations, headcount, ownership, core industry. When available, weave in customer geography (service territory, regional footprint), competitive positioning (partnerships, market standing), and end market context. You MUST include google_rating and google_review_count if they appear in the data context — e.g., "The company holds a 4.7-star Google rating across 46 reviews." This is mandatory, not optional.
 
 FINANCIAL SNAPSHOT
 Simple labeled lines, one per data point. Only include what is explicitly stated or confirmed. Format: [Year] [Metric]: $[Amount]
-Include EBITDA margin alongside the EBITDA figure when ebitda_margin data is available (e.g., "EBITDA Margin: 10.8%").
+You MUST include EBITDA Margin as a line item when both EBITDA and Revenue figures are present. Calculate it: (EBITDA / Revenue) × 100, rounded to one decimal. Example: if Revenue is $6,250,000 and EBITDA is $650,000, write "EBITDA Margin: 10.4%". This is mandatory.
 
 Example:
 * 2025 Revenue: $5,200,000
@@ -1268,10 +1273,10 @@ Example:
 If adjusted EBITDA is mentioned, list each add-back individually. If the owner gives a range, state the range exactly. Do not pick midpoint or either bound. If figures don't reconcile (e.g., monthly × 12 ≠ stated annual), use the figure from the highest-priority source. Do NOT flag reconciliation issues in the memo body. When revenue_source_quote or ebitda_source_quote data is available, use those figures as the authoritative values. If financial_notes context is provided, incorporate relevant confirmed financial details (not projections unless labeled as such).
 
 SERVICES AND OPERATIONS
-Bullet points. What services are performed, how revenue is generated, and relevant operational details. Include service mix breakdown, customer types (residential, commercial, government), and technology systems when available. Include industry-specific KPIs only when explicitly stated in the source data — do not use any template checklist to fill in metrics that were not mentioned. When end_market_description or competitive_position data is available, include relevant operational context. When growth_drivers data is available, include as operational growth context (e.g., geographic expansion plans, new service lines, partnerships).
+Bullet points. What services are performed, how revenue is generated, and relevant operational details. Include service mix breakdown, customer types (residential, commercial, government), and technology systems when available. Include industry-specific KPIs only when explicitly stated in the source data — do not use any template checklist to fill in metrics that were not mentioned. When end_market_description or competitive_position data is available, include relevant operational context. You MUST include growth_drivers as bullet points when the data context contains them — e.g., geographic expansion, new service lines, partnerships. This is mandatory.
 
 OWNERSHIP AND TRANSACTION
-Bullet points. Owner name(s), roles, and involvement. Transaction type, reason for sale, valuation expectation (exact figures as stated — do not comment on reasonableness), management continuity, real estate, prior transaction history. When transition_preferences or special_requirements data is available, include the transition plan details (named successors, training timeline). When real_estate_info is available, include property details. When timeline_preference is available, include expected timeline. If general_notes mention a completed business valuation or appraisal, state it as a fact (e.g., "A certified business valuation has been completed"). Do not describe third-party acquisition platforms, competing buyers, or external deal discussions. The memo should only reflect the seller's business and their willingness to transact — not the strategies of other acquirers.
+Bullet points. Owner name(s), roles, and involvement. Transaction type, reason for sale, valuation expectation (exact figures as stated — do not comment on reasonableness), management continuity, real estate, prior transaction history. When transition_preferences or special_requirements data is available, include the transition plan details (named successors, training timeline). When real_estate_info is available, include property details. When timeline_preference is available, include expected timeline. You MUST check general_notes for any mention of a completed business valuation, appraisal, or certified valuation. If found, state it as a fact: "A certified business valuation has been completed and documentation is available." This is mandatory. Do not describe third-party acquisition platforms, competing buyers, or external deal discussions. The memo should only reflect the seller's business and their willingness to transact — not the strategies of other acquirers.
 
 MANAGEMENT AND STAFFING
 Bullet points. Who runs daily operations, owner's specific daily role, key personnel, location-level management, headcount, compensation/benefits if available. When transition plans name specific personnel being trained or promoted, include them here.
