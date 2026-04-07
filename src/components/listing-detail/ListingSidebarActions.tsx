@@ -65,7 +65,7 @@ export function ListingSidebarActions({
   const [justRequested, setJustRequested] = useState(false);
   const [cooldownLeft, setCooldownLeft] = useState(0);
 
-  const canExploreDataRoom = feeCovered && connectionApproved;
+  const canExploreDataRoom = connectionApproved;
   const canAskQuestion = feeCovered;
 
   const { data: lastAccess } = useDataRoomLastAccess(listingId);

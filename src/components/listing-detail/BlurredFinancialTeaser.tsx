@@ -95,7 +95,7 @@ const BlurredFinancialTeaser = ({
             ) : (
               <>
                 <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
-                  Request access to view the CIM, real company name, and full financials.
+                  Request access to receive deal materials from the advisor.
                 </p>
                 <div className="max-w-xs mx-auto">
                   <ConnectionButton
