@@ -309,6 +309,11 @@ export function useNuclearAuth() {
 
     if (error) throw error;
 
+    // Detect duplicate signup: Supabase returns user with empty identities for existing accounts
+    if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+      throw new Error('An account with this email already exists. Please log in instead.');
+    }
+
     if (data.user) {
       const userName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'there';
 

@@ -60,7 +60,7 @@ const SignupSuccess = () => {
 
       toast({
         title: 'Email sent!',
-        description: "We've sent another verification email to your inbox.",
+        description: "We've sent another verification email. If you don't receive it, your email may already be verified - try logging in.",
       });
     } catch (error: unknown) {
       console.error('Resend verification error:', error);
@@ -233,8 +233,12 @@ const SignupSuccess = () => {
 
                   {attemptCount > 1 && (
                     <div className="text-xs text-muted-foreground text-center p-2 bg-amber-50 dark:bg-amber-950/20 rounded-md">
-                      💡 <strong>Tip:</strong> Check your spam folder or try a different email
-                      client if you're not receiving emails.
+                      💡 <strong>Tip:</strong> Check your spam folder. If you still don't receive
+                      an email, your account may already be verified -{' '}
+                      <Link to="/login" className="text-primary hover:underline">
+                        try logging in
+                      </Link>
+                      .
                     </div>
                   )}
                 </div>
