@@ -87,23 +87,13 @@ export const useInitialSessionTracking = () => {
 
     const trackInitialSession = async () => {
       try {
-        // Check if user is authenticated — gracefully handle missing session
-        // (anonymous visitors won't have a session, and on initial load there
-        // may be a race where the session hasn't been restored yet)
+        // Use getSession() instead of getUser() to avoid triggering
+        // "Auth session missing" errors on anonymous/cold loads.
+        // getSession() reads from local storage and never throws for missing sessions.
         const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-        if (authError) {
-          // AuthSessionMissingError is expected for anonymous visitors —
-          // continue tracking without a user_id
-          if (authError.message?.includes('Auth session missing') ||
-              authError.name === 'AuthSessionMissingError') {
-            // Proceed with user = null
-          } else {
-            throw authError;
-          }
-        }
+          data: { session },
+        } = await supabase.auth.getSession();
+        const user = session?.user ?? null;
 
         // Get GA4 client ID - try sync first, then async
         let ga4ClientId = getCurrentGA4ClientId();
