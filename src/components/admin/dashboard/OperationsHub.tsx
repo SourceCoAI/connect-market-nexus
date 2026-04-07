@@ -315,7 +315,6 @@ function UserApprovalsCard() {
 // ─── Data Room Access Card ───
 
 function DataRoomAccessCard() {
-  const navigate = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ['ops-hub-data-room-access'],
     staleTime: 30_000,
