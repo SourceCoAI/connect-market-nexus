@@ -58,9 +58,9 @@ function DocumentSigningCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('document_requests')
-        .select('id, firm_id, document_type, status, created_at, firm_agreements!inner(firm_name)')
+        .select('id, firm_id, agreement_type, status, requested_at, firm_agreements!inner(primary_company_name)')
         .in('status', ['requested', 'email_sent'])
-        .order('created_at', { ascending: false })
+        .order('requested_at', { ascending: false })
         .limit(5);
       if (error) throw error;
       return data;
@@ -90,12 +90,12 @@ function DocumentSigningCard() {
               >
                 <div className="min-w-0">
                   <span className="font-medium text-foreground">
-                    {req.document_type === 'nda' ? 'NDA' : 'Fee Agreement'}
+                    {req.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement'}
                   </span>
-                  <span className="text-muted-foreground"> — {(req.firm_agreements as any)?.firm_name ?? 'Unknown'}</span>
+                  <span className="text-muted-foreground"> — {(req.firm_agreements as any)?.primary_company_name ?? 'Unknown'}</span>
                 </div>
                 <span className="text-xs text-muted-foreground/60 shrink-0 ml-2">
-                  {timeAgo(req.created_at)}
+                  {req.requested_at ? timeAgo(req.requested_at) : ''}
                 </span>
               </div>
             ))}
@@ -122,9 +122,36 @@ function UnreadMessagesCard() {
     queryKey: ['ops-hub-unread-messages'],
     staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_message_center_threads' as any);
+      // Get recent unread buyer messages, join to connection_requests + profiles for buyer name
+      const { data, error } = await supabase
+        .from('connection_messages')
+        .select('id, connection_request_id, body, created_at, connection_requests!inner(id, user_id, profiles!connection_requests_user_id_fkey(first_name, last_name, company_name))')
+        .eq('is_read_by_admin', false)
+        .eq('sender_role', 'buyer')
+        .order('created_at', { ascending: false })
+        .limit(20);
       if (error) throw error;
-      return (data as any[])?.filter((t: any) => t.unread_count > 0).slice(0, 5) ?? [];
+
+      // Group by connection_request_id and count
+      const grouped = new Map<string, { name: string; company: string | null; count: number; lastAt: string; requestId: string }>();
+      for (const msg of data ?? []) {
+        const cr = msg.connection_requests as any;
+        const profile = cr?.profiles;
+        const key = msg.connection_request_id;
+        const existing = grouped.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          grouped.set(key, {
+            name: [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Unknown',
+            company: profile?.company_name ?? null,
+            count: 1,
+            lastAt: msg.created_at,
+            requestId: key,
+          });
+        }
+      }
+      return Array.from(grouped.values()).slice(0, 5);
     },
   });
 
@@ -144,23 +171,23 @@ function UnreadMessagesCard() {
           <EmptyState />
         ) : (
           <div className="space-y-2">
-            {data.map((t: any) => (
+            {data.map((t) => (
               <div
-                key={t.connection_request_id}
+                key={t.requestId}
                 className="flex items-center justify-between text-sm py-1.5 border-b border-border/30 last:border-0"
               >
                 <div className="min-w-0 truncate">
-                  <span className="font-medium text-foreground">{t.buyer_name}</span>
-                  {t.buyer_company && (
-                    <span className="text-muted-foreground"> @ {t.buyer_company}</span>
+                  <span className="font-medium text-foreground">{t.name}</span>
+                  {t.company && (
+                    <span className="text-muted-foreground"> @ {t.company}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
                   <Badge variant="destructive" className="text-[10px] h-5">
-                    {t.unread_count}
+                    {t.count}
                   </Badge>
                   <span className="text-xs text-muted-foreground/60">
-                    {t.last_message_at ? timeAgo(t.last_message_at) : ''}
+                    {timeAgo(t.lastAt)}
                   </span>
                 </div>
               </div>
@@ -190,7 +217,7 @@ function ConnectionRequestsCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('connection_requests')
-        .select('id, user_id, listing_id, created_at, profiles!inner(first_name, last_name), listings!inner(title)')
+        .select('id, user_id, listing_id, created_at, profiles!connection_requests_user_id_fkey(first_name, last_name), listings!inner(title)')
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
         .limit(5);
@@ -321,7 +348,8 @@ function DataRoomAccessCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('deal_data_room_access')
-        .select('id, deal_id, buyer_name, buyer_company, can_view_teaser, can_view_full_memo, can_view_data_room, granted_at')
+        .select('id, deal_id, buyer_name, buyer_firm, granted_document_ids, is_active, granted_at')
+        .eq('is_active', true)
         .order('granted_at', { ascending: false })
         .limit(5);
       if (error) throw error;
@@ -346,11 +374,7 @@ function DataRoomAccessCard() {
         ) : (
           <div className="space-y-2">
             {data.map((a: any) => {
-              const level = a.can_view_data_room
-                ? 'Data Room'
-                : a.can_view_full_memo
-                  ? 'Full Memo'
-                  : 'Teaser';
+              const docCount = (a.granted_document_ids as string[] | null)?.length ?? 0;
               return (
                 <div
                   key={a.id}
@@ -358,11 +382,11 @@ function DataRoomAccessCard() {
                 >
                   <div className="min-w-0 truncate">
                     <span className="font-medium text-foreground">{a.buyer_name}</span>
-                    {a.buyer_company && (
-                      <span className="text-muted-foreground"> @ {a.buyer_company}</span>
+                    {a.buyer_firm && (
+                      <span className="text-muted-foreground"> @ {a.buyer_firm}</span>
                     )}
                     <Badge variant="secondary" className="ml-2 text-[10px] h-5">
-                      {level}
+                      {docCount} doc{docCount !== 1 ? 's' : ''}
                     </Badge>
                   </div>
                   <span className="text-xs text-muted-foreground/60 shrink-0 ml-2">
@@ -387,13 +411,42 @@ function DataRoomActivityCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('data_room_audit_log')
-        .select('id, action, user_id, document_id, created_at, metadata')
+        .select('id, action, user_id, created_at, metadata')
         .order('created_at', { ascending: false })
         .limit(5);
       if (error) throw error;
-      return data;
+
+      if (!data?.length) return [];
+
+      // Batch-fetch profile names for user_ids
+      const userIds = [...new Set(data.map((d: any) => d.user_id).filter(Boolean))];
+      const { data: profiles } = userIds.length
+        ? await supabase.from('profiles').select('id, first_name, last_name').in('id', userIds)
+        : { data: [] };
+      const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim()]));
+
+      return data.map((log: any) => ({
+        ...log,
+        user_display: nameMap.get(log.user_id) || log.user_id?.slice(0, 8) + '…',
+      }));
     },
   });
+
+  const ACTION_LABELS: Record<string, string> = {
+    view_document: 'Viewed',
+    download_document: 'Downloaded',
+    upload_document: 'Uploaded',
+    delete_document: 'Deleted',
+    grant_teaser: 'Granted Teaser',
+    grant_full_memo: 'Granted Memo',
+    grant_data_room: 'Granted DR',
+    revoke_teaser: 'Revoked Teaser',
+    revoke_full_memo: 'Revoked Memo',
+    revoke_data_room: 'Revoked DR',
+    generate_memo: 'Generated Memo',
+    send_memo_email: 'Sent Email',
+    bulk_grant: 'Bulk Grant',
+  };
 
   return (
     <Card>
@@ -417,10 +470,10 @@ function DataRoomActivityCard() {
               >
                 <div className="min-w-0 truncate">
                   <Badge variant="outline" className="text-[10px] h-5 mr-2">
-                    {log.action}
+                    {ACTION_LABELS[log.action] ?? log.action.replace(/_/g, ' ')}
                   </Badge>
                   <span className="text-muted-foreground text-xs">
-                    {log.user_id?.slice(0, 8)}...
+                    {log.user_display}
                   </span>
                 </div>
                 <span className="text-xs text-muted-foreground/60 shrink-0 ml-2">
