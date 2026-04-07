@@ -187,7 +187,7 @@ const ConnectionButton = ({
 
         {bothNotRequested && (
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Sign your documents to unlock the data room and request introductions.
+            Sign your documents to unlock deal materials and request introductions.
           </p>
         )}
       </div>
