@@ -20,17 +20,18 @@ function validateListingQuality(listing: Record<string, unknown>): ValidationRes
 
   const title = listing.title as string | undefined;
   const description = listing.description as string | undefined;
+  const executiveSummary = listing.executive_summary as string | undefined;
   const category = listing.category as string | undefined;
   const categories = listing.categories as string[] | undefined;
   const location = listing.location as string | undefined;
-  const imageUrl = listing.image_url as string | undefined;
 
-  if (!title || title.trim().length < 5) {
-    errors.push('Title must be at least 5 characters');
-  }
+  // Fall back to executive_summary when description is missing
+  const effectiveDescription = (description && description.trim().length >= 50)
+    ? description
+    : executiveSummary;
 
-  if (!description || description.trim().length < 50) {
-    errors.push('Description must be at least 50 characters');
+  if (!effectiveDescription || effectiveDescription.trim().length < 50) {
+    errors.push('Description (or executive summary) must be at least 50 characters');
   }
 
   if (!category && (!categories || categories.length === 0)) {
@@ -49,9 +50,7 @@ function validateListingQuality(listing: Record<string, unknown>): ValidationRes
     errors.push('EBITDA is required');
   }
 
-  if (!imageUrl || imageUrl.trim().length === 0) {
-    errors.push('An image is required for marketplace listings');
-  }
+  // Image is optional — marketplace cards handle missing images with placeholders
 
   return {
     valid: errors.length === 0,
