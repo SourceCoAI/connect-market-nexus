@@ -32,6 +32,7 @@ import {
   BookOpen,
   Save,
   Tag,
+  ChevronDown,
 } from 'lucide-react';
 import {
   useDataRoomDocuments,
