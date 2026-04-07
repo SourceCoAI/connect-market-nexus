@@ -14,7 +14,7 @@ import { useEmailConnection } from '@/hooks/email';
 const OutlookCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { handleCallback, isProcessingCallback } = useEmailConnection();
+  const { handleCallback } = useEmailConnection();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [errorMessage, setErrorMessage] = useState('');
 
