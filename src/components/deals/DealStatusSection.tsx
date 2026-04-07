@@ -45,7 +45,7 @@ function getStageExplanation(
   if (index === 1) {
     return 'Sign an agreement (NDA or Fee Agreement) to proceed. Your interest cannot be presented until at least one document is complete.';
   }
-  return 'Your interest is being reviewed by our team. Once approved, you will receive access to deal materials and the data room. Expect to hear from us within 1-2 business days.';
+  return 'Your interest is being reviewed by our team. Once approved, your interest will be presented to the owner and our team will follow up with next steps. Expect to hear from us within 1-2 business days.';
 }
 
 export function DealStatusSection({
