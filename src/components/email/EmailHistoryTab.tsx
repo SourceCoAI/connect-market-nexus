@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mail, AlertTriangle } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { useEmailConnection } from '@/hooks/email';
 import { EmailThreadList } from './EmailThreadList';
 import { ComposeEmail } from './ComposeEmail';
