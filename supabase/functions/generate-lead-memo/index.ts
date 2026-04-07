@@ -809,7 +809,7 @@ function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
     /\bremains\s*(unknown|unclear|unconfirmed)\b/i,
   ];
   const SOURCE_CONTRAST_PATTERNS = [
-    /\bLinkedIn[\s-]*report/i,
+    /\bLinkedIn\b/i,
     /\bper\s*(internal|enrichment|manual)\s*data\b/i,
     /\binternal\s*data\b/i,
     /\benrichment\s*data\b/i,
