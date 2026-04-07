@@ -1,21 +1,20 @@
 
 
-# Add Document Preview to Listing Editor
+# Fix Overpromising Deal Materials Copy
 
-## Summary
-Make each document row in `EditorDocumentsSection` clickable so admins can preview/download documents directly from the listing editor.
+## Problem
+The buyer-facing "My Deals" page shows three hardcoded locked document placeholders ("Confidential Company Profile", "Deal Memorandum / CIM", "Detailed Financial Statements") that may not actually exist for every deal. The progress section also promises "access to deal materials and the data room" which overpromises.
 
 ## Changes
 
 | File | Change |
 |------|--------|
-| `src/components/admin/editor-sections/EditorDocumentsSection.tsx` | Add `storage_path` to the query SELECT; add a preview button (Eye icon) and download button per document row; use `data-room-download` edge function with the admin's session token to generate signed URLs and open in new tab |
+| `src/components/deals/DealDocumentsCard.tsx` (lines 329-352) | Replace the three hardcoded locked document rows with a single generic locked message: "Additional deal materials may be shared at the advisor's discretion once your request is approved." Remove specific document names that imply guaranteed access. |
+| `src/components/deals/DealStatusSection.tsx` (line 48) | Change "you will receive access to deal materials and the data room" to "your interest will be presented to the owner and our team will follow up with next steps" |
+| `src/components/deals/DealActionCard.tsx` (lines 103-107) | Review and soften any overpromising copy in the "Under Review" description |
 
-### Implementation Details
-- Fetch `storage_path` alongside existing fields in the documents query
-- Add an `Eye` (preview) icon button on each document row that calls the `data-room-download` edge function with `action=view`, opens the returned signed URL in a new tab
-- Add a `Download` icon button that calls with `action=download`
-- Use `supabase.auth.getSession()` for the auth token, same pattern as `use-data-room-mutations.ts`
-- Show a loading spinner on the clicked button while the URL is being fetched
-- No new files or edge function changes needed -- the existing `data-room-download` function already supports admin access
+### What stays the same
+- The NDA/Fee Agreement section is accurate and stays as-is
+- The "Data Room" section header stays — when docs ARE unlocked, they show correctly
+- The deal progress stages stay — they reflect actual workflow
 
