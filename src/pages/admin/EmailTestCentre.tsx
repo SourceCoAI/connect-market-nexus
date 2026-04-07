@@ -75,11 +75,8 @@ const EMAILS: EmailDef[] = [
 <p>Your application is in. Our team will review it and you will hear from us by email the moment you are approved, typically within a few hours.</p>
 <p>While you wait, verify your email address using the link we sent you. If you have already verified, sit tight. A team member is reviewing your profile now.</p>
 <h3 style="color:#0e101a;font-size:15px;margin:20px 0 6px">What happens when you are approved</h3>
-<ol style="padding-left:20px;color:#374151">
-<li>We send you two documents to sign: an NDA and a Fee Agreement. Both are standard, take about 60 seconds each.</li>
-<li>Once signed, you get full access to the deal pipeline, including confidential business details, financials, and direct introductions.</li>
-</ol>
-<p>The NDA protects the information we share with you. The Fee Agreement only applies if you close a deal sourced through SourceCo. No upfront cost.</p>
+<p>To receive deal materials and request introductions, you will need to sign a Fee Agreement. You can request one from your profile or any listing page. It takes about 60 seconds.</p>
+<p>The Fee Agreement is success-only. Nothing is owed unless a deal closes.</p>
 <p>Questions? Reply to this email.</p>
 <p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
     invokeFunction: 'user-journey-notifications',
@@ -104,8 +101,7 @@ const EMAILS: EmailDef[] = [
 <h3 style="color:#0e101a;font-size:15px;margin:20px 0 6px">What happens next</h3>
 <ol style="padding-left:20px;color:#374151">
 <li>Our team reviews and approves your profile.</li>
-<li>You sign two documents: an NDA and a Fee Agreement. Both are standard, sent to your email, 60 seconds each.</li>
-<li>Full access to the deal pipeline: confidential details, financials, and direct introductions to founders.</li>
+<li>To receive deal materials and request introductions, you sign a Fee Agreement. It is success-only and takes about 60 seconds.</li>
 </ol>
 <p>Nothing for you to do right now. We will email you the moment you are cleared.</p>
 <p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
@@ -122,7 +118,7 @@ const EMAILS: EmailDef[] = [
     triggerDetail:
       'Fires when an admin clicks Approve on a buyer application and the buyer has not yet signed their NDA. Sent by send-templated-approval-email with ndaSigned=false. This is the most common approval path — most buyers have not signed the NDA before approval.',
     file: 'supabase/functions/send-templated-approval-email/index.ts',
-    subject: 'Welcome to SourceCo — Your account is approved',
+    subject: 'Welcome to SourceCo - Your account is approved',
     preheader: 'Your account is approved. Browse off-market acquisition opportunities now.',
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>

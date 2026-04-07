@@ -173,7 +173,7 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
     buildHtml: (v) => wrapInLayout(
       heading('Welcome to SourceCo!') +
       paragraph(`Hi ${v.firstName},`) +
-      paragraph('Your account has been reviewed and approved. You now have full access to the SourceCo marketplace.') +
+      paragraph('Your account has been reviewed and approved. You can now browse deals and request connections on the SourceCo marketplace.') +
       button('Log In to SourceCo', v.loginUrl),
       'Your account has been approved'
     ),

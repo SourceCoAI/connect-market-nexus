@@ -129,7 +129,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         edgeFunction: 'user-journey-notifications',
         variant: 'profile_approved',
         designNotes: 'Branded wrapper, welcome message, marketplace explanation, CTA to browse deals',
-        previewHtml: `${wrapperStart}<p>Dear Jane,</p><p>Welcome to the SourceCo Marketplace. Your profile has been approved and you now have full access to our curated platform for off-market deal flow.</p><p>The SourceCo Marketplace is a private, invitation-only platform where vetted buyers can discover and evaluate acquisition opportunities in their target sectors. Here is how it works:</p><ul style="margin: 16px 0; padding-left: 20px; color: #3D3D3D; font-size: 14px; line-height: 1.8;"><li>Browse active listings across industries and geographies</li><li>Request introductions to deals that match your criteria</li><li>Receive Anonymous Teasers for approved opportunities</li><li>Communicate directly with the SourceCo deal team</li></ul>${ctaBtn('Browse Deals')}<p>If you have any questions, reply to this email and a member of our team will be happy to assist.</p>${signoff}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>Dear Jane,</p><p>Welcome to the SourceCo Marketplace. Your profile has been approved and you now have access to our curated platform for off-market deal flow.</p><p>The SourceCo Marketplace is a private, invitation-only platform where vetted buyers can discover and evaluate acquisition opportunities in their target sectors. Here is how it works:</p><ul style="margin: 16px 0; padding-left: 20px; color: #3D3D3D; font-size: 14px; line-height: 1.8;"><li>Browse active listings across industries and geographies</li><li>Request introductions to deals that match your criteria</li><li>Receive Anonymous Teasers for approved opportunities</li><li>Communicate directly with the SourceCo deal team</li></ul>${ctaBtn('Browse Deals')}<p>If you have any questions, reply to this email and a member of our team will be happy to assist.</p>${signoff}${wrapperEnd}`,
       },
       {
         name: 'Anonymous Teaser Release',
@@ -214,7 +214,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         edgeFunction: 'send-templated-approval-email',
         variant: 'NDA already signed',
         designNotes: 'Branded wrapper, full access confirmation, CTA to data room',
-        previewHtml: `${wrapperStart}<p>You are approved and your NDA is on file. You can now access the complete data room, financials, and all deal materials.</p>${ctaBtn('Enter Data Room')}${signoff}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>You are approved and your NDA is on file. You can now browse deals, request introductions, and receive deal materials.</p>${ctaBtn('Browse Deals')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Templated Approval (NDA Unsigned)',
@@ -258,7 +258,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         trigger: 'Admin grants data room access',
         edgeFunction: 'grant-data-room-access',
         designNotes: 'Branded wrapper, access confirmation, CTA to enter data room',
-        previewHtml: `${wrapperStart}<p>You now have access to the data room for Project Acme. It contains financial documents, operational data, and other confidential materials for your review.</p>${ctaBtn('Enter Data Room')}${signoff}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>You now have access to the data room for Project Acme. Review the available deal materials at your convenience.</p>${ctaBtn('Enter Data Room')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Agreement Confirmed',
@@ -423,7 +423,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         edgeFunction: 'user-journey-notifications',
         variant: 'event_type: profile_approved',
         designNotes: 'Branded wrapper, approval confirmation, CTA to browse marketplace',
-        previewHtml: `${wrapperStart}<p>Your account has been approved. You now have full access to the SourceCo marketplace.</p>${ctaBtn('Browse Marketplace')}${signoff}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>Your account has been approved. You can now browse deals and request connections on the SourceCo marketplace.</p>${ctaBtn('Browse Marketplace')}${signoff}${wrapperEnd}`,
       },
       {
         name: 'Journey: Admin New User',
