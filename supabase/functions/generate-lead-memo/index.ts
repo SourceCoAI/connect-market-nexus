@@ -1217,10 +1217,10 @@ IMPORTANT: Transcripts may include SourceCo associates and the business owner. E
 Return your output in TWO clearly separated blocks:
 
 BLOCK 1 — THE MEMO (investor-facing, shareable):
-Wrap the memo in <memo> and </memo> tags. Inside, use markdown with ## headers. Headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES. Omit sections with no data (except COMPANY OVERVIEW). Present financial data as simple labeled lines. Do not use tables. Include all identifying information. Do NOT cite sources, flag conflicts, mention transcripts, or include any analyst commentary in the memo body. This block must be ready to share with an investor as-is.
+Wrap the memo between the markers MEMO_START and MEMO_END (each on its own line). Inside, use markdown with ## headers. Headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES. Omit sections with no data (except COMPANY OVERVIEW). Present financial data as simple labeled lines. Do not use tables. Include all identifying information. Do NOT cite sources, flag conflicts, mention transcripts, or include any analyst commentary in the memo body. This block must be ready to share with an investor as-is.
 
 BLOCK 2 — INTERNAL ANALYST NOTES (never shared with investors):
-Wrap analyst notes in <analyst_notes> and </analyst_notes> tags. Include a bulleted list of any data discrepancies, unverified figures, source conflicts, or missing data that would strengthen the memo. Reference the specific sources (e.g., "Call 2 states $5.2M revenue; enrichment shows $4.8M"). If there are no discrepancies, write "None."`;
+Wrap analyst notes between the markers ANALYST_NOTES_START and ANALYST_NOTES_END (each on its own line). Include a bulleted list of any data discrepancies, unverified figures, source conflicts, or missing data that would strengthen the memo. Reference the specific sources (e.g., "Call 2 states $5.2M revenue; enrichment shows $4.8M"). If there are no discrepancies, write "None."`;
 
   // Regeneration loop: up to 3 retries for blocking validation failures
   let bestSections: MemoSection[] = [];
