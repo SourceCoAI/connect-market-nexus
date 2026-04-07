@@ -786,7 +786,47 @@ function stripDataNeededTags(sections: MemoSection[]): MemoSection[] {
   });
 }
 
-// Post-process: enforce anonymization by stripping any leaked identifying information
+// Post-process: strip bullet lines that only state missing data or contrast sources
+function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
+  const OMISSION_PATTERNS = [
+    /\bnot\s*on\s*file\b/i,
+    /\bnot\s*available\b/i,
+    /\bnot\s*discussed\b/i,
+    /\bnot\s*provided\b/i,
+    /\bnot\s*confirmed\b/i,
+    /\bnot\s*stated\b/i,
+    /\bis\s*unclear\b/i,
+    /\bis\s*unknown\b/i,
+    /\bare\s*unknown\b/i,
+    /\bhas\s*not\s*been\s*(stated|provided|confirmed|discussed)\b/i,
+    /\bno\s*(detail|information|data)\s*(is|was|has been)?\s*(available|provided|stated|on file)\b/i,
+  ];
+  const SOURCE_CONTRAST_PATTERNS = [
+    /\bLinkedIn[\s-]*report/i,
+    /\bper\s*(internal|enrichment|manual)\s*data\b/i,
+    /\binternal\s*data\b/i,
+    /\benrichment\s*data\b/i,
+  ];
+
+  return sections.map(s => {
+    const lines = s.content.split('\n');
+    const filtered = lines.filter(line => {
+      const trimmed = line.trim();
+      // Only filter bullet lines (starting with -, *, or •)
+      if (!/^[-*•]\s/.test(trimmed)) return true;
+      // Keep lines that contain a dollar amount or percentage (factual data)
+      if (/\$[\d,]+|\d+(\.\d+)?%/.test(trimmed)) return true;
+      // Remove lines whose primary content is an omission apology
+      if (OMISSION_PATTERNS.some(p => p.test(trimmed))) return false;
+      // Remove lines that contrast data sources
+      if (SOURCE_CONTRAST_PATTERNS.some(p => p.test(trimmed))) return false;
+      return true;
+    });
+    return { ...s, content: filtered.join('\n') };
+  });
+}
+
+
 function enforceAnonymization(
   sections: MemoSection[],
   deal: Record<string, unknown>,
@@ -1166,7 +1206,7 @@ This is NOT a marketing document. It is an institutional record. It informs, it 
 
 CORE RULES
 1. ONLY STATED FACTS: Every sentence must trace to the provided source data. If you cannot point to the exact source sentence, do not include it. No inference, no extrapolation.
-2. OMIT, DON'T APOLOGIZE: When data is missing, leave it out. Never write "not provided", "not stated", "not confirmed", "not discussed", or any variation. The reader knows what is absent by what is not in the memo.
+2. OMIT, DON'T APOLOGIZE: When data is missing, leave it out entirely. Never write "not provided", "not stated", "not confirmed", "not discussed", "not on file", "not available", "is unknown", "is unclear", or any variation. If a bullet point would only say that something is missing, do not include that bullet point. Do not contrast data sources (e.g., "LinkedIn reports X; internal data shows Y") — pick the highest-priority figure and state it alone. The reader knows what is absent by what is not in the memo.
 3. NO CHARACTERIZATION: Do not describe any metric with evaluative adjectives. Do not call revenue "consistent," margins "healthy," or growth "notable." State the number.
 4. NO COMPARISONS: Do not compare to industry benchmarks, competitors, or averages unless the source data contains a specific stated comparison.
 5. MATCH DATA DENSITY: Thin data = short memo (300–500 words). Normal data = 600–900 words. Complex multi-location deals with extensive financials may reach 1,200 words. Never pad.
@@ -1179,7 +1219,7 @@ SOURCE PRIORITY (highest to lowest)
 5. Enrichment data (website, LinkedIn)
 
 Conflict rules:
-* When two sources give different values for the same data point, USE the highest-priority source figure without comment. Do not cite the source. Do not qualify the figure. Do not add notes about data provenance in the memo body.
+* When two sources give different values for the same data point, USE the highest-priority source figure without comment. Do not cite the source. Do not qualify the figure. Do not add notes about data provenance in the memo body. Do not mention the names of data sources (LinkedIn, enrichment, internal data, manual entry) in the memo body. Present the chosen figure as a simple fact.
 * Vague or approximate enrichment data does not constitute a conflict.
 * If multiple transcripts exist, the most recent takes priority.
 * If no call transcript exists, simply write with the data you have. Do not note the absence of transcripts in the memo body.
@@ -1336,6 +1376,9 @@ Wrap analyst notes between the markers ANALYST_NOTES_START and ANALYST_NOTES_END
     // Post-process: strip [DATA NEEDED: ...] and [VERIFY: ...] tags
     sections = stripDataNeededTags(sections);
 
+    // Post-process: strip bullet lines that only apologize for missing data or contrast sources
+    sections = stripOmissionLanguage(sections);
+
     // Safety: remove any analyst-notes sections that leaked into parsed sections
     sections = sections.filter(s => !/analyst\s*notes?/i.test(s.title));
 
@@ -1345,6 +1388,10 @@ Wrap analyst notes between the markers ANALYST_NOTES_START and ANALYST_NOTES_END
       /\bmanual\s*entr/i, /\bdiscrepanc/i, /\bconflict\b/i, /\breconcile\b/i,
       /\bunverified\b/i, /\bverified\b/i, /\bsource\s*data\b/i,
       /\bdata\s*room\s*document/i, /\bnot\s*confirm/i, /\bnot\s*stated\b/i,
+      /\bnot\s*on\s*file\b/i, /\bnot\s*available\b/i, /\bnot\s*discussed\b/i,
+      /\bnot\s*provided\b/i, /\bis\s*unclear\b/i, /\bis\s*unknown\b/i,
+      /\bare\s*unknown\b/i, /\bLinkedIn[\s-]*report/i,
+      /\bper\s*(internal|enrichment|manual)\s*data\b/i, /\binternal\s*data\b/i,
     ];
     const memoText = sections.map(s => s.content).join(' ');
     const hasAnalystLanguage = ANALYST_LANGUAGE_PATTERNS.some(p => p.test(memoText));
