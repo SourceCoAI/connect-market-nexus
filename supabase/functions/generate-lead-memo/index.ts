@@ -547,7 +547,7 @@ function buildDataContext(
     transcriptExcerpts,
     enrichmentData,
     manualEntries:
-      manualEntries + (notesExcerpt ? `\n\n--- GENERAL NOTES ---\n${notesExcerpt}` : ''),
+      manualEntries + (notesExcerpt ? `\n\n--- GENERAL NOTES ---\n${notesExcerpt}` : '') + keyQuotesBlock + financialGapsBlock,
     valuationData: valuationStr,
     dataRoomContent,
     sources,
