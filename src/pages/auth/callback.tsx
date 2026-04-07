@@ -5,6 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useVerificationSuccessEmail } from '@/hooks/auth/use-verification-success-email';
 import { selfHealProfile } from '@/lib/profile-self-heal';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+
+/**
+ * Detect whether the current URL contains Supabase auth tokens
+ * (implicit grant via hash or PKCE via query param).
+ */
+function urlHasAuthTokens(): boolean {
+  const hash = window.location.hash;
+  const search = window.location.search;
+  return hash.includes('access_token=') || search.includes('code=');
+}
 
 export default function AuthCallback() {
   const [isLoading, setIsLoading] = useState(true);
@@ -15,19 +26,59 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // SECURITY: Use getUser() for server-side validation instead of getSession()
-        // getSession() trusts the local JWT; getUser() verifies with Supabase Auth server
-        const {
-          data: { user: authUser },
-          error,
-        } = await supabase.auth.getUser();
+        let authUser: SupabaseUser | null = null;
 
-        if (error) {
-          throw error;
+        if (urlHasAuthTokens()) {
+          // URL contains auth tokens from a verification/magic link.
+          // Clear any existing local session first so the new tokens
+          // are processed correctly (handles the "logged in as another user" case).
+          await supabase.auth.signOut({ scope: 'local' });
+
+          // Now wait for Supabase client to process the URL tokens
+          // and fire the SIGNED_IN event with the correct user session.
+          authUser = await new Promise<SupabaseUser | null>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              subscription.unsubscribe();
+              reject(new Error('Verification timed out. Please try clicking the link again.'));
+            }, 15_000);
+
+            const { data: { subscription } } = supabase.auth.onAuthStateChange(
+              (event, session) => {
+                if (event === 'SIGNED_IN' && session?.user) {
+                  clearTimeout(timeout);
+                  subscription.unsubscribe();
+                  resolve(session.user);
+                }
+              },
+            );
+
+            // Trigger the token exchange by re-setting the URL
+            // (supabase-js auto-detects hash tokens on init, but we signed out above
+            // so we need to nudge it). Call getSession() which processes URL tokens.
+            supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
+              if (sessionError) {
+                clearTimeout(timeout);
+                subscription.unsubscribe();
+                reject(sessionError);
+              } else if (session?.user) {
+                // Session was established synchronously (e.g. PKCE code exchange)
+                clearTimeout(timeout);
+                subscription.unsubscribe();
+                resolve(session.user);
+              }
+              // Otherwise wait for the onAuthStateChange callback
+            });
+          });
+        } else {
+          // No tokens in URL - just check the existing session.
+          // SECURITY: Use getUser() for server-side validation
+          const { data: { user }, error: getUserError } = await supabase.auth.getUser();
+          if (getUserError) throw getUserError;
+          authUser = user;
         }
 
         if (authUser) {
-          // Get latest profile data to see if verification was successful
+          // Get latest profile data
           const { data: fetchedProfile, error: profileError } = await supabase
             .from('profiles')
             .select('email_verified, approval_status, is_admin, first_name, last_name, email')
@@ -43,8 +94,7 @@ export default function AuthCallback() {
                 )
               : fetchedProfile;
 
-          // Check if this is a fresh email verification — use authUser as source of truth
-          // since profile.email_verified may lag behind Supabase Auth
+          // Check if this is a fresh email verification
           const emailConfirmed = !!authUser.email_confirmed_at;
 
           // Send verification success email if user just verified their email
@@ -56,11 +106,10 @@ export default function AuthCallback() {
                 lastName: (profile.last_name || '') as string,
               });
             } catch (emailError) {
-              // Don't block the flow if email fails - just log it
               console.error('Failed to send verification success email:', emailError);
             }
 
-            // Also send branded email_verified notification via user-journey-notifications
+            // Also send branded email_verified notification
             const userName =
               `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'there';
             supabase.functions
@@ -78,11 +127,8 @@ export default function AuthCallback() {
           }
 
           if (emailConfirmed && profile?.approval_status === 'approved') {
-            // Fully approved user - go to app
             navigate(profile.is_admin ? '/admin' : '/');
           } else {
-            // Not fully approved yet - always go to pending approval
-            // This handles both: email not verified OR email verified but waiting for admin approval
             navigate('/pending-approval');
           }
         } else {

@@ -71,7 +71,7 @@ const PendingApproval = () => {
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email: user.email,
-        options: { emailRedirectTo: `${window.location.origin}/pending-approval` },
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
       if (resendError) {
         if (resendError.message?.includes('rate limit')) {
