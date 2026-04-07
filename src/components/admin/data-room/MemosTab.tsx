@@ -948,8 +948,6 @@ function DraftPreview({ draft }: { draft: LeadMemo }) {
           );
         })}
 
-      </div>
-
       {/* Internal Analyst Notes — separate from memo, admin-only */}
       {(() => {
         const analystNotes = (draft.content as { analyst_notes?: string })?.analyst_notes;
@@ -969,5 +967,6 @@ function DraftPreview({ draft }: { draft: LeadMemo }) {
           </div>
         );
       })()}
+    </div>
   );
 }
