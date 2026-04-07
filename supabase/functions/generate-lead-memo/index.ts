@@ -1681,11 +1681,6 @@ function sectionsToHtml(memo: MemoContent, memoType: string, branding: string): 
             : escapeHtmlForMemo(branding);
 
   const isAnonymous = memoType === 'anonymous_teaser';
-  const dateStr = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
 
   let html = `<div class="lead-memo ${memoType}" style="font-family: Arial, Helvetica, sans-serif; max-width: 800px; margin: 0 auto; color: #333; line-height: 1.6;">`;
 
