@@ -75,11 +75,8 @@ const EMAILS: EmailDef[] = [
 <p>Your application is in. Our team will review it and you will hear from us by email the moment you are approved, typically within a few hours.</p>
 <p>While you wait, verify your email address using the link we sent you. If you have already verified, sit tight. A team member is reviewing your profile now.</p>
 <h3 style="color:#0e101a;font-size:15px;margin:20px 0 6px">What happens when you are approved</h3>
-<ol style="padding-left:20px;color:#374151">
-<li>We send you two documents to sign: an NDA and a Fee Agreement. Both are standard, take about 60 seconds each.</li>
-<li>Once signed, you get full access to the deal pipeline, including confidential business details, financials, and direct introductions.</li>
-</ol>
-<p>The NDA protects the information we share with you. The Fee Agreement only applies if you close a deal sourced through SourceCo. No upfront cost.</p>
+<p>To receive deal materials and request introductions, you will need to sign a Fee Agreement. You can request one from your profile or any listing page. It takes about 60 seconds.</p>
+<p>The Fee Agreement is success-only. Nothing is owed unless a deal closes.</p>
 <p>Questions? Reply to this email.</p>
 <p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
     invokeFunction: 'user-journey-notifications',
