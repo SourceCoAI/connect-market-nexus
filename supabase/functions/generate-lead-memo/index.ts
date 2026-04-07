@@ -468,6 +468,10 @@ function buildDataContext(
     'technology_systems',
     'revenue_source_quote',
     'ebitda_source_quote',
+    // --- Additional high-value fields ---
+    'general_notes',
+    'google_rating',
+    'google_review_count',
   ];
   const enrichmentData = enrichmentFields
     .filter((f) => deal[f] != null && deal[f] !== '')
@@ -798,15 +802,24 @@ function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
     /\bis\s*unclear\b/i,
     /\bis\s*unknown\b/i,
     /\bare\s*unknown\b/i,
-    /\bhas\s*not\s*been\s*(stated|provided|confirmed|discussed)\b/i,
+    /\bhas\s*not\s*been\s*(stated|provided|confirmed|discussed|established|specified|disclosed|determined)\b/i,
+    /\bhave\s*not\s*been\s*(stated|provided|confirmed|discussed|established|specified|disclosed|determined)\b/i,
     /\bno\s*(detail|information|data)\s*(is|was|has been)?\s*(available|provided|stated|on file)\b/i,
+    /\bnot\s*yet\s*(available|confirmed|provided|stated|disclosed)\b/i,
+    /\bremains\s*(unknown|unclear|unconfirmed)\b/i,
   ];
   const SOURCE_CONTRAST_PATTERNS = [
     /\bLinkedIn[\s-]*report/i,
     /\bper\s*(internal|enrichment|manual)\s*data\b/i,
     /\binternal\s*data\b/i,
     /\benrichment\s*data\b/i,
+    /\bbroader.*platform\b/i,
+    /\bintegrat(e|ion|ing)\s*into\b/i,
+    /\bback-office\s*(support|integration)\b/i,
   ];
+
+  const isOmission = (text: string) => OMISSION_PATTERNS.some(p => p.test(text));
+  const isSourceContrast = (text: string) => SOURCE_CONTRAST_PATTERNS.some(p => p.test(text));
 
   return sections.map(s => {
     const lines = s.content.split('\n');
@@ -815,14 +828,25 @@ function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
       // Only filter bullet lines (starting with -, *, or •)
       if (!/^[-*•]\s/.test(trimmed)) return true;
       // Keep lines that contain a dollar amount or percentage (factual data)
-      if (/\$[\d,]+|\d+(\.\d+)?%/.test(trimmed)) return true;
+      const hasFactualData = /\$[\d,]+|\d+(\.\d+)?%/.test(trimmed);
       // Remove lines whose primary content is an omission apology
-      if (OMISSION_PATTERNS.some(p => p.test(trimmed))) return false;
+      if (isOmission(trimmed) && !hasFactualData) return false;
       // Remove lines that contrast data sources
-      if (SOURCE_CONTRAST_PATTERNS.some(p => p.test(trimmed))) return false;
+      if (isSourceContrast(trimmed)) return false;
       return true;
     });
-    return { ...s, content: filtered.join('\n') };
+    // Second pass: clean semicolon-joined fragments within surviving bullets
+    const cleaned = filtered.map(line => {
+      const trimmed = line.trim();
+      if (!/^[-*•]\s/.test(trimmed)) return line;
+      if (!trimmed.includes(';')) return line;
+      const bullet = trimmed.match(/^([-*•]\s*)/)?.[1] || '- ';
+      const fragments = trimmed.slice(bullet.length).split(';').map(f => f.trim());
+      const kept = fragments.filter(f => !isOmission(f) && !isSourceContrast(f));
+      if (kept.length === 0) return null; // entire bullet was omission
+      return bullet + kept.join('; ');
+    }).filter((l): l is string => l !== null);
+    return { ...s, content: cleaned.join('\n') };
   });
 }
 
@@ -1229,23 +1253,25 @@ FORMAT
 Use only these section headers, in this order. COMPANY OVERVIEW is always included. Omit any section that has no data. Never create an "INFORMATION NOT YET PROVIDED" section.
 
 COMPANY OVERVIEW
-One paragraph, 3–5 sentences. What the company does, where it operates, how it is structured. Legal name, DBA, founded year, HQ, locations, headcount, ownership, core industry. When available, weave in customer geography (service territory, regional footprint), competitive positioning (partnerships, market standing), and end market context. Plain terms.
+One paragraph, 3–5 sentences. What the company does, where it operates, how it is structured. Legal name, DBA, founded year, HQ, locations, headcount, ownership, core industry. When available, weave in customer geography (service territory, regional footprint), competitive positioning (partnerships, market standing), and end market context. If google_rating and google_review_count are available, include as a reputation indicator (e.g., "4.7-star Google rating across 46 reviews"). Plain terms.
 
 FINANCIAL SNAPSHOT
 Simple labeled lines, one per data point. Only include what is explicitly stated or confirmed. Format: [Year] [Metric]: $[Amount]
+Include EBITDA margin alongside the EBITDA figure when ebitda_margin data is available (e.g., "EBITDA Margin: 10.8%").
 
 Example:
 * 2025 Revenue: $5,200,000
 * 2025 EBITDA: $1,100,000
+* EBITDA Margin: 21.2%
 * Owner Compensation: $350,000
 
 If adjusted EBITDA is mentioned, list each add-back individually. If the owner gives a range, state the range exactly. Do not pick midpoint or either bound. If figures don't reconcile (e.g., monthly × 12 ≠ stated annual), use the figure from the highest-priority source. Do NOT flag reconciliation issues in the memo body. When revenue_source_quote or ebitda_source_quote data is available, use those figures as the authoritative values. If financial_notes context is provided, incorporate relevant confirmed financial details (not projections unless labeled as such).
 
 SERVICES AND OPERATIONS
-Bullet points. What services are performed, how revenue is generated, and relevant operational details. Include service mix breakdown, customer types (residential, commercial, government), and technology systems when available. Include industry-specific KPIs only when explicitly stated in the source data — do not use any template checklist to fill in metrics that were not mentioned. When end_market_description or competitive_position data is available, include relevant operational context.
+Bullet points. What services are performed, how revenue is generated, and relevant operational details. Include service mix breakdown, customer types (residential, commercial, government), and technology systems when available. Include industry-specific KPIs only when explicitly stated in the source data — do not use any template checklist to fill in metrics that were not mentioned. When end_market_description or competitive_position data is available, include relevant operational context. When growth_drivers data is available, include as operational growth context (e.g., geographic expansion plans, new service lines, partnerships).
 
 OWNERSHIP AND TRANSACTION
-Bullet points. Owner name(s), roles, and involvement. Transaction type, reason for sale, valuation expectation (exact figures as stated — do not comment on reasonableness), management continuity, real estate, prior transaction history. When transition_preferences or special_requirements data is available, include the transition plan details (named successors, training timeline). When real_estate_info is available, include property details. When timeline_preference is available, include expected timeline.
+Bullet points. Owner name(s), roles, and involvement. Transaction type, reason for sale, valuation expectation (exact figures as stated — do not comment on reasonableness), management continuity, real estate, prior transaction history. When transition_preferences or special_requirements data is available, include the transition plan details (named successors, training timeline). When real_estate_info is available, include property details. When timeline_preference is available, include expected timeline. If general_notes mention a completed business valuation or appraisal, state it as a fact (e.g., "A certified business valuation has been completed"). Do not describe third-party acquisition platforms, competing buyers, or external deal discussions. The memo should only reflect the seller's business and their willingness to transact — not the strategies of other acquirers.
 
 MANAGEMENT AND STAFFING
 Bullet points. Who runs daily operations, owner's specific daily role, key personnel, location-level management, headcount, compensation/benefits if available. When transition plans name specific personnel being trained or promoted, include them here.
