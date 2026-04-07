@@ -8,7 +8,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 
@@ -24,8 +24,9 @@ interface DocumentItem {
 
 function useAllDocuments() {
   const { user } = useAuth();
+  const [noFirm, setNoFirm] = useState(false);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ['buyer-signed-documents', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -41,11 +42,11 @@ function useAllDocuments() {
       const firmId = resolvedFirmId as string | null;
 
       if (!firmId) {
-        return [
-          { type: 'nda' as const, label: 'Non-Disclosure Agreement (NDA)', signed: false, signedAt: null, requested: false, requestedAt: null, status: null },
-          { type: 'fee_agreement' as const, label: 'Fee Agreement', signed: false, signedAt: null, requested: false, requestedAt: null, status: null },
-        ];
+        setNoFirm(true);
+        return [];
       }
+
+      setNoFirm(false);
 
       const { data: firmRaw } = await (
         supabase.from('firm_agreements' as never) as unknown as ReturnType<typeof supabase.from>
@@ -99,6 +100,8 @@ function useAllDocuments() {
     enabled: !!user?.id,
     staleTime: 15_000,
   });
+
+  return { ...query, noFirm };
 }
 
 function StatusDot({ variant }: { variant: 'signed' | 'sent' | 'none' }) {
@@ -112,11 +115,45 @@ function StatusDot({ variant }: { variant: 'signed' | 'sent' | 'none' }) {
 }
 
 export function ProfileDocuments() {
-  const { data: documents, isLoading } = useAllDocuments();
+  const { user } = useAuth();
+  const { data: documents, isLoading, noFirm, refetch } = useAllDocuments();
   const [signingOpen, setSigningOpen] = useState(false);
   const [signingType, setSigningType] = useState<'nda' | 'fee_agreement'>('nda');
+  const [firmCreating, setFirmCreating] = useState(false);
+  const [firmError, setFirmError] = useState(false);
+  const healAttempted = useRef(false);
 
   useAgreementStatusSync();
+
+  useEffect(() => {
+    if (!noFirm || !user?.id || healAttempted.current) return;
+    healAttempted.current = true;
+
+    async function selfHeal() {
+      setFirmCreating(true);
+      try {
+        const { error } = await supabase.functions.invoke('auto-create-firm-on-signup', {
+          body: {
+            userId: user!.id,
+            company: '',
+          },
+        });
+        if (error) {
+          console.warn('Self-heal firm creation failed:', error);
+          setFirmError(true);
+        } else {
+          await refetch();
+        }
+      } catch (err) {
+        console.warn('Self-heal firm creation failed:', err);
+        setFirmError(true);
+      } finally {
+        setFirmCreating(false);
+      }
+    }
+
+    selfHeal();
+  }, [noFirm, user?.id, refetch]);
 
   const pendingDocs = documents?.filter((d) => !d.signed && d.requested) || [];
 
@@ -125,10 +162,24 @@ export function ProfileDocuments() {
     setSigningOpen(true);
   };
 
-  if (isLoading) {
+  if (isLoading || firmCreating) {
     return (
-      <div className="flex items-center justify-center py-16">
+      <div className="flex flex-col items-center justify-center py-16 gap-2">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        {firmCreating && (
+          <p className="text-sm text-muted-foreground">Setting up your account...</p>
+        )}
+      </div>
+    );
+  }
+
+  if (firmError) {
+    return (
+      <div className="py-12 text-center">
+        <Shield className="h-5 w-5 text-muted-foreground mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground">
+          We couldn't set up your document access. Please contact support@sourcecodeals.com
+        </p>
       </div>
     );
   }

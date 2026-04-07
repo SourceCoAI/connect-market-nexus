@@ -101,8 +101,8 @@ export function ProfileForm({
               <Input id="email" name="email" value={user.email} disabled className="bg-muted/50" />
               <p className="text-xs text-muted-foreground">
                 Need to update your email? Contact{' '}
-                <a href="mailto:support@sourceco.com" className="text-primary hover:underline">
-                  support@sourceco.com
+                <a href="mailto:support@sourcecodeals.com" className="text-primary hover:underline">
+                  support@sourcecodeals.com
                 </a>
               </p>
             </div>
@@ -112,28 +112,21 @@ export function ProfileForm({
               <Select
                 value={formData.buyer_type}
                 onValueChange={(value) => onSelectChange(value, 'buyer_type')}
-                disabled
               >
-                <SelectTrigger className="bg-muted/50">
+                <SelectTrigger>
                   <SelectValue placeholder="Select a buyer type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="corporate">Corporate</SelectItem>
                   <SelectItem value="privateEquity">Private Equity</SelectItem>
+                  <SelectItem value="corporate">Corporate / Strategic</SelectItem>
                   <SelectItem value="familyOffice">Family Office</SelectItem>
-                  <SelectItem value="searchFund">Search Fund</SelectItem>
-                  <SelectItem value="individual">Individual</SelectItem>
                   <SelectItem value="independentSponsor">Independent Sponsor</SelectItem>
-                  <SelectItem value="advisor">Advisor / Banker</SelectItem>
+                  <SelectItem value="searchFund">Search Fund</SelectItem>
+                  <SelectItem value="individual">Individual Buyer</SelectItem>
+                  <SelectItem value="advisor">Advisor / Broker</SelectItem>
                   <SelectItem value="businessOwner">Business Owner</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Need to update your buyer type? Contact{' '}
-                <a href="mailto:support@sourceco.com" className="text-primary hover:underline">
-                  support@sourceco.com
-                </a>
-              </p>
             </div>
 
             <div className="space-y-2">
