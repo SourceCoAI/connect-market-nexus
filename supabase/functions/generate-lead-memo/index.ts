@@ -1157,10 +1157,10 @@ SOURCE PRIORITY (highest to lowest)
 5. Enrichment data (website, LinkedIn)
 
 Conflict rules:
-* When two sources give specific, different values for the same data point, use the highest-priority source and note: "Owner stated $X; [other source] shows $Y."
+* When two sources give different values for the same data point, USE the highest-priority source figure without comment. Do not cite the source. Do not qualify the figure. Do not add notes about data provenance.
 * Vague or approximate enrichment data does not constitute a conflict.
 * If multiple transcripts exist, the most recent takes priority.
-* If no call transcript exists, note at the top: "This memo is based on enrichment data and manual entries only. No owner call transcript is available."
+* If no call transcript exists, simply write with the data you have. Do not note the absence of transcripts in the memo body.
 
 FORMAT
 Use only these section headers, in this order. COMPANY OVERVIEW is always included. Omit any section that has no data. Never create an "INFORMATION NOT YET PROVIDED" section.
@@ -1213,7 +1213,11 @@ IMPORTANT: Transcripts may include SourceCo associates and the business owner. E
 
 === DATA ROOM DOCUMENTS (authoritative due diligence material) === ${context.dataRoomContent || 'No data room documents available.'}
 
-Return the memo as markdown with ## headers. Headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES. Omit sections with no data (except COMPANY OVERVIEW). Present financial data as simple labeled lines. Do not use tables. Include all identifying information. Flag conflicts between sources.`;
+Return the memo as markdown with ## headers. Headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES. Omit sections with no data (except COMPANY OVERVIEW). Present financial data as simple labeled lines. Do not use tables. Include all identifying information. Do NOT cite sources or flag conflicts in the memo body.
+
+After the memo, output exactly this delimiter on its own line:
+---ANALYST-NOTES---
+Then output a bulleted list of any data discrepancies, unverified figures, source conflicts, or missing data that would strengthen the memo. Reference the specific sources (e.g., "Call 2 states $5.2M revenue; enrichment shows $4.8M"). If there are no discrepancies, output "None." after the delimiter.`;
 
   // Regeneration loop: up to 3 retries for blocking validation failures
   let bestSections: MemoSection[] = [];
@@ -1265,8 +1269,17 @@ Return the memo as markdown with ## headers. Headers must exactly match: COMPANY
       throw new Error('No content returned from AI');
     }
 
+    // Split off analyst notes before parsing sections
+    let memoMarkdown = rawContent;
+    let analystNotesRaw = '';
+    const delimiterIndex = rawContent.indexOf('---ANALYST-NOTES---');
+    if (delimiterIndex !== -1) {
+      memoMarkdown = rawContent.substring(0, delimiterIndex).trim();
+      analystNotesRaw = rawContent.substring(delimiterIndex + '---ANALYST-NOTES---'.length).trim();
+    }
+
     // Parse markdown output into sections
-    let sections = parseMarkdownToSections(rawContent);
+    let sections = parseMarkdownToSections(memoMarkdown);
 
     // Post-process: enforce banned words removal (preserves quoted text)
     sections = enforceBannedWords(sections);
@@ -1275,6 +1288,8 @@ Return the memo as markdown with ## headers. Headers must exactly match: COMPANY
     sections = stripDataNeededTags(sections);
 
     bestSections = sections;
+    // Store analyst notes for the final return
+    (bestSections as any).__analystNotes = analystNotesRaw;
 
     // Run blocking validation checks (Checks 2, 3, 4)
     const validation = validateFullMemoSections(sections);
@@ -1299,11 +1314,15 @@ Return the memo as markdown with ## headers. Headers must exactly match: COMPANY
     console.warn('Full memo warnings:', warnings);
   }
 
+  const analystNotes = (bestSections as any).__analystNotes || '';
+  delete (bestSections as any).__analystNotes;
+
   return {
     sections: bestSections,
     memo_type: 'full_memo',
     branding,
     generated_at: new Date().toISOString(),
+    analyst_notes: analystNotes || undefined,
     ...companyMeta,
   };
 }
@@ -1662,11 +1681,6 @@ function sectionsToHtml(memo: MemoContent, memoType: string, branding: string): 
             : escapeHtmlForMemo(branding);
 
   const isAnonymous = memoType === 'anonymous_teaser';
-  const dateStr = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
 
   let html = `<div class="lead-memo ${memoType}" style="font-family: Arial, Helvetica, sans-serif; max-width: 800px; margin: 0 auto; color: #333; line-height: 1.6;">`;
 
@@ -1700,15 +1714,9 @@ function sectionsToHtml(memo: MemoContent, memoType: string, branding: string): 
     html += `</div>`;
   }
 
-  // Memo type and date
+  // Memo type subtitle (no date, no red disclaimer)
   html += `<div style="text-align: center; margin-bottom: 24px;">`;
-  html += `<p style="font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 4px 0;">${isAnonymous ? 'Anonymous Teaser' : 'Confidential Lead Memo'}</p>`;
-  html += `<p style="font-size: 13px; color: #888; margin: 0;">${dateStr}</p>`;
-  html += `</div>`;
-
-  // Confidential disclaimer
-  html += `<div style="text-align: center; padding: 8px; border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; margin-bottom: 24px;">`;
-  html += `<p style="font-size: 11px; color: #cc0000; font-style: italic; margin: 0;">CONFIDENTIAL — FOR INTENDED RECIPIENT ONLY</p>`;
+  html += `<p style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 2px; margin: 0;">${isAnonymous ? 'Anonymous Teaser' : 'Lead Memo'}</p>`;
   html += `</div>`;
 
   // Sections as continuous document
@@ -1717,7 +1725,7 @@ function sectionsToHtml(memo: MemoContent, memoType: string, branding: string): 
     if (section.key === 'header_block' || section.key === 'contact_information') continue;
 
     html += `<div class="memo-section" data-key="${escapeHtmlForMemo(section.key)}" style="margin-bottom: 20px;">`;
-    html += `<h2 style="font-size: 16px; margin: 0 0 8px 0; color: #1a1a2e; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px;">${escapeHtmlForMemo(section.title)}</h2>`;
+    html += `<h2 style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 8px 0; color: #1a1a2e; padding: 0; border: none;">${escapeHtmlForMemo(section.title)}</h2>`;
     html += `<div class="section-content" style="font-size: 14px;">${markdownToHtml(section.content)}</div>`;
     html += `</div>`;
   }
