@@ -8,13 +8,25 @@ import { selfHealProfile } from '@/lib/profile-self-heal';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 /**
- * Detect whether the current URL contains Supabase auth tokens
- * (implicit grant via hash or PKCE via query param).
+ * Parse auth tokens from the URL hash fragment.
+ * Returns null if no access_token is found.
  */
-function urlHasAuthTokens(): boolean {
-  const hash = window.location.hash;
-  const search = window.location.search;
-  return hash.includes('access_token=') || search.includes('code=');
+function parseHashTokens(): { access_token: string; refresh_token: string } | null {
+  const hash = window.location.hash.substring(1); // remove leading #
+  if (!hash) return null;
+  const params = new URLSearchParams(hash);
+  const access_token = params.get('access_token');
+  const refresh_token = params.get('refresh_token');
+  if (!access_token || !refresh_token) return null;
+  return { access_token, refresh_token };
+}
+
+/**
+ * Get PKCE code from query string.
+ */
+function getPKCECode(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('code');
 }
 
 export default function AuthCallback() {
@@ -28,50 +40,30 @@ export default function AuthCallback() {
       try {
         let authUser: SupabaseUser | null = null;
 
-        if (urlHasAuthTokens()) {
-          // URL contains auth tokens from a verification/magic link.
-          // Clear any existing local session first so the new tokens
-          // are processed correctly (handles the "logged in as another user" case).
+        const hashTokens = parseHashTokens();
+        const pkceCode = getPKCECode();
+
+        if (hashTokens) {
+          // Clear any existing local session to avoid conflicts
           await supabase.auth.signOut({ scope: 'local' });
 
-          // Now wait for Supabase client to process the URL tokens
-          // and fire the SIGNED_IN event with the correct user session.
-          authUser = await new Promise<SupabaseUser | null>((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              subscription.unsubscribe();
-              reject(new Error('Verification timed out. Please try clicking the link again.'));
-            }, 15_000);
-
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(
-              (event, session) => {
-                if (event === 'SIGNED_IN' && session?.user) {
-                  clearTimeout(timeout);
-                  subscription.unsubscribe();
-                  resolve(session.user);
-                }
-              },
-            );
-
-            // Trigger the token exchange by re-setting the URL
-            // (supabase-js auto-detects hash tokens on init, but we signed out above
-            // so we need to nudge it). Call getSession() which processes URL tokens.
-            supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
-              if (sessionError) {
-                clearTimeout(timeout);
-                subscription.unsubscribe();
-                reject(sessionError);
-              } else if (session?.user) {
-                // Session was established synchronously (e.g. PKCE code exchange)
-                clearTimeout(timeout);
-                subscription.unsubscribe();
-                resolve(session.user);
-              }
-              // Otherwise wait for the onAuthStateChange callback
-            });
+          // Directly set the session using the tokens from the URL hash
+          const { data, error: setSessionError } = await supabase.auth.setSession({
+            access_token: hashTokens.access_token,
+            refresh_token: hashTokens.refresh_token,
           });
+          if (setSessionError) throw setSessionError;
+          authUser = data.user;
+        } else if (pkceCode) {
+          // Clear any existing local session to avoid conflicts
+          await supabase.auth.signOut({ scope: 'local' });
+
+          // Exchange the PKCE code for a session
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(pkceCode);
+          if (exchangeError) throw exchangeError;
+          authUser = data.user;
         } else {
-          // No tokens in URL - just check the existing session.
-          // SECURITY: Use getUser() for server-side validation
+          // No tokens in URL - just check the existing session
           const { data: { user }, error: getUserError } = await supabase.auth.getUser();
           if (getUserError) throw getUserError;
           authUser = user;
