@@ -809,7 +809,7 @@ function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
     /\bremains\s*(unknown|unclear|unconfirmed)\b/i,
   ];
   const SOURCE_CONTRAST_PATTERNS = [
-    /\bLinkedIn[\s-]*report/i,
+    /\bLinkedIn\b/i,
     /\bper\s*(internal|enrichment|manual)\s*data\b/i,
     /\binternal\s*data\b/i,
     /\benrichment\s*data\b/i,
@@ -1421,7 +1421,7 @@ Wrap analyst notes between the markers ANALYST_NOTES_START and ANALYST_NOTES_END
       /\bdata\s*room\s*document/i, /\bnot\s*confirm/i, /\bnot\s*stated\b/i,
       /\bnot\s*on\s*file\b/i, /\bnot\s*available\b/i, /\bnot\s*discussed\b/i,
       /\bnot\s*provided\b/i, /\bis\s*unclear\b/i, /\bis\s*unknown\b/i,
-      /\bare\s*unknown\b/i, /\bLinkedIn[\s-]*report/i,
+      /\bare\s*unknown\b/i, /\bLinkedIn\b/i,
       /\bper\s*(internal|enrichment|manual)\s*data\b/i, /\binternal\s*data\b/i,
     ];
     const memoText = sections.map(s => s.content).join(' ');
