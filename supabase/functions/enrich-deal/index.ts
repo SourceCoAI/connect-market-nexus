@@ -28,7 +28,12 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { normalizeStates, mergeStates } from '../_shared/geography.ts';
 import { buildPriorityUpdates, updateExtractionSources } from '../_shared/source-priority.ts';
-import { GEMINI_API_URL, getGeminiHeaders, DEFAULT_GEMINI_MODEL } from '../_shared/ai-providers.ts';
+import {
+  GEMINI_API_URL,
+  getGeminiHeaders,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiApiKey,
+} from '../_shared/ai-providers.ts';
 import { checkProviderAvailability, reportRateLimit } from '../_shared/rate-limiter.ts';
 import { logAICallCost } from '../_shared/cost-tracker.ts';
 import { logEnrichmentEvent } from '../_shared/enrichment-events.ts';
@@ -48,7 +53,10 @@ import {
 } from '../_shared/deal-extraction.ts';
 // Shared enrichment pipeline utilities
 import { getErrorMessage } from '../_shared/enrichment/pipeline.ts';
-import { isExtractableType, extractAndStoreDocumentText } from '../_shared/document-text-extractor.ts';
+import {
+  isExtractableType,
+  extractAndStoreDocumentText,
+} from '../_shared/document-text-extractor.ts';
 // Sub-modules extracted from this file
 import { applyExistingTranscriptData, processNewTranscripts } from './transcript-processor.ts';
 import { resolveWebsiteUrl, validateWebsiteUrl, scrapeWebsite } from './website-scraper.ts';
@@ -166,7 +174,7 @@ serve(async (req) => {
       );
     }
     const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiApiKey = getGeminiApiKey();
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -196,12 +204,14 @@ serve(async (req) => {
     }
 
     if (!geminiApiKey) {
-      console.error('[enrich-deal] GEMINI_API_KEY is not set — transcript extraction will fail');
+      console.error(
+        '[enrich-deal] Neither OPENROUTER_API_KEY nor GEMINI_API_KEY is set — transcript extraction will fail',
+      );
       return new Response(
         JSON.stringify({
           success: false,
           error:
-            'GEMINI_API_KEY is not configured. Please add it to Supabase Edge Function secrets.',
+            'AI API key is not configured. Please add OPENROUTER_API_KEY to Supabase Edge Function secrets.',
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
@@ -479,7 +489,8 @@ serve(async (req) => {
     // ========================================================================
     let dataRoomContent = '';
     let dataRoomDocsProcessed = 0;
-    let dataRoomStatus: 'extracted' | 'skipped_empty' | 'skipped_timeout' | 'failed' = 'skipped_empty';
+    let dataRoomStatus: 'extracted' | 'skipped_empty' | 'skipped_timeout' | 'failed' =
+      'skipped_empty';
 
     if (hasTimeBudget(70_000)) {
       // Fetch data room documents with text content
@@ -499,9 +510,21 @@ serve(async (req) => {
 
         // Process documents that need text extraction first
         for (const doc of dataRoomDocs) {
-          if (!doc.text_content && doc.file_type && isExtractableType(doc.file_type) && geminiApiKey && hasTimeBudget(65_000)) {
+          if (
+            !doc.text_content &&
+            doc.file_type &&
+            isExtractableType(doc.file_type) &&
+            geminiApiKey &&
+            hasTimeBudget(65_000)
+          ) {
             console.log(`[DataRoom] Extracting text from ${doc.file_name}...`);
-            await extractAndStoreDocumentText(supabase, doc.id, doc.storage_path, doc.file_type, geminiApiKey);
+            await extractAndStoreDocumentText(
+              supabase,
+              doc.id,
+              doc.storage_path,
+              doc.file_type,
+              geminiApiKey,
+            );
             // Re-fetch the text content after extraction
             const { data: refreshedDoc } = await supabase
               .from('data_room_documents')
@@ -528,7 +551,9 @@ serve(async (req) => {
         if (textParts.length > 0) {
           dataRoomContent = textParts.join('\n\n');
           dataRoomStatus = 'extracted';
-          console.log(`[DataRoom] Collected text from ${dataRoomDocsProcessed} documents (${dataRoomContent.length} chars)`);
+          console.log(
+            `[DataRoom] Collected text from ${dataRoomDocsProcessed} documents (${dataRoomContent.length} chars)`,
+          );
         } else {
           console.log('[DataRoom] No text content available from data room documents');
         }
@@ -629,7 +654,11 @@ serve(async (req) => {
             fieldsUpdated: allNonWebFields,
             transcriptReport,
             notesFieldsUpdated,
-            dataRoomReport: { status: dataRoomStatus, documentsProcessed: dataRoomDocsProcessed, contentLength: 0 },
+            dataRoomReport: {
+              status: dataRoomStatus,
+              documentsProcessed: dataRoomDocsProcessed,
+              contentLength: 0,
+            },
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
@@ -753,6 +782,7 @@ Extract all available business information using the provided tool. Be EXHAUSTIV
         });
 
         if (aiResponse.status === 429) {
+          lastAiError = `Rate limited by Gemini (429) after ${attempt + 1} attempts`;
           const retryAfterHeader = aiResponse.headers.get('Retry-After');
           let retryAfterSeconds: number | undefined;
           if (retryAfterHeader) {
@@ -798,6 +828,12 @@ Extract all available business information using the provided tool. Be EXHAUSTIV
       } catch (err) {
         lastAiError = getErrorMessage(err);
         console.error(`AI call exception (attempt ${attempt + 1}):`, lastAiError);
+        // Treat timeouts as a rate-limit signal so concurrent items back off
+        if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+          await reportRateLimit(supabase, 'gemini', 15).catch((rlErr: unknown) => {
+            console.warn('[enrich-deal] Timeout rate limit report failed:', rlErr);
+          });
+        }
         if (attempt < MAX_AI_RETRIES - 1) {
           await new Promise((r) => setTimeout(r, AI_RETRY_DELAYS[attempt]));
         }
@@ -918,7 +954,7 @@ Extract all available business information using the provided tool. Be EXHAUSTIV
     // STEP 5: WRITE TO DATABASE
     // ========================================================================
     // Use 'data_room' source when data room content is present (higher priority than website)
-    const aiExtractionSource = hasDataRoomContent ? 'data_room' as const : 'website' as const;
+    const aiExtractionSource = hasDataRoomContent ? ('data_room' as const) : ('website' as const);
     const { updates, sourceUpdates, rejected } = buildPriorityUpdates(
       deal,
       deal.extraction_sources,
@@ -1037,7 +1073,11 @@ Extract all available business information using the provided tool. Be EXHAUSTIV
           totalPagesAttempted: scrapedPages.length,
           successfulPages: successfulScrapes.length,
           totalCharactersScraped: websiteContent.length,
-          pages: scrapedPages.map((p) => ({ url: p.url, success: p.success, chars: p.content.length })),
+          pages: scrapedPages.map((p) => ({
+            url: p.url,
+            success: p.success,
+            chars: p.content.length,
+          })),
           websiteSkipReason: websiteSkipReason || undefined,
         },
         transcriptReport,

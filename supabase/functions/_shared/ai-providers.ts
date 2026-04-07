@@ -1,8 +1,8 @@
 /**
  * AI Provider Configuration
  *
- * Centralized module for direct API calls to Gemini.
- * All AI operations standardized on Gemini 2.0 Flash.
+ * Centralized module for AI API calls routed through OpenRouter.
+ * All Gemini operations go via OpenRouter for higher rate limits.
  */
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -13,20 +13,28 @@ export interface RateLimitConfig {
   supabase: SupabaseClient;
 }
 
-// API Endpoints
-export const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+// API Endpoints — Gemini routed through OpenRouter for higher rate limits
+export const GEMINI_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+/** @deprecated Use GEMINI_API_URL (OpenRouter) instead. Kept for native Gemini calls that need migration. */
 export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 export const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
-// Default models
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
-export const GEMINI_25_FLASH_MODEL = 'gemini-2.5-flash';
+// Default models — OpenRouter format (google/ prefix)
+export const DEFAULT_GEMINI_MODEL = 'google/gemini-2.0-flash-001';
+export const GEMINI_25_FLASH_MODEL = 'google/gemini-2.5-flash-preview';
 export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-4-6';
 
 /**
- * Build Gemini API request headers
- * Gemini OpenAI-compatible endpoint expects Authorization: Bearer <API_KEY>
+ * Resolve the API key for Gemini calls.
+ * Prefers OPENROUTER_API_KEY, falls back to GEMINI_API_KEY for backwards compat.
+ */
+export function getGeminiApiKey(): string {
+  return Deno.env.get('OPENROUTER_API_KEY') || Deno.env.get('GEMINI_API_KEY') || '';
+}
+
+/**
+ * Build Gemini API request headers (routed through OpenRouter).
+ * OpenRouter uses the same Bearer token format as OpenAI.
  */
 export function getGeminiHeaders(apiKey: string): Record<string, string> {
   return {

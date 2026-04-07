@@ -8,7 +8,7 @@
  *
  * Accepts entity_type + entity_ids to resolve contacts from any source:
  * - buyer_contacts: direct contact IDs (original flow)
- * - buyers: resolve via remarketing_buyer_contacts + buyer_contacts
+ * - buyers: resolve via unified contacts table
  * - listings: resolve main_contact_* fields from listings table
  * - leads: resolve from inbound_leads table
  */
@@ -244,7 +244,7 @@ async function resolveFromBuyers(
   supabase: ReturnType<typeof createClient>,
   buyerIds: string[],
 ): Promise<ResolvedContact[]> {
-  // Read from unified contacts table (consolidates both buyer_contacts and remarketing_buyer_contacts)
+  // Read from unified contacts table
   const { data: allContacts } = await supabase
     .from('contacts')
     .select(

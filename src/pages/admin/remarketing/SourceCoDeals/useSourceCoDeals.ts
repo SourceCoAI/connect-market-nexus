@@ -636,7 +636,15 @@ export function useSourceCoDeals() {
 
     setIsAddingDeal(false);
     if (error) {
-      sonnerToast.error(`Failed to add deal: ${error.message}`);
+      const isWebsiteDupe =
+        error.code === '23505' ||
+        error.message?.includes('unique') ||
+        error.message?.includes('duplicate');
+      sonnerToast.error(
+        isWebsiteDupe
+          ? 'A deal with this website already exists. Please check for duplicates.'
+          : `Failed to add deal: ${error.message}`,
+      );
     } else {
       sonnerToast.success('Deal added successfully');
       setAddDealOpen(false);

@@ -7,6 +7,7 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import type { ClaudeTool } from '../../_shared/claude-client.ts';
 import type { ToolResult } from './index.ts';
+import { DEFAULT_GEMINI_MODEL, getGeminiApiKey } from '../../_shared/ai-providers.ts';
 
 // ---------- Tool definitions ----------
 
@@ -74,31 +75,34 @@ async function semanticTranscriptSearch(
   const limit = Math.min(Number(args.limit) || 10, 25);
 
   // Try to generate search terms using direct Gemini API
-  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  const apiKey = getGeminiApiKey();
   const _embedding: number[] | null = null;
 
   if (apiKey) {
     try {
       // Use Gemini to generate search-optimized terms via direct API
-      const embeddingResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
+      const embeddingResponse = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: DEFAULT_GEMINI_MODEL,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'Extract 10 key search terms from this query for matching M&A call transcripts. Return only comma-separated terms, nothing else.',
+              },
+              { role: 'user', content: query },
+            ],
+            max_tokens: 100,
+          }),
         },
-        body: JSON.stringify({
-          model: 'gemini-2.0-flash',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'Extract 10 key search terms from this query for matching M&A call transcripts. Return only comma-separated terms, nothing else.',
-            },
-            { role: 'user', content: query },
-          ],
-          max_tokens: 100,
-        }),
-      });
+      );
 
       if (embeddingResponse.ok) {
         const data = await embeddingResponse.json();

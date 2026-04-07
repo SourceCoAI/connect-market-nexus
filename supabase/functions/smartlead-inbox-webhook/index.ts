@@ -13,6 +13,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { timingSafeEqual } from '../_shared/security.ts';
 import { smartleadRequest } from '../_shared/smartlead-client.ts';
+import { DEFAULT_GEMINI_MODEL, getGeminiApiKey } from '../_shared/ai-providers.ts';
 
 /** Strip HTML tags and collapse whitespace */
 function stripHtml(html: string): string {
@@ -43,7 +44,7 @@ interface AIClassification {
 }
 
 async function classifyReply(replyText: string): Promise<AIClassification> {
-  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  const apiKey = getGeminiApiKey();
   if (!apiKey) {
     console.warn('[smartlead-inbox-webhook] GEMINI_API_KEY not set, skipping classification');
     return {
@@ -93,7 +94,7 @@ is_positive should be true ONLY for meeting_request and interested categories.`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gemini-2.0-flash',
+          model: DEFAULT_GEMINI_MODEL,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Classify this email reply:\n\n${sanitized}` },

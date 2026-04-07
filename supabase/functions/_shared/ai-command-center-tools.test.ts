@@ -306,7 +306,7 @@ describe('Contact Tools — Unified Contacts', () => {
       expect(toolDef.name).toBe('search_pe_contacts');
     });
 
-    it('has buyer_id parameter (not buyer_id referencing pe_firm_contacts)', () => {
+    it('has buyer_id parameter', () => {
       expect(toolDef.input_schema.properties.buyer_id).toBeDefined();
     });
 

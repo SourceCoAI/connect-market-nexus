@@ -27,7 +27,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { validateUrl, ssrfErrorResponse } from '../_shared/security.ts';
 import { logAICallCost } from '../_shared/cost-tracker.ts';
 import { logEnrichmentEvent } from '../_shared/enrichment-events.ts';
-import { type RateLimitConfig } from '../_shared/ai-providers.ts';
+import { type RateLimitConfig, getGeminiApiKey } from '../_shared/ai-providers.ts';
 import { withConcurrencyTracking, reportRateLimit } from '../_shared/rate-limiter.ts';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { type SourceType, validateFieldProvenance } from '../_shared/provenance.ts';
@@ -138,9 +138,10 @@ async function scrapeWebsite(
     );
     const fallback = await runScrape(false);
 
-    const best = fallback.ok && fallback.content.length > first.content.length
-      ? fallback.content
-      : first.content;
+    const best =
+      fallback.ok && fallback.content.length > first.content.length
+        ? fallback.content
+        : first.content;
 
     if (best.length < BUYER_MIN_CONTENT_LENGTH) {
       return { success: false, error: `Insufficient content (${best.length} chars)` };
@@ -333,7 +334,7 @@ Deno.serve(async (req) => {
     }
 
     const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiApiKey = getGeminiApiKey();
 
     if (!firecrawlApiKey || !geminiApiKey) {
       return new Response(
@@ -890,12 +891,9 @@ Deno.serve(async (req) => {
 
     // After enrichment, if pe_firm_name is set and parent_pe_firm_id is NULL,
     // enqueue for backfill PE firm linking (trigger also handles this, but explicit is safer)
-    const enrichedPeFirmName = (updateData as Record<string, unknown>).pe_firm_name || buyer.pe_firm_name;
-    if (
-      enrichedPeFirmName &&
-      buyer.buyer_type === 'corporate' &&
-      !buyer.parent_pe_firm_id
-    ) {
+    const enrichedPeFirmName =
+      (updateData as Record<string, unknown>).pe_firm_name || buyer.pe_firm_name;
+    if (enrichedPeFirmName && buyer.buyer_type === 'corporate' && !buyer.parent_pe_firm_id) {
       supabase
         .from('pe_link_queue')
         .upsert(

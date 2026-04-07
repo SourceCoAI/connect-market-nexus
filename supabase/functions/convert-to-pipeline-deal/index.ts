@@ -101,7 +101,6 @@ Deno.serve(async (req: Request) => {
     }
 
     // 3. Fetch primary contact for the buyer from unified contacts table
-    // (Audit P1: migrate from legacy remarketing_buyer_contacts to contacts)
     const { data: contact } = await supabase
       .from('contacts')
       .select('first_name, last_name, email, phone, title')
@@ -112,7 +111,12 @@ Deno.serve(async (req: Request) => {
 
     // Fallback: any contact if no primary
     let contactInfo = contact
-      ? { name: [contact.first_name, contact.last_name].filter(Boolean).join(' '), email: contact.email, phone: contact.phone, role: contact.title }
+      ? {
+          name: [contact.first_name, contact.last_name].filter(Boolean).join(' '),
+          email: contact.email,
+          phone: contact.phone,
+          role: contact.title,
+        }
       : null;
     if (!contactInfo) {
       const { data: anyContact } = await supabase
@@ -124,7 +128,12 @@ Deno.serve(async (req: Request) => {
         .limit(1)
         .maybeSingle();
       contactInfo = anyContact
-        ? { name: [anyContact.first_name, anyContact.last_name].filter(Boolean).join(' '), email: anyContact.email, phone: anyContact.phone, role: anyContact.title }
+        ? {
+            name: [anyContact.first_name, anyContact.last_name].filter(Boolean).join(' '),
+            email: anyContact.email,
+            phone: anyContact.phone,
+            role: anyContact.title,
+          }
         : null;
     }
 

@@ -1,13 +1,18 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { GEMINI_API_URL, getGeminiHeaders, fetchWithAutoRetry } from '../_shared/ai-providers.ts';
+import {
+  GEMINI_API_URL,
+  getGeminiHeaders,
+  fetchWithAutoRetry,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiApiKey,
+} from '../_shared/ai-providers.ts';
 import { normalizeState } from '../_shared/criteria-validation.ts';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 // Gemini API configuration
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-const DEFAULT_MODEL = 'gemini-2.0-flash';
+const GEMINI_API_KEY = getGeminiApiKey();
 const EXTRACTION_TIMEOUT_MS = 120000;
 const MAX_RETRIES = 3;
 
@@ -328,7 +333,7 @@ ${guideContent.slice(0, 50000)}`;
       method: 'POST',
       headers: getGeminiHeaders(GEMINI_API_KEY),
       body: JSON.stringify({
-        model: DEFAULT_MODEL,
+        model: DEFAULT_GEMINI_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },

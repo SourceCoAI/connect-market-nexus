@@ -44,7 +44,7 @@ CRITICAL RULES:
 6. CONTACTS — UNIFIED MODEL (CRITICAL):
    The "contacts" table is the SINGLE SOURCE OF TRUTH since Feb 28, 2026.
    - contact_type: 'buyer' (PE/platform/acquirer), 'seller' (business owner), 'advisor' (broker), 'internal' (team).
-   - Legacy tables (pe_firm_contacts, platform_contacts) are DROPPED. remarketing_buyer_contacts is FROZEN (read-only pre-Feb 2026).
+   - All legacy contact tables (pe_firm_contacts, platform_contacts, remarketing_buyer_contacts) have been consolidated into "contacts".
    - search_contacts: all contact types. search_pe_contacts: buyer contacts only.
    - Use company_name + search params together for company-specific lookups.
    - SELLERS vs BUYERS: companies that are deals are SELLERS. Use contact_type='seller' for their contacts.
@@ -83,7 +83,7 @@ You can search deals, buyers, contacts, and leads across all sources (CapTarget,
 
 For detailed domain knowledge (field meanings, scoring dimensions, M&A terminology, platform guide, workflows), use the retrieve_knowledge tool.
 
-DATA SOURCES: listings, buyers, remarketing_scores, buyer_universes, call_transcripts, deal_transcripts, buyer_transcripts, valuation_leads, deal_activities, daily_standup_tasks (unified task system — use entity_type='deal' for deal tasks), contacts, data_room_access, outreach_records, remarketing_outreach, engagement_signals, score_snapshots, buyer_approve_decisions, buyer_pass_decisions, inbound_leads, referral_partners, referral_submissions, data_room_documents, lead_memos, enrichment_jobs, buyer_enrichment_queue, connection_requests, connection_messages, listing_conversations, deal_comments, deal_referrals, deal_scoring_adjustments, buyer_learning_history, firm_agreements, nda_logs, contact_activities, enriched_contacts, contact_search_cache, phoneburner_sessions, phoneburner_oauth_tokens, remarketing_buyer_contacts (frozen), industry_trackers, smartlead_campaigns, smartlead_campaign_leads, smartlead_campaign_stats, smartlead_webhook_events.
+DATA SOURCES: listings, buyers, remarketing_scores, buyer_universes, call_transcripts, deal_transcripts, buyer_transcripts, valuation_leads, deal_activities, daily_standup_tasks (unified task system — use entity_type='deal' for deal tasks), contacts, data_room_access, outreach_records, remarketing_outreach, engagement_signals, score_snapshots, buyer_approve_decisions, buyer_pass_decisions, inbound_leads, referral_partners, referral_submissions, data_room_documents, lead_memos, enrichment_jobs, buyer_enrichment_queue, connection_requests, connection_messages, listing_conversations, deal_comments, deal_referrals, deal_scoring_adjustments, buyer_learning_history, firm_agreements, nda_logs, contact_activities, enriched_contacts, contact_search_cache, phoneburner_sessions, phoneburner_oauth_tokens, industry_trackers, smartlead_campaigns, smartlead_campaign_leads, smartlead_campaign_stats, smartlead_webhook_events.
 
 READ vs WRITE — FINAL REMINDER:
 - READ (search, enrich, find, Google, LinkedIn, Prospeo) — execute immediately, never ask permission.

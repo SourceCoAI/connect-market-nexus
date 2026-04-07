@@ -2,9 +2,7 @@
 /**
  * Contact & Document Tools
  * Unified contacts table (buyer + seller), data room documents, deal memos.
- * Updated Feb 2026: All contact queries now use the unified `contacts` table.
- * Legacy tables (pe_firm_contacts, platform_contacts) have been dropped.
- * remarketing_buyer_contacts is frozen (read-only pre-Feb 2026 data).
+ * All contact queries use the unified `contacts` table.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -201,8 +199,6 @@ export async function executeContactTool(
 
 /**
  * Search buyer contacts via the unified contacts table.
- * Replaces legacy queries to pe_firm_contacts, platform_contacts (both dropped),
- * and remarketing_buyer_contacts (frozen pre-Feb 2026).
  */
 async function searchPeContacts(
   supabase: SupabaseClient,

@@ -7,16 +7,17 @@
  * Designed to be non-blocking — cost logging never fails the actual AI operation.
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 export type CostProvider = 'gemini' | 'anthropic';
 
 // Pricing per million tokens (as of Feb 2026)
 const PRICING: Record<string, { inputPerMTok: number; outputPerMTok: number }> = {
-  'gemini-2.0-flash':          { inputPerMTok: 0.10, outputPerMTok: 0.40 },
-  'gemini-2.0-pro-exp':        { inputPerMTok: 1.25, outputPerMTok: 5.00 },
-  'claude-sonnet-4-6':       { inputPerMTok: 3.00, outputPerMTok: 15.00 },
-  'claude-sonnet-4-20250514':  { inputPerMTok: 3.00, outputPerMTok: 15.00 },
+  'google/gemini-2.0-flash-001': { inputPerMTok: 0.1, outputPerMTok: 0.4 },
+  'gemini-2.0-flash': { inputPerMTok: 0.1, outputPerMTok: 0.4 }, // legacy
+  'gemini-2.0-pro-exp': { inputPerMTok: 1.25, outputPerMTok: 5.0 },
+  'claude-sonnet-4-6': { inputPerMTok: 3.0, outputPerMTok: 15.0 },
+  'claude-sonnet-4-20250514': { inputPerMTok: 3.0, outputPerMTok: 15.0 },
 };
 
 export interface CostEntry {
@@ -33,11 +34,7 @@ export interface CostEntry {
 /**
  * Calculate estimated cost for a given model and token usage.
  */
-export function estimateCost(
-  model: string,
-  inputTokens: number,
-  outputTokens: number
-): number {
+export function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
   const pricing = PRICING[model];
   if (!pricing) {
     // Unknown model — use a conservative estimate
@@ -50,24 +47,19 @@ export function estimateCost(
  * Log an AI call's cost to the database.
  * This is NON-BLOCKING — failures are caught and logged, never thrown.
  */
-export async function logCost(
-  supabase: SupabaseClient,
-  entry: CostEntry
-): Promise<void> {
+export async function logCost(supabase: SupabaseClient, entry: CostEntry): Promise<void> {
   try {
-    await supabase
-      .from('enrichment_cost_log')
-      .insert({
-        function_name: entry.function_name,
-        provider: entry.provider,
-        model: entry.model,
-        input_tokens: entry.input_tokens,
-        output_tokens: entry.output_tokens,
-        estimated_cost_usd: entry.estimated_cost_usd,
-        duration_ms: entry.duration_ms,
-        metadata: entry.metadata,
-        created_at: new Date().toISOString(),
-      });
+    await supabase.from('enrichment_cost_log').insert({
+      function_name: entry.function_name,
+      provider: entry.provider,
+      model: entry.model,
+      input_tokens: entry.input_tokens,
+      output_tokens: entry.output_tokens,
+      estimated_cost_usd: entry.estimated_cost_usd,
+      duration_ms: entry.duration_ms,
+      metadata: entry.metadata,
+      created_at: new Date().toISOString(),
+    });
   } catch (err) {
     // Non-blocking — don't let cost logging break the operation
     console.warn('[cost-tracker] Failed to log cost:', err);
@@ -85,7 +77,7 @@ export async function logAICallCost(
   model: string,
   usage: { inputTokens: number; outputTokens: number } | null | undefined,
   durationMs?: number,
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>,
 ): Promise<void> {
   if (!usage) return; // No usage data available
 
@@ -109,8 +101,12 @@ export async function logAICallCost(
  */
 export async function getTotalSpend(
   supabase: SupabaseClient,
-  sinceIso?: string
-): Promise<{ total: number; byProvider: Record<string, number>; byFunction: Record<string, number> }> {
+  sinceIso?: string,
+): Promise<{
+  total: number;
+  byProvider: Record<string, number>;
+  byFunction: Record<string, number>;
+}> {
   try {
     let query = supabase
       .from('enrichment_cost_log')

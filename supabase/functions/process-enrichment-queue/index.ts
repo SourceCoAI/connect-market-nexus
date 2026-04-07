@@ -38,14 +38,14 @@ import { logEnrichmentEvent } from '../_shared/enrichment-events.ts';
 // Moderate parallelism to avoid rate limits across concurrent queue processors.
 // Each deal enrichment makes 1 Firecrawl + 1 Gemini + optional LinkedIn/Google calls.
 const BATCH_SIZE = 10; // Fetch 10 items per run
-const CONCURRENCY_LIMIT = 2; // Process 2 items in parallel — reduced to avoid Gemini rate limits on large batches
+const CONCURRENCY_LIMIT = 5; // 5 items in parallel — OpenRouter has much higher rate limits than direct Gemini
 const MAX_ATTEMPTS = 3; // Maximum retry attempts
 const PROCESSING_TIMEOUT_MS = 120000; // 120s per item — enrich-deal processes transcripts + notes + website
-const INTER_CHUNK_DELAY_MS = 2000; // 2s between parallel chunks — gives Gemini breathing room
+const INTER_CHUNK_DELAY_MS = 1000; // 1s between chunks
 
 // Stop early to avoid the platform killing the function mid-item.
 // enrich-deal uses 140s budget internally, so this worker needs at least that long.
-const MAX_FUNCTION_RUNTIME_MS = 140000; // 140s — matches enrich-deal's internal budget
+const MAX_FUNCTION_RUNTIME_MS = 130000; // 130s — stay under 150s platform limit
 
 // N06 FIX: Maximum number of self-continuations to prevent infinite loops.
 // Each invocation processes BATCH_SIZE items, so 50 continuations = up to 500 items.
@@ -252,7 +252,9 @@ serve(async (req) => {
       );
       const { data: enrichedListings } = await supabase
         .from('listings')
-        .select('id, enriched_at, executive_summary, industry, notes_analyzed_at, general_notes, owner_notes, internal_notes, owner_response, captarget_call_notes, description')
+        .select(
+          'id, enriched_at, executive_summary, industry, notes_analyzed_at, general_notes, owner_notes, internal_notes, owner_response, captarget_call_notes, description',
+        )
         .in('id', nonForceListingIds)
         .not('enriched_at', 'is', null);
 
@@ -260,13 +262,22 @@ serve(async (req) => {
       // meaningful data (executive_summary or industry populated) AND
       // notes have been analyzed (or there are no notes to analyze).
       const alreadyEnrichedIds = new Set(
-        (enrichedListings || []).filter((l) => {
-          if (!l.executive_summary && !l.industry) return false;
-          // If listing has notes content but notes haven't been analyzed, it needs re-enrichment
-          const hasNotes = !!(l.general_notes || l.owner_notes || l.internal_notes || l.owner_response || l.captarget_call_notes || l.description);
-          if (hasNotes && !l.notes_analyzed_at) return false;
-          return true;
-        }).map((l) => l.id),
+        (enrichedListings || [])
+          .filter((l) => {
+            if (!l.executive_summary && !l.industry) return false;
+            // If listing has notes content but notes haven't been analyzed, it needs re-enrichment
+            const hasNotes = !!(
+              l.general_notes ||
+              l.owner_notes ||
+              l.internal_notes ||
+              l.owner_response ||
+              l.captarget_call_notes ||
+              l.description
+            );
+            if (hasNotes && !l.notes_analyzed_at) return false;
+            return true;
+          })
+          .map((l) => l.id),
       );
 
       const partiallyEnrichedCount = (enrichedListings || []).length - alreadyEnrichedIds.size;
@@ -357,9 +368,7 @@ serve(async (req) => {
                 console.warn('[process-enrichment-queue] Continuation trigger failed:', err);
               });
             } else {
-              console.error(
-                `MAX_CONTINUATIONS reached — ${remainingPending} items still pending`,
-              );
+              console.error(`MAX_CONTINUATIONS reached — ${remainingPending} items still pending`);
               await completeGlobalQueueOperation(supabase, 'deal_enrichment', 'failed');
             }
           } else {
@@ -598,7 +607,9 @@ serve(async (req) => {
         } else {
           // Promise rejected - network/timeout/uncaught error.
           // IMPORTANT: still update the queue row so it doesn't get stuck in `processing`.
-          const reason = result.reason as { item?: { id: string; listing_id: string; attempts: number }; error?: unknown } | undefined;
+          const reason = result.reason as
+            | { item?: { id: string; listing_id: string; attempts: number }; error?: unknown }
+            | undefined;
           const item = reason?.item;
           const underlying = reason?.error;
 

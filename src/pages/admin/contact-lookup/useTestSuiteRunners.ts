@@ -297,27 +297,6 @@ export function useTestSuiteRunners(selectedBuyer: BuyerOption | null, bulkIds: 
       steps.push(mkStep(`... and ${rows.length - 5} more`, 'pass'));
     }
 
-    // Check legacy table
-    try {
-      const { data: legacyData } = await supabase
-        .from('remarketing_buyer_contacts' as never)
-        .select('id')
-        .eq('buyer_id', selectedBuyer.id)
-        .limit(5);
-      const legacyCount = (legacyData as unknown[] | null)?.length || 0;
-      steps.push(
-        mkStep(
-          'Legacy table check',
-          legacyCount === 0 ? 'pass' : 'warn',
-          legacyCount > 0
-            ? `${legacyCount} rows in remarketing_buyer_contacts (legacy)`
-            : 'No legacy rows — using unified contacts table',
-        ),
-      );
-    } catch {
-      steps.push(mkStep('Legacy table check', 'pass', 'Legacy table not accessible (expected)'));
-    }
-
     updateSuite(suiteId, { running: false, steps });
   }, [selectedBuyer, updateSuite]);
 

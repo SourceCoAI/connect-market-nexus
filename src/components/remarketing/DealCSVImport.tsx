@@ -15,7 +15,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Upload, FileSpreadsheet, Loader2, Check, AlertCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import {
+  Upload,
+  FileSpreadsheet,
+  Loader2,
+  Check,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+} from 'lucide-react';
 import { toast } from 'sonner';
 // Papa removed – using parseSpreadsheet instead
 import { normalizeDomain, isGenericEmailDomain } from '@/lib/remarketing/normalizeDomain';
@@ -97,7 +106,8 @@ export const DealCSVImport = ({
 
       if (columns.length === 0) {
         toast.error('Could not detect headers', {
-          description: 'Please verify the file has a header row and is a valid CSV, XLS, or XLSX file.',
+          description:
+            'Please verify the file has a header row and is a valid CSV, XLS, or XLSX file.',
         });
         reset();
         return;
@@ -106,13 +116,10 @@ export const DealCSVImport = ({
       // Try AI mapping
       setIsMapping(true);
       try {
-        const { data: mappingResult, error } = await supabase.functions.invoke(
-          'map-csv-columns',
-          {
-            // Pass a few sample rows to improve mapping quality (disambiguates similar headers)
-            body: { columns, targetType: 'deal', sampleData: data.slice(0, 3) },
-          },
-        );
+        const { data: mappingResult, error } = await supabase.functions.invoke('map-csv-columns', {
+          // Pass a few sample rows to improve mapping quality (disambiguates similar headers)
+          body: { columns, targetType: 'deal', sampleData: data.slice(0, 3) },
+        });
 
         if (error) throw error;
 
@@ -211,12 +218,12 @@ export const DealCSVImport = ({
         if (field === 'category' && newValue === 'Other') continue;
 
         const isEmpty =
-          existingValue === null
-          || existingValue === undefined
-          || existingValue === ''
-          || (field === 'description' && existingValue === (existingListing.title || ''))
-          || (field === 'category' && existingValue === 'Other')
-          || (field === 'location' && existingValue === 'Unknown');
+          existingValue === null ||
+          existingValue === undefined ||
+          existingValue === '' ||
+          (field === 'description' && existingValue === (existingListing.title || '')) ||
+          (field === 'category' && existingValue === 'Other') ||
+          (field === 'location' && existingValue === 'Unknown');
 
         if (isEmpty) {
           updates[field] = newValue;
@@ -236,12 +243,18 @@ export const DealCSVImport = ({
         }
       }
 
-      if (typeof newData.revenue === 'number' && newData.revenue > 0
-          && (existingListing.revenue === 0 || existingListing.revenue === null)) {
+      if (
+        typeof newData.revenue === 'number' &&
+        newData.revenue > 0 &&
+        (existingListing.revenue === 0 || existingListing.revenue === null)
+      ) {
         updates.revenue = newData.revenue;
       }
-      if (typeof newData.ebitda === 'number' && newData.ebitda > 0
-          && (existingListing.ebitda === 0 || existingListing.ebitda === null)) {
+      if (
+        typeof newData.ebitda === 'number' &&
+        newData.ebitda > 0 &&
+        (existingListing.ebitda === 0 || existingListing.ebitda === null)
+      ) {
         updates.ebitda = newData.ebitda;
       }
 
@@ -282,12 +295,31 @@ export const DealCSVImport = ({
 
       // Fields eligible for merge-fill on existing deals
       const MERGEABLE_FIELDS = [
-        'main_contact_name', 'main_contact_email', 'main_contact_phone', 'main_contact_title',
-        'description', 'executive_summary', 'general_notes', 'internal_notes', 'owner_goals',
-        'category', 'industry', 'address', 'address_city', 'address_state', 'address_zip',
-        'address_country', 'geographic_states', 'services', 'linkedin_url', 'fireflies_url',
-        'internal_company_name', 'full_time_employees', 'number_of_locations',
-        'google_review_count', 'google_rating',
+        'main_contact_name',
+        'main_contact_email',
+        'main_contact_phone',
+        'main_contact_title',
+        'description',
+        'executive_summary',
+        'general_notes',
+        'internal_notes',
+        'owner_goals',
+        'category',
+        'industry',
+        'address',
+        'address_city',
+        'address_state',
+        'address_zip',
+        'address_country',
+        'geographic_states',
+        'services',
+        'linkedin_url',
+        'fireflies_url',
+        'internal_company_name',
+        'full_time_employees',
+        'number_of_locations',
+        'google_review_count',
+        'google_rating',
       ];
 
       for (let i = 0; i < csvData.length; i++) {
@@ -452,7 +484,7 @@ export const DealCSVImport = ({
           // Skip rows where "website" is a generic email domain
           if (listingData.website && isGenericEmailDomain(listingData.website as string)) {
             results.errors.push(
-              `Row ${i + 1}: Skipped — "${listingData.website}" is a personal email domain, not a company website`
+              `Row ${i + 1}: Skipped — "${listingData.website}" is a personal email domain, not a company website`,
             );
             continue;
           }
@@ -476,14 +508,13 @@ export const DealCSVImport = ({
 
           if (listingError) {
             // If duplicate, try to merge empty fields on the existing listing
-            const isDuplicate = listingError.message?.includes('duplicate key')
-              || listingError.message?.includes('unique constraint')
-              || listingError.code === '23505';
+            const isDuplicate =
+              listingError.message?.includes('duplicate key') ||
+              listingError.message?.includes('unique constraint') ||
+              listingError.code === '23505';
 
             if (isDuplicate) {
-              const mergeResult = await tryMergeExistingListing(
-                listingData, MERGEABLE_FIELDS,
-              );
+              const mergeResult = await tryMergeExistingListing(listingData, MERGEABLE_FIELDS);
               if (mergeResult) {
                 results.merged++;
                 results.linkedListingIds.push(mergeResult.id);
@@ -496,14 +527,20 @@ export const DealCSVImport = ({
                   website: (listingData.website as string) || undefined,
                 });
                 // Also ensure universe link exists
-                await supabase.from('remarketing_universe_deals').upsert({
-                  universe_id: universeId,
-                  listing_id: mergeResult.id,
-                  added_by: user?.id,
-                  status: 'active',
-                } as never, { onConflict: 'universe_id,listing_id' }).select();
+                await supabase
+                  .from('remarketing_universe_deals')
+                  .upsert(
+                    {
+                      universe_id: universeId,
+                      listing_id: mergeResult.id,
+                      added_by: user?.id,
+                      status: 'active',
+                    } as never,
+                    { onConflict: 'universe_id,listing_id' },
+                  )
+                  .select();
               } else {
-                results.errors.push(`Row ${i + 1}: duplicate key value violates unique constraint`);
+                results.errors.push(`Row ${i + 1}: A deal with this website already exists`);
               }
             } else {
               throw listingError;
@@ -586,7 +623,9 @@ export const DealCSVImport = ({
           <div className="border-2 border-dashed rounded-lg p-12 text-center w-full">
             <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-lg font-medium mb-2">Upload Spreadsheet</p>
-            <p className="text-sm text-muted-foreground mb-4">CSV, XLS, or XLSX -- drag and drop or click to browse</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              CSV, XLS, or XLSX -- drag and drop or click to browse
+            </p>
             <Label htmlFor="csv-upload" className="cursor-pointer">
               <Input
                 id="csv-upload"
@@ -705,11 +744,11 @@ export const DealCSVImport = ({
           <p className="font-medium mb-1">
             {(() => {
               const parts: string[] = [];
-              if (importResults.imported > 0) parts.push(`${importResults.imported} new deals imported`);
-              if (importResults.merged > 0) parts.push(`${importResults.merged} existing deals updated`);
-              return parts.length > 0
-                ? parts.join(', ')
-                : `0 of ${csvData.length} deals imported`;
+              if (importResults.imported > 0)
+                parts.push(`${importResults.imported} new deals imported`);
+              if (importResults.merged > 0)
+                parts.push(`${importResults.merged} existing deals updated`);
+              return parts.length > 0 ? parts.join(', ') : `0 of ${csvData.length} deals imported`;
             })()}
           </p>
           {importResults.merged > 0 && (
@@ -726,8 +765,14 @@ export const DealCSVImport = ({
                 className="flex items-center gap-2 text-sm font-medium text-left w-full hover:underline"
                 onClick={() => setShowNewDeals(!showNewDeals)}
               >
-                {showNewDeals ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                <span className="text-green-700">{importResults.newDeals.length} new deals imported</span>
+                {showNewDeals ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+                <span className="text-green-700">
+                  {importResults.newDeals.length} new deals imported
+                </span>
               </button>
               {showNewDeals && (
                 <ScrollArea className="max-h-48 w-full border rounded-lg mt-2">
@@ -744,7 +789,9 @@ export const DealCSVImport = ({
                         <TableRow key={`new-${deal.row}`}>
                           <TableCell className="text-muted-foreground">{deal.row}</TableCell>
                           <TableCell className="font-medium">{deal.companyName}</TableCell>
-                          <TableCell className="text-muted-foreground text-xs">{deal.website || '—'}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">
+                            {deal.website || '—'}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -762,8 +809,14 @@ export const DealCSVImport = ({
                 className="flex items-center gap-2 text-sm font-medium text-left w-full hover:underline"
                 onClick={() => setShowMergedDeals(!showMergedDeals)}
               >
-                {showMergedDeals ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                <span className="text-amber-700">{importResults.mergedDeals.length} existing deals updated</span>
+                {showMergedDeals ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+                <span className="text-amber-700">
+                  {importResults.mergedDeals.length} existing deals updated
+                </span>
               </button>
               {showMergedDeals && (
                 <ScrollArea className="max-h-48 w-full border rounded-lg mt-2">
@@ -792,7 +845,9 @@ export const DealCSVImport = ({
                               <ExternalLink className="h-3 w-3" />
                             </a>
                             {deal.website && (
-                              <span className="text-xs text-muted-foreground block">{deal.website}</span>
+                              <span className="text-xs text-muted-foreground block">
+                                {deal.website}
+                              </span>
                             )}
                           </TableCell>
                           <TableCell>

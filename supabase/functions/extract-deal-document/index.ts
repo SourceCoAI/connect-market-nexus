@@ -1,8 +1,15 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { callGeminiWithTool, callGeminiWithRetry, DEFAULT_GEMINI_MODEL, GEMINI_API_URL, getGeminiHeaders } from "../_shared/ai-providers.ts";
+import {
+  callGeminiWithTool,
+  callGeminiWithRetry,
+  DEFAULT_GEMINI_MODEL,
+  GEMINI_API_URL,
+  getGeminiHeaders,
+  getGeminiApiKey,
+} from '../_shared/ai-providers.ts';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 interface DocumentExtractionRequest {
   universe_id: string;
@@ -26,22 +33,23 @@ async function extractDocumentContent(documentUrl: string): Promise<DocumentCont
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
   // Decode in case the path was URL-encoded
   const storagePath = decodeURIComponent(documentUrl);
   console.log(`[DOCUMENT_FETCH] Resolved path: "${storagePath}"`);
 
-  const { data, error } = await supabase.storage
-    .from('universe-documents')
-    .download(storagePath);
+  const { data, error } = await supabase.storage.from('universe-documents').download(storagePath);
 
   if (error || !data) {
     const errName = (error as { name?: string })?.name || 'Unknown';
-    const errMsg = error?.message || (error as { statusCode?: string })?.statusCode || JSON.stringify(error);
+    const errMsg =
+      error?.message || (error as { statusCode?: string })?.statusCode || JSON.stringify(error);
     console.error(`[DOCUMENT_FETCH] Storage error (${errName}):`, JSON.stringify(error));
-    throw new Error(`Failed to download document from path "${storagePath}": ${errName} - ${errMsg}. The file may not exist in storage — please re-upload.`);
+    throw new Error(
+      `Failed to download document from path "${storagePath}": ${errName} - ${errMsg}. The file may not exist in storage — please re-upload.`,
+    );
   }
 
   const buffer = await data.arrayBuffer();
@@ -85,7 +93,7 @@ async function extractDocumentContent(documentUrl: string): Promise<DocumentCont
 async function extractCriteriaFromDocument(
   content: DocumentContent,
   documentName: string,
-  industryName: string
+  industryName: string,
 ): Promise<unknown> {
   console.log('[EXTRACTION_START] Processing document');
 
@@ -120,163 +128,177 @@ Document Name: "${documentName}"
 Industry: ${industryName}`;
 
   const tool = {
-    type: "function",
+    type: 'function',
     function: {
-      name: "extract_document_criteria",
-      description: "Extract buyer fit criteria and deal information from uploaded document",
+      name: 'extract_document_criteria',
+      description: 'Extract buyer fit criteria and deal information from uploaded document',
       parameters: {
-        type: "object",
+        type: 'object',
         properties: {
           document_metadata: {
-            type: "object",
+            type: 'object',
             properties: {
               document_type: {
-                type: "string",
-                enum: ["CIM", "broker_teaser", "deal_memo", "research_note", "one_pager", "financial_statement", "other"],
-                description: "Type of document being analyzed"
+                type: 'string',
+                enum: [
+                  'CIM',
+                  'broker_teaser',
+                  'deal_memo',
+                  'research_note',
+                  'one_pager',
+                  'financial_statement',
+                  'other',
+                ],
+                description: 'Type of document being analyzed',
               },
-              company_name: { type: "string", description: "Company name if identifiable" },
-              date: { type: "string", description: "Document date if present" },
-              author: { type: "string", description: "Document author/firm if identified" },
-              page_count_estimate: { type: "number", description: "Estimated page count" }
+              company_name: { type: 'string', description: 'Company name if identifiable' },
+              date: { type: 'string', description: 'Document date if present' },
+              author: { type: 'string', description: 'Document author/firm if identified' },
+              page_count_estimate: { type: 'number', description: 'Estimated page count' },
             },
-            required: ["document_type"]
+            required: ['document_type'],
           },
           financial_data: {
-            type: "object",
+            type: 'object',
             properties: {
               revenue: {
-                type: "object",
+                type: 'object',
                 properties: {
-                  value: { type: "number", description: "Revenue in raw dollars" },
-                  period: { type: "string", description: "Time period (FY2024, TTM, etc.)" },
-                  is_projected: { type: "boolean", description: "Whether this is projected vs historical" },
-                  confidence: { type: "number", description: "Confidence 0-100" }
-                }
+                  value: { type: 'number', description: 'Revenue in raw dollars' },
+                  period: { type: 'string', description: 'Time period (FY2024, TTM, etc.)' },
+                  is_projected: {
+                    type: 'boolean',
+                    description: 'Whether this is projected vs historical',
+                  },
+                  confidence: { type: 'number', description: 'Confidence 0-100' },
+                },
               },
               ebitda: {
-                type: "object",
+                type: 'object',
                 properties: {
-                  value: { type: "number", description: "EBITDA in raw dollars" },
-                  margin: { type: "number", description: "EBITDA margin as decimal (0.18 for 18%)" },
-                  period: { type: "string" },
-                  is_projected: { type: "boolean" },
-                  confidence: { type: "number" }
-                }
+                  value: { type: 'number', description: 'EBITDA in raw dollars' },
+                  margin: {
+                    type: 'number',
+                    description: 'EBITDA margin as decimal (0.18 for 18%)',
+                  },
+                  period: { type: 'string' },
+                  is_projected: { type: 'boolean' },
+                  confidence: { type: 'number' },
+                },
               },
               revenue_history: {
-                type: "array",
+                type: 'array',
                 items: {
-                  type: "object",
+                  type: 'object',
                   properties: {
-                    year: { type: "number" },
-                    value: { type: "number", description: "Revenue in raw dollars" }
+                    year: { type: 'number' },
+                    value: { type: 'number', description: 'Revenue in raw dollars' },
                   },
-                  required: ["year", "value"]
-                }
+                  required: ['year', 'value'],
+                },
               },
               ebitda_history: {
-                type: "array",
+                type: 'array',
                 items: {
-                  type: "object",
+                  type: 'object',
                   properties: {
-                    year: { type: "number" },
-                    value: { type: "number", description: "EBITDA in raw dollars" }
+                    year: { type: 'number' },
+                    value: { type: 'number', description: 'EBITDA in raw dollars' },
                   },
-                  required: ["year", "value"]
-                }
+                  required: ['year', 'value'],
+                },
               },
               other_financials: {
-                type: "array",
+                type: 'array',
                 items: {
-                  type: "object",
+                  type: 'object',
                   properties: {
-                    metric: { type: "string" },
-                    value: { type: "string" },
-                    period: { type: "string" },
-                    confidence: { type: "number" }
+                    metric: { type: 'string' },
+                    value: { type: 'string' },
+                    period: { type: 'string' },
+                    confidence: { type: 'number' },
                   },
-                  required: ["metric", "value"]
-                }
-              }
-            }
+                  required: ['metric', 'value'],
+                },
+              },
+            },
           },
           buyer_criteria: {
-            type: "object",
-            description: "Only populate if the document contains buyer-side information",
+            type: 'object',
+            description: 'Only populate if the document contains buyer-side information',
             properties: {
               size_criteria: {
-                type: "object",
+                type: 'object',
                 properties: {
-                  revenue_min: { type: "number" },
-                  revenue_max: { type: "number" },
-                  ebitda_min: { type: "number" },
-                  ebitda_max: { type: "number" },
-                  confidence: { type: "number" }
-                }
+                  revenue_min: { type: 'number' },
+                  revenue_max: { type: 'number' },
+                  ebitda_min: { type: 'number' },
+                  ebitda_max: { type: 'number' },
+                  confidence: { type: 'number' },
+                },
               },
               service_criteria: {
-                type: "object",
+                type: 'object',
                 properties: {
-                  target_services: { type: "array", items: { type: "string" } },
-                  service_exclusions: { type: "array", items: { type: "string" } },
-                  confidence: { type: "number" }
-                }
+                  target_services: { type: 'array', items: { type: 'string' } },
+                  service_exclusions: { type: 'array', items: { type: 'string' } },
+                  confidence: { type: 'number' },
+                },
               },
               geography_criteria: {
-                type: "object",
+                type: 'object',
                 properties: {
-                  target_regions: { type: "array", items: { type: "string" } },
-                  target_states: { type: "array", items: { type: "string" } },
-                  geographic_exclusions: { type: "array", items: { type: "string" } },
-                  confidence: { type: "number" }
-                }
+                  target_regions: { type: 'array', items: { type: 'string' } },
+                  target_states: { type: 'array', items: { type: 'string' } },
+                  geographic_exclusions: { type: 'array', items: { type: 'string' } },
+                  confidence: { type: 'number' },
+                },
               },
               deal_preferences: {
-                type: "object",
+                type: 'object',
                 properties: {
-                  deal_types: { type: "array", items: { type: "string" } },
-                  structure_preferences: { type: "array", items: { type: "string" } },
-                  valuation_parameters: { type: "string" },
-                  deal_breakers: { type: "array", items: { type: "string" } },
-                  confidence: { type: "number" }
-                }
-              }
-            }
+                  deal_types: { type: 'array', items: { type: 'string' } },
+                  structure_preferences: { type: 'array', items: { type: 'string' } },
+                  valuation_parameters: { type: 'string' },
+                  deal_breakers: { type: 'array', items: { type: 'string' } },
+                  confidence: { type: 'number' },
+                },
+              },
+            },
           },
           deal_information: {
-            type: "object",
-            description: "Only populate if document describes a specific deal/company for sale",
+            type: 'object',
+            description: 'Only populate if document describes a specific deal/company for sale',
             properties: {
-              company_overview: { type: "string" },
-              industry: { type: "string" },
-              location: { type: "string" },
-              services: { type: "array", items: { type: "string" } },
-              employees: { type: "number" },
-              founded: { type: "number" },
-              ownership: { type: "string" },
-              growth_story: { type: "string" },
-              key_risks: { type: "array", items: { type: "string" } },
-              asking_price: { type: "number" },
-              implied_multiple: { type: "string" }
-            }
+              company_overview: { type: 'string' },
+              industry: { type: 'string' },
+              location: { type: 'string' },
+              services: { type: 'array', items: { type: 'string' } },
+              employees: { type: 'number' },
+              founded: { type: 'number' },
+              ownership: { type: 'string' },
+              growth_story: { type: 'string' },
+              key_risks: { type: 'array', items: { type: 'string' } },
+              asking_price: { type: 'number' },
+              implied_multiple: { type: 'string' },
+            },
           },
           extraction_gaps: {
-            type: "array",
-            items: { type: "string" },
-            description: "What information is NOT in this document that would be valuable."
+            type: 'array',
+            items: { type: 'string' },
+            description: 'What information is NOT in this document that would be valuable.',
           },
           overall_confidence: {
-            type: "number",
-            description: "Overall extraction confidence 0-100"
-          }
+            type: 'number',
+            description: 'Overall extraction confidence 0-100',
+          },
         },
-        required: ["document_metadata", "extraction_gaps", "overall_confidence"]
-      }
-    }
+        required: ['document_metadata', 'extraction_gaps', 'overall_confidence'],
+      },
+    },
   };
 
-  const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+  const geminiApiKey = getGeminiApiKey();
   if (!geminiApiKey) {
     throw new Error('GEMINI_API_KEY not configured');
   }
@@ -297,28 +319,28 @@ Industry: ${industryName}`;
       {
         model: DEFAULT_GEMINI_MODEL,
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: 'system', content: systemPrompt },
           {
-            role: "user",
+            role: 'user',
             content: [
               {
-                type: "file",
+                type: 'file',
                 file: {
                   filename: documentName,
                   file_data: `data:${content.mimeType};base64,${content.base64}`,
                 },
               },
-              { type: "text", text: fullPrompt },
+              { type: 'text', text: fullPrompt },
             ],
           },
         ],
         tools: [tool],
-        tool_choice: { type: "function", function: { name: toolName } },
+        tool_choice: { type: 'function', function: { name: toolName } },
         temperature: 0,
         max_tokens: 8192,
       },
       120000, // 2 min for large docs
-      'Gemini/doc-extract'
+      'Gemini/doc-extract',
     );
 
     const duration = Date.now() - startTime;
@@ -332,7 +354,9 @@ Industry: ${industryName}`;
 
     const responseData = await response.json();
     if (responseData.usage) {
-      console.log(`[USAGE] Input: ${responseData.usage.prompt_tokens}, Output: ${responseData.usage.completion_tokens}`);
+      console.log(
+        `[USAGE] Input: ${responseData.usage.prompt_tokens}, Output: ${responseData.usage.completion_tokens}`,
+      );
     }
 
     const toolCalls = responseData.choices?.[0]?.message?.tool_calls;
@@ -343,7 +367,9 @@ Industry: ${industryName}`;
     try {
       return JSON.parse(toolCalls[0].function.arguments);
     } catch (e: unknown) {
-      throw new Error(`Failed to parse extraction result: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(
+        `Failed to parse extraction result: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
   }
 
@@ -358,14 +384,16 @@ Industry: ${industryName}`;
     geminiApiKey,
     DEFAULT_GEMINI_MODEL,
     60000,
-    8192
+    8192,
   );
 
   const duration = Date.now() - startTime;
   console.log(`[EXTRACTION_COMPLETE] ${duration}ms`);
 
   if (result.usage) {
-    console.log(`[USAGE] Input: ${result.usage.input_tokens}, Output: ${result.usage.output_tokens}`);
+    console.log(
+      `[USAGE] Input: ${result.usage.input_tokens}, Output: ${result.usage.output_tokens}`,
+    );
   }
 
   if (!result.data) {
@@ -385,14 +413,14 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
     const {
       universe_id,
       document_url,
       document_name,
-      industry_name = 'Unknown Industry'
+      industry_name = 'Unknown Industry',
     }: DocumentExtractionRequest = await req.json();
 
     if (!universe_id || !document_url || !document_name) {
@@ -410,7 +438,7 @@ serve(async (req) => {
         source_url: document_url,
         source_metadata: { industry_name, document_url },
         extraction_status: 'processing',
-        extraction_started_at: new Date().toISOString()
+        extraction_started_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -423,7 +451,11 @@ serve(async (req) => {
 
     try {
       const content = await extractDocumentContent(document_url);
-      const extractionResult = await extractCriteriaFromDocument(content, document_name, industry_name);
+      const extractionResult = await extractCriteriaFromDocument(
+        content,
+        document_name,
+        industry_name,
+      );
 
       const confidenceScores: Record<string, unknown> = {
         overall: extractionResult.overall_confidence,
@@ -448,7 +480,7 @@ serve(async (req) => {
           extraction_status: 'completed',
           extraction_completed_at: new Date().toISOString(),
           extracted_data: extractionResult,
-          confidence_scores: confidenceScores
+          confidence_scores: confidenceScores,
         })
         .eq('id', sourceRecord.id);
 
@@ -456,36 +488,40 @@ serve(async (req) => {
         throw new Error(`Failed to update source record: ${updateError.message}`);
       }
 
-      console.log(`[SUCCESS] Extraction completed: type=${extractionResult.document_metadata?.document_type}, confidence=${extractionResult.overall_confidence}%`);
+      console.log(
+        `[SUCCESS] Extraction completed: type=${extractionResult.document_metadata?.document_type}, confidence=${extractionResult.overall_confidence}%`,
+      );
 
       return new Response(
         JSON.stringify({
           success: true,
           source_id: sourceRecord.id,
           extraction: extractionResult,
-          message: 'Document criteria extracted successfully'
+          message: 'Document criteria extracted successfully',
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
       );
-
     } catch (extractionError: unknown) {
       await supabase
         .from('criteria_extraction_sources')
         .update({
           extraction_status: 'failed',
-          extraction_error: extractionError instanceof Error ? extractionError.message : String(extractionError),
-          extraction_completed_at: new Date().toISOString()
+          extraction_error:
+            extractionError instanceof Error ? extractionError.message : String(extractionError),
+          extraction_completed_at: new Date().toISOString(),
         })
         .eq('id', sourceRecord.id);
 
       throw extractionError;
     }
-
   } catch (error: unknown) {
     console.error('[ERROR]', error);
     return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 },
     );
   }
 });

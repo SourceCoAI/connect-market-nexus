@@ -1,6 +1,10 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { DEFAULT_GEMINI_MODEL, callGeminiWithTool } from '../_shared/ai-providers.ts';
+import {
+  DEFAULT_GEMINI_MODEL,
+  callGeminiWithTool,
+  getGeminiApiKey,
+} from '../_shared/ai-providers.ts';
 
 interface ExtractionSource {
   type: string;
@@ -103,7 +107,7 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
   try {
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const GEMINI_API_KEY = getGeminiApiKey();
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }

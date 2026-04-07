@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAdminProfiles } from '@/hooks/admin/use-admin-profiles';
 import { useEnrichmentProgress } from '@/hooks/useEnrichmentProgress';
 import type { GPPartnerDeal, SortColumn, SortDirection, NewDealForm } from './types';
-import { EMPTY_NEW_DEAL } from './types';
+import { EMPTY_NEW_DEAL, DEFAULT_COLUMN_WIDTHS } from './types';
 import { normalizeDomain } from '@/lib/remarketing/normalizeDomain';
 import type { DuplicateDealInfo, FieldKey } from './DuplicateDealDialog';
 
@@ -37,6 +37,12 @@ export function useGPPartnerDeals() {
   const [searchParams, setSearchParams] = useSearchParams();
   const sortColumn = (searchParams.get('sort') as SortColumn) ?? 'created_at';
   const sortDirection = (searchParams.get('dir') as SortDirection) ?? 'desc';
+
+  // Column resizing
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(DEFAULT_COLUMN_WIDTHS);
+  const handleColumnResize = useCallback((column: string, newWidth: number) => {
+    setColumnWidths((prev) => ({ ...prev, [column]: newWidth }));
+  }, []);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -642,7 +648,15 @@ export function useGPPartnerDeals() {
 
     setIsAddingDeal(false);
     if (error) {
-      sonnerToast.error(`Failed to add deal: ${error.message}`);
+      const isWebsiteDupe =
+        error.code === '23505' ||
+        error.message?.includes('unique') ||
+        error.message?.includes('duplicate');
+      sonnerToast.error(
+        isWebsiteDupe
+          ? 'A deal with this website already exists. Please check for duplicates.'
+          : `Failed to add deal: ${error.message}`,
+      );
     } else {
       sonnerToast.success('Deal added successfully');
       setAddDealOpen(false);
@@ -789,6 +803,9 @@ export function useGPPartnerDeals() {
     engineTotal,
     timeframe,
     setTimeframe,
+    // Column resizing
+    columnWidths,
+    handleColumnResize,
     // Sort
     sortColumn,
     sortDirection,

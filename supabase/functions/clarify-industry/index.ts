@@ -1,7 +1,11 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { callGeminiWithTool, DEFAULT_GEMINI_MODEL } from "../_shared/ai-providers.ts";
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
+import {
+  callGeminiWithTool,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiApiKey,
+} from '../_shared/ai-providers.ts';
 
-import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
 interface ClarifyQuestion {
   id: string;
@@ -22,13 +26,13 @@ serve(async (req) => {
     const { industry_name, industry_description, generate_description } = await req.json();
 
     if (!industry_name) {
-      return new Response(
-        JSON.stringify({ error: 'industry_name is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'industry_name is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const GEMINI_API_KEY = getGeminiApiKey();
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }
@@ -36,18 +40,21 @@ serve(async (req) => {
     // Handle description generation mode
     if (generate_description) {
       const descTool = {
-        type: "function",
+        type: 'function',
         function: {
-          name: "generate_description",
-          description: "Generate a buyer universe description",
+          name: 'generate_description',
+          description: 'Generate a buyer universe description',
           parameters: {
-            type: "object",
+            type: 'object',
             properties: {
-              description: { type: "string", description: "A 2-3 sentence buyer universe description for M&A professionals" }
+              description: {
+                type: 'string',
+                description: 'A 2-3 sentence buyer universe description for M&A professionals',
+              },
             },
-            required: ["description"]
-          }
-        }
+            required: ['description'],
+          },
+        },
       };
 
       const descResult = await callGeminiWithTool(
@@ -57,20 +64,21 @@ serve(async (req) => {
         GEMINI_API_KEY,
         DEFAULT_GEMINI_MODEL,
         15000,
-        1024
+        1024,
       );
 
       if (descResult.data?.description) {
-        return new Response(
-          JSON.stringify({ description: descResult.data.description }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ description: descResult.data.description }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       // Fallback
       return new Response(
-        JSON.stringify({ description: `Buyer universe targeting companies in the ${industry_name} industry. Includes PE firms, strategic acquirers, and family offices actively seeking acquisitions in this space.` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          description: `Buyer universe targeting companies in the ${industry_name} industry. Includes PE firms, strategic acquirers, and family offices actively seeking acquisitions in this space.`,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -96,31 +104,44 @@ DO NOT ask about regulatory or licensing considerations - keep it general.
 Return questions as JSON matching this schema exactly.`;
 
     const tool = {
-      type: "function",
+      type: 'function',
       function: {
-        name: "generate_questions",
-        description: "Generate clarifying questions for industry research",
+        name: 'generate_questions',
+        description: 'Generate clarifying questions for industry research',
         parameters: {
-          type: "object",
+          type: 'object',
           properties: {
             questions: {
-              type: "array",
+              type: 'array',
               items: {
-                type: "object",
+                type: 'object',
                 properties: {
-                  id: { type: "string", description: "Unique identifier like 'segment', 'examples', 'geography', 'size'" },
-                  question: { type: "string", description: "The question text to display" },
-                  type: { type: "string", enum: ["select", "multiSelect", "text"], description: "select for single choice, multiSelect for multiple, text for free-form" },
-                  options: { type: "array", items: { type: "string" }, description: "Options for select/multiSelect types" },
-                  placeholder: { type: "string", description: "Placeholder text for text inputs" }
+                  id: {
+                    type: 'string',
+                    description:
+                      "Unique identifier like 'segment', 'examples', 'geography', 'size'",
+                  },
+                  question: { type: 'string', description: 'The question text to display' },
+                  type: {
+                    type: 'string',
+                    enum: ['select', 'multiSelect', 'text'],
+                    description:
+                      'select for single choice, multiSelect for multiple, text for free-form',
+                  },
+                  options: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Options for select/multiSelect types',
+                  },
+                  placeholder: { type: 'string', description: 'Placeholder text for text inputs' },
                 },
-                required: ["id", "question", "type"]
-              }
-            }
+                required: ['id', 'question', 'type'],
+              },
+            },
           },
-          required: ["questions"]
-        }
-      }
+          required: ['questions'],
+        },
+      },
     };
 
     const result = await callGeminiWithTool(
@@ -130,14 +151,14 @@ Return questions as JSON matching this schema exactly.`;
       GEMINI_API_KEY,
       DEFAULT_GEMINI_MODEL,
       30000,
-      4096
+      4096,
     );
 
     if (result.error) {
       if (result.error.code === 'rate_limited') {
         return new Response(
-          JSON.stringify({ error: "AI service busy. Please wait 30 seconds and try again." }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'AI service busy. Please wait 30 seconds and try again.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
       throw new Error(result.error.message);
@@ -149,25 +170,23 @@ Return questions as JSON matching this schema exactly.`;
       questions = getDefaultQuestions(industry_name);
     }
 
-    if (!questions.find(q => q.id === 'examples')) {
+    if (!questions.find((q) => q.id === 'examples')) {
       questions.push({
         id: 'examples',
         question: `Name 1-2 example companies in the ${industry_name} space you would consider "good targets"`,
         type: 'text',
-        placeholder: 'e.g., ServiceMaster, Belfor Holdings'
+        placeholder: 'e.g., ServiceMaster, Belfor Holdings',
       });
     }
 
-    return new Response(
-      JSON.stringify({ questions }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    return new Response(JSON.stringify({ questions }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Clarify industry error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
 });
@@ -178,25 +197,39 @@ function getDefaultQuestions(industryName: string): ClarifyQuestion[] {
       id: 'segment',
       question: `Which segment of ${industryName} are you targeting?`,
       type: 'multiSelect',
-      options: ['Full-service (all segments)', 'Residential focused', 'Commercial focused', 'Specialty/niche services']
+      options: [
+        'Full-service (all segments)',
+        'Residential focused',
+        'Commercial focused',
+        'Specialty/niche services',
+      ],
     },
     {
       id: 'examples',
       question: `Name 1-2 example companies you would consider "good targets"`,
       type: 'text',
-      placeholder: 'e.g., Company A, Company B, or website URLs'
+      placeholder: 'e.g., Company A, Company B, or website URLs',
     },
     {
       id: 'geography',
       question: 'What is the primary geographic focus?',
       type: 'multiSelect',
-      options: ['National (all US)', 'Regional - Northeast', 'Regional - Southeast', 'Regional - Midwest', 'Regional - Southwest', 'Regional - West Coast', 'Specific states only']
+      options: [
+        'National (all US)',
+        'Regional - Northeast',
+        'Regional - Southeast',
+        'Regional - Midwest',
+        'Regional - Southwest',
+        'Regional - West Coast',
+        'Specific states only',
+      ],
     },
     {
       id: 'additional_context',
-      question: 'Is there anything else about this industry that would be helpful for our research?',
+      question:
+        'Is there anything else about this industry that would be helpful for our research?',
       type: 'text',
-      placeholder: 'e.g., key trends, important distinctions, specific focus areas...'
-    }
+      placeholder: 'e.g., key trends, important distinctions, specific focus areas...',
+    },
   ];
 }

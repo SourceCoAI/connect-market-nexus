@@ -15,6 +15,7 @@ import {
   GEMINI_API_URL,
   DEFAULT_GEMINI_MODEL,
   getGeminiHeaders,
+  getGeminiApiKey,
   fetchWithAutoRetry,
 } from '../_shared/ai-providers.ts';
 
@@ -34,7 +35,7 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const geminiApiKey = Deno.env.get('GEMINI_API_KEY')!;
+  const geminiApiKey = getGeminiApiKey();
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
   const auth = await requireAdmin(req, supabaseAdmin);

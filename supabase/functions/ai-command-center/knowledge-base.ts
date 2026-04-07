@@ -375,7 +375,6 @@ Flag stale outreach (no activity in 5+ business days) and overdue next actions.`
 - contact_search_cache: 7-day enrichment search cache.
 - phoneburner_sessions: dialing session logs.
 - phoneburner_oauth_tokens: per-user PB access tokens.
-- remarketing_buyer_contacts: FROZEN legacy data.
 - industry_trackers: named verticals with deal/buyer counts and scoring configs.
 - smartlead_campaigns: cold email campaigns linked to deals/universes.
 - smartlead_campaign_leads: contacts mapped to campaign leads.

@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
+import { getGeminiApiKey } from '../_shared/ai-providers.ts';
 
 interface ImportOptions {
   clearExisting?: boolean;
@@ -134,7 +135,7 @@ async function importUniverses(
         const universeName = String(row.industry_name || row.name || '');
         if (universeName) {
           generateUniverseDescription(supabase, inserted.id, universeName).catch((e) =>
-            console.warn(`Failed to generate description for ${universeName}:`, e)
+            console.warn(`Failed to generate description for ${universeName}:`, e),
           );
         }
       }
@@ -147,8 +148,12 @@ async function importUniverses(
   return { imported, errors, idMapping };
 }
 
-async function generateUniverseDescription(supabase: SupabaseClient, universeId: string, name: string) {
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+async function generateUniverseDescription(
+  supabase: SupabaseClient,
+  universeId: string,
+  name: string,
+) {
+  const GEMINI_API_KEY = getGeminiApiKey();
   if (!GEMINI_API_KEY) return;
 
   try {
@@ -165,7 +170,10 @@ async function generateUniverseDescription(supabase: SupabaseClient, universeId:
     if (response.ok) {
       const result = await response.json();
       if (result.description) {
-        await supabase.from('buyer_universes').update({ description: result.description }).eq('id', universeId);
+        await supabase
+          .from('buyer_universes')
+          .update({ description: result.description })
+          .eq('id', universeId);
       }
     }
   } catch (e) {
@@ -290,12 +298,10 @@ async function importContacts(
         source: row.source || 'import',
       };
 
-      const { error } = await supabase
-        .from('contacts')
-        .upsert(contact, {
-          onConflict: 'remarketing_buyer_id,first_name,last_name',
-          ignoreDuplicates: false,
-        });
+      const { error } = await supabase.from('contacts').upsert(contact, {
+        onConflict: 'remarketing_buyer_id,first_name,last_name',
+        ignoreDuplicates: false,
+      });
 
       if (error) {
         console.error(`Error inserting contact ${row.name}:`, error);

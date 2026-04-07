@@ -122,8 +122,7 @@ const CHATBOT_RULES = [
     severity: 'high' as const,
     rules: [
       '"contacts" table is the single source of truth since Feb 28, 2026',
-      'Legacy tables (pe_firm_contacts, platform_contacts) have been DROPPED',
-      'remarketing_buyer_contacts is FROZEN — read-only pre-Feb 2026 data only',
+      'All legacy contact tables have been consolidated into "contacts"',
       'Buyer contacts must NEVER have listing_id set; seller contacts must NEVER have remarketing_buyer_id',
       'Every seller contact must have a listing_id',
     ],

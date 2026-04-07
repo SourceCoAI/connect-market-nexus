@@ -22,7 +22,11 @@ import {
   completeGlobalQueueOperation,
   isOperationPaused,
 } from '../_shared/global-activity-queue.ts';
-import { callGeminiWithTool, DEFAULT_GEMINI_MODEL } from '../_shared/ai-providers.ts';
+import {
+  callGeminiWithTool,
+  DEFAULT_GEMINI_MODEL,
+  getGeminiApiKey,
+} from '../_shared/ai-providers.ts';
 
 const OPERATION_TYPE = 'buyer_universe_generation' as const;
 const MAX_FUNCTION_RUNTIME_MS = 50_000; // 50s — must stay well under the 58s edge function hard-kill limit
@@ -40,7 +44,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const GEMINI_API_KEY = getGeminiApiKey();
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }

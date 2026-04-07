@@ -11,11 +11,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { normalizeDomain, isGenericEmailDomain } from '@/lib/remarketing/normalizeDomain';
-import {
-  type ColumnMapping,
-  processRow,
-  sanitizeListingInsert,
-} from '@/lib/deal-csv-import';
+import { type ColumnMapping, processRow, sanitizeListingInsert } from '@/lib/deal-csv-import';
 
 export interface DealLocation {
   /** Human-readable section name */
@@ -52,12 +48,31 @@ export interface ImportResults {
 
 // Fields eligible for merge-fill
 const MERGEABLE_FIELDS = [
-  'main_contact_name', 'main_contact_email', 'main_contact_phone', 'main_contact_title',
-  'description', 'executive_summary', 'general_notes', 'internal_notes', 'owner_goals',
-  'category', 'industry', 'address', 'address_city', 'address_state', 'address_zip',
-  'address_country', 'geographic_states', 'services', 'linkedin_url', 'fireflies_url',
-  'internal_company_name', 'full_time_employees', 'number_of_locations',
-  'google_review_count', 'google_rating',
+  'main_contact_name',
+  'main_contact_email',
+  'main_contact_phone',
+  'main_contact_title',
+  'description',
+  'executive_summary',
+  'general_notes',
+  'internal_notes',
+  'owner_goals',
+  'category',
+  'industry',
+  'address',
+  'address_city',
+  'address_state',
+  'address_zip',
+  'address_country',
+  'geographic_states',
+  'services',
+  'linkedin_url',
+  'fireflies_url',
+  'internal_company_name',
+  'full_time_employees',
+  'number_of_locations',
+  'google_review_count',
+  'google_rating',
 ];
 
 interface MergeResult {
@@ -83,7 +98,10 @@ async function resolveLocations(listing: Record<string, unknown>): Promise<DealL
   } else if (dealSource === 'captarget') {
     locations.push({ label: 'CapTarget Deals', href: `/admin/remarketing/leads/captarget/${id}` });
   } else if (dealSource === 'gp_partners') {
-    locations.push({ label: 'GP Partner Deals', href: `/admin/remarketing/leads/gp-partners/${id}` });
+    locations.push({
+      label: 'GP Partner Deals',
+      href: `/admin/remarketing/leads/gp-partners/${id}`,
+    });
   } else if (dealSource === 'valuation') {
     locations.push({ label: 'Valuation Leads', href: `/admin/remarketing/leads/valuation` });
   }
@@ -142,7 +160,8 @@ async function tryMergeExistingListing(
     const dealSource = newData.deal_source as string | undefined;
 
     // Skip placeholder websites — they're unique per row, not real duplicates
-    const isPlaceholder = website && (website.endsWith('.unknown') || website.startsWith('unknown-'));
+    const isPlaceholder =
+      website && (website.endsWith('.unknown') || website.startsWith('unknown-'));
 
     let existingListing: Record<string, unknown> | null = null;
     let matchedBy: 'website' | 'name' = 'website';
@@ -183,12 +202,12 @@ async function tryMergeExistingListing(
       if (field === 'category' && newValue === 'Other') continue;
 
       const isEmpty =
-        existingValue === null
-        || existingValue === undefined
-        || existingValue === ''
-        || (field === 'description' && existingValue === (existingListing.title || ''))
-        || (field === 'category' && existingValue === 'Other')
-        || (field === 'location' && existingValue === 'Unknown');
+        existingValue === null ||
+        existingValue === undefined ||
+        existingValue === '' ||
+        (field === 'description' && existingValue === (existingListing.title || '')) ||
+        (field === 'category' && existingValue === 'Other') ||
+        (field === 'location' && existingValue === 'Unknown');
 
       if (isEmpty) {
         updates[field] = newValue;
@@ -208,12 +227,18 @@ async function tryMergeExistingListing(
       }
     }
 
-    if (typeof newData.revenue === 'number' && newData.revenue > 0
-        && (existingListing.revenue === 0 || existingListing.revenue === null)) {
+    if (
+      typeof newData.revenue === 'number' &&
+      newData.revenue > 0 &&
+      (existingListing.revenue === 0 || existingListing.revenue === null)
+    ) {
       updates.revenue = newData.revenue;
     }
-    if (typeof newData.ebitda === 'number' && newData.ebitda > 0
-        && (existingListing.ebitda === 0 || existingListing.ebitda === null)) {
+    if (
+      typeof newData.ebitda === 'number' &&
+      newData.ebitda > 0 &&
+      (existingListing.ebitda === 0 || existingListing.ebitda === null)
+    ) {
       updates.ebitda = newData.ebitda;
     }
 
@@ -287,7 +312,7 @@ export async function handleImport({
       const { data: parsedData, errors: rowErrors } = processRow(row, columnMappings, i + 2);
 
       if (rowErrors.length > 0) {
-        rowErrors.forEach(err => {
+        rowErrors.forEach((err) => {
           results.errors.push(`Row ${err.row}: ${err.message}`);
         });
       }
@@ -299,17 +324,17 @@ export async function handleImport({
       if (rawWebsite && typeof rawWebsite === 'string' && rawWebsite.trim() && isGenericEmailDomain(rawWebsite as string)) {
         const companyName = (parsedData.title as string) || 'Unknown';
         results.skippedGenericDomains.push(
-          `${companyName} (${rawWebsite} is a personal email domain, not a company website)`
+          `${companyName} (${rawWebsite} is a personal email domain, not a company website)`,
         );
         results.errors.push(
-          `Row ${i + 2}: Skipped — "${rawWebsite}" is a personal email domain, not a company website`
+          `Row ${i + 2}: Skipped — "${rawWebsite}" is a personal email domain, not a company website`,
         );
         continue;
       }
 
       const city = typeof parsedData.address_city === 'string' ? parsedData.address_city : '';
       const state = typeof parsedData.address_state === 'string' ? parsedData.address_state : '';
-      const computedLocation = city && state ? `${city}, ${state}` : state || city || "Unknown";
+      const computedLocation = city && state ? `${city}, ${state}` : state || city || 'Unknown';
 
       // Auto-populate internal_company_name from title for dedup on re-imports
       const parsed = parsedData as unknown as Record<string, unknown>;
@@ -337,7 +362,9 @@ export async function handleImport({
       }
 
       if ((listingData as Record<string, unknown>).website) {
-        const normalized = normalizeDomain((listingData as Record<string, unknown>).website as string);
+        const normalized = normalizeDomain(
+          (listingData as Record<string, unknown>).website as string,
+        );
         if (normalized) {
           (listingData as Record<string, unknown>).website = normalized;
         }
@@ -348,8 +375,13 @@ export async function handleImport({
       // Include row index to guarantee uniqueness even within the same millisecond.
       if (!(listingData as Record<string, unknown>).website) {
         const companyName = ((listingData as Record<string, unknown>).title as string) || 'unknown';
-        const slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
-        (listingData as Record<string, unknown>).website = `unknown-${slug}-${Date.now()}-r${i}.unknown`;
+        const slug = companyName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .slice(0, 40);
+        (listingData as Record<string, unknown>).website =
+          `unknown-${slug}-${Date.now()}-r${i}.unknown`;
       }
 
       if (referralPartnerId) {
@@ -357,15 +389,16 @@ export async function handleImport({
       }
 
       const { data: insertedData, error: insertError } = await supabase
-        .from("listings")
+        .from('listings')
         .insert(listingData as never)
         .select('id')
         .single();
 
       if (insertError) {
-        const isDuplicate = insertError.message?.includes('duplicate key')
-          || insertError.message?.includes('unique constraint')
-          || insertError.code === '23505';
+        const isDuplicate =
+          insertError.message?.includes('duplicate key') ||
+          insertError.message?.includes('unique constraint') ||
+          insertError.code === '23505';
 
         if (isDuplicate) {
           const mergeResult = await tryMergeExistingListing(
@@ -388,7 +421,7 @@ export async function handleImport({
             }
             results.importedIds.push(mergeResult.listingId);
           } else {
-            results.errors.push(`Row ${i + 2}: duplicate key value violates unique constraint`);
+            results.errors.push(`Row ${i + 2}: A deal with this website already exists`);
           }
         } else {
           throw insertError;
