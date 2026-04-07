@@ -1,92 +1,65 @@
 
 
-# Memo Quality Issues + Teaser Gap
+# Fix Remaining Memo Quality Issues
 
-## Assessment of the Generated Memo
+## Problems Found
 
-The data expansion worked — the memo now includes customer geography, Directorii partnership, real estate, transition plan, and Tim/Tracy details. The analyst notes are comprehensive and properly separated. However, several quality issues remain in the memo body:
+### 1. Omission language still leaking
+The bullet "Offices are located in Sebring and South Daytona, FL; **owned vs. leased status has not been established**" survived post-processing because `has not been established` isn't in the OMISSION_PATTERNS list (line 801 only covers stated/provided/confirmed/discussed).
 
-### Issues Found in the Memo Body
+### 2. Third-party context presented as company initiative
+The bullet "The company has been in discussions regarding integration into a broader roofing platform with centralized back-office support while maintaining operational independence" describes the Latite Roofing / Sun Capital conversation — not a SourceCo deal or the company's own strategy. This is misleading for investors who would assume it's the seller's stated plan.
 
-1. **"not on file" language leaked into the memo** — violates the prompt's Rule 2 ("OMIT, DON'T APOLOGIZE"):
-   - "owned vs. leased status and lease terms are not on file" (OWNERSHIP AND TRANSACTION)
-   - "entity structure across locations is not on file" (KEY STRUCTURAL NOTES)
-   - "Real estate ownership structure (owned vs. leased) for both offices is not on file" (KEY STRUCTURAL NOTES)
-   - "No valuation expectation or asking price has been stated" (KEY STRUCTURAL NOTES)
-   - "Day-to-day operational role of the owner and depth of management below Tim and Tracy are not on file" (MANAGEMENT AND STAFFING)
+### 3. Missing high-value data points
+The database has information that would make the memo stronger but isn't surfacing:
+- **Google Reviews**: 4.7 rating, 46 reviews — strong social proof for a local services business
+- **Certified business valuation**: `general_notes` says "Owner Austin Hedrick already has business valuation done by certified appraiser, Documents ready to go" — material for investors
+- **Growth drivers**: Geographic expansion within FL, increase commercial contracts, Directorii partnership
+- **Google Maps listing**: Confirmed and active
 
-2. **Source conflict commentary leaked into memo body** — violates the conflict rules:
-   - "LinkedIn-reported employee count: 15; full-time headcount per internal data: 25" (SERVICES AND OPERATIONS) — This is analyst-level commentary. The memo should just state "25" and move on.
-
-3. **Seller motivation accuracy concern**: The memo states "Austin Hedrick is ready to sell immediately" — this comes from `seller_motivation` (source: `notes`, priority 80). But Call 1 transcript shows Austin denied prior contact with SourceCo and was non-committal. Call 3 was a third-party meeting with Latite Roofing, not a SourceCo engagement. The "ready to sell immediately" characterization is analyst inference, not a confirmed owner statement.
-
-4. **"considered for partnership to resolve conflicts and enhance growth"** — This is language from the Call 3 summary (Latite Roofing meeting), attributed to Austin in the memo as if he said it to SourceCo. Context is missing.
-
-### Root Cause
-
-The prompt says "OMIT, DON'T APOLOGIZE" but Claude still generates "not on file" language. The post-processing validation catches `/\bnot\s*stated\b/i` and `/\bnot\s*confirm/i` but does NOT catch:
-- "not on file"
-- "not available"  
-- "unknown"
-- "not discussed"
-- "not provided" (partially caught)
-- Source conflict descriptions like "LinkedIn reports X; internal data shows Y"
-
-### Teaser Coverage
-
-The anonymous teaser already benefits from the expanded `buildDataContext` (same function feeds both memo types). The teaser prompt itself is solid — it has the same OMIT/DON'T APOLOGIZE rule and similar quality standards. No changes needed for the teaser prompt specifically.
+### 4. EBITDA margin not shown
+The EBITDA margin (10.8%) is in the database but not in the Financial Snapshot. For an investor, showing the margin alongside the absolute figure is standard.
 
 ## Changes
 
 ### File: `supabase/functions/generate-lead-memo/index.ts`
 
-**1. Expand the post-processing validation patterns** (~line 1343-1348)
-
-Add these patterns to `ANALYST_LANGUAGE_PATTERNS`:
-- `/\bnot\s*on\s*file\b/i`
-- `/\bnot\s*available\b/i`
-- `/\bnot\s*discussed\b/i`
-- `/\bnot\s*provided\b/i`
-- `/\bis\s*unclear\b/i`
-- `/\bis\s*unknown\b/i`
-- `/\bLinkedIn[\s-]*reported\b/i` (catches source attribution)
-- `/\bper\s*(internal|enrichment|manual)\s*data\b/i`
-- `/\binternal\s*data\b/i`
-
-**2. Add a post-processing strip step for "not on file" bullets**
-
-After `enforceBannedWords` and `stripDataNeededTags`, add a new post-processing function `stripOmissionLanguage` that:
-- Removes entire bullet lines where the primary content is an apology for missing data (e.g., lines matching "not on file", "not available", "is unknown", "is unclear", "are unknown")
-- Removes source-conflict commentary lines (e.g., "LinkedIn-reported... internal data...")
-- Does NOT remove lines where "not" appears in a factual context (e.g., "Owner has not pursued commercial contracts")
-
-Heuristic: if a bullet line contains a "not on file/available/discussed/provided" phrase AND does not contain a dollar amount or percentage, strip it.
-
-**3. Strengthen the prompt's OMIT rule** (~line 1169)
-
-Change Rule 2 from:
+**1. Expand OMISSION_PATTERNS** (line 801)
+Add `established` to the `has not been` pattern:
 ```
-OMIT, DON'T APOLOGIZE: When data is missing, leave it out. Never write "not provided", "not stated", "not confirmed", "not discussed", or any variation.
-```
-To:
-```
-OMIT, DON'T APOLOGIZE: When data is missing, leave it out entirely. Never write "not provided", "not stated", "not confirmed", "not discussed", "not on file", "not available", "is unknown", "is unclear", or any variation. If a bullet point would only say that something is missing, do not include that bullet point. Do not contrast data sources (e.g., "LinkedIn reports X; internal data shows Y") — pick the highest-priority figure and state it alone.
+/\bhas\s*not\s*been\s*(stated|provided|confirmed|discussed|established|specified|disclosed|determined)\b/i
 ```
 
-**4. Add source-contrast rule to conflict instructions** (~line 1182)
+**2. Strip omission fragments from non-bullet lines too**
+Currently only bullet lines are filtered (line 816). But omission language also appears in semicolon-joined phrases within bullets. Add logic: if a bullet contains a semicolon and one half matches an omission pattern, keep only the factual half.
 
-Add after "Do not qualify the figure":
+**3. Add `general_notes` and `google_rating`/`google_review_count` to `buildDataContext`**
+These fields are already fetched (select *) but not included in the enrichment fields list that gets formatted into the prompt context. Add:
+- `general_notes` (contains valuation info, deal readiness)
+- `google_rating` + `google_review_count` (social proof)
+- `growth_drivers` (array)
+
+**4. Update prompt to use new fields**
+- **Company Overview**: "If Google reviews are available (rating, count), include as a reputation indicator."
+- **Financial Snapshot**: "Include EBITDA margin if available."
+- **Ownership & Transaction**: "If general notes mention a completed business valuation, state it as a fact (e.g., 'A certified business valuation has been completed')."
+- **Third-party context rule** (new): "Do not describe third-party acquisition platforms, competing buyers, or external deal discussions. The memo should only reflect the seller's business and their willingness to transact — not the strategies of other acquirers."
+
+**5. Add third-party context patterns to strip logic**
+Add to SOURCE_CONTRAST_PATTERNS:
 ```
-Do not mention the names of data sources (LinkedIn, enrichment, internal data, manual entry) in the memo body. Present the chosen figure as a simple fact.
+/\bbroader.*platform\b/i
+/\bintegrat(e|ion|ing)\s*into\b/i
+/\bback-office\s*(support|integration)\b/i
 ```
+These phrases originate from the Latite Roofing meeting context and should not appear in the investor memo.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/generate-lead-memo/index.ts` | Strengthen OMIT rule in prompt; expand validation patterns; add `stripOmissionLanguage` post-processing; add source-name ban to conflict rules |
+| `supabase/functions/generate-lead-memo/index.ts` | Expand omission patterns; handle semicolon-split bullets; add general_notes/google/growth_drivers to context; add third-party platform stripping; update prompt for EBITDA margin and valuation |
 
 ## Post-Change
-
-Redeploy `generate-lead-memo` edge function, then regenerate the Quality Roofing memo to verify improvement.
+Redeploy edge function. Regenerate Quality Roofing memo to verify all five issues are resolved.
 
