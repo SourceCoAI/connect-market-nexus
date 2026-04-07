@@ -172,22 +172,27 @@ export function useBuyerIntroductions(listingId: string | undefined) {
       const updatedRecord = data as unknown as BuyerIntroduction;
 
       // When status changes to fit_and_interested, create a deal pipeline opportunity
+      let pipelineCreated = false;
       if (
         updates.introduction_status === 'fit_and_interested' &&
         oldRecord?.introduction_status !== 'fit_and_interested'
       ) {
-        await createDealFromIntroduction(updatedRecord);
+        pipelineCreated = await createDealFromIntroduction(updatedRecord);
       }
 
-      return updatedRecord;
+      return { record: updatedRecord, pipelineCreated };
     },
-    onSuccess: (_data, { updates }) => {
+    onSuccess: (result, { updates }) => {
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['deal-stages'] });
 
       if (updates.introduction_status === 'fit_and_interested') {
-        toast.success('Buyer marked as Fit & Interested — opportunity created in deal pipeline');
+        if (result.pipelineCreated) {
+          toast.success('Buyer marked as Fit & Interested — opportunity created in deal pipeline');
+        } else {
+          toast.warning('Buyer marked as Fit & Interested, but pipeline opportunity could not be created. Please create it manually.');
+        }
       } else {
         toast.success('Introduction status updated');
       }
@@ -200,8 +205,9 @@ export function useBuyerIntroductions(listingId: string | undefined) {
   /**
    * Creates a deal in the deal_pipeline when a buyer is marked as Fit & Interested.
    * Finds the first active deal stage and creates the opportunity there.
+   * Returns true if pipeline entry was created successfully, false otherwise.
    */
-  async function createDealFromIntroduction(buyer: BuyerIntroduction) {
+  async function createDealFromIntroduction(buyer: BuyerIntroduction): Promise<boolean> {
     try {
       // Get the first (default) deal stage
       const { data: stages, error: stageError } = await supabase
@@ -216,7 +222,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
       const firstStage = stages?.[0];
       if (!firstStage) {
         console.error('No active deal stages found for opportunity creation');
-        return;
+        return false;
       }
 
       // Look up listing title for the deal title
@@ -233,30 +239,52 @@ export function useBuyerIntroductions(listingId: string | undefined) {
       // Create the deal in the pipeline
       const dealTitle = `${buyer.buyer_firm_name} — ${listingTitle || buyer.company_name}`;
 
-      // Upsert buyer contact if we have email
+      // Resolve or create buyer contact
+      // NOTE: contacts table uses partial unique indexes (not simple unique constraints),
+      // so Supabase's .upsert({ onConflict: 'email' }) does NOT work. We must do
+      // an explicit SELECT-then-INSERT pattern.
       let buyerContactId: string | null = null;
       if (buyer.buyer_email) {
-        // buyer_name is the company name, not a person name.
-        // Use the company/firm name as the contact company, and leave
-        // first/last name to be filled in by the user later if needed.
-        const { data: contact } = await supabase
-          .from('contacts')
-          .upsert(
-            {
-              first_name: buyer.buyer_name || '',
-              last_name: '',
-              email: buyer.buyer_email.toLowerCase().trim(),
-              phone: buyer.buyer_phone || null,
-              contact_type: 'buyer',
-              source: 'remarketing_fit_interested',
-            },
-            { onConflict: 'email' },
-          )
-          .select('id')
-          .single();
+        const sanitizedEmail = buyer.buyer_email
+          .toLowerCase()
+          .trim()
+          .replace(/\/+$/, ''); // Remove trailing slashes
 
-        if (contact) {
-          buyerContactId = contact.id;
+        const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sanitizedEmail);
+        if (isValidEmail) {
+          // Check if contact already exists
+          const { data: existing } = await supabase
+            .from('contacts')
+            .select('id')
+            .eq('email', sanitizedEmail)
+            .eq('contact_type', 'buyer')
+            .eq('archived', false)
+            .maybeSingle();
+
+          if (existing) {
+            buyerContactId = existing.id;
+          } else {
+            // Create new contact
+            const { data: newContact } = await supabase
+              .from('contacts')
+              .insert({
+                first_name: buyer.buyer_name || '',
+                last_name: '',
+                email: sanitizedEmail,
+                phone: buyer.buyer_phone || null,
+                contact_type: 'buyer',
+                source: 'remarketing_fit_interested',
+                remarketing_buyer_id: buyer.remarketing_buyer_id || null,
+              })
+              .select('id')
+              .single();
+
+            if (newContact) {
+              buyerContactId = newContact.id;
+            }
+          }
+        } else {
+          console.warn(`[createDealFromIntroduction] Invalid email skipped: "${buyer.buyer_email}"`);
         }
       }
 
@@ -271,7 +299,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
           nda_status: 'not_sent',
           fee_agreement_status: 'not_sent',
           buyer_contact_id: buyerContactId,
-          remarketing_buyer_id: buyer.remarketing_buyer_id || buyer.id,
+          remarketing_buyer_id: buyer.remarketing_buyer_id || null,
           value: buyer.expected_deal_size_low || 0,
           probability: 25,
           priority: 'medium',
@@ -296,12 +324,11 @@ export function useBuyerIntroductions(listingId: string | undefined) {
           },
         });
       }
+
+      return true;
     } catch (error) {
       console.error('Failed to create deal from introduction:', error);
-      // Don't fail the status update, just log and show a warning
-      toast.error(
-        'Status updated but failed to create deal pipeline opportunity. Please create it manually.',
-      );
+      return false;
     }
   }
 
