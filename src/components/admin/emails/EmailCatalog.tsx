@@ -224,7 +224,7 @@ const EMAIL_CATALOG: CatalogCategory[] = [
         edgeFunction: 'send-templated-approval-email',
         variant: 'NDA not yet signed',
         designNotes: 'Branded wrapper, approval with NDA requirement, CTA to sign NDA',
-        previewHtml: `${wrapperStart}<p>You have been approved. Sign the NDA to unlock full access to the data room and financials.</p>${ctaBtn('Sign NDA Now')}${signoff}${wrapperEnd}`,
+        previewHtml: `${wrapperStart}<p>You have been approved. Sign the NDA to unlock deal materials and request introductions.</p>${ctaBtn('Sign NDA Now')}${signoff}${wrapperEnd}`,
       },
     ],
   },

@@ -330,7 +330,7 @@ export function BuyerDataRoom({ dealId, connectionApproved, onClose }: BuyerData
       {!hasFullAccess && (
         <div className="px-5 py-3 border-b border-border/20">
           <p className="text-[11px] text-muted-foreground/60">
-            Sign Fee Agreement to unlock all documents.
+            Sign Fee Agreement to unlock additional deal materials.
           </p>
         </div>
       )}
