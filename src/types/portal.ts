@@ -22,8 +22,7 @@ export type PortalResponseType =
   | 'interested'
   | 'pass'
   | 'need_more_info'
-  | 'reviewing'
-  | 'internal_review';
+  | 'reviewing';
 
 export type PortalNotificationType =
   | 'new_deal'
@@ -118,6 +117,7 @@ export interface PortalDealPush {
   response_due_by: string | null;
   reminder_count: number;
   last_reminder_at: string | null;
+  data_room_access_token: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -162,6 +162,7 @@ export interface PortalActivityLog {
 
 export interface PortalOrganizationWithDetails extends PortalOrganization {
   relationship_owner?: { id: string; first_name: string; last_name: string; email: string } | null;
+  buyer?: { id: string; company_name: string; company_website: string | null; buyer_type: string | null } | null;
   user_count?: number;
   active_push_count?: number;
   last_activity_at?: string | null;
@@ -212,6 +213,7 @@ export interface PushDealToPortalInput {
   push_note?: string;
   priority?: PortalDealPriority;
   response_due_by?: string | null;
+  data_room_access_token?: string;
 }
 
 export interface SubmitDealResponseInput {

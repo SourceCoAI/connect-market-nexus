@@ -63,6 +63,7 @@ export default function PortalDealTracker() {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="pending_review">Pending Review</SelectItem>
+              <SelectItem value="viewed">Viewed</SelectItem>
               <SelectItem value="interested">Interested</SelectItem>
               <SelectItem value="passed">Passed</SelectItem>
               <SelectItem value="needs_info">Needs Info</SelectItem>

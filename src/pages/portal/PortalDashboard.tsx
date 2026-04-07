@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { FileText, CheckCircle, XCircle, HelpCircle, Clock } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, HelpCircle, Clock, Users, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useMyPortalUser } from '@/hooks/portal/use-portal-users';
@@ -27,6 +27,7 @@ export default function PortalDashboard() {
     statusCounts[d.status] = (statusCounts[d.status] || 0) + 1;
   });
 
+  const reviewing = statusCounts['reviewing'] || 0;
   const pending = statusCounts['pending_review'] || 0;
   const interested = statusCounts['interested'] || 0;
   const passed = statusCounts['passed'] || 0;
@@ -36,12 +37,22 @@ export default function PortalDashboard() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold">{portalUser.portal_org.name}</h1>
-          {portalUser.portal_org.welcome_message && (
-            <p className="text-muted-foreground mt-2 max-w-2xl">
-              {portalUser.portal_org.welcome_message}
-            </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">{portalUser.portal_org.name}</h1>
+            {portalUser.portal_org.welcome_message && (
+              <p className="text-muted-foreground mt-2 max-w-2xl">
+                {portalUser.portal_org.welcome_message}
+              </p>
+            )}
+          </div>
+          {portalUser.role === 'admin' && (
+            <Link to={`/portal/${slug}/team`}>
+              <Button variant="outline" size="sm">
+                <Users className="h-3.5 w-3.5 mr-1.5" />
+                Manage Team
+              </Button>
+            </Link>
           )}
         </div>
 

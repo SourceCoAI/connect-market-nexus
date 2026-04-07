@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Send, Users, Activity, Settings, Plus, ArrowRight } from 'lucide-react';
+import { ChevronLeft, Send, Users, Activity, Settings, Plus, ArrowRight, Building2, Globe, RefreshCw, Pause, Archive, Download, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,8 +25,10 @@ import {
 } from '@/components/ui/select';
 import { usePortalOrganization, useUpdatePortalOrg } from '@/hooks/portal/use-portal-organizations';
 import { usePortalUsers, useDeactivatePortalUser } from '@/hooks/portal/use-portal-users';
-import { usePortalDealPushes, useConvertToPipelineDeal } from '@/hooks/portal/use-portal-deals';
-import { usePortalActivity, usePortalAnalytics } from '@/hooks/portal/use-portal-activity';
+import { usePortalDealPushes, useConvertToPipelineDeal, useResendPortalInvite, useUpdateDealPush } from '@/hooks/portal/use-portal-deals';
+import { usePortalMessageCount } from '@/hooks/portal/use-portal-messages';
+import { PortalDealChat } from '@/components/portal/PortalDealChat';
+import { usePortalActivity, usePortalAnalytics, exportPortalActivityCSV } from '@/hooks/portal/use-portal-activity';
 import { OrgStatusBadge, PushStatusBadge, PriorityBadge } from '@/components/portal/PortalStatusBadge';
 import { InvitePortalUserDialog } from '@/components/portal/InvitePortalUserDialog';
 import type { PortalOrgStatus, PortalNotificationFrequency } from '@/types/portal';
@@ -50,9 +52,12 @@ export default function ClientPortalDetail() {
   const updateOrg = useUpdatePortalOrg();
   const deactivateUser = useDeactivatePortalUser();
   const convertToPipeline = useConvertToPipelineDeal();
+  const resendInvite = useResendPortalInvite();
+  const updatePush = useUpdateDealPush();
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [expandedPushId, setExpandedPushId] = useState<string | null>(null);
 
   if (isLoading) return <div className="py-12 text-center text-muted-foreground">Loading...</div>;
   if (!org) return <div className="py-12 text-center text-muted-foreground">Portal not found.</div>;
@@ -77,6 +82,28 @@ export default function ClientPortalDetail() {
             <h1 className="text-2xl font-bold">{org.name}</h1>
             <OrgStatusBadge status={org.status} />
           </div>
+          {org.buyer && (
+            <div className="flex items-center gap-2 mt-1">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">{org.buyer.company_name}</span>
+              {org.buyer.buyer_type && (
+                <Badge variant="outline" className="text-xs">
+                  {org.buyer.buyer_type.replace(/_/g, ' ')}
+                </Badge>
+              )}
+              {org.buyer.company_website && (
+                <a
+                  href={org.buyer.company_website.startsWith('http') ? org.buyer.company_website : `https://${org.buyer.company_website}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                >
+                  <Globe className="h-3 w-3" />
+                  Website
+                </a>
+              )}
+            </div>
+          )}
           {org.relationship_owner && (
             <p className="text-sm text-muted-foreground mt-1">
               Relationship Owner: {org.relationship_owner.first_name} {org.relationship_owner.last_name}
@@ -85,13 +112,41 @@ export default function ClientPortalDetail() {
         </div>
         <div className="flex gap-2">
           {org.status === 'active' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => updateOrg.mutate({ id: org.id, status: 'archived' as PortalOrgStatus })}
-            >
-              Archive Portal
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateOrg.mutate({ id: org.id, status: 'paused' as PortalOrgStatus })}
+              >
+                <Pause className="h-3.5 w-3.5 mr-1" />
+                Pause
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateOrg.mutate({ id: org.id, status: 'archived' as PortalOrgStatus })}
+              >
+                Archive Portal
+              </Button>
+            </>
+          )}
+          {org.status === 'paused' && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateOrg.mutate({ id: org.id, status: 'active' as PortalOrgStatus })}
+              >
+                Resume
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateOrg.mutate({ id: org.id, status: 'archived' as PortalOrgStatus })}
+              >
+                Archive Portal
+              </Button>
+            </>
           )}
           {org.status === 'archived' && (
             <Button
@@ -107,7 +162,7 @@ export default function ClientPortalDetail() {
 
       {/* Analytics summary */}
       {analytics && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-3 md:grid-cols-7 gap-3">
           <Card>
             <CardContent className="pt-4 pb-3">
               <div className="text-xl font-bold">{analytics.total_pushes}</div>
@@ -122,7 +177,13 @@ export default function ClientPortalDetail() {
           </Card>
           <Card>
             <CardContent className="pt-4 pb-3">
-              <div className="text-xl font-bold text-blue-600">{analytics.pending_count}</div>
+              <div className="text-xl font-bold">{analytics.avg_response_days ?? '-'}</div>
+              <p className="text-xs text-muted-foreground">Avg Days to Respond</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="text-xl font-bold text-blue-600">{analytics.pending_count + (analytics.viewed_count || 0)}</div>
               <p className="text-xs text-muted-foreground">Pending</p>
             </CardContent>
           </Card>
@@ -136,6 +197,12 @@ export default function ClientPortalDetail() {
             <CardContent className="pt-4 pb-3">
               <div className="text-xl font-bold text-red-600">{analytics.passed_count}</div>
               <p className="text-xs text-muted-foreground">Passed</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="text-xl font-bold text-orange-600">{analytics.needs_info_count}</div>
+              <p className="text-xs text-muted-foreground">Needs Info</p>
             </CardContent>
           </Card>
         </div>
@@ -177,6 +244,7 @@ export default function ClientPortalDetail() {
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="pending_review">Pending Review</SelectItem>
+                <SelectItem value="viewed">Viewed</SelectItem>
                 <SelectItem value="interested">Interested</SelectItem>
                 <SelectItem value="passed">Passed</SelectItem>
                 <SelectItem value="needs_info">Needs Info</SelectItem>
@@ -210,7 +278,8 @@ export default function ClientPortalDetail() {
                 </TableHeader>
                 <TableBody>
                   {filteredPushes.map((push) => (
-                    <TableRow key={push.id}>
+                    <React.Fragment key={push.id}>
+                    <TableRow>
                       <TableCell className="max-w-[250px]">
                         <div className="font-medium truncate">
                           {push.deal_snapshot?.headline || 'Untitled'}
@@ -243,30 +312,63 @@ export default function ClientPortalDetail() {
                         <PriorityBadge priority={push.priority} />
                       </TableCell>
                       <TableCell>
-                        {push.status === 'interested' && (
+                        <div className="flex items-center gap-1">
+                          {push.status === 'interested' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs gap-1 text-green-700 border-green-200 hover:bg-green-50"
+                              disabled={convertToPipeline.isPending}
+                              onClick={() =>
+                                convertToPipeline.mutate({
+                                  pushId: push.id,
+                                  portalOrgId: org.id,
+                                  listingId: push.listing_id,
+                                  portalOrgName: org.name,
+                                })
+                              }
+                            >
+                              <ArrowRight className="h-3 w-3" />
+                              Convert
+                            </Button>
+                          )}
+                          {push.status === 'under_nda' && (
+                            <span className="text-xs text-emerald-600 font-medium">In Pipeline</span>
+                          )}
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            className="text-xs gap-1 text-green-700 border-green-200 hover:bg-green-50"
-                            disabled={convertToPipeline.isPending}
-                            onClick={() =>
-                              convertToPipeline.mutate({
-                                pushId: push.id,
-                                portalOrgId: org.id,
-                                listingId: push.listing_id,
-                                portalOrgName: org.name,
-                              })
-                            }
+                            className="text-xs h-7 w-7 p-0"
+                            onClick={() => setExpandedPushId(expandedPushId === push.id ? null : push.id)}
                           >
-                            <ArrowRight className="h-3 w-3" />
-                            Convert to Deal
+                            <MessageSquare className="h-3.5 w-3.5" />
                           </Button>
-                        )}
-                        {push.status === 'under_nda' && (
-                          <span className="text-xs text-emerald-600 font-medium">In Pipeline</span>
-                        )}
+                          {push.status !== 'archived' && push.status !== 'under_nda' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
+                              onClick={() => updatePush.mutate({ pushId: push.id, status: 'archived' })}
+                            >
+                              <Archive className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
+                    {expandedPushId === push.id && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="bg-muted/30 p-4">
+                          <PortalDealChat
+                            pushId={push.id}
+                            portalOrgId={org.id}
+                            senderType="admin"
+                            senderName="SourceCo Team"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
@@ -323,16 +425,38 @@ export default function ClientPortalDetail() {
                       <TableCell className="text-sm">{formatDate(u.invite_sent_at)}</TableCell>
                       <TableCell className="text-sm">{formatDate(u.last_login_at)}</TableCell>
                       <TableCell>
-                        {u.is_active && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs text-red-600"
-                            onClick={() => deactivateUser.mutate({ userId: u.id, portalOrgId: org.id })}
-                          >
-                            Deactivate
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {u.is_active && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs"
+                                disabled={resendInvite.isPending}
+                                onClick={() => resendInvite.mutate({
+                                  portal_org_id: org.id,
+                                  portal_slug: org.portal_slug,
+                                  email: u.email,
+                                  first_name: u.name.split(' ')[0] || u.name,
+                                  last_name: u.name.split(' ').slice(1).join(' ') || undefined,
+                                  role: u.role,
+                                  buyer_id: org.buyer_id || undefined,
+                                })}
+                              >
+                                <RefreshCw className="h-3 w-3 mr-1" />
+                                Resend
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs text-red-600"
+                                onClick={() => deactivateUser.mutate({ userId: u.id, portalOrgId: org.id })}
+                              >
+                                Deactivate
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -343,7 +467,19 @@ export default function ClientPortalDetail() {
         </TabsContent>
 
         {/* Activity Tab */}
-        <TabsContent value="activity">
+        <TabsContent value="activity" className="space-y-4">
+          {activity && activity.length > 0 && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportPortalActivityCSV(activity, org.name)}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />
+                Export CSV
+              </Button>
+            </div>
+          )}
           {(activity || []).length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
@@ -352,27 +488,32 @@ export default function ClientPortalDetail() {
             </Card>
           ) : (
             <div className="space-y-2">
-              {(activity || []).map((log) => (
-                <div
-                  key={log.id}
-                  className="flex items-center gap-3 px-4 py-3 border rounded-md text-sm"
-                >
-                  <Badge variant="outline" className="text-xs capitalize shrink-0">
-                    {log.action.replace(/_/g, ' ')}
-                  </Badge>
-                  <span className="text-muted-foreground">
-                    by {log.actor_type === 'admin' ? 'Admin' : 'Portal User'}
-                  </span>
-                  {log.metadata && typeof log.metadata === 'object' && 'headline' in log.metadata && (
-                    <span className="truncate text-muted-foreground">
-                      — {String(log.metadata.headline)}
+              {(activity || []).map((log) => {
+                const meta = log.metadata && typeof log.metadata === 'object' ? log.metadata as Record<string, unknown> : {};
+                const actorName = meta.actor_name ? String(meta.actor_name) : (meta.user_name ? String(meta.user_name) : null);
+                const headline = meta.headline ? String(meta.headline) : null;
+                return (
+                  <div
+                    key={log.id}
+                    className="flex items-center gap-3 px-4 py-3 border rounded-md text-sm"
+                  >
+                    <Badge variant="outline" className="text-xs capitalize shrink-0">
+                      {log.action.replace(/_/g, ' ')}
+                    </Badge>
+                    <span className="text-muted-foreground">
+                      by {actorName || (log.actor_type === 'admin' ? 'Admin' : 'Portal User')}
                     </span>
-                  )}
-                  <span className="ml-auto text-xs text-muted-foreground shrink-0">
-                    {formatDate(log.created_at)}
-                  </span>
-                </div>
-              ))}
+                    {headline && (
+                      <span className="truncate text-muted-foreground">
+                        — {headline}
+                      </span>
+                    )}
+                    <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                      {formatDate(log.created_at)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -387,6 +528,8 @@ export default function ClientPortalDetail() {
         open={inviteOpen}
         onOpenChange={setInviteOpen}
         portalOrgId={org.id}
+        portalSlug={org.portal_slug}
+        buyerId={org.buyer_id || undefined}
       />
     </div>
   );
@@ -401,18 +544,27 @@ function PortalSettings({ org }: { org: NonNullable<ReturnType<typeof usePortalO
   const [dealSizeMin, setDealSizeMin] = useState(org.preferred_deal_size_min?.toString() || '');
   const [dealSizeMax, setDealSizeMax] = useState(org.preferred_deal_size_max?.toString() || '');
   const [notes, setNotes] = useState(org.notes || '');
+  const [autoReminder, setAutoReminder] = useState(org.auto_reminder_enabled ?? false);
+  const [reminderDays, setReminderDays] = useState(org.auto_reminder_days?.toString() || '7');
+  const [reminderMax, setReminderMax] = useState(org.auto_reminder_max?.toString() || '3');
 
   const handleSave = () => {
+    const minVal = dealSizeMin ? parseInt(dealSizeMin, 10) : null;
+    const maxVal = dealSizeMax ? parseInt(dealSizeMax, 10) : null;
+
     updateOrg.mutate({
       id: org.id,
       welcome_message: welcomeMessage.trim() || null,
       notification_frequency: frequency as PortalNotificationFrequency,
       preferred_industries: industries ? industries.split(',').map((s) => s.trim()).filter(Boolean) : [],
       preferred_geographies: geographies ? geographies.split(',').map((s) => s.trim()).filter(Boolean) : [],
-      preferred_deal_size_min: dealSizeMin ? parseInt(dealSizeMin, 10) : null,
-      preferred_deal_size_max: dealSizeMax ? parseInt(dealSizeMax, 10) : null,
+      preferred_deal_size_min: minVal && minVal > 0 ? minVal : null,
+      preferred_deal_size_max: maxVal && maxVal > 0 ? maxVal : null,
       notes: notes.trim() || null,
-    });
+      auto_reminder_enabled: autoReminder,
+      auto_reminder_days: autoReminder && reminderDays ? parseInt(reminderDays, 10) : null,
+      auto_reminder_max: autoReminder && reminderMax ? parseInt(reminderMax, 10) : null,
+    } as Parameters<typeof updateOrg.mutate>[0]);
   };
 
   return (
@@ -444,6 +596,36 @@ function PortalSettings({ org }: { org: NonNullable<ReturnType<typeof usePortalO
           </Select>
         </div>
 
+        {/* Auto-Reminders */}
+        <div className="space-y-3 border rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Auto-Reminders for Unreviewed Deals</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Automatically remind portal users about deals they haven't responded to.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={autoReminder}
+              onChange={(e) => setAutoReminder(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+          </div>
+          {autoReminder && (
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="space-y-2">
+                <Label className="text-xs">Remind after (days)</Label>
+                <Input type="number" min="1" max="30" value={reminderDays} onChange={(e) => setReminderDays(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Max reminders</Label>
+                <Input type="number" min="1" max="10" value={reminderMax} onChange={(e) => setReminderMax(e.target.value)} />
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Preferred Industries</Label>
@@ -458,11 +640,11 @@ function PortalSettings({ org }: { org: NonNullable<ReturnType<typeof usePortalO
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Min EBITDA</Label>
-            <Input type="number" value={dealSizeMin} onChange={(e) => setDealSizeMin(e.target.value)} />
+            <Input type="number" min="0" value={dealSizeMin} onChange={(e) => setDealSizeMin(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label>Max EBITDA</Label>
-            <Input type="number" value={dealSizeMax} onChange={(e) => setDealSizeMax(e.target.value)} />
+            <Input type="number" min="0" value={dealSizeMax} onChange={(e) => setDealSizeMax(e.target.value)} />
           </div>
         </div>
 

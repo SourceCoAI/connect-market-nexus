@@ -60,7 +60,7 @@ export function usePortalDealPushes(portalOrgId: string | undefined) {
 export function useMyPortalDeals(portalOrgId: string | undefined) {
   return useQuery({
     queryKey: ['my-portal-deals', portalOrgId],
-    queryFn: async (): Promise<PortalDealPushWithDetails[]> => {
+    queryFn: async (): Promise<PortalDealPush[]> => {
       if (!portalOrgId) return [];
       const { data, error } = await untypedFrom('portal_deal_pushes')
         .select('*')
@@ -69,7 +69,7 @@ export function useMyPortalDeals(portalOrgId: string | undefined) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as PortalDealPushWithDetails[];
+      return (data || []) as PortalDealPush[];
     },
     enabled: !!portalOrgId,
   });
@@ -195,6 +195,7 @@ export function usePushDealToPortal() {
           push_note: input.push_note || null,
           priority: input.priority || 'standard',
           response_due_by: input.response_due_by || null,
+          data_room_access_token: input.data_room_access_token || null,
           deal_snapshot: snapshot,
         })
         .select()
@@ -209,8 +210,19 @@ export function usePushDealToPortal() {
         actor_type: 'admin',
         action: 'deal_pushed',
         push_id: data.id,
-        metadata: { listing_id: input.listing_id, headline: snapshot.headline, priority: input.priority },
+        metadata: { listing_id: input.listing_id, headline: snapshot.headline, priority: input.priority, actor_name: user.email },
       });
+
+      // Send notifications to portal users (fire-and-forget)
+      supabase.functions.invoke('send-portal-notification', {
+        body: {
+          portal_org_id: input.portal_org_id,
+          push_id: data.id,
+          deal_headline: snapshot.headline,
+          priority: input.priority || 'standard',
+          push_note: input.push_note,
+        },
+      }).catch((err) => console.warn('Portal notification error:', err));
 
       return data;
     },
@@ -231,7 +243,7 @@ export function useSubmitDealResponse() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (input: SubmitDealResponseInput & { portal_user_id: string; portal_org_id: string }) => {
+    mutationFn: async (input: SubmitDealResponseInput & { portal_user_id: string; portal_org_id: string; responder_name?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -254,7 +266,6 @@ export function useSubmitDealResponse() {
         pass: 'passed',
         need_more_info: 'needs_info',
         reviewing: 'reviewing',
-        internal_review: 'reviewing',
       };
 
       await untypedFrom('portal_deal_pushes')
@@ -264,14 +275,17 @@ export function useSubmitDealResponse() {
         })
         .eq('id', input.push_id);
 
-      // Log activity
+      // Log activity with actor name for display
       await untypedFrom('portal_activity_log').insert({
         portal_org_id: input.portal_org_id,
         actor_id: user.id,
         actor_type: 'portal_user',
         action: 'response_submitted',
         push_id: input.push_id,
-        metadata: { response_type: input.response_type },
+        metadata: {
+          response_type: input.response_type,
+          actor_name: input.responder_name || user.email,
+        },
       });
 
       return data;
@@ -284,6 +298,93 @@ export function useSubmitDealResponse() {
     },
     onError: (err: Error) => {
       toast({ title: 'Error submitting response', description: err.message, variant: 'destructive' });
+    },
+  });
+}
+
+/** Mark a deal as viewed (sets first_viewed_at if not already set) */
+export function useMarkDealViewed() {
+  return useMutation({
+    mutationFn: async ({ pushId, portalOrgId, viewerName }: { pushId: string; portalOrgId: string; viewerName?: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Only set first_viewed_at if it hasn't been set yet
+      const { data: push } = await untypedFrom('portal_deal_pushes')
+        .select('first_viewed_at, status')
+        .eq('id', pushId)
+        .single();
+
+      if (!push) return;
+
+      const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (!push.first_viewed_at) {
+        updates.first_viewed_at = new Date().toISOString();
+      }
+      // Move from pending_review to viewed if still pending
+      if (push.status === 'pending_review') {
+        updates.status = 'viewed';
+      }
+
+      await untypedFrom('portal_deal_pushes')
+        .update(updates)
+        .eq('id', pushId);
+
+      // Log view activity
+      await untypedFrom('portal_activity_log').insert({
+        portal_org_id: portalOrgId,
+        actor_id: user.id,
+        actor_type: 'portal_user',
+        action: 'deal_viewed',
+        push_id: pushId,
+        metadata: { actor_name: viewerName || user.email },
+      });
+    },
+  });
+}
+
+/** Admin: update a deal push (note, priority, or archive) */
+export function useUpdateDealPush() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ pushId, ...updates }: { pushId: string; push_note?: string; priority?: string; status?: string }) => {
+      const { error } = await untypedFrom('portal_deal_pushes')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', pushId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [PORTAL_PUSHES_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['portal-deal-push'] });
+      toast({ title: 'Deal updated' });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Error updating deal', description: err.message, variant: 'destructive' });
+    },
+  });
+}
+
+/** Admin: resend invite to a portal user */
+export function useResendPortalInvite() {
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (input: { portal_org_id: string; portal_slug: string; email: string; first_name: string; last_name?: string; role: string; buyer_id?: string }) => {
+      const { data, error } = await supabase.functions.invoke('invite-portal-user', {
+        body: input,
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (_, input) => {
+      toast({ title: 'Invitation resent', description: `New login link sent to ${input.email}.` });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Error resending invite', description: err.message, variant: 'destructive' });
     },
   });
 }
@@ -381,6 +482,7 @@ export function useConvertToPipelineDeal() {
 
         if (crError) throw crError;
         connectionRequestId = newCr.id;
+      }
 
         // Call the RPC to create the pipeline deal from the connection request
         const { data: _dealId, error: rpcError } = await supabase.rpc(
@@ -388,9 +490,9 @@ export function useConvertToPipelineDeal() {
           { p_connection_request_id: connectionRequestId },
         );
 
-        if (rpcError) {
-          console.warn('create_pipeline_deal RPC error (trigger may handle it):', rpcError.message);
-        }
+      if (rpcError) {
+        // RPC may error if deal already exists — that's okay, log and continue
+        console.warn('create_pipeline_deal RPC:', rpcError.message);
       }
 
       // Update portal push status to under_nda
@@ -413,6 +515,7 @@ export function useConvertToPipelineDeal() {
         metadata: {
           connection_request_id: connectionRequestId,
           listing_id: listingId,
+          actor_name: user.email,
         },
       });
 

@@ -20,44 +20,44 @@ export function usePortalUsers(portalOrgId: string | undefined) {
   });
 }
 
+export interface InvitePortalUserViaEdgeInput {
+  portal_org_id: string;
+  portal_slug: string;
+  first_name: string;
+  last_name?: string;
+  email: string;
+  role: string;
+  buyer_id?: string;
+  contact_id?: string;
+}
+
 export function useInvitePortalUser() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (input: InvitePortalUserInput) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await untypedFrom('portal_users')
-        .insert({
-          portal_org_id: input.portal_org_id,
-          contact_id: input.contact_id || null,
-          profile_id: input.profile_id || null,
-          role: input.role,
-          email: input.email,
-          name: input.name,
-          invite_sent_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Log activity
-      await untypedFrom('portal_activity_log').insert({
-        portal_org_id: input.portal_org_id,
-        actor_id: user.id,
-        actor_type: 'admin',
-        action: 'user_invited',
-        metadata: { user_name: input.name, user_email: input.email, role: input.role },
+    mutationFn: async (input: InvitePortalUserViaEdgeInput) => {
+      const { data, error } = await supabase.functions.invoke('invite-portal-user', {
+        body: input,
       });
 
-      return data;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      return data as {
+        portal_user_id: string;
+        profile_id: string;
+        contact_id: string | null;
+        email: string;
+        is_new_user: boolean;
+      };
     },
-    onSuccess: (_, input) => {
+    onSuccess: (data, input) => {
       queryClient.invalidateQueries({ queryKey: ['portal-users', input.portal_org_id] });
-      toast({ title: 'User invited', description: `Invitation recorded for ${input.name}.` });
+      const msg = data.is_new_user
+        ? `Invitation sent to ${data.email}. They will receive a login link.`
+        : `${data.email} has been added to the portal.`;
+      toast({ title: 'User invited', description: msg });
     },
     onError: (err: Error) => {
       toast({ title: 'Error inviting user', description: err.message, variant: 'destructive' });

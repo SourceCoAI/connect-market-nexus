@@ -357,6 +357,16 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/portal/:slug/team"
+              element={
+                <ProtectedRoute requireApproved={false}>
+                  <RouteErrorBoundary name="PortalRoutes">
+                    <PortalTeam />
+                  </RouteErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
 
             {/* ─── UNIFIED ADMIN LAYOUT ─── */}
             {/* All admin + remarketing routes share one layout with the unified sidebar */}

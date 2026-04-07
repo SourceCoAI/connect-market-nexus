@@ -16,40 +16,61 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useInvitePortalUser } from '@/hooks/portal/use-portal-users';
 import type { PortalUserRole } from '@/types/portal';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface InvitePortalUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   portalOrgId: string;
+  portalSlug?: string;
+  buyerId?: string;
 }
 
 export function InvitePortalUserDialog({
   open,
   onOpenChange,
   portalOrgId,
+  portalSlug,
+  buyerId,
 }: InvitePortalUserDialogProps) {
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<PortalUserRole>('primary_contact');
 
   const invite = useInvitePortalUser();
 
+  const resetForm = () => {
+    setFirstName('');
+    setLastName('');
+    setEmail('');
+    setRole('primary_contact');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
+    if (!firstName.trim() || !email.trim()) return;
+    if (!EMAIL_REGEX.test(email.trim())) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
 
     await invite.mutateAsync({
       portal_org_id: portalOrgId,
-      name: name.trim(),
+      portal_slug: portalSlug || '',
+      first_name: firstName.trim(),
+      last_name: lastName.trim() || undefined,
       email: email.trim().toLowerCase(),
       role,
+      buyer_id: buyerId,
     });
 
-    setName('');
-    setEmail('');
-    setRole('primary_contact');
+    resetForm();
     onOpenChange(false);
   };
 
@@ -60,15 +81,26 @@ export function InvitePortalUserDialog({
           <DialogTitle>Invite Portal User</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="user-name">Name *</Label>
-            <Input
-              id="user-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Lindsay Chen"
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="user-first-name">First Name *</Label>
+              <Input
+                id="user-first-name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Lindsay"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="user-last-name">Last Name</Label>
+              <Input
+                id="user-last-name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Chen"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -104,8 +136,9 @@ export function InvitePortalUserDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={invite.isPending || !name.trim() || !email.trim()}>
-              {invite.isPending ? 'Inviting...' : 'Send Invitation'}
+            <Button type="submit" disabled={invite.isPending || !firstName.trim() || !email.trim()}>
+              {invite.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {invite.isPending ? 'Sending...' : 'Send Invitation'}
             </Button>
           </DialogFooter>
         </form>

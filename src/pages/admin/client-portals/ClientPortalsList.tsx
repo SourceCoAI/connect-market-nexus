@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Users, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePortalOrganizations } from '@/hooks/portal/use-portal-organizations';
 import { CreatePortalDialog } from '@/components/portal/CreatePortalDialog';
@@ -9,7 +10,21 @@ import { OrgStatusBadge } from '@/components/portal/PortalStatusBadge';
 
 export default function ClientPortalsList() {
   const [createOpen, setCreateOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { data: orgs, isLoading } = usePortalOrganizations();
+
+  const filteredOrgs = useMemo(() => {
+    if (!orgs) return [];
+    if (!searchQuery.trim()) return orgs;
+    const q = searchQuery.toLowerCase();
+    return orgs.filter((o) =>
+      o.name.toLowerCase().includes(q) ||
+      o.buyer?.company_name?.toLowerCase().includes(q) ||
+      o.buyer?.buyer_type?.replace(/_/g, ' ').toLowerCase().includes(q) ||
+      o.relationship_owner?.first_name?.toLowerCase().includes(q) ||
+      o.relationship_owner?.last_name?.toLowerCase().includes(q)
+    );
+  }, [orgs, searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -24,6 +39,17 @@ export default function ClientPortalsList() {
           <Plus className="h-4 w-4 mr-2" />
           Create Portal
         </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by name, buyer, owner..."
+          className="pl-9"
+        />
       </div>
 
       {/* Summary cards */}
@@ -73,9 +99,15 @@ export default function ClientPortalsList() {
             </Button>
           </CardContent>
         </Card>
+      ) : filteredOrgs.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            No portals match "{searchQuery}".
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(orgs || []).map((org) => (
+          {filteredOrgs.map((org) => (
             <Link key={org.id} to={`/admin/client-portals/${org.portal_slug}`}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
                 <CardHeader className="pb-3">
@@ -83,8 +115,19 @@ export default function ClientPortalsList() {
                     <CardTitle className="text-lg">{org.name}</CardTitle>
                     <OrgStatusBadge status={org.status} />
                   </div>
+                  {org.buyer && (
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Building2 className="h-3.5 w-3.5" />
+                      <span>{org.buyer.company_name}</span>
+                      {org.buyer.buyer_type && (
+                        <span className="text-xs px-1.5 py-0.5 bg-muted rounded text-muted-foreground">
+                          {org.buyer.buyer_type.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {org.relationship_owner && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Owner: {org.relationship_owner.first_name} {org.relationship_owner.last_name}
                     </p>
                   )}
@@ -100,23 +143,6 @@ export default function ClientPortalsList() {
                       <span>{org.active_push_count || 0} deals</span>
                     </div>
                   </div>
-                  {org.preferred_industries && org.preferred_industries.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {org.preferred_industries.slice(0, 3).map((ind) => (
-                        <span
-                          key={ind}
-                          className="text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground"
-                        >
-                          {ind}
-                        </span>
-                      ))}
-                      {org.preferred_industries.length > 3 && (
-                        <span className="text-xs text-muted-foreground">
-                          +{org.preferred_industries.length - 3}
-                        </span>
-                      )}
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </Link>

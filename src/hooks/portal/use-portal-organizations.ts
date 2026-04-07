@@ -18,6 +18,9 @@ export function usePortalOrganizations() {
           *,
           relationship_owner:profiles!portal_organizations_relationship_owner_id_fkey(
             id, first_name, last_name, email
+          ),
+          buyer:buyers!portal_organizations_buyer_id_fkey(
+            id, company_name, company_website, buyer_type
           )
         `)
         .is('deleted_at', null)
@@ -49,7 +52,7 @@ export function usePortalOrganizations() {
         pushCounts[p.portal_org_id] = (pushCounts[p.portal_org_id] || 0) + 1;
       });
 
-      return (data || []).map((org: PortalOrganization & { relationship_owner: PortalOrganizationWithDetails['relationship_owner'] }) => ({
+      return (data || []).map((org: PortalOrganization & { relationship_owner: PortalOrganizationWithDetails['relationship_owner']; buyer: PortalOrganizationWithDetails['buyer'] }) => ({
         ...org,
         user_count: userCounts[org.id] || 0,
         active_push_count: pushCounts[org.id] || 0,
@@ -68,6 +71,9 @@ export function usePortalOrganization(slug: string | undefined) {
           *,
           relationship_owner:profiles!portal_organizations_relationship_owner_id_fkey(
             id, first_name, last_name, email
+          ),
+          buyer:buyers!portal_organizations_buyer_id_fkey(
+            id, company_name, company_website, buyer_type
           )
         `)
         .eq('portal_slug', slug)
