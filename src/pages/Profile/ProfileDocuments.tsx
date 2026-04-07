@@ -152,7 +152,7 @@ export function ProfileDocuments() {
             {pendingDocs.length} document{pendingDocs.length > 1 ? 's' : ''} sent to your email for signing
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Sign and return to support@sourcecodeals.com to unlock full deal access.
+            Sign and return to support@sourcecodeals.com to receive deal materials and request introductions.
           </p>
         </div>
       )}

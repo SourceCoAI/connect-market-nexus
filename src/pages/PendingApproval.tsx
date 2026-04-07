@@ -276,7 +276,7 @@ const PendingApproval = () => {
                 <div className="space-y-1">
                   <p className="text-base font-semibold text-foreground">Documents signed</p>
                   <p className="text-sm text-muted-foreground">
-                    The moment your account is approved, you'll have full access to the deal pipeline.
+                    Once approved, you can browse deals and request introductions.
                   </p>
                 </div>
               </div>
