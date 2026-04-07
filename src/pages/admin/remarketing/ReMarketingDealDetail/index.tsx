@@ -14,6 +14,7 @@ import {
   Building2,
   Eye,
   Activity,
+  Mail,
   UserPlus,
   FolderOpen,
   ListChecks,
@@ -34,6 +35,7 @@ import { DealContactHistoryTab } from '@/components/remarketing/deal-detail';
 import { ListingNotesLog } from '@/components/remarketing/deal-detail/ListingNotesLog';
 import { BuyerIntroductionPage } from '@/components/admin/deals/buyer-introductions/BuyerIntroductionPage';
 import { ValuationTab } from './ValuationTab';
+import { DealEmailActivity } from '@/components/email';
 
 const ReMarketingDealDetail = () => {
   const {
@@ -171,7 +173,7 @@ const ReMarketingDealDetail = () => {
       />
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className={cn('grid w-full', isValuationDeal ? 'grid-cols-8' : 'grid-cols-7')}>
+        <TabsList className={cn('grid w-full', isValuationDeal ? 'grid-cols-9' : 'grid-cols-8')}>
           <TabsTrigger value="overview" className="text-sm">
             <Eye className="mr-1.5 h-3.5 w-3.5" />
             Overview
@@ -201,6 +203,10 @@ const ReMarketingDealDetail = () => {
           <TabsTrigger value="tasks" className="text-sm">
             <ListChecks className="mr-1.5 h-3.5 w-3.5" />
             Deal Tasks
+          </TabsTrigger>
+          <TabsTrigger value="email-activity" className="text-sm">
+            <Mail className="mr-1.5 h-3.5 w-3.5" />
+            Email
           </TabsTrigger>
           <TabsTrigger value="data-room" className="text-sm">
             <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
@@ -260,6 +266,10 @@ const ReMarketingDealDetail = () => {
 
         <TabsContent value="buyer-outreach" className="space-y-6">
           <BuyerOutreachTab dealId={dealId!} dealName={displayName} />
+        </TabsContent>
+
+        <TabsContent value="email-activity" className="space-y-6">
+          <DealEmailActivity dealId={dealId!} dealTitle={displayName} />
         </TabsContent>
 
         <TabsContent value="listing-tasks" className="space-y-6">
