@@ -1,40 +1,47 @@
 
+Fix analyst notes leak + broken preview
 
-# Verification Complete: Both Plans Fully Implemented
+What I found
+- In `supabase/functions/generate-lead-memo/index.ts`, the prompt still contradicts the goal. It says to keep conflict notes out of the memo, but it also says “If figures don't reconcile... include both and flag it,” which invites discrepancy language into the investor-facing memo.
+- The memo is still framed as an internal analyst memo, not a clean investor-shareable document, so the model is being pushed in the wrong direction.
+- Parsing is brittle: only the exact `---ANALYST-NOTES---` delimiter is extracted. If Claude outputs a variant like `## Analyst Notes`, those notes stay in the memo body.
+- The code can still save a “best attempt” after failed validation, so analyst-style content can slip through.
+- In `MemosTab.tsx`, the notes are rendered inside the same memo flow at the bottom of the scroll area, so they feel like part of the memo. The current collapsible UX is weak, and the chevron/open-state behavior is not implemented correctly.
 
-## Plan 1: Investment-Grade Memo Export Redesign
+Implementation
+1. Harden the generation contract in `supabase/functions/generate-lead-memo/index.ts`
+   - Rewrite the full memo prompt so it is explicitly investor-shareable.
+   - Remove every instruction that tells the model to “flag” or explain conflicts inside the memo.
+   - Require two explicit output blocks, e.g. `<memo>...</memo>` and `<analyst_notes>...</analyst_notes>`, instead of relying on one delimiter only.
 
-| Item | Status | Evidence |
-|------|--------|----------|
-| **Shared PDF template** (`memo-pdf-template.ts`) | DONE | Clean letterhead, no date, no red disclaimer, `@page` CSS suppresses browser headers/footers, "Confidential" footer in small gray text |
-| **MemosTab uses shared template** | DONE | Imports `buildMemoPdfHtml` + `openPrintWindow` from shared module |
-| **MemosPanel uses shared template** | DONE | Same imports, same pattern |
-| **DOCX redesign** (`generate-memo-docx.ts`) | DONE | No date, no "CONFIDENTIAL" banner, clean letterhead with logo, subtle footer, uppercase letterspaced headings |
-| **Build fix: GPPartnerDeals duplicate `executive_summary`** | DONE | Only one per interface (interface field + form field are separate types) |
-| **Build fix: SourceCoDeals duplicate `executive_summary`** | DONE | Same — clean |
-| **Build fix: BulkEmailDialog property access** | DONE | `executive_summary` present in interface |
-| **Build fix: OverviewTab unused import** | DONE | No unused imports found |
+2. Make extraction robust
+   - Add a helper that extracts analyst notes from:
+     - the new tagged blocks,
+     - the current `---ANALYST-NOTES---` delimiter,
+     - fallback headings like `## ANALYST NOTES`.
+   - If an analyst-notes block or heading appears in parsed sections, move it out before saving.
 
-## Plan 2: Investor-Ready Lead Memo (Clean Copy + Discrepancy Panel)
+3. Add investor-safety validation
+   - Reject and retry outputs when the memo body contains analyst-language patterns such as source comparisons, “Call 1,” “transcript,” “enrichment,” “manual entry,” “conflict,” “discrepancy,” “verified,” “unverified,” or “reconcile.”
+   - Reject any leftover analyst-notes headers inside memo sections.
+   - If retries still fail, return an error instead of saving an investor-unsafe memo.
 
-| Item | Status | Evidence |
-|------|--------|----------|
-| **Prompt: removed old conflict rule** ("Owner stated $X; [other source] shows $Y") | DONE | Replaced with "USE the highest-priority source figure without comment. Do not cite the source." (line 1160) |
-| **Prompt: removed "enrichment data and manual entries only" note** | DONE | Not found in codebase |
-| **Prompt: removed "Flag conflicts between sources"** | DONE | Line 1216 now says "Do NOT cite sources or flag conflicts in the memo body" |
-| **Prompt: added `---ANALYST-NOTES---` delimiter instruction** | DONE | Lines 1218-1220 in user prompt |
-| **Parsing: split on delimiter** | DONE | Lines 1273-1279 split `rawContent` on `---ANALYST-NOTES---` |
-| **Storage: `analyst_notes` in content JSONB** | DONE | Line 1325 adds `analyst_notes` to returned content object |
-| **Frontend: collapsible analyst notes panel** | DONE | Lines 951-966 in MemosTab — amber-styled `<Collapsible>` with "Analyst Notes - Data Quality Findings" title |
-| **Exports exclude analyst_notes** | DONE | PDF/DOCX only process `sections` array; `analyst_notes` is a separate top-level field |
-| **`sectionsToHtml`: removed red CONFIDENTIAL disclaimer** | DONE | No "CONFIDENTIAL" text found in edge function |
-| **`sectionsToHtml`: removed date line** | DONE | Only shows brand letterhead + subtitle (line 1717-1720), no date |
+4. Fix the preview layout in `src/components/admin/data-room/MemosTab.tsx`
+   - Stop rendering analyst notes inside the memo document.
+   - Keep the memo preview as one clean document block.
+   - Render a separate admin-only panel below it: “Internal Analyst Notes — Not included in PDF/DOCX.”
+   - Remove the collapsible for this panel so it is always visible, clearly separate, and impossible to confuse with investor copy.
 
-## Edge Function Deployment
+5. QA
+   - Regenerate a memo using a deal with conflicting figures.
+   - Confirm the memo body uses only the chosen final figures with no discrepancy language.
+   - Confirm analyst notes appear only in the separate internal panel.
+   - Confirm PDF and DOCX contain no analyst notes, source citations, or conflict wording.
 
-The `generate-lead-memo` edge function code changes are in place. It needs deployment for the prompt/parsing changes to take effect on the next memo generation.
+Files
+- `supabase/functions/generate-lead-memo/index.ts`
+- `src/components/admin/data-room/MemosTab.tsx`
 
-## Summary
-
-All items from both plans are fully implemented. No gaps found.
-
+Technical note
+- No schema migration is needed; `analyst_notes` can remain in the existing JSON content field.
+- The real fix must happen before `sections` are saved. If analyst notes remain inside `sections`, they will still appear in preview and exports.
