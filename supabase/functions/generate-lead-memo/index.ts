@@ -798,15 +798,24 @@ function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
     /\bis\s*unclear\b/i,
     /\bis\s*unknown\b/i,
     /\bare\s*unknown\b/i,
-    /\bhas\s*not\s*been\s*(stated|provided|confirmed|discussed)\b/i,
+    /\bhas\s*not\s*been\s*(stated|provided|confirmed|discussed|established|specified|disclosed|determined)\b/i,
+    /\bhave\s*not\s*been\s*(stated|provided|confirmed|discussed|established|specified|disclosed|determined)\b/i,
     /\bno\s*(detail|information|data)\s*(is|was|has been)?\s*(available|provided|stated|on file)\b/i,
+    /\bnot\s*yet\s*(available|confirmed|provided|stated|disclosed)\b/i,
+    /\bremains\s*(unknown|unclear|unconfirmed)\b/i,
   ];
   const SOURCE_CONTRAST_PATTERNS = [
     /\bLinkedIn[\s-]*report/i,
     /\bper\s*(internal|enrichment|manual)\s*data\b/i,
     /\binternal\s*data\b/i,
     /\benrichment\s*data\b/i,
+    /\bbroader.*platform\b/i,
+    /\bintegrat(e|ion|ing)\s*into\b/i,
+    /\bback-office\s*(support|integration)\b/i,
   ];
+
+  const isOmission = (text: string) => OMISSION_PATTERNS.some(p => p.test(text));
+  const isSourceContrast = (text: string) => SOURCE_CONTRAST_PATTERNS.some(p => p.test(text));
 
   return sections.map(s => {
     const lines = s.content.split('\n');
@@ -815,14 +824,25 @@ function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
       // Only filter bullet lines (starting with -, *, or •)
       if (!/^[-*•]\s/.test(trimmed)) return true;
       // Keep lines that contain a dollar amount or percentage (factual data)
-      if (/\$[\d,]+|\d+(\.\d+)?%/.test(trimmed)) return true;
+      const hasFactualData = /\$[\d,]+|\d+(\.\d+)?%/.test(trimmed);
       // Remove lines whose primary content is an omission apology
-      if (OMISSION_PATTERNS.some(p => p.test(trimmed))) return false;
+      if (isOmission(trimmed) && !hasFactualData) return false;
       // Remove lines that contrast data sources
-      if (SOURCE_CONTRAST_PATTERNS.some(p => p.test(trimmed))) return false;
+      if (isSourceContrast(trimmed)) return false;
       return true;
     });
-    return { ...s, content: filtered.join('\n') };
+    // Second pass: clean semicolon-joined fragments within surviving bullets
+    const cleaned = filtered.map(line => {
+      const trimmed = line.trim();
+      if (!/^[-*•]\s/.test(trimmed)) return line;
+      if (!trimmed.includes(';')) return line;
+      const bullet = trimmed.match(/^([-*•]\s*)/)?.[1] || '- ';
+      const fragments = trimmed.slice(bullet.length).split(';').map(f => f.trim());
+      const kept = fragments.filter(f => !isOmission(f) && !isSourceContrast(f));
+      if (kept.length === 0) return null; // entire bullet was omission
+      return bullet + kept.join('; ');
+    }).filter((l): l is string => l !== null);
+    return { ...s, content: cleaned.join('\n') };
   });
 }
 
