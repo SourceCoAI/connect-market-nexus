@@ -333,7 +333,7 @@ const ListingDetail = () => {
                     Request Access to This Deal
                   </h3>
                   <p className="text-xs text-foreground/70 leading-relaxed">
-                    Request a connection to unlock the data room. Once approved, you get immediate access to the CIM, real company name, and full business details.
+                    Request a connection to receive deal materials from the advisor.
                   </p>
                 </div>
 

@@ -61,7 +61,7 @@ export function AgreementStatusBanner({ show = 'both', className }: AgreementSta
         key: 'nda',
         variant: 'locked',
         icon: Lock,
-        message: 'A signed Fee Agreement is required to request deal access and unlock the data room.',
+        message: 'A signed Fee Agreement is required to unlock full deal materials and request introductions.',
       });
     }
   }
