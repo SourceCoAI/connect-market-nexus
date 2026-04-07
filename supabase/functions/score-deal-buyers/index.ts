@@ -66,16 +66,30 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ── Check cache ──
+    // ── Check cache (Issue #40: also verify universe context matches) ──
     if (!forceRefresh) {
       const { data: cached } = await supabase
         .from('buyer_recommendation_cache')
-        .select('results, buyer_count, scored_at')
+        .select('results, buyer_count, scored_at, universe_ids')
         .eq('listing_id', listingId)
         .gt('expires_at', new Date().toISOString())
         .maybeSingle();
 
-      if (cached) {
+      // Fetch current universe links early so we can compare with cache
+      const { data: cacheCheckUniverseLinks } = await supabase
+        .from('remarketing_universe_deals')
+        .select('universe_id')
+        .eq('listing_id', listingId)
+        .eq('status', 'active');
+      const currentUniverseIds = (cacheCheckUniverseLinks || [])
+        .map((l) => l.universe_id)
+        .sort();
+      const currentUniverseKey = JSON.stringify(currentUniverseIds);
+
+      if (
+        cached &&
+        JSON.stringify((cached.universe_ids || []).slice().sort()) === currentUniverseKey
+      ) {
         return new Response(
           JSON.stringify({
             buyers: cached.results,
@@ -260,6 +274,37 @@ Deno.serve(async (req: Request) => {
       (rejectedRows || []).map((r) => r.buyer_id),
     );
 
+    // Issue #41: Fetch cross-niche rejections — buyers rejected on OTHER deals
+    // in the same industry/category. These get a soft penalty (-15) rather than
+    // hard exclusion, since the buyer may still be relevant for this specific deal.
+    const nicheFilters = [deal.industry, deal.category].filter(Boolean);
+    let nicheRejectedBuyerIds = new Set<string>();
+    if (nicheFilters.length > 0) {
+      // Find other listings in the same industry/category
+      const { data: siblingListings } = await supabase
+        .from('listings')
+        .select('id')
+        .neq('id', listingId)
+        .or(nicheFilters.map((f) => `industry.eq.${f},category.eq.${f}`).join(','));
+
+      const siblingIds = (siblingListings || []).map((l) => l.id);
+      if (siblingIds.length > 0) {
+        const { data: nicheRejectedRows } = await supabase
+          .from('buyer_discovery_feedback')
+          .select('buyer_id')
+          .in('listing_id', siblingIds)
+          .eq('action', 'rejected');
+
+        nicheRejectedBuyerIds = new Set<string>(
+          (nicheRejectedRows || []).map((r) => r.buyer_id),
+        );
+        // Remove buyers already hard-excluded so we don't double-penalize
+        for (const id of rejectedBuyerIds) {
+          nicheRejectedBuyerIds.delete(id);
+        }
+      }
+    }
+
     const seedLogMap = new Map<string, string>();
     const seedLogAcquisitionsMap = new Map<string, string[]>();
     // Track which buyer IDs have seed log entries for this deal
@@ -336,13 +381,24 @@ Deno.serve(async (req: Request) => {
 
       // Apply service fit gate multiplier — crushes composite for bad service fits
       const gateMultiplier = getServiceGateMultiplier(svc.score, svc.noData);
-      const composite = Math.round(rawComposite * gateMultiplier);
+      let composite = Math.round(rawComposite * gateMultiplier);
+
+      // Issue #41: Soft penalty for buyers rejected on sibling deals in the same niche
+      const NICHE_REJECTION_PENALTY = 15;
+      if (nicheRejectedBuyerIds.has(buyer.id)) {
+        composite = Math.max(0, composite - NICHE_REJECTION_PENALTY);
+      }
 
       const fitSignals = [...svc.signals, ...geo.signals, ...bonus.signals];
 
       // Add gate signal if it reduced the score
       if (gateMultiplier < 1.0) {
         fitSignals.push(`Service gate: ${Math.round(gateMultiplier * 100)}% (low service fit)`);
+      }
+
+      // Issue #41: Signal for niche rejection penalty
+      if (nicheRejectedBuyerIds.has(buyer.id)) {
+        fitSignals.push(`Niche rejection: -${NICHE_REJECTION_PENALTY} (rejected on similar deal)`);
       }
 
       // Derive source from buyer origin
@@ -542,6 +598,7 @@ Deno.serve(async (req: Request) => {
         buyer_count: topBuyers.length,
         results: topBuyers,
         score_version: 'v3',
+        universe_ids: universeIds,
       },
       { onConflict: 'listing_id' },
     );

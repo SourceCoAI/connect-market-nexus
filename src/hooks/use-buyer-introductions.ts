@@ -115,9 +115,22 @@ export function useBuyerIntroductions(listingId: string | undefined) {
       if (error) throw error;
       return data as unknown as BuyerIntroduction;
     },
-    onSuccess: (_data, input) => {
+    onSuccess: (data, input) => {
       queryClient.invalidateQueries({ queryKey });
       toast.success('Buyer added to introduction pipeline');
+
+      // Log the creation event to introduction_status_log
+      if (data?.id) {
+        supabase
+          .from('introduction_status_log' as never)
+          .insert({
+            buyer_introduction_id: data.id,
+            old_status: null,
+            new_status: 'need_to_show_deal',
+            changed_by: user?.id,
+          } as never)
+          .then(() => {});
+      }
 
       // Fire-and-forget: auto-discover contacts for this buyer
       if (input.remarketing_buyer_id) {
@@ -300,6 +313,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
           fee_agreement_status: 'not_sent',
           buyer_contact_id: buyerContactId,
           remarketing_buyer_id: buyer.remarketing_buyer_id || null,
+          buyer_introduction_id: buyer.id,
           value: buyer.expected_deal_size_low || 0,
           probability: 25,
           priority: 'medium',
@@ -323,6 +337,12 @@ export function useBuyerIntroductions(listingId: string | undefined) {
             source: 'remarketing_fit_interested',
           },
         });
+
+        // Update introduction status to deal_created now that pipeline deal exists
+        await supabase
+          .from('buyer_introductions' as never)
+          .update({ introduction_status: 'deal_created' } as never)
+          .eq('id', buyer.id);
       }
 
       return true;

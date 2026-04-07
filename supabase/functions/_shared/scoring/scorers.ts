@@ -9,9 +9,11 @@ import type { Tier } from './types.ts';
 // String helpers
 // ---------------------------------------------------------------------------
 
-/** Lowercase-trim a nullable string, returning '' for nullish values. */
+/** Lowercase-trim a nullable string, returning '' for nullish values.
+ *  Also normalizes hyphens and underscores to spaces so fuzzy matching
+ *  works across formatting variants (Issue #42). */
 export function norm(s: string | null | undefined): string {
-  return (s || '').toLowerCase().trim();
+  return (s || '').toLowerCase().replace(/[-_]/g, ' ').trim();
 }
 
 /** Title-case a lowercase term for display: "utility services" -> "Utility Services" */

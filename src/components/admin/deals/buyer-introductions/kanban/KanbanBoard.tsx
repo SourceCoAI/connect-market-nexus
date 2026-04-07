@@ -23,6 +23,20 @@ import { ApproveForPipelineModal } from '../modals/ApproveForPipelineModal';
 import { AddBuyerManuallyModal } from '../modals/AddBuyerManuallyModal';
 import { FollowUpNoteModal } from '../modals/FollowUpNoteModal';
 
+const COLUMN_ORDER: Record<KanbanColumnType, number> = {
+  to_introduce: 0,
+  introduced: 1,
+  interested: 2,
+  passed: 3,
+};
+
+const COLUMN_LABELS: Record<KanbanColumnType, string> = {
+  to_introduce: 'To Introduce',
+  introduced: 'Introduced',
+  interested: 'Interested',
+  passed: 'Passed',
+};
+
 interface KanbanBoardProps {
   listingId: string;
   listingTitle: string;
@@ -91,6 +105,17 @@ export function KanbanBoard({ listingId, listingTitle }: KanbanBoardProps) {
 
       // Prevent moving fit_and_interested (in pipeline) cards
       if (buyer.introduction_status === 'fit_and_interested') return;
+
+      // Backward move confirmation (moving to a lower-index column, excluding "passed" which is always forward)
+      if (
+        targetColumn !== 'passed' &&
+        COLUMN_ORDER[targetColumn] < COLUMN_ORDER[sourceColumn]
+      ) {
+        const confirmed = window.confirm(
+          `Move this buyer back to "${COLUMN_LABELS[targetColumn]}"? Their progress status will change.`,
+        );
+        if (!confirmed) return;
+      }
 
       // Moving to "introduced" requires channel selection
       if (targetColumn === 'introduced') {
@@ -231,6 +256,7 @@ export function KanbanBoard({ listingId, listingTitle }: KanbanBoardProps) {
             onMarkInterested={handleMarkInterested}
             onMarkPassed={handleMarkPassed}
             onLogFollowUp={(buyer) => setFollowUpTarget(buyer)}
+            onRemove={handleRemove}
           />
           <KanbanColumn
             column="interested"
@@ -238,6 +264,9 @@ export function KanbanBoard({ listingId, listingTitle }: KanbanBoardProps) {
             resolvedBuyerIds={resolvedBuyerIds}
             resolvedPeFirmNames={resolvedPeFirmNames}
             onApproveForPipeline={(buyer) => setApproveTarget(buyer)}
+            onMarkPassed={handleMarkPassed}
+            onLogFollowUp={(buyer) => setFollowUpTarget(buyer)}
+            onRemove={handleRemove}
           />
           <KanbanColumn
             column="passed"
@@ -245,6 +274,7 @@ export function KanbanBoard({ listingId, listingTitle }: KanbanBoardProps) {
             resolvedBuyerIds={resolvedBuyerIds}
             resolvedPeFirmNames={resolvedPeFirmNames}
             onReactivate={handleReactivate}
+            onRemove={handleRemove}
           />
         </div>
 

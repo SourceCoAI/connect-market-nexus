@@ -154,7 +154,7 @@ export async function saveContactsToCrm(
     if (linkedDeal) {
       await (supabase as any).from('deal_activities').insert({
         deal_id: linkedDeal.id,
-        activity_type: 'contacts_added',
+        activity_type: 'deal_updated',
         title: `${saved.length} contact(s) added via AI Command Center`,
         description: `Contacts: ${saved.map((s) => s.name).join(', ')}`,
         admin_id: userId,

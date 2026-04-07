@@ -253,7 +253,7 @@ export function BuyerKanbanCard({
                 Reactivate
               </DropdownMenuItem>
             )}
-            {column === 'to_introduce' && onRemove && (
+            {onRemove && buyer.introduction_status !== 'fit_and_interested' && buyer.introduction_status !== 'deal_created' && (
               <DropdownMenuItem onClick={() => onRemove(buyer)} className="text-destructive">
                 <Trash2 className="h-3.5 w-3.5 mr-2" />
                 Remove from Pipeline
@@ -422,7 +422,7 @@ export function BuyerKanbanCard({
               <span className="font-medium">Next:</span> {buyer.next_step}
             </p>
           )}
-          {isInPipeline ? (
+          {isInPipeline || buyer.introduction_status === 'deal_created' ? (
             <div className="bg-emerald-50 border border-emerald-200 rounded-md px-2.5 py-1.5 flex items-center justify-between">
               <span className="text-xs font-medium text-emerald-700 flex items-center gap-1">
                 <CheckCircle className="h-3 w-3" />
@@ -433,19 +433,49 @@ export function BuyerKanbanCard({
               </span>
             </div>
           ) : (
-            onApproveForPipeline && (
-              <Button
-                size="sm"
-                className="w-full h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onApproveForPipeline(buyer);
-                }}
-              >
-                <ArrowRight className="h-3.5 w-3.5" />
-                Approve for Deal Pipeline
-              </Button>
-            )
+            <>
+              {onApproveForPipeline && (
+                <Button
+                  size="sm"
+                  className="w-full h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onApproveForPipeline(buyer);
+                  }}
+                >
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  Approve for Deal Pipeline
+                </Button>
+              )}
+              {buyer.introduction_status === 'meeting_scheduled' && onMarkPassed && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-7 text-xs gap-1 bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100 mt-1.5"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMarkPassed(buyer);
+                  }}
+                >
+                  <ThumbsDown className="h-3 w-3" />
+                  Not a Fit
+                </Button>
+              )}
+              {buyer.introduction_status === 'meeting_scheduled' && onLogFollowUp && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="w-full h-6 text-[11px] gap-1 text-muted-foreground mt-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLogFollowUp(buyer);
+                  }}
+                >
+                  <MessageSquare className="h-2.5 w-2.5" />
+                  Log Follow-up
+                </Button>
+              )}
+            </>
           )}
         </>
       )}

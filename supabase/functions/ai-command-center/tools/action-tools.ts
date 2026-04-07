@@ -412,7 +412,7 @@ async function updateDealStage(
   // Log the activity
   await (supabase as any).from('deal_activities').insert({
     deal_id: dealId,
-    activity_type: 'status_change',
+    activity_type: 'stage_change',
     title: `Stage changed: ${oldStageName} → ${stageRecord.name}`,
     description: args.reason
       ? `Reason: ${args.reason}`
@@ -513,7 +513,7 @@ async function grantDataRoomAccess(
   if (linkedDeal) {
     await (supabase as any).from('deal_activities').insert({
       deal_id: linkedDeal.id,
-      activity_type: 'data_room',
+      activity_type: 'deal_updated',
       title: `Data room access granted to ${args.buyer_name}`,
       description: `${accessLevel} access granted to ${args.buyer_name} (${buyerEmail})`,
       admin_id: userId,
@@ -605,7 +605,7 @@ async function reassignDealTask(
   if (task.entity_type === 'deal' && task.entity_id) {
     await (supabase as any).from('deal_activities').insert({
       deal_id: task.entity_id,
-      activity_type: 'task_reassigned',
+      activity_type: 'task_assigned',
       title: `Task reassigned: "${task.title}"`,
       description: `Reassigned from ${oldAssigneeName} to ${newAssigneeName}${args.reason ? `. Reason: ${args.reason}` : ''}`,
       admin_id: userId,

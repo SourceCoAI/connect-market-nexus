@@ -150,6 +150,9 @@ export function useRealtimeAdmin() {
           'deals',
         );
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'buyer_introductions' }, () => {
+        scheduleInvalidation('buyer-introductions', 'new-recommended-buyers');
+      })
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'valuation_leads' },
