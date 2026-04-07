@@ -1276,12 +1276,16 @@ Wrap analyst notes between the markers ANALYST_NOTES_START and ANALYST_NOTES_END
     let memoMarkdown = rawContent;
     let analystNotesRaw = '';
 
-    // Method 1: XML-style tags (preferred)
-    const memoTagMatch = rawContent.match(/<memo>([\s\S]*?)<\/memo>/);
-    const notesTagMatch = rawContent.match(/<analyst_notes>([\s\S]*?)<\/analyst_notes>/);
-    if (memoTagMatch) {
-      memoMarkdown = memoTagMatch[1].trim();
-      analystNotesRaw = notesTagMatch ? notesTagMatch[1].trim() : '';
+    // Method 1: MEMO_START/MEMO_END markers (preferred)
+    const memoStartIdx = rawContent.indexOf('MEMO_START');
+    const memoEndIdx = rawContent.indexOf('MEMO_END');
+    const notesStartIdx = rawContent.indexOf('ANALYST_NOTES_START');
+    const notesEndIdx = rawContent.indexOf('ANALYST_NOTES_END');
+    if (memoStartIdx !== -1 && memoEndIdx !== -1 && memoEndIdx > memoStartIdx) {
+      memoMarkdown = rawContent.substring(memoStartIdx + 'MEMO_START'.length, memoEndIdx).trim();
+      if (notesStartIdx !== -1 && notesEndIdx !== -1 && notesEndIdx > notesStartIdx) {
+        analystNotesRaw = rawContent.substring(notesStartIdx + 'ANALYST_NOTES_START'.length, notesEndIdx).trim();
+      }
     } else {
       // Method 2: Legacy delimiter fallback
       const delimiterIndex = rawContent.indexOf('---ANALYST-NOTES---');
@@ -1289,7 +1293,7 @@ Wrap analyst notes between the markers ANALYST_NOTES_START and ANALYST_NOTES_END
         memoMarkdown = rawContent.substring(0, delimiterIndex).trim();
         analystNotesRaw = rawContent.substring(delimiterIndex + '---ANALYST-NOTES---'.length).trim();
       } else {
-        // Method 3: Heading fallback — look for ## ANALYST NOTES or similar
+        // Method 3: Heading fallback
         const headingMatch = rawContent.match(/\n##\s*ANALYST\s*NOTES?\b/i);
         if (headingMatch && headingMatch.index !== undefined) {
           memoMarkdown = rawContent.substring(0, headingMatch.index).trim();
