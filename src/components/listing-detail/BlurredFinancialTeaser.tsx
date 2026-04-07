@@ -63,7 +63,7 @@ const BlurredFinancialTeaser = ({
             </div>
             
             <h3 className="text-base font-semibold text-foreground mb-2">
-              Unlock the Data Room
+              Request Deal Access
             </h3>
 
             {showProfileBlock ? (
