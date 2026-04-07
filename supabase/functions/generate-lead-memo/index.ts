@@ -460,12 +460,32 @@ function buildDataContext(
     'growth_trajectory',
     'ownership_structure',
     'management_depth',
+    // --- Expanded fields for richer memo context ---
+    'financial_notes',
+    'scoring_notes',
+    'customer_geography',
+    'real_estate_info',
+    'technology_systems',
+    'revenue_source_quote',
+    'ebitda_source_quote',
   ];
   const enrichmentData = enrichmentFields
     .filter((f) => deal[f] != null && deal[f] !== '')
     .map((f) => `${f}: ${JSON.stringify(deal[f])}`)
     .join('\n');
   if (enrichmentData) sources.push('enrichment');
+
+  // Key quotes (array) — format as labeled block for owner attributions
+  let keyQuotesBlock = '';
+  if (Array.isArray(deal.key_quotes) && deal.key_quotes.length > 0) {
+    keyQuotesBlock = `\n--- KEY QUOTES (owner statements) ---\n${deal.key_quotes.map((q: string) => `"${q}"`).join('\n')}`;
+  }
+
+  // Financial follow-up questions (array) — feed into analyst notes context
+  let financialGapsBlock = '';
+  if (Array.isArray(deal.financial_followup_questions) && deal.financial_followup_questions.length > 0) {
+    financialGapsBlock = `\n--- FINANCIAL FOLLOW-UP QUESTIONS (known data gaps) ---\n${deal.financial_followup_questions.map((q: string) => `- ${q}`).join('\n')}`;
+  }
 
   // Manual data entries (structured fields entered by admin)
   const manualFields = [
@@ -480,6 +500,8 @@ function buildDataContext(
     'seller_motivation',
     'owner_goals',
     'transition_preferences',
+    'special_requirements',
+    'timeline_preference',
   ];
   const manualEntries = manualFields
     .filter((f) => deal[f] != null && deal[f] !== '')
