@@ -816,6 +816,10 @@ function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
     /\bbroader.*platform\b/i,
     /\bintegrat(e|ion|ing)\s*into\b/i,
     /\bback-office\s*(support|integration)\b/i,
+    /\bdiscussions?\s*regarding\s*integration\b/i,
+    /\bcompeting\s*buyers?\b/i,
+    /\bacquisition\s*platform\b/i,
+    /\bcentralized\s*back-office\b/i,
   ];
 
   const isOmission = (text: string) => OMISSION_PATTERNS.some(p => p.test(text));
