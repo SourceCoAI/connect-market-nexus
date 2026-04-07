@@ -93,7 +93,7 @@ const handler = async (req: Request): Promise<Response> => {
       });
       textContent = `Hi ${firstName},\n\nYour SourceCo account is approved and your NDA is on file. You have full access now.\n\nBrowse deals: ${siteUrl}/marketplace\n\nQuestions? Reply to this email.\n\nThe SourceCo Team`;
     } else {
-      subject = "Welcome to SourceCo — Your account is approved";
+      subject = "Welcome to SourceCo - Your account is approved";
       htmlContent = wrapEmailHtml({
         bodyHtml: `
   <p>Hi ${firstName},</p>
