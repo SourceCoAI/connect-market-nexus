@@ -110,7 +110,7 @@ export const AddDealDialog = ({
       let query = supabase
         .from('listings')
         .select(
-          'id, title, internal_company_name, location, revenue, ebitda, website, category, status, is_internal_deal, description, executive_summary, created_at',
+          'id, title, internal_company_name, location, revenue, ebitda, website, category, status, is_internal_deal, executive_summary, created_at',
         )
         .is('deleted_at', null)
         .eq('is_internal_deal', false)
@@ -281,11 +281,6 @@ export const AddDealDialog = ({
                             {listing.executive_summary && (
                               <p className="text-xs text-muted-foreground line-clamp-3">
                                 {listing.executive_summary}
-                              </p>
-                            )}
-                            {!listing.executive_summary && listing.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-3">
-                                {listing.description}
                               </p>
                             )}
 

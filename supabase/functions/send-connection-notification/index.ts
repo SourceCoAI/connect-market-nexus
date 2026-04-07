@@ -3,8 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAuth, escapeHtml, escapeHtmlWithBreaks } from '../_shared/auth.ts';
-import { logEmailDelivery } from '../_shared/email-logger.ts';
-import { sendViaBervo } from '../_shared/brevo-sender.ts';
+import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 interface ConnectionNotificationRequest {
   type: 'user_confirmation' | 'admin_notification' | 'approval_notification';
@@ -24,343 +24,156 @@ function buildUserConfirmationHtml(
   loginUrl: string,
   message?: string,
 ): string {
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
-    <div style="margin-bottom: 32px;">
-      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase; margin-bottom: 8px;">SOURCECO</div>
-    </div>
-
-    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0; line-height: 1.4;">
-      Introduction request received.
-    </h1>
-
-    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
-      <p style="margin: 0 0 16px 0;">
-        We've received your introduction request for <strong>${escapeHtml(listingTitle)}</strong>. Our team reviews every request and selects buyers based on fit — you'll hear from us within 24 hours.
-      </p>
-
-      ${
-        message
-          ? `
-      <div style="background: #FCF9F0; border-left: 4px solid #DEC76B; padding: 16px; border-radius: 0 8px 8px 0; margin: 0 0 24px 0;">
-        <p style="margin: 0 0 4px 0; font-size: 12px; color: #9A9A9A; font-weight: 600;">YOUR MESSAGE</p>
-        <p style="margin: 0; color: #3A3A3A; font-size: 14px; font-style: italic;">"${escapeHtmlWithBreaks(message)}"</p>
-      </div>
-      `
-          : ''
-      }
-
-      <p style="margin: 0 0 8px 0; font-weight: 600;">What happens if you're selected</p>
-      <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #3A3A3A;">
-        <li>We make a direct introduction to the business owner</li>
-        <li>You'll receive access to deal details and supporting materials</li>
-        <li>Our team supports through the process</li>
-      </ul>
-      <p style="margin: 0 0 24px 0;">In the meantime, keep browsing — new deals are added to the pipeline regularly.</p>
-    </div>
-
+  return wrapEmailHtml({
+    bodyHtml: `
+    <p>We received your introduction request for ${escapeHtml(listingTitle)}.</p>
+    <p>Our team reviews every request and selects buyers based on fit. You will hear from us within 24 hours.</p>
+    ${message ? `
+    <div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin: 20px 0;">
+      <p style="margin: 0 0 4px 0; font-size: 12px; color: #9B9B9B; font-weight: 600; text-transform: uppercase;">Your message</p>
+      <p style="margin: 0; font-size: 14px; font-style: italic;">"${escapeHtmlWithBreaks(message)}"</p>
+    </div>` : ''}
+    <p>What happens if you are selected</p>
+    <ul style="padding-left: 20px; line-height: 1.8;">
+      <li>We make a direct introduction to the business owner</li>
+      <li>You receive access to deal details and supporting materials</li>
+      <li>Our team supports you through the process</li>
+    </ul>
+    <p>In the meantime, keep browsing. New deals are added to the pipeline regularly.</p>
     <div style="text-align: center; margin: 32px 0;">
-      <a href="${listingUrl}" style="display: inline-block; background: #0E101A; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; margin-right: 12px;">View Listing</a>
-      <a href="${loginUrl}" style="display: inline-block; background: #ffffff; color: #0E101A; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; border: 1px solid #E5DDD0;">Dashboard</a>
-    </div>
-
-    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
-      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">
-        This is an automated notification from SourceCo. If you have questions, email us at adam.haile@sourcecodeals.com
-      </p>
-    </div>
-  </div>
-</body>
-</html>`;
+      <a href="${listingUrl}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; margin-right: 12px;">View Listing</a>
+      <a href="${loginUrl}" style="display: inline-block; background: #FAFAF8; color: #1A1A1A; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">Dashboard</a>
+    </div>`,
+    preheader: 'We received your introduction request. You will hear from us within 24 hours.',
+  });
 }
 
 function buildAdminNotificationHtml(
   requesterName: string,
   requesterEmail: string,
   listingTitle: string,
-  listingUrl: string,
+  _listingUrl: string,
   adminUrl: string,
   message?: string,
 ): string {
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
-    <div style="margin-bottom: 32px;">
-      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase; margin-bottom: 8px;">SOURCECO</div>
-    </div>
-
-    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0; line-height: 1.4;">
-      New Connection Request: ${escapeHtml(listingTitle)}
-    </h1>
-
-    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
-      <p style="margin: 0 0 16px 0;">
-        <strong>${escapeHtml(requesterName)}</strong> (${escapeHtml(requesterEmail)}) has submitted a connection request for <strong>${escapeHtml(listingTitle)}</strong>.
-      </p>
-
-      ${
-        message
-          ? `
-      <div style="background: #FCF9F0; border-left: 4px solid #DEC76B; padding: 16px; border-radius: 0 8px 8px 0; margin: 0 0 24px 0;">
-        <p style="margin: 0 0 4px 0; font-size: 12px; color: #9A9A9A; font-weight: 600;">BUYER MESSAGE</p>
-        <p style="margin: 0; color: #3A3A3A; font-size: 14px; font-style: italic;">"${escapeHtmlWithBreaks(message)}"</p>
-      </div>
-      `
-          : ''
-      }
-
-      <p style="margin: 0 0 24px 0;">Log in to the admin dashboard to review and respond.</p>
-    </div>
-
+  return wrapEmailHtml({
+    bodyHtml: `
+    <p>${escapeHtml(requesterName)} (${escapeHtml(requesterEmail)}) submitted a connection request for ${escapeHtml(listingTitle)}.</p>
+    ${message ? `
+    <div style="background: #F7F6F3; padding: 16px; border-radius: 6px; margin: 20px 0;">
+      <p style="margin: 0 0 4px 0; font-size: 12px; color: #9B9B9B; font-weight: 600; text-transform: uppercase;">Buyer message</p>
+      <p style="margin: 0; font-size: 14px; font-style: italic;">"${escapeHtmlWithBreaks(message)}"</p>
+    </div>` : ''}
+    <p>Log in to the admin dashboard to review and respond.</p>
     <div style="text-align: center; margin: 32px 0;">
-      <a href="${adminUrl}" style="display: inline-block; background: #0E101A; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">
-        View in Dashboard
-      </a>
-    </div>
-
-    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
-      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">
-        This is an automated notification from SourceCo. You received this because a buyer submitted a connection request.
-      </p>
-    </div>
-  </div>
-</body>
-</html>`;
+      <a href="${adminUrl}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">View in Dashboard</a>
+    </div>`,
+    preheader: `${requesterName} submitted a connection request for ${listingTitle}.`,
+  });
 }
 
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
-
-  if (req.method === 'OPTIONS') {
-    return corsPreflightResponse(req);
-  }
+  if (req.method === 'OPTIONS') return corsPreflightResponse(req);
 
   try {
-    // AUTH: Requires authenticated user (users submit connection requests)
-    const auth = await requireAuth(req);
-    if (!auth.authenticated) {
-      return new Response(JSON.stringify({ error: auth.error }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      });
+    const requestData: ConnectionNotificationRequest = await req.json();
+
+    if (requestData.type !== 'admin_notification') {
+      const auth = await requireAuth(req);
+      if (!auth.authenticated) {
+        return new Response(JSON.stringify({ error: auth.error }), {
+          status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
     }
 
-    const requestData: ConnectionNotificationRequest = await req.json();
-    const {
-      type,
-      recipientEmail,
-      recipientName,
-      requesterName,
-      requesterEmail,
-      listingTitle,
-      listingId,
-      message,
-      requestId,
-    } = requestData;
+    const { type, recipientEmail, recipientName, requesterName, requesterEmail, listingTitle, listingId, message, requestId } = requestData;
+    console.log('Processing connection notification:', { type, requesterName, listingTitle, requestId });
 
-    console.log('Processing connection notification:', {
-      type,
-      requesterName,
-      listingTitle,
-      requestId,
-    });
-
-    const loginUrl = `https://marketplace.sourcecodeals.com/login`;
+    const loginUrl = 'https://marketplace.sourcecodeals.com/login';
     const listingUrl = `https://marketplace.sourcecodeals.com/listing/${listingId}`;
-    const adminUrl = `https://marketplace.sourcecodeals.com/admin/marketplace/connections`;
+    const adminUrl = 'https://marketplace.sourcecodeals.com/admin/marketplace/connections';
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
     if (type === 'user_confirmation') {
-      // Send confirmation to the buyer
-      if (!recipientEmail) {
-        throw new Error('recipientEmail is required for user_confirmation');
-      }
+      if (!recipientEmail) throw new Error('recipientEmail is required for user_confirmation');
 
-      const subject = `Introduction request received — ${escapeHtml(listingTitle)}`;
+      const subject = `Introduction request received: ${escapeHtml(listingTitle)}`;
       const htmlContent = buildUserConfirmationHtml(listingTitle, listingUrl, loginUrl, message);
-      const correlationId = `connection-confirm-${requestId || crypto.randomUUID()}`;
 
-      const result = await sendViaBervo({
+      const result = await sendEmail({
+        templateName: 'connection_user_confirmation',
         to: recipientEmail,
         toName: recipientName || requesterName,
         subject,
         htmlContent,
         senderName: 'SourceCo',
-      });
-
-      await logEmailDelivery(supabase, {
-        email: recipientEmail,
-        emailType: 'connection_user_confirmation',
-        status: result.success ? 'sent' : 'failed',
-        correlationId,
-        errorMessage: result.success ? undefined : result.error,
+        replyTo: 'support@sourcecodeals.com',
+        isTransactional: true,
       });
 
       if (!result.success) throw new Error(`Failed to send confirmation: ${result.error}`);
-
       console.log('User confirmation sent to:', recipientEmail);
+
     } else if (type === 'approval_notification') {
-      // Send approval email to the buyer when connection request is approved
-      if (!recipientEmail) {
-        throw new Error('recipientEmail is required for approval_notification');
-      }
+      if (!recipientEmail) throw new Error('recipientEmail is required for approval_notification');
 
-      const correlationId = `connection-approval-${requestId || crypto.randomUUID()}`;
-
-      // Idempotency check
-      const { data: existingLog } = await supabase
-        .from('email_delivery_logs')
-        .select('id')
-        .eq('correlation_id', correlationId)
-        .eq('status', 'sent')
-        .maybeSingle();
-
-      if (existingLog) {
-        console.log('Approval email already sent for:', correlationId);
-        return new Response(
-          JSON.stringify({ success: true, message: 'Already sent', duplicate: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
-        );
-      }
-
-      const buyerMessagesUrl = `https://marketplace.sourcecodeals.com/messages`;
-      const subject = `You're in — introduction to ${escapeHtml(listingTitle)} approved.`;
-      const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 40px 24px;">
-    <div style="margin-bottom: 32px;">
-      <div style="font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #9A9A9A; text-transform: uppercase;">SOURCECO</div>
-    </div>
-
-    <h1 style="color: #0E101A; font-size: 20px; font-weight: 700; margin: 0 0 24px 0; line-height: 1.4;">
-      Introduction Approved
-    </h1>
-
-    <div style="color: #3A3A3A; font-size: 15px; line-height: 1.7;">
-      <p style="margin: 0 0 16px 0;">
-        Your introduction to <strong>${escapeHtml(listingTitle)}</strong> has been approved.
-      </p>
-      <p style="margin: 0 0 16px 0;">
-        We're making a direct introduction to the business owner. You'll receive a message from our team with next steps — typically within one business day.
-      </p>
-      <p style="margin: 0 0 8px 0; font-weight: 600;">What to expect</p>
-      <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #3A3A3A;">
-        <li>Our team facilitates the initial introduction</li>
-        <li>You'll receive access to deal details and supporting materials</li>
-        <li>Reply to any email or message us in the platform — we support through the process</li>
-      </ul>
-      <p style="margin: 0 0 24px 0;">This is an exclusive introduction — we work with a small number of buyers per deal. Move at your own pace, but don't sit on it.</p>
-    </div>
-
+      const buyerMessagesUrl = 'https://marketplace.sourcecodeals.com/my-deals';
+      const subject = `Introduction approved: ${escapeHtml(listingTitle)}`;
+      const htmlContent = wrapEmailHtml({
+        bodyHtml: `
+    <p>Your introduction to ${escapeHtml(listingTitle)} has been approved.</p>
+    <p>We are making a direct introduction to the business owner. You will receive a message from our team with next steps, typically within one business day.</p>
+    <p>What to expect</p>
+    <ul style="padding-left: 20px; line-height: 1.8;">
+      <li>Our team facilitates the initial introduction</li>
+      <li>You receive access to deal details and supporting materials</li>
+      <li>Message us directly on the platform for support. All conversations are tracked there for your records</li>
+    </ul>
+    <p>This is an exclusive introduction. We work with a small number of buyers per deal. Move at your own pace, but do not sit on it. Please do not reply to this email.</p>
     <div style="text-align: center; margin: 32px 0;">
-      <a href="${buyerMessagesUrl}" style="display: inline-block; background: #0E101A; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">View Messages</a>
-    </div>
+      <a href="${buyerMessagesUrl}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">View Messages</a>
+    </div>`,
+        preheader: 'Your introduction is confirmed. Here is what happens next.',
+        recipientEmail,
+      });
 
-    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #E5DDD0;">
-      <p style="color: #9A9A9A; font-size: 12px; margin: 0;">
-        This is an automated notification from SourceCo. If you have questions, email us at adam.haile@sourcecodeals.com
-      </p>
-    </div>
-  </div>
-</body>
-</html>`;
-
-      const result = await sendViaBervo({
+      const result = await sendEmail({
+        templateName: 'connection_approval_notification',
         to: recipientEmail,
         toName: recipientName || requesterName,
         subject,
         htmlContent,
-        senderName: 'SourceCo',
-        replyToEmail: Deno.env.get('SENDER_EMAIL') || 'adam.haile@sourcecodeals.com',
-        replyToName: Deno.env.get('SENDER_NAME') || 'Adam Haile',
-      });
-
-      await logEmailDelivery(supabase, {
-        email: recipientEmail,
-        emailType: 'connection_approval_notification',
-        status: result.success ? 'sent' : 'failed',
-        correlationId,
-        errorMessage: result.success ? undefined : result.error,
+        senderName: 'SourceCo Notifications',
+        senderEmail: 'noreply@sourcecodeals.com',
+        replyTo: 'noreply@sourcecodeals.com',
+        isTransactional: true,
       });
 
       if (!result.success) throw new Error(`Failed to send approval email: ${result.error}`);
-
       console.log('Connection approval email sent to:', recipientEmail);
+
     } else {
-      // Admin notification: look up all admins from user_roles
-      const { data: adminRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'admin');
+      // Admin notification — send only to support inbox
+      const subject = `New Connection Request: ${listingTitle} from ${requesterName}`;
+      const htmlContent = buildAdminNotificationHtml(requesterName, requesterEmail, listingTitle, listingUrl, adminUrl, message);
 
-      if (rolesError || !adminRoles?.length) {
-        console.error('Failed to find admins:', rolesError);
-        throw new Error('No admin users found');
-      }
+      const result = await sendEmail({
+        templateName: 'connection_admin_notification',
+        to: 'support@sourcecodeals.com',
+        toName: 'SourceCo Support',
+        subject,
+        htmlContent,
+        senderName: 'SourceCo Notifications',
+        senderEmail: 'noreply@sourcecodeals.com',
+        replyTo: 'support@sourcecodeals.com',
+        isTransactional: true,
+      });
 
-      const adminIds = adminRoles.map((r) => r.user_id);
-      const { data: adminProfiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, email')
-        .in('id', adminIds);
-
-      if (profilesError || !adminProfiles?.length) {
-        console.error('Failed to fetch admin profiles:', profilesError);
-        throw new Error('No admin profiles found');
-      }
-
-      const subject = `New Connection Request: ${listingTitle} — ${requesterName}`;
-      let sentCount = 0;
-
-      for (const admin of adminProfiles) {
-        if (!admin.email) continue;
-
-        const correlationId = `connection-admin-${requestId || crypto.randomUUID()}-${admin.id}`;
-        const adminName = `${admin.first_name || ''} ${admin.last_name || ''}`.trim() || 'Admin';
-        const htmlContent = buildAdminNotificationHtml(
-          requesterName,
-          requesterEmail,
-          listingTitle,
-          listingUrl,
-          adminUrl,
-          message,
-        );
-
-        const result = await sendViaBervo({
-          to: admin.email,
-          toName: adminName,
-          subject,
-          htmlContent,
-          senderName: 'SourceCo',
-        });
-
-        await logEmailDelivery(supabase, {
-          email: admin.email,
-          emailType: 'connection_admin_notification',
-          status: result.success ? 'sent' : 'failed',
-          correlationId,
-          errorMessage: result.success ? undefined : result.error,
-        });
-
-        if (result.success) sentCount++;
-        else console.error('Failed to notify admin:', admin.email, result.error);
-      }
-
-      console.log(`Admin notifications sent: ${sentCount}/${adminProfiles.length}`);
+      if (result.success) console.log('Connection request notification sent to support inbox');
+      else console.error('Failed to notify support inbox:', result.error);
     }
 
     return new Response(
@@ -370,9 +183,7 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: unknown) {
     console.error('Error in send-connection-notification:', error);
     return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Failed to send connection notification',
-      }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to send connection notification' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 },
     );
   }

@@ -74,7 +74,7 @@ export function CreateDealFromReplyDialog({
 
   const defaultTitle = derivedCompany || contactName || subject || campaignName || 'SmartLead Response';
 
-  const defaultDescription = [
+  const defaultSummary = [
     subject ? `Subject: ${subject}` : null,
     campaignName ? `Campaign: ${campaignName}` : null,
     enrichedTitle ? `Title: ${enrichedTitle}` : null,
@@ -93,7 +93,7 @@ export function CreateDealFromReplyDialog({
   const [contactWebsite, setContactWebsite] = useState('');
   const [contactLinkedIn, setContactLinkedIn] = useState('');
   const [contactIndustry, setContactIndustry] = useState('');
-  const [description, setDescription] = useState(defaultDescription);
+  const [executiveSummary, setExecutiveSummary] = useState(defaultSummary);
   const [dealSource, setDealSource] = useState('captarget');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -108,7 +108,7 @@ export function CreateDealFromReplyDialog({
       setContactWebsite(enrichedWebsite);
       setContactLinkedIn(enrichedLinkedIn);
       setContactIndustry(enrichedIndustry);
-      setDescription(defaultDescription);
+      setExecutiveSummary(defaultSummary);
       setDealSource('captarget');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,7 +138,7 @@ export function CreateDealFromReplyDialog({
           main_contact_email: contactEmail.trim() || null,
           main_contact_phone: contactPhone.trim() || null,
           main_contact_linkedin: contactLinkedIn.trim() || null,
-          description: description.trim() || null,
+          executive_summary: executiveSummary.trim() || null,
           deal_source: dealSource,
           status: 'active',
           is_internal_deal: true,
@@ -291,13 +291,13 @@ export function CreateDealFromReplyDialog({
             </div>
           </div>
 
-          {/* Description */}
+          {/* Executive Summary */}
           <div className="space-y-1.5">
-            <Label htmlFor="deal-desc">Description</Label>
+            <Label htmlFor="deal-desc">Executive Summary</Label>
             <Textarea
               id="deal-desc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={executiveSummary}
+              onChange={(e) => setExecutiveSummary(e.target.value)}
               rows={4}
               className="text-sm"
             />

@@ -60,6 +60,7 @@ export function validateStep(currentStep: number, formData: SignupFormData): str
         case 'individual':
           if (!formData.fundingSource) errors.push('Funding source is required');
           if (!formData.usesBank) errors.push("Please specify if you'll use SBA/bank financing");
+          if (!formData.maxEquityToday) errors.push('Max equity commitment is required');
           break;
         case 'independentSponsor':
           if (!formData.committedEquityBand) errors.push('Committed equity amount is required');
@@ -77,9 +78,14 @@ export function validateStep(currentStep: number, formData: SignupFormData): str
             else if (!isValidUrlFormat(formData.buyerOrgUrl))
               errors.push('Please enter a valid buyer organization website');
           }
+          if (formData.onBehalfOfBuyer === 'no') {
+            if (!formData.mandateBlurb?.trim())
+              errors.push('Please describe your sourcing mandate');
+          }
           break;
         case 'businessOwner':
           if (!formData.ownerIntent) errors.push("Please describe why you're here");
+          if (!formData.ownerTimeline) errors.push('Please select a timeline');
           break;
       }
       break;

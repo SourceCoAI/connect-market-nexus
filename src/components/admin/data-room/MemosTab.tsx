@@ -368,8 +368,28 @@ function MemoSlotCard({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
+  const handlePreviewPdf = () => {
+    if (!document) return;
+    setIsPreviewing(true);
+    documentUrl.mutate(
+      { documentId: document.id, action: 'view' },
+      {
+        onSuccess: (data) => {
+          if (data?.url) {
+            window.open(data.url, '_blank');
+          }
+          setIsPreviewing(false);
+        },
+        onError: () => setIsPreviewing(false),
+      },
+    );
+  };
+
   const handleDownloadPdf = () => {
     if (!document) return;
+    setIsPreviewing(false);
     documentUrl.mutate(
       { documentId: document.id, action: 'download' },
       {
@@ -403,25 +423,31 @@ function MemoSlotCard({
     startTrackedGeneration(key, promise);
   };
 
+  const getMemoSections = () => {
+    if (!draft?.content?.sections) return null;
+    const rawSections = draft.content.sections as Array<{
+      heading?: string;
+      body?: string;
+      bullets?: string[];
+      key?: string;
+      title?: string;
+      content?: string;
+    }>;
+    return rawSections.map((s, i) => ({
+      key: s.key || `section-${i}`,
+      title: s.title || s.heading || '',
+      content: s.content || s.body || (s.bullets ? s.bullets.join('\n') : ''),
+    }));
+  };
+
   const handleDownloadDocx = async () => {
-    if (!draft?.content?.sections) return;
+    const sections = getMemoSections();
+    if (!sections) return;
     setIsDownloadingDocx(true);
     try {
-      const rawSections = draft.content.sections as Array<{
-        heading?: string;
-        body?: string;
-        bullets?: string[];
-        key?: string;
-        title?: string;
-        content?: string;
-      }>;
-      const company = extractCompanyInfo(draft.content as Record<string, unknown>);
+      const company = extractCompanyInfo(draft!.content as Record<string, unknown>);
       await generateMemoDocx({
-        sections: rawSections.map((s, i) => ({
-          key: s.key || `section-${i}`,
-          title: s.title || s.heading || '',
-          content: s.content || s.body || (s.bullets ? s.bullets.join('\n') : ''),
-        })),
+        sections,
         memoType: slotType,
         dealTitle: slotType === 'anonymous_teaser' ? (projectName || 'Deal') : (dealTitle || 'Deal'),
         branding: 'SourceCo',
@@ -430,6 +456,44 @@ function MemoSlotCard({
     } finally {
       setIsDownloadingDocx(false);
     }
+  };
+
+  const handleDownloadDraftPdf = () => {
+    const sections = getMemoSections();
+    if (!sections) return;
+    const title = slotType === 'anonymous_teaser'
+      ? `Anonymous Teaser – ${projectName || 'Deal'}`
+      : `Lead Memo – ${dealTitle || 'Deal'}`;
+
+    const htmlContent = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<title>${title}</title>
+<style>
+  @page { margin: 1in; size: letter; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color: #1a1a1a; line-height: 1.6; max-width: 100%; margin: 0; padding: 0; font-size: 11pt; }
+  h1 { font-size: 18pt; font-weight: 700; margin: 0 0 6pt 0; letter-spacing: -0.02em; }
+  h2 { font-size: 13pt; font-weight: 600; margin: 20pt 0 8pt 0; padding-bottom: 4pt; border-bottom: 1px solid #e5e5e5; }
+  p { margin: 0 0 8pt 0; }
+  .subtitle { font-size: 10pt; color: #666; margin-bottom: 20pt; }
+  .section-content { white-space: pre-wrap; }
+  .confidential { font-size: 8pt; color: #999; text-align: center; margin-top: 30pt; border-top: 1px solid #e5e5e5; padding-top: 8pt; }
+  @media print { body { -webkit-print-color-adjust: exact; } }
+</style>
+</head><body>
+<h1>${title}</h1>
+<p class="subtitle">Prepared by SourceCo Advisors &bull; ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+${sections.map(s => `<h2>${s.title}</h2><div class="section-content">${s.content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>`).join('\n')}
+<p class="confidential">CONFIDENTIAL — This document contains proprietary information and is intended solely for the recipient.</p>
+</body></html>`;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      setTimeout(() => printWindow.print(), 300);
+    };
   };
 
   const isUploading = uploadDocument.isPending;
@@ -570,7 +634,16 @@ function MemoSlotCard({
                         ) : (
                           <Download className="h-3.5 w-3.5 mr-1.5" />
                         )}
-                        Download .docx
+                        .docx
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={handleDownloadDraftPdf}
+                      >
+                        <FileText className="h-3.5 w-3.5 mr-1.5" />
+                        .pdf
                       </Button>
                       <Button
                         variant="outline"
@@ -644,10 +717,24 @@ function MemoSlotCard({
                         variant="outline"
                         size="sm"
                         className="flex-1"
+                        onClick={handlePreviewPdf}
+                        disabled={documentUrl.isPending}
+                      >
+                        {documentUrl.isPending && isPreviewing ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5 mr-1.5" />
+                        )}
+                        Preview
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
                         onClick={handleDownloadPdf}
                         disabled={documentUrl.isPending}
                       >
-                        {documentUrl.isPending ? (
+                        {documentUrl.isPending && !isPreviewing ? (
                           <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                         ) : (
                           <Download className="h-3.5 w-3.5 mr-1.5" />

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, X, ChevronDown, ChevronUp, Mail } from 'lucide-react';
+import { FolderOpen, X, ChevronDown, ChevronUp, Mail } from 'lucide-react';
 
 interface DataRoomDocument {
   id: string;
@@ -89,11 +89,8 @@ export function DataRoomOrientation({
       <CardContent className="pt-4 pb-3">
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-purple-600" />
+            <FolderOpen className="h-4 w-4 text-purple-600" />
             <h4 className="text-sm font-semibold text-purple-900">Data Room Overview</h4>
-            <Badge variant="outline" className="text-[10px] text-purple-600 border-purple-200">
-              AI-generated
-            </Badge>
           </div>
           <div className="flex items-center gap-1">
             <Button

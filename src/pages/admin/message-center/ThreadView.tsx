@@ -87,13 +87,15 @@ function useClaimThread() {
 
 export interface ThreadViewProps {
   thread: InboxThread;
+  allBuyerThreads?: InboxThread[];
+  onSelectThread?: (id: string) => void;
   onBack: () => void;
   adminProfiles?: Record<string, unknown> | null;
 }
 
 // ─── Component ───
 
-export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
+export function ThreadView({ thread, allBuyerThreads = [], onSelectThread, onBack, adminProfiles }: ThreadViewProps) {
   const { data: messages = [], isLoading } = useConnectionMessages(thread.connection_request_id);
   const sendMsg = useSendMessage();
   const markRead = useMarkMessagesReadByAdmin();
@@ -103,7 +105,7 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
   const [newMessage, setNewMessage] = useState('');
   const [reference, setReference] = useState<MessageReference | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showContext, setShowContext] = useState(true);
+  const [showContext, setShowContext] = useState(false);
 
   // Get current admin ID for claim
   const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
@@ -195,7 +197,7 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
       : null;
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 relative">
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3 flex-shrink-0" style={{ borderBottom: '1px solid #F0EDE6' }}>
@@ -204,29 +206,54 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
         </Button>
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-semibold truncate" style={{ color: '#0E101A' }}>{thread.buyer_name}</h2>
-          <p className="text-[11px] truncate mt-0.5" style={{ color: '#9A9A9A' }}>
-            {[thread.buyer_company, thread.deal_title, claimedByName ? `Claimed by ${claimedByName}` : null].filter(Boolean).join(' · ')}
-          </p>
+          {/* Thread selector when multiple threads exist */}
+          {allBuyerThreads.length > 1 && onSelectThread ? (
+            <div className="flex items-center gap-1.5 mt-1 overflow-x-auto">
+              {allBuyerThreads.map((t) => (
+                <button
+                  key={t.connection_request_id}
+                  onClick={() => onSelectThread(t.connection_request_id)}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors",
+                    t.connection_request_id === thread.connection_request_id
+                      ? "shadow-sm"
+                      : "hover:opacity-80"
+                  )}
+                  style={
+                    t.connection_request_id === thread.connection_request_id
+                      ? { backgroundColor: '#0E101A', color: '#FFFFFF' }
+                      : { backgroundColor: '#F0EDE6', color: '#9A9A9A' }
+                  }
+                >
+                  {t.deal_title || 'General Inquiry'}
+                  {t.unread_count > 0 && (
+                    <span className="flex h-3.5 min-w-[14px] items-center justify-center rounded-full px-1 text-[8px] font-bold"
+                      style={{ backgroundColor: '#DEC76B', color: '#0E101A' }}>
+                      {t.unread_count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] truncate mt-0.5" style={{ color: '#9A9A9A' }}>
+              {[thread.buyer_company, thread.deal_title, claimedByName ? `Claimed by ${claimedByName}` : null].filter(Boolean).join(' · ')}
+            </p>
+          )}
         </div>
 
         {/* Quick actions */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {/* Context panel toggle */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => setShowContext(!showContext)}
-                >
-                  {showContext ? <PanelRightClose className="w-3.5 h-3.5" /> : <PanelRightOpen className="w-3.5 h-3.5" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{showContext ? 'Hide buyer context' : 'Show buyer context'}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => setShowContext(!showContext)}
+          >
+            {showContext ? <PanelRightClose className="w-3.5 h-3.5" /> : <PanelRightOpen className="w-3.5 h-3.5" />}
+            {showContext ? 'Hide Profile' : 'Buyer Profile'}
+          </Button>
 
           {/* Pipeline link */}
           {thread.pipeline_deal_id && (
@@ -469,14 +496,23 @@ export function ThreadView({ thread, onBack, adminProfiles }: ThreadViewProps) {
         </div>
       )}
     </div>
-    {/* Buyer context panel */}
+    {/* Buyer context panel — slide-over overlay */}
     {showContext && (
-      <ThreadContextPanel
-        userId={thread.user_id}
-        buyerName={thread.buyer_name}
-        buyerEmail={thread.buyer_email}
-        buyerCompany={thread.buyer_company}
-      />
+      <>
+        <div
+          className="absolute inset-0 z-10 bg-black/10"
+          onClick={() => setShowContext(false)}
+        />
+        <div className="absolute inset-y-0 right-0 z-20 w-[340px] shadow-xl">
+          <ThreadContextPanel
+            userId={thread.user_id}
+            buyerName={thread.buyer_name}
+            buyerEmail={thread.buyer_email}
+            buyerCompany={thread.buyer_company}
+            onClose={() => setShowContext(false)}
+          />
+        </div>
+      </>
     )}
     </div>
   );

@@ -14,7 +14,7 @@ const NavbarLogo = ({ destination }: NavbarLogoProps) => {
         className="h-8 w-8 mr-2"
       />
       <span className="text-xl font-bold">SourceCo</span>
-      <span className="text-xl text-muted-foreground ml-1 font-light">
+      <span className="text-xl text-muted-foreground ml-1 font-light hidden sm:inline">
         Marketplace
       </span>
     </Link>

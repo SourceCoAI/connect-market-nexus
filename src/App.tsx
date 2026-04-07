@@ -134,6 +134,7 @@ const OutreachSettingsPage = lazyWithRetry(
 );
 const GlobalApprovalsPage = lazyWithRetry(() => import('@/pages/admin/GlobalApprovalsPage'));
 const DocumentTrackingPage = lazyWithRetry(() => import('@/pages/admin/DocumentTrackingPage'));
+const EmailDashboardPage = lazyWithRetry(() => import('@/pages/admin/EmailDashboardPage'));
 const TestingHub = lazyWithRetry(() => import('@/pages/admin/TestingHub'));
 const MessageCenter = lazyWithRetry(() => import('@/pages/admin/MessageCenter'));
 const MessagesLayout = lazyWithRetry(() => import('@/pages/admin/MessagesLayout'));
@@ -180,6 +181,7 @@ const ReMarketingUniverseDetail = lazyWithRetry(
   () => import('@/pages/admin/remarketing/ReMarketingUniverseDetail'),
 );
 const ReMarketingDeals = lazyWithRetry(() => import('@/pages/admin/remarketing/ReMarketingDeals'));
+const ArchivedDeals = lazyWithRetry(() => import('@/pages/admin/deals/ArchivedDeals'));
 const ReMarketingDealDetail = lazyWithRetry(
   () => import('@/pages/admin/remarketing/ReMarketingDealDetail'),
 );
@@ -218,6 +220,7 @@ const GPPartnerDeals = lazyWithRetry(() => import('@/pages/admin/remarketing/GPP
 const MasterLeads = lazyWithRetry(() => import('@/pages/admin/remarketing/MasterLeads'));
 const SourceCoDeals = lazyWithRetry(() => import('@/pages/admin/remarketing/SourceCoDeals'));
 const ValuationLeads = lazyWithRetry(() => import('@/pages/admin/remarketing/ValuationLeads'));
+const MatchToolLeads = lazyWithRetry(() => import('@/pages/admin/remarketing/MatchToolLeads'));
 const DailyTaskDashboard = lazyWithRetry(
   () => import('@/pages/admin/remarketing/DailyTaskDashboard'),
 );
@@ -331,6 +334,7 @@ function App() {
 
               {/* DEALS */}
               <Route path="deals" element={<ReMarketingDeals />} />
+              <Route path="deals/archived" element={<ArchivedDeals />} />
               <Route path="deals/:dealId" element={<ReMarketingDealDetail />} />
               <Route
                 path="deals/pipeline"
@@ -408,6 +412,7 @@ function App() {
                 <Route path="leads/sourceco" element={<SourceCoDeals />} />
                 <Route path="leads/sourceco/:dealId" element={<ReMarketingDealDetail />} />
                 <Route path="leads/valuation" element={<ValuationLeads />} />
+                <Route path="leads/match-tool" element={<MatchToolLeads />} />
                 <Route path="leads/referrals" element={<ReMarketingReferralPartners />} />
                 <Route
                   path="leads/referrals/:partnerId"
@@ -528,6 +533,7 @@ function App() {
 
               {/* DOCUMENT TRACKING */}
               <Route path="documents" element={<DocumentTrackingPage />} />
+              <Route path="emails" element={<EmailDashboardPage />} />
 
               {/* ANALYTICS */}
               <Route

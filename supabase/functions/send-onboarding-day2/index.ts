@@ -1,12 +1,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
-import { logEmailDelivery } from '../_shared/email-logger.ts';
-
-/**
- * send-onboarding-day2
- * Daily cron job that sends a pipeline digest email to buyers
- * who were approved ~2 days ago and have not yet submitted any connection request.
- */
+import { sendEmail } from '../_shared/email-sender.ts';
+import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -25,14 +20,6 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
-    if (!brevoApiKey) {
-      console.error('BREVO_API_KEY not configured');
-      return new Response(JSON.stringify({ error: 'Email service not configured' }), {
-        status: 500,
-      });
-    }
 
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 1.5 * 24 * 60 * 60 * 1000);
@@ -65,7 +52,6 @@ serve(async (req: Request) => {
       const recipientEmail = profile.email;
       if (!recipientEmail) continue;
 
-      // Check if they have any connection requests (already active)
       const { data: existingRequest } = await supabase
         .from('connection_requests')
         .select('id')
@@ -75,113 +61,62 @@ serve(async (req: Request) => {
 
       if (existingRequest) continue;
 
-      // Dedup check
       const { data: alreadySent } = await supabase
-        .from('email_delivery_logs')
+        .from('outbound_emails')
         .select('id')
-        .eq('email', recipientEmail)
-        .eq('email_type', 'onboarding_day2')
-        .eq('status', 'sent')
+        .eq('recipient_email', recipientEmail)
+        .eq('template_name', 'onboarding_day2')
+        .eq('status', 'accepted')
         .maybeSingle();
 
       if (alreadySent) continue;
 
       const safeFirstName = (profile.first_name || 'there').replace(/<[^>]*>/g, '');
-
       const subject = `What's in the pipeline right now.`;
 
-      const htmlContent = `
-<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <p>Hi ${safeFirstName},</p>
-  <p>You've been in the pipeline for a couple of days. Wanted to give you a quick picture of what's there.</p>
-  <p>Every deal on SourceCo is off-market — sourced and reviewed by our team before it reaches buyers. When you find a fit, request an introduction. We review every request and select based on match quality.</p>
-  <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #1e293b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Browse the Pipeline</a></p>
-  <h3 style="color: #0e101a; font-size: 16px; margin: 24px 0 8px 0;">How to get the most out of SourceCo</h3>
-  <ul style="padding-left: 20px; color: #374151;">
-    <li>Be specific in your introduction requests — tell us exactly why you're a strong fit. Generic messages rarely get selected</li>
-    <li>Set up deal alerts in your profile so new deals that match your mandate reach you immediately</li>
-    <li>If you want deals sourced specifically for your thesis, our retained search team works with a select group of active buyers: <a href="https://www.sourcecodeals.com/private-equity" style="color: #1e293b;">sourcecodeals.com/private-equity</a></li>
+      const htmlContent = wrapEmailHtml({
+        bodyHtml: `
+  <p style="margin: 0 0 16px;">Hi ${safeFirstName},</p>
+  <p style="margin: 0 0 16px;">You joined SourceCo two days ago. Here is a quick snapshot of what is live in the pipeline.</p>
+  <p style="margin: 0 0 16px;">Every deal on SourceCo is off-market. Our team sources and reviews each one before it reaches buyers. When you find a fit, request an introduction. We evaluate every request based on match quality and select accordingly.</p>
+  <p style="margin: 24px 0;"><a href="${siteUrl}/marketplace" style="display: inline-block; background-color: #000000; color: #ffffff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">Browse the Pipeline</a></p>
+  <p style="font-weight: 600; margin: 24px 0 8px;">How to get the most out of SourceCo</p>
+  <ul style="padding-left: 20px; margin: 0 0 16px;">
+    <li style="margin-bottom: 8px;">Be specific in your introduction requests. Explain exactly why you are a strong fit. Generic messages rarely get selected.</li>
+    <li style="margin-bottom: 8px;">Set up deal alerts in your profile so new deals that match your mandate reach you immediately.</li>
+    <li style="margin-bottom: 8px;">If you want deals sourced specifically for your thesis, our retained search team works with a select group of active buyers: <a href="https://www.sourcecodeals.com/private-equity" style="color: #1A1A1A; text-decoration: underline;">sourcecodeals.com/private-equity</a></li>
   </ul>
-  <p>Questions? Reply to this email.</p>
-  <p style="color: #6b7280; margin-top: 32px;">&mdash; The SourceCo Team</p>
-</div>`;
+  <p style="margin: 0 0 16px;">Questions? Reply to this email.</p>
+  <p style="margin: 32px 0 0;">The SourceCo Team</p>`,
+        preheader: "Here is what is in the SourceCo pipeline right now",
+        recipientEmail: recipientEmail,
+      });
 
-      const textContent = `Hi ${safeFirstName},\n\nYou've been in the pipeline for a couple of days. Every deal on SourceCo is off-market — sourced by our team before it reaches buyers.\n\nBrowse the pipeline: ${siteUrl}/marketplace\n\nBe specific when you request an introduction — generic messages rarely get selected.\n\nQuestions? Reply to this email.\n\n— The SourceCo Team`;
+      const textContent = `Hi ${safeFirstName},\n\nYou joined SourceCo two days ago. Here is a quick snapshot of what is live in the pipeline.\n\nEvery deal on SourceCo is off-market. Our team sources and reviews each one before it reaches buyers.\n\nBrowse the pipeline: ${siteUrl}/marketplace\n\nBe specific when you request an introduction. Generic messages rarely get selected.\n\nQuestions? Reply to this email.\n\nThe SourceCo Team`;
 
-      const correlationId = crypto.randomUUID();
+      const result = await sendEmail({
+        templateName: 'onboarding_day2',
+        to: recipientEmail,
+        toName: safeFirstName,
+        subject,
+        htmlContent,
+        textContent,
+        senderName: 'SourceCo',
+        replyTo: 'support@sourcecodeals.com',
+        isTransactional: true,
+      });
 
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-
-        let brevoResponse: Response;
-        try {
-          brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'api-key': brevoApiKey,
-            },
-            body: JSON.stringify({
-              sender: {
-                name: 'SourceCo',
-                email: Deno.env.get('NOREPLY_EMAIL') || 'noreply@sourcecodeals.com',
-              },
-              to: [{ email: recipientEmail, name: safeFirstName }],
-              subject,
-              htmlContent,
-              textContent,
-            }),
-            signal: controller.signal,
-          });
-        } finally {
-          clearTimeout(timeout);
-        }
-
-        if (brevoResponse.ok) {
-          sentCount++;
-          await logEmailDelivery(supabase, {
-            email: recipientEmail,
-            emailType: 'onboarding_day2',
-            status: 'sent',
-            correlationId,
-          });
-        } else {
-          const errorText = await brevoResponse.text();
-          console.error(`Brevo error for ${recipientEmail}:`, errorText);
-          await logEmailDelivery(supabase, {
-            email: recipientEmail,
-            emailType: 'onboarding_day2',
-            status: 'failed',
-            correlationId,
-            errorMessage: errorText,
-          });
-        }
-      } catch (emailError: unknown) {
-        const isAbort = emailError instanceof Error && emailError.name === 'AbortError';
-        console.error(`Email error for ${recipientEmail}:`, emailError);
-        await logEmailDelivery(supabase, {
-          email: recipientEmail,
-          emailType: 'onboarding_day2',
-          status: 'failed',
-          correlationId,
-          errorMessage: isAbort
-            ? 'Brevo API timeout'
-            : emailError instanceof Error
-              ? emailError.message
-              : String(emailError),
-        });
+      if (result.success) {
+        sentCount++;
+      } else {
+        console.error(`Email error for ${recipientEmail}:`, result.error);
       }
     }
 
     console.log(`Onboarding day 2 batch complete: ${sentCount} sent out of ${profiles.length} eligible`);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        totalEligible: profiles.length,
-        sent: sentCount,
-      }),
+      JSON.stringify({ success: true, totalEligible: profiles.length, sent: sentCount }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
   } catch (error: unknown) {

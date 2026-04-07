@@ -36,6 +36,7 @@ import { PushToHeyreachModal } from '@/components/remarketing/PushToHeyreachModa
 import type { ContactListMember } from '@/types/contact-list';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
+import { ContactMemberDrawer } from '@/components/admin/lists/ContactMemberDrawer';
 import { cn } from '@/lib/utils';
 
 const ContactListDetailPage = () => {
@@ -49,6 +50,7 @@ const ContactListDetailPage = () => {
   const [isDialerOpen, setIsDialerOpen] = useState(false);
   const [isSmartleadOpen, setIsSmartleadOpen] = useState(false);
   const [isHeyreachOpen, setIsHeyreachOpen] = useState(false);
+  const [drawerMember, setDrawerMember] = useState<ContactListMember | null>(null);
 
   // Register AI Command Center context
   const { setPageContext } = useAICommandCenterContext();
@@ -188,7 +190,7 @@ const ContactListDetailPage = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-40">
-        <div className="px-8 py-6">
+        <div className="px-4 md:px-8 py-6">
           <div className="flex items-center gap-3 mb-3">
             <Link to="/admin/lists">
               <Button variant="ghost" size="sm" className="gap-1">
@@ -246,7 +248,7 @@ const ContactListDetailPage = () => {
         </div>
       </div>
 
-      <div className="px-8 py-6 space-y-4">
+      <div className="px-4 md:px-8 py-6 space-y-4">
         {/* Search & selection info */}
         <div className="flex items-center gap-4">
           <div className="relative flex-1 max-w-md">
@@ -367,11 +369,7 @@ const ContactListDetailPage = () => {
                       toggleSelect(member.id, !selectedIds.has(member.id), e)
                     }
                     onRemove={() => removeMember.mutate({ memberId: member.id, listId: list.id })}
-                    onNavigateToDeal={() => {
-                      // All entity IDs in this list point to listings (even 'deal' type),
-                      // so always navigate to the deal detail page.
-                      navigate(`/admin/deals/${member.entity_id}`);
-                    }}
+                    onOpenDrawer={() => setDrawerMember(member)}
                   />
                 ))
               )}
@@ -401,6 +399,15 @@ const ContactListDetailPage = () => {
         contactCount={selectedMembers.length}
         entityType="contacts"
       />
+      <ContactMemberDrawer
+        member={drawerMember}
+        onClose={() => setDrawerMember(null)}
+        onRemove={(m) => {
+          removeMember.mutate({ memberId: m.id, listId: list.id });
+          setDrawerMember(null);
+        }}
+        onNavigateToDeal={(m) => navigate(`/admin/deals/${m.entity_id}`)}
+      />
     </div>
   );
 };
@@ -410,34 +417,24 @@ function MemberRow({
   isSelected,
   onToggle,
   onRemove,
-  onNavigateToDeal,
+  onOpenDrawer,
 }: {
   member: ContactListMember;
   isSelected: boolean;
   onToggle: (e?: React.MouseEvent) => void;
   onRemove: () => void;
-  onNavigateToDeal: () => void;
+  onOpenDrawer: () => void;
 }) {
-  const DEAL_ENTITY_TYPES = [
-    'deal',
-    'listing',
-    'sourceco_deal',
-    'gp_partner_deal',
-    'referral_deal',
-  ];
-  const isDealType = DEAL_ENTITY_TYPES.includes(member.entity_type);
-
   return (
     <TableRow
       className={cn(
         isSelected ? 'bg-primary/5' : '',
-        isDealType && 'cursor-pointer hover:bg-muted/50',
+        'cursor-pointer hover:bg-muted/50',
       )}
       onClick={(e) => {
-        // Don't navigate if clicking checkbox or remove button
         const target = e.target as HTMLElement;
         if (target.closest('button') || target.closest('[role="checkbox"]')) return;
-        if (isDealType) onNavigateToDeal();
+        onOpenDrawer();
       }}
     >
       <TableCell
@@ -486,9 +483,7 @@ function MemberRow({
         {member.deal_owner_name ? (
           <span className="text-sm font-medium text-foreground">{member.deal_owner_name}</span>
         ) : (
-          <span className="text-sm text-muted-foreground/50">
-            {isDealType ? 'Unassigned' : '--'}
-          </span>
+          <span className="text-sm text-muted-foreground/50">--</span>
         )}
       </TableCell>
       <TableCell>

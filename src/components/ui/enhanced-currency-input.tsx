@@ -31,15 +31,15 @@ const getSuffix = (_mode: 'millions' | 'thousands' | 'auto', fieldType: string):
 const getPlaceholder = (fieldType: string): string => {
   switch (fieldType) {
     case 'fund':
-      return '100-500 (millions)';
+      return 'e.g. 500';
     case 'aum':
-      return '250-1,000 (millions)';
+      return 'e.g. 1000';
     case 'revenue':
-      return '10-50 (millions)';
+      return 'e.g. 25';
     case 'dealSize':
-      return '5-25 (millions)';
+      return 'e.g. 10';
     default:
-      return '1-10 (millions)';
+      return 'Enter amount';
   }
 };
 
@@ -108,7 +108,7 @@ export const EnhancedCurrencyInput = React.forwardRef<HTMLInputElement, Enhanced
       if (digits) {
         const formatted = formatCurrency(digits, currencyMode);
         setDisplayValue(formatted);
-        onChange?.(displayValue); // Keep the user's input format
+        onChange?.(digits);
       } else {
         setDisplayValue('');
         onChange?.('');
@@ -130,7 +130,7 @@ export const EnhancedCurrencyInput = React.forwardRef<HTMLInputElement, Enhanced
           onChange={handleChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          className={cn(showSuffix && "pr-10", className)}
+          className={cn("placeholder:text-muted-foreground/40", showSuffix && "pr-10", className)}
           placeholder={defaultPlaceholder}
         />
         {showSuffix && suffix && (

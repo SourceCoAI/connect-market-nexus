@@ -4,7 +4,7 @@
  * Categories 8-13:
  *  8. Marketplace Approval
  *  9. Fireflies Integration
- *  9b. PandaDoc Integration
+ *  9b. Agreement & Document Tracking
  *  10. Send Memo Flow
  *  11. Data Room Portal
  *  12. CapTarget Integration
@@ -483,36 +483,12 @@ export function buildApiTests(): TestDef[] {
   });
 
   // ═══════════════════════════════════════════
-  // CATEGORY 9b: PandaDoc Integration
+  // CATEGORY 9b: Agreement & Document Tracking
   // ═══════════════════════════════════════════
-  const C9b = '9b. PandaDoc Integration';
+  const C9b = '9b. Agreement & Document Tracking';
 
   add(C9b, 'firm_agreements table accessible', async () => {
     await tableReadable('firm_agreements');
-  });
-
-  add(C9b, 'firm_agreements has nda_pandadoc_document_id column', async () => {
-    await columnExists('firm_agreements', 'nda_pandadoc_document_id');
-  });
-
-  add(C9b, 'firm_agreements has nda_pandadoc_status column', async () => {
-    await columnExists('firm_agreements', 'nda_pandadoc_status');
-  });
-
-  add(C9b, 'firm_agreements has nda_pandadoc_signed_url column', async () => {
-    await columnExists('firm_agreements', 'nda_pandadoc_signed_url');
-  });
-
-  add(C9b, 'firm_agreements has fee_pandadoc_document_id column', async () => {
-    await columnExists('firm_agreements', 'fee_pandadoc_document_id');
-  });
-
-  add(C9b, 'firm_agreements has fee_pandadoc_status column', async () => {
-    await columnExists('firm_agreements', 'fee_pandadoc_status');
-  });
-
-  add(C9b, 'firm_agreements has fee_pandadoc_signed_url column', async () => {
-    await columnExists('firm_agreements', 'fee_pandadoc_signed_url');
   });
 
   add(C9b, 'firm_agreements has nda_status column', async () => {
@@ -523,38 +499,22 @@ export function buildApiTests(): TestDef[] {
     await columnExists('firm_agreements', 'fee_agreement_status');
   });
 
-  add(C9b, 'pandadoc-webhook-handler edge function reachable', async () => {
-    await invokeEdgeFunction('pandadoc-webhook-handler', {});
+  add(C9b, 'firm_agreements has nda_requested_at column', async () => {
+    await columnExists('firm_agreements', 'nda_requested_at');
   });
 
-  add(C9b, 'create-pandadoc-document edge function reachable', async () => {
-    await invokeEdgeFunction('create-pandadoc-document', {
-      firmId: '00000000-0000-0000-0000-000000000000',
+  add(C9b, 'firm_agreements has fee_agreement_requested_at column', async () => {
+    await columnExists('firm_agreements', 'fee_agreement_requested_at');
+  });
+
+  add(C9b, 'document_requests table accessible', async () => {
+    await tableReadable('document_requests');
+  });
+
+  add(C9b, 'request-agreement-email edge function reachable', async () => {
+    await invokeEdgeFunction('request-agreement-email', {
       documentType: 'nda',
-      signerEmail: 'qa-test@sourceco-test.local',
-      signerName: 'QA Test',
-      deliveryMode: 'embedded',
     });
-  });
-
-  add(C9b, 'get-buyer-nda-embed edge function reachable', async () => {
-    await invokeEdgeFunction('get-buyer-nda-embed', {});
-  });
-
-  add(C9b, 'send-nda-reminder edge function reachable', async () => {
-    await invokeEdgeFunction('send-nda-reminder', {
-      firmId: '00000000-0000-0000-0000-000000000000',
-    });
-  });
-
-  add(C9b, 'send-fee-agreement-reminder edge function reachable', async () => {
-    await invokeEdgeFunction('send-fee-agreement-reminder', {
-      firmId: '00000000-0000-0000-0000-000000000000',
-    });
-  });
-
-  add(C9b, 'pandadoc_webhook_log table accessible', async () => {
-    await tableReadable('pandadoc_webhook_log');
   });
 
   add(C9b, 'update_firm_agreement_status RPC exists', async () => {
@@ -566,7 +526,6 @@ export function buildApiTests(): TestDef[] {
     if (error?.message?.includes('does not exist')) {
       throw new Error('RPC update_firm_agreement_status does not exist');
     }
-    // Any other error (e.g. not found) is acceptable — means the RPC exists
   });
 
   // ═══════════════════════════════════════════

@@ -4,8 +4,6 @@
  * Consolidated transactional email sender that replaces 32 separate email
  * edge functions with a single template-based sender.
  *
- * Part of Data Architecture Audit Phase 3: Email Function Consolidation.
- *
  * POST body (SendEmailRequest):
  *   - template: EmailTemplate name from the registry
  *   - to: string | string[]  — recipient email(s)
@@ -19,8 +17,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
-import { sendViaBervo } from '../_shared/brevo-sender.ts';
-import { logEmailDelivery } from '../_shared/email-logger.ts';
+import { sendEmail } from '../_shared/email-sender.ts';
 import { resolveTemplate, type EmailTemplate } from '../_shared/email-templates.ts';
 import { requireAdmin } from '../_shared/auth.ts';
 
@@ -146,28 +143,22 @@ Deno.serve(async (req: Request) => {
     const correlationId = crypto.randomUUID();
 
     for (const recipientEmail of recipients) {
-      const emailResult = await sendViaBervo({
+      const emailResult = await sendEmail({
+        templateName: template,
         to: recipientEmail,
         toName: toName || recipientEmail,
         subject: resolved.subject,
         htmlContent: resolved.htmlContent,
         ...(senderName ? { senderName } : {}),
-        ...(replyTo ? { replyToEmail: replyTo } : {}),
-      });
-
-      // Log delivery attempt regardless of outcome
-      await logEmailDelivery(supabaseAdmin, {
-        email: recipientEmail,
-        emailType: template,
-        status: emailResult.success ? 'sent' : 'failed',
-        correlationId,
-        errorMessage: emailResult.error,
+        ...(replyTo ? { replyTo } : {}),
+        isTransactional: true,
+        metadata: { correlationId },
       });
 
       results.push({
         email: recipientEmail,
         success: emailResult.success,
-        messageId: emailResult.messageId,
+        messageId: emailResult.providerMessageId,
         error: emailResult.error,
       });
     }

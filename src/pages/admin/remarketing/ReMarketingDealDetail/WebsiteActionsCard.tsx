@@ -296,7 +296,7 @@ function PushToMarketplaceButton({
 
   if (!deal?.category && !deal?.industry) gaps.push('Category / Industry');
 
-  if (!deal?.executive_summary && !deal?.description) gaps.push('Description');
+  if (!deal?.executive_summary) gaps.push('Executive Summary');
 
   if (!deal?.main_contact_name) gaps.push('Main contact name');
 

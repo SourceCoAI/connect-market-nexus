@@ -120,10 +120,10 @@ export function AddPartnerDialog({ open, onOpenChange, editingPartner }: AddPart
         phone: data.phone || null,
         notes: data.notes || null,
         is_active: data.is_active,
-        partner_type: (data as Record<string, unknown>).partner_type || null,
-        linkedin: (data as Record<string, unknown>).linkedin || null,
-        website: (data as Record<string, unknown>).website || null,
-        contact_name: (data as Record<string, unknown>).contact_name || null,
+        partner_type: (data as unknown as Record<string, unknown>).partner_type || null,
+        linkedin: (data as unknown as Record<string, unknown>).linkedin || null,
+        website: (data as unknown as Record<string, unknown>).website || null,
+        contact_name: (data as unknown as Record<string, unknown>).contact_name || null,
       };
 
       // If hashing works, store the hash; otherwise store plaintext temporarily

@@ -6,7 +6,7 @@ import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningMod
 import { useAuth } from '@/contexts/AuthContext';
 import { resolveAgreementStatus, type AgreementDisplayStatus } from '@/lib/agreement-status';
 
-import { useFirmAgreementStatus, usePendingNotifications } from './useMessagesData';
+import { useFirmAgreementStatus } from './useMessagesData';
 import { useDownloadDocument } from './useMessagesActions';
 import { DocumentDialog } from './DocumentDialog';
 import type { DocItem } from './types';
@@ -17,12 +17,10 @@ function buildDocItem(
   label: string,
   statusText: string | null,
   signedAt: string | null,
-  pandadocStatus: string | null,
   signedDocUrl: string | null,
   draftUrl: string | null,
-  _pendingNotifications: Record<string, unknown>[],
 ): DocItem {
-  const status = resolveAgreementStatus(statusText, pandadocStatus);
+  const status = resolveAgreementStatus(statusText, null);
 
   const descriptions: Record<AgreementDisplayStatus, string> = {
     signed: signedAt
@@ -60,7 +58,6 @@ export function PendingAgreementBanner() {
   const [docMessageType, setDocMessageType] = useState<'nda' | 'fee_agreement'>('nda');
 
   const { data: firmStatus } = useFirmAgreementStatus();
-  const { data: pendingNotifications = [] } = usePendingNotifications();
   const download = useDownloadDocument();
 
   if (!firmStatus) return null;
@@ -73,20 +70,16 @@ export function PendingAgreementBanner() {
       'NDA',
       (fs.nda_status ?? null) as string | null,
       fs.nda_signed_at as string | null,
-      (fs.nda_pandadoc_status ?? null) as string | null,
-      (fs.nda_pandadoc_signed_url ?? null) as string | null,
       (fs.nda_document_url ?? null) as string | null,
-      pendingNotifications as Record<string, unknown>[],
+      (fs.nda_document_url ?? null) as string | null,
     ),
     buildDocItem(
       'fee_agreement',
       'Fee Agreement',
       (fs.fee_agreement_status ?? null) as string | null,
       fs.fee_agreement_signed_at as string | null,
-      (fs.fee_pandadoc_status ?? null) as string | null,
-      (fs.fee_pandadoc_signed_url ?? fs.fee_agreement_signed_document_url ?? null) as string | null,
       (fs.fee_agreement_document_url ?? null) as string | null,
-      pendingNotifications as Record<string, unknown>[],
+      (fs.fee_agreement_document_url ?? null) as string | null,
     ),
   ];
 
@@ -152,7 +145,7 @@ export function PendingAgreementBanner() {
                   className="text-[11px] font-medium flex items-center gap-0.5 hover:opacity-70 transition-opacity"
                   style={{ color: '#0E101A' }}
                 >
-                  Sign
+                  Request
                   <ChevronRight className="h-3 w-3" />
                 </button>
               </>

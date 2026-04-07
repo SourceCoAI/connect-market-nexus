@@ -63,6 +63,7 @@ interface GPPartnerTableProps {
   setAddDealOpen: (open: boolean) => void;
   setCsvUploadOpen: (open: boolean) => void;
   onMarkNotFit?: (dealId: string) => void;
+  onArchiveDeal?: (dealId: string, dealName: string) => void;
 }
 
 export function GPPartnerTable({
@@ -84,6 +85,7 @@ export function GPPartnerTable({
   setAddDealOpen,
   setCsvUploadOpen,
   onMarkNotFit,
+  onArchiveDeal,
 }: GPPartnerTableProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -136,7 +138,7 @@ export function GPPartnerTable({
                   onResize={(w) => handleColumnResize('description', w)}
                   minWidth={100}
                 >
-                  <span className="text-muted-foreground font-medium">Description</span>
+                  <span className="text-muted-foreground font-medium">Executive Summary</span>
                 </ResizableHeader>
                 <ResizableHeader
                   width={columnWidths.industry}
@@ -209,6 +211,13 @@ export function GPPartnerTable({
                   <SortHeader column="created_at">Added</SortHeader>
                 </ResizableHeader>
                 <ResizableHeader
+                  width={columnWidths.replied ?? 80}
+                  onResize={(w) => handleColumnResize('replied', w)}
+                  minWidth={60}
+                >
+                  <SortHeader column="replied_at">Replied</SortHeader>
+                </ResizableHeader>
+                <ResizableHeader
                   width={columnWidths.status}
                   onResize={(w) => handleColumnResize('status', w)}
                   minWidth={60}
@@ -231,7 +240,7 @@ export function GPPartnerTable({
             <TableBody>
               {paginatedDeals.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={17} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={18} className="text-center py-12 text-muted-foreground">
                     <Building2 className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
                     <p className="font-medium">No GP Partner deals yet</p>
                     <p className="text-sm mt-1">Add deals manually or import a CSV spreadsheet.</p>
@@ -298,7 +307,7 @@ export function GPPartnerTable({
                     </TableCell>
                     <TableCell className="max-w-[200px]">
                       <span className="text-xs text-muted-foreground line-clamp-3">
-                        {deal.description || deal.executive_summary || '\u2014'}
+                        {deal.executive_summary || '\u2014'}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -418,6 +427,22 @@ export function GPPartnerTable({
                       </span>
                     </TableCell>
                     <TableCell>
+                      {deal.smartlead_replied_at ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm text-muted-foreground">
+                            {format(new Date(deal.smartlead_replied_at), 'MMM d, yyyy')}
+                          </span>
+                          {deal.smartlead_ai_category && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 w-fit">
+                              {deal.smartlead_ai_category.replace('_', ' ')}
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">{'\u2014'}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-1">
                         {deal.pushed_to_all_deals ? (
                           <Badge
@@ -456,6 +481,7 @@ export function GPPartnerTable({
                         queryClient={queryClient}
                         toast={toast}
                         onMarkNotFit={onMarkNotFit}
+                        onArchiveDeal={onArchiveDeal}
                       />
                     </TableCell>
                   </TableRow>
@@ -477,6 +503,7 @@ function DealRowActions({
   queryClient,
   toast,
   onMarkNotFit,
+  onArchiveDeal,
 }: {
   deal: GPPartnerDeal;
   navigate: (path: string, opts?: { state?: Record<string, unknown> }) => void;
@@ -485,6 +512,7 @@ function DealRowActions({
   queryClient: ReturnType<typeof useQueryClient>;
   toast: ReturnType<typeof useToast>['toast'];
   onMarkNotFit?: (dealId: string) => void;
+  onArchiveDeal?: (dealId: string, dealName: string) => void;
 }) {
   return (
     <DropdownMenu>
@@ -606,21 +634,9 @@ function DealRowActions({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="text-amber-600 focus:text-amber-600"
-          onClick={async () => {
-            const { error } = await supabase
-              .from('listings')
-              .update({ remarketing_status: 'archived' } as never)
-              .eq('id', deal.id);
-            if (error) {
-              toast({ title: 'Error', description: error.message, variant: 'destructive' });
-            } else {
-              toast({
-                title: 'Deal archived (remarketing)',
-                description: 'Deal has been archived in remarketing. Marketplace status unchanged.',
-              });
-              queryClient.invalidateQueries({ queryKey: ['remarketing', 'gp-partner-deals'] });
-            }
-          }}
+          onClick={() =>
+            onArchiveDeal?.(deal.id, deal.internal_company_name || deal.title || 'Unknown Deal')
+          }
         >
           <Archive className="h-4 w-4 mr-2" />
           Archive Deal

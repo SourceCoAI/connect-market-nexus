@@ -9,7 +9,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, Phone, Mail, Linkedin, Plus, Trash2 } from "lucide-react";
+import { Users, Mail, Linkedin, Plus, Trash2 } from "lucide-react";
+import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 
 interface ContactsTabProps {
   firmName: string;
@@ -94,13 +95,12 @@ export const ContactsTab = ({
                     </TableCell>
                     <TableCell>
                       {contact.phone ? (
-                        <a
-                          href={`tel:${contact.phone}`}
-                          className="flex items-center gap-1 hover:underline"
-                        >
-                          <Phone className="h-3 w-3" />
-                          {contact.phone}
-                        </a>
+                        <ClickToDialPhone
+                          phone={contact.phone}
+                          name={contact.name || undefined}
+                          email={contact.email || undefined}
+                          size="sm"
+                        />
                       ) : (
                         "\u2014"
                       )}

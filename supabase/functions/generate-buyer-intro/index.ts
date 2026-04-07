@@ -77,7 +77,7 @@ ${deal?.location ? `- Location: ${deal.location}` : ''}
 ${deal?.revenue ? `- Revenue: $${(deal.revenue / 1000000).toFixed(1)}M` : ''}
 ${deal?.ebitda ? `- EBITDA: $${(deal.ebitda / 1000000).toFixed(1)}M` : ''}
 ${deal?.category ? `- Industry: ${deal.category}` : ''}
-${deal?.description ? `- Overview: ${deal.description}` : ''}
+${deal?.executive_summary ? `- Overview: ${deal.executive_summary}` : ''}
 
 INSTRUCTIONS:
 1. Write a concise, professional introduction email (150-200 words)

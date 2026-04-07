@@ -161,8 +161,8 @@ export const useUniverseDealsFilters = (
           valB = (b.listing.internal_company_name || b.listing.title || '').toLowerCase();
           break;
         case 'description':
-          valA = (a.listing.description || '').toLowerCase();
-          valB = (b.listing.description || '').toLowerCase();
+          valA = (a.listing.executive_summary || '').toLowerCase();
+          valB = (b.listing.executive_summary || '').toLowerCase();
           break;
         case 'serviceArea':
           valA = (a.listing.geographic_states || []).join(',');

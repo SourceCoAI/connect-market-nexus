@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,13 +12,16 @@ interface DualNDAToggleProps {
   user: User;
   onSendEmail?: (user: User) => void;
   size?: 'sm' | 'default';
+  firmData?: { [key: string]: unknown } | null;
 }
 
-export const DualNDAToggle = ({ user, onSendEmail, size = 'default' }: DualNDAToggleProps) => {
+export const DualNDAToggle = React.memo(function DualNDAToggle({ user, onSendEmail, size = 'default', firmData }: DualNDAToggleProps) {
   const [isUpdatingSigned, setIsUpdatingSigned] = useState(false);
   const [isUpdatingEmailSent, setIsUpdatingEmailSent] = useState(false);
   const updateAgreement = useUpdateAgreementViaUser();
-  const { data: rawFirm } = useUserFirm(user.id);
+  // Skip individual query if bulk data was provided
+  const { data: fetchedFirm } = useUserFirm(firmData !== undefined ? undefined : user.id);
+  const rawFirm = firmData !== undefined ? firmData : fetchedFirm;
   const firm = rawFirm as
     | {
         primary_company_name?: string;
@@ -233,4 +236,4 @@ export const DualNDAToggle = ({ user, onSendEmail, size = 'default' }: DualNDATo
       )}
     </div>
   );
-};
+});

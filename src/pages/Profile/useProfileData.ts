@@ -190,8 +190,24 @@ export function useProfileData() {
       return;
     }
 
+    if (!passwordData.currentPassword) {
+      setPasswordError('Please enter your current password');
+      return;
+    }
+
     setIsLoading(true);
     try {
+      // Verify current password before allowing update
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: passwordData.currentPassword,
+      });
+      if (signInError) {
+        setPasswordError('Current password is incorrect');
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({ password: passwordData.newPassword });
       if (error) throw error;
       await supabase.auth.signOut({ scope: 'others' });

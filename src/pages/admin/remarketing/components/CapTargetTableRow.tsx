@@ -174,7 +174,7 @@ export function CapTargetTableRow({
       </TableCell>
       <TableCell className="max-w-[200px]">
         <span className="text-xs text-muted-foreground line-clamp-3">
-          {deal.description || deal.executive_summary || '—'}
+          {deal.executive_summary || '—'}
         </span>
       </TableCell>
       <TableCell>

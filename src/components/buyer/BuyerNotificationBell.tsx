@@ -116,6 +116,8 @@ export function BuyerNotificationBell() {
         return <MessageSquare className="w-4 h-4 text-primary" />;
       case 'agreement_pending':
         return <FileSignature className="w-4 h-4 text-amber-600" />;
+      case 'agreement_signed':
+        return <CheckCircle className="w-4 h-4 text-emerald-600" />;
       case 'request_created':
         return <Bell className="w-4 h-4 text-blue-500" />;
       default:
@@ -140,7 +142,7 @@ export function BuyerNotificationBell() {
       }
     } else if (n.notification_type === 'new_message' && n.connection_request_id) {
       navigate(`/messages?deal=${n.connection_request_id}`);
-    } else if (n.notification_type === 'agreement_pending') {
+    } else if (n.notification_type === 'agreement_pending' || n.notification_type === 'agreement_signed') {
       navigate('/profile?tab=documents');
     } else if (n.notification_type === 'request_approved' && n.connection_request_id) {
       navigate(`/deals/${n.connection_request_id}`);
@@ -178,7 +180,7 @@ export function BuyerNotificationBell() {
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-80 sm:w-96 p-0" align="end">
+        <PopoverContent className="w-[calc(100vw-2rem)] sm:w-96 p-0" align="end">
           <div className="flex items-center justify-between px-4 py-3 border-b">
             <h3 className="font-semibold text-sm">Notifications</h3>
             {hasUnread && (

@@ -1,0 +1,1 @@
+DELETE FROM document_requests WHERE status IN ('requested', 'email_sent') AND recipient_email IN ('adambhaile00@gmail.com', 'ahaile14@gmail.com');

@@ -147,7 +147,7 @@ export function useAdminUsers() {
       async (userId: string) => {
         // Use the new RPC function for complete user deletion
         const { data, error } = await supabase.rpc('delete_user_completely', {
-          target_user_id: userId,
+          _target_user_id: userId,
         });
 
         if (error) {

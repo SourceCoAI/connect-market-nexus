@@ -162,10 +162,9 @@ function validateDealFields(deal: Record<string, unknown>): string[] {
   // At least one description field must be populated
   const hasDescription =
     (deal.executive_summary as string)?.trim() ||
-    (deal.description as string)?.trim() ||
     (deal.hero_description as string)?.trim();
   if (!hasDescription)
-    missing.push('description (executive_summary, description, or hero_description)');
+    missing.push('description (executive_summary or hero_description)');
 
   // Industry and categories are alternatives — only flag if NEITHER is present
   const dealCats = deal.categories as string[] | null;
@@ -203,7 +202,6 @@ function buildPass1UserPrompt(deal: Record<string, unknown>): string {
 
   const description =
     (deal.executive_summary as string) ||
-    (deal.description as string) ||
     (deal.hero_description as string) ||
     'No description available';
 
@@ -637,7 +635,6 @@ Deno.serve(async (req: Request) => {
     if (!hasIndustryOrCat) {
       const descText =
         (deal.executive_summary as string)?.trim() ||
-        (deal.description as string)?.trim() ||
         (deal.hero_description as string)?.trim() ||
         '';
       if (descText) {
@@ -745,14 +742,14 @@ Deno.serve(async (req: Request) => {
     );
 
     // ── Fetch past feedback for this niche (for calibration) ──
-    const dealIndustry = (deal.industry as string) || '';
+    const dealIndustryFeedback = (deal.industry as string) || '';
     const dealCategories = (deal.categories as string[]) || [];
     let feedbackSection = '';
-    if (dealIndustry || dealCategories.length > 0) {
+    if (dealIndustryFeedback || dealCategories.length > 0) {
       const { data: feedbackRows } = await supabase
         .from('buyer_discovery_feedback')
         .select('buyer_name, pe_firm_name, action, reason, niche_category')
-        .in('niche_category', [dealIndustry, ...dealCategories].filter(Boolean))
+        .in('niche_category', [dealIndustryFeedback, ...dealCategories].filter(Boolean))
         .order('created_at', { ascending: false })
         .limit(20);
 

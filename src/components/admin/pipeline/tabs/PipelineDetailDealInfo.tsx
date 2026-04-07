@@ -108,6 +108,10 @@ export function PipelineDetailDealInfo({ deal }: PipelineDetailDealInfoProps) {
           onScoreChange={async (newScore) => {
             await updateListing.mutateAsync({ deal_total_score: newScore });
           }}
+          hiredBroker={!!(listing as Record<string, unknown>).hired_broker}
+          onHiredBrokerChange={async (value) => {
+            await updateListing.mutateAsync({ hired_broker: value });
+          }}
           onSave={async (data) => {
             await updateListing.mutateAsync({
               internal_company_name: data.companyName,
@@ -122,6 +126,15 @@ export function PipelineDetailDealInfo({ deal }: PipelineDetailDealInfoProps) {
               address_state: data.addressState,
               address_zip: data.addressZip,
               address_country: data.addressCountry,
+              linkedin_url: data.linkedinUrl,
+              linkedin_employee_count: data.linkedinEmployeeCount,
+              linkedin_employee_range: data.linkedinEmployeeRange,
+              full_time_employees: data.fullTimeEmployees,
+              part_time_employees: data.partTimeEmployees,
+              google_rating: data.googleRating,
+              google_review_count: data.googleReviewCount,
+              google_maps_url: data.googleMapsUrl,
+              hired_broker: data.hiredBroker,
             });
           }}
         />

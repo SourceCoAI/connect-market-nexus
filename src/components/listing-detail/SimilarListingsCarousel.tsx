@@ -1,7 +1,6 @@
 import { useSimilarListings } from '@/hooks/use-similar-listings';
 import { Listing } from '@/types';
 import { Link } from 'react-router-dom';
-import { formatCurrency } from '@/lib/currency-utils';
 import { getListingImage } from '@/lib/listing-image-utils';
 import { stateToRegion } from '@/lib/deal-to-listing-anonymizer';
 import {
@@ -25,7 +24,7 @@ export function SimilarListingsCarousel({ currentListing }: SimilarListingsCarou
         <h2 className="text-xl font-semibold text-foreground">Similar listings</h2>
         <div className="flex gap-3 overflow-hidden">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="min-w-[320px] h-[320px] bg-muted rounded-lg animate-pulse" />
+            <div key={i} className="min-w-[280px] sm:min-w-[320px] h-[320px] bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
       </div>
@@ -50,12 +49,6 @@ export function SimilarListingsCarousel({ currentListing }: SimilarListingsCarou
         <CarouselContent className="-ml-3">
           {similarListings.map((listing) => {
             const image = getListingImage(listing.image_url ?? null, listing.category);
-            const ebitdaMargin = listing.revenue > 0 
-              ? ((Number(listing.ebitda) / Number(listing.revenue)) * 100).toFixed(1)
-              : '0.0';
-            const ebitdaMultiple = listing.ebitda > 0
-              ? (Number(listing.revenue) / Number(listing.ebitda)).toFixed(1)
-              : '0.0';
 
             return (
               <CarouselItem key={listing.id} className="pl-3 md:basis-1/2 lg:basis-1/3">
@@ -93,40 +86,12 @@ export function SimilarListingsCarousel({ currentListing }: SimilarListingsCarou
                         </p>
                       )}
 
-                      {/* Key Metrics */}
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Revenue</p>
-                          <p className="text-sm font-medium text-foreground">
-                            {formatCurrency(Number(listing.revenue))}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">EBITDA</p>
-                          <p className="text-sm font-medium text-foreground">
-                            {formatCurrency(Number(listing.ebitda))}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Multiple</p>
-                          <p className="text-sm font-medium text-foreground">
-                            {ebitdaMultiple}x
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Secondary Info */}
-                      <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
+                      {/* Category & Location */}
+                      <div className="flex items-center justify-between pt-2 border-t border-border text-xs text-muted-foreground">
                         <span className="px-2 py-1 bg-muted rounded">
                           {listing.category}
                         </span>
                         <span>{listing.location ? stateToRegion(listing.location) : listing.location}</span>
-                      </div>
-
-                      {/* EBITDA Margin */}
-                      <div className="text-xs">
-                        <span className="text-muted-foreground">Margin: </span>
-                        <span className="font-medium text-foreground">{ebitdaMargin}%</span>
                       </div>
                     </div>
                   </div>

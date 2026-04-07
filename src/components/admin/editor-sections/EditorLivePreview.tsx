@@ -8,6 +8,7 @@ import ListingCardBadges from '@/components/listing/ListingCardBadges';
 import ListingCardTitle from '@/components/listing/ListingCardTitle';
 import ListingCardFinancials from '@/components/listing/ListingCardFinancials';
 import { RichTextDisplay } from '@/components/ui/rich-text-display';
+import { BusinessDetailsGrid } from '@/components/listing-detail/BusinessDetailsGrid';
 import { formatCurrency } from '@/lib/currency-utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRelatedDeals } from '@/hooks/useDealLandingPage';
@@ -49,6 +50,10 @@ export interface EditorPreviewFormValues {
   geographic_states?: string[];
   services?: string[];
   number_of_locations?: number;
+  customer_types?: string | null;
+  revenue_model?: string | null;
+  business_model?: string | null;
+  growth_trajectory?: string | null;
   presented_by_admin_id?: string | null;
   deal_identifier?: string | null;
 }
@@ -309,24 +314,31 @@ function FullListingPreview({ formValues, imagePreview }: EditorLivePreviewProps
           </p>
         </div>
 
-        {/* Financial Grid */}
-        <div className="grid grid-cols-3 gap-8 border-b border-border/30 pb-4 mb-6">
+        {/* Financial Grid — gated: buyers see this only after connection approval */}
+        <div className="relative">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Visible after connection approval only</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 border-b border-border/30 pb-4 mb-6 opacity-80">
           {[
             {
               label: `${new Date().getFullYear() - 1} Revenue`,
               value: formatCurrency(revenue),
-              subtitle: formValues.categories?.[0] || '',
+              subtitle: formValues.revenue_metric_subtitle || formValues.categories?.[0] || '',
             },
             {
               label: 'EBITDA',
               value: formatCurrency(ebitda),
-              subtitle: `~${ebitdaMargin}% margin profile`,
+              subtitle: formValues.ebitda_metric_subtitle || `~${ebitdaMargin}% margin`,
             },
-            {
-              label: 'EBITDA Margin',
-              value: `${ebitdaMargin}%`,
-              subtitle: 'Profitability metric',
-            },
+            // Metric 3
+            ...(formValues.metric_3_type === 'custom' && formValues.metric_3_custom_label
+              ? [{ label: formValues.metric_3_custom_label, value: formValues.metric_3_custom_value || '', subtitle: formValues.metric_3_custom_subtitle || '' }]
+              : ((formValues.full_time_employees || 0) + (formValues.part_time_employees || 0)) > 0
+                ? [{ label: 'Team Size', value: `${(formValues.full_time_employees || 0) + (formValues.part_time_employees || 0)}`, subtitle: `${formValues.full_time_employees || 0} FT, ${formValues.part_time_employees || 0} PT` }]
+                : []),
+            // Metric 4
+            ...(formValues.metric_4_type === 'custom' && formValues.metric_4_custom_label
+              ? [{ label: formValues.metric_4_custom_label, value: formValues.metric_4_custom_value || '', subtitle: formValues.metric_4_custom_subtitle || '' }]
+              : [{ label: 'EBITDA Margin', value: `${ebitdaMargin}%`, subtitle: formValues.metric_4_custom_subtitle || formValues.categories?.[0] || '' }]),
           ].map((metric) => (
             <div key={metric.label} className="space-y-1">
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
@@ -338,7 +350,19 @@ function FullListingPreview({ formValues, imagePreview }: EditorLivePreviewProps
               )}
             </div>
           ))}
+          </div>
         </div>
+
+        {/* Business Details Grid */}
+        <BusinessDetailsGrid
+          geographic_states={formValues.geographic_states}
+          services={formValues.services}
+          number_of_locations={formValues.number_of_locations}
+          customer_types={formValues.customer_types}
+          revenue_model={formValues.revenue_model}
+          business_model={formValues.business_model}
+          growth_trajectory={formValues.growth_trajectory}
+        />
 
         {/* Business Overview */}
         <div className="py-6 border-b border-slate-100">
@@ -426,7 +450,7 @@ function formValuesToLandingPageDeal(
     metric_4_custom_label: formValues.metric_4_custom_label || null,
     metric_4_custom_value: formValues.metric_4_custom_value || null,
     metric_4_custom_subtitle: formValues.metric_4_custom_subtitle || null,
-    executive_summary: null,
+    
     full_time_employees: formValues.full_time_employees || null,
     part_time_employees: formValues.part_time_employees || null,
     status: 'active',
@@ -436,10 +460,10 @@ function formValuesToLandingPageDeal(
     geographic_states: formValues.geographic_states || null,
     services: formValues.services || null,
     number_of_locations: formValues.number_of_locations || null,
-    customer_types: null,
-    revenue_model: null,
-    business_model: null,
-    growth_trajectory: null,
+    customer_types: formValues.customer_types || null,
+    revenue_model: formValues.revenue_model || null,
+    business_model: formValues.business_model || null,
+    growth_trajectory: formValues.growth_trajectory || null,
     featured_deal_ids: null,
   };
 }
@@ -585,7 +609,7 @@ export function EditorLivePreview({ formValues, imagePreview, listingId }: Edito
           <TabsContent value="card" className="mt-0">
             <div className="p-4">
               <p className="text-xs text-muted-foreground mb-3">
-                Marketplace browse view — the tile buyers see when browsing deals.
+                Marketplace browse view. The tile buyers see when browsing deals.
               </p>
               <MarketplaceCardPreview formValues={formValues} imagePreview={imagePreview} />
             </div>
@@ -594,7 +618,7 @@ export function EditorLivePreview({ formValues, imagePreview, listingId }: Edito
           <TabsContent value="full" className="mt-0">
             <div className="p-4">
               <p className="text-xs text-muted-foreground mb-3">
-                Full listing page — what a buyer sees after clicking into the deal from the
+                Full listing page. What a buyer sees after clicking into the deal from the
                 marketplace.
               </p>
               <FullListingPreview formValues={formValues} imagePreview={imagePreview} />
@@ -606,7 +630,7 @@ export function EditorLivePreview({ formValues, imagePreview, listingId }: Edito
               <p className="text-xs text-muted-foreground mb-3 flex items-center gap-2">
                 <Shield className="h-3.5 w-3.5" />
                 <span>
-                  Full landing page preview — exactly how anonymous visitors see this deal at
+                  Full landing page preview. Exactly how anonymous visitors see this deal at
                   /deals/:id, including sidebar, request form, and related deals funnel.
                 </span>
               </p>

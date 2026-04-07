@@ -70,11 +70,13 @@ interface DealRecord {
   technology_systems: string | null;
   real_estate_info: string | null;
   growth_trajectory: string | null;
-  description: string | null;
+  description?: string | null;
   extraction_sources: Record<string, unknown> | null;
   general_notes: string | null;
   created_at: string;
   updated_at: string;
+  // Hired a broker flag
+  hired_broker?: boolean | null;
   // Fields needed by WebsiteActionsCard
   needs_owner_contact?: boolean | null;
   needs_buyer_search?: boolean | null;
@@ -206,6 +208,10 @@ export function OverviewTab({
             deal_total_score: newScore,
           });
         }}
+        hiredBroker={!!deal.hired_broker}
+        onHiredBrokerChange={async (value) => {
+          await updateDealMutation.mutateAsync({ hired_broker: value });
+        }}
         onSave={async (data) => {
           await updateDealMutation.mutateAsync({
             internal_company_name: data.companyName,
@@ -220,6 +226,15 @@ export function OverviewTab({
             address_state: data.addressState,
             address_zip: data.addressZip,
             address_country: data.addressCountry,
+            linkedin_url: data.linkedinUrl,
+            linkedin_employee_count: data.linkedinEmployeeCount,
+            linkedin_employee_range: data.linkedinEmployeeRange,
+            full_time_employees: data.fullTimeEmployees,
+            part_time_employees: data.partTimeEmployees,
+            google_rating: data.googleRating,
+            google_review_count: data.googleReviewCount,
+            google_maps_url: data.googleMapsUrl,
+            hired_broker: data.hiredBroker,
           });
         }}
       />
@@ -315,6 +330,7 @@ export function OverviewTab({
         name={deal.main_contact_name}
         email={deal.main_contact_email}
         phone={deal.main_contact_phone}
+        dealId={dealId}
         onSave={async (data) => {
           await updateDealMutation.mutateAsync({
             main_contact_name: data.name,
@@ -360,16 +376,6 @@ export function OverviewTab({
         }}
       />
 
-      {deal.description && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Description</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground whitespace-pre-wrap">{deal.description}</p>
-          </CardContent>
-        </Card>
-      )}
 
       <DealTranscriptSection
         dealId={dealId}

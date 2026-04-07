@@ -30,9 +30,6 @@ export interface SignupFormData {
   specificBusinessSearch: string;
   targetDealSizeMin: string;
   targetDealSizeMax: string;
-  geographicFocus: string;
-  industryExpertise: string;
-  dealStructurePreference: string;
   portfolioCompanyAddon?: string;
   deployingCapitalNow?: string;
   owningBusinessUnit?: string;
@@ -79,14 +76,13 @@ export const INITIAL_FORM_DATA: SignupFormData = {
   needsLoan: "", idealTarget: "",
   idealTargetDescription: "", businessCategories: [], targetLocations: [],
   revenueRangeMin: "", revenueRangeMax: "", specificBusinessSearch: "",
-  targetDealSizeMin: "", targetDealSizeMax: "", geographicFocus: "",
-  industryExpertise: "", dealStructurePreference: "",
+  targetDealSizeMin: "", targetDealSizeMax: "",
   portfolioCompanyAddon: "", deployingCapitalNow: "", owningBusinessUnit: "",
   dealSizeBand: "", integrationPlan: [], corpdevIntent: "", discretionType: "",
   permanentCapital: false, operatingCompanyTargets: [],
-  committedEquityBand: "", equitySource: [], flexSubxmEbitda: false,
+  committedEquityBand: "", equitySource: [], flexSubxmEbitda: undefined,
   backersSummary: "", deploymentTiming: "", searchType: "", acqEquityBand: "",
-  financingPlan: [], flexSub2mEbitda: false, anchorInvestorsSummary: "",
+  financingPlan: [], flexSub2mEbitda: undefined, anchorInvestorsSummary: "",
   searchStage: "", onBehalfOfBuyer: "", buyerRole: "", buyerOrgUrl: "",
   mandateBlurb: "", ownerIntent: "", ownerTimeline: "", usesBank: "",
   maxEquityToday: "", dealIntent: "", exclusions: [], includeKeywords: [],
@@ -110,5 +106,5 @@ export const BUYER_TYPE_OPTIONS = [
   { value: "individual", label: "Individual Investor", description: "High-net-worth individuals making personal investments" },
   { value: "independentSponsor", label: "Independent Sponsor", description: "Deal-by-deal investment professionals" },
   { value: "advisor", label: "Advisor / Banker", description: "Investment bankers and M&A advisors" },
-  { value: "businessOwner", label: "Business Owner", description: "Current business owners exploring opportunities" },
+  { value: "businessOwner", label: "Business Owner / Operator", description: "Current operators exploring add-on or platform acquisitions" },
 ];

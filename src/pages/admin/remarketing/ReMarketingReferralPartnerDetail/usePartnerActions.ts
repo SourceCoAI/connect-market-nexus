@@ -276,12 +276,17 @@ export function usePartnerActions(
   };
 
   // Bulk archive
-  const handleBulkArchive = async () => {
+  const handleBulkArchive = async (reason?: string) => {
     const ids = confirmAction?.ids || [];
     if (!ids.length) return;
+    const updatePayload: Record<string, unknown> = { status: 'archived' };
+    if (reason) {
+      updatePayload.archive_reason = reason;
+      updatePayload.archived_at = new Date().toISOString();
+    }
     const { error } = await supabase
       .from('listings')
-      .update({ status: 'archived' } as never)
+      .update(updatePayload as never)
       .in('id', ids);
     if (error) toast.error('Failed to archive deals');
     else {

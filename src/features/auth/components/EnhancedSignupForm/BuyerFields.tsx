@@ -284,8 +284,8 @@ export const BuyerFields: React.FC<BuyerFieldsProps> = ({ form, watch, setValue,
           <div className="flex items-center space-x-2">
             <Checkbox
               id="flexSubXmEbitda"
-              checked={watch('flexSubXmEbitda') || false}
-              onCheckedChange={(checked) => setValue('flexSubXmEbitda', checked as boolean)}
+              checked={watch('flexSubXmEbitda') === true}
+              onCheckedChange={(checked) => setValue('flexSubXmEbitda', checked === true)}
             />
             <Label htmlFor="flexSubXmEbitda">Flexible on size? *</Label>
             <p className="text-sm text-muted-foreground">
@@ -377,8 +377,8 @@ export const BuyerFields: React.FC<BuyerFieldsProps> = ({ form, watch, setValue,
           <div className="flex items-center space-x-2">
             <Checkbox
               id="flexSub2mEbitda"
-              checked={watch('flexSub2mEbitda') || false}
-              onCheckedChange={(checked) => setValue('flexSub2mEbitda', checked as boolean)}
+              checked={watch('flexSub2mEbitda') === true}
+              onCheckedChange={(checked) => setValue('flexSub2mEbitda', checked === true)}
             />
             <Label htmlFor="flexSub2mEbitda">Flexible on size? (can pursue less than $2M EBITDA) *</Label>
           </div>
@@ -491,7 +491,7 @@ export const BuyerFields: React.FC<BuyerFieldsProps> = ({ form, watch, setValue,
           </div>
 
           <div>
-            <Label htmlFor="ownerTimeline">Timeline (Optional)</Label>
+            <Label htmlFor="ownerTimeline">Timeline *</Label>
             <Select onValueChange={(value) => setValue('ownerTimeline', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select timeline" />

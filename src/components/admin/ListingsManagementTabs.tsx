@@ -1,17 +1,23 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { ListingsTabContent } from './ListingsTabContent';
 import { ListingForm } from './ListingForm';
 import { AdminListing } from '@/types/admin';
 import { useAdmin } from '@/hooks/use-admin';
+import { useListingTypeCounts } from '@/hooks/admin/listings/use-listings-by-type';
+import { ListingType } from '@/hooks/admin/listings/use-listings-by-type';
 
 const ListingsManagementTabs = () => {
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [editingListing, setEditingListing] = useState<AdminListing | null>(null);
+  const [activeTab, setActiveTab] = useState<ListingType>('ready_to_publish');
 
   const { useCreateListing, useUpdateListing } = useAdmin();
   const { mutateAsync: createListing, isPending: isCreating } = useCreateListing();
   const { mutateAsync: updateListing, isPending: isUpdating } = useUpdateListing();
+  const { data: counts } = useListingTypeCounts();
 
   const handleFormSubmit = async (
     data: Record<string, unknown>,
@@ -64,7 +70,7 @@ const ListingsManagementTabs = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-[1600px] mx-auto px-6 lg:px-10 py-8 space-y-8">
+      <div className="max-w-[1600px] mx-auto px-2 sm:px-6 lg:px-10 py-8 space-y-8">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="space-y-1">
@@ -72,18 +78,65 @@ const ListingsManagementTabs = () => {
               Listings Management
             </h1>
             <p className="text-sm text-muted-foreground">
-              Manage marketplace listings with enterprise-grade tools
+              Review, publish, and manage marketplace listings
             </p>
           </div>
-          {/* Listings are created from the Marketplace Queue */}
         </div>
 
-        {/* Marketplace Listings */}
-        <ListingsTabContent
-          type="marketplace"
-          onEdit={setEditingListing}
-          onCreateNew={() => setIsCreateFormOpen(true)}
-        />
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ListingType)}>
+          <TabsList>
+            <TabsTrigger value="ready_to_publish" className="gap-2">
+              <span className="sm:hidden">Ready</span>
+              <span className="hidden sm:inline">Ready to Publish</span>
+              {counts && (
+                <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+                  {counts.ready_to_publish || 0}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="live" className="gap-2">
+              <span className="sm:hidden">Live</span>
+              <span className="hidden sm:inline">Live on Marketplace</span>
+              {counts && (
+                <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+                  {counts.live || 0}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="internal" className="gap-2">
+              <span className="sm:hidden">Internal</span>
+              <span className="hidden sm:inline">All Internal</span>
+              {counts && (
+                <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+                  {counts.internal || 0}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="ready_to_publish">
+            <ListingsTabContent
+              type="ready_to_publish"
+              onEdit={setEditingListing}
+              onCreateNew={() => setIsCreateFormOpen(true)}
+            />
+          </TabsContent>
+          <TabsContent value="live">
+            <ListingsTabContent
+              type="live"
+              onEdit={setEditingListing}
+              onCreateNew={() => setIsCreateFormOpen(true)}
+            />
+          </TabsContent>
+          <TabsContent value="internal">
+            <ListingsTabContent
+              type="internal"
+              onEdit={setEditingListing}
+              onCreateNew={() => setIsCreateFormOpen(true)}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

@@ -1,69 +1,106 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Building2, Star, Target, Calculator } from "lucide-react";
+import { Card, CardContent } from '@/components/ui/card';
+import { Building2, Star, Target, Calculator } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+type KpiFilter = 'priority' | 'needs_scoring' | null;
 
 interface DealsKPICardsProps {
   totalDeals: number;
   priorityDeals: number;
   avgScore: number;
   needsScoring: number;
+  activeFilter?: KpiFilter;
+  onCardClick?: (filter: KpiFilter) => void;
 }
 
-export const DealsKPICards = ({ totalDeals, priorityDeals, avgScore, needsScoring }: DealsKPICardsProps) => (
-  <div className="grid grid-cols-4 gap-4">
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <Building2 className="h-5 w-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Total Deals</p>
-            <p className="text-2xl font-bold">{totalDeals}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+export const DealsKPICards = ({
+  totalDeals,
+  priorityDeals,
+  avgScore,
+  needsScoring,
+  activeFilter,
+  onCardClick,
+}: DealsKPICardsProps) => {
+  const clickable = !!onCardClick;
 
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-amber-100 rounded-lg">
-            <Star className="h-5 w-5 text-amber-600" />
+  return (
+    <div className="grid grid-cols-4 gap-4">
+      <Card
+        className={cn(
+          clickable && 'cursor-pointer transition-shadow hover:shadow-md',
+          activeFilter === null && clickable && 'ring-2 ring-blue-500',
+        )}
+        onClick={() => onCardClick?.(activeFilter === null ? null : null)}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Building2 className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total Deals</p>
+              <p className="text-2xl font-bold">{totalDeals}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Priority Deals</p>
-            <p className="text-2xl font-bold text-amber-600">{priorityDeals}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
 
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-amber-100 rounded-lg">
-            <Target className="h-5 w-5 text-amber-600" />
+      <Card
+        className={cn(
+          clickable && 'cursor-pointer transition-shadow hover:shadow-md',
+          activeFilter === 'priority' && 'ring-2 ring-amber-500',
+        )}
+        onClick={() => onCardClick?.(activeFilter === 'priority' ? null : 'priority')}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 rounded-lg">
+              <Star className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Priority Deals</p>
+              <p className="text-2xl font-bold text-amber-600">{priorityDeals}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Avg Quality Score</p>
-            <p className="text-2xl font-bold">{avgScore}<span className="text-base font-normal text-muted-foreground">/100</span></p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
 
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-orange-100 rounded-lg">
-            <Calculator className="h-5 w-5 text-orange-600" />
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 rounded-lg">
+              <Target className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Avg Quality Score</p>
+              <p className="text-2xl font-bold">
+                {avgScore}
+                <span className="text-base font-normal text-muted-foreground">/100</span>
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Needs Scoring</p>
-            <p className="text-2xl font-bold text-orange-600">{needsScoring}</p>
+        </CardContent>
+      </Card>
+
+      <Card
+        className={cn(
+          clickable && 'cursor-pointer transition-shadow hover:shadow-md',
+          activeFilter === 'needs_scoring' && 'ring-2 ring-orange-500',
+        )}
+        onClick={() => onCardClick?.(activeFilter === 'needs_scoring' ? null : 'needs_scoring')}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <Calculator className="h-5 w-5 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Needs Scoring</p>
+              <p className="text-2xl font-bold text-orange-600">{needsScoring}</p>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-);
+        </CardContent>
+      </Card>
+    </div>
+  );
+};

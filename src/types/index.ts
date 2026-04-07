@@ -42,7 +42,7 @@ export type ListingStatus = 'active' | 'inactive';
  * Simplified connection request status for marketplace-facing code.
  * The canonical 5-value type is ConnectionRequestStatus from status-enums.ts.
  */
-export type ConnectionRequestStatus = 'pending' | 'approved' | 'rejected';
+export type ConnectionRequestStatus = 'pending' | 'approved' | 'rejected' | 'on_hold';
 
 /** Severity levels used by the error handling subsystem. */
 export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';

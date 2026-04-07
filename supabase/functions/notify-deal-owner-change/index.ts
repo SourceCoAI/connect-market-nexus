@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import React from 'react';
 import { renderAsync } from '@react-email/components';
 import { DealOwnerChangeEmail } from './_templates/deal-owner-change-email.tsx';
-import { sendViaBervo } from '../_shared/brevo-sender.ts';
+import { sendEmail } from '../_shared/email-sender.ts';
 
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 
@@ -22,30 +22,18 @@ interface DealOwnerChangeRequest {
 
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
-
-  if (req.method === 'OPTIONS') {
-    return corsPreflightResponse(req);
-  }
+  if (req.method === 'OPTIONS') return corsPreflightResponse(req);
 
   try {
     const {
-      dealId,
-      dealTitle,
-      previousOwnerId,
-      previousOwnerName,
-      modifyingAdminId,
-      modifyingAdminName,
-      oldStageName,
-      newStageName,
-      listingTitle,
-      companyName,
+      dealId, dealTitle, previousOwnerId, previousOwnerName, modifyingAdminId,
+      modifyingAdminName, oldStageName, newStageName, listingTitle, companyName,
     }: DealOwnerChangeRequest = await req.json();
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get previous owner's email
     const { data: previousOwner, error: ownerError } = await supabase
       .from('profiles')
       .select('email, first_name, last_name')
@@ -54,28 +42,17 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (ownerError || !previousOwner) {
       console.error('Previous owner not found:', previousOwnerId);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Previous owner not found',
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+      return new Response(JSON.stringify({ success: false, message: 'Previous owner not found' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Use companyName passed from frontend, fallback to listingTitle
     const displayCompanyName = companyName || listingTitle || null;
 
-    // Get modifying admin's email
     const { data: modifyingAdmin } = await supabase
-      .from('profiles')
-      .select('email')
-      .eq('id', modifyingAdminId)
-      .single();
+      .from('profiles').select('email').eq('id', modifyingAdminId).single();
 
     const subject = `Deal Modified: ${displayCompanyName || dealTitle}`;
 
-    // Render React Email template
     const htmlContent = await renderAsync(
       React.createElement(DealOwnerChangeEmail, {
         previousOwnerName,
@@ -90,44 +67,30 @@ const handler = async (req: Request): Promise<Response> => {
       }),
     );
 
-    // Send email via shared Brevo sender
     console.log('Sending deal owner change notification to:', previousOwner.email);
 
-    const emailResult = await sendViaBervo({
+    const emailResult = await sendEmail({
+      templateName: 'deal_owner_change',
       to: previousOwner.email,
       toName: previousOwnerName,
       subject,
       htmlContent,
+      isTransactional: true,
     });
 
-    if (!emailResult.success) {
-      throw new Error(emailResult.error || 'Failed to send email');
-    }
+    if (!emailResult.success) throw new Error(emailResult.error || 'Failed to send email');
 
-    console.log('Deal owner notification sent successfully:', emailResult.messageId);
+    console.log('Deal owner notification sent successfully:', emailResult.providerMessageId);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message_id: emailResult.messageId,
-        recipient: previousOwner.email,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
+      JSON.stringify({ success: true, message_id: emailResult.providerMessageId, recipient: previousOwner.email }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error: unknown) {
     console.error('Error in notify-deal-owner-change:', error);
-
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-      },
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
   }
 };

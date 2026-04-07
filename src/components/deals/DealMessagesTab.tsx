@@ -3,10 +3,10 @@
  * Quiet luxury palette: #0E101A, #DEC76B, #F0EDE6.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MessageSquare, Send } from 'lucide-react';
+import { MessageSquare, Send, ArrowDown } from 'lucide-react';
 import {
   useConnectionMessages,
   useSendMessage,
@@ -27,10 +27,23 @@ export function DealMessagesTab({ requestId, requestStatus }: DealMessagesTabPro
   const sendMsg = useSendMessage();
   const markRead = useMarkMessagesReadByBuyer();
   const [newMessage, setNewMessage] = useState('');
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const canSend = requestStatus !== 'rejected';
   const isRejected = requestStatus === 'rejected';
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowScrollBtn(distFromBottom > 100);
+  }, []);
 
   useEffect(() => {
     if (requestId && messages.some((m) => !m.is_read_by_buyer && m.sender_role === 'admin')) {
@@ -40,8 +53,12 @@ export function DealMessagesTab({ requestId, requestStatus }: DealMessagesTabPro
   }, [requestId, messages.length]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    // Auto-scroll only if user is near bottom
+    const el = scrollContainerRef.current;
+    if (!el) { scrollToBottom(); return; }
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distFromBottom < 150) scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const handleSend = () => {
     if (!newMessage.trim() || !canSend) return;
@@ -72,7 +89,7 @@ export function DealMessagesTab({ requestId, requestStatus }: DealMessagesTabPro
       )}
 
       {/* Message thread */}
-      <div className="min-h-[300px] max-h-[500px] overflow-y-auto px-5 py-4 space-y-3 flex-1 bg-[#FAFAF8]">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="relative min-h-[200px] sm:min-h-[300px] max-h-[350px] sm:max-h-[500px] overflow-y-auto px-5 py-4 space-y-3 flex-1 bg-[#FAFAF8]">
         {messagesLoading ? (
           <div className="space-y-3 py-4">
             <div className="flex justify-start">
@@ -129,6 +146,15 @@ export function DealMessagesTab({ requestId, requestStatus }: DealMessagesTabPro
           })
         )}
         <div ref={messagesEndRef} />
+        {showScrollBtn && (
+          <button
+            onClick={scrollToBottom}
+            className="sticky bottom-2 left-1/2 -translate-x-1/2 z-10 bg-[#0E101A] text-white rounded-full p-2 shadow-lg hover:bg-[#0E101A]/85 transition-colors"
+            aria-label="Scroll to latest messages"
+          >
+            <ArrowDown className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Compose bar */}

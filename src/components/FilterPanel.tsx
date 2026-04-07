@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState, useEffect, useRef } from "react";
 import { FilterOptions } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,14 +64,26 @@ const FilterPanel = memo(function FilterPanel({
   currentFilters
 }: FilterPanelProps) {
   const { trackSearch } = useAnalyticsTracking();
+  const [localSearch, setLocalSearch] = useState(currentFilters.search);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Sync local search when external filter changes (e.g. reset)
+  useEffect(() => {
+    setLocalSearch(currentFilters.search);
+  }, [currentFilters.search]);
+
+  // Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => clearTimeout(debounceRef.current);
+  }, []);
 
   // Helper function to get current revenue range label
   const getCurrentRevenueRange = () => {
-    if (!currentFilters.revenueMin && !currentFilters.revenueMax) return 'Any';
+    if (currentFilters.revenueMin == null && currentFilters.revenueMax == null) return 'Any';
     const range = REVENUE_RANGES.find(r => {
       if (!r.value) return false;
-      const minMatch = r.value.min === currentFilters.revenueMin || (r.value.min === null && !currentFilters.revenueMin);
-      const maxMatch = r.value.max === currentFilters.revenueMax || (r.value.max === null && !currentFilters.revenueMax);
+      const minMatch = r.value.min === currentFilters.revenueMin || (r.value.min === null && currentFilters.revenueMin == null);
+      const maxMatch = r.value.max === currentFilters.revenueMax || (r.value.max === null && currentFilters.revenueMax == null);
       return minMatch && maxMatch;
     });
     return range?.label || 'Any';
@@ -79,11 +91,11 @@ const FilterPanel = memo(function FilterPanel({
 
   // Helper function to get current EBITDA range label
   const getCurrentEbitdaRange = () => {
-    if (!currentFilters.ebitdaMin && !currentFilters.ebitdaMax) return 'Any';
+    if (currentFilters.ebitdaMin == null && currentFilters.ebitdaMax == null) return 'Any';
     const range = EBITDA_RANGES.find(r => {
       if (!r.value) return false;
-      const minMatch = r.value.min === currentFilters.ebitdaMin || (r.value.min === null && !currentFilters.ebitdaMin);
-      const maxMatch = r.value.max === currentFilters.ebitdaMax || (r.value.max === null && !currentFilters.ebitdaMax);
+      const minMatch = r.value.min === currentFilters.ebitdaMin || (r.value.min === null && currentFilters.ebitdaMin == null);
+      const maxMatch = r.value.max === currentFilters.ebitdaMax || (r.value.max === null && currentFilters.ebitdaMax == null);
       return minMatch && maxMatch;
     });
     return range?.label || 'Any';
@@ -91,14 +103,16 @@ const FilterPanel = memo(function FilterPanel({
 
   const allCategories = STANDARDIZED_CATEGORIES;
 
-  // Helper functions to handle filter changes
+  // Debounced search handler (300ms delay)
   const handleSearchChange = (value: string) => {
-    onFilterChange({ search: value });
-    
-    // Track search analytics when search term is used
-    if (value.trim()) {
-      trackSearch(value, { search: value, category: currentFilters.category, location: currentFilters.location }, filteredCount, filteredCount === 0);
-    }
+    setLocalSearch(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onFilterChange({ search: value });
+      if (value.trim()) {
+        trackSearch(value, { search: value, category: currentFilters.category, location: currentFilters.location }, filteredCount, filteredCount === 0);
+      }
+    }, 300);
   };
 
   const handleCategoryChange = (value: string) => {
@@ -113,8 +127,8 @@ const FilterPanel = memo(function FilterPanel({
     const range = REVENUE_RANGES.find(r => r.label === rangeLabel);
     if (range?.value) {
       onFilterChange({ 
-        revenueMin: range.value.min || undefined, 
-        revenueMax: range.value.max || undefined 
+        revenueMin: range.value.min ?? undefined, 
+        revenueMax: range.value.max ?? undefined 
       });
     } else {
       onFilterChange({ revenueMin: undefined, revenueMax: undefined });
@@ -125,8 +139,8 @@ const FilterPanel = memo(function FilterPanel({
     const range = EBITDA_RANGES.find(r => r.label === rangeLabel);
     if (range?.value) {
       onFilterChange({ 
-        ebitdaMin: range.value.min || undefined, 
-        ebitdaMax: range.value.max || undefined 
+        ebitdaMin: range.value.min ?? undefined, 
+        ebitdaMax: range.value.max ?? undefined 
       });
     } else {
       onFilterChange({ ebitdaMin: undefined, ebitdaMax: undefined });
@@ -152,7 +166,7 @@ const FilterPanel = memo(function FilterPanel({
           <Input
             id="search"
             placeholder="Search listings..."
-            value={currentFilters.search}
+            value={localSearch}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
         </div>

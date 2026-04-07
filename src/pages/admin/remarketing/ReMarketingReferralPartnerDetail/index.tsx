@@ -58,6 +58,7 @@ import type { DealForList } from '@/components/remarketing';
 import { SubmissionReviewQueue } from '@/components/remarketing/SubmissionReviewQueue';
 import { EnrichmentProgressIndicator } from '@/components/remarketing/EnrichmentProgressIndicator';
 import { SingleDealEnrichmentDialog } from '@/components/remarketing/SingleDealEnrichmentDialog';
+import { ArchiveDealDialog } from '@/components/admin/deals/ArchiveDealDialog';
 
 import { FilterBar } from '@/components/filters/FilterBar';
 import { usePartnerData } from './usePartnerData';
@@ -461,7 +462,7 @@ export default function ReMarketingReferralPartnerDetail() {
         <AddPartnerDialog
           open={actions.editDialogOpen}
           onOpenChange={actions.setEditDialogOpen}
-          editingPartner={partner}
+          editingPartner={partner ? { ...partner, partner_type: partner.partner_type ?? undefined } as any : undefined}
         />
         <AddDealDialog
           open={actions.addDealOpen}
@@ -483,39 +484,44 @@ export default function ReMarketingReferralPartnerDetail() {
         />
 
         <AlertDialog
-          open={!!actions.confirmAction}
+          open={actions.confirmAction?.type === 'delete'}
           onOpenChange={(open) => !open && actions.setConfirmAction(null)}
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>
-                {actions.confirmAction?.type === 'delete' ? 'Delete Deals' : 'Archive Deals'}
-              </AlertDialogTitle>
+              <AlertDialogTitle>Delete Deals</AlertDialogTitle>
               <AlertDialogDescription>
-                {actions.confirmAction?.type === 'delete'
-                  ? `This will permanently delete ${actions.confirmAction.ids.length} deal(s) and all associated data. This cannot be undone.`
-                  : `This will archive ${actions.confirmAction?.ids.length} deal(s).`}
+                {`This will permanently delete ${actions.confirmAction?.ids.length ?? 0} deal(s) and all associated data. This cannot be undone.`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                onClick={
-                  actions.confirmAction?.type === 'delete'
-                    ? actions.handleBulkDelete
-                    : actions.handleBulkArchive
-                }
-                className={
-                  actions.confirmAction?.type === 'delete'
-                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-                    : ''
-                }
+                onClick={actions.handleBulkDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {actions.confirmAction?.type === 'delete' ? 'Delete' : 'Archive'}
+                Delete
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        <ArchiveDealDialog
+          open={actions.confirmAction?.type === 'archive'}
+          onOpenChange={(open) => { if (!open) actions.setConfirmAction(null); }}
+          deal={
+            actions.confirmAction?.type === 'archive'
+              ? {
+                  id: actions.confirmAction.ids[0],
+                  name: data.deals?.find((d) => d.id === actions.confirmAction!.ids[0])?.internal_company_name
+                    || data.deals?.find((d) => d.id === actions.confirmAction!.ids[0])?.title
+                    || 'Unknown Deal',
+                }
+              : null
+          }
+          onConfirmArchive={async (reason) => {
+            await actions.handleBulkArchive(reason);
+          }}
+        />
         <PushToDialerModal
           open={dialerOpen}
           onOpenChange={setDialerOpen}

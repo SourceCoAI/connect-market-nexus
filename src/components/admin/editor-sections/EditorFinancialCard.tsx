@@ -6,12 +6,11 @@ import { EDITOR_DESIGN } from '@/lib/editor-design-system';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { NumericInput } from '@/components/ui/numeric-input';
 
 interface EditorFinancialCardProps {
   form: UseFormReturn<any>;
-  /** When true, financial fields are locked because they're inherited from the source deal. */
   isReadOnly?: boolean;
-  /** The source deal ID — used to link to the deal for editing financials. */
   sourceDealId?: string | null;
 }
 
@@ -20,6 +19,9 @@ export function EditorFinancialCard({ form, isReadOnly = false, sourceDealId }: 
   const revenue = form.watch('revenue') || 0;
   const ebitda = form.watch('ebitda') || 0;
   const calculatedMargin = revenue > 0 ? ((ebitda / revenue) * 100).toFixed(1) : '0.0';
+
+  const metric3Type = form.watch('metric_3_type') || 'employees';
+  const metric4Type = form.watch('metric_4_type') || 'ebitda_margin';
 
   return (
     <div
@@ -35,12 +37,12 @@ export function EditorFinancialCard({ form, isReadOnly = false, sourceDealId }: 
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between mb-4"
       >
-        <span className={EDITOR_DESIGN.microHeader}>Financial</span>
+        <span className={EDITOR_DESIGN.microHeader}>Financial & Metrics</span>
         <ChevronDown className={cn("h-4 w-4 text-foreground/60 transition-transform", !isOpen && "-rotate-90")} />
       </button>
 
       {isOpen && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {isReadOnly && (
             <div className="flex items-center justify-between gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-1.5">
               <div className="flex items-center gap-2">
@@ -64,6 +66,7 @@ export function EditorFinancialCard({ form, isReadOnly = false, sourceDealId }: 
               )}
             </div>
           )}
+
           {/* Revenue */}
           <div className={EDITOR_DESIGN.compactFieldSpacing}>
             <div className={EDITOR_DESIGN.microLabel}>Revenue</div>
@@ -96,7 +99,7 @@ export function EditorFinancialCard({ form, isReadOnly = false, sourceDealId }: 
               )}
             />
             <input
-              placeholder="Subtitle"
+              placeholder="Subtitle (e.g. category name)"
               {...form.register('revenue_metric_subtitle')}
               className={cn(
                 EDITOR_DESIGN.microHeight,
@@ -138,7 +141,7 @@ export function EditorFinancialCard({ form, isReadOnly = false, sourceDealId }: 
             />
             <div className="flex items-center gap-2">
               <input
-                placeholder="Subtitle"
+                placeholder="Subtitle (e.g. margin info)"
                 {...form.register('ebitda_metric_subtitle')}
                 className={cn(
                   EDITOR_DESIGN.microHeight,
@@ -149,6 +152,163 @@ export function EditorFinancialCard({ form, isReadOnly = false, sourceDealId }: 
                 {calculatedMargin}%
               </span>
             </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-border/40 pt-3">
+            <div className={cn(EDITOR_DESIGN.microLabel, 'mb-2')}>Display Metrics (3 &amp; 4)</div>
+          </div>
+
+          {/* Metric 3 */}
+          <div className={EDITOR_DESIGN.compactFieldSpacing}>
+            <div className="flex items-center gap-2 mb-1">
+              <div className={cn(EDITOR_DESIGN.microLabel, 'mb-0')}>Metric 3</div>
+              <div className="flex rounded border border-border/60 overflow-hidden text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => form.setValue('metric_3_type', 'employees')}
+                  className={cn(
+                    'px-2 py-0.5 transition-colors',
+                    metric3Type !== 'custom' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
+                  )}
+                >
+                  Team Size
+                </button>
+                <button
+                  type="button"
+                  onClick={() => form.setValue('metric_3_type', 'custom')}
+                  className={cn(
+                    'px-2 py-0.5 transition-colors',
+                    metric3Type === 'custom' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
+                  )}
+                >
+                  Custom
+                </button>
+              </div>
+            </div>
+
+            {metric3Type !== 'custom' ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-[10px] text-muted-foreground mb-0.5">Full-time</div>
+                  <NumericInput
+                    value={form.watch('full_time_employees') || ''}
+                    onChange={(v) => form.setValue('full_time_employees', v ? parseInt(v) : null)}
+                    placeholder="0"
+                    className={cn(EDITOR_DESIGN.compactHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
+                  />
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground mb-0.5">Part-time</div>
+                  <NumericInput
+                    value={form.watch('part_time_employees') || ''}
+                    onChange={(v) => form.setValue('part_time_employees', v ? parseInt(v) : null)}
+                    placeholder="0"
+                    className={cn(EDITOR_DESIGN.compactHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <input
+                  placeholder="Label (e.g. Locations)"
+                  {...form.register('metric_3_custom_label')}
+                  className={cn(
+                    EDITOR_DESIGN.compactHeight,
+                    "w-full text-sm bg-background border border-border/60 rounded px-2 placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  )}
+                />
+                <input
+                  placeholder="Value (e.g. 12)"
+                  {...form.register('metric_3_custom_value')}
+                  className={cn(
+                    EDITOR_DESIGN.compactHeight,
+                    "w-full text-sm bg-background border border-border/60 rounded px-2 placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  )}
+                />
+                <input
+                  placeholder="Subtitle (optional)"
+                  {...form.register('metric_3_custom_subtitle')}
+                  className={cn(
+                    EDITOR_DESIGN.microHeight,
+                    "w-full text-xs bg-transparent border-0 border-b border-dashed border-border/70 px-0 placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50"
+                  )}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Metric 4 */}
+          <div className={EDITOR_DESIGN.compactFieldSpacing}>
+            <div className="flex items-center gap-2 mb-1">
+              <div className={cn(EDITOR_DESIGN.microLabel, 'mb-0')}>Metric 4</div>
+              <div className="flex rounded border border-border/60 overflow-hidden text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => form.setValue('metric_4_type', 'ebitda_margin')}
+                  className={cn(
+                    'px-2 py-0.5 transition-colors',
+                    metric4Type !== 'custom' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
+                  )}
+                >
+                  EBITDA Margin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => form.setValue('metric_4_type', 'custom')}
+                  className={cn(
+                    'px-2 py-0.5 transition-colors',
+                    metric4Type === 'custom' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
+                  )}
+                >
+                  Custom
+                </button>
+              </div>
+            </div>
+
+            {metric4Type !== 'custom' ? (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium tabular-nums">{calculatedMargin}%</span>
+                  <span className="text-xs text-muted-foreground">(auto-calculated)</span>
+                </div>
+                <input
+                  placeholder="Subtitle (optional)"
+                  {...form.register('metric_4_custom_subtitle')}
+                  className={cn(
+                    EDITOR_DESIGN.microHeight,
+                    "w-full text-xs bg-transparent border-0 border-b border-dashed border-border/70 px-0 placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50"
+                  )}
+                />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <input
+                  placeholder="Label (e.g. Growth Rate)"
+                  {...form.register('metric_4_custom_label')}
+                  className={cn(
+                    EDITOR_DESIGN.compactHeight,
+                    "w-full text-sm bg-background border border-border/60 rounded px-2 placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  )}
+                />
+                <input
+                  placeholder="Value (e.g. 15%)"
+                  {...form.register('metric_4_custom_value')}
+                  className={cn(
+                    EDITOR_DESIGN.compactHeight,
+                    "w-full text-sm bg-background border border-border/60 rounded px-2 placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  )}
+                />
+                <input
+                  placeholder="Subtitle (optional)"
+                  {...form.register('metric_4_custom_subtitle')}
+                  className={cn(
+                    EDITOR_DESIGN.microHeight,
+                    "w-full text-xs bg-transparent border-0 border-b border-dashed border-border/70 px-0 placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50"
+                  )}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

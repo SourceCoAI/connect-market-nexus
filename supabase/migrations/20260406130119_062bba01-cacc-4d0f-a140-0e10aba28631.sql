@@ -1,0 +1,1 @@
+UPDATE listings SET status = 'active', is_internal_deal = false WHERE id = 'c0718940-06aa-4598-97a8-574501a6595d';

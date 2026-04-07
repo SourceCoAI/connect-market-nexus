@@ -1,43 +1,32 @@
 
 
-# Plan: Fix Edge Function Build Errors & Deploy All
+# Differentiate Unapproved Users in Document Tracking Pending Queue
 
-The build errors are all TypeScript type-safety issues across 5 edge functions. Once fixed, all functions can be deployed.
+## Problem
 
-## Errors & Fixes
+When a user requests documents from the Pending Approval screen (before being approved), the request appears in the admin Document Tracking "Pending Requests" queue identically to requests from approved users. Admins have no way to tell whether the requester is still pending approval or already approved.
 
-### 1. `auto-create-firm-on-approval/index.ts` (1 error)
-**Problem:** `SupabaseClient` type mismatch when passing to `requireAdmin()` — caused by mismatched `@supabase/supabase-js` import versions between `_shared/auth.ts` (uses `@2`) and this file.
-**Fix:** Align the import to use the same specifier: `https://esm.sh/@supabase/supabase-js@2` (not a pinned patch like `@2.49.4`). Alternatively, cast the client with `as any` in the call.
+## Solution
 
-### 2. `bulk-import-remarketing/index.ts` (2 errors)
-**Problem:** `ImportData` interface doesn't have an index signature, so `data[field]` where `field` is `string` fails.
-**Fix:** Add `[key: string]: unknown;` index signature to the `ImportData` interface, or cast `data as Record<string, unknown>` in the validation loop.
+Add a small "Pending Approval" badge next to the user's name in the Pending Request queue rows when the requesting user's `approval_status` is not `approved`.
 
-### 3. `calculate-deal-quality/index.ts` (24 errors)
-**Problem:** The `calculateScoresFromData` function parameter is typed as `Record<string, unknown>`, so all property accesses like `.toLowerCase()`, `.join()`, and comparisons like `>= 500` fail because values are `unknown`/`{}`.
-**Fix:**
-- Define a `DealRecord` interface with typed fields (e.g., `google_review_count: number`, `address_city: string`, etc.) and use it as the parameter type.
-- Type `listingsToScore` as `DealRecord[]` instead of implicit `unknown[]`.
+## Changes
 
-### 4. `clarify-industry/index.ts` (1 error)
-**Problem:** `result.data?.questions` resolves to `{}` instead of an array, so assignment to `ClarifyQuestion[]` fails.
-**Fix:** Cast: `(result.data?.questions as ClarifyQuestion[]) || []`.
+### File: `src/pages/admin/DocumentTrackingPage.tsx`
 
-### 5. `confirm-agreement-signed/index.ts` (3 errors)
-**Problem:** Dynamic column access via `firm[signedCol]` and `docData?.[docUrlCol]` fails because the `.select()` with template literals returns a union type.
-**Fix:** Cast `firm` and `docData` to `Record<string, unknown>` or use `as any` for dynamic access.
+1. **Extend `usePendingRequestQueue` query**: After fetching pending requests, do a secondary lookup on `profiles` for all unique `user_id` values to get their `approval_status`. Return this as a map alongside the requests.
 
-## After Fixes
-Deploy all edge functions using the deployment tool.
+2. **Extend `PendingRequest` interface or pass approval map**: Add an `approval_status` field resolved from the profiles lookup.
 
-## Summary of Changes
+3. **Update `PendingRequestRow` component**: When `approval_status !== 'approved'`, render a small orange/amber badge: `⏳ Pending Approval` next to the user's name. This gives admins immediate context — the user hasn't been approved yet, so documents shouldn't necessarily be sent until approval happens.
+
+### Implementation Detail
+
+In `usePendingRequestQueue`, after fetching document_requests, extract unique `user_id` values, query `profiles` for `id, approval_status`, and merge the status back into each request object. The badge renders inline next to the name/email, styled consistently with existing badges (small, amber).
+
+## Files Changed
+
 | File | Change |
 |------|--------|
-| `bulk-import-remarketing/index.ts` | Add index signature to `ImportData` |
-| `calculate-deal-quality/index.ts` | Add `DealRecord` interface, type arrays and function params |
-| `clarify-industry/index.ts` | Cast `result.data?.questions` to array |
-| `confirm-agreement-signed/index.ts` | Cast dynamic column access |
-| `auto-create-firm-on-approval/index.ts` | Align supabase-js import version |
-| Deploy all ~148 functions | After fixes pass |
+| `src/pages/admin/DocumentTrackingPage.tsx` | Fetch user approval status in pending queue query; show "Pending Approval" badge on unapproved user rows |
 

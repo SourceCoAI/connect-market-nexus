@@ -19,55 +19,25 @@ const OnboardingPopup = ({ isOpen, onClose, userId }: OnboardingPopupProps) => {
     setIsCompleting(true);
 
     try {
-      // First check if user exists and their current onboarding status
-
-      const { data: existingProfile, error: checkError } = await supabase
-        .from('profiles')
-        .select('id, onboarding_completed')
-        .eq('id', userId)
-        .single();
-
-      if (checkError) {
-        // If user not found, they might not be properly authenticated
-        if (checkError.code === 'PGRST116') {
-          toast({
-            variant: 'destructive',
-            title: 'Authentication Error',
-            description: 'Please try logging out and logging back in.',
-          });
-        } else {
-          toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Failed to check your profile. Please try again.',
-          });
-        }
-        setIsCompleting(false);
-        return;
-      }
-
-      // If already completed, just close the popup without further action
-      if (existingProfile.onboarding_completed) {
-        onClose();
-        return;
-      }
-
-      // Update onboarding status
+      // Single UPDATE call — returns empty if user not found or already completed
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ onboarding_completed: true })
-        .eq('id', userId);
+        .eq('id', userId)
+        .eq('onboarding_completed', false);
 
       if (updateError) {
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: 'Failed to complete onboarding. Please try again.',
+          description: 'Failed to save your onboarding status. Please try again.',
         });
+        // Fallback: mark in localStorage so popup doesn't loop forever
+        localStorage.setItem('onboarding_completed', 'true');
         setIsCompleting(false);
+        onClose();
         return;
       }
-
       // Show success message
       toast({
         title: "You're in.",

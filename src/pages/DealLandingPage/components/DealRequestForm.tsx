@@ -286,9 +286,10 @@ export default function DealRequestForm({ listingId, dealTitle: _dealTitle }: De
           <label style={labelStyle}>Your Interest or Mandate *</label>
           <textarea
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(e) => setMessage(e.target.value.slice(0, 2000))}
             placeholder="Briefly describe your acquisition criteria or interest in this deal..."
             required
+            maxLength={2000}
             style={{
               ...inputStyle,
               resize: 'vertical' as const,
@@ -296,6 +297,9 @@ export default function DealRequestForm({ listingId, dealTitle: _dealTitle }: De
             }}
             className="focus:!border-[#1A1714] focus:!bg-[#FDFCFA]"
           />
+          <div style={{ textAlign: 'right', fontSize: 11, color: message.length > 1900 ? '#dc2626' : '#6B6560', marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>
+            {message.length}/2,000
+          </div>
         </div>
 
         {error && (

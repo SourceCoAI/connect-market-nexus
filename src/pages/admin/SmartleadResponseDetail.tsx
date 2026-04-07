@@ -38,7 +38,9 @@ import {
   useLinkInboxToDeal,
 } from '@/hooks/smartlead/use-smartlead-inbox';
 import { CreateDealFromReplyDialog } from '@/components/admin/smartlead/CreateDealFromReplyDialog';
+import { DraftReplyDialog } from '@/components/admin/smartlead/DraftReplyDialog';
 import { supabase } from '@/integrations/supabase/client';
+import { MessageSquareReply } from 'lucide-react';
 
 const CATEGORIES = [
   'meeting_request',
@@ -110,6 +112,7 @@ export default function SmartleadResponseDetail() {
   const recategorize = useRecategorizeInbox();
   const linkToDeal = useLinkInboxToDeal();
   const [showCreateDealDialog, setShowCreateDealDialog] = useState(false);
+  const [showDraftReplyDialog, setShowDraftReplyDialog] = useState(false);
   const [isResolvingDeal, setIsResolvingDeal] = useState(false);
 
   if (isLoading) {
@@ -160,9 +163,7 @@ export default function SmartleadResponseDetail() {
   };
 
   const resolveLinkedDealRoute = async (): Promise<
-    | { kind: 'listing'; id: string }
-    | { kind: 'pipeline'; id: string }
-    | null
+    { kind: 'listing'; id: string } | { kind: 'pipeline'; id: string } | null
   > => {
     const linkedId = item.linked_deal_id ? String(item.linked_deal_id) : '';
 
@@ -338,10 +339,13 @@ export default function SmartleadResponseDetail() {
                 <div className="flex items-center gap-2">
                   <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="font-medium">
-                    {[item.lead_first_name, item.lead_last_name].filter(Boolean).join(' ') || String(item.to_name)}
+                    {[item.lead_first_name, item.lead_last_name].filter(Boolean).join(' ') ||
+                      String(item.to_name)}
                   </span>
                   {item.lead_title && (
-                    <span className="text-xs text-muted-foreground">· {String(item.lead_title)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      · {String(item.lead_title)}
+                    </span>
                   )}
                 </div>
               )}
@@ -349,7 +353,9 @@ export default function SmartleadResponseDetail() {
               {/* Email */}
               <div className="flex items-center gap-2">
                 <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span>{String(item.to_email || item.sl_lead_email || item.from_email || 'Unknown')}</span>
+                <span>
+                  {String(item.to_email || item.sl_lead_email || item.from_email || 'Unknown')}
+                </span>
               </div>
 
               {/* Company */}
@@ -374,7 +380,9 @@ export default function SmartleadResponseDetail() {
                   <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span>{String(item.lead_phone || item.lead_mobile)}</span>
                   {item.lead_phone && item.lead_mobile && item.lead_phone !== item.lead_mobile && (
-                    <span className="text-xs text-muted-foreground">· Mobile: {String(item.lead_mobile)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      · Mobile: {String(item.lead_mobile)}
+                    </span>
                   )}
                 </div>
               )}
@@ -384,7 +392,11 @@ export default function SmartleadResponseDetail() {
                 <div className="flex items-center gap-2">
                   <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <a
-                    href={String(item.lead_website).startsWith('http') ? String(item.lead_website) : `https://${item.lead_website}`}
+                    href={
+                      String(item.lead_website).startsWith('http')
+                        ? String(item.lead_website)
+                        : `https://${item.lead_website}`
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline truncate"
@@ -431,7 +443,9 @@ export default function SmartleadResponseDetail() {
               {item.campaign_name && (
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-xs text-muted-foreground">{String(item.campaign_name)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {String(item.campaign_name)}
+                  </span>
                 </div>
               )}
 
@@ -458,7 +472,9 @@ export default function SmartleadResponseDetail() {
                   <Badge variant="secondary" className="text-xs">
                     Linked to deal
                   </Badge>
-                  <p className="text-xs text-muted-foreground font-mono">{String(item.linked_deal_id)}</p>
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {String(item.linked_deal_id)}
+                  </p>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -492,6 +508,22 @@ export default function SmartleadResponseDetail() {
               )}
             </CardContent>
           </Card>
+
+          {['meeting_request', 'interested', 'question', 'referral'].includes(
+            String(item.manual_category || item.ai_category || ''),
+          ) && (
+            <>
+              <Separator />
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={() => setShowDraftReplyDialog(true)}
+              >
+                <MessageSquareReply className="h-4 w-4" />
+                Draft Reply
+              </Button>
+            </>
+          )}
 
           <Card>
             <CardHeader className="pb-2">
@@ -543,6 +575,18 @@ export default function SmartleadResponseDetail() {
         open={showCreateDealDialog}
         onOpenChange={setShowCreateDealDialog}
         inboxItem={item as unknown as Record<string, unknown>}
+      />
+
+      <DraftReplyDialog
+        open={showDraftReplyDialog}
+        onOpenChange={setShowDraftReplyDialog}
+        inboxItemId={item.id as string}
+        leadName={
+          String(item.lead_first_name || '') +
+            (item.lead_last_name ? ` ${item.lead_last_name}` : '') ||
+          String(item.to_name || item.to_email || '')
+        }
+        category={String(item.manual_category || item.ai_category || '')}
       />
     </div>
   );

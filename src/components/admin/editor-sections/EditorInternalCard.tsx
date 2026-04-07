@@ -17,10 +17,7 @@ import { Label } from '@/components/ui/label';
 import { EDITOR_DESIGN } from '@/lib/editor-design-system';
 import { cn } from '@/lib/utils';
 import { STATUS_TAGS } from '@/constants/statusTags';
-import { ChevronDown, Sparkles, Loader2 } from 'lucide-react';
-import { EnhancedMultiCategorySelect } from '@/components/ui/enhanced-category-select';
-import { EnhancedMultiLocationSelect } from '@/components/ui/enhanced-location-select';
-import { stateToRegion } from '@/lib/deal-to-listing-anonymizer';
+import { ChevronDown, Lock } from 'lucide-react';
 
 interface EditorInternalCardProps {
   form: UseFormReturn<any>;
@@ -36,56 +33,19 @@ const BUYER_TYPES = [
   { value: 'independent_sponsor', label: 'Ind. Sponsor' },
 ] as const;
 
-/**
- * Build an AI-generated listing title from the form's current field values.
- * Uses industry, geography, acquisition type, and financials to create a
- * compelling, anonymized title that avoids generic patterns like
- * "$5M Automotive Repair Platform".
- */
-function generateSmartTitle(form: UseFormReturn<any>): string {
-  const categories: string[] = form.getValues('categories') || [];
-  const location: string | string[] = form.getValues('location') || '';
-  const acquisitionType: string = form.getValues('acquisition_type') || '';
-  const revenue: number = parseFloat(form.getValues('revenue') || '0') || 0;
-  const ebitda: number = parseFloat(form.getValues('ebitda') || '0') || 0;
-
-  const industry = categories[0] || 'Services';
-  const rawState = Array.isArray(location) ? location[0] || '' : location;
-  const region = stateToRegion(rawState);
-  const margin = revenue > 0 && ebitda > 0 ? Math.round((ebitda / revenue) * 100) : 0;
-
-  // Build a descriptive, buyer-appealing title
-  // Avoid leading with dollar amounts — lead with the business narrative
-  const typeLabel = acquisitionType === 'platform' ? 'Platform' : 'Add-on';
-  const marginDescriptor = margin >= 25 ? 'High-Margin' : margin >= 15 ? 'Profitable' : '';
-  const revenueDescriptor =
-    revenue >= 10_000_000 ? 'Scaled' : revenue >= 5_000_000 ? 'Growth-Stage' : '';
-
-  // Pattern: [Margin/Scale Descriptor] [Industry] [Type] — [Region]
-  const descriptors = [marginDescriptor, revenueDescriptor].filter(Boolean);
-  const prefix = descriptors.length > 0 ? descriptors[0] + ' ' : '';
-
-  if (region) {
-    return `${prefix}${industry} ${typeLabel} — ${region}`.trim();
-  }
-  return `${prefix}${industry} ${typeLabel} Opportunity`.trim();
-}
-
 export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardProps) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const { data: sourceCoAdmins, isLoading: loadingAdmins } = useSourceCoAdmins();
   const { user } = useAuthState();
   const visibleToBuyerTypes = form.watch('visible_to_buyer_types') || [];
-  const acquisitionType = form.watch('acquisition_type');
-  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  
 
   // Auto-assign Deal Owner to current admin user if not already set
   useEffect(() => {
     if (!user?.id || !sourceCoAdmins || sourceCoAdmins.length === 0) return;
     const currentOwnerId = form.getValues('primary_owner_id');
-    if (currentOwnerId) return; // Already assigned
+    if (currentOwnerId) return;
 
-    // Check if current user is in the admins list
     const currentAdmin = sourceCoAdmins.find((a) => a.id === user.id);
     if (currentAdmin) {
       form.setValue('primary_owner_id', currentAdmin.id);
@@ -100,16 +60,6 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
     form.setValue('visible_to_buyer_types', updated);
   };
 
-  const handleGenerateTitle = () => {
-    setIsGeneratingTitle(true);
-    // Small delay so the user sees the loading state
-    setTimeout(() => {
-      const title = generateSmartTitle(form);
-      form.setValue('title', title);
-      setIsGeneratingTitle(false);
-    }, 400);
-  };
-
   return (
     <div
       className={cn(
@@ -122,16 +72,21 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between mb-4"
+        className="w-full flex items-center justify-between"
       >
-        <span className={EDITOR_DESIGN.microHeader}>Company Overview</span>
+        <div className="flex items-center gap-1.5">
+          <Lock className="h-3 w-3 text-muted-foreground/60" />
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            Internal (Admin Only)
+          </span>
+        </div>
         <ChevronDown
           className={cn('h-4 w-4 text-foreground/60 transition-transform', !isOpen && '-rotate-90')}
         />
       </button>
 
       {isOpen && (
-        <div className="space-y-3">
+        <div className="space-y-3 mt-4">
           {/* Deal ID */}
           <div className="flex items-baseline justify-between">
             <span className={EDITOR_DESIGN.microLabel}>Deal</span>
@@ -161,7 +116,7 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
             />
           </div>
 
-          {/* Deal Owner (auto-assigned) */}
+          {/* Deal Owner */}
           <div className={EDITOR_DESIGN.microFieldSpacing}>
             <div className="flex items-center gap-1.5">
               <div className={EDITOR_DESIGN.microLabel}>Deal Owner</div>
@@ -220,128 +175,6 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
               placeholder="Salesforce URL"
               {...form.register('internal_salesforce_link')}
               className={cn(EDITOR_DESIGN.miniHeight, 'text-xs font-mono', EDITOR_DESIGN.inputBg)}
-            />
-          </div>
-
-          {/* ── Marketplace Listing Section ── */}
-          <div className={cn('pt-4', EDITOR_DESIGN.subtleDivider)}>
-            <div className={cn(EDITOR_DESIGN.microLabel, 'mb-2 text-primary/80')}>
-              Marketplace Listing
-            </div>
-          </div>
-
-          {/* Title with AI Generate */}
-          <div className={EDITOR_DESIGN.microFieldSpacing}>
-            <div className="flex items-center justify-between">
-              <div className={EDITOR_DESIGN.microLabel}>Title</div>
-              <button
-                type="button"
-                onClick={handleGenerateTitle}
-                disabled={isGeneratingTitle}
-                className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
-              >
-                {isGeneratingTitle ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <Sparkles className="w-3 h-3" />
-                )}
-                {isGeneratingTitle ? 'Generating...' : 'AI Generate'}
-              </button>
-            </div>
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g. Profitable HVAC Platform — South Central"
-                      {...field}
-                      value={field.value || ''}
-                      className={cn(
-                        EDITOR_DESIGN.miniHeight,
-                        'text-sm font-medium',
-                        EDITOR_DESIGN.inputBg,
-                      )}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </div>
-
-          {/* Geography & Type (side by side) */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className={EDITOR_DESIGN.microFieldSpacing}>
-              <div className={EDITOR_DESIGN.microLabel}>Geography</div>
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <EnhancedMultiLocationSelect
-                        value={
-                          Array.isArray(field.value)
-                            ? field.value
-                            : field.value
-                              ? [field.value]
-                              : []
-                        }
-                        onValueChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className={EDITOR_DESIGN.microFieldSpacing}>
-              <div className={EDITOR_DESIGN.microLabel}>Type</div>
-              <div className="inline-flex rounded-md border border-border bg-muted/40 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => form.setValue('acquisition_type', 'platform')}
-                  className={cn(
-                    'px-3 py-1.5 rounded text-sm font-medium transition-all',
-                    acquisitionType === 'platform'
-                      ? 'bg-white text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  Platform
-                </button>
-                <button
-                  type="button"
-                  onClick={() => form.setValue('acquisition_type', 'add_on')}
-                  className={cn(
-                    'px-3 py-1.5 rounded text-sm font-medium transition-all',
-                    acquisitionType === 'add_on'
-                      ? 'bg-white text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  Add-on
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Industry */}
-          <div className={EDITOR_DESIGN.microFieldSpacing}>
-            <div className={EDITOR_DESIGN.microLabel}>Industry</div>
-            <FormField
-              control={form.control}
-              name="categories"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <EnhancedMultiCategorySelect
-                      value={field.value || []}
-                      onValueChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
             />
           </div>
 
@@ -430,10 +263,69 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
                     onCheckedChange={() => handleBuyerTypeToggle(type.value)}
                     className="h-3 w-3"
                   />
-                  <span>{type.label}</span>
+                  {type.label}
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* Contact Info */}
+          <div className={cn('pt-3', EDITOR_DESIGN.subtleDivider)}>
+            <div className={cn(EDITOR_DESIGN.microLabel, 'mb-2')}>Main Contact</div>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                placeholder="First name"
+                {...form.register('main_contact_first_name')}
+                className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
+              />
+              <Input
+                placeholder="Last name"
+                {...form.register('main_contact_last_name')}
+                className={cn(EDITOR_DESIGN.miniHeight, 'text-sm', EDITOR_DESIGN.inputBg)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <Input
+                placeholder="Email"
+                {...form.register('main_contact_email')}
+                className={cn(EDITOR_DESIGN.miniHeight, 'text-xs', EDITOR_DESIGN.inputBg)}
+              />
+              <Input
+                placeholder="Phone"
+                {...form.register('main_contact_phone')}
+                className={cn(EDITOR_DESIGN.miniHeight, 'text-xs', EDITOR_DESIGN.inputBg)}
+              />
+            </div>
+            <Input
+              placeholder="LinkedIn URL"
+              {...form.register('main_contact_linkedin')}
+              className={cn(EDITOR_DESIGN.miniHeight, 'text-xs font-mono mt-2', EDITOR_DESIGN.inputBg)}
+            />
+          </div>
+
+          {/* Internal Notes */}
+          <div className={cn('pt-3', EDITOR_DESIGN.subtleDivider, EDITOR_DESIGN.microFieldSpacing)}>
+            <div className={EDITOR_DESIGN.microLabel}>Internal Notes</div>
+            <FormField
+              control={form.control}
+              name="owner_notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <textarea
+                      placeholder="Admin-only notes about this deal"
+                      {...field}
+                      value={field.value || ''}
+                      rows={3}
+                      className={cn(
+                        'w-full rounded-md border border-input bg-background px-3 py-2 text-sm',
+                        EDITOR_DESIGN.inputBg,
+                      )}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
           </div>
         </div>
       )}

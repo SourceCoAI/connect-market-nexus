@@ -17,17 +17,21 @@ This document provides comprehensive implementation notes for the AI chatbot enh
 ### Phase 1: Critical Fixes (Committed)
 
 #### 1. Transcript Access ✅
+
 **Files:**
+
 - `supabase/functions/chat-buyer-query/index.ts`
 - `supabase/functions/chat-remarketing/index.ts`
 
 **What Was Done:**
+
 - Added parallel fetching of `call_transcripts` and `deal_transcripts`
 - Integrated transcript data into AI context (key quotes, CEO detection, extracted insights)
 - Added transcript-specific response guidelines
 - Transcript previews limited to 500 chars to manage token usage
 
 **Impact:**
+
 - Chatbot can now answer questions about call content
 - Can reference CEO engagement and verbatim quotes
 - No more hallucination of transcript content
@@ -35,13 +39,16 @@ This document provides comprehensive implementation notes for the AI chatbot enh
 ---
 
 #### 2. Deal Breakers & Strategic Context ✅
+
 **File:** `supabase/functions/chat-buyer-query/index.ts`
 
 **What Was Done:**
+
 - Expanded buyer SELECT to include: `deal_breakers`, `strategic_priorities`, `target_industries`, `recent_acquisitions`
 - Added these fields to buyer summaries in AI context
 
 **Impact:**
+
 - Chatbot can explain WHY buyers are poor fits beyond scores
 - References strategic focus and exclusion criteria
 - More nuanced buyer recommendations
@@ -49,17 +56,21 @@ This document provides comprehensive implementation notes for the AI chatbot enh
 ---
 
 #### 3. Security: Remove Hardcoded API Keys ✅
+
 **Files:**
+
 - `src/integrations/supabase/client.ts`
 - `src/components/remarketing/ReMarketingChat.tsx`
 - `src/components/remarketing/DealBuyerChat.tsx`
 
 **What Was Done:**
+
 - Exported `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` from central client
 - Replaced hardcoded keys in chat components
 - Centralized configuration
 
 **Impact:**
+
 - Better security posture
 - Easier environment management
 - Single source of truth for API configuration
@@ -69,11 +80,14 @@ This document provides comprehensive implementation notes for the AI chatbot enh
 ### Phase 2: Long-Term Enhancements (Just Implemented)
 
 #### 4. Data Availability Guardrails ✅
+
 **Files:**
+
 - `supabase/functions/chat-buyer-query/index.ts`
 - `supabase/functions/chat-remarketing/index.ts`
 
 **What Was Done:**
+
 - Added comprehensive "DATA AVAILABILITY & QUALITY GUARDRAILS" section to system prompts
 - Dynamic warnings based on actual data loaded (e.g., transcript availability)
 - Explicit rules for handling missing data
@@ -81,6 +95,7 @@ This document provides comprehensive implementation notes for the AI chatbot enh
 - Data completeness threshold warnings
 
 **Guardrails Include:**
+
 1. **Transcript Availability:** ⚠️ Warns when no transcripts available
 2. **Data Completeness:** Mentions when buyer profile < 50% complete
 3. **Buyer Count Limitation:** Notes when > 100 buyers (only top 100 shown)
@@ -90,6 +105,7 @@ This document provides comprehensive implementation notes for the AI chatbot enh
 7. **Strategic Context:** Checks if strategic_priorities are defined
 
 **Impact:**
+
 - Prevents hallucination of missing data
 - More honest responses about data limitations
 - Better calibrated confidence
@@ -98,9 +114,11 @@ This document provides comprehensive implementation notes for the AI chatbot enh
 ---
 
 #### 5. Debug/Trace Mode ✅
+
 **File:** `supabase/functions/chat-buyer-query/index.ts`
 
 **What Was Done:**
+
 - Added comprehensive logging after data fetch:
   - Timestamp, deal ID, query preview
   - Data loaded counts (buyers, scores, contacts, transcripts)
@@ -112,6 +130,7 @@ This document provides comprehensive implementation notes for the AI chatbot enh
   - Total context size estimate (KB)
 
 **Log Output Example:**
+
 ```json
 {
   "timestamp": "2026-02-07T18:30:00Z",
@@ -135,6 +154,7 @@ This document provides comprehensive implementation notes for the AI chatbot enh
 ```
 
 **Impact:**
+
 - Easy troubleshooting of chatbot issues
 - Visibility into what data is loaded
 - Performance monitoring (context size)
@@ -143,13 +163,16 @@ This document provides comprehensive implementation notes for the AI chatbot enh
 ---
 
 #### 6. Conversation Persistence Infrastructure ✅
+
 **Files:**
+
 - `supabase/migrations/20260207_chat_conversations.sql`
 - `supabase/functions/_shared/chat-persistence.ts`
 
 **What Was Done:**
 
 **Database Schema:**
+
 ```sql
 CREATE TABLE chat_conversations (
   id UUID PRIMARY KEY,
@@ -168,6 +191,7 @@ CREATE TABLE chat_conversations (
 ```
 
 **Helper Functions:**
+
 - `saveConversation()` - Save or update conversation
 - `loadConversation()` - Load conversation(s) by ID or context
 - `archiveConversation()` - Soft delete conversation
@@ -175,10 +199,12 @@ CREATE TABLE chat_conversations (
 - `getConversationStats()` - Get conversation counts by context
 
 **RLS Policies:**
+
 - Users can view/create/update/delete their own conversations
 - Admins have full access
 
 **Impact:**
+
 - Infrastructure ready for conversation persistence
 - Users can resume previous chats
 - Conversation history tracking
@@ -187,9 +213,11 @@ CREATE TABLE chat_conversations (
 ---
 
 #### 7. Tool/Function Calling Framework ✅
+
 **File:** `supabase/functions/_shared/chat-tools.ts`
 
 **What Was Done:**
+
 - Defined 6 AI tools/functions for chatbot use:
   1. `search_transcripts` - Search transcripts by keywords, CEO-only filter
   2. `get_buyer_details` - Get full buyer profile including contacts
@@ -202,6 +230,7 @@ CREATE TABLE chat_conversations (
 - Created unified `executeToolCall()` router
 
 **Tool Definition Example:**
+
 ```typescript
 {
   type: "function",
@@ -222,6 +251,7 @@ CREATE TABLE chat_conversations (
 ```
 
 **Impact:**
+
 - Tools ready for AI to call
 - Enables dynamic data fetching beyond static context
 - **NOT YET INTEGRATED** into streaming chat (see Future Work below)
@@ -234,41 +264,46 @@ CREATE TABLE chat_conversations (
 
 **Challenge:**
 Current chat endpoints use streaming via Lovable AI Gateway (`google/gemini-2.5-flash`). Tool calling requires:
+
 - Non-streaming mode, OR
 - Complex streaming + tool call handling
 
 **Option A: Non-Streaming with Tools (Recommended)**
 
 **Steps:**
+
 1. Import tools and executor:
+
    ```typescript
-   import { chatTools, executeToolCall } from "../_shared/chat-tools.ts";
+   import { chatTools, executeToolCall } from '../_shared/chat-tools.ts';
    ```
 
 2. Switch to non-streaming AI client:
+
    ```typescript
-   import { callGeminiAI } from "../_shared/ai-client.ts";
+   import { callGeminiAI } from '../_shared/ai-client.ts';
 
    const aiResult = await callGeminiAI(conversationMessages, {
      tools: chatTools,
-     maxRetries: 2
+     maxRetries: 2,
    });
    ```
 
 3. Implement tool call loop:
+
    ```typescript
    while (aiResult.toolCall) {
      // Execute tool
      const toolResult = await executeToolCall(
        supabase,
        aiResult.toolCall.name,
-       aiResult.toolCall.arguments
+       aiResult.toolCall.arguments,
      );
 
      // Add tool result to conversation
      conversationMessages.push({
-       role: "tool",
-       content: JSON.stringify(toolResult)
+       role: 'tool',
+       content: JSON.stringify(toolResult),
      });
 
      // Continue conversation
@@ -327,11 +362,13 @@ for await (const event of stream) {
 **Steps:**
 
 1. Add conversation ID state:
+
    ```typescript
    const [conversationId, setConversationId] = useState<string | null>(null);
    ```
 
 2. Save conversation after each message:
+
    ```typescript
    import { saveConversation } from '@/integrations/supabase/chat-persistence';
 
@@ -340,20 +377,21 @@ for await (const event of stream) {
      userId: user.id,
      context: { type: 'deal', dealId: listingId },
      messages: updatedMessages,
-     conversationId: conversationId || undefined
+     conversationId: conversationId || undefined,
    });
 
    if (!conversationId) setConversationId(newId);
    ```
 
 3. Load conversation on mount:
+
    ```typescript
    useEffect(() => {
      const loadExisting = async () => {
        const { conversations } = await loadConversation(supabase, {
          userId: user.id,
          context: { type: 'deal', dealId: listingId },
-         limit: 1
+         limit: 1,
        });
 
        if (conversations && conversations.length > 0) {
@@ -375,6 +413,7 @@ for await (const event of stream) {
    ```
 
 **Server-Side (Already Complete):**
+
 - Migration exists: `20260207_chat_conversations.sql`
 - Helpers exist: `_shared/chat-persistence.ts`
 
@@ -385,6 +424,7 @@ for await (const event of stream) {
 **New Component:** `src/components/remarketing/ConversationHistory.tsx`
 
 **Features:**
+
 - List recent conversations
 - Click to resume conversation
 - Archive/delete conversations
@@ -392,6 +432,7 @@ for await (const event of stream) {
 - Group by context type
 
 **Example:**
+
 ```typescript
 import { getRecentConversations } from '@/integrations/supabase/chat-persistence';
 
@@ -425,6 +466,7 @@ export function ConversationHistory({ onSelectConversation }) {
 ### 4. Implement Rate Limiting & Cost Tracking
 
 **Table Schema:**
+
 ```sql
 CREATE TABLE chat_usage_tracking (
   id UUID PRIMARY KEY,
@@ -453,6 +495,7 @@ CREATE INDEX idx_chat_usage_user_created ON chat_usage_tracking(user_id, created
 
 **Integration:**
 Add after each AI call:
+
 ```typescript
 await supabase.from('chat_usage_tracking').insert({
   user_id: user.id,
@@ -462,7 +505,7 @@ await supabase.from('chat_usage_tracking').insert({
   output_tokens: estimateTokens(aiResponse),
   total_tokens: contextStats.system_prompt_tokens_estimate + estimateTokens(aiResponse),
   endpoint: 'chat-buyer-query',
-  query_preview: query.substring(0, 100)
+  query_preview: query.substring(0, 100),
 });
 ```
 
@@ -471,6 +514,7 @@ await supabase.from('chat_usage_tracking').insert({
 ### 5. Add Feedback & Rating System
 
 **Table Schema:**
+
 ```sql
 CREATE TABLE chat_feedback (
   id UUID PRIMARY KEY,
@@ -489,6 +533,7 @@ CREATE TABLE chat_feedback (
 
 **UI Component:**
 Add to each assistant message:
+
 ```tsx
 <div className="message-actions">
   <Button variant="ghost" size="sm" onClick={() => rateFeedback(messageId, 'helpful')}>
@@ -507,6 +552,7 @@ Add to each assistant message:
 ### Current Context Sizes
 
 **chat-buyer-query:**
+
 - System prompt: ~25-35K characters (~6-9K tokens)
 - 100 buyers in context
 - Up to 5 transcripts with previews
@@ -515,11 +561,12 @@ Add to each assistant message:
 **Recommendations:**
 
 1. **Implement Caching (Gemini 2.0 Context Caching)**
+
    ```typescript
    const cachedContent = await cacheContent({
-     model: "gemini-2.0-flash",
-     contents: [{ role: "system", parts: [{ text: systemPrompt }] }],
-     ttl: 300 // 5 minutes
+     model: 'gemini-2.0-flash',
+     contents: [{ role: 'system', parts: [{ text: systemPrompt }] }],
+     ttl: 300, // 5 minutes
    });
 
    // Use cached content in subsequent requests
@@ -547,20 +594,20 @@ Add to each assistant message:
 **File:** `supabase/functions/chat-buyer-query/index.test.ts`
 
 ```typescript
-import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
+import { assertEquals } from 'https://deno.land/std/testing/asserts.ts';
 
-Deno.test("chat-buyer-query - loads transcripts", async () => {
+Deno.test('chat-buyer-query - loads transcripts', async () => {
   // Mock supabase client
   const mockSupabase = {
     from: (table: string) => ({
       select: () => ({
         eq: () => ({
           order: () => ({
-            limit: () => ({ data: mockTranscripts, error: null })
-          })
-        })
-      })
-    })
+            limit: () => ({ data: mockTranscripts, error: null }),
+          }),
+        }),
+      }),
+    }),
   };
 
   // Test transcript loading logic
@@ -573,6 +620,7 @@ Deno.test("chat-buyer-query - loads transcripts", async () => {
 **File:** `tests/chat-integration.test.ts`
 
 Test scenarios:
+
 1. ✅ Transcript available → AI references transcript
 2. ✅ No transcripts → AI says "no transcript data available"
 3. ✅ Low data completeness → AI mentions data quality
@@ -589,8 +637,8 @@ for (let i = 0; i < 500; i++) {
   promises.push(
     fetch('/functions/v1/chat-buyer-query', {
       method: 'POST',
-      body: JSON.stringify({ listingId, query })
-    })
+      body: JSON.stringify({ listingId, query }),
+    }),
   );
 }
 
@@ -615,6 +663,7 @@ const errorRate = calculateErrorRate(results);
 ### Future Enhancements:
 
 1. **Rate Limiting per User**
+
    ```sql
    -- Add to chat_conversations or usage_tracking
    CREATE INDEX idx_user_hourly_usage ON chat_usage_tracking(user_id, created_at)
@@ -628,10 +677,11 @@ const errorRate = calculateErrorRate(results);
 
 2. **Query Sanitization**
    Already handled by Supabase client, but add explicit checks:
+
    ```typescript
    if (query.length > 1000) {
      return new Response(JSON.stringify({ error: 'Query too long' }), {
-       status: 400
+       status: 400,
      });
    }
    ```
@@ -682,21 +732,25 @@ CHATBOT_IMPLEMENTATION_NOTES.md ✅ (NEW: this file)
 ## 🎯 PRIORITY ROADMAP
 
 ### IMMEDIATE (Next Deploy)
+
 1. ✅ Run migration: `20260207_chat_conversations.sql`
 2. ✅ Test transcript access in production
 3. ✅ Monitor debug logs for data quality issues
 
 ### THIS WEEK
+
 1. 🔲 Integrate conversation persistence into UI
 2. 🔲 Add "New Chat" / "Resume Chat" buttons
 3. 🔲 Create conversation history sidebar
 
 ### THIS MONTH
+
 1. 🔲 Implement tool calling (Option A: non-streaming)
 2. 🔲 Add usage tracking table & queries
 3. 🔲 Implement per-user rate limiting
 
 ### THIS QUARTER
+
 1. 🔲 Add feedback/rating system
 2. 🔲 Implement context caching (Gemini 2.0)
 3. 🔲 Build analytics dashboard for chat usage
@@ -708,6 +762,7 @@ CHATBOT_IMPLEMENTATION_NOTES.md ✅ (NEW: this file)
 ### Database Migrations
 
 **Run in order:**
+
 ```bash
 # 1. Apply conversation persistence schema
 psql $DATABASE_URL -f supabase/migrations/20260207_chat_conversations.sql
@@ -719,8 +774,8 @@ psql $DATABASE_URL -c "\d chat_conversations"
 ### Environment Variables
 
 **Required:**
+
 - ✅ `SUPABASE_SERVICE_ROLE_KEY` (already set)
-- ✅ `LOVABLE_API_KEY` (already set)
 - ✅ `GEMINI_API_KEY` (for ai-client.ts, if used)
 - ⚠️ `ANTHROPIC_API_KEY` (needed if using Claude for tool calling)
 
@@ -748,12 +803,14 @@ npm run build
 
 **Issue:** "No transcripts showing in chat"
 **Solution:**
+
 1. Check if transcripts exist: `SELECT COUNT(*) FROM call_transcripts WHERE listing_id = 'deal-uuid';`
 2. Check debug logs: Search for `[chat-buyer-query] Loaded X call transcripts`
 3. Verify RLS: Service role should bypass, but check if policy changed
 
 **Issue:** "Context too large / token limit exceeded"
 **Solution:**
+
 1. Check debug logs for `context_size_estimate_kb`
 2. If > 100KB, reduce:
    - Buyer count: Change `slice(0, 100)` to `slice(0, 50)`
@@ -762,6 +819,7 @@ npm run build
 
 **Issue:** "Chatbot still hallucinating data"
 **Solution:**
+
 1. Verify guardrails are in system prompt
 2. Check if specific field is in buyer summaries
 3. Add more explicit "NEVER ..." rules to guardrails
@@ -787,6 +845,7 @@ https://supabase.com/docs/guides/auth/row-level-security
 ## ✨ CONCLUSION
 
 The chatbot now has:
+
 - ✅ Full access to transcripts (highest priority data)
 - ✅ Deal breaker and strategic context
 - ✅ Comprehensive data quality guardrails
@@ -795,6 +854,7 @@ The chatbot now has:
 - ✅ Tool definitions ready for future integration
 
 **Next Steps:**
+
 1. Deploy changes to production
 2. Run database migration
 3. Monitor debug logs for data quality

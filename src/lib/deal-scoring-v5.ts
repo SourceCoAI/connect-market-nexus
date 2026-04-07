@@ -354,7 +354,7 @@ export function calculateDealScore(deal: DealInput): DealScoreResult {
     // Baseline floor for deals with some data but no size signals
     if (sizeScore === 0) {
       const hasIndustry = !!(deal.industry || deal.category);
-      const hasDescription = !!(deal.description || deal.executive_summary);
+      const hasDescription = !!deal.executive_summary;
       const hasWebsite = !!deal.website;
       const hasEnrichment = !!deal.enriched_at;
 
@@ -409,7 +409,7 @@ export function calculateDealScore(deal: DealInput): DealScoreResult {
 
   if (locationCount >= 3) marketScore += 2;
 
-  const desc = (deal.description || deal.executive_summary || '').toLowerCase();
+  const desc = (deal.executive_summary || '').toLowerCase();
   const businessModel = (deal.business_model || '').toLowerCase();
   const allText =
     `${deal.category || ''} ${deal.service_mix || ''} ${businessModel} ${desc}`.toLowerCase();

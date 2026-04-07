@@ -171,7 +171,7 @@ export const useRequestConnection = () => {
         toast({
           title: 'Request sent.',
           description:
-            "We'll review your request within 1-2 business days. You'll be notified by email.",
+            "We'll review your request within 1-2 business days. You'll be notified by email. Track your request in My Deals.",
         });
       }
 
@@ -179,10 +179,17 @@ export const useRequestConnection = () => {
       invalidateConnectionRequests(queryClient);
     },
     onError: (error: unknown) => {
+      let message = 'Failed to request connection';
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (error && typeof error === 'object') {
+        const e = error as Record<string, unknown>;
+        message = String(e.message || e.details || e.hint || message);
+      }
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to request connection',
+        description: message,
       });
     },
   });
@@ -303,6 +310,7 @@ export const useUserConnectionRequests = () => {
           `,
           )
           .eq('user_id', authUser.id)
+          .neq('listing_id', '00000000-0000-0000-0000-000000000001')
           .order('created_at', { ascending: false });
 
         if (error) throw error;

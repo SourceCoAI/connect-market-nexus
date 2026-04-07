@@ -53,7 +53,8 @@ export default function CreateListingFromDeal() {
           founded_year, number_of_locations,
           customer_geography, customer_types, end_market_description,
           investment_thesis, competitive_position, ownership_structure,
-          seller_motivation, business_model, revenue_model, growth_drivers
+          seller_motivation, business_model, revenue_model, growth_drivers,
+          growth_trajectory
         `,
         )
         .eq('id', dealId!)
@@ -80,6 +81,14 @@ export default function CreateListingFromDeal() {
       return data;
     },
   });
+
+  // Phase 61: Redirect to edit if a listing already exists for this deal
+  useEffect(() => {
+    if (existingListing?.id) {
+      toast.info('A listing already exists for this deal. Redirecting to edit.');
+      navigate(`/admin/marketplace/listings`, { replace: true });
+    }
+  }, [existingListing, navigate]);
 
   // Build the pre-filled listing from anonymized deal data
   const [prefilled, setPrefilled] = useState<AdminListing | null>(null);
@@ -150,6 +159,10 @@ export default function CreateListingFromDeal() {
           anonymized.geographic_states.length > 0
             ? anonymized.geographic_states
             : ((deal as Record<string, unknown>).geographic_states as string[]) || null,
+        number_of_locations:
+          ((deal as Record<string, unknown>).number_of_locations as number) ?? null,
+        growth_trajectory:
+          ((deal as Record<string, unknown>).growth_trajectory as string) ?? null,
         custom_sections: [],
         tags: [],
         status: 'active',
@@ -271,15 +284,15 @@ export default function CreateListingFromDeal() {
         const validation = data?.validation;
         if (validation && !validation.pass) {
           toast.warning(
-            'AI listing generated with validation warnings — review carefully before saving.',
+            'AI listing generated with validation warnings. Review carefully before saving.',
           );
         } else {
-          toast.success('AI content generated — review and edit before saving.');
+          toast.success('AI content generated. Review and edit before saving.');
         }
       } catch (err) {
         console.error('[CreateListingFromDeal] AI content generation error:', err);
         setDescriptionSource('anonymizer');
-        toast.warning('AI listing generation failed — using placeholder description.');
+        toast.warning('AI listing generation failed. Using placeholder description.');
       } finally {
         setIsGeneratingContent(false);
       }
@@ -317,8 +330,10 @@ export default function CreateListingFromDeal() {
         source_deal_id: dealId,
         // Ensure it's created as an internal draft
         is_internal_deal: true,
-        // website is NOT NULL in DB — empty for anonymous marketplace listings
-        website: '',
+        // website is NOT NULL in DB with non-empty CHECK constraint
+        // Always generate a unique placeholder — never copy the source deal's website
+        // because the original listing already owns that value (unique index)
+        website: `listing-${crypto.randomUUID().slice(0, 8)}.placeholder`,
       };
 
       const newListing = await createListing({ listing: listingData as never, image });
@@ -394,8 +409,13 @@ export default function CreateListingFromDeal() {
         queryClient.invalidateQueries({ queryKey: ['admin-listings'] });
       }
 
-      toast.success('Marketplace listing created — review and publish from the Listings tab.');
-      navigate('/admin/marketplace/queue');
+      toast.success('Marketplace listing created. Opening editor for review.');
+      // Navigate to edit the newly created listing instead of back to queue
+      if (newListing?.id) {
+        navigate(`/admin/marketplace/listings`);
+      } else {
+        navigate('/admin/marketplace/queue');
+      }
     } catch (error: unknown) {
       toast.error((error as Error).message || 'Failed to create listing');
     }
@@ -496,11 +516,7 @@ export default function CreateListingFromDeal() {
           <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 mb-4">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <div>
-              <strong>Placeholder description — not buyer-grade.</strong> The body below was
-              auto-generated from deal fields and is not suitable for publication. To get a
-              professional AI teaser: generate a <strong>Full Lead Memo</strong> from the Data Room
-              first, then re-create this listing. The teaser will be written from the memo
-              automatically.
+              <strong>Placeholder description.</strong> Auto-generated from deal fields. Not suitable for publication. Create a <strong>Full Lead Memo</strong> in the Data Room first, then re-create this listing.
             </div>
           </div>
         </div>

@@ -39,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Pencil,
   Loader2,
@@ -54,6 +55,7 @@ import {
   Star,
   Linkedin,
   Target,
+  Briefcase,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -122,6 +124,9 @@ interface CompanyOverviewCardProps {
   /** The AI-calculated score (read-only, for reference) */
   aiCalculatedScore?: number | null;
   onScoreChange?: (newScore: number) => Promise<void>;
+  // Hired a broker flag
+  hiredBroker?: boolean;
+  onHiredBrokerChange?: (value: boolean) => Promise<void>;
   onSave: (data: {
     companyName: string;
     website: string;
@@ -136,6 +141,18 @@ interface CompanyOverviewCardProps {
     addressState: string;
     addressZip: string;
     addressCountry: string;
+    // LinkedIn
+    linkedinUrl: string;
+    linkedinEmployeeCount: number | null;
+    linkedinEmployeeRange: string;
+    // Employees
+    fullTimeEmployees: number | null;
+    partTimeEmployees: number | null;
+    // Google
+    googleRating: number | null;
+    googleReviewCount: number | null;
+    googleMapsUrl: string;
+    hiredBroker: boolean;
   }) => Promise<void>;
 }
 
@@ -165,6 +182,8 @@ export const CompanyOverviewCard = ({
   dealQualityScore,
   aiCalculatedScore,
   onScoreChange,
+  hiredBroker,
+  onHiredBrokerChange,
   onSave,
 }: CompanyOverviewCardProps) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -185,6 +204,18 @@ export const CompanyOverviewCard = ({
     addressState: addressState || "",
     addressZip: addressZip || "",
     addressCountry: addressCountry || "US",
+    // LinkedIn
+    linkedinUrl: linkedinUrl || "",
+    linkedinEmployeeCount: linkedinEmployeeCount?.toString() || "",
+    linkedinEmployeeRange: linkedinEmployeeRange || "",
+    // Employees
+    fullTimeEmployees: employees.fullTime?.toString() || "",
+    partTimeEmployees: employees.partTime?.toString() || "",
+    // Google
+    googleRating: googleRating?.toString() || "",
+    googleReviewCount: googleReviewCount?.toString() || "",
+    googleMapsUrl: googleMapsUrl || "",
+    hiredBroker: !!hiredBroker,
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -223,6 +254,15 @@ export const CompanyOverviewCard = ({
         addressState: formData.addressState,
         addressZip: formData.addressZip,
         addressCountry: formData.addressCountry,
+        linkedinUrl: formData.linkedinUrl,
+        linkedinEmployeeCount: formData.linkedinEmployeeCount ? parseInt(formData.linkedinEmployeeCount) : null,
+        linkedinEmployeeRange: formData.linkedinEmployeeRange,
+        fullTimeEmployees: formData.fullTimeEmployees ? parseInt(formData.fullTimeEmployees) : null,
+        partTimeEmployees: formData.partTimeEmployees ? parseInt(formData.partTimeEmployees) : null,
+        googleRating: formData.googleRating ? parseFloat(formData.googleRating) : null,
+        googleReviewCount: formData.googleReviewCount ? parseInt(formData.googleReviewCount) : null,
+        googleMapsUrl: formData.googleMapsUrl,
+        hiredBroker: formData.hiredBroker,
       });
       setIsEditOpen(false);
       toast.success("Company overview updated");
@@ -247,6 +287,15 @@ export const CompanyOverviewCard = ({
       addressState: addressState || "",
       addressZip: addressZip || "",
       addressCountry: addressCountry || "US",
+      linkedinUrl: linkedinUrl || "",
+      linkedinEmployeeCount: linkedinEmployeeCount?.toString() || "",
+      linkedinEmployeeRange: linkedinEmployeeRange || "",
+      fullTimeEmployees: employees.fullTime?.toString() || "",
+      partTimeEmployees: employees.partTime?.toString() || "",
+      googleRating: googleRating?.toString() || "",
+      googleReviewCount: googleReviewCount?.toString() || "",
+      googleMapsUrl: googleMapsUrl || "",
+      hiredBroker: !!hiredBroker,
     });
     setIsEditOpen(true);
   };
@@ -618,6 +667,38 @@ export const CompanyOverviewCard = ({
                   </Badge>
                 </div>
               </div>
+
+              {/* Hired a Broker */}
+              <div className="flex items-start gap-2 py-2">
+                <Briefcase className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">
+                    HIRED A BROKER
+                  </span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Checkbox
+                      id="hired-broker"
+                      checked={!!hiredBroker}
+                      onCheckedChange={async (checked) => {
+                        if (onHiredBrokerChange) {
+                          try {
+                            await onHiredBrokerChange(!!checked);
+                            toast.success(checked ? "Marked as hired a broker" : "Broker flag removed");
+                          } catch {
+                            toast.error("Failed to update broker status");
+                          }
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="hired-broker"
+                      className="text-sm font-medium cursor-pointer select-none"
+                    >
+                      {hiredBroker ? "Yes" : "No"}
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -770,6 +851,123 @@ export const CompanyOverviewCard = ({
                 }
                 className="mt-1.5"
               />
+            </div>
+
+            {/* Employees */}
+            <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+              <Label className="text-sm font-medium">Employees</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="fullTimeEmployees" className="text-xs text-muted-foreground">Full-Time</Label>
+                  <NumericInput
+                    id="fullTimeEmployees"
+                    placeholder="25"
+                    value={formData.fullTimeEmployees}
+                    onChange={(value) => setFormData({ ...formData, fullTimeEmployees: value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="partTimeEmployees" className="text-xs text-muted-foreground">Part-Time</Label>
+                  <NumericInput
+                    id="partTimeEmployees"
+                    placeholder="5"
+                    value={formData.partTimeEmployees}
+                    onChange={(value) => setFormData({ ...formData, partTimeEmployees: value })}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* LinkedIn */}
+            <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+              <Label className="text-sm font-medium">LinkedIn</Label>
+              <div>
+                <Label htmlFor="linkedinUrl" className="text-xs text-muted-foreground">LinkedIn URL</Label>
+                <Input
+                  id="linkedinUrl"
+                  placeholder="https://linkedin.com/company/..."
+                  value={formData.linkedinUrl}
+                  onChange={(e) => setFormData({ ...formData, linkedinUrl: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="linkedinEmployeeCount" className="text-xs text-muted-foreground">Employee Count</Label>
+                  <NumericInput
+                    id="linkedinEmployeeCount"
+                    placeholder="34"
+                    value={formData.linkedinEmployeeCount}
+                    onChange={(value) => setFormData({ ...formData, linkedinEmployeeCount: value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="linkedinEmployeeRange" className="text-xs text-muted-foreground">Employee Range</Label>
+                  <Input
+                    id="linkedinEmployeeRange"
+                    placeholder="11-50 employees"
+                    value={formData.linkedinEmployeeRange}
+                    onChange={(e) => setFormData({ ...formData, linkedinEmployeeRange: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Google */}
+            <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+              <Label className="text-sm font-medium">Google</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="googleRating" className="text-xs text-muted-foreground">Rating</Label>
+                  <Input
+                    id="googleRating"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="5"
+                    placeholder="4.1"
+                    value={formData.googleRating}
+                    onChange={(e) => setFormData({ ...formData, googleRating: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="googleReviewCount" className="text-xs text-muted-foreground">Review Count</Label>
+                  <NumericInput
+                    id="googleReviewCount"
+                    placeholder="17"
+                    value={formData.googleReviewCount}
+                    onChange={(value) => setFormData({ ...formData, googleReviewCount: value })}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="googleMapsUrl" className="text-xs text-muted-foreground">Google Maps URL</Label>
+                <Input
+                  id="googleMapsUrl"
+                  placeholder="https://maps.google.com/..."
+                  value={formData.googleMapsUrl}
+                  onChange={(e) => setFormData({ ...formData, googleMapsUrl: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            {/* Hired a Broker */}
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="edit-hired-broker"
+                checked={formData.hiredBroker}
+                onCheckedChange={(checked) => setFormData({ ...formData, hiredBroker: !!checked })}
+              />
+              <label htmlFor="edit-hired-broker" className="text-sm font-medium cursor-pointer select-none">
+                Hired a Broker
+              </label>
             </div>
           </div>
           <DialogFooter>

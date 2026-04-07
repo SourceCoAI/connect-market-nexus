@@ -113,6 +113,8 @@ interface DatabaseListingInsert {
   customer_types?: string | null;
   revenue_model?: string | null;
   end_market_description?: string | null;
+  number_of_locations?: number | null;
+  growth_trajectory?: string | null;
 
   // Deal enrichment detail fields
   service_mix?: string | null;
@@ -236,10 +238,11 @@ export function useRobustListingCreation() {
           // Content sections (populated by lead memo generator)
           custom_sections: listing.custom_sections || null,
 
-          // REQUIRED by DB (NOT NULL, no default) — empty for anonymous listings
-          website: (listing as Record<string, unknown>).website
-            ? sanitizeStringField((listing as Record<string, unknown>).website)
-            : '',
+          // REQUIRED by DB (NOT NULL + non-empty CHECK constraint)
+          website: sanitizeStringField((listing as Record<string, unknown>).website)
+            && !String((listing as Record<string, unknown>).website).endsWith('.placeholder')
+            ? `${sanitizeStringField((listing as Record<string, unknown>).website)}-${crypto.randomUUID().slice(0, 8)}`
+            : `listing-${crypto.randomUUID().slice(0, 8)}.placeholder`,
 
           // Computed financial metric
           ebitda_margin:
@@ -268,6 +271,8 @@ export function useRobustListingCreation() {
           customer_types: listing.customer_types || null,
           revenue_model: listing.revenue_model || null,
           end_market_description: listing.end_market_description || null,
+          number_of_locations: (listing as any).number_of_locations ?? null,
+          growth_trajectory: (listing as any).growth_trajectory || null,
         };
 
         // Step 3: Insert listing with isolated transaction
@@ -362,68 +367,5 @@ export function useRobustListingCreation() {
   });
 }
 
-/**
- * Separate function to handle deal alerts without affecting main listing creation
- */
-// H-4 FIX: This function is no longer called from listing creation.
-// Deal alerts are now triggered from use-publish-listing.ts on publication instead.
-async function _triggerDealAlertsForListing(listing: Record<string, unknown>): Promise<void> {
-  try {
-    // Query deal alerts that match this listing
-    const { data: matchingAlerts, error } = await supabase.rpc('match_deal_alerts_with_listing', {
-      listing_data: listing as unknown as Record<string, never>,
-    });
-
-    if (error) {
-      console.error('Failed to match deal alerts with listing:', error.message);
-      return;
-    }
-
-    if (matchingAlerts && matchingAlerts.length > 0) {
-      // Process instant alerts
-      for (const alert of matchingAlerts) {
-        if (alert.alert_frequency === 'instant') {
-          // Log delivery attempt
-          const { error: logInsertError } = await supabase.from('alert_delivery_logs').insert({
-            alert_id: alert.alert_id as string,
-            listing_id: listing.id as string,
-            user_id: alert.user_id as string,
-            delivery_status: 'pending',
-          });
-
-          if (logInsertError) {
-            console.error('Failed to insert alert delivery log:', logInsertError.message);
-          }
-
-          // Trigger edge function
-          try {
-            const { error: functionError } = await supabase.functions.invoke('send-deal-alert', {
-              body: {
-                alert_id: alert.alert_id,
-                user_email: alert.user_email,
-                user_id: alert.user_id,
-                listing_id: listing.id,
-                alert_name: alert.alert_name,
-                listing_data: listing,
-              },
-            });
-
-            if (functionError) {
-              throw functionError;
-            }
-          } catch (emailError) {
-            console.error(
-              `Deal alert email failed for user ${alert.user_id}:`,
-              emailError instanceof Error ? emailError.message : emailError,
-            );
-          }
-        }
-      }
-    }
-  } catch (triggerError) {
-    console.error(
-      'Deal alert trigger failed:',
-      triggerError instanceof Error ? triggerError.message : triggerError,
-    );
-  }
-}
+// H-4 FIX: Deal alert triggering has been moved to use-publish-listing.ts
+// to ensure buyers are only alerted about listings that are actually live.

@@ -255,7 +255,7 @@ function calculateScoresFromData(deal: Record<string, any>): DealQualityScores {
     // If we have industry, description, or website data, give a minimum baseline
     if (sizeScore === 0) {
       const hasIndustry = !!(deal.industry || deal.category);
-      const hasDescription = !!(deal.description || deal.executive_summary);
+      const hasDescription = !!deal.executive_summary;
       const hasWebsite = !!deal.website;
       const hasEnrichment = !!deal.enriched_at;
 
@@ -376,7 +376,7 @@ function calculateScoresFromData(deal: Record<string, any>): DealQualityScores {
   // Multi-location market signal bonus (separate from location floor)
   if (locationCount >= 3) marketScore += 2;
 
-  const description = (deal.description || deal.executive_summary || '').toLowerCase();
+  const description = (deal.executive_summary || '').toLowerCase();
   const businessModel = (deal.business_model || '').toLowerCase();
   const customerTypes = (deal.customer_types || '').toLowerCase();
   const financialNotes = (deal.financial_notes || '').toLowerCase();

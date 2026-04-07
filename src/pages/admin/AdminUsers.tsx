@@ -1,4 +1,4 @@
-import { useState, useEffect, Component, type ErrorInfo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, Component, type ErrorInfo, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAdmin } from '@/hooks/use-admin';
 import {
@@ -10,6 +10,7 @@ import {
   XCircle,
   ThumbsDown,
   Users,
+  Zap,
 } from 'lucide-react';
 import { UsersTable } from '@/components/admin/UsersTable';
 import { MobileUsersTable } from '@/components/admin/MobileUsersTable';
@@ -57,7 +58,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast as toastDirect } from '@/hooks/use-toast';
+import { invokeEdgeFunction } from '@/lib/invoke-edge-function';
 import { useQuery } from '@tanstack/react-query';
+import { useBulkUserFirms } from '@/hooks/admin/use-bulk-user-firms';
 
 type PrimaryView = 'buyers' | 'owners';
 type SecondaryView = 'marketplace' | 'non-marketplace';
@@ -135,6 +138,12 @@ const AdminUsers = () => {
     staleTime: 60_000,
   });
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [isBulkScoring, setIsBulkScoring] = useState(false);
+
+  // Batch-fetch all firm data in ONE query instead of per-row
+  const userIds = useMemo(() => usersData.map((u) => u.id), [usersData]);
+  const { data: firmDataMap } = useBulkUserFirms(userIds);
+
   const [filteredOwnerLeads, setFilteredOwnerLeads] = useState<OwnerLead[]>([]);
   const { markAsViewed: markUsersAsViewed } = useMarkUsersViewed();
   const { markAsViewed: markOwnerLeadsAsViewed } = useMarkOwnerLeadsViewed();
@@ -288,13 +297,54 @@ const AdminUsers = () => {
     );
   }
 
+  const unscoredCount = usersData.filter((u) => u.buyer_type && u.buyer_quality_score == null).length;
+
+  const handleBulkScoreUnscored = async () => {
+    if (unscoredCount === 0) return;
+    setIsBulkScoring(true);
+    let totalScored = 0;
+    toast({ title: `Starting scoring for ${unscoredCount} users…` });
+    console.log('[AdminUsers] Starting bulk score for', unscoredCount, 'unscored users');
+    try {
+      // Step 1: Verify auth is available before looping
+      toast({ title: 'Preparing auth…' });
+      console.log('[AdminUsers] Checking auth before scoring…');
+      
+      for (let round = 0; round < 10; round++) {
+        console.log('[AdminUsers] Scoring round', round + 1);
+        toast({ title: `Calling scorer (round ${round + 1})…` });
+        const result = await invokeEdgeFunction<{ scored: number; results: unknown[] }>(
+          'calculate-buyer-quality-score',
+          {
+            body: { batch_all_unscored: true, batch_limit: 30 },
+            timeoutMs: 45_000,   // 45s per attempt
+            maxRetries: 0,       // no retries for bulk admin action
+          },
+        );
+        const scored = result?.scored ?? 0;
+        totalScored += scored;
+        console.log('[AdminUsers] Round', round + 1, 'scored', scored, 'total', totalScored);
+        if (scored === 0) break;
+        toast({ title: `Progress: scored ${totalScored} so far…` });
+      }
+      toast({ title: 'Scoring complete', description: `Scored ${totalScored} users` });
+      refetch();
+    } catch (err) {
+      console.error('[AdminUsers] Bulk scoring failed:', err);
+      const msg = (err as Error).message || 'Unknown error';
+      toast({ variant: 'destructive', title: 'Scoring failed', description: msg });
+    } finally {
+      setIsBulkScoring(false);
+    }
+  };
+
   const isOwnersView = primaryView === 'owners';
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
-        <div className="px-8 py-6">
+        <div className="px-4 md:px-8 py-6">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
@@ -304,6 +354,22 @@ const AdminUsers = () => {
                   : 'Manage owner/seller inquiries and leads'}
               </p>
             </div>
+            {isBuyersView && unscoredCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkScoreUnscored}
+                disabled={isBulkScoring}
+                className="shrink-0"
+              >
+                {isBulkScoring ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4 mr-1" />
+                )}
+                {isBulkScoring ? 'Scoring…' : `Score All Unscored (${unscoredCount})`}
+              </Button>
+            )}
           </div>
 
           <Tabs defaultValue="users" className="mt-6">
@@ -330,7 +396,7 @@ const AdminUsers = () => {
       </div>
 
       {/* Main content */}
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-8 py-8">
         {/* Remarketing linked buyers banner */}
         {isBuyersView && linkedBuyerCount > 0 && (
           <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
@@ -430,6 +496,7 @@ const AdminUsers = () => {
                       onRevokeAdmin={revokeAdmin}
                       onDelete={deleteUser}
                       isLoading={isLoading}
+                      firmDataMap={firmDataMap ?? new Map()}
                     />
                   </TableErrorBoundary>
                 </div>

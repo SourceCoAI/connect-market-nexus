@@ -171,6 +171,24 @@ export function useRealtimeAdmin() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'firm_members' }, () => {
         scheduleInvalidation('firm-members', 'firm-agreements', 'admin-users');
       })
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'connection_messages' },
+        (payload) => {
+          if (payload.new?.sender_role === 'buyer') {
+            toast({
+              title: '💬 New Buyer Message',
+              description: 'A buyer has sent a new message',
+            });
+          }
+          scheduleInvalidation(
+            'connection-messages',
+            'unread-message-counts',
+            'admin-message-center-threads',
+            'buyer-message-threads',
+          );
+        },
+      )
       .subscribe((status) => {
         setIsConnected(status === 'SUBSCRIBED');
       });

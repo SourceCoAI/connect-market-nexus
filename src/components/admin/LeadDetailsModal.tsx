@@ -5,7 +5,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Mail, Phone, User, MessageSquare, Calendar, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Building2, Mail, User, MessageSquare, Calendar, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { InboundLead } from '@/hooks/admin/use-inbound-leads';
 import { useInboundLeadFirm } from '@/hooks/admin/use-inbound-lead-firm';
 import { format } from 'date-fns';
@@ -112,10 +113,13 @@ export function LeadDetailsModal({ lead, isOpen, onClose }: LeadDetailsModalProp
               <div>
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Phone</label>
                 <div className="flex items-center gap-2 mt-1">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <a href={`tel:${lead.phone_number}`} className="text-blue-600 hover:underline">
-                    {lead.phone_number}
-                  </a>
+                  <ClickToDialPhone
+                    phone={lead.phone_number}
+                    name={lead.name || undefined}
+                    email={lead.email || undefined}
+                    company={lead.company_name || undefined}
+                    size="sm"
+                  />
                 </div>
               </div>
             )}

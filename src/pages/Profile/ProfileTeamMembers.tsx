@@ -186,7 +186,7 @@ export function ProfileTeamMembers() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleInvite} className="flex items-end gap-3">
+          <form onSubmit={handleInvite} className="flex flex-col sm:flex-row sm:items-end gap-3">
             <div className="flex-1 space-y-2">
               <Label htmlFor="invite-email">Email address</Label>
               <Input
@@ -198,7 +198,7 @@ export function ProfileTeamMembers() {
                 required
               />
             </div>
-            <Button type="submit" disabled={isSending || !inviteEmail.trim()}>
+            <Button type="submit" disabled={isSending || !inviteEmail.trim()} className="w-full sm:w-auto">
               {isSending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />

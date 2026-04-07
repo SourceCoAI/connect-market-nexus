@@ -30,7 +30,6 @@ export function DataQualityWarning({ listing }: DataQualityWarningProps) {
   if (
     !(
       listing.hero_description?.trim() ||
-      listing.description?.trim() ||
       listing.executive_summary?.trim()
     )
   )

@@ -8,9 +8,6 @@ const UNIVERSAL_REQUIRED_FIELDS = [
   'company',
   'phone_number',
   'buyer_type',
-  'ideal_target_description',
-  'business_categories',
-  'target_locations',
 ] as const;
 
 // Critical buyer-type-specific required fields (subset of all type fields)
@@ -60,7 +57,7 @@ export const getMissingFieldLabels = (user: Partial<User>): string[] => {
 
 /** True when every required field has a value. */
 export const isProfileComplete = (user: Partial<User>): boolean => {
-  return getMissingRequiredFields(user).length === 0;
+  return getProfileCompletionPercentage(user) >= 90;
 };
 
 /** 0-100 percentage of required fields that are filled. */

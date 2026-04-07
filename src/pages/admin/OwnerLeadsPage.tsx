@@ -124,7 +124,7 @@ const OwnerLeadsPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
-        <div className="px-8 py-6">
+        <div className="px-4 md:px-8 py-6">
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight">Owner/Seller Leads</h1>
             <p className="text-sm text-muted-foreground">
@@ -135,7 +135,7 @@ const OwnerLeadsPage = () => {
         </div>
       </div>
 
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-8 py-8">
         <div className="space-y-6 mb-6">
           <OwnerLeadsStats leads={ownerLeads} />
           <OwnerLeadsFilters leads={ownerLeads} onFilteredLeadsChange={setFilteredOwnerLeads} />

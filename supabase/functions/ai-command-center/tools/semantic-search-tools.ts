@@ -142,7 +142,8 @@ async function keywordSearchWithExpansion(
   ]);
 
   // Score and merge results
-  const results = [...buyerResults, ...dealResults];
+  // deno-lint-ignore no-explicit-any
+  const results: any[] = [...buyerResults, ...dealResults];
 
   // Score each result by term matches
   for (const r of results) {

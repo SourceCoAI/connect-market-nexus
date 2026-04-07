@@ -178,7 +178,7 @@ async function searchBuyerUniverses(
   if (args.search) {
     const term = (args.search as string).toLowerCase();
     results = results.filter(
-      (u) =>
+      (u: any) =>
         (u.name as string)?.toLowerCase().includes(term) ||
         (u.description as string)?.toLowerCase().includes(term) ||
         (u.fit_criteria as string)?.toLowerCase().includes(term) ||
@@ -294,7 +294,8 @@ async function getUniverseBuyerFits(
     string,
     { status: string; is_disqualified: boolean; min_score: number | null; reasons: string[] }
   >();
-  for (const score of allScores) {
+  for (const _score of allScores) {
+    const score = _score as Record<string, any>;
     const existing = buyerScoreMap.get(score.buyer_id);
     const isNotFit =
       score.is_disqualified || score.status === 'passed' || score.status === 'disqualified';

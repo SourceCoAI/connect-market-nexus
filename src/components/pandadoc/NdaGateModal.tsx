@@ -1,108 +1,130 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PandaDocSigningPanel } from './PandaDocSigningPanel';
 import { Button } from '@/components/ui/button';
-import { Shield, ArrowLeft, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Shield, ArrowLeft, Loader2, Mail, CheckCircle, FileSignature } from 'lucide-react';
+import { sendAgreementEmail } from '@/lib/agreement-email';
 import { useQueryClient } from '@tanstack/react-query';
-import { APP_CONFIG } from '@/config/app';
+import { useAuth } from '@/contexts/AuthContext';
+import { invalidateAgreementQueries } from '@/hooks/use-agreement-status-sync';
 
 interface NdaGateModalProps {
   userId: string;
-  firmId: string;
+  firmId?: string;
   onSigned?: () => void;
 }
 
 /**
- * Full-screen modal overlay that blocks deal detail access for unsigned buyers.
- * Contains PandaDocSigningPanel inline.
- * Cannot be dismissed without signing or navigating away.
+ * Full-screen modal that blocks deal detail access when NO agreement is signed.
+ * Offers both NDA and Fee Agreement request options.
  */
-export function NdaGateModal({ userId, firmId, onSigned }: NdaGateModalProps) {
+export function NdaGateModal({ userId, firmId: _firmId, onSigned }: NdaGateModalProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+  const [isRequesting, setIsRequesting] = useState(false);
+  const [requestingType, setRequestingType] = useState<'nda' | 'fee_agreement' | null>(null);
+  const [sent, setSent] = useState(false);
+  const [sentType, setSentType] = useState<'nda' | 'fee_agreement'>('nda');
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const handleRequest = async (docType: 'nda' | 'fee_agreement') => {
+    setIsRequesting(true);
+    setRequestingType(docType);
+    setError(null);
 
-    const fetchEmbedUrl = async () => {
-      try {
-        const { data, error: fnError } = await supabase.functions.invoke('get-buyer-nda-embed');
+    const result = await sendAgreementEmail({ documentType: docType });
 
-        if (cancelled) return;
+    if (result.alreadySigned) {
+      invalidateAgreementQueries(queryClient, userId);
+      onSigned?.();
+    } else if (result.success) {
+      setSent(true);
+      setSentType(docType);
+      invalidateAgreementQueries(queryClient, userId);
+    } else {
+      setError(result.error || 'Something went wrong.');
+    }
 
-        if (fnError) {
-          setError('Failed to prepare NDA signing form');
-        } else if (data?.ndaSigned) {
-          onSigned?.();
-        } else if (data?.embedUrl) {
-          setEmbedUrl(data.embedUrl);
-        } else {
-          setError('NDA signing form not available. Please contact support.');
-        }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Something went wrong');
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchEmbedUrl();
-    return () => { cancelled = true; };
-  }, [userId, firmId]);
-
-  const handleSigned = async () => {
-    queryClient.invalidateQueries({ queryKey: ['buyer-nda-status'] });
-    queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
-    onSigned?.();
+    setIsRequesting(false);
+    setRequestingType(null);
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="nda-gate-title">
+    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="agreement-gate-title">
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-2xl space-y-6">
+        <div className="w-full max-w-lg space-y-6">
           <div className="text-center space-y-3">
             <div className="inline-flex p-3 rounded-full bg-primary/10">
               <Shield className="h-8 w-8 text-primary" />
             </div>
-            <h2 id="nda-gate-title" className="text-2xl font-bold">Sign Your NDA to View This Deal</h2>
+            <h2 id="agreement-gate-title" className="text-2xl font-bold">Sign an Agreement to Access Deals</h2>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Deal details — including the business name, real financials, and owner information — are confidential. Your NDA unlocks full access to this deal and every deal on the platform. Sign once, done forever. Takes about 60 seconds.
+              Deal details — including the business name, financials, and owner information — are confidential. Sign either an NDA or Fee Agreement to unlock full access.
             </p>
           </div>
 
-          {isLoading && (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Preparing NDA signing form...</p>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 text-center">
-              <p className="text-sm text-destructive">{error}</p>
-              <p className="text-xs text-muted-foreground mt-2">
-                Please contact <a href={`mailto:${APP_CONFIG.adminEmail}`} className="underline">{APP_CONFIG.adminEmail}</a> for assistance.
+          {sent ? (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-6 text-center space-y-3">
+              <CheckCircle className="h-8 w-8 text-emerald-600 mx-auto" />
+              <h3 className="text-lg font-semibold text-emerald-800">
+                {sentType === 'nda' ? 'NDA' : 'Fee Agreement'} Sent!
+              </h3>
+              <p className="text-sm text-emerald-700">
+                Check your inbox at <strong>{user?.email}</strong>.
+              </p>
+              <p className="text-sm text-emerald-700">
+                Review, sign, and reply to <strong>adam.haile@sourcecodeals.com</strong> with the signed copy. Once processed, you'll have full access.
               </p>
             </div>
-          )}
+          ) : (
+            <>
+              {error && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-center">
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
+              )}
 
-          {embedUrl && (
-            <PandaDocSigningPanel
-              embedUrl={embedUrl}
-              onCompleted={handleSigned}
-              title="Review and sign your NDA"
-              description="Standard confidentiality agreement — review and sign below to unlock full access."
-            />
+              <div className="space-y-3">
+                <Button
+                  onClick={() => handleRequest('nda')}
+                  disabled={isRequesting}
+                  className="w-full py-3"
+                  size="lg"
+                >
+                  {isRequesting && requestingType === 'nda' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending NDA...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="h-4 w-4 mr-2" />
+                      Request NDA via Email
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={() => handleRequest('fee_agreement')}
+                  disabled={isRequesting}
+                  variant="outline"
+                  className="w-full py-3"
+                  size="lg"
+                >
+                  {isRequesting && requestingType === 'fee_agreement' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending Fee Agreement...
+                    </>
+                  ) : (
+                    <>
+                      <FileSignature className="h-4 w-4 mr-2" />
+                      Request Fee Agreement via Email
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
           )}
 
           <div className="text-center">

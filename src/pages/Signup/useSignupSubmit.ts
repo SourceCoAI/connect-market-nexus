@@ -38,9 +38,6 @@ export function useSignupSubmit(formData: SignupFormData) {
       specificBusinessSearch,
       targetDealSizeMin,
       targetDealSizeMax,
-      geographicFocus,
-      industryExpertise,
-      dealStructurePreference,
     } = formData;
 
     const signupData: Partial<User> = {
@@ -51,7 +48,7 @@ export function useSignupSubmit(formData: SignupFormData) {
       website: processUrl(website),
       linkedin_profile: processLinkedInUrl(linkedinProfile),
       phone_number: phoneNumber,
-      buyer_type: buyerType as BuyerType,
+      buyer_type: (buyerType === 'businessOwner' ? 'searchFund' : buyerType) as BuyerType,
       ideal_target_description: idealTargetDescription,
       business_categories: businessCategories,
       target_locations: targetLocations,
@@ -81,9 +78,8 @@ export function useSignupSubmit(formData: SignupFormData) {
       deployment_timing: formData.deploymentTiming || '',
       target_deal_size_min: targetDealSizeMin ? parseCurrency(targetDealSizeMin) : undefined,
       target_deal_size_max: targetDealSizeMax ? parseCurrency(targetDealSizeMax) : undefined,
-      geographic_focus: geographicFocus ? [geographicFocus] : targetLocations || [],
-      industry_expertise: industryExpertise ? [industryExpertise] : [],
-      deal_structure_preference: dealStructurePreference || '',
+      geographic_focus: targetLocations || [],
+      industry_expertise: [],
       permanent_capital: formData.permanentCapital || false,
       operating_company_targets: formData.operatingCompanyTargets || [],
       flex_subxm_ebitda: formData.flexSubxmEbitda || false,

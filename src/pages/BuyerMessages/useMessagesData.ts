@@ -86,7 +86,8 @@ export function useBuyerThreads() {
           .select('connection_request_id')
           .in('connection_request_id', requestIds)
           .eq('is_read_by_buyer', false)
-          .eq('sender_role', 'admin');
+          .eq('sender_role', 'admin')
+          .not('message_type', 'in', '("decision","system")');
         unreadMsgs = data;
       }
 
@@ -162,20 +163,33 @@ export function useFirmAgreementStatus() {
     queryFn: async () => {
       if (!user?.id) return null;
 
-      // Use canonical firm resolver RPC
-      const { data, error } = await supabase.rpc('get_user_firm_agreement_status', {
-        p_user_id: user.id,
-      });
+      try {
+        const { data, error } = await supabase.rpc('get_user_firm_agreement_status', {
+          p_user_id: user.id,
+        });
 
-      if (error) throw error;
+        if (error) {
+          const msg = String(error.message ?? '').toLowerCase();
+          const code = String(error.code ?? '');
+          if (msg.includes('400') || msg.includes('404') || code === '400' || code === '404' || code === 'PGRST202') {
+            console.warn('[useFirmAgreementStatus] RPC unavailable — returning null');
+            return null;
+          }
+          throw error;
+        }
 
-      const row = Array.isArray(data) ? data[0] : data;
-      if (!row || !row.firm_id) return null;
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!row || !row.firm_id) return null;
 
-      return row;
+        return row;
+      } catch (err) {
+        console.warn('[useFirmAgreementStatus] RPC error — returning null', err);
+        return null;
+      }
     },
     enabled: !!user?.id,
     staleTime: 15_000,
+    retry: false,
   });
 }
 

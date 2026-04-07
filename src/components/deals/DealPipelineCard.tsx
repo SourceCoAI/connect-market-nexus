@@ -28,6 +28,8 @@ function getStatusLabel(
       return { label: 'Connected', needsAction: false };
     case 'rejected':
       return { label: 'Not Selected', needsAction: false };
+    case 'on_hold':
+      return { label: 'On Hold', needsAction: true };
     default:
       return { label: 'Under Review', needsAction: false };
   }

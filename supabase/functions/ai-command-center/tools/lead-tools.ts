@@ -156,8 +156,8 @@ async function searchInboundLeads(
 
   const byStatus: Record<string, number> = {};
   const bySource: Record<string, number> = {};
-  for (const l of results) {
-    byStatus[l.status] = (byStatus[l.status] || 0) + 1;
+  for (const l of results as Array<{ status?: string; source?: string }>) {
+    if (l.status) byStatus[l.status] = (byStatus[l.status] || 0) + 1;
     if (l.source) bySource[l.source] = (bySource[l.source] || 0) + 1;
   }
 

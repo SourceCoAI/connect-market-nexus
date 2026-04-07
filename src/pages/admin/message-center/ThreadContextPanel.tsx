@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   XCircle,
   Mail,
+  X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { resolveAgreementStatus, type AgreementDisplayStatus } from '@/lib/agreement-status';
@@ -34,6 +35,7 @@ interface ThreadContextPanelProps {
   buyerName: string;
   buyerEmail: string | null;
   buyerCompany: string | null;
+  onClose?: () => void;
 }
 
 const STATUS_CONFIG: Record<
@@ -293,6 +295,7 @@ export function ThreadContextPanel({
   buyerName,
   buyerEmail,
   buyerCompany,
+  onClose,
 }: ThreadContextPanelProps) {
   useAgreementStatusSync();
   const { data: firm, isLoading: firmLoading } = useThreadBuyerFirm(userId);
@@ -307,18 +310,23 @@ export function ThreadContextPanel({
 
   return (
     <div
-      className="w-[280px] flex-shrink-0 flex flex-col min-h-0"
+      className="w-full h-full flex flex-col min-h-0"
       style={{ borderLeft: '1px solid #F0EDE6', backgroundColor: '#FFFFFF' }}
     >
       <ScrollArea className="flex-1">
         {/* Header */}
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid #F0EDE6' }}>
+        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid #F0EDE6' }}>
           <p
             className="text-[10px] font-bold uppercase tracking-wider"
             style={{ color: '#CBCBCB' }}
           >
             Buyer Profile
           </p>
+          {onClose && (
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClose}>
+              <X className="h-3.5 w-3.5" style={{ color: '#9A9A9A' }} />
+            </Button>
+          )}
         </div>
 
         <div className="px-4 py-3 space-y-5">

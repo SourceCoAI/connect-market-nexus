@@ -186,6 +186,8 @@ verify_jwt = false
 verify_jwt = false
 [functions.generate-lead-memo]
 verify_jwt = false
+[functions.generate-listing-content]
+verify_jwt = false
 [functions.send-memo-email]
 verify_jwt = false
 [functions.draft-outreach-email]
@@ -254,6 +256,8 @@ verify_jwt = false
 verify_jwt = false
 [functions.clay-webhook-phone]
 verify_jwt = false
+[functions.notify-support-inbox]
+verify_jwt = false
 [functions.receive-valuation-lead]
 verify_jwt = false
 [functions.analyze-buyer-notes]
@@ -269,4 +273,14 @@ verify_jwt = false
 [functions.trigger-contact-discovery]
 verify_jwt = false
 [functions.smartlead-inbox-webhook]
+verify_jwt = false
+[functions.calculate-buyer-quality-score]
+verify_jwt = false
+[functions.request-agreement-email]
+verify_jwt = false
+[functions.notify-buyer-inquiry-received]
+verify_jwt = false
+[functions.brevo-webhook]
+verify_jwt = false
+[functions.grant-data-room-access]
 verify_jwt = false

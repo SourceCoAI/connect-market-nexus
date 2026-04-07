@@ -304,37 +304,63 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
-    // Auth guard: require valid JWT + admin role
-    const authHeader = req.headers.get('Authorization') || '';
-    const callerToken = authHeader.replace('Bearer ', '').trim();
-    if (!callerToken) {
-      return errorResponse('Unauthorized', 401, corsHeaders, 'unauthorized');
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      console.error('[calculate-buyer-quality-score] Missing env vars:', {
+        url: !!supabaseUrl, serviceKey: !!supabaseServiceKey, anonKey: !!supabaseAnonKey,
+      });
+      return errorResponse('Server misconfiguration: missing environment variables', 500, corsHeaders, 'config_error');
     }
 
-    const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: `Bearer ${callerToken}` } },
-    });
-    const {
-      data: { user: callerUser },
-      error: callerError,
-    } = await anonClient.auth.getUser();
-    if (callerError || !callerUser) {
+    console.log('[calculate-buyer-quality-score] Function entered');
+
+    // Auth guard: require valid JWT + admin role (or service_role/internal-secret for batch ops)
+    const internalSecret = req.headers.get('x-internal-secret');
+    const isInternalCall = internalSecret === supabaseServiceKey;
+
+    const authHeader = req.headers.get('Authorization') || '';
+    const callerToken = authHeader.replace('Bearer ', '').trim();
+    if (!callerToken && !isInternalCall) {
       return errorResponse('Unauthorized', 401, corsHeaders, 'unauthorized');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { data: isAdmin } = await supabase.rpc('is_admin', { user_id: callerUser.id });
-    if (!isAdmin) {
-      return errorResponse('Forbidden: admin access required', 403, corsHeaders, 'forbidden');
+
+    // Service-role bypass: allows internal/cron/backfill calls
+    const isServiceRole = isInternalCall || callerToken === supabaseServiceKey;
+    let callerUserId: string | null = null;
+
+    if (!isServiceRole) {
+      const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: `Bearer ${callerToken}` } },
+      });
+      const {
+        data: { user: callerUser },
+        error: callerError,
+      } = await anonClient.auth.getUser();
+      if (callerError || !callerUser) {
+        return errorResponse('Unauthorized', 401, corsHeaders, 'unauthorized');
+      }
+      callerUserId = callerUser.id;
     }
 
     const body = await req.json();
 
+    // Allow self-scoring: a user can score their own profile (used during signup)
+    const isSelfScore = !isServiceRole && body.self_score === true && body.profile_id === callerUserId;
+    if (!isServiceRole && !isSelfScore) {
+      const { data: isAdmin } = await supabase.rpc('is_admin', { user_id: callerUserId });
+      if (!isAdmin) {
+        return errorResponse('Forbidden: admin access required', 403, corsHeaders, 'forbidden');
+      }
+    }
+
     // ─── BATCH MODE: score all unscored buyers ────────────────────────
     if (body.batch_all_unscored) {
+      console.log('[calculate-buyer-quality-score] Batch mode entered, limit:', body.batch_limit);
       const batchLimit = Math.min(body.batch_limit || 30, 500);
       const { data: unscored, error: unscoredErr } = await supabase
         .from('profiles')

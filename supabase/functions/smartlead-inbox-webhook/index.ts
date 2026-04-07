@@ -443,6 +443,233 @@ Deno.serve(async (req) => {
       console.error('[smartlead-inbox-webhook] Enrichment error (non-fatal):', enrichError);
     }
 
+    // ─── GP Campaign Automation ─────────────────────────────────────────
+    // For GP campaigns with activated responses: auto-add to GP Partner
+    // Deals (remarketing), auto-populate calling list, and enrich phone.
+    let gpDealId: string | null = null;
+    try {
+      const campaignNameLower = (record.campaign_name || '').toLowerCase();
+      const ACTIVATED_CATEGORIES = ['meeting_request', 'interested', 'question', 'referral'];
+      const isGPCampaign = campaignNameLower.includes('gp');
+      const isActivated = ACTIVATED_CATEGORIES.includes(classification.category);
+
+      if (isGPCampaign && isActivated) {
+        // Re-read the enriched record to get lead details
+        const { data: enrichedRecord } = await supabase
+          .from('smartlead_reply_inbox')
+          .select(
+            'lead_first_name, lead_last_name, lead_company_name, lead_website, lead_phone, lead_mobile, lead_linkedin_url, lead_title, lead_industry, lead_location',
+          )
+          .eq('id', inserted.id)
+          .single();
+
+        const contactEmail = record.sl_lead_email || record.from_email || record.to_email;
+        const contactName =
+          [enrichedRecord?.lead_first_name, enrichedRecord?.lead_last_name]
+            .filter(Boolean)
+            .join(' ') ||
+          record.to_name ||
+          null;
+        const companyName = enrichedRecord?.lead_company_name || null;
+        const contactPhone = enrichedRecord?.lead_phone || enrichedRecord?.lead_mobile || null;
+
+        // ── Feature 3: Auto-add to GP Partner Deals ──────────────────────
+        try {
+          // Dedup by email + deal_source
+          let existingDealId: string | null = null;
+          if (contactEmail) {
+            const { data: existing } = await supabase
+              .from('listings')
+              .select('id')
+              .eq('main_contact_email', contactEmail)
+              .eq('deal_source', 'gp_partners')
+              .is('deleted_at', null)
+              .limit(1)
+              .maybeSingle();
+            existingDealId = existing?.id || null;
+          }
+
+          if (existingDealId) {
+            await supabase
+              .from('listings')
+              .update({
+                smartlead_reply_inbox_id: inserted.id,
+                smartlead_replied_at: record.time_replied || new Date().toISOString(),
+                smartlead_ai_category: classification.category,
+              })
+              .eq('id', existingDealId);
+            gpDealId = existingDealId;
+            console.log(
+              `[smartlead-inbox-webhook] Updated existing GP deal ${existingDealId} with reply`,
+            );
+          } else {
+            const { data: newDeal } = await supabase
+              .from('listings')
+              .insert({
+                title: companyName || contactName || 'GP Response',
+                internal_company_name: companyName,
+                website: enrichedRecord?.lead_website || null,
+                main_contact_name: contactName,
+                main_contact_email: contactEmail || null,
+                main_contact_phone: contactPhone,
+                main_contact_linkedin: enrichedRecord?.lead_linkedin_url || null,
+                industry: enrichedRecord?.lead_industry || null,
+                location: enrichedRecord?.lead_location || null,
+                deal_source: 'gp_partners',
+                status: 'active',
+                is_internal_deal: true,
+                pushed_to_all_deals: false,
+                auto_created_from_smartlead: true,
+                smartlead_reply_inbox_id: inserted.id,
+                smartlead_replied_at: record.time_replied || new Date().toISOString(),
+                smartlead_ai_category: classification.category,
+                executive_summary: `Auto-created from Smartlead GP response. Category: ${classification.category}. Campaign: ${record.campaign_name}`,
+              })
+              .select('id')
+              .single();
+
+            if (newDeal?.id) {
+              gpDealId = newDeal.id;
+              console.log(`[smartlead-inbox-webhook] Created new GP deal ${gpDealId} from reply`);
+            }
+          }
+
+          // Link inbox item to deal
+          if (gpDealId) {
+            await supabase
+              .from('smartlead_reply_inbox')
+              .update({ linked_deal_id: gpDealId })
+              .eq('id', inserted.id);
+          }
+        } catch (gpDealError) {
+          console.error(
+            '[smartlead-inbox-webhook] GP auto-add to deals error (non-fatal):',
+            gpDealError,
+          );
+        }
+
+        // ── Feature 1: Auto-populate calling list (only if phone exists) ─
+        // ── Feature 2: Enrich phone first if missing ─────────────────────
+        try {
+          let phoneForList = contactPhone;
+
+          // If no phone and email is not generic, try to enrich
+          if (!phoneForList && contactEmail) {
+            const { isGenericEmailDomain } = await import('../_shared/generic-email-domains.ts');
+            const domain = contactEmail.split('@')[1] || '';
+
+            if (!isGenericEmailDomain(domain)) {
+              try {
+                const { googleSearch } = await import('../_shared/serper-client.ts');
+                const { findPhone } = await import('../_shared/blitz-client.ts');
+
+                const firstName = enrichedRecord?.lead_first_name || '';
+                const lastName = enrichedRecord?.lead_last_name || '';
+                const company = enrichedRecord?.lead_company_name || '';
+                const searchQuery = `"${firstName} ${lastName}" "${company}" site:linkedin.com/in`;
+
+                console.log(
+                  `[smartlead-inbox-webhook] Phone enrichment: searching LinkedIn for ${firstName} ${lastName}`,
+                );
+                const results = await googleSearch(searchQuery, 3);
+                const linkedInUrl = results?.find((r: { link?: string; url?: string }) =>
+                  (r.link || r.url || '').includes('linkedin.com/in/'),
+                );
+                const linkedInProfileUrl = linkedInUrl?.link || linkedInUrl?.url || null;
+
+                if (linkedInProfileUrl) {
+                  console.log(
+                    `[smartlead-inbox-webhook] Found LinkedIn: ${linkedInProfileUrl}, looking up phone`,
+                  );
+                  const phoneResult = await findPhone(linkedInProfileUrl);
+                  if (phoneResult.ok && phoneResult.data?.phone) {
+                    phoneForList = phoneResult.data.phone;
+
+                    // Update inbox record with enriched phone
+                    await supabase
+                      .from('smartlead_reply_inbox')
+                      .update({
+                        lead_phone: phoneForList,
+                        phone_enriched_at: new Date().toISOString(),
+                        phone_enrichment_source: 'blitz',
+                        phone_enrichment_linkedin_url: linkedInProfileUrl,
+                      })
+                      .eq('id', inserted.id);
+
+                    // Update listing phone if null
+                    if (gpDealId) {
+                      await supabase
+                        .from('listings')
+                        .update({ main_contact_phone: phoneForList })
+                        .eq('id', gpDealId)
+                        .is('main_contact_phone', null);
+                    }
+
+                    console.log(
+                      `[smartlead-inbox-webhook] Phone enriched for ${contactEmail}: ${phoneForList}`,
+                    );
+                  }
+                } else {
+                  console.log(
+                    `[smartlead-inbox-webhook] No LinkedIn profile found for ${firstName} ${lastName}`,
+                  );
+                }
+              } catch (enrichErr) {
+                console.error(
+                  '[smartlead-inbox-webhook] Phone enrichment error (non-fatal):',
+                  enrichErr,
+                );
+              }
+            } else {
+              console.log(
+                `[smartlead-inbox-webhook] Skipping phone enrichment for generic email: ${contactEmail}`,
+              );
+            }
+          }
+
+          // Add to calling list only if we have a phone number
+          if (phoneForList && contactEmail) {
+            const { data: gpList } = await supabase
+              .from('contact_lists')
+              .select('id')
+              .eq('name', 'Smartlead GP Responses')
+              .eq('is_archived', false)
+              .limit(1)
+              .maybeSingle();
+
+            if (gpList?.id) {
+              await supabase.from('contact_list_members').upsert(
+                {
+                  list_id: gpList.id,
+                  contact_email: contactEmail,
+                  contact_name: contactName,
+                  contact_phone: phoneForList,
+                  contact_company: companyName,
+                  contact_role: enrichedRecord?.lead_title || null,
+                  entity_type: 'gp_partner_deal',
+                  entity_id: gpDealId || inserted.id,
+                  removed_at: null,
+                },
+                { onConflict: 'list_id,contact_email', ignoreDuplicates: false },
+              );
+              console.log(
+                `[smartlead-inbox-webhook] Added ${contactEmail} to GP calling list (phone: ${phoneForList})`,
+              );
+            } else {
+              console.warn('[smartlead-inbox-webhook] "Smartlead GP Responses" list not found');
+            }
+          }
+        } catch (callingListError) {
+          console.error(
+            '[smartlead-inbox-webhook] GP calling list error (non-fatal):',
+            callingListError,
+          );
+        }
+      }
+    } catch (gpAutoError) {
+      console.error('[smartlead-inbox-webhook] GP automation error (non-fatal):', gpAutoError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

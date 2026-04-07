@@ -64,6 +64,7 @@ export function ConnectionRequestActions({
         handleAccept={actions.handleAccept}
         handleReject={actions.handleReject}
         handleResetToPending={actions.handleResetToPending}
+        handleOnHold={actions.handleOnHold}
         isStatusPending={actions.updateStatus.isPending}
         isRejecting={actions.isRejecting}
         showRejectDialog={actions.showRejectDialog}

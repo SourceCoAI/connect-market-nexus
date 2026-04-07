@@ -1,15 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import ConnectionRequestDialog from '@/components/connection/ConnectionRequestDialog';
-import { FeeAgreementGate } from '@/components/pandadoc/FeeAgreementGate';
 import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useAuth } from '@/contexts/AuthContext';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
 import { useRealtime } from '@/components/realtime/RealtimeProvider';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
-import { Send, XCircle, AlertCircle } from 'lucide-react';
+import { XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
+import { isProfileComplete, getProfileCompletionPercentage, getMissingFieldLabels } from '@/lib/profile-completeness';
 
 interface ConnectionButtonProps {
   connectionExists: boolean;
@@ -29,16 +27,16 @@ const ConnectionButton = ({
   isAdmin,
   handleRequestConnection,
   listingTitle,
-  listingId,
+  listingId: _listingId,
   listingStatus,
 }: ConnectionButtonProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [showFeeGate, setShowFeeGate] = useState(false);
+  
+  
   useRealtime();
   useAgreementStatusSync();
   const { user } = useAuth();
   const { data: coverage } = useMyAgreementStatus(!isAdmin && !!user);
-  const { data: ndaStatus } = useBuyerNdaStatus(!isAdmin ? user?.id : undefined);
 
   const handleDialogSubmit = (message: string) => {
     handleRequestConnection(message);
@@ -47,12 +45,13 @@ const ConnectionButton = ({
 
   const handleButtonClick = () => {
     if (!connectionExists || connectionStatus === 'rejected') {
-      // Check fee agreement coverage before opening dialog
-      if (!isAdmin && coverage && !coverage.fee_covered) {
-        setShowFeeGate(true);
-      } else {
-        setIsDialogOpen(true);
-      }
+      // Gate: listing must be active
+      if (listingStatus === 'inactive' || listingStatus === 'sold') return;
+      // Gate: profile must be complete
+      if (user && !isAdmin && !isProfileComplete(user)) return;
+      // Gate: Fee Agreement must be signed
+      if (!isAdmin && (!coverage || !coverage.fee_covered)) return;
+      setIsDialogOpen(true);
     }
   };
 
@@ -79,6 +78,13 @@ const ConnectionButton = ({
             className: 'bg-slate-900 hover:bg-slate-800 text-white border-none',
             disabled: false,
           };
+        case 'on_hold':
+          return {
+            text: 'Request under review',
+            className:
+              'bg-slate-100 text-slate-700 border border-slate-200 cursor-default hover:bg-slate-100',
+            disabled: true,
+          };
         default:
           return {
             text: 'Request connection',
@@ -89,7 +95,7 @@ const ConnectionButton = ({
     }
 
     return {
-      text: 'Request Full Deal Details',
+      text: 'Request Deal Access',
       className: 'bg-sourceco hover:bg-sourceco/90 text-sourceco-foreground border-none',
       disabled: false,
     };
@@ -122,37 +128,68 @@ const ConnectionButton = ({
   // Block users with incomplete profiles from requesting connections
   if (user && !isAdmin && !isProfileComplete(user)) {
     const pct = getProfileCompletionPercentage(user);
+    const missingLabels = getMissingFieldLabels(user);
     return (
-      <div className="space-y-3">
-        <div className="w-full px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <AlertCircle className="h-4 w-4 text-amber-500" />
-            <p className="text-sm font-medium text-amber-900">Complete Your Profile</p>
-          </div>
-          <p className="text-xs text-amber-700 mt-0.5">
-            You need to complete your buyer profile before requesting deal access.
+      <div className="w-full space-y-4">
+        <div className="w-full px-5 py-4 border border-border rounded-lg">
+          <p className="text-sm font-semibold text-foreground mb-1">Complete your profile</p>
+          <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+            Finish your buyer profile to request deal access.
           </p>
+          {missingLabels.length > 0 && (
+            <p className="text-[11px] text-muted-foreground/80 mb-3">
+              Missing: {missingLabels.join(' · ')}
+            </p>
+          )}
           {pct > 0 && (
-            <div className="mt-2 space-y-1">
+            <div className="space-y-1.5 mb-4">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-amber-600">Profile completeness</span>
-                <span className="font-mono text-xs text-amber-900">{pct}%</span>
+                <span className="text-[11px] text-muted-foreground">{pct}%</span>
               </div>
-              <div className="h-1 bg-amber-100 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-amber-500 transition-all duration-300"
+                  className="h-full bg-[#0E101A] rounded-full transition-all duration-300"
                   style={{ width: `${pct}%` }}
                 />
               </div>
             </div>
           )}
+          <Link
+            to="/profile?tab=profile&complete=1"
+            className="block w-full text-center text-xs font-medium py-2.5 px-3 rounded-md bg-[#0E101A] text-white hover:bg-[#0E101A]/90 transition-colors"
+          >
+            Complete Profile
+          </Link>
         </div>
-        <Link
-          to="/profile"
-          className="block w-full text-center text-xs font-medium py-2.5 px-3 rounded-md bg-sourceco text-sourceco-foreground hover:bg-sourceco/90 transition-colors"
-        >
-          Complete My Profile
-        </Link>
+      </div>
+    );
+  }
+
+  // Block users who haven't signed a Fee Agreement
+  if (!isAdmin && coverage && !coverage.fee_covered) {
+    const ndaStatus = coverage.nda_status ?? 'not_started';
+    const feeStatus = coverage.fee_status ?? 'not_started';
+    const ndaSent = ndaStatus === 'sent';
+    const feeSent = feeStatus === 'sent';
+    const ndaSigned = coverage.nda_covered;
+    const feeSigned = coverage.fee_covered;
+    const anyPending = ndaSent || feeSent;
+    const bothNotRequested = !ndaSent && !feeSent && !ndaSigned && !feeSigned;
+
+
+    return (
+      <div className="space-y-3">
+        {anyPending && !feeSigned && (
+          <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+            Once your Fee Agreement is processed, you'll be able to request introductions.
+          </p>
+        )}
+
+        {bothNotRequested && (
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Sign your documents to unlock the data room and request introductions.
+          </p>
+        )}
       </div>
     );
   }
@@ -201,27 +238,12 @@ const ConnectionButton = ({
             — our team sources new opportunities regularly.
           </p>
         </div>
-        <Button
-          onClick={handleButtonClick}
-          disabled={isRequesting}
-          className="w-full h-10 bg-slate-900 hover:bg-slate-800 text-white font-medium text-[13px] tracking-[0.002em] shadow-sm hover:shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-sourceco-accent/30 focus:ring-offset-2"
+        <Link
+          to="/marketplace"
+          className="block w-full text-center text-xs font-medium py-2.5 px-3 rounded-md bg-slate-900 text-white hover:bg-slate-800 transition-colors"
         >
-          <Send className="h-3.5 w-3.5" />
-          {isRequesting ? 'Sending request...' : 'Explore other opportunities'}
-        </Button>
-
-        {showFeeGate && user && ndaStatus?.firmId && (
-          <FeeAgreementGate
-            userId={user.id}
-            firmId={ndaStatus.firmId}
-            listingTitle={listingTitle}
-            onSigned={() => {
-              setShowFeeGate(false);
-              setIsDialogOpen(true);
-            }}
-            onDismiss={() => setShowFeeGate(false)}
-          />
-        )}
+          Browse Other Deals
+        </Link>
       </div>
     );
   }
@@ -232,7 +254,7 @@ const ConnectionButton = ({
       <Button
         onClick={handleButtonClick}
         disabled={disabled || isRequesting}
-        className={`w-full bg-sourceco hover:bg-sourceco/90 text-sourceco-foreground font-medium text-xs py-2.5 h-auto rounded-md transition-colors duration-200 ${className}`}
+        className={`w-full bg-sourceco hover:bg-sourceco/90 text-sourceco-foreground font-medium text-xs py-2.5 h-auto rounded-md transition-colors duration-200 whitespace-normal text-center ${className}`}
       >
         {isRequesting ? 'Sending request...' : buttonText}
       </Button>
@@ -243,21 +265,8 @@ const ConnectionButton = ({
         onSubmit={handleDialogSubmit}
         isSubmitting={isRequesting}
         listingTitle={listingTitle}
-        listingId={listingId}
       />
 
-      {showFeeGate && user && ndaStatus?.firmId && (
-        <FeeAgreementGate
-          userId={user.id}
-          firmId={ndaStatus.firmId}
-          listingTitle={listingTitle}
-          onSigned={() => {
-            setShowFeeGate(false);
-            setIsDialogOpen(true);
-          }}
-          onDismiss={() => setShowFeeGate(false)}
-        />
-      )}
     </div>
   );
 };

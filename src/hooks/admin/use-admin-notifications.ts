@@ -2,10 +2,25 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
 
+export type AdminNotificationType =
+  | 'task_assigned'
+  | 'task_completed'
+  | 'task_approved'
+  | 'response_sent'
+  | 'document_signing_requested'
+  | 'document_completed'
+  | 'remarketing_a_tier_match'
+  | 'deal_assignment'
+  | 'deal_reassignment'
+  | 'alert_dismissed'
+  | 'alert_snoozed'
+  | 'document_question'
+  | 'listing_saved';
+
 export interface AdminNotification {
   id: string;
   admin_id: string;
-  notification_type: 'task_assigned' | 'task_completed' | 'deal_stage_changed' | 'response_sent' | 'connection_request_new' | 'deal_follow_up_needed';
+  notification_type: AdminNotificationType;
   title: string;
   message: string;
   is_read: boolean;
@@ -46,36 +61,49 @@ export function useAdminNotifications() {
     },
   });
 
-  // Real-time subscription for new notifications
+  // Real-time subscription for new notifications — filtered by admin_id
   useEffect(() => {
-    const channel = supabase
-      .channel('admin-notifications-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'admin_notifications',
-        },
-        (_payload) => {
-          queryClient.invalidateQueries({ queryKey: ['admin-notifications'] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'admin_notifications',
-        },
-        (_payload) => {
-          queryClient.invalidateQueries({ queryKey: ['admin-notifications'] });
-        }
-      )
-      .subscribe();
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setup = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+
+      channel = supabase
+        .channel('admin-notifications-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'admin_notifications',
+            filter: `admin_id=eq.${user.id}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-notifications'] });
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'admin_notifications',
+            filter: `admin_id=eq.${user.id}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-notifications'] });
+          }
+        )
+        .subscribe();
+    };
+
+    setup();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
     };
   }, [queryClient]);
 

@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, untypedFrom } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 import { Checkbox } from '@/components/ui/checkbox';
 import { useShiftSelect } from '@/hooks/useShiftSelect';
@@ -17,7 +19,7 @@ import {
   ChevronRight,
   History,
   UserMinus,
-  
+  X,
 } from 'lucide-react';
 import { formatDistanceToNow, format, differenceInDays } from 'date-fns';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
@@ -28,8 +30,38 @@ import { useRemoveFirmMember } from '@/hooks/admin/use-firm-agreements';
 import { useAgreementAuditLog } from '@/hooks/admin/use-firm-agreements';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // ─── Types ───────────────────────────────────────────────────────────
+
+interface DocumentRequestRecord {
+  id: string;
+  agreement_type: string;
+  status: string;
+  created_at: string;
+  recipient_email: string | null;
+  recipient_name: string | null;
+  email_provider_message_id: string | null;
+  last_email_error: string | null;
+}
 
 interface FirmRow {
   id: string;
@@ -41,16 +73,21 @@ interface FirmRow {
   nda_email_sent_at: string | null;
   nda_signed_at: string | null;
   nda_signed_by_name: string | null;
+  nda_requested_at: string | null;
+  nda_marked_by_admin: string | null;
   fee_agreement_status: AgreementStatus;
   fee_agreement_sent_at: string | null;
   fee_agreement_email_sent_at: string | null;
   fee_agreement_signed_at: string | null;
   fee_agreement_signed_by_name: string | null;
+  fee_agreement_requested_at: string | null;
+  fee_marked_by_admin: string | null;
+  hasPendingRequest: boolean;
   contactName: string | null;
   contactEmail: string | null;
-  // For AgreementStatusDropdown compatibility
   firmAgreement: FirmAgreement;
   members: FirmMember[];
+  documentRequests: DocumentRequestRecord[];
 }
 
 interface OrphanUser {
@@ -68,6 +105,7 @@ function useAllFirmsTracking() {
     queryKey: ['admin-document-tracking'],
     staleTime: 60_000,
     queryFn: async () => {
+      // Fetch firms + members
       const { data: firms, error } = await supabase
         .from('firm_agreements')
         .select(
@@ -94,6 +132,45 @@ function useAllFirmsTracking() {
 
       if (error) throw error;
       if (!firms || firms.length === 0) return [];
+
+      // Fetch audit entries + document requests in parallel
+      const [auditRes, docReqRes] = await Promise.all([
+        supabase
+          .from('agreement_audit_log')
+          .select('firm_id, agreement_type, changed_by_name, created_at')
+          .eq('new_status', 'signed')
+          .order('created_at', { ascending: false }),
+        untypedFrom('document_requests')
+          .select('id, firm_id, agreement_type, status, created_at, recipient_email, recipient_name, email_provider_message_id, last_email_error')
+          .order('created_at', { ascending: false })
+          .limit(500),
+      ]);
+
+      const auditEntries = auditRes.data;
+      const allDocRequests = (docReqRes.data || []) as Array<DocumentRequestRecord & { firm_id: string | null }>;
+
+      // Build doc requests per firm
+      const docRequestsByFirm = new Map<string, DocumentRequestRecord[]>();
+      for (const dr of allDocRequests) {
+        if (dr.firm_id) {
+          const existing = docRequestsByFirm.get(dr.firm_id) || [];
+          existing.push(dr);
+          docRequestsByFirm.set(dr.firm_id, existing);
+        }
+      }
+
+      // Build lookup: firmId -> { nda: adminName, fee_agreement: adminName }
+      const adminMap = new Map<string, { nda?: string; fee_agreement?: string }>();
+      if (auditEntries) {
+        for (const entry of auditEntries) {
+          const existing = adminMap.get(entry.firm_id) || {};
+          const type = entry.agreement_type as 'nda' | 'fee_agreement';
+          if (!existing[type]) {
+            existing[type] = entry.changed_by_name || undefined;
+            adminMap.set(entry.firm_id, existing);
+          }
+        }
+      }
 
       return firms.map((firm: Record<string, unknown>) => {
         const firmMembers = (firm.firm_members || []) as Record<string, unknown>[];
@@ -123,6 +200,15 @@ function useAllFirmsTracking() {
           user: m.user || null,
         })) as FirmMember[];
 
+        const ndaRequestedAt = (firm.nda_requested_at as string) || null;
+        const feeRequestedAt = (firm.fee_agreement_requested_at as string) || null;
+        const hasPendingRequest = (
+          (ndaRequestedAt && (firm.nda_status as string) !== 'signed') ||
+          (feeRequestedAt && (firm.fee_agreement_status as string) !== 'signed')
+        );
+
+        const adminAttribution = adminMap.get(firm.id as string);
+
         return {
           id: firm.id,
           primary_company_name: firm.primary_company_name,
@@ -133,15 +219,21 @@ function useAllFirmsTracking() {
           nda_email_sent_at: firm.nda_email_sent_at,
           nda_signed_at: firm.nda_signed_at,
           nda_signed_by_name: firm.nda_signed_by_name,
+          nda_requested_at: ndaRequestedAt,
+          nda_marked_by_admin: adminAttribution?.nda || null,
           fee_agreement_status: (firm.fee_agreement_status || 'not_started') as AgreementStatus,
           fee_agreement_sent_at: firm.fee_agreement_sent_at || firm.fee_agreement_email_sent_at,
           fee_agreement_email_sent_at: firm.fee_agreement_email_sent_at,
           fee_agreement_signed_at: firm.fee_agreement_signed_at,
           fee_agreement_signed_by_name: firm.fee_agreement_signed_by_name,
+          fee_agreement_requested_at: feeRequestedAt,
+          fee_marked_by_admin: adminAttribution?.fee_agreement || null,
+          hasPendingRequest: !!hasPendingRequest,
           contactName,
           contactEmail,
           firmAgreement: firm as unknown as FirmAgreement,
           members,
+          documentRequests: docRequestsByFirm.get(firm.id as string) || [],
         } as FirmRow;
       });
     },
@@ -180,7 +272,108 @@ function useOrphanUsers() {
   });
 }
 
-// ─── Realtime subscription hook ──────────────────────────────────────
+// ─── Pending Request Queue Hook ──────────────────────────────────────
+
+interface PendingRequest {
+  id: string;
+  user_id: string | null;
+  agreement_type: string;
+  status: string;
+  created_at: string;
+  recipient_email: string | null;
+  recipient_name: string | null;
+  firm_id: string | null;
+  email_correlation_id: string | null;
+  email_provider_message_id: string | null;
+  last_email_error: string | null;
+  approval_status: string | null;
+}
+
+interface DeliveryEvent {
+  email: string;
+  status: string;
+  correlation_id: string | null;
+  error_message: string | null;
+  sent_at: string | null;
+}
+
+function usePendingRequestQueue() {
+  return useQuery<PendingRequest[]>({
+    queryKey: ['admin-pending-request-queue'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await untypedFrom('document_requests')
+        .select('id, user_id, agreement_type, status, created_at, recipient_email, recipient_name, firm_id, email_correlation_id, email_provider_message_id, last_email_error')
+        .in('status', ['requested', 'email_sent'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      const requests = (data || []) as Omit<PendingRequest, 'approval_status'>[];
+
+      // Fetch approval status for all unique user_ids
+      const userIds = [...new Set(requests.map(r => r.user_id).filter((id): id is string => !!id))];
+      let approvalMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, approval_status')
+          .in('id', userIds);
+        if (profiles) {
+          approvalMap = Object.fromEntries(profiles.map(p => [p.id, p.approval_status]));
+        }
+      }
+
+      return requests.map(r => ({
+        ...r,
+        approval_status: r.user_id ? (approvalMap[r.user_id] || null) : null,
+      }));
+    },
+  });
+}
+
+/** Fetch latest delivery events — checks new outbound_emails first, falls back to legacy email_delivery_logs */
+function useDeliveryEvents(providerMessageIds: string[]) {
+  return useQuery<DeliveryEvent[]>({
+    queryKey: ['admin-delivery-events', providerMessageIds],
+    staleTime: 30_000,
+    enabled: providerMessageIds.length > 0,
+    queryFn: async () => {
+      if (providerMessageIds.length === 0) return [];
+      const normalized = providerMessageIds.map(id => id.replace(/^<|>$/g, '').trim());
+      const withBrackets = normalized.map(id => `<${id}>`);
+      const allVariants = [...normalized, ...withBrackets];
+
+      // Try new outbound_emails table first
+      const { data: newData } = await untypedFrom('outbound_emails')
+        .select('recipient_email, status, provider_message_id, last_error, delivered_at, opened_at, failed_at')
+        .in('provider_message_id', allVariants)
+        .order('created_at', { ascending: false });
+
+      if (newData && newData.length > 0) {
+        return (newData as Array<Record<string, unknown>>).map(row => ({
+          email: row.recipient_email as string,
+          status: row.status as string,
+          correlation_id: (row.provider_message_id as string)?.replace(/^<|>$/g, '').trim() || null,
+          error_message: row.last_error as string | null,
+          sent_at: (row.delivered_at || row.opened_at || row.failed_at) as string | null,
+        }));
+      }
+
+      // Fallback to legacy
+      const { data, error } = await supabase
+        .from('email_delivery_logs')
+        .select('email, status, correlation_id, error_message, sent_at')
+        .eq('email_type', 'brevo_webhook')
+        .in('correlation_id', normalized)
+        .order('sent_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as DeliveryEvent[];
+    },
+  });
+}
+
 
 function useRealtimeFirmAgreements() {
   const queryClient = useQueryClient();
@@ -190,6 +383,11 @@ function useRealtimeFirmAgreements() {
       .channel('firm-agreements-tracking')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'firm_agreements' }, () => {
         queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'document_requests' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-pending-request-queue'] });
       })
       .subscribe();
 
@@ -201,20 +399,43 @@ function useRealtimeFirmAgreements() {
 
 // ─── Component ───────────────────────────────────────────────────────
 
-type FilterStatus = 'all' | 'signed' | 'sent' | 'not_started' | 'unsigned' | 'needs_attention';
-type SortField = 'company' | 'nda_status' | 'fee_status' | 'members' | 'last_signed';
+type FilterStatus = 'all' | 'signed' | 'sent' | 'not_started' | 'unsigned' | 'needs_attention' | 'pending_requests';
+type SortField = 'company' | 'nda_status' | 'fee_status' | 'members' | 'last_signed' | 'last_requested';
 
 export default function DocumentTrackingPage() {
   const { data: firms = [], isLoading, error } = useAllFirmsTracking();
   const { data: orphanUsers = [] } = useOrphanUsers();
+  const { data: pendingRequests = [] } = usePendingRequestQueue();
+
+  // Gather provider message IDs from pending requests for delivery event lookup
+  const providerMessageIds = useMemo(() =>
+    pendingRequests
+      .map(r => r.email_provider_message_id)
+      .filter((id): id is string => !!id),
+    [pendingRequests]
+  );
+  const { data: deliveryEvents = [] } = useDeliveryEvents(providerMessageIds);
+
+  // Build lookup: normalized provider message id -> latest delivery event
+  const deliveryMap = useMemo(() => {
+    const map = new Map<string, DeliveryEvent>();
+    for (const ev of deliveryEvents) {
+      if (ev.correlation_id && !map.has(ev.correlation_id)) {
+        map.set(ev.correlation_id, ev);
+      }
+    }
+    return map;
+  }, [deliveryEvents]);
+
   useRealtimeFirmAgreements();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-  const [sortField, setSortField] = useState<SortField>('last_signed');
+  const [sortField, setSortField] = useState<SortField>('last_requested');
   const [sortAsc, setSortAsc] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [orphansOpen, setOrphansOpen] = useState(false);
+  const [marketplaceOnly, setMarketplaceOnly] = useState(false);
 
   // AI Command Center
   const { setPageContext } = useAICommandCenterContext();
@@ -265,10 +486,15 @@ export default function DocumentTrackingPage() {
   const filteredFirms = useMemo(() => {
     let result = [...firms];
 
+    if (marketplaceOnly) {
+      result = result.filter(f =>
+        f.members.some(m => m.member_type === 'marketplace_user' && m.user_id)
+      );
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((f) => {
-        // Search firm name, domain, primary contact
         if (
           f.primary_company_name.toLowerCase().includes(q) ||
           f.contactName?.toLowerCase().includes(q) ||
@@ -276,7 +502,6 @@ export default function DocumentTrackingPage() {
           f.email_domain?.toLowerCase().includes(q)
         )
           return true;
-        // Also search ALL member emails/names (Phase 4A)
         if (f.members?.length) {
           return f.members.some((m) => {
             const memberName = m.user
@@ -288,6 +513,10 @@ export default function DocumentTrackingPage() {
         }
         return false;
       });
+    }
+
+    if (filterStatus === 'pending_requests') {
+      result = result.filter((f) => f.hasPendingRequest);
     }
 
     if (filterStatus === 'signed') {
@@ -338,6 +567,20 @@ export default function DocumentTrackingPage() {
         cmp =
           (statusOrder[a.fee_agreement_status] ?? 9) - (statusOrder[b.fee_agreement_status] ?? 9);
       else if (sortField === 'members') cmp = b.member_count - a.member_count;
+      else if (sortField === 'last_requested') {
+        const aDate = Math.max(
+          a.nda_requested_at ? new Date(a.nda_requested_at).getTime() : 0,
+          a.fee_agreement_requested_at ? new Date(a.fee_agreement_requested_at).getTime() : 0,
+        );
+        const bDate = Math.max(
+          b.nda_requested_at ? new Date(b.nda_requested_at).getTime() : 0,
+          b.fee_agreement_requested_at ? new Date(b.fee_agreement_requested_at).getTime() : 0,
+        );
+        if (aDate === 0 && bDate === 0) cmp = 0;
+        else if (aDate === 0) cmp = 1;
+        else if (bDate === 0) cmp = -1;
+        else cmp = aDate - bDate;
+      }
       else if (sortField === 'last_signed') {
         const aDate = Math.max(
           a.nda_signed_at ? new Date(a.nda_signed_at).getTime() : 0,
@@ -347,17 +590,22 @@ export default function DocumentTrackingPage() {
           b.nda_signed_at ? new Date(b.nda_signed_at).getTime() : 0,
           b.fee_agreement_signed_at ? new Date(b.fee_agreement_signed_at).getTime() : 0,
         );
-        // Firms with signed docs first, then by date
         if (aDate === 0 && bDate === 0) cmp = 0;
         else if (aDate === 0) cmp = 1;
         else if (bDate === 0) cmp = -1;
-        else cmp = bDate - aDate;
+        else cmp = aDate - bDate;
       }
+
+      // Pending requests always sort to the top
+      if (a.hasPendingRequest !== b.hasPendingRequest) {
+        return a.hasPendingRequest ? -1 : 1;
+      }
+
       return sortAsc ? cmp : -cmp;
     });
 
     return result;
-  }, [firms, searchQuery, filterStatus, sortField, sortAsc]);
+  }, [firms, searchQuery, filterStatus, sortField, sortAsc, marketplaceOnly]);
 
   // Stats
   const totalFirms = firms.length;
@@ -404,7 +652,7 @@ export default function DocumentTrackingPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <StatCard label="Total Firms" value={totalFirms} />
         <StatCard
           label="NDA Signed"
@@ -417,6 +665,12 @@ export default function DocumentTrackingPage() {
           value={feeSigned}
           subtitle={`/ ${totalFirms}`}
           color="emerald"
+        />
+        <StatCard
+          label="Pending Requests"
+          value={firms.filter(f => f.hasPendingRequest).length}
+          color="amber"
+          onClick={() => setFilterStatus('pending_requests')}
         />
         <StatCard
           label="Needs Attention"
@@ -475,7 +729,27 @@ export default function DocumentTrackingPage() {
         </Collapsible>
       )}
 
-      {/* Filters */}
+      {/* Pending Request Queue */}
+      {pendingRequests.length > 0 && (
+        <div className="border border-amber-200 rounded-xl bg-amber-50/50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-amber-200 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Pending Requests ({pendingRequests.length})
+            </h3>
+            <span className="text-xs text-amber-700">Check inbox at adam.haile@sourcecodeals.com</span>
+          </div>
+          <div className="divide-y divide-amber-200">
+            {pendingRequests.map((req) => {
+              const normalizedId = req.email_provider_message_id?.replace(/^<|>$/g, '').trim();
+              return (
+                <PendingRequestRow key={req.id} req={req} deliveryEvent={normalizedId ? deliveryMap.get(normalizedId) : undefined} />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -486,6 +760,16 @@ export default function DocumentTrackingPage() {
             placeholder="Search by firm, contact, email, or domain..."
             className="w-full text-sm border border-border rounded-lg pl-9 pr-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-all"
           />
+        </div>
+        <div className="flex items-center gap-2 border border-border rounded-lg px-3 py-2">
+          <Switch
+            id="marketplace-only"
+            checked={marketplaceOnly}
+            onCheckedChange={setMarketplaceOnly}
+          />
+          <Label htmlFor="marketplace-only" className="text-sm whitespace-nowrap cursor-pointer">
+            Marketplace Only
+          </Label>
         </div>
         <select
           value={filterStatus}
@@ -498,6 +782,7 @@ export default function DocumentTrackingPage() {
           <option value="not_started">Not Started</option>
           <option value="unsigned">Not Fully Signed</option>
           <option value="needs_attention">Needs Attention (&gt;7d)</option>
+          <option value="pending_requests">Pending Requests</option>
         </select>
       </div>
 
@@ -598,6 +883,14 @@ export default function DocumentTrackingPage() {
                     </button>
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                    <button
+                      onClick={() => toggleSort('last_requested')}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      Requested <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">
                     Primary Contact
                   </th>
                 </tr>
@@ -642,7 +935,7 @@ function FirmExpandableRow({
   return (
     <>
       <tr
-        className={`hover:bg-muted/30 transition-colors cursor-pointer ${isSelected ? 'bg-primary/5' : ''}`}
+        className={`hover:bg-muted/30 transition-colors cursor-pointer ${isSelected ? 'bg-primary/5' : firm.hasPendingRequest ? 'bg-amber-50/60' : ''}`}
         onClick={() => setExpanded(!expanded)}
       >
         <td
@@ -658,6 +951,11 @@ function FirmExpandableRow({
           <div className="flex items-center gap-1.5">
             {expanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
             <span className="font-medium text-foreground">{firm.primary_company_name}</span>
+            {firm.hasPendingRequest && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                Requested
+              </span>
+            )}
           </div>
         </td>
         <td className="px-4 py-3 text-muted-foreground text-xs">{firm.email_domain || '--'}</td>
@@ -670,6 +968,7 @@ function FirmExpandableRow({
             <div>
               <span className="text-emerald-600 font-medium">{format(new Date(firm.nda_signed_at), 'MMM d, yyyy')}</span>
               {firm.nda_signed_by_name && <p className="text-[10px]">{firm.nda_signed_by_name}</p>}
+              {firm.nda_marked_by_admin && <p className="text-[10px] text-muted-foreground/70">Marked by {firm.nda_marked_by_admin}</p>}
             </div>
           ) : firm.nda_sent_at ? (
             <span>{formatDistanceToNow(new Date(firm.nda_sent_at), { addSuffix: true })}</span>
@@ -683,10 +982,26 @@ function FirmExpandableRow({
             <div>
               <span className="text-emerald-600 font-medium">{format(new Date(firm.fee_agreement_signed_at), 'MMM d, yyyy')}</span>
               {firm.fee_agreement_signed_by_name && <p className="text-[10px]">{firm.fee_agreement_signed_by_name}</p>}
+              {firm.fee_marked_by_admin && <p className="text-[10px] text-muted-foreground/70">Marked by {firm.fee_marked_by_admin}</p>}
             </div>
           ) : firm.fee_agreement_sent_at ? (
             <span>{formatDistanceToNow(new Date(firm.fee_agreement_sent_at), { addSuffix: true })}</span>
           ) : '--'}
+        </td>
+        <td className="px-4 py-3 text-xs text-muted-foreground">
+          {(() => {
+            const reqDate = firm.nda_requested_at || firm.fee_agreement_requested_at
+              ? new Date(Math.max(
+                  firm.nda_requested_at ? new Date(firm.nda_requested_at).getTime() : 0,
+                  firm.fee_agreement_requested_at ? new Date(firm.fee_agreement_requested_at).getTime() : 0,
+                )).toISOString()
+              : null;
+            return reqDate ? (
+              <span className={firm.hasPendingRequest ? 'text-amber-600 font-medium' : ''}>
+                {formatDistanceToNow(new Date(reqDate), { addSuffix: true })}
+              </span>
+            ) : '--';
+          })()}
         </td>
         <td className="px-4 py-3">
           {firm.contactName || firm.contactEmail ? (
@@ -701,7 +1016,7 @@ function FirmExpandableRow({
       {/* Expanded detail panel */}
       {expanded && (
         <tr>
-          <td colSpan={9} className="px-0 py-0">
+          <td colSpan={10} className="px-0 py-0">
             <div className="bg-muted/20 border-t border-b border-border px-6 py-4 space-y-4">
               {/* Members section */}
               <div>
@@ -743,6 +1058,48 @@ function FirmExpandableRow({
                 )}
               </div>
 
+              {/* Document Requests History */}
+              {(firm.documentRequests || []).length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                    <FileSignature className="h-3.5 w-3.5" /> Document Requests ({(firm.documentRequests || []).length})
+                  </h4>
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {firm.documentRequests.map((dr) => (
+                      <div key={dr.id} className="flex items-center justify-between text-[11px] bg-background rounded px-3 py-1.5 border border-border">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground/60 whitespace-nowrap">
+                            {format(new Date(dr.created_at), 'MMM d, yyyy')}
+                          </span>
+                          <span className="font-medium text-foreground">
+                            {dr.agreement_type === 'nda' ? 'NDA' : 'Fee Agmt'}
+                          </span>
+                          {dr.recipient_name && (
+                            <span className="text-muted-foreground">{dr.recipient_name}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${
+                            dr.status === 'signed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            dr.status === 'dismissed' ? 'bg-muted text-muted-foreground border-border' :
+                            dr.status === 'email_sent' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            'bg-muted text-muted-foreground border-border'
+                          }`}>
+                            {dr.status === 'signed' ? 'Signed' :
+                             dr.status === 'dismissed' ? 'Dismissed' :
+                             dr.status === 'email_sent' ? 'Email Sent' :
+                             'Requested'}
+                          </span>
+                          {dr.last_email_error && (
+                            <span className="text-[10px] text-destructive" title={dr.last_email_error}>Error</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Audit Log section */}
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
@@ -774,6 +1131,261 @@ function FirmExpandableRow({
         </tr>
       )}
     </>
+  );
+}
+
+// ─── Pending Request Row (with Mark Signed dialog) ───────────────────
+
+function PendingRequestRow({ req, deliveryEvent }: { req: PendingRequest; deliveryEvent?: DeliveryEvent }) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [signDialogOpen, setSignDialogOpen] = useState(false);
+  const [signedByName, setSignedByName] = useState<string | null>(req.recipient_name || null);
+  const [signedByUserId, setSignedByUserId] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  const [source, setSource] = useState('manual');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleMarkSigned = async () => {
+    const adminName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : null;
+    const now = new Date().toISOString();
+    setSubmitting(true);
+    try {
+      await untypedFrom('document_requests')
+        .update({
+          status: 'signed',
+          signed_toggled_by: user?.id || null,
+          signed_toggled_by_name: adminName,
+          signed_at: now,
+        })
+        .eq('id', req.id);
+
+      if (req.firm_id) {
+        const statusCol = req.agreement_type === 'nda' ? 'nda_status' : 'fee_agreement_status';
+        const signedAtCol = req.agreement_type === 'nda' ? 'nda_signed_at' : 'fee_agreement_signed_at';
+        const signedByCol = req.agreement_type === 'nda' ? 'nda_signed_by_name' : 'fee_agreement_signed_by_name';
+        const signedByIdCol = req.agreement_type === 'nda' ? 'nda_signed_by' : 'fee_agreement_signed_by';
+        await supabase
+          .from('firm_agreements')
+          .update({
+            [statusCol]: 'signed',
+            [signedAtCol]: now,
+            [signedByCol]: signedByName || req.recipient_name || adminName,
+            [signedByIdCol]: signedByUserId || null,
+          } as never)
+          .eq('id', req.firm_id);
+
+        await supabase
+          .from('agreement_audit_log')
+          .insert({
+            firm_id: req.firm_id,
+            agreement_type: req.agreement_type === 'nda' ? 'nda' : 'fee_agreement',
+            old_status: 'sent',
+            new_status: 'signed',
+            changed_by: user?.id || null,
+            changed_by_name: adminName,
+            notes: notes || `Marked signed via pending queue (source: ${source})`,
+          });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-request-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['firm-agreements'] });
+      toast({ title: 'Marked as signed', description: `${req.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement'} marked as signed.` });
+      setSignDialogOpen(false);
+
+      // Fire-and-forget: notify firm members their agreement is confirmed
+      if (req.firm_id) {
+        supabase.functions.invoke('notify-agreement-confirmed', {
+          body: { firmId: req.firm_id, agreementType: req.agreement_type },
+        }).catch((err) => console.error('notify-agreement-confirmed failed:', err));
+      }
+    } catch {
+      toast({ title: 'Failed to update', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="px-4 py-3 flex items-center justify-between hover:bg-amber-100/50 transition-colors">
+        <div className="flex items-center gap-3">
+          {req.agreement_type === 'nda' ? (
+            <Shield className="h-4 w-4 text-primary" />
+          ) : (
+            <FileSignature className="h-4 w-4 text-primary" />
+          )}
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {req.recipient_name || req.recipient_email || 'Unknown'}
+              <span className="ml-2 text-xs text-muted-foreground">
+                {req.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement'}
+              </span>
+              {req.approval_status && req.approval_status !== 'approved' && (
+                <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                  ⏳ Pending Approval
+                </span>
+              )}
+            </p>
+            {req.recipient_email && req.recipient_name && (
+              <p className="text-xs text-muted-foreground">{req.recipient_email}</p>
+            )}
+            {/* Delivery state indicator */}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {req.last_email_error ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-destructive/10 text-destructive border border-destructive/20">
+                  ⚠ {req.last_email_error.length > 40 ? req.last_email_error.substring(0, 40) + '…' : req.last_email_error}
+                </span>
+              ) : deliveryEvent ? (
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${
+                  deliveryEvent.status === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                  deliveryEvent.status === 'opened' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                  deliveryEvent.status === 'bounced' || deliveryEvent.status === 'blocked' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                  'bg-muted text-muted-foreground border-border'
+                }`}>
+                  {deliveryEvent.status === 'delivered' ? '✓ Delivered' :
+                   deliveryEvent.status === 'opened' ? '👁 Opened' :
+                   deliveryEvent.status === 'bounced' ? '✕ Bounced' :
+                   deliveryEvent.status === 'blocked' ? '✕ Blocked' :
+                   deliveryEvent.status === 'spam_complaint' ? '⚠ Spam' :
+                   deliveryEvent.status}
+                </span>
+              ) : req.status === 'email_sent' ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                  ✉ Accepted by Brevo
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground border border-border">
+                  Requested
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            {formatDistanceToNow(new Date(req.created_at), { addSuffix: true })}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+            onClick={() => setSignDialogOpen(true)}
+          >
+            Mark Signed
+          </Button>
+          <DismissButton requestId={req.id} label={req.recipient_name || req.recipient_email || 'request'} />
+        </div>
+      </div>
+
+      <Dialog open={signDialogOpen} onOpenChange={setSignDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Mark {req.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement'} as Signed</DialogTitle>
+            <DialogDescription>
+              Confirm signing details for {req.recipient_name || req.recipient_email}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Signer Name</Label>
+              <Input
+                value={signedByName || ''}
+                onChange={(e) => { setSignedByName(e.target.value); setSignedByUserId(null); }}
+                placeholder="Name of person who signed..."
+                className="h-9"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Source</Label>
+              <Select value={source} onValueChange={setSource}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Email (manual exchange)</SelectItem>
+                  <SelectItem value="platform">Platform</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Admin Notes (optional)</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any notes about the signing..."
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" size="sm" onClick={() => setSignDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleMarkSigned}
+              disabled={submitting || !signedByName}
+            >
+              {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />}
+              Confirm Signed
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ─── Dismiss Button ──────────────────────────────────────────────────
+
+function DismissButton({ requestId, label }: { requestId: string; label: string }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [dismissing, setDismissing] = useState(false);
+
+  const handleDismiss = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDismissing(true);
+    try {
+      const { error } = await untypedFrom('document_requests')
+        .update({ status: 'dismissed' })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-request-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
+      toast({ title: 'Request dismissed', description: `Dismissed request from ${label}` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message) : 'Unknown error';
+      console.error('[DismissButton] Failed to dismiss request:', err);
+      toast({ title: 'Failed to dismiss', description: msg, variant: 'destructive' });
+    } finally {
+      setDismissing(false);
+    }
+  };
+
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+      onClick={handleDismiss}
+      disabled={dismissing}
+      title="Dismiss this request"
+    >
+      {dismissing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+    </Button>
   );
 }
 

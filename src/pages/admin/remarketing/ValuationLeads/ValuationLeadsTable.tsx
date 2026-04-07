@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { ArchiveDealDialog } from '@/components/admin/deals/ArchiveDealDialog';
 import { formatCompactCurrency } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useShiftSelect } from '@/hooks/useShiftSelect';
@@ -125,6 +126,7 @@ export function ValuationLeadsTable({
   );
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(DEFAULT_COL_WIDTHS);
+  const [archiveTarget, setArchiveTarget] = useState<{id: string; name: string} | null>(null);
 
   const startResize = useCallback(
     (col: string, e: React.MouseEvent) => {
@@ -161,6 +163,7 @@ export function ValuationLeadsTable({
   );
 
   return (
+  <>
     <Card>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -665,17 +668,7 @@ export function ValuationLeadsTable({
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
-                            onClick={async () => {
-                              const { error } = await supabase
-                                .from('valuation_leads')
-                                .update({ is_archived: true })
-                                .eq('id', lead.id);
-                              if (error) sonnerToast.error('Failed to archive lead');
-                              else {
-                                sonnerToast.success('Lead archived');
-                                refetch();
-                              }
-                            }}
+                            onClick={() => setArchiveTarget({ id: lead.id, name: lead.business_name || lead.display_name || lead.full_name || 'Unknown Lead' })}
                           >
                             <Archive className="h-4 w-4 mr-2" />
                             Archive Deal
@@ -691,5 +684,21 @@ export function ValuationLeadsTable({
         </div>
       </CardContent>
     </Card>
+    <ArchiveDealDialog
+      open={!!archiveTarget}
+      onOpenChange={(open) => { if (!open) setArchiveTarget(null); }}
+      deal={archiveTarget ? { id: archiveTarget.id, name: archiveTarget.name } : null}
+      onConfirmArchive={async (reason) => {
+        if (!archiveTarget) return;
+        const { error } = await supabase
+          .from('valuation_leads')
+          .update({ is_archived: true, archive_reason: reason } as never)
+          .eq('id', archiveTarget.id);
+        if (error) throw error;
+        setArchiveTarget(null);
+        refetch();
+      }}
+    />
+  </>
   );
 }

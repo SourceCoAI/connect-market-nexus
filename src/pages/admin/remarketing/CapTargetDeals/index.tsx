@@ -49,6 +49,7 @@ import {
 } from '@/components/remarketing';
 import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
 import { PushToSmartleadModal } from '@/components/remarketing/PushToSmartleadModal';
+import { ArchiveDealDialog } from '@/components/admin/deals/ArchiveDealDialog';
 
 // Local hooks & types
 import { useCapTargetData } from './useCapTargetData';
@@ -223,6 +224,8 @@ export default function CapTargetDeals() {
         priorityDeals={data.kpiStats.priorityDeals}
         avgScore={data.kpiStats.avgScore}
         needsScoring={data.kpiStats.needsScoring}
+        activeFilter={data.kpiFilter}
+        onCardClick={data.setKpiFilter}
       />
 
       {/* Enrichment Progress Bar */}
@@ -350,6 +353,18 @@ export default function CapTargetDeals() {
         selectedDeals={data.selectedDealsForList}
         entityType="captarget_deal"
       />
+      <ArchiveDealDialog
+        open={!!actions.archiveTarget}
+        onOpenChange={(open) => {
+          if (!open) actions.setArchiveTarget(null);
+        }}
+        deal={
+          actions.archiveTarget
+            ? { id: actions.archiveTarget.id, name: actions.archiveTarget.name }
+            : null
+        }
+        onConfirmArchive={actions.confirmArchiveDeal}
+      />
 
       {/* Active / Inactive Tabs */}
       <Tabs
@@ -387,7 +402,7 @@ export default function CapTargetDeals() {
                           key: 'company',
                           content: <SortHeader column="company_name">Company</SortHeader>,
                         },
-                        { key: 'description', content: 'Description' },
+                        { key: 'description', content: 'Executive Summary' },
                         {
                           key: 'industry',
                           content: <SortHeader column="client_name">Industry</SortHeader>,

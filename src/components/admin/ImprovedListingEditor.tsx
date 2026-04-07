@@ -8,7 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { parseCurrency } from '@/lib/currency-utils';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Save, Target, ExternalLink } from 'lucide-react';
+import { Loader2, Save, Target, ExternalLink, Globe, ShieldCheck, ShieldAlert, Sparkles } from 'lucide-react';
+import { toast as sonnerToast } from 'sonner';
+import { usePublishListing } from '@/hooks/admin/listings/use-publish-listing';
+import { Badge } from '@/components/ui/badge';
 
 // Import section components
 import { EditorFinancialCard } from './editor-sections/EditorFinancialCard';
@@ -16,10 +19,12 @@ import { EditorDescriptionSection } from './editor-sections/EditorDescriptionSec
 import { EditorHeroDescriptionSection } from './editor-sections/EditorHeroDescriptionSection';
 import { EditorVisualsSection } from './editor-sections/EditorVisualsSection';
 import { EditorInternalCard } from './editor-sections/EditorInternalCard';
+import { EditorMarketplaceFields } from './editor-sections/EditorMarketplaceFields';
 import { EditorLivePreview } from './editor-sections/EditorLivePreview';
 import { EditorFeaturedDealsSection } from './editor-sections/EditorFeaturedDealsSection';
+import { EditorDocumentsSection } from './editor-sections/EditorDocumentsSection';
 
-// Form schema - location accepts array from select component and transforms to string
+// Form schema
 const listingFormSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters').max(100),
   categories: z.array(z.string()).min(1, 'Please select at least one category'),
@@ -43,7 +48,7 @@ const listingFormSchema = z.object({
   description_json: z.unknown().optional(),
   hero_description: z
     .string()
-    .max(500, 'Hero description must be 500 characters or less')
+    .max(280, 'Hero description must be 280 characters or less')
     .nullable()
     .optional(),
   owner_notes: z.string().nullable().optional(),
@@ -59,7 +64,7 @@ const listingFormSchema = z.object({
   internal_contact_info: z.string().nullable().optional(),
   internal_notes: z.string().nullable().optional(),
 
-  // Structured contact fields (tied to deal contact)
+  // Structured contact fields
   main_contact_first_name: z.string().nullable().optional(),
   main_contact_last_name: z.string().nullable().optional(),
   main_contact_email: z.string().nullable().optional(),
@@ -104,7 +109,7 @@ type ListingFormInput = {
   title: string;
   categories: string[];
   acquisition_type?: 'add_on' | 'platform' | string | null;
-  location: string[]; // Array for form input, transformed to string by Zod
+  location: string[];
   revenue: string;
   ebitda: string;
   full_time_employees?: number;
@@ -137,13 +142,11 @@ type ListingFormInput = {
   internal_deal_memo_link?: string;
   internal_contact_info?: string;
   internal_notes?: string;
-  // Structured contact fields (tied to deal contact)
   main_contact_first_name?: string;
   main_contact_last_name?: string;
   main_contact_email?: string;
   main_contact_phone?: string;
   main_contact_linkedin?: string;
-  // Content sections (populated by lead memo generator)
   custom_sections?: unknown;
 };
 
@@ -157,7 +160,6 @@ interface ImprovedListingEditorProps {
   listing?: AdminListing;
   isLoading?: boolean;
   targetType?: 'marketplace' | 'research';
-  /** When set, financial fields are locked — they're inherited from the source deal. */
   sourceDealId?: string | null;
 }
 
@@ -166,7 +168,7 @@ const convertListingToFormInput = (listing?: AdminListing): ListingFormInput => 
     title: listing?.title || '',
     categories: listing?.categories || (listing?.category ? [listing.category] : []),
     acquisition_type: listing?.acquisition_type || 'add_on',
-    location: listing?.location ? [listing.location] : [], // Convert string to array for select component
+    location: listing?.location ? [listing.location] : [],
     revenue: listing?.revenue ? listing.revenue.toString() : '',
     ebitda: listing?.ebitda ? listing.ebitda.toString() : '',
     full_time_employees: listing?.full_time_employees || 0,
@@ -199,16 +201,73 @@ const convertListingToFormInput = (listing?: AdminListing): ListingFormInput => 
     internal_deal_memo_link: listing?.internal_deal_memo_link || '',
     internal_contact_info: listing?.internal_contact_info || '',
     internal_notes: listing?.internal_notes || '',
-    // Structured contact fields (tied to deal contact)
     main_contact_first_name: listing?.main_contact_first_name || '',
     main_contact_last_name: listing?.main_contact_last_name || '',
     main_contact_email: listing?.main_contact_email || '',
     main_contact_phone: listing?.main_contact_phone || '',
     main_contact_linkedin: listing?.main_contact_linkedin || '',
-    // Content sections (populated by lead memo generator)
     custom_sections: listing?.custom_sections || null,
   };
 };
+
+/** Inline publish status banner for the editor */
+function PublishStatusBanner({ listing }: { listing: AdminListing }) {
+  const { publishListing, unpublishListing, isPublishing } = usePublishListing();
+  const isPublished = listing.is_internal_deal === false && listing.published_at;
+
+  if (isPublished) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className="h-5 w-5 text-green-600 shrink-0" />
+          <div>
+            <span className="text-sm font-medium text-green-800">Published on Marketplace</span>
+            {listing.published_at && (
+              <span className="ml-2 text-xs text-green-600">
+                since {new Date(listing.published_at).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => unpublishListing(listing.id)}
+          disabled={isPublishing}
+          className="text-amber-600 border-amber-200 hover:bg-amber-50"
+        >
+          {isPublishing ? 'Processing...' : 'Unpublish'}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0" />
+        <div>
+          <span className="text-sm font-medium text-amber-800">
+            {listing.is_internal_deal === false ? 'Unpublished Draft' : 'Internal Deal'}
+          </span>
+          <Badge variant="secondary" className="ml-2 text-xs">Not Live</Badge>
+        </div>
+      </div>
+      <Button
+        type="button"
+        variant="default"
+        size="sm"
+        onClick={() => publishListing(listing.id)}
+        disabled={isPublishing}
+        className="gap-1.5"
+      >
+        <Globe className="h-3.5 w-3.5" />
+        {isPublishing ? 'Publishing...' : 'Publish to Marketplace'}
+      </Button>
+    </div>
+  );
+}
 
 export function ImprovedListingEditor({
   onSubmit,
@@ -216,8 +275,8 @@ export function ImprovedListingEditor({
   isLoading = false,
   sourceDealId,
 }: ImprovedListingEditorProps) {
-  const effectiveDealId = sourceDealId || listing?.source_deal_id || null;
-  const isDealSourced = !!effectiveDealId;
+  const effectiveDealId = sourceDealId || listing?.source_deal_id || listing?.id || null;
+  const isDealSourced = !!(sourceDealId || listing?.source_deal_id);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(listing?.image_url || null);
   const [isImageChanged, setIsImageChanged] = useState(false);
@@ -226,9 +285,65 @@ export function ImprovedListingEditor({
     listing?.featured_deal_ids ?? null,
   );
 
-  // H-2 FIX: Wire up AI generation for hero description and body content.
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingField, setGeneratingField] = useState<string | null>(null);
+  const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+
+  const handleAiGenerateAll = async () => {
+    if (!effectiveDealId) {
+      toast({
+        title: 'No source deal',
+        description: 'AI generation requires a linked deal.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setIsGeneratingAll(true);
+    setIsGenerating(true);
+    setGeneratingField('all');
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-listing-content', {
+        body: { deal_id: effectiveDealId, listing_id: listing?.id || undefined },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Generation failed');
+
+      if (data.title) form.setValue('title', data.title, { shouldDirty: true });
+      if (data.hero_description) form.setValue('hero_description', data.hero_description, { shouldDirty: true });
+      if (data.description_html) {
+        form.setValue('description_html', data.description_html, { shouldDirty: true });
+        form.setValue('description', data.description_markdown || '', { shouldDirty: true });
+      }
+      if (data.location) form.setValue('location', [data.location], { shouldDirty: true });
+
+      // Apply metric subtitles and smart metrics from AI
+      if (data.revenue_metric_subtitle) form.setValue('revenue_metric_subtitle', data.revenue_metric_subtitle, { shouldDirty: true });
+      if (data.ebitda_metric_subtitle) form.setValue('ebitda_metric_subtitle', data.ebitda_metric_subtitle, { shouldDirty: true });
+      if (data.metric_3_type) {
+        form.setValue('metric_3_type', data.metric_3_type, { shouldDirty: true });
+        if (data.metric_3_type === 'custom') {
+          if (data.metric_3_custom_label) form.setValue('metric_3_custom_label', data.metric_3_custom_label, { shouldDirty: true });
+          if (data.metric_3_custom_value) form.setValue('metric_3_custom_value', data.metric_3_custom_value, { shouldDirty: true });
+          if (data.metric_3_custom_subtitle) form.setValue('metric_3_custom_subtitle', data.metric_3_custom_subtitle, { shouldDirty: true });
+        }
+      }
+      if (data.metric_4_type) form.setValue('metric_4_type', data.metric_4_type, { shouldDirty: true });
+      if (data.metric_4_custom_subtitle) form.setValue('metric_4_custom_subtitle', data.metric_4_custom_subtitle, { shouldDirty: true });
+
+      sonnerToast.success('All listing content generated. Review and edit before publishing.');
+    } catch (err) {
+      console.error('[ImprovedListingEditor] AI generate all error:', err);
+      toast({
+        title: 'Generation Failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingAll(false);
+      setIsGenerating(false);
+      setGeneratingField(null);
+    }
+  };
 
   const handleAiGenerate = async (field: string) => {
     if (!effectiveDealId) {
@@ -242,22 +357,19 @@ export function ImprovedListingEditor({
     setIsGenerating(true);
     setGeneratingField(field);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-lead-memo', {
-        body: { listingId: effectiveDealId, memo_type: 'anonymous_teaser', targetField: field },
+      const { data, error } = await supabase.functions.invoke('generate-listing-content', {
+        body: { deal_id: effectiveDealId, listing_id: listing?.id || undefined },
       });
       if (error) throw error;
-      if (field === 'hero_description' && data?.hero_description) {
+      if (!data?.success) throw new Error(data?.error || 'Generation failed');
+
+      if (field === 'hero_description' && data.hero_description) {
         form.setValue('hero_description', data.hero_description, { shouldDirty: true });
-        toast({ title: 'AI Content Generated', description: 'Hero description updated.' });
-      } else if (field === 'description' && data?.description) {
-        form.setValue('description', data.description, { shouldDirty: true });
-        if (data.description_html) {
-          form.setValue('description_html' as never, data.description_html, { shouldDirty: true });
-        }
-        toast({ title: 'AI Content Generated', description: 'Description updated.' });
-      } else if (data?.custom_sections) {
-        form.setValue('custom_sections' as never, data.custom_sections, { shouldDirty: true });
-        toast({ title: 'AI Content Generated', description: 'Content sections updated.' });
+        sonnerToast.success('Hero description generated.');
+      } else if (field === 'description' && data.description_html) {
+        form.setValue('description_html', data.description_html, { shouldDirty: true });
+        form.setValue('description', data.description_markdown || '', { shouldDirty: true });
+        sonnerToast.success('Description generated.');
       }
     } catch (err) {
       toast({
@@ -276,10 +388,6 @@ export function ImprovedListingEditor({
     defaultValues: convertListingToFormInput(listing),
   });
 
-  // Reset form when the listing prop changes (e.g., after AI content generation
-  // updates prefilled data in CreateListingFromDeal). React Hook Form's
-  // defaultValues are only read on first render, so we must call reset() to
-  // pick up new values like custom_sections and description.
   const prevListingRef = useRef(listing);
   useEffect(() => {
     if (listing && listing !== prevListingRef.current) {
@@ -288,7 +396,6 @@ export function ImprovedListingEditor({
     }
   }, [listing, form]);
 
-  // Cast for child components that accept UseFormReturn<any>
   const formForSections = form as unknown as import('react-hook-form').UseFormReturn<
     Record<string, unknown>
   >;
@@ -323,7 +430,6 @@ export function ImprovedListingEditor({
     setImageError(null);
   };
 
-  // Manual submit handler that validates first and shows errors
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -347,10 +453,8 @@ export function ImprovedListingEditor({
         return;
       }
 
-      // Get form values and call the submit handler
       const formData = form.getValues();
 
-      // Manual transformation since we're bypassing zodResolver's transform
       const transformedLocation = Array.isArray(formData.location)
         ? formData.location[0] || ''
         : formData.location || '';
@@ -427,13 +531,11 @@ export function ImprovedListingEditor({
         internal_deal_memo_link: formData.internal_deal_memo_link || null,
         internal_contact_info: formData.internal_contact_info || null,
         internal_notes: formData.internal_notes || null,
-        // Structured contact fields (tied to deal contact)
         main_contact_first_name: formData.main_contact_first_name || null,
         main_contact_last_name: formData.main_contact_last_name || null,
         main_contact_email: formData.main_contact_email || null,
         main_contact_phone: formData.main_contact_phone || null,
         main_contact_linkedin: formData.main_contact_linkedin || null,
-        // Content sections (populated by lead memo generator)
         custom_sections: formData.custom_sections || null,
         // Featured deals for landing page
         ...(featuredDealIds ? { featured_deal_ids: featuredDealIds } : {}),
@@ -458,21 +560,23 @@ export function ImprovedListingEditor({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50">
-      <div className="max-w-[1920px] mx-auto px-12 py-8">
+      <div className="max-w-4xl mx-auto px-8 py-8">
         <Form {...form}>
-          <form onSubmit={handleFormSubmit}>
-            {/* Target type banner */}
+          <form onSubmit={handleFormSubmit} className="space-y-6">
+            {/* Draft banner */}
             {!listing && (
-              <div className="mb-6 flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm font-medium text-foreground/70">
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm font-medium text-foreground/70">
                 <Target className="h-4 w-4 shrink-0" />
-                This listing will be created as a draft. Use the Publish button on the card to make
-                it live on the marketplace.
+                This listing will be created as a draft. Use the Publish button to make it live on the marketplace.
               </div>
             )}
 
+            {/* Publish Status Banner */}
+            {listing?.id && <PublishStatusBanner listing={listing} />}
+
             {/* Landing Page Preview button */}
             {listing?.id && (
-              <div className="mb-6 flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 <a
                   href={`/deals/${listing.id}`}
                   target="_blank"
@@ -483,73 +587,102 @@ export function ImprovedListingEditor({
                   Preview Landing Page
                 </a>
               </div>
+             )}
+
+            {/* AI Generate All Content */}
+            {effectiveDealId && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAiGenerateAll}
+                disabled={isGeneratingAll || isGenerating}
+                className="w-full gap-2 h-11 text-sm font-medium border-primary/20 hover:bg-primary/5"
+              >
+                {isGeneratingAll ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating title, hero, and description from deal data...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    AI Generate All Content
+                  </>
+                )}
+              </Button>
+            )}
+            {/* 1. Featured Image */}
+            <EditorVisualsSection
+              imagePreview={imagePreview}
+              imageError={imageError}
+              onImageSelect={handleImageSelect}
+              onRemoveImage={handleRemoveImage}
+            />
+
+            {/* 2. Title + Geography + Industry + Type */}
+            <EditorMarketplaceFields form={formForSections} />
+
+            {/* 3. Hero Description */}
+            <EditorHeroDescriptionSection
+              form={formForSections}
+              isGenerating={isGenerating}
+              generatingField={generatingField}
+              onAiGenerate={effectiveDealId ? handleAiGenerate : undefined}
+              dealId={effectiveDealId}
+              listingId={listing?.id || null}
+            />
+
+            {/* 4. Financial Metrics */}
+            <EditorFinancialCard form={formForSections} isReadOnly={isDealSourced} sourceDealId={effectiveDealId} />
+
+            {/* 5. Body Description (rich text - THE main content area) */}
+            <EditorDescriptionSection
+              form={formForSections}
+              isGenerating={isGenerating}
+              generatingField={generatingField}
+              onAiGenerate={effectiveDealId ? handleAiGenerate : undefined}
+              dealId={effectiveDealId}
+              listingId={listing?.id || null}
+            />
+
+            {/* 6. Internal Admin Fields (collapsed) */}
+            <EditorInternalCard
+              form={formForSections}
+              dealIdentifier={listing?.deal_identifier}
+            />
+
+            {/* 7. Documents Overview */}
+            {listing?.id && (
+              <EditorDocumentsSection
+                listingId={listing.id}
+                sourceDealId={effectiveDealId !== listing.id ? effectiveDealId : null}
+              />
             )}
 
-            {/* MAIN CONTENT - Card grid */}
-            <div className="grid grid-cols-[540px_1fr] gap-8 mb-6">
-              {/* Left: Company Overview (includes marketplace title, geography, type, industry) */}
-              <EditorInternalCard
-                form={formForSections}
-                dealIdentifier={listing?.deal_identifier}
-              />
+            {/* 8. Featured Deals */}
+            <EditorFeaturedDealsSection
+              featuredDealIds={featuredDealIds}
+              onChange={setFeaturedDealIds}
+              currentListingId={listing?.id}
+              currentListing={{
+                category: listing?.category ?? form.watch('categories')?.[0],
+                categories: listing?.categories ?? form.watch('categories'),
+                revenue: listing?.revenue ?? Number(form.watch('revenue') || 0),
+                ebitda: listing?.ebitda ?? Number(form.watch('ebitda') || 0),
+                location: listing?.location ?? (form.watch('location') as unknown as string) ?? '',
+              }}
+            />
 
-              {/* Right: Financial + Image stacked */}
-              <div className="space-y-6">
-                <EditorFinancialCard form={formForSections} isReadOnly={isDealSourced} />
-                <EditorVisualsSection
-                  imagePreview={imagePreview}
-                  imageError={imageError}
-                  onImageSelect={handleImageSelect}
-                  onRemoveImage={handleRemoveImage}
-                />
-              </div>
-            </div>
-
-            {/* FULL WIDTH - Hero Description (above Body Description) */}
-            <div className="mb-6">
-              <EditorHeroDescriptionSection
-                form={formForSections}
-                isGenerating={isGenerating}
-                generatingField={generatingField}
-                onAiGenerate={effectiveDealId ? handleAiGenerate : undefined}
-                dealId={effectiveDealId}
-                listingId={listing?.id || null}
-              />
-            </div>
-
-            {/* FULL WIDTH - Body Description (rich text editor) */}
-            <div className="mb-6">
-              <EditorDescriptionSection
-                form={formForSections}
-                isGenerating={isGenerating}
-                generatingField={generatingField}
-                onAiGenerate={effectiveDealId ? handleAiGenerate : undefined}
-                dealId={effectiveDealId}
-                listingId={listing?.id || null}
-              />
-            </div>
-
-            {/* Featured Deals (for landing page related-deals section) */}
-            <div className="mb-6">
-              <EditorFeaturedDealsSection
-                featuredDealIds={featuredDealIds}
-                onChange={setFeaturedDealIds}
-                currentListingId={listing?.id}
-              />
-            </div>
-
-            {/* Live Preview */}
-            <div className="mb-6">
-              <EditorLivePreview
-                formValues={
-                  form.watch() as unknown as React.ComponentProps<
-                    typeof EditorLivePreview
-                  >['formValues']
-                }
-                imagePreview={imagePreview}
-                listingId={listing?.id}
-              />
-            </div>
+            {/* 8. Live Preview */}
+            <EditorLivePreview
+              formValues={
+                form.watch() as unknown as React.ComponentProps<
+                  typeof EditorLivePreview
+                >['formValues']
+              }
+              imagePreview={imagePreview}
+              listingId={listing?.id}
+            />
 
             {/* FOOTER - Actions */}
             <div className="flex items-center justify-between pt-6 border-t border-border">

@@ -21,7 +21,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Phone, Loader2, AlertCircle, CheckCircle2, Users, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
-type DialerEntityType = 'contacts' | 'buyer_contacts' | 'buyers' | 'listings' | 'leads' | 'contact_list';
+type DialerEntityType =
+  | 'contacts'
+  | 'buyer_contacts'
+  | 'buyers'
+  | 'listings'
+  | 'leads'
+  | 'contact_list';
+
+interface InlineContact {
+  phone: string;
+  name?: string;
+  email?: string;
+  company?: string;
+}
 
 interface PushToDialerModalProps {
   open: boolean;
@@ -29,6 +42,7 @@ interface PushToDialerModalProps {
   contactIds: string[];
   contactCount: number;
   entityType?: DialerEntityType;
+  inlineContacts?: InlineContact[];
 }
 
 interface PushResult {
@@ -48,6 +62,7 @@ export function PushToDialerModal({
   contactIds,
   contactCount,
   entityType = 'contacts',
+  inlineContacts,
 }: PushToDialerModalProps) {
   const [sessionName, setSessionName] = useState(
     `Buyer Outreach - ${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`,
@@ -95,6 +110,9 @@ export function PushToDialerModal({
               entity_ids: contactIds,
               session_name: sessionName,
               skip_recent_days: skipRecent ? skipRecentDays : 0,
+              ...(inlineContacts && inlineContacts.length > 0
+                ? { inline_contacts: inlineContacts }
+                : {}),
               ...(targetUserId ? { target_user_id: targetUserId } : {}),
             },
           });

@@ -201,38 +201,32 @@ async function sendAdminDigest(
   data: DigestData,
   correlationId: string,
 ) {
-  const adminEmails = (Deno.env.get('ADMIN_NOTIFICATION_EMAILS') || 'adam.haile@sourcecodeals.com')
-    .split(',')
-    .map((e: string) => e.trim())
-    .filter(Boolean);
+  const supportEmail = 'support@sourcecodeals.com';
 
   const subject = `${type.charAt(0).toUpperCase() + type.slice(1)} Admin Digest - SourceCo Marketplace`;
 
   const html = generateDigestHTML(type, data);
   const text = generateDigestText(type, data);
 
-  // Send to all admin emails
-  for (const adminEmail of adminEmails) {
-    try {
-      await supabase.functions.invoke('enhanced-email-delivery', {
-        body: {
-          type: 'admin_digest',
-          recipientEmail: adminEmail,
-          recipientName: 'Admin',
-          correlationId,
-          data: {
-            subject,
-            html,
-            text,
-          },
-          priority: type === 'urgent' ? 'high' : 'medium',
+  try {
+    await supabase.functions.invoke('enhanced-email-delivery', {
+      body: {
+        type: 'admin_digest',
+        recipientEmail: supportEmail,
+        recipientName: 'SourceCo Support',
+        correlationId,
+        data: {
+          subject,
+          html,
+          text,
         },
-      });
+        priority: type === 'urgent' ? 'high' : 'medium',
+      },
+    });
 
-      console.log(`[${correlationId}] Admin digest sent to ${adminEmail}`);
-    } catch (error) {
-      console.error(`[${correlationId}] Failed to send digest to ${adminEmail}:`, error);
-    }
+    console.log(`[${correlationId}] Admin digest sent to ${supportEmail}`);
+  } catch (error) {
+    console.error(`[${correlationId}] Failed to send digest to ${supportEmail}:`, error);
   }
 }
 

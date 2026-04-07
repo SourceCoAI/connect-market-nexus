@@ -32,7 +32,7 @@ export async function enrichLinkedIn(
   // Skip if LinkedIn was already successfully scraped within the last 6 months
   const LINKEDIN_COOLDOWN_DAYS = 180;
   if (deal.linkedin_verified_at && deal.linkedin_match_confidence !== 'failed') {
-    const lastScraped = new Date(deal.linkedin_verified_at);
+    const lastScraped = new Date(deal.linkedin_verified_at as string);
     const daysSinceLastScrape = (Date.now() - lastScraped.getTime()) / (1000 * 60 * 60 * 24);
     if (daysSinceLastScrape < LINKEDIN_COOLDOWN_DAYS) {
       console.log(

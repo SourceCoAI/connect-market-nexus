@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Mail, Linkedin, Phone, Send, Users, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { BuyerTypeBadge } from '@/components/admin/deals/buyer-introductions/shared/BuyerTypeBadge';
 import { format } from 'date-fns';
 import { DealOutreachProfileForm } from './DealOutreachProfileForm';
@@ -673,9 +674,13 @@ export function BuyerOutreachTab({ dealId, dealName }: BuyerOutreachTabProps) {
 
                       <div style={{ width: colWidths.phone, minWidth: 80 }} className="min-w-0 shrink-0">
                         {buyer.phone ? (
-                          <a href={`tel:${buyer.phone}`} className="text-xs text-foreground hover:underline truncate block" title={buyer.phone}>
-                            {buyer.phone}
-                          </a>
+                          <ClickToDialPhone
+                            phone={buyer.phone}
+                            name={`${buyer.first_name} ${buyer.last_name}`.trim() || undefined}
+                            email={buyer.email || undefined}
+                            company={buyer.company_name || buyer.buyer_company_name || undefined}
+                            size="xs"
+                          />
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}

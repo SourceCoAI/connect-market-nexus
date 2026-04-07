@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+
 import { Link, useParams } from 'react-router-dom';
 import { useMarketplace } from '@/hooks/use-marketplace';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,38 +9,44 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useSessionContext } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ChevronLeft, ExternalLink, Shield } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency-utils';
+import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
 import ConnectionButton from '@/components/listing-detail/ConnectionButton';
 import BlurredFinancialTeaser from '@/components/listing-detail/BlurredFinancialTeaser';
-import { CustomSection } from '@/components/listing-detail/CustomSection';
+
 import { ExecutiveSummaryGenerator } from '@/components/listing-detail/ExecutiveSummaryGenerator';
 import { ListingHeader } from '@/components/listing-detail/ListingHeader';
 import { EnhancedFinancialGrid } from '@/components/listing-detail/EnhancedFinancialGrid';
-import { BusinessDetailsGrid } from '@/components/listing-detail/BusinessDetailsGrid';
+
 import { DealAdvisorCard } from '@/components/listing-detail/DealAdvisorCard';
 import { DealSourcingCriteriaDialog } from '@/components/listing-detail/DealSourcingCriteriaDialog';
 
 import { EditableDescription } from '@/components/listing-detail/EditableDescription';
 import { SimilarListingsCarousel } from '@/components/listing-detail/SimilarListingsCarousel';
 import { EnhancedSaveButton } from '@/components/listing-detail/EnhancedSaveButton';
-import { InvestmentFitScore } from '@/components/listing-detail/InvestmentFitScore';
+
 import { InternalCompanyInfoDisplay } from '@/components/admin/InternalCompanyInfoDisplay';
 import { BuyerDataRoom } from '@/components/marketplace/BuyerDataRoom';
 import { MFAGate } from '@/components/auth/MFAGate';
-import { NdaGateModal } from '@/components/pandadoc/NdaGateModal';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
-import { AgreementStatusBanner } from '@/components/marketplace/AgreementStatusBanner';
+
+
+
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
+import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
+import { ListingSidebarActions } from '@/components/listing-detail/ListingSidebarActions';
 
 const ListingDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [showDealSourcingDialog, setShowDealSourcingDialog] = useState(false);
+  const [dataRoomOpen, setDataRoomOpen] = useState(false);
 
   // Click tracking for engagement analytics
   const { getClickData, resetTracking } = useClickTracking(true);
   const { sessionId } = useSessionContext();
+  
   const hasFlushOnUnmountRef = useRef(false);
 
   const { useListing, useRequestConnection, useConnectionStatus } = useMarketplace();
@@ -50,13 +57,11 @@ const ListingDetail = () => {
   const { trackListingView, trackListingSave, trackConnectionRequest } = useAnalytics();
 
   const isAdmin = user?.is_admin === true;
+  const { data: agreementCoverage } = useMyAgreementStatus(!!user && !isAdmin);
 
-  // NDA gate: check if buyer has signed NDA (skip for admins and unauthenticated)
-  const { data: ndaStatus } = useBuyerNdaStatus(!isAdmin ? user?.id : undefined);
+  // Agreement status handled by ConnectionButton sidebar component
+
   useAgreementStatusSync();
-  const [ndaGateDismissed, setNdaGateDismissed] = useState(false);
-  const showNdaGate =
-    !isAdmin && user && ndaStatus && ndaStatus.hasFirm && !ndaStatus.ndaSigned && !ndaGateDismissed;
 
   useEffect(() => {
     document.title = listing ? `${listing.title} | Marketplace` : 'Listing Detail | Marketplace';
@@ -157,21 +162,13 @@ const ListingDetail = () => {
   // Extract isInactive safely with fallback to false if status is undefined
   const isInactive = listing?.status === 'inactive';
 
-  // Show NDA gate modal for unsigned buyers
-  if (showNdaGate && ndaStatus?.firmId) {
-    return (
-      <NdaGateModal
-        userId={user!.id}
-        firmId={ndaStatus.firmId}
-        onSigned={() => setNdaGateDismissed(true)}
-      />
-    );
-  }
+  // NDA gate modal removed — buyers can always view listings.
+  // Connection requests are blocked by ConnectionButton when unsigned.
 
   return (
     <div className="document-content min-h-screen bg-background">
       {/* Navigation */}
-      <div className="max-w-7xl mx-auto px-8 py-3">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3">
         <Link
           to="/marketplace"
           className="inline-flex items-center text-xs text-slate-600 hover:text-slate-900 transition-colors font-medium"
@@ -181,16 +178,10 @@ const ListingDetail = () => {
         </Link>
       </div>
 
-      {/* Agreement Status Banners (buyer-facing) */}
-      {!isAdmin && user && (
-        <div className="max-w-7xl mx-auto px-8 mb-4">
-          <AgreementStatusBanner />
-        </div>
-      )}
 
       {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-[42px]">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 lg:gap-10">
           {/* Main Content - 70% */}
           <div className="lg:col-span-7 space-y-8">
             {/* Horizontal Header */}
@@ -213,8 +204,8 @@ const ListingDetail = () => {
               </div>
             )}
 
-            {/* Enhanced Financial Grid */}
-            <div className="mt-6">
+            {/* Enhanced Financial Grid — only visible to approved connections and admins */}
+            {(isAdmin || (connectionExists && connectionStatusValue === 'approved')) && <div className="mt-6">
               <EnhancedFinancialGrid
                 metrics={[
                   {
@@ -234,38 +225,39 @@ const ListingDetail = () => {
                       'Financials range from owner estimates to verified documentation. Verification level varies by owner readiness and will be confirmed in your intro call and due diligence process.',
                   },
                   // Metric 3: Employees or Custom
-                  listing.metric_3_type === 'custom' && listing.metric_3_custom_label
-                    ? {
+                  ...(listing.metric_3_type === 'custom' && listing.metric_3_custom_label
+                    ? [{
                         label: listing.metric_3_custom_label,
                         value: listing.metric_3_custom_value || '',
                         subtitle: listing.metric_3_custom_subtitle ?? undefined,
-                      }
-                    : {
-                        label: 'Team Size',
-                        value: `${(listing.full_time_employees || 0) + (listing.part_time_employees || 0)}`,
-                        subtitle: `${listing.full_time_employees || 0} FT, ${listing.part_time_employees || 0} PT`,
-                      },
+                      }]
+                    : ((listing.full_time_employees || 0) + (listing.part_time_employees || 0)) > 0
+                      ? [{
+                          label: 'Team Size',
+                          value: `${(listing.full_time_employees || 0) + (listing.part_time_employees || 0)}`,
+                          subtitle: `${listing.full_time_employees || 0} FT, ${listing.part_time_employees || 0} PT`,
+                        }]
+                      : []),
                   // Metric 4: EBITDA Margin (default) or Custom
-                  listing.metric_4_type === 'custom' && listing.metric_4_custom_label
-                    ? {
+                  ...(listing.metric_4_type === 'custom' && listing.metric_4_custom_label
+                    ? [{
                         label: listing.metric_4_custom_label,
                         value: listing.metric_4_custom_value || '',
                         subtitle: listing.metric_4_custom_subtitle ?? undefined,
-                      }
-                    : {
+                      }]
+                    : [{
                         label: 'EBITDA Margin',
                         value:
                           listing.revenue > 0
                             ? `${((listing.ebitda / listing.revenue) * 100).toFixed(1)}%`
-                            : '0%',
-                        subtitle: listing.metric_4_custom_subtitle || 'Profitability metric',
-                      },
+                            : '—',
+                        subtitle: listing.metric_4_custom_subtitle || listing.category || undefined,
+                      }]),
                 ]}
               />
-            </div>
+            </div>}
 
-            {/* Structured Business Details */}
-            <BusinessDetailsGrid geographic_states={listing.geographic_states} />
+            {/* Business Details removed - all content now in body description */}
 
             {/* Internal Company Information - Admin Only */}
             {isAdmin && listing && (
@@ -289,20 +281,7 @@ const ListingDetail = () => {
               </div>
             </div>
 
-            {/* Content Sections (from lead memo) */}
-            {listing.custom_sections &&
-              Array.isArray(listing.custom_sections) &&
-              listing.custom_sections.length > 0 && (
-                <div className="document-section py-8 border-t border-slate-100">
-                  <div className="space-y-6">
-                    {listing.custom_sections.map(
-                      (section: { title: string; description: string }) => (
-                        <CustomSection key={section.title} section={section} />
-                      ),
-                    )}
-                  </div>
-                </div>
-              )}
+            {/* Custom sections removed - content merged into body description */}
 
             {/* Similar Listings Carousel */}
             {listing && <SimilarListingsCarousel currentListing={listing} />}
@@ -315,15 +294,23 @@ const ListingDetail = () => {
                 hasConnection={connectionExists}
                 connectionStatus={connectionStatusValue}
                 listingTitle={listing.title}
+                listingId={id!}
+                listingStatusValue={listing.status}
+                isAdmin={isAdmin}
+                profileComplete={user ? isProfileComplete(user) : true}
+                profileCompletionPct={user ? getProfileCompletionPercentage(user) : 0}
               />
             </div>
 
-            {/* Buyer Data Room - shows memos and documents if buyer has access */}
-            {/* MFA verification required when user has MFA enrolled */}
+            {/* Data Room Modal */}
             {!isAdmin && user && (
-              <MFAGate loadingText="Verifying identity for data room access...">
-                <BuyerDataRoom dealId={id!} />
-              </MFAGate>
+              <Dialog open={dataRoomOpen} onOpenChange={setDataRoomOpen}>
+                <DialogContent className="max-w-[calc(100vw-16px)] sm:max-w-3xl max-h-[calc(100vh-32px)] sm:max-h-[85vh] p-0 gap-0 overflow-hidden border-border/30 bg-background [&>button]:hidden">
+                  <MFAGate loadingText="Verifying identity for data room access...">
+                    <BuyerDataRoom dealId={id!} connectionApproved={connectionStatusValue === 'approved'} onClose={() => setDataRoomOpen(false)} />
+                  </MFAGate>
+                </DialogContent>
+              </Dialog>
             )}
 
             {isAdmin && listing.owner_notes && (
@@ -338,24 +325,38 @@ const ListingDetail = () => {
 
           {/* Sidebar - 30% */}
           <div className="lg:col-span-3">
-            <div className="sticky top-32 space-y-8">
+            <div className="space-y-8">
               {/* Interested in This Deal? - Premium CTA */}
-              <div className="bg-white/50 border border-slate-200/60 rounded-lg p-6 shadow-sm">
+              <div className="bg-white/50 border border-slate-200/60 rounded-lg p-4 sm:p-6 shadow-sm">
                 <div className="text-center mb-6">
                   <h3 className="text-base font-medium text-foreground mb-2">
-                    Request an Introduction
+                    Request Access to This Deal
                   </h3>
                   <p className="text-xs text-foreground/70 leading-relaxed">
-                    Our team will make a direct introduction to the business owner.
+                    Request a connection to unlock the data room. Once approved, you get immediate access to the CIM, real company name, and full business details.
                   </p>
                 </div>
 
                 <div className="space-y-3">
+                  {/* Action rows: Data Room + Ask a Question */}
+                  {!isAdmin && user && (
+                    <ListingSidebarActions
+                      listingId={id!}
+                      feeCovered={agreementCoverage?.fee_covered ?? false}
+                      ndaCovered={agreementCoverage?.nda_covered ?? false}
+                      ndaStatus={agreementCoverage?.nda_status ?? 'not_started'}
+                      feeStatus={agreementCoverage?.fee_status ?? 'not_started'}
+                      connectionApproved={connectionStatusValue === 'approved'}
+                      connectionStatus={connectionStatusValue}
+                      onExploreDataRoom={() => setDataRoomOpen(true)}
+                    />
+                  )}
+
                   <ConnectionButton
                     connectionExists={connectionExists}
                     connectionStatus={connectionStatusValue}
                     isRequesting={isRequesting}
-                    isAdmin={false}
+                    isAdmin={isAdmin}
                     handleRequestConnection={handleRequestConnection}
                     listingTitle={listing.title}
                     listingId={id!}
@@ -378,28 +379,15 @@ const ListingDetail = () => {
                   <EnhancedSaveButton
                     listingId={id!}
                     listingTitle={listing.title}
-                    revenue={listing.revenue}
-                    ebitda={listing.ebitda}
                     location={listing.location}
                     onSave={() => trackListingSave(id!)}
                   />
                 </div>
               </div>
 
-              {/* Investment Fit Analysis — buyer-facing match explanation */}
-              {!isAdmin && (
-                <InvestmentFitScore
-                  revenue={listing.revenue}
-                  ebitda={listing.ebitda}
-                  category={listing.category}
-                  location={listing.location}
-                  listing={listing}
-                />
-              )}
-
               {/* Exclusive Deal Flow */}
-              <div className="bg-white/50 border border-slate-200/60 rounded-lg p-6 shadow-sm">
-                <div className="mt-6 pt-4 border-t border-slate-200/50">
+              <div className="bg-white/50 border border-slate-200/60 rounded-lg p-4 sm:p-6 shadow-sm">
+                <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-200/50">
                   <div className="text-center space-y-3">
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-foreground">
@@ -428,7 +416,7 @@ const ListingDetail = () => {
               <DealAdvisorCard presentedByAdminId={listing.presented_by_admin_id} listingId={id!} />
 
               {/* Download Executive Summary */}
-              <div className="bg-white/40 border border-slate-200/60 rounded-lg p-6 shadow-sm">
+              <div className="bg-white/40 border border-slate-200/60 rounded-lg p-4 sm:p-6 shadow-sm">
                 <h4 className="text-xs font-medium text-foreground mb-4 uppercase tracking-wider">
                   Executive Summary
                 </h4>

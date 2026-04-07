@@ -22,11 +22,25 @@ import { stripHtml } from '@/lib/sanitize';
  */
 const SECTION_TEMPLATE = [
   '<h2>Business Overview</h2><p></p>',
-  '<h2>Deal Snapshot</h2><ul><li></li></ul>',
-  '<h2>Key Facts</h2><ul><li></li></ul>',
-  '<h2>Growth Context</h2><ul><li></li></ul>',
-  '<h2>Owner Objectives</h2><ul><li></li></ul>',
+  '<h2>Financial Highlights</h2><ul><li></li></ul>',
+  '<h2>Market Position</h2><p></p>',
+  '<h2>Growth Opportunities</h2><ul><li></li></ul>',
+  '<h2>Transaction Overview</h2><p></p>',
 ].join('');
+
+/**
+ * Convert custom_sections array into HTML content for the rich text editor.
+ */
+function mergeCustomSectionsToHtml(sections: unknown): string | null {
+  if (!Array.isArray(sections) || sections.length === 0) return null;
+  return sections
+    .map((s: { title?: string; description?: string }) => {
+      const title = s.title || 'Section';
+      const desc = s.description || '';
+      return `<h2>${title}</h2><p>${desc}</p>`;
+    })
+    .join('');
+}
 
 interface EditorDescriptionSectionProps {
   form: UseFormReturn<any>;
@@ -50,16 +64,18 @@ export function EditorDescriptionSection({
   const isFieldGenerating = isGenerating && generatingField === 'description';
   const [isRegenerating, setIsRegenerating] = useState(false);
 
-  // Use existing content, or fall back to the section template for new listings
+  // Use existing HTML content, or merge custom_sections, or fall back to template
   const existingHtml = form.getValues('description_html');
   const existingPlain = form.getValues('description');
-  const initialContent = existingHtml || existingPlain || SECTION_TEMPLATE;
+  const customSections = form.getValues('custom_sections');
+  const mergedFromSections = !existingHtml && !existingPlain ? mergeCustomSectionsToHtml(customSections) : null;
+  const initialContent = existingHtml || mergedFromSections || existingPlain || SECTION_TEMPLATE;
 
   const handleRegenerate = useCallback(async () => {
     if (!dealId) return;
     setIsRegenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-marketplace-listing', {
+      const { data, error } = await supabase.functions.invoke('generate-listing-content', {
         body: { deal_id: dealId, listing_id: listingId || undefined },
       });
 
@@ -74,9 +90,9 @@ export function EditorDescriptionSection({
 
       const validation = data?.validation;
       if (validation && !validation.pass) {
-        toast.warning('AI listing regenerated with validation warnings — review carefully.');
+        toast.warning('AI listing regenerated with validation warnings. Review carefully.');
       } else {
-        toast.success('Listing description regenerated — review and edit before saving.');
+        toast.success('Listing description regenerated. Review and edit before saving.');
       }
     } catch (err) {
       console.error('[EditorDescriptionSection] Regeneration error:', err);
@@ -134,7 +150,7 @@ export function EditorDescriptionSection({
       </div>
       <p className="text-xs text-muted-foreground mb-4">
         The full listing description shown to buyers. Use section headings, concise sentences, and
-        bullet points for key data — present information in the cleanest, most digestible way
+        bullet points for key data. Present information in the cleanest, most digestible way
         possible.
       </p>
 

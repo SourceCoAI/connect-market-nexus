@@ -31,6 +31,8 @@ export type {
   ContactSmartleadHistory,
 } from './use-contact-smartlead-history';
 
+export { useDraftReply } from './use-draft-reply';
+
 export {
   useSmartleadInbox,
   useSmartleadInboxItem,
@@ -39,8 +41,4 @@ export {
   useLinkInboxToDeal,
   useSmartleadInboxRealtime,
 } from './use-smartlead-inbox';
-export type {
-  SmartleadInboxItem,
-  InboxFilter,
-  InboxStats,
-} from './use-smartlead-inbox';
+export type { SmartleadInboxItem, InboxFilter, InboxStats } from './use-smartlead-inbox';

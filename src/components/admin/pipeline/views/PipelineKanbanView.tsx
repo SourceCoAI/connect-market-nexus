@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUpdateDeal } from '@/hooks/admin/use-deals';
-import { useUpdateListing } from '@/hooks/admin/use-update-listing';
+import { useUpdateListing } from '@/hooks/admin/listings/use-update-listing';
 import { useToast } from '@/hooks/use-toast';
 
 interface PipelineKanbanViewProps {
@@ -130,7 +130,7 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
 
     // H-5 FIX: Use stage type instead of hardcoded name for owner intro check.
     // Supports both the preferred type-based check and legacy name match as fallback.
-    if (targetStage.type === 'owner_intro' || targetStage.name === 'Owner intro requested') {
+    if ((targetStage as any).type === 'owner_intro' || targetStage.name === 'Owner intro requested') {
       try {
         if (!deal.listing_id) {
           toast({
@@ -327,8 +327,8 @@ export function PipelineKanbanView({ pipeline, onOpenCreateDeal }: PipelineKanba
         config.primaryOwnerId !== ownerIntroConfig.currentPrimaryOwner?.id
       ) {
         await updateListing.mutateAsync({
-          listingId: ownerIntroConfig.listingId,
-          updates: { primary_owner_id: config.primaryOwnerId },
+          id: ownerIntroConfig.listingId,
+          listing: { primary_owner_id: config.primaryOwnerId },
         });
       }
 

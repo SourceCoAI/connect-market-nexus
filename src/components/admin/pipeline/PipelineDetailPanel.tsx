@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { X, MoreVertical, Trash2, Sparkles, Target } from 'lucide-react';
+import { X, MoreVertical, Archive, Sparkles, Target } from 'lucide-react';
 import { usePipelineCore } from '@/hooks/admin/use-pipeline-core';
 import { PipelineDetailOverview } from './tabs/PipelineDetailOverview';
 import { PipelineDetailNotes } from './tabs/PipelineDetailNotes';
@@ -17,7 +17,8 @@ import { PipelineDetailDataRoom } from './tabs/PipelineDetailDataRoom';
 import { PipelineDetailDealInfo } from './tabs/PipelineDetailDealInfo';
 import { PipelineDetailOtherBuyers } from './tabs/PipelineDetailOtherBuyers';
 import { EntityTasksTab, CreateTaskButton } from '@/components/daily-tasks';
-import { DeleteDealDialog } from '@/components/admin/deals/DeleteDealDialog';
+import { ArchiveDealDialog } from '@/components/admin/deals/ArchiveDealDialog';
+import { useSoftDeleteDeal } from '@/hooks/admin/use-deals';
 
 interface PipelineDetailPanelProps {
   pipeline: ReturnType<typeof usePipelineCore>;
@@ -27,6 +28,7 @@ export function PipelineDetailPanel({ pipeline }: PipelineDetailPanelProps) {
   const { selectedDeal } = pipeline;
   const [activeTab, setActiveTab] = useState('overview');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const softDeleteMutation = useSoftDeleteDeal();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -115,8 +117,8 @@ export function PipelineDetailPanel({ pipeline }: PipelineDetailPanelProps) {
                   className="text-destructive focus:text-destructive"
                   onClick={() => setDeleteDialogOpen(true)}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Deal
+                  <Archive className="h-4 w-4 mr-2" />
+                  Archive Deal
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -132,11 +134,24 @@ export function PipelineDetailPanel({ pipeline }: PipelineDetailPanelProps) {
         </div>
       </div>
 
-      <DeleteDealDialog
+      <ArchiveDealDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        deal={selectedDeal}
-        onDeleted={() => pipeline.setSelectedDeal(null)}
+        deal={selectedDeal ? {
+          id: selectedDeal.deal_id,
+          name: selectedDeal.title,
+          listingTitle: selectedDeal.listing_title,
+          contactName: selectedDeal.contact_name,
+          stageName: selectedDeal.stage_name ?? undefined,
+          assignedTo: selectedDeal.assigned_to,
+        } : null}
+        onConfirmArchive={async (reason) => {
+          await softDeleteMutation.mutateAsync({
+            dealId: selectedDeal!.deal_id,
+            reason,
+          });
+          pipeline.setSelectedDeal(null);
+        }}
       />
 
       {/* Tabs */}

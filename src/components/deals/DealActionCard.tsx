@@ -2,7 +2,7 @@
  * DealActionCard — Single-purpose next-action callout for the buyer.
  *
  * Shows the ONE most important thing the buyer needs to do or know
- * about this deal right now. Signing CTAs are bold and unmissable.
+ * about this deal right now. Uses "either doc" rule.
  */
 
 import { useState } from 'react';
@@ -11,7 +11,7 @@ import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningMod
 import { cn } from '@/lib/utils';
 
 interface DealActionCardProps {
-  requestStatus: 'pending' | 'approved' | 'rejected';
+  requestStatus: 'pending' | 'approved' | 'rejected' | 'on_hold';
   ndaSigned: boolean;
   feeCovered: boolean;
   feeStatus?: string;
@@ -26,23 +26,31 @@ export function DealActionCard({
   requestCreatedAt,
 }: DealActionCardProps) {
   const [signingOpen, setSigningOpen] = useState(false);
-  const [signingType, setSigningType] = useState<'nda' | 'fee_agreement'>('nda');
 
-  const openSigning = (type: 'nda' | 'fee_agreement') => {
-    setSigningType(type);
-    setSigningOpen(true);
-  };
+  // Either doc unlocks access
+  const hasAnyAgreement = ndaSigned || feeCovered;
 
-  // Determine the single most important action/status
   const getAction = () => {
     if (requestStatus === 'rejected') {
       return {
         icon: XCircle,
         title: 'Not Selected',
         description:
-          'The owner has chosen another buyer for this opportunity. This reflects deal-specific fit, not your qualifications.',
+          'This opportunity is no longer available at this time. This reflects deal-specific fit, not your qualifications.',
         variant: 'muted' as const,
         unlock: null,
+        cta: null,
+      };
+    }
+
+    if (requestStatus === 'on_hold') {
+      return {
+        icon: Clock,
+        title: 'Request On Hold',
+        description:
+          'The owner is still evaluating interested buyers. Your request remains active — we\'ll notify you as soon as there\'s an update.',
+        unlock: null,
+        variant: 'waiting' as const,
         cta: null,
       };
     }
@@ -59,17 +67,17 @@ export function DealActionCard({
       };
     }
 
-    // Pending status — check what's needed
-    if (!ndaSigned) {
+    // Pending status — check what's needed (either doc)
+    if (!hasAnyAgreement) {
       return {
         icon: Shield,
-        title: 'Sign your NDA to proceed',
+        title: 'Sign an agreement to proceed',
         description:
-          'Your Non-Disclosure Agreement needs to be signed before your interest can be presented to the owner.',
+          'An NDA or Fee Agreement needs to be signed before your interest can be presented to the owner.',
         unlock:
           "Once signed, you'll receive access to the company name, confidential deal memo, and detailed financials.",
         variant: 'action' as const,
-        cta: { label: 'Sign NDA Now', onClick: () => openSigning('nda') },
+        cta: { label: 'Request Agreement', onClick: () => setSigningOpen(true) },
       };
     }
 
@@ -82,7 +90,7 @@ export function DealActionCard({
         unlock:
           'Signing completes your documentation, allowing our team to present your interest to the owner.',
         variant: 'action' as const,
-        cta: { label: 'Sign Agreement Now', onClick: () => openSigning('fee_agreement') },
+        cta: { label: 'Sign Agreement Now', onClick: () => setSigningOpen(true) },
       };
     }
 
@@ -124,7 +132,7 @@ export function DealActionCard({
   return (
     <>
       <div className={cn('rounded-lg border p-5', variantStyles[action.variant])}>
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-start gap-3.5 flex-1 min-w-0">
             <Icon className={cn('h-5 w-5 shrink-0 mt-0.5', iconStyles[action.variant])} />
             <div className="flex-1 min-w-0">
@@ -144,7 +152,7 @@ export function DealActionCard({
           {action.cta && (
             <button
               onClick={action.cta.onClick}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md text-[13px] font-semibold bg-[#0E101A] text-white hover:bg-[#0E101A]/85 transition-colors shrink-0 mt-0.5"
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-md text-[13px] font-semibold bg-[#0E101A] text-white hover:bg-[#0E101A]/85 transition-colors shrink-0 w-full sm:w-auto"
             >
               {action.cta.label}
               <ArrowRight className="h-3.5 w-3.5" />
@@ -156,7 +164,6 @@ export function DealActionCard({
       <AgreementSigningModal
         open={signingOpen}
         onOpenChange={setSigningOpen}
-        documentType={signingType}
       />
     </>
   );

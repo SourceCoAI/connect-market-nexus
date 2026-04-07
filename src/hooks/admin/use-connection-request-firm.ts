@@ -10,8 +10,6 @@ export interface ConnectionRequestFirmInfo {
   nda_signed: boolean;
   nda_status: string | null;
   fee_agreement_status: string | null;
-  nda_pandadoc_status: string | null;
-  fee_pandadoc_status: string | null;
   firmAgreement: FirmAgreement | null;
   firmMembers: FirmMember[];
 }
@@ -96,12 +94,11 @@ export function useConnectionRequestFirm(requestId: string | null) {
         firm_id: firmAny.id,
         firm_name: firmAny.primary_company_name,
         member_count: firmAny.member_count,
-        fee_agreement_signed: firmAny.fee_agreement_signed,
-        nda_signed: firmAny.nda_signed,
+        // Derive from both boolean and status to handle stale boolean columns
+        fee_agreement_signed: firmAny.fee_agreement_signed === true || firmAny.fee_agreement_status === 'signed',
+        nda_signed: firmAny.nda_signed === true || firmAny.nda_status === 'signed',
         nda_status: firmAny.nda_status,
         fee_agreement_status: firmAny.fee_agreement_status,
-        nda_pandadoc_status: firmAny.nda_pandadoc_status,
-        fee_pandadoc_status: firmAny.fee_pandadoc_status,
         firmAgreement: firmAny as unknown as FirmAgreement,
         firmMembers: members,
       } as ConnectionRequestFirmInfo;

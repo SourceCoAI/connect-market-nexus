@@ -72,13 +72,16 @@ const EMAILS: EmailDef[] = [
     preheader: "Off-market deal flow, reviewed by our team. We'll be in touch shortly.",
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>Your application is in. Our team will review it — typically within one business day — and you'll hear from us by email the moment you're cleared.</p>
-<p>While you wait, verify your email address using the link we just sent you.</p>
-<h3 style="color:#0e101a;font-size:15px;margin:20px 0 6px">What you're applying for</h3>
-<p>SourceCo is a private marketplace for off-market, founder-led businesses. Every deal in the pipeline has been sourced and qualified by our team before it reaches buyers.</p>
-<p>Once approved, you'll sign a single NDA that unlocks your access to the platform, then a fee agreement before your first introduction. Both take about 60 seconds each.</p>
-<p>Questions before then? Reply to this email.</p>
-<p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
+<p>Your application is in. Our team will review it and you will hear from us by email the moment you are approved, typically within a few hours.</p>
+<p>While you wait, verify your email address using the link we sent you. If you have already verified, sit tight. A team member is reviewing your profile now.</p>
+<h3 style="color:#0e101a;font-size:15px;margin:20px 0 6px">What happens when you are approved</h3>
+<ol style="padding-left:20px;color:#374151">
+<li>We send you two documents to sign: an NDA and a Fee Agreement. Both are standard, take about 60 seconds each.</li>
+<li>Once signed, you get full access to the deal pipeline, including confidential business details, financials, and direct introductions.</li>
+</ol>
+<p>The NDA protects the information we share with you. The Fee Agreement only applies if you close a deal sourced through SourceCo. No upfront cost.</p>
+<p>Questions? Reply to this email.</p>
+<p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
     invokeFunction: 'user-journey-notifications',
     testPayload: { event_type: 'welcome', user_name: 'Test Buyer', user_id: 'test-user-id' },
     status: 'live',
@@ -97,14 +100,15 @@ const EMAILS: EmailDef[] = [
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
 <p>Your email is confirmed. Your application is now with our team.</p>
-<p>We review applications same day during business hours. You'll get an email the moment you're approved — typically within a few hours, never more than one business day.</p>
-<h3 style="color:#0e101a;font-size:15px;margin:20px 0 6px">What happens when you're approved</h3>
-<ul style="padding-left:20px;color:#374151">
-<li>You'll sign a single NDA — covers your use of the platform, takes about 60 seconds</li>
-<li>Full access to browse every deal in the pipeline immediately after</li>
-<li>When you find a fit, request an introduction — we handle it from there</li>
-</ul>
-<p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
+<p>We review applications same day during business hours. You will get an email the moment you are approved, typically within a few hours, never more than one business day.</p>
+<h3 style="color:#0e101a;font-size:15px;margin:20px 0 6px">What happens next</h3>
+<ol style="padding-left:20px;color:#374151">
+<li>Our team reviews and approves your profile.</li>
+<li>You sign two documents: an NDA and a Fee Agreement. Both are standard, sent to your email, 60 seconds each.</li>
+<li>Full access to the deal pipeline: confidential details, financials, and direct introductions to founders.</li>
+</ol>
+<p>Nothing for you to do right now. We will email you the moment you are cleared.</p>
+<p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
     invokeFunction: 'user-journey-notifications',
     testPayload: { event_type: 'email_verified', user_name: 'Test Buyer', user_id: 'test-user-id' },
     status: 'live',
@@ -118,20 +122,22 @@ const EMAILS: EmailDef[] = [
     triggerDetail:
       'Fires when an admin clicks Approve on a buyer application and the buyer has not yet signed their NDA. Sent by send-templated-approval-email with ndaSigned=false. This is the most common approval path — most buyers have not signed the NDA before approval.',
     file: 'supabase/functions/send-templated-approval-email/index.ts',
-    subject: "You're approved — one step to full access.",
-    preheader: 'Sign your NDA in 60 seconds and the full deal pipeline is yours.',
+    subject: 'Welcome to SourceCo — Your account is approved',
+    preheader: 'Your account is approved. Browse off-market acquisition opportunities now.',
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>You're approved.</p>
-<p>Before you can browse deal details and request introductions, you'll need to sign your NDA. It covers your use of the platform — one signature, and you're in for good. Takes about 60 seconds.</p>
-<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Sign Your NDA</a></p>
-<h3 style="color:#0e101a;font-size:15px;margin:20px 0 6px">A few things to know before you start</h3>
+<p>Your account has been approved. You now have access to our curated pipeline of off-market acquisition opportunities.</p>
+<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Browse the Marketplace</a></p>
+<p style="font-weight:600;margin:20px 0 6px">Unlock full access</p>
+<p>To view full deal details, access data rooms, and request introductions, you will need to sign two standard documents: an NDA and a Fee Agreement. You can request these from your profile or any listing page. It takes about 60 seconds.</p>
+<p style="font-weight:600;margin:20px 0 6px">A few things to know</p>
 <ul style="padding-left:20px;color:#374151">
-<li>Every deal on SourceCo is off-market — you won't find these anywhere else</li>
-<li>We introduce a small number of buyers per deal — tell us specifically why you're a strong fit</li>
-<li>Before your first introduction request, you'll sign a fee agreement — success-only, nothing owed unless a deal closes</li>
+<li>Every deal on SourceCo is off-market. You will not find these anywhere else.</li>
+<li>We introduce a small number of buyers per deal. When you request an introduction, tell us specifically why you are a strong fit. Generic messages rarely get selected.</li>
+<li>The Fee Agreement is success-only. Nothing is owed unless a deal closes. It covers every introduction we make on your behalf.</li>
 </ul>
-<p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
+<p>Questions? Reply to this email.</p>
+<p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
     invokeFunction: 'send-templated-approval-email',
     testPayload: { email: 'test+audit@sourcecodeals.com', firstName: 'Test', ndaSigned: false },
     status: 'live',
@@ -145,18 +151,20 @@ const EMAILS: EmailDef[] = [
     triggerDetail:
       'Fires when an admin approves a buyer who has already signed their NDA — less common, but happens when NDA is signed during the pending-approval wait period. Sent by send-templated-approval-email with ndaSigned=true. Buyer gets immediate full access.',
     file: 'supabase/functions/send-templated-approval-email/index.ts',
-    subject: "You're in — full access is live.",
+    subject: 'Your account is active. Full access is live.',
     preheader: 'Your NDA is on file. Browse deals and request introductions now.',
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>You're in. Your NDA is already on file — you have full access to the deal pipeline right now.</p>
+<p>Your account is approved and your NDA is on file. You have full access to the deal pipeline now.</p>
 <p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Browse Deals</a></p>
+<p style="font-weight:600;margin:20px 0 6px">Before you submit your first request</p>
 <ul style="padding-left:20px;color:#374151">
-<li>Every deal is off-market</li>
-<li>We introduce a small number of buyers per deal — be specific about why you're a fit</li>
-<li>Your first introduction request will prompt a fee agreement — success-only</li>
+<li>Every deal is off-market. You will not find these anywhere else.</li>
+<li>We introduce a small number of buyers per deal. Tell us specifically why you are a strong fit. Generic messages rarely get selected.</li>
+<li>Before your first introduction, you will need a Fee Agreement in place. It is success-only. Nothing is owed unless a deal closes. You can request it anytime from any listing page, or reply to this email.</li>
 </ul>
-<p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
+<p>Questions? Reply to this email.</p>
+<p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
     invokeFunction: 'send-templated-approval-email',
     testPayload: { email: 'test+audit@sourcecodeals.com', firstName: 'Test', ndaSigned: true },
     status: 'live',
@@ -164,56 +172,54 @@ const EMAILS: EmailDef[] = [
   {
     id: 'e06',
     num: '06',
-    title: 'NDA Signed Confirmation',
+    title: 'NDA Request Email',
     category: 'agreement',
-    trigger: 'PandaDoc webhook — NDA document completed',
+    trigger: 'Buyer clicks "Request NDA" button',
     triggerDetail:
-      'Fires automatically when PandaDoc sends a webhook confirming the NDA has been signed. Handled by confirm-agreement-signed. The buyer receives this within seconds of signing. This is a high-intent moment — the email should direct them immediately into the pipeline.',
-    file: 'supabase/functions/confirm-agreement-signed/index.ts',
-    subject: 'NDA signed — the full pipeline is open.',
-    preheader: "One signature covers every deal on SourceCo. Here's what's waiting for you.",
+      'Fires when a buyer requests their NDA via the marketplace. The request-agreement-email edge function sends the NDA document to the buyer via email from adam.haile@sourcecodeals.com. Admins are notified and can track the request in Document Tracking.',
+    file: 'supabase/functions/request-agreement-email/index.ts',
+    subject: 'Your NDA (Non-Disclosure Agreement) from SourceCo',
+    preheader: 'Review and sign your NDA to access the full SourceCo pipeline.',
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>Your NDA is signed and on file. That's the only signature you'll ever need on the platform — it covers your use of SourceCo, now and in the future.</p>
-<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Browse the Pipeline</a></p>
-<ul style="padding-left:20px;color:#374151">
-<li>Browse every deal — deal summaries and business details are now visible</li>
-<li>When you find a fit, request an introduction</li>
-<li>Tell us specifically why you're a strong match when you submit</li>
-</ul>
+<p>Thank you for your interest in working with SourceCo. Please find your NDA attached or linked below.</p>
+<p><strong>To complete the signing process:</strong></p>
+<ol>
+<li>Review the document carefully</li>
+<li>Sign where indicated</li>
+<li>Reply to this email with the signed copy attached</li>
+</ol>
 <p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
-    invokeFunction: 'confirm-agreement-signed',
+    invokeFunction: 'request-agreement-email',
     testPayload: {
       documentType: 'nda',
-      signerEmail: 'test+audit@sourcecodeals.com',
-      signerName: 'Test Buyer',
-      firmName: 'Test Firm',
     },
     status: 'live',
   },
   {
     id: 'e07',
     num: '07',
-    title: 'Fee Agreement Signed Confirmation',
+    title: 'Fee Agreement Request Email',
     category: 'agreement',
-    trigger: 'PandaDoc webhook — fee agreement completed',
+    trigger: 'Buyer clicks "Request Fee Agreement" button',
     triggerDetail:
-      "Fires automatically when PandaDoc sends a webhook confirming the fee agreement has been signed. Handled by confirm-agreement-signed. Always follows a connection request — the buyer signed because they wanted to pursue a specific deal. Email confirms they're fully set up and their request is in motion.",
-    file: 'supabase/functions/confirm-agreement-signed/index.ts',
-    subject: "Fee agreement signed — you're fully set up.",
-    preheader: 'Every deal on SourceCo is now open to you. Your introduction is being reviewed.',
+      'Fires when a buyer requests their Fee Agreement via the marketplace. The request-agreement-email edge function sends the document to the buyer via email from adam.haile@sourcecodeals.com. Admins are notified and can track the request in Document Tracking.',
+    file: 'supabase/functions/request-agreement-email/index.ts',
+    subject: "Your Fee Agreement from SourceCo",
+    preheader: 'Review and sign your Fee Agreement to complete your SourceCo setup.',
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>Your fee agreement is signed and on file. You're fully set up — every deal on SourceCo is open to you and your introduction request is now being reviewed.</p>
-<p>Our fee is success-only — nothing owed unless a deal closes.</p>
-<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">View Your Pipeline</a></p>
+<p>Thank you for your interest in working with SourceCo. Please find your Fee Agreement attached or linked below.</p>
+<p><strong>To complete the signing process:</strong></p>
+<ol>
+<li>Review the document carefully</li>
+<li>Sign where indicated</li>
+<li>Reply to this email with the signed copy attached</li>
+</ol>
 <p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
-    invokeFunction: 'confirm-agreement-signed',
+    invokeFunction: 'request-agreement-email',
     testPayload: {
       documentType: 'fee_agreement',
-      signerEmail: 'test+audit@sourcecodeals.com',
-      signerName: 'Test Buyer',
-      firmName: 'Test Firm',
     },
     status: 'live',
   },
@@ -295,15 +301,15 @@ const EMAILS: EmailDef[] = [
     triggerDetail:
       'Fired by pg_cron daily at 9am UTC. send-nda-reminder checks firm_agreements for buyers whose NDA email was sent 2.5–3.5 days ago and nda_signed = false. Deduplication prevents double-sends — checks pandadoc_webhook_log before sending.',
     file: 'supabase/functions/send-nda-reminder/index.ts',
-    subject: "You're approved — the pipeline is locked until you sign.",
-    preheader: 'One signature, 60 seconds, and every deal on the platform is yours.',
+    subject: 'Your documents are still waiting to be signed.',
+    preheader: 'Sign your NDA and Fee Agreement to unlock deal details and introductions.',
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>You were approved for SourceCo three days ago, but your NDA isn't signed yet — which means the deal pipeline is still locked for you.</p>
-<p>One signature covers every deal on the platform. Takes about 60 seconds.</p>
-<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Sign Your NDA</a></p>
-<p>If you have questions about the agreement or want to discuss any specific terms before signing, just reply to this email.</p>
-<p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
+<p>You were approved for SourceCo three days ago, but your documents are not signed yet. Deal details, data rooms, and introductions are locked until you sign your NDA and Fee Agreement.</p>
+<p>You can browse the marketplace now. To unlock full access, sign both documents. Each takes about 60 seconds.</p>
+<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Sign Your Documents</a></p>
+<p>If you have questions about either agreement, reply to this email and we will sort it out.</p>
+<p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
     invokeFunction: 'send-nda-reminder',
     testPayload: {},
     status: 'live',
@@ -317,14 +323,14 @@ const EMAILS: EmailDef[] = [
     triggerDetail:
       'Fired by pg_cron daily at 9am UTC. send-nda-reminder checks for buyers whose NDA email was sent 6.5–7.5 days ago and nda_signed = false. This is the final automated nudge — offers a direct reply and call option for buyers who have genuine questions about the agreement.',
     file: 'supabase/functions/send-nda-reminder/index.ts',
-    subject: 'A week in — your deal pipeline is still waiting.',
-    preheader: "If something's holding you back on the NDA, reply and we'll sort it.",
+    subject: 'One week in. Your documents are still unsigned.',
+    preheader: 'Questions about the NDA or Fee Agreement? Reply and we will sort it out.',
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>It's been a week since you were approved and the pipeline is still locked for you.</p>
-<p>If something's holding you back — questions about the agreement, concerns about specific language, or you just haven't had the 60 seconds — reply to this email and we'll get it sorted.</p>
-<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Sign Your NDA Now</a></p>
-<p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
+<p>It has been a week since you were approved. Your NDA and Fee Agreement are still unsigned, which means deal details and introductions remain locked.</p>
+<p>You can browse the marketplace anytime. To unlock full access, sign both documents. If something is holding you back, questions about the agreements, concerns about specific language, or you just have not had the 60 seconds, reply to this email and we will get it sorted.</p>
+<p style="margin:20px 0"><a href="#" style="background:#1e293b;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500">Sign Your Documents</a></p>
+<p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
     invokeFunction: 'send-nda-reminder',
     testPayload: {},
     status: 'live',

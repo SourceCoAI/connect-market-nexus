@@ -184,7 +184,6 @@ async function generateForListing(
   if (listing.industry) contextParts.push(`Industry: ${listing.industry}`);
   if (listing.category) contextParts.push(`Category: ${listing.category}`);
   if (listing.categories?.length) contextParts.push(`Categories: ${listing.categories.join(', ')}`);
-  if (listing.description) contextParts.push(`Description: ${listing.description.slice(0, 500)}`);
   if (listing.executive_summary)
     contextParts.push(`Executive Summary: ${listing.executive_summary.slice(0, 500)}`);
   if (listing.hero_description) contextParts.push(`Hero Description: ${listing.hero_description}`);

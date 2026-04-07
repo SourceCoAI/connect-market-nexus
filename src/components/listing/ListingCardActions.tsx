@@ -1,7 +1,9 @@
 import { useState, memo } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Bookmark, CheckCircle2, Clock, XCircle, Send, Eye } from "lucide-react";
+import { Bookmark, CheckCircle2, Clock, XCircle, Send, Eye, AlertCircle, ShieldX, Shield } from "lucide-react";
 import ConnectionRequestDialog from "@/components/connection/ConnectionRequestDialog";
+import { AgreementSigningModal } from "@/components/pandadoc/AgreementSigningModal";
 
 interface ListingCardActionsProps {
   viewType: "grid" | "list";
@@ -13,6 +15,13 @@ interface ListingCardActionsProps {
   handleRequestConnection: (message: string) => void;
   handleToggleSave: (e: React.MouseEvent) => void;
   listingTitle?: string;
+  listingId?: string;
+  // Gating props
+  isProfileComplete?: boolean;
+  profileCompletePct?: number;
+  isBuyerBlocked?: boolean;
+  isFeeCovered?: boolean;
+  isNdaCovered?: boolean;
 }
 
 const ListingCardActions = memo(function ListingCardActions({
@@ -24,9 +33,16 @@ const ListingCardActions = memo(function ListingCardActions({
   isSaving,
   handleRequestConnection,
   handleToggleSave,
-  listingTitle
+  listingTitle,
+  listingId,
+  isProfileComplete = true,
+  profileCompletePct = 100,
+  isBuyerBlocked = false,
+  isFeeCovered = true,
+  isNdaCovered: _isNdaCovered = true,
 }: ListingCardActionsProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [signingOpen, setSigningOpen] = useState(false);
 
   const getConnectionButtonContent = () => {
     if (connectionExists) {
@@ -55,6 +71,14 @@ const ListingCardActions = memo(function ListingCardActions({
             disabled: false,
             className: "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
           };
+        case "on_hold":
+          return { 
+            icon: Clock, 
+            text: "Under Review", 
+            variant: "pending" as const, 
+            disabled: true,
+            className: "bg-sourceco-muted text-sourceco-accent border border-sourceco-form hover:bg-sourceco-muted"
+          };
         default:
           return { 
             icon: Send, 
@@ -79,6 +103,19 @@ const ListingCardActions = memo(function ListingCardActions({
   const handleConnectionClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Gate: buyer type blocked
+    if (isBuyerBlocked) return;
+
+    // Gate: profile incomplete
+    if (!isProfileComplete) return;
+
+    // Gate: Fee Agreement not signed — open signing modal
+    if (!isFeeCovered) {
+      setSigningOpen(true);
+      return;
+    }
+
     if (!connectionDisabled || connectionStatus === "rejected") {
       setIsDialogOpen(true);
     }
@@ -89,6 +126,87 @@ const ListingCardActions = memo(function ListingCardActions({
     setIsDialogOpen(false);
   };
 
+  // Buyer type blocked — show seller account message
+  if (isBuyerBlocked) {
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-muted/50 border border-border">
+          <ShieldX className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="text-[12px] text-muted-foreground">Seller accounts cannot request access</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Profile incomplete — show completion prompt
+  if (!isProfileComplete) {
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border">
+          <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="text-[12px] text-muted-foreground">
+              Complete your profile to request access
+            </span>
+            <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-foreground/70 transition-all duration-300"
+                style={{ width: `${profileCompletePct}%` }}
+              />
+            </div>
+          </div>
+        </div>
+        <Link to="/profile?tab=profile&complete=1" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="outline"
+            size="sm"
+            className={`w-full ${viewType === 'list' ? 'h-8' : 'h-9'} text-[12px] font-medium`}
+          >
+            Complete Profile ({profileCompletePct}%)
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  // Fee Agreement not signed — allow browsing but prompt signing for access
+  if (!isFeeCovered) {
+    return (
+      <>
+        <div className="space-y-1.5">
+          <Link to={listingId ? `/listing/${listingId}` : '#'} onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`w-full ${viewType === 'list' ? 'h-8' : 'h-9'} text-[12px] font-medium`}
+            >
+              <Eye className="h-3.5 w-3.5 mr-1.5" />
+              View Listing
+            </Button>
+          </Link>
+          <button
+            className="w-full flex items-center justify-center gap-1.5 text-[11px] text-primary hover:text-primary/80 transition-colors py-1"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setSigningOpen(true);
+            }}
+          >
+            <Shield className="h-3 w-3" />
+            Sign Fee Agreement to Unlock Access
+          </button>
+          <p className="text-[10px] text-muted-foreground text-center leading-relaxed px-2">
+            Sign your Fee Agreement to unlock the data room and request introductions.
+          </p>
+        </div>
+        <AgreementSigningModal
+          open={signingOpen}
+          onOpenChange={setSigningOpen}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       {/* Action Buttons */}
@@ -96,12 +214,14 @@ const ListingCardActions = memo(function ListingCardActions({
         {/* Approved State - Dark "View Deal Details" primary */}
         {connectionExists && connectionStatus === "approved" ? (
           <>
-            <Button
-              className={`w-full ${viewType === 'list' ? 'h-8' : 'h-10'} px-4 text-[13px] font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white shadow-sm hover:shadow transition-all duration-200`}
-            >
-              <Eye className="h-3.5 w-3.5 mr-2" />
-              <span>View Deal Details</span>
-            </Button>
+            <Link to={listingId ? `/listing/${listingId}` : '#'} onClick={(e) => e.stopPropagation()}>
+              <Button
+                className={`w-full ${viewType === 'list' ? 'h-8' : 'h-10'} px-4 text-[13px] font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white shadow-sm hover:shadow transition-all duration-200`}
+              >
+                <Eye className="h-3.5 w-3.5 mr-2" />
+                <span>View Deal Details</span>
+              </Button>
+            </Link>
             
             <Button
               variant="ghost"
@@ -134,14 +254,16 @@ const ListingCardActions = memo(function ListingCardActions({
 
             {/* Secondary Actions */}
             <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-              <Button
-                variant="ghost"
-                className={`${viewType === 'list' ? 'h-8' : 'h-9'} px-3 text-[12px] font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors`}
-                size="sm"
-              >
-                <Eye className="h-3.5 w-3.5 mr-1.5" />
-                <span>Details</span>
-              </Button>
+              <Link to={listingId ? `/listing/${listingId}` : '#'} onClick={(e) => e.stopPropagation()} className="w-full">
+                <Button
+                  variant="ghost"
+                  className={`w-full ${viewType === 'list' ? 'h-8' : 'h-9'} px-3 text-[12px] font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors`}
+                  size="sm"
+                >
+                  <Eye className="h-3.5 w-3.5 mr-1.5" />
+                  <span>Details</span>
+                </Button>
+              </Link>
 
               <Button
                 variant="ghost"
@@ -168,6 +290,11 @@ const ListingCardActions = memo(function ListingCardActions({
         onSubmit={handleDialogSubmit}
         isSubmitting={isRequesting}
         listingTitle={listingTitle}
+      />
+
+      <AgreementSigningModal
+        open={signingOpen}
+        onOpenChange={setSigningOpen}
       />
     </>
   );

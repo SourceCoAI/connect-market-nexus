@@ -36,6 +36,7 @@ import {
 import type { DealForList } from '@/components/remarketing';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { ArchiveDealDialog } from '@/components/admin/deals/ArchiveDealDialog';
 import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
 import { PushToSmartleadModal } from '@/components/remarketing/PushToSmartleadModal';
 import { DndContext, closestCorners, MeasuringStrategy } from '@dnd-kit/core';
@@ -762,6 +763,14 @@ const ReMarketingDeals = () => {
         onOpenChange={setAddToListOpen}
         selectedDeals={selectedDealsForList}
         entityType="deal"
+      />
+
+      {/* Archive Deal Dialog */}
+      <ArchiveDealDialog
+        open={!!h.archiveTarget}
+        onOpenChange={(open) => { if (!open) h.setArchiveTarget(null); }}
+        deal={h.archiveTarget ? { id: h.archiveTarget.id, name: h.archiveTarget.name } : null}
+        onConfirmArchive={h.confirmArchiveDeal}
       />
 
       {/* Not a Fit Dialog */}

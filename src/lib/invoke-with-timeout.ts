@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/client';
 
 const DEFAULT_TIMEOUT_MS = 90_000; // 90 seconds — longer than Supabase 60s edge limit
+const SESSION_TIMEOUT_MS = 5_000; // 5 seconds max for session retrieval
 
 interface InvokeOptions {
   body?: Record<string, unknown>;
@@ -11,6 +12,49 @@ interface InvokeOptions {
 interface InvokeResult<T = unknown> {
   data: T | null;
   error: Error | null;
+}
+
+/**
+ * Retrieve the access token with a hard timeout so getSession()
+ * can never hang the entire request flow (known Supabase auth deadlock risk).
+ */
+async function getAccessTokenWithTimeout(): Promise<string | null> {
+  console.log('[invoke-with-timeout] Starting session lookup…');
+  try {
+    const result = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Session retrieval timed out after 5 s')), SESSION_TIMEOUT_MS),
+      ),
+    ]);
+    const token = result.data?.session?.access_token ?? null;
+    console.log('[invoke-with-timeout] Session lookup done, token present:', !!token);
+    return token;
+  } catch (err) {
+    console.error('[invoke-with-timeout] Session lookup failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * Fallback: try to get a cached token without calling getSession(),
+ * which can deadlock. This reads from the storage layer directly.
+ */
+function getCachedAccessToken(): string | null {
+  try {
+    const storageKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+    if (!storageKey) return null;
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const token = parsed?.access_token ?? parsed?.currentSession?.access_token ?? null;
+    if (token) {
+      console.log('[invoke-with-timeout] Using cached token from localStorage');
+    }
+    return token;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -36,15 +80,29 @@ export async function invokeWithTimeout<T = unknown>(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    // Get the current user's JWT for the Authorization header
-    const { data: { session } } = await supabase.auth.getSession();
-    const accessToken = session?.access_token;
+    // Get the current user's JWT with a hard 5s timeout
+    // If getSession() hangs (known Supabase deadlock), fall back to cached token
+    let accessToken: string | null;
+    try {
+      accessToken = await getAccessTokenWithTimeout();
+    } catch (sessionErr) {
+      console.warn('[invoke-with-timeout] getSession() failed, trying cached token…');
+      accessToken = getCachedAccessToken();
+      if (!accessToken) {
+        const error = sessionErr instanceof Error
+          ? sessionErr
+          : new Error('Session retrieval failed');
+        console.error('[invoke-with-timeout] No cached token available either');
+        return { data: null, error };
+      }
+    }
 
     if (!accessToken) {
       return { data: null, error: new Error('No active session — please sign in again') };
     }
 
     const url = `${SUPABASE_URL}/functions/v1/${functionName}`;
+    console.log('[invoke-with-timeout] Starting fetch to', functionName);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -64,7 +122,7 @@ export async function invokeWithTimeout<T = unknown>(
         const errorBody = await response.json();
         // If the server returned a categorized error code, use just the user-friendly
         // message without appending raw details (which are meant for logging).
-        if (errorBody?.error && errorBody?.code) {
+        if (errorBody?.error && (errorBody?.code || errorBody?.error_code)) {
           errorMessage = errorBody.error;
         } else {
           errorMessage = errorBody?.error

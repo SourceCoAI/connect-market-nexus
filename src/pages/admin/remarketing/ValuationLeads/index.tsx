@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -53,6 +54,7 @@ export { formatAge } from './helpers';
 
 export default function ValuationLeads() {
   const { setPageContext } = useAICommandCenterContext();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [dialerOpen, setDialerOpen] = useState(false);
   const [smartleadOpen, setSmartleadOpen] = useState(false);
   const [heyreachOpen, setHeyreachOpen] = useState(false);
@@ -107,6 +109,7 @@ export default function ValuationLeads() {
     handleEnrichSelected,
     handleDelete,
     selectedLead,
+    setSelectedLead,
     drawerOpen,
     setDrawerOpen,
     isPushing,
@@ -141,6 +144,23 @@ export default function ValuationLeads() {
   useEffect(() => {
     setPageContext({ page: 'valuation_leads', entity_type: 'leads' });
   }, [setPageContext]);
+
+  // Auto-open lead detail drawer from ?leadId= query param
+  useEffect(() => {
+    const leadId = searchParams.get('leadId');
+    if (!leadId || !leads?.length) return;
+    const lead = leads.find((l) => l.id === leadId);
+    if (lead) {
+      setSelectedLead(lead);
+      setDrawerOpen(true);
+      // Clear param so it doesn't re-open on subsequent renders
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('leadId');
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams, leads, setSelectedLead, setDrawerOpen, setSearchParams]);
 
   useAIUIActionHandler({
     table: 'leads',

@@ -30,7 +30,7 @@ export function EditorHeroDescriptionSection({
 }: EditorHeroDescriptionSectionProps) {
   const heroDescriptionValue = form.watch('hero_description') || '';
   const charCount = heroDescriptionValue.length;
-  const maxChars = 500;
+  const maxChars = 280;
   const isFieldGenerating = isGenerating && generatingField === 'hero_description';
   const [isRegenerating, setIsRegenerating] = useState(false);
 
@@ -38,7 +38,7 @@ export function EditorHeroDescriptionSection({
     if (!dealId) return;
     setIsRegenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-marketplace-listing', {
+      const { data, error } = await supabase.functions.invoke('generate-listing-content', {
         body: { deal_id: dealId, listing_id: listingId || undefined },
       });
 
@@ -49,7 +49,7 @@ export function EditorHeroDescriptionSection({
 
       if (data.hero_description) {
         form.setValue('hero_description', data.hero_description);
-        toast.success('Hero description regenerated — review and edit before saving.');
+        toast.success('Hero description regenerated. Review and edit before saving.');
       } else {
         toast.warning('AI did not return a hero description. Try regenerating again.');
       }

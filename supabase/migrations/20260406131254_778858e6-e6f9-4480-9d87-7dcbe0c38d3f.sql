@@ -1,0 +1,1 @@
+UPDATE listings SET categories = '{"Restoration"}', services = '{"Property Damage Restoration","Emergency Services"}' WHERE id = 'd543b05b-2649-4327-a1dd-2a2589e73427';

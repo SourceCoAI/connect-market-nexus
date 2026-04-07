@@ -6,7 +6,8 @@
  *
  * Extracted from BuyerMatchCard.tsx for maintainability.
  */
-import { Mail, Phone, Linkedin } from 'lucide-react';
+import { Mail, Linkedin } from 'lucide-react';
+import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import type { ReMarketingBuyer } from '@/types/remarketing';
 
 interface BuyerMatchDetailsProps {
@@ -39,13 +40,12 @@ export const BuyerMatchDetails = ({ buyer }: BuyerMatchDetailsProps) => {
                 </a>
               )}
               {primaryContact.phone && (
-                <a
-                  href={`tel:${primaryContact.phone}`}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
-                >
-                  <Phone className="h-3 w-3" />
-                  {primaryContact.phone}
-                </a>
+                <ClickToDialPhone
+                  phone={primaryContact.phone}
+                  name={primaryContact.name || undefined}
+                  email={primaryContact.email || undefined}
+                  size="xs"
+                />
               )}
               {primaryContact.linkedin_url && (
                 <a

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { signupFormSchema, type SignupFormData, useProtectedAuth } from '@/features/auth';
@@ -33,6 +33,38 @@ export const useSignupForm = () => {
     formState: { errors },
   } = form;
   const buyerType = watch('buyerType');
+  const prevBuyerTypeRef = useRef(buyerType);
+
+  // Reset type-specific fields when buyer type changes
+  useEffect(() => {
+    if (prevBuyerTypeRef.current && prevBuyerTypeRef.current !== buyerType) {
+      const typeSpecificFields: (keyof SignupFormData)[] = [
+        // PE
+        'portfolioCompanyAddon', 'deployingCapitalNow',
+        // Corporate
+        'owningBusinessUnit', 'dealSizeBand', 'integrationPlan', 'corpdevIntent',
+        // Family Office
+        'discretionType', 'permanentCapital', 'operatingCompanyTargets',
+        // Independent Sponsor
+        'committedEquityBand', 'equitySource', 'flexSubXmEbitda', 'backersSummary', 'deploymentTiming',
+        // Search Fund
+        'searchType', 'acqEquityBand', 'financingPlan', 'flexSub2mEbitda', 'anchorInvestorsSummary', 'searchStage',
+        // Advisor
+        'onBehalfOfBuyer', 'buyerRole', 'buyerOrgUrl', 'mandateBlurb',
+        // Business Owner
+        'ownerIntent', 'ownerTimeline',
+        // Individual
+        'maxEquityTodayBand', 'usesBankFinance',
+        // Shared
+        'fundSize', 'investmentSize', 'aum', 'estimatedRevenue',
+        'isFunded', 'fundedBy', 'targetCompanySize', 'fundingSource', 'needsLoan', 'idealTarget',
+      ];
+      for (const field of typeSpecificFields) {
+        setValue(field, undefined as never);
+      }
+    }
+    prevBuyerTypeRef.current = buyerType;
+  }, [buyerType, setValue]);
 
   const onSubmit = async (data: SignupFormData) => {
     try {
@@ -45,7 +77,7 @@ export const useSignupForm = () => {
         website: data.website || '',
         phone_number: data.phone_number || '',
         linkedin_profile: data.linkedinProfile || '',
-        buyer_type: data.buyerType,
+        buyer_type: data.buyerType === 'businessOwner' ? 'searchFund' : data.buyerType,
         ideal_target_description: data.idealTargetDescription,
         business_categories: data.businessCategories,
         target_locations: data.targetLocations,
@@ -156,7 +188,16 @@ export const useSignupForm = () => {
               watch('flexSubXmEbitda') !== undefined
             );
           case 'individual':
-            return watch('fundingSource') && watch('needsLoan') && watch('idealTarget');
+            return watch('fundingSource') && watch('needsLoan') && watch('idealTarget') && watch('maxEquityTodayBand');
+          case 'businessOwner':
+            return watch('ownerIntent') && watch('ownerTimeline');
+          case 'advisor': {
+            const onBehalf = watch('onBehalfOfBuyer');
+            if (onBehalf === 'no') {
+              return !!watch('mandateBlurb');
+            }
+            return !!onBehalf;
+          }
           default:
             return true;
         }

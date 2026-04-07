@@ -72,9 +72,9 @@ interface DealTranscriptRow {
   applied_to_deal: boolean;
   source: string | null;
   fireflies_transcript_id: string | null;
-  phoneburner_call_id: string | null;
-  contact_activity_id: string | null;
-  recording_url: string | null;
+  phoneburner_call_id?: string | null;
+  contact_activity_id?: string | null;
+  recording_url?: string | null;
   transcript_url: string | null;
 }
 
@@ -106,7 +106,6 @@ async function inferIndustryFromContext(
     deal.executive_summary && `Summary: ${String(deal.executive_summary).substring(0, 300)}`,
     deal.services && `Services: ${String(deal.services).substring(0, 200)}`,
     deal.category && `Category: ${deal.category}`,
-    deal.description && `Description: ${String(deal.description).substring(0, 200)}`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -140,7 +139,7 @@ async function inferIndustryFromContext(
     if (industry && industry.length > 1 && industry.length < 60) {
       const { error: industryError } = await supabase
         .from('listings')
-        .update({ industry })
+        .update({ industry } as unknown as Record<string, never>)
         .eq('id', dealId);
       if (industryError) {
         console.error(`[inferIndustry] Failed to set industry for deal ${dealId}:`, industryError);
@@ -268,7 +267,7 @@ serve(async (req) => {
     };
 
     if (!transcriptsError && allTranscripts?.length) {
-      const sample = allTranscripts.slice(0, 5).map((t: DealTranscriptRow) => ({
+      const sample = allTranscripts.slice(0, 5).map((t: any) => ({
         id: t.id,
         processed_at: t.processed_at,
         text_len: t.transcript_text ? t.transcript_text.length : 0,
@@ -281,16 +280,16 @@ serve(async (req) => {
     // 0A) Apply existing extracted_data from previously-processed transcripts
     if (!transcriptsError && allTranscripts && allTranscripts.length > 0) {
       const transcriptsWithExtracted = allTranscripts.filter(
-        (t: DealTranscriptRow) => t.extracted_data && typeof t.extracted_data === 'object',
+        (t: any) => t.extracted_data && typeof t.extracted_data === 'object',
       );
 
       if (transcriptsWithExtracted.length > 0) {
         const existingResult = await applyExistingTranscriptData(
           supabase,
           deal,
-          dealId,
+          dealId as string,
           transcriptsWithExtracted,
-          forceReExtract,
+          forceReExtract as boolean,
         );
         transcriptReport.appliedFromExisting = existingResult.appliedFieldCount;
         transcriptReport.appliedFromExistingTranscripts = existingResult.appliedTranscriptCount;
@@ -309,7 +308,7 @@ serve(async (req) => {
         );
         needsExtraction = allTranscripts;
 
-        const allTranscriptIds = allTranscripts.map((t: DealTranscriptRow) => t.id);
+        const allTranscriptIds = allTranscripts.map((t: any) => t.id);
         if (allTranscriptIds.length > 0) {
           console.log(
             `[Transcripts] Clearing extracted_data for ${allTranscriptIds.length} transcripts`,
@@ -323,7 +322,7 @@ serve(async (req) => {
           }
         }
       } else {
-        needsExtraction = allTranscripts.filter((t: DealTranscriptRow) => {
+        needsExtraction = allTranscripts.filter((t: any) => {
           const hasExtracted =
             t.extracted_data &&
             typeof t.extracted_data === 'object' &&
@@ -420,7 +419,6 @@ serve(async (req) => {
       deal.internal_notes,
       deal.owner_response,
       deal.captarget_call_notes,
-      deal.description,
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -683,7 +681,6 @@ serve(async (req) => {
       if (!deal.executive_summary && websiteContent.length > 200) {
         updates.executive_summary = websiteContent.substring(0, 500).trim() + '...';
       }
-
       const { error: updateError } = await supabase
         .from('listings')
         .update(updates)
@@ -794,6 +791,7 @@ Extract all available business information using the provided tool. Be EXHAUSTIV
             console.warn('[enrich-deal] Rate limit report failed:', err);
           });
 
+          lastAiError = `Rate limited by Gemini (429) on attempt ${attempt + 1}/${MAX_AI_RETRIES}`;
           const waitMs = retryAfterSeconds ? retryAfterSeconds * 1000 : AI_RETRY_DELAYS[attempt];
           const jitter = Math.random() * 1000;
           console.log(

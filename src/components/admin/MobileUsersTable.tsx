@@ -10,7 +10,7 @@ import { DualFeeAgreementToggle } from "./DualFeeAgreementToggle";
 import { SimpleFeeAgreementDialog } from "./SimpleFeeAgreementDialog";
 import { DualNDAToggle } from "./DualNDAToggle";
 import { SimpleNDADialog } from "./SimpleNDADialog";
-import { useLogFeeAgreementEmail } from '@/hooks/admin/use-fee-agreement';
+
 import { supabase } from '@/integrations/supabase/client';
 import { formatFinancialRange } from '@/lib/buyer-metrics';
 
@@ -205,13 +205,20 @@ const MobileUserCard = ({
           <div className="text-sm">
             <span className="font-medium">Buyer Type:</span>{" "}
             <Badge variant="outline" className="capitalize text-xs ml-1">
-              {user.buyer_type === 'independent_sponsor' ? 'IS' :
-               user.buyer_type === 'private_equity' ? 'PE' :
-               user.buyer_type === 'family_office' ? 'FO' :
-               user.buyer_type === 'search_fund' ? 'SF' :
-               user.buyer_type === 'corporate' ? 'Corp' :
-               user.buyer_type === 'individual_buyer' ? 'Indiv' :
-               user.buyer_type}
+              {(() => {
+                const bt = user.buyer_type;
+                const map: Record<string, string> = {
+                  private_equity: 'PE', privateEquity: 'PE',
+                  family_office: 'FO', familyOffice: 'FO',
+                  search_fund: 'SF', searchFund: 'SF',
+                  independent_sponsor: 'IS', independentSponsor: 'IS',
+                  corporate: 'Corp',
+                  individual_buyer: 'Indiv', individual: 'Indiv',
+                  advisor: 'Advisor',
+                  business_owner: 'Owner', businessOwner: 'Owner',
+                };
+                return map[bt] || bt;
+              })()}
             </Badge>
           </div>
         )}
@@ -312,54 +319,8 @@ export const MobileUsersTable = ({
 }: MobileUsersTableProps) => {
   const [selectedUserForEmail, setSelectedUserForEmail] = useState<User | null>(null);
   const [selectedUserForNDA, setSelectedUserForNDA] = useState<User | null>(null);
-  const logEmailMutation = useLogFeeAgreementEmail();
-  
-  const handleSendEmail = async (emailData: {
-    userId: string;
-    userEmail: string;
-    subject: string;
-    content: string;
-    attachments?: Array<{name: string, content: string}>;
-    useTemplate: boolean;
-  }) => {
-    // Get current user for admin info
-    const current_auth_user = await supabase.auth.getUser();
-    if (!current_auth_user.data.user) {
-      return;
-    }
 
-    try {
-      // Get admin profile info
-      const { data: adminProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('email, first_name, last_name')
-        .eq('id', current_auth_user.data.user.id)
-        .single();
 
-      if (profileError || !adminProfile) {
-        throw new Error('Failed to fetch admin profile');
-      }
-
-      const adminName = `${adminProfile.first_name} ${adminProfile.last_name}`;
-
-      // Use the hook for optimistic updates and consistent behavior
-      await logEmailMutation.mutateAsync({
-        userId: emailData.userId,
-        userEmail: emailData.userEmail,
-        subject: emailData.subject,
-        content: emailData.content,
-        attachments: emailData.attachments,
-        adminId: current_auth_user.data.user.id,
-        adminEmail: adminProfile.email,
-        adminName: adminName,
-        notes: emailData.useTemplate ? 'Template fee agreement email sent' : 'Custom fee agreement email sent'
-      });
-
-    } catch (error: unknown) {
-      console.error('Mobile: Error in handleSendEmail:', error);
-      // Error handling is done by the hook
-    }
-  };
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -407,14 +368,18 @@ export const MobileUsersTable = ({
         isOpen={!!selectedUserForEmail}
         onClose={() => setSelectedUserForEmail(null)}
         onSendEmail={async (user, options) => {
-          await handleSendEmail({
-            userId: user.id,
-            userEmail: user.email,
-            subject: options?.subject || 'Fee Agreement | SourceCo',
-            content: options?.content || 'Please review and sign the attached fee agreement.',
-            attachments: options?.attachments || [],
-            useTemplate: false
+          const { error } = await supabase.functions.invoke('request-agreement-email', {
+            body: {
+              documentType: 'fee_agreement',
+              recipientEmail: user.email,
+              recipientName: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
+              adminOverride: true,
+              customSubject: options?.subject,
+              customMessage: options?.content,
+              customSignatureText: options?.customSignatureText,
+            },
           });
+          if (error) throw error;
         }}
       />
       
@@ -422,9 +387,17 @@ export const MobileUsersTable = ({
         open={!!selectedUserForNDA}
         onOpenChange={(open) => !open && setSelectedUserForNDA(null)}
         user={selectedUserForNDA}
-        onSendEmail={async (user) => {
-          const { error } = await supabase.functions.invoke('send-nda-email', {
-            body: { userEmail: user.email, userId: user.id }
+        onSendEmail={async (user, options) => {
+          const { error } = await supabase.functions.invoke('request-agreement-email', {
+            body: {
+              documentType: 'nda',
+              recipientEmail: user.email,
+              recipientName: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
+              adminOverride: true,
+              customSubject: options?.subject,
+              customMessage: options?.message,
+              customSignatureText: options?.customSignatureText,
+            },
           });
           if (error) throw error;
         }}

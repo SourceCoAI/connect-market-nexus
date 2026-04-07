@@ -234,18 +234,13 @@ serve(async (req) => {
     }
 
     // Use the explicitly provided notes text, or concatenate all available note fields.
-    const notes =
-      notesText ||
-      [
-        deal.general_notes,
-        deal.owner_notes,
-        deal.internal_notes,
-        deal.owner_response,
-        deal.captarget_call_notes,
-        deal.description,
-      ]
-        .filter(Boolean)
-        .join('\n\n');
+    const notes = notesText || [
+      deal.general_notes,
+      deal.owner_notes,
+      deal.internal_notes,
+      deal.owner_response,
+      deal.captarget_call_notes,
+    ].filter(Boolean).join('\n\n');
 
     if (!notes || notes.length < 20) {
       return new Response(JSON.stringify({ error: 'No notes content to analyze' }), {

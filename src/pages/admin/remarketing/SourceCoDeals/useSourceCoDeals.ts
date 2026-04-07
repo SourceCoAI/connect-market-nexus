@@ -38,6 +38,24 @@ export function useSourceCoDeals() {
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // KPI card filter (URL-persisted)
+  const kpiFilter = (searchParams.get('kpi') as 'priority' | 'needs_scoring' | null) ?? null;
+  const setKpiFilter = useCallback(
+    (v: 'priority' | 'needs_scoring' | null) => {
+      setSearchParams(
+        (p) => {
+          const n = new URLSearchParams(p);
+          if (v) n.set('kpi', v);
+          else n.delete('kpi');
+          n.delete('cp');
+          return n;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   // URL-persisted filter state (survives browser Back navigation)
   const hidePushed = searchParams.get('hidePushed') === '1';
   const setHidePushed = useCallback(
@@ -123,7 +141,7 @@ export function useSourceCoDeals() {
           .select(
             `
             id, title, internal_company_name, main_contact_name, main_contact_email,
-            main_contact_title, main_contact_phone, website, description,
+            main_contact_title, main_contact_phone, website, executive_summary,
             pushed_to_all_deals, pushed_to_all_deals_at, deal_source, status,
             created_at, enriched_at, deal_total_score, linkedin_employee_count,
             linkedin_employee_range, google_rating, google_review_count,
@@ -167,6 +185,8 @@ export function useSourceCoDeals() {
     let items = [...engineFiltered];
     if (hidePushed) items = items.filter((d) => !d.pushed_to_all_deals);
     if (hideNotFit) items = items.filter((d) => d.remarketing_status !== 'not_a_fit');
+    if (kpiFilter === 'priority') items = items.filter((d) => d.is_priority_target === true);
+    if (kpiFilter === 'needs_scoring') items = items.filter((d) => d.deal_total_score == null);
     items.sort((a, b) => {
       let valA: string | number, valB: string | number;
       switch (sortColumn) {
@@ -230,7 +250,7 @@ export function useSourceCoDeals() {
       return 0;
     });
     return items;
-  }, [engineFiltered, sortColumn, sortDirection, hidePushed, hideNotFit]);
+  }, [engineFiltered, sortColumn, sortDirection, hidePushed, hideNotFit, kpiFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredDeals.length / PAGE_SIZE));
@@ -604,7 +624,7 @@ export function useSourceCoDeals() {
       main_contact_phone: newDeal.contact_phone.trim() || null,
       main_contact_title: newDeal.contact_title.trim() || null,
       industry: newDeal.industry.trim() || null,
-      description: newDeal.description.trim() || null,
+      executive_summary: newDeal.executive_summary.trim() || null,
       location: newDeal.location.trim() || null,
       revenue: newDeal.revenue ? parseFloat(newDeal.revenue) : null,
       ebitda: newDeal.ebitda ? parseFloat(newDeal.ebitda) : null,
@@ -734,6 +754,9 @@ export function useSourceCoDeals() {
     allSelected,
     toggleSelectAll,
     toggleSelect,
+    // KPI filter
+    kpiFilter,
+    setKpiFilter,
     // Hide pushed
     hidePushed,
     setHidePushed,

@@ -24,7 +24,7 @@ export interface AddDealFormData {
   location: string;
   revenue: string;
   ebitda: string;
-  description: string;
+  executive_summary: string;
   transcriptLink: string;
   mainContactName: string;
   mainContactEmail: string;
@@ -38,7 +38,7 @@ export const INITIAL_FORM_DATA: AddDealFormData = {
   location: '',
   revenue: '',
   ebitda: '',
-  description: '',
+  executive_summary: '',
   transcriptLink: '',
   mainContactName: '',
   mainContactEmail: '',
@@ -197,7 +197,7 @@ export function useAddDealSubmit({
         location: formData.location || null,
         revenue: formData.revenue ? parseFloat(formData.revenue.replace(/[^0-9.]/g, '')) : null,
         ebitda: formData.ebitda ? parseFloat(formData.ebitda.replace(/[^0-9.]/g, '')) : null,
-        description: formData.description || null,
+        executive_summary: formData.executive_summary || null,
         category: 'Other',
         status: referralPartnerId ? 'pending_referral_review' : 'active',
         is_internal_deal: true,

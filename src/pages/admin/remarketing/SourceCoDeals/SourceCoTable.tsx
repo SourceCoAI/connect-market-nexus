@@ -67,6 +67,7 @@ interface SourceCoTableProps {
   setAddDealOpen: (open: boolean) => void;
   setCsvUploadOpen: (open: boolean) => void;
   onMarkNotFit?: (dealId: string) => void;
+  onArchiveDeal?: (dealId: string, dealName: string) => void;
 }
 
 export function SourceCoTable({
@@ -86,6 +87,7 @@ export function SourceCoTable({
   setAddDealOpen,
   setCsvUploadOpen,
   onMarkNotFit,
+  onArchiveDeal,
 }: SourceCoTableProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -120,7 +122,7 @@ export function SourceCoTable({
                 <TableHead>
                   <SortHeader column="company_name">Company</SortHeader>
                 </TableHead>
-                <TableHead className="max-w-[200px]">Description</TableHead>
+                <TableHead className="max-w-[200px]">Executive Summary</TableHead>
                 <TableHead>
                   <SortHeader column="industry">Industry</SortHeader>
                 </TableHead>
@@ -230,7 +232,7 @@ export function SourceCoTable({
                     </TableCell>
                     <TableCell className="max-w-[200px]">
                       <span className="text-xs text-muted-foreground line-clamp-3">
-                        {deal.description || deal.executive_summary || '\u2014'}
+                        {deal.executive_summary || '\u2014'}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -388,6 +390,7 @@ export function SourceCoTable({
                         queryClient={queryClient}
                         toast={toast}
                         onMarkNotFit={onMarkNotFit}
+                        onArchiveDeal={onArchiveDeal}
                       />
                     </TableCell>
                   </TableRow>
@@ -409,6 +412,7 @@ function DealRowActions({
   queryClient,
   toast,
   onMarkNotFit,
+  onArchiveDeal,
 }: {
   deal: SourceCoDeal;
   navigate: (path: string, opts?: { state?: Record<string, unknown> }) => void;
@@ -417,6 +421,7 @@ function DealRowActions({
   queryClient: ReturnType<typeof useQueryClient>;
   toast: ReturnType<typeof useToast>['toast'];
   onMarkNotFit?: (dealId: string) => void;
+  onArchiveDeal?: (dealId: string, dealName: string) => void;
 }) {
   return (
     <DropdownMenu>
@@ -534,21 +539,7 @@ function DealRowActions({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="text-amber-600 focus:text-amber-600"
-          onClick={async () => {
-            const { error } = await supabase
-              .from('listings')
-              .update({ remarketing_status: 'archived' } as never)
-              .eq('id', deal.id);
-            if (error) {
-              toast({ title: 'Error', description: error.message, variant: 'destructive' });
-            } else {
-              toast({
-                title: 'Deal archived (remarketing)',
-                description: 'Deal has been archived in remarketing. Marketplace status unchanged.',
-              });
-              queryClient.invalidateQueries({ queryKey: ['remarketing', 'sourceco-deals'] });
-            }
-          }}
+          onClick={() => onArchiveDeal?.(deal.id, deal.internal_company_name || deal.title || 'Unknown Deal')}
         >
           <Archive className="h-4 w-4 mr-2" />
           Archive Deal

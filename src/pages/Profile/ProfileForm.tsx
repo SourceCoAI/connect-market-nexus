@@ -21,6 +21,8 @@ import { ChipInput } from '@/components/ui/chip-input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DEAL_INTENT_OPTIONS } from '@/lib/signup-field-options';
 import { ProfileSettings } from './ProfileSettings';
+import { getMissingRequiredFields, getProfileCompletionPercentage, isProfileComplete } from '@/lib/profile-completeness';
+import { FIELD_LABELS } from '@/lib/buyer-type-fields';
 import type { ProfileFormProps } from './types';
 
 export function ProfileForm({
@@ -33,6 +35,20 @@ export function ProfileForm({
   onSetFormData,
   onSubmit,
 }: ProfileFormProps) {
+  // Merge formData with user for live completeness tracking
+  const mergedUser = { ...user, ...formData };
+  const missingKeys = getMissingRequiredFields(mergedUser);
+  const completionPct = getProfileCompletionPercentage(mergedUser);
+  const profileComplete = isProfileComplete(mergedUser);
+
+  const scrollToField = (fieldKey: string) => {
+    const el = document.getElementById(fieldKey);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => el.focus(), 400);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -41,6 +57,43 @@ export function ProfileForm({
       </CardHeader>
 
       <CardContent>
+        {!profileComplete && (
+          <div className="mb-6 rounded-lg border border-[#E5E5E5] p-4 space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-[#0E101A]">
+                {completionPct}% complete
+              </p>
+              <p className="text-xs text-[#6B6B6B]">
+                Fill in the remaining fields to request introductions.
+              </p>
+            </div>
+            <div className="h-1 rounded-full bg-[#E5E5E5] overflow-hidden">
+              <div
+                className="h-full bg-[#0E101A] transition-all duration-500"
+                style={{ width: `${completionPct}%` }}
+              />
+            </div>
+            {missingKeys.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                {missingKeys.map((key, i) => (
+                  <span key={key} className="inline-flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => scrollToField(key)}
+                      className="text-xs font-medium text-[#0E101A] underline-offset-2 hover:underline cursor-pointer"
+                    >
+                      {(FIELD_LABELS as Record<string, string>)[key] ?? key}
+                    </button>
+                    {i < missingKeys.length - 1 && (
+                      <span className="text-[#C0C0C0] ml-1.5">·</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <form onSubmit={onSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
             <div className="space-y-2">
@@ -109,15 +162,8 @@ export function ProfileForm({
                 id="company"
                 name="company"
                 value={formData.company}
-                disabled
-                className="bg-muted/50"
+                onChange={onInputChange}
               />
-              <p className="text-xs text-muted-foreground">
-                Need to update your company? Contact{' '}
-                <a href="mailto:support@sourceco.com" className="text-primary hover:underline">
-                  support@sourceco.com
-                </a>
-              </p>
             </div>
 
             <div className="space-y-2">

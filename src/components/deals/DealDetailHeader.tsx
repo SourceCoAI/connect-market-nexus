@@ -18,7 +18,7 @@ interface DealDetailHeaderProps {
   acquisitionType?: string | null;
   ebitda?: number;
   revenue?: number;
-  requestStatus: 'pending' | 'approved' | 'rejected';
+  requestStatus: 'pending' | 'approved' | 'rejected' | 'on_hold';
   ndaSigned?: boolean;
   hasCim?: boolean;
 }
@@ -29,6 +29,8 @@ function getStatusConfig(status: string): { label: string; className: string } {
       return { label: 'Connected', className: 'bg-[#0E101A] text-white' };
     case 'rejected':
       return { label: 'Not Selected', className: 'bg-[#F5F3EE] text-[#0E101A]/40' };
+    case 'on_hold':
+      return { label: 'On Hold', className: 'bg-[#FBF7EC] text-[#8B6F47] border border-[#E5DDD0]' };
     default:
       return {
         label: 'Under Review',
@@ -51,9 +53,9 @@ export function DealDetailHeader({
     ebitda && revenue && revenue > 0 ? ((ebitda / revenue) * 100).toFixed(0) : null;
 
   return (
-    <div className="px-6 py-5 border-b border-[#F0EDE6]">
+    <div className="px-4 sm:px-6 py-5 border-b border-[#F0EDE6]">
       {/* Top: Title + Status + View link */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold text-[#0E101A] truncate">{title}</h2>

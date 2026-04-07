@@ -61,24 +61,24 @@ export function DealAlertCard({ alert, selected, onSelect, onEdit, onDelete, onT
   return (
     <Card className={`transition-all duration-200 ${selected ? 'ring-2 ring-primary border-primary' : ''} ${alert.is_active ? 'border-primary/20' : 'border-muted opacity-75'}`}>
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
             {onSelect && (
               <Checkbox
                 checked={selected}
                 onCheckedChange={() => onSelect(alert.id)}
                 aria-label={`Select ${alert.name}`}
-                className="mt-0.5"
+                className="mt-0.5 flex-shrink-0"
               />
             )}
             {alert.is_active ? (
-              <Bell className="h-4 w-4 text-primary" />
+              <Bell className="h-4 w-4 text-primary flex-shrink-0" />
             ) : (
-              <BellOff className="h-4 w-4 text-muted-foreground" />
+              <BellOff className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             )}
-            <CardTitle className="text-lg">{alert.name}</CardTitle>
+            <CardTitle className="text-lg truncate">{alert.name}</CardTitle>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Badge variant={getFrequencyBadgeVariant(alert.frequency)}>
               {alert.frequency}
             </Badge>
@@ -94,7 +94,7 @@ export function DealAlertCard({ alert, selected, onSelect, onEdit, onDelete, onT
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">{formatCriteria()}</p>
           
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="text-xs text-muted-foreground">
               Created {new Date(alert.created_at).toLocaleDateString()}
               {alert.last_sent_at && (

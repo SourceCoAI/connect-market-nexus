@@ -197,7 +197,7 @@ const BuyerContactsPage = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-40">
-        <div className="px-8 py-6">
+        <div className="px-4 md:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <h1 className="text-2xl font-semibold tracking-tight">Buyer Contacts</h1>
@@ -223,7 +223,7 @@ const BuyerContactsPage = () => {
         </div>
       </div>
 
-      <div className="px-8 py-6 space-y-6">
+      <div className="px-4 md:px-8 py-6 space-y-6">
         {/* Stats Cards */}
         {!isLoading && (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">

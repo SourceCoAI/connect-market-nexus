@@ -50,10 +50,12 @@ export function useSessionHeartbeat(userId?: string | null) {
   }, [sessionId, userId]);
 
   useEffect(() => {
-    // Send initial heartbeat
-    sendHeartbeat();
+    // Delay first heartbeat to let the JWT settle after login/refresh
+    const delayTimer = setTimeout(() => {
+      sendHeartbeat();
+    }, 3000);
 
-    // Set up interval
+    // Set up interval (starts after the initial delay)
     intervalRef.current = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
 
     // Handle visibility change
@@ -92,6 +94,7 @@ export function useSessionHeartbeat(userId?: string | null) {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
+      clearTimeout(delayTimer);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }

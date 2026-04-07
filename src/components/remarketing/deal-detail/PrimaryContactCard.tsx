@@ -1,73 +1,71 @@
-import { useState } from "react";
+import { useState } from 'react';
 import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Pencil, Loader2, User, Mail } from "lucide-react";
-import { toast } from "sonner";
+} from '@/components/ui/dialog';
+import { Pencil, Loader2, User, Mail } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface PrimaryContactCardProps {
   name: string | null;
   email: string | null;
   phone: string | null;
-  onSave: (data: { 
-    name: string; 
-    email: string; 
-    phone: string 
-  }) => Promise<void>;
+  dealId?: string;
+  onSave: (data: { name: string; email: string; phone: string }) => Promise<void>;
 }
 
-export const PrimaryContactCard = ({ 
-  name, 
-  email, 
+export const PrimaryContactCard = ({
+  name,
+  email,
   phone,
-  onSave 
+  dealId,
+  onSave,
 }: PrimaryContactCardProps) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editedName, setEditedName] = useState(name || "");
-  const [editedEmail, setEditedEmail] = useState(email || "");
-  const [editedPhone, setEditedPhone] = useState(phone || "");
+  const [editedName, setEditedName] = useState(name || '');
+  const [editedEmail, setEditedEmail] = useState(email || '');
+  const [editedPhone, setEditedPhone] = useState(phone || '');
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSave({ 
-        name: editedName, 
+      await onSave({
+        name: editedName,
         email: editedEmail,
-        phone: editedPhone
+        phone: editedPhone,
       });
       setIsEditOpen(false);
-      toast.success("Contact updated");
+      toast.success('Contact updated');
     } catch (error) {
-      toast.error("Failed to save");
+      toast.error('Failed to save');
     } finally {
       setIsSaving(false);
     }
   };
 
   const openEdit = () => {
-    setEditedName(name || "");
-    setEditedEmail(email || "");
-    setEditedPhone(phone || "");
+    setEditedName(name || '');
+    setEditedEmail(email || '');
+    setEditedPhone(phone || '');
     setIsEditOpen(true);
   };
 
   const getInitials = (name: string | null) => {
-    if (!name) return "?";
+    if (!name) return '?';
     return name
-      .split(" ")
-      .map(n => n[0])
-      .join("")
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
       .toUpperCase()
       .slice(0, 2);
   };
@@ -83,12 +81,7 @@ export const PrimaryContactCard = ({
               <User className="h-5 w-5" />
               Primary Contact
             </CardTitle>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8"
-              onClick={openEdit}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={openEdit}>
               <Pencil className="h-4 w-4" />
             </Button>
           </div>
@@ -102,10 +95,10 @@ export const PrimaryContactCard = ({
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 space-y-1">
-                <p className="font-medium">{name || "Unknown"}</p>
+                <p className="font-medium">{name || 'Unknown'}</p>
                 {email && (
-                  <a 
-                    href={`mailto:${email}`} 
+                  <a
+                    href={`mailto:${email}`}
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
                   >
                     <Mail className="h-3.5 w-3.5" />
@@ -117,6 +110,8 @@ export const PrimaryContactCard = ({
                     phone={phone}
                     name={name || undefined}
                     email={email || undefined}
+                    entityType="listings"
+                    entityId={dealId}
                     size="sm"
                     className="text-sm text-muted-foreground hover:text-foreground"
                   />
@@ -132,15 +127,16 @@ export const PrimaryContactCard = ({
                   </Button>
                 )}
                 {phone && (
-                  <Button variant="outline" size="sm" className="gap-1" onClick={() => {}}>
-                    <ClickToDialPhone
-                      phone={phone}
-                      name={name || undefined}
-                      email={email || undefined}
-                      label="Call"
-                      size="sm"
-                    />
-                  </Button>
+                  <ClickToDialPhone
+                    phone={phone}
+                    name={name || undefined}
+                    email={email || undefined}
+                    entityType="listings"
+                    entityId={dealId}
+                    label="Call"
+                    size="md"
+                    className="border rounded-md px-3 py-1.5 text-sm text-foreground hover:text-foreground hover:bg-accent"
+                  />
                 )}
               </div>
             </div>
@@ -148,12 +144,7 @@ export const PrimaryContactCard = ({
             <div className="text-center py-4 text-muted-foreground">
               <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p className="text-sm">No primary contact specified</p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-2"
-                onClick={openEdit}
-              >
+              <Button variant="outline" size="sm" className="mt-2" onClick={openEdit}>
                 <Pencil className="h-3 w-3 mr-1" />
                 Add Contact
               </Button>

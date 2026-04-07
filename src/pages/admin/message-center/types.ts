@@ -27,7 +27,7 @@ export interface InboxThread {
 }
 
 export type InboxFilter = "all" | "unread" | "waiting_on_admin" | "waiting_on_buyer" | "claimed" | "closed";
-export type ViewMode = "all" | "by_deal";
+export type ViewMode = "all" | "by_deal" | "by_buyer";
 
 export interface DealGroup {
   listing_id: string;
@@ -35,6 +35,19 @@ export interface DealGroup {
   threads: InboxThread[];
   total_unread: number;
   last_activity: string;
+}
+
+export interface BuyerGroup {
+  user_id: string;
+  buyer_name: string;
+  buyer_company: string | null;
+  buyer_email: string | null;
+  buyer_type: string | null;
+  threads: InboxThread[];
+  total_unread: number;
+  last_activity: string;
+  last_message_preview: string | null;
+  last_message_sender_role: string | null;
 }
 
 // Activity timeline event for the user profile panel

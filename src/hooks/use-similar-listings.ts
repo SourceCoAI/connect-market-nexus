@@ -13,9 +13,10 @@ export function useSimilarListings(currentListing: Listing | undefined, limit = 
     queryFn: async () => {
       if (!currentListing) return [];
 
+      // BUYER-SAFE columns only — no internal_* fields to prevent data exposure
       const { data: listings, error } = await supabase
         .from('listings')
-        .select('id, title, category, categories, location, revenue, ebitda, description, description_html, description_json, tags, owner_notes, files, created_at, updated_at, image_url, status, status_tag, acquisition_type, visible_to_buyer_types, deal_identifier, internal_company_name, internal_primary_owner, primary_owner_id, internal_salesforce_link, internal_deal_memo_link, internal_contact_info, internal_notes, full_time_employees, part_time_employees')
+        .select('id, title, category, categories, location, revenue, ebitda, description, tags, created_at, updated_at, image_url, status, status_tag, acquisition_type, visible_to_buyer_types, full_time_employees, part_time_employees')
         .eq('status', 'active')
         .is('deleted_at', null)
         .eq('is_internal_deal', false)
@@ -100,11 +101,8 @@ export function useSimilarListings(currentListing: Listing | undefined, limit = 
           revenue: Number(listing.revenue ?? 0),
           ebitda: Number(listing.ebitda ?? 0),
           description: listing.description ?? '',
-          description_html: listing.description_html ?? undefined,
-          description_json: (listing.description_json as Record<string, unknown> | undefined) ?? undefined,
+          ownerNotes: '',
           tags: listing.tags || [],
-          ownerNotes: listing.owner_notes ?? '',
-          files: listing.files ?? undefined,
           created_at: listing.created_at ?? '',
           updated_at: listing.updated_at ?? '',
           createdAt: listing.created_at ?? '',
@@ -114,14 +112,6 @@ export function useSimilarListings(currentListing: Listing | undefined, limit = 
           status_tag: listing.status_tag ?? undefined,
           acquisition_type: listing.acquisition_type ?? undefined,
           visible_to_buyer_types: listing.visible_to_buyer_types ?? undefined,
-          deal_identifier: listing.deal_identifier ?? undefined,
-          internal_company_name: listing.internal_company_name ?? undefined,
-          internal_primary_owner: listing.internal_primary_owner ?? undefined,
-          primary_owner_id: listing.primary_owner_id ?? undefined,
-          internal_salesforce_link: listing.internal_salesforce_link ?? undefined,
-          internal_deal_memo_link: listing.internal_deal_memo_link ?? undefined,
-          internal_contact_info: listing.internal_contact_info ?? undefined,
-          internal_notes: listing.internal_notes ?? undefined,
           full_time_employees: listing.full_time_employees ?? undefined,
           part_time_employees: listing.part_time_employees ?? undefined,
         };

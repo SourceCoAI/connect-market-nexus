@@ -17,6 +17,8 @@ import { useAdminProfiles } from '@/hooks/admin/use-admin-profiles';
 import { useEnrichmentProgress } from '@/hooks/useEnrichmentProgress';
 import type { GPPartnerDeal, SortColumn, SortDirection, NewDealForm } from './types';
 import { EMPTY_NEW_DEAL, DEFAULT_COLUMN_WIDTHS } from './types';
+import { normalizeDomain } from '@/lib/remarketing/normalizeDomain';
+import type { DuplicateDealInfo, FieldKey } from './DuplicateDealDialog';
 
 const PAGE_SIZE = 50;
 
@@ -44,6 +46,24 @@ export function useGPPartnerDeals() {
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // KPI card filter (URL-persisted)
+  const kpiFilter = (searchParams.get('kpi') as 'priority' | 'needs_scoring' | null) ?? null;
+  const setKpiFilter = useCallback(
+    (v: 'priority' | 'needs_scoring' | null) => {
+      setSearchParams(
+        (p) => {
+          const n = new URLSearchParams(p);
+          if (v) n.set('kpi', v);
+          else n.delete('kpi');
+          n.delete('cp');
+          return n;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   // URL-persisted filter state (survives browser Back navigation)
   const hidePushed = searchParams.get('hidePushed') === '1';
   const setHidePushed = useCallback(
@@ -104,6 +124,9 @@ export function useGPPartnerDeals() {
   const [addDealOpen, setAddDealOpen] = useState(false);
   const [isAddingDeal, setIsAddingDeal] = useState(false);
   const [newDeal, setNewDeal] = useState<NewDealForm>(EMPTY_NEW_DEAL);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateDealInfo | null>(null);
+  const [isUpdatingDuplicate, setIsUpdatingDuplicate] = useState(false);
 
   // CSV upload dialog
   const [csvUploadOpen, setCsvUploadOpen] = useState(false);
@@ -129,24 +152,26 @@ export function useGPPartnerDeals() {
           .select(
             `
             id, title, internal_company_name, main_contact_name, main_contact_email,
-            main_contact_title, main_contact_phone, website, description,
+            main_contact_title, main_contact_phone, website, executive_summary,
             pushed_to_all_deals, pushed_to_all_deals_at, deal_source, status,
             created_at, enriched_at, deal_total_score, linkedin_employee_count,
             linkedin_employee_range, google_rating, google_review_count,
             is_priority_target, needs_buyer_search, needs_owner_contact,
             category, executive_summary, industry, revenue, ebitda, location,
             address_city, address_state, deal_owner_id, remarketing_status,
+            smartlead_replied_at, smartlead_reply_inbox_id, smartlead_ai_category, auto_created_from_smartlead,
             deal_owner:profiles!listings_deal_owner_id_fkey(id, first_name, last_name, email)
           `,
           )
           .eq('deal_source', 'gp_partners')
+          .is('deleted_at', null)
           .order('created_at', { ascending: false })
           .range(offset, offset + batchSize - 1);
 
         if (error) throw error;
 
         if (data && data.length > 0) {
-          allData.push(...(data as GPPartnerDeal[]));
+          allData.push(...(data as unknown as GPPartnerDeal[]));
           offset += batchSize;
           hasMore = data.length === batchSize;
         } else {
@@ -173,6 +198,8 @@ export function useGPPartnerDeals() {
     let items = [...engineFiltered];
     if (hidePushed) items = items.filter((d) => !d.pushed_to_all_deals);
     if (hideNotFit) items = items.filter((d) => d.remarketing_status !== 'not_a_fit');
+    if (kpiFilter === 'priority') items = items.filter((d) => d.is_priority_target === true);
+    if (kpiFilter === 'needs_scoring') items = items.filter((d) => d.deal_total_score == null);
     items.sort((a, b) => {
       let valA: string | number, valB: string | number;
       switch (sortColumn) {
@@ -220,6 +247,10 @@ export function useGPPartnerDeals() {
           valA = a.created_at || '';
           valB = b.created_at || '';
           break;
+        case 'replied_at':
+          valA = a.smartlead_replied_at || a.created_at || '';
+          valB = b.smartlead_replied_at || b.created_at || '';
+          break;
         case 'pushed':
           valA = a.pushed_to_all_deals ? 1 : 0;
           valB = b.pushed_to_all_deals ? 1 : 0;
@@ -236,7 +267,7 @@ export function useGPPartnerDeals() {
       return 0;
     });
     return items;
-  }, [engineFiltered, sortColumn, sortDirection, hidePushed, hideNotFit]);
+  }, [engineFiltered, sortColumn, sortDirection, hidePushed, hideNotFit, kpiFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredDeals.length / PAGE_SIZE));
@@ -557,7 +588,7 @@ export function useGPPartnerDeals() {
     [user, startOrQueueMajorOp, completeOperation, updateProgress, queryClient],
   );
 
-  // Add single deal
+  // Add single deal — pre-checks for duplicate website before inserting
   const handleAddDeal = useCallback(async () => {
     if (!newDeal.company_name.trim()) {
       sonnerToast.error('Company name is required');
@@ -570,7 +601,31 @@ export function useGPPartnerDeals() {
       website = `https://${website}`;
     }
 
-    const { error } = await supabase.from('listings').insert({
+    // Pre-check: look for existing deal with same normalized domain
+    if (website) {
+      const normalized = normalizeDomain(website);
+      if (normalized) {
+        const { data: existing } = await supabase
+          .from('listings')
+          .select(
+            'id, title, website, main_contact_name, main_contact_email, main_contact_phone, main_contact_title, industry, executive_summary, location, revenue, ebitda',
+          )
+          .ilike('website', `%${normalized}%`)
+          .limit(1)
+          .single();
+
+        if (existing) {
+          // Show duplicate dialog instead of error
+          setDuplicateInfo({ existing, newDeal });
+          setAddDealOpen(false);
+          setDuplicateDialogOpen(true);
+          setIsAddingDeal(false);
+          return;
+        }
+      }
+    }
+
+    const dealData = {
       title: newDeal.company_name.trim(),
       internal_company_name: newDeal.company_name.trim(),
       website: website || null,
@@ -579,15 +634,17 @@ export function useGPPartnerDeals() {
       main_contact_phone: newDeal.contact_phone.trim() || null,
       main_contact_title: newDeal.contact_title.trim() || null,
       industry: newDeal.industry.trim() || null,
-      description: newDeal.description.trim() || null,
+      executive_summary: newDeal.executive_summary.trim() || null,
       location: newDeal.location.trim() || null,
       revenue: newDeal.revenue ? parseFloat(newDeal.revenue) : null,
       ebitda: newDeal.ebitda ? parseFloat(newDeal.ebitda) : null,
-      deal_source: 'gp_partners',
+      deal_source: 'gp_partners' as const,
       status: 'active',
       is_internal_deal: true,
       pushed_to_all_deals: false,
-    } as never);
+    };
+
+    const { error } = await supabase.from('listings').insert(dealData as never);
 
     setIsAddingDeal(false);
     if (error) {
@@ -607,6 +664,59 @@ export function useGPPartnerDeals() {
       queryClient.invalidateQueries({ queryKey: ['remarketing', 'gp-partner-deals'] });
     }
   }, [newDeal, queryClient]);
+
+  // Confirm update of selected fields on duplicate deal
+  const handleConfirmDuplicateUpdate = useCallback(
+    async (fieldsToUpdate: FieldKey[]) => {
+      if (!duplicateInfo) return;
+      setIsUpdatingDuplicate(true);
+
+      const { existing, newDeal: nd } = duplicateInfo;
+      const fieldMap: Record<FieldKey, { column: string; value: unknown }> = {
+        company_name: { column: 'title', value: nd.company_name.trim() || null },
+        contact_name: { column: 'main_contact_name', value: nd.contact_name.trim() || null },
+        contact_email: { column: 'main_contact_email', value: nd.contact_email.trim() || null },
+        contact_phone: { column: 'main_contact_phone', value: nd.contact_phone.trim() || null },
+        contact_title: { column: 'main_contact_title', value: nd.contact_title.trim() || null },
+        industry: { column: 'industry', value: nd.industry.trim() || null },
+        executive_summary: { column: 'executive_summary', value: nd.executive_summary.trim() || null },
+        location: { column: 'location', value: nd.location.trim() || null },
+        revenue: { column: 'revenue', value: nd.revenue ? parseFloat(nd.revenue) : null },
+        ebitda: { column: 'ebitda', value: nd.ebitda ? parseFloat(nd.ebitda) : null },
+      };
+
+      const updatePayload: Record<string, unknown> = {};
+      for (const key of fieldsToUpdate) {
+        const mapping = fieldMap[key];
+        if (mapping) {
+          updatePayload[mapping.column] = mapping.value;
+        }
+      }
+      // Also update internal_company_name if company_name is selected
+      if (fieldsToUpdate.includes('company_name')) {
+        updatePayload.internal_company_name = nd.company_name.trim() || null;
+      }
+
+      const { error } = await supabase
+        .from('listings')
+        .update(updatePayload as never)
+        .eq('id', existing.id);
+
+      setIsUpdatingDuplicate(false);
+      if (error) {
+        sonnerToast.error(`Failed to update deal: ${error.message}`);
+      } else {
+        sonnerToast.success(
+          `Updated ${fieldsToUpdate.length} field${fieldsToUpdate.length !== 1 ? 's' : ''} on existing deal`,
+        );
+        setDuplicateDialogOpen(false);
+        setDuplicateInfo(null);
+        setNewDeal(EMPTY_NEW_DEAL);
+        queryClient.invalidateQueries({ queryKey: ['remarketing', 'gp-partner-deals'] });
+      }
+    },
+    [duplicateInfo, queryClient],
+  );
 
   const handleImportComplete = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['remarketing', 'gp-partner-deals'] });
@@ -655,7 +765,7 @@ export function useGPPartnerDeals() {
   // KPI Stats
   const dateFilteredDeals = useMemo(() => {
     if (!deals) return [];
-    return deals.filter((d) => isInRange(d.created_at));
+    return deals.filter((d) => isInRange(d.smartlead_replied_at || d.created_at));
   }, [deals, isInRange]);
 
   const kpiStats = useMemo(() => {
@@ -712,13 +822,15 @@ export function useGPPartnerDeals() {
     allSelected,
     toggleSelectAll,
     toggleSelect,
+    // KPI filter
+    kpiFilter,
+    setKpiFilter,
     // Hide pushed
     hidePushed,
     setHidePushed,
     // Hide not fit
     hideNotFit,
     setHideNotFit,
-    // Action states
     // Action states
     isPushing,
     isEnriching,
@@ -737,6 +849,12 @@ export function useGPPartnerDeals() {
     isAddingDeal,
     newDeal,
     setNewDeal,
+    // Duplicate deal dialog
+    duplicateDialogOpen,
+    setDuplicateDialogOpen,
+    duplicateInfo,
+    isUpdatingDuplicate,
+    handleConfirmDuplicateUpdate,
     // CSV
     csvUploadOpen,
     setCsvUploadOpen,

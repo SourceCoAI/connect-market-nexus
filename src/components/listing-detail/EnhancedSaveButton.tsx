@@ -1,7 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { useSavedStatus, useSaveListingMutation } from '@/hooks/marketplace/use-saved-listings';
+import { useAuth } from '@/contexts/AuthContext';
 import { Bookmark, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 import {
   Tooltip,
   TooltipContent,
@@ -12,17 +14,20 @@ import {
 interface EnhancedSaveButtonProps {
   listingId: string;
   listingTitle: string;
-  revenue: number;
-  ebitda: number;
   location: string;
   onSave?: () => void;
 }
 
-export function EnhancedSaveButton({ listingId, listingTitle, revenue, ebitda, location, onSave }: EnhancedSaveButtonProps) {
+export function EnhancedSaveButton({ listingId, listingTitle, location, onSave }: EnhancedSaveButtonProps) {
+  const { user } = useAuth();
   const { data: isSaved } = useSavedStatus(listingId);
   const { mutate: toggleSave, isPending } = useSaveListingMutation();
 
   const handleQuickSave = () => {
+    if (!user) {
+      toast({ title: 'Sign in required', description: 'Please sign in to save listings.' });
+      return;
+    }
     toggleSave(
       {
         listingId,
@@ -43,11 +48,9 @@ export function EnhancedSaveButton({ listingId, listingTitle, revenue, ebitda, l
     
     let body = `I thought you might be interested in this deal:\n\n`;
     body += `${listingTitle}\n`;
-    body += `Location: ${location}\n`;
-    body += `Annual Revenue: ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(revenue)}\n`;
-    body += `Annual EBITDA: ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(ebitda)}\n\n`;
+    body += `Location: ${location}\n\n`;
     body += `View listing: ${listingUrl}\n\n`;
-    body += `Note: You'll need an approved account to view the listing details.\n`;
+    body += `Note: You'll need an approved account to view the full listing details.\n`;
     
     const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     

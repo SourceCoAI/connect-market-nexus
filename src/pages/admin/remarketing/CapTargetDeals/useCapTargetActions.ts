@@ -61,6 +61,7 @@ export function useCapTargetActions(
   // Archive & Delete state
   const [isArchiving, setIsArchiving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<{id: string; name: string} | null>(null);
 
   // Mark not fit state
   const [isMarkingNotFit, setIsMarkingNotFit] = useState(false);
@@ -604,11 +605,23 @@ export function useCapTargetActions(
   );
 
   const handleArchiveDeal = useCallback(
-    async (id: string) => {
+    (id: string) => {
+      const deal = deals?.find((d) => d.id === id);
+      setArchiveTarget({
+        id,
+        name: deal?.internal_company_name || deal?.title || 'Unknown Deal',
+      });
+    },
+    [deals],
+  );
+
+  const confirmArchiveDeal = useCallback(
+    async (reason: string) => {
+      if (!archiveTarget) return;
       const { error } = await supabase
         .from('listings')
-        .update({ remarketing_status: 'archived' } as never)
-        .eq('id', id);
+        .update({ remarketing_status: 'archived', archive_reason: reason } as never)
+        .eq('id', archiveTarget.id);
       if (error) {
         toast({
           title: 'Error',
@@ -620,10 +633,11 @@ export function useCapTargetActions(
           title: 'Deal archived',
           description: 'Deal has been archived',
         });
+        setArchiveTarget(null);
         refetch();
       }
     },
-    [toast, refetch],
+    [archiveTarget, toast, refetch],
   );
 
   return {
@@ -666,6 +680,8 @@ export function useCapTargetActions(
     isArchiving,
     isDeleting,
     isMarkingNotFit,
+    archiveTarget,
+    setArchiveTarget,
 
     // Action handlers
     handlePushToAllDeals,
@@ -678,5 +694,6 @@ export function useCapTargetActions(
     handleMarkNotFit,
     handleDeleteDeal,
     handleArchiveDeal,
+    confirmArchiveDeal,
   };
 }

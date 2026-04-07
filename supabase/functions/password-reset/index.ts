@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { sendEmail } from "../_shared/email-sender.ts";
+import { wrapEmailHtml } from "../_shared/email-template-wrapper.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -109,14 +111,30 @@ const handler = async (req: Request): Promise<Response> => {
         : 'https://marketplace.sourcecodeals.com';
       const resetUrl = `${origin}/reset-password?token=${resetToken}`;
 
-      // Try to send email via edge function (best-effort)
+      // Send password reset email directly via sendEmail
       let emailSent = false;
       try {
-        const { error: emailError } = await supabase.functions.invoke('send-password-reset-email', {
-          body: { email, resetToken, resetUrl }
+        const result = await sendEmail({
+          templateName: 'password_reset',
+          to: email,
+          subject: 'Reset your SourceCo password',
+          htmlContent: wrapEmailHtml({
+            bodyHtml: `
+            <p>We received a request to reset your password. Click the button below to set a new one.</p>
+            <div style="text-align: center; margin: 28px 0;">
+              <a href="${resetUrl}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600;">Reset Password</a>
+            </div>
+            <p>This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email.</p>
+            <p style="color: #6B6B6B; margin-top: 32px;">The SourceCo Team</p>`,
+            preheader: 'Reset your SourceCo password',
+            recipientEmail: email,
+          }),
+          senderName: 'SourceCo',
+          replyTo: 'support@sourcecodeals.com',
+          isTransactional: true,
         });
-        emailSent = !emailError;
-        if (emailError) console.warn('Password reset email failed:', emailError);
+        emailSent = result.success;
+        if (!result.success) console.warn('Password reset email failed:', result.error);
       } catch (err) {
         console.warn('Password reset email threw:', err);
       }

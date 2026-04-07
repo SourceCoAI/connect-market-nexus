@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { ScoreBadge } from '@/components/shared/ScoreBadge';
 import { DealSourceBadge } from '@/components/remarketing';
 import { getDisplayLocation } from '@/lib/location-display';
+import { CopyDealInfoButton } from './CopyDealInfoButton';
 import type { ScoreTier } from '@/types/remarketing';
 
 interface DealHeaderDeal {
@@ -21,7 +22,7 @@ interface DealHeaderDeal {
 }
 
 interface DealHeaderProps {
-  deal: DealHeaderDeal;
+  deal: DealHeaderDeal & Record<string, unknown>;
   backTo: string;
   displayName: string;
   listedName: string | null;
@@ -191,6 +192,7 @@ export function DealHeader({
         })()}
       </div>
       <div className="flex items-center gap-2">
+        <CopyDealInfoButton deal={deal} />
         {tier && <ScoreBadge variant="tier" tier={tier as ScoreTier} size="lg" />}
         {deal.not_a_fit ? (
           onRemoveNotAFit && (

@@ -4,6 +4,8 @@ import { useMarketplace } from '@/hooks/use-marketplace';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAnalytics } from '@/contexts/AnalyticsContext';
 import { useAnalyticsTracking } from '@/hooks/use-analytics-tracking';
+import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
+import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
 import { Card, CardContent } from '@/components/ui/card';
 import { RichTextDisplay } from '@/components/ui/rich-text-display';
 import { formatCurrency } from '@/lib/currency-utils';
@@ -34,7 +36,7 @@ const ListingCard = memo(function ListingCard({
   const { useConnectionStatus, useSaveListingMutation, useSavedStatus, useRequestConnection } =
     useMarketplace();
 
-  useAuth();
+  const { user } = useAuth();
   const { data: connectionStatus } = useConnectionStatus(listing.id, connectionMap);
   const { data: isSaved = false } = useSavedStatus(listing.id, savedIds);
   const { mutate: toggleSave, isPending: isSaving } = useSaveListingMutation();
@@ -42,6 +44,14 @@ const ListingCard = memo(function ListingCard({
   const { trackListingSave, trackConnectionRequest } = useAnalytics();
   const { trackSearchResultClick } = useAnalyticsTracking();
   const navigate = useNavigate();
+
+  // Gating computations
+  const { data: agreementStatus } = useMyAgreementStatus(!!user);
+  const profileComplete = user ? isProfileComplete(user) : true;
+  const profilePct = user ? getProfileCompletionPercentage(user) : 100;
+  const buyerBlocked = user?.buyer_type === 'businessOwner' || user?.buyer_type === 'business_owner';
+  const feeCovered = agreementStatus?.fee_covered ?? true;
+  const ndaCovered = agreementStatus?.nda_covered ?? true;
 
   // Get search session context for tracking (returns undefined if not within provider)
   const searchSession = useContext(SearchSessionContext);
@@ -56,8 +66,8 @@ const ListingCard = memo(function ListingCard({
 
   // Handle click on the listing card
   const handleCardClick = (e: React.MouseEvent) => {
-    // Don't intercept if clicking on action buttons
-    if ((e.target as HTMLElement).closest('button')) {
+    // Don't intercept if clicking on action buttons or links
+    if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
       return;
     }
 
@@ -101,7 +111,7 @@ const ListingCard = memo(function ListingCard({
             hover:border-slate-300 hover:shadow-[0_8px_16px_0_rgba(0,0,0,0.1)]
             hover:-translate-y-1
             ${
-              viewType === 'list' ? 'flex flex-row items-stretch' : 'flex flex-col'
+              viewType === 'list' ? 'flex flex-col sm:flex-row items-stretch' : 'flex flex-col'
             } h-full overflow-hidden`}
         >
           <div className={`relative ${viewType === 'list' ? 'shrink-0' : ''}`}>
@@ -138,7 +148,7 @@ const ListingCard = memo(function ListingCard({
 
           <div className="flex flex-col flex-1">
             <CardContent
-              className={`${viewType === 'grid' ? 'p-6' : 'px-4 pt-3.5 pb-3'} flex-1 flex flex-col ${viewType === 'grid' ? 'gap-4' : 'gap-2'}`}
+              className={`${viewType === 'grid' ? 'p-4 sm:p-6' : 'px-4 pt-3.5 pb-3'} flex-1 flex flex-col ${viewType === 'grid' ? 'gap-4' : 'gap-2'}`}
             >
               {/* Header Section */}
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -197,6 +207,12 @@ const ListingCard = memo(function ListingCard({
                   handleToggleSave={handleToggleSave}
                   handleRequestConnection={handleRequestConnection}
                   listingTitle={listing.title}
+                  listingId={listing.id}
+                  isProfileComplete={profileComplete}
+                  profileCompletePct={profilePct}
+                  isBuyerBlocked={buyerBlocked}
+                  isFeeCovered={feeCovered}
+                  isNdaCovered={ndaCovered}
                 />
               </div>
             </CardContent>

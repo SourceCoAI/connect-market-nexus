@@ -1,4 +1,4 @@
-import { Bell, CheckCheck, Clock, ListTodo } from 'lucide-react';
+import { Bell, CheckCheck, Clock, ListTodo, FileSignature, FileCheck, MessageSquare, UserPlus } from 'lucide-react';
 import {
   useAdminNotifications,
   useMarkNotificationAsRead,
@@ -34,7 +34,19 @@ export default function AdminNotifications() {
       case 'task_assigned':
         return <ListTodo className="w-5 h-5 text-primary" />;
       case 'task_completed':
+      case 'task_approved':
         return <CheckCheck className="w-5 h-5 text-green-600" />;
+      case 'document_signing_requested':
+        return <FileSignature className="w-5 h-5 text-amber-600" />;
+      case 'document_completed':
+        return <FileCheck className="w-5 h-5 text-emerald-600" />;
+      case 'remarketing_a_tier_match':
+        return <Bell className="w-5 h-5 text-emerald-600" />;
+      case 'deal_assignment':
+      case 'deal_reassignment':
+        return <UserPlus className="w-5 h-5 text-blue-600" />;
+      case 'response_sent':
+        return <MessageSquare className="w-5 h-5 text-blue-600" />;
       default:
         return <Bell className="w-5 h-5 text-muted-foreground" />;
     }
@@ -92,7 +104,10 @@ export default function AdminNotifications() {
                     className={cn(
                       'cursor-pointer transition-all hover:shadow-md border-l-4',
                       notification.notification_type === 'task_assigned' && 'border-l-primary',
-                      notification.notification_type === 'task_completed' && 'border-l-green-600',
+                      (notification.notification_type === 'task_completed' || notification.notification_type === 'task_approved') && 'border-l-green-600',
+                      notification.notification_type === 'document_signing_requested' && 'border-l-amber-600',
+                      notification.notification_type === 'document_completed' && 'border-l-emerald-600',
+                      (notification.notification_type === 'deal_assignment' || notification.notification_type === 'deal_reassignment') && 'border-l-blue-600',
                     )}
                     onClick={() => handleNotificationClick(notification)}
                   >

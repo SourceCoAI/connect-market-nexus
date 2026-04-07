@@ -1,7 +1,7 @@
 import { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdmin } from '@/hooks/use-admin';
-import { AlertCircle, RefreshCw, Loader2, Users } from 'lucide-react';
+import { AlertCircle, RefreshCw, Loader2, Users, Zap } from 'lucide-react';
 import { UsersTable } from '@/components/admin/UsersTable';
 import { MobileUsersTable } from '@/components/admin/MobileUsersTable';
 import { User } from '@/types';
@@ -18,6 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
+import { toast } from 'sonner';
 
 // Error boundary to catch silent rendering crashes in the table
 class TableErrorBoundary extends Component<
@@ -65,6 +66,29 @@ const MarketplaceUsersPage = () => {
   useRealtimeAdmin();
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const { markAsViewed } = useMarkUsersViewed();
+  const [isBulkScoring, setIsBulkScoring] = useState(false);
+
+  const handleBulkScoreUnscored = async () => {
+    const unscoredIds = usersData
+      .filter((u) => u.buyer_type && u.buyer_quality_score == null)
+      .map((u) => u.id);
+    if (unscoredIds.length === 0) {
+      toast.info('All users already have scores');
+      return;
+    }
+    setIsBulkScoring(true);
+    try {
+      const { queueBuyerQualityScoring } = await import('@/lib/remarketing/queueScoring');
+      const { scored, errors } = await queueBuyerQualityScoring(unscoredIds);
+      toast.success(`Scored ${scored} user(s)${errors > 0 ? `, ${errors} failed` : ''}`);
+      refetch();
+    } catch (err) {
+      toast.error('Bulk scoring failed');
+      console.error(err);
+    } finally {
+      setIsBulkScoring(false);
+    }
+  };
 
   // Query remarketing buyers that have a marketplace_firm_id link
   const { data: linkedBuyerCount = 0 } = useQuery({
@@ -140,7 +164,7 @@ const MarketplaceUsersPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-40">
-        <div className="px-8 py-6">
+        <div className="px-4 md:px-8 py-6">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <h1 className="text-2xl font-semibold tracking-tight">Marketplace Users</h1>
@@ -148,11 +172,21 @@ const MarketplaceUsersPage = () => {
                 Manage buyer registrations, approvals, and profile data
               </p>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkScoreUnscored}
+              disabled={isBulkScoring}
+              className="gap-2"
+            >
+              {isBulkScoring ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              Score All Unscored
+            </Button>
           </div>
         </div>
       </div>
 
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-8 py-8">
         {linkedBuyerCount > 0 && (
           <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
             <Users className="h-4 w-4 shrink-0" />

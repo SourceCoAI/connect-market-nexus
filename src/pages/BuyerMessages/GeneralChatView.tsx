@@ -43,11 +43,19 @@ export function GeneralChatView({
   const [attachment, setAttachment] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Use external reference state if provided, else local
   const [localReference, setLocalReference] = useState<MessageReference | null>(null);
   const reference = externalOnReferenceChange ? (externalReference ?? null) : localReference;
   const setReference = externalOnReferenceChange || setLocalReference;
+
+  // Auto-focus input when reference changes (topic picked)
+  useEffect(() => {
+    if (reference) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [reference]);
 
   const { data: resolvedThread, isLoading: resolving } = useResolvedThreadId();
   const threadId = resolvedThread?.connection_request_id;
@@ -132,15 +140,17 @@ export function GeneralChatView({
       });
       if (error) throw error;
 
-      // Notify admin of new buyer message (fire-and-forget)
+      // Notify support inbox
       supabase.functions
-        .invoke('notify-admin-new-message', {
+        .invoke('notify-support-inbox', {
           body: {
-            connection_request_id: threadId,
-            message_preview: body.substring(0, 200),
+            type: 'new_message',
+            buyerName: user?.email || 'Buyer',
+            buyerEmail: user?.email,
+            messagePreview: body.substring(0, 200),
           },
         })
-        .catch(console.error);
+        .catch((err: unknown) => console.warn('notify-support-inbox error:', err));
 
       setNewMessage('');
       setAttachment(null);
@@ -257,6 +267,7 @@ export function GeneralChatView({
 
       {/* Input */}
       <MessageInput
+        ref={inputRef}
         value={newMessage}
         onChange={(e) => setNewMessage(e.target.value)}
         onSend={handleSend}

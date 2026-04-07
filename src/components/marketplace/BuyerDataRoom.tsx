@@ -1,14 +1,13 @@
 /**
- * BuyerDataRoom: Buyer-facing view of documents shared with them
+ * BuyerDataRoom: Bank-grade secure data room for PE/M&A buyers.
  *
- * Shown on a deal's listing detail page when the buyer has data room access.
- * Only shows documents matching their enabled categories.
+ * Premium vault experience communicating security, exclusivity,
+ * and institutional trust.
  */
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   FileText,
   File,
@@ -17,17 +16,20 @@ import {
   Download,
   Eye,
   Loader2,
-  FolderOpen,
-  Lock,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { DataRoomOrientation } from './DataRoomOrientation';
+import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
 
 interface BuyerDataRoomProps {
   dealId: string;
+  connectionApproved?: boolean;
+  onClose?: () => void;
 }
 
 interface BuyerDocument {
@@ -41,7 +43,7 @@ interface BuyerDocument {
   created_at: string;
 }
 
-export function BuyerDataRoom({ dealId }: BuyerDataRoomProps) {
+export function BuyerDataRoom({ dealId, connectionApproved, onClose }: BuyerDataRoomProps) {
   const { user } = useAuth();
   const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
 
@@ -51,35 +53,93 @@ export function BuyerDataRoom({ dealId }: BuyerDataRoomProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('data_room_access')
-        .select('can_view_teaser, can_view_full_memo, can_view_data_room')
+        .select('can_view_teaser, can_view_full_memo, can_view_data_room, granted_at')
         .eq('deal_id', dealId)
         .eq('marketplace_user_id', user?.id ?? '')
         .is('revoked_at', null)
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      if (data) return data;
+
+      // Dual-ID fallback: check if access exists on the source deal
+      const { data: listingRow } = await supabase
+        .from('listings')
+        .select('source_deal_id')
+        .eq('id', dealId)
+        .maybeSingle();
+
+      if (listingRow?.source_deal_id) {
+        const { data: sourceAccess, error: sourceErr } = await supabase
+          .from('data_room_access')
+          .select('can_view_teaser, can_view_full_memo, can_view_data_room, granted_at')
+          .eq('deal_id', listingRow.source_deal_id)
+          .eq('marketplace_user_id', user?.id ?? '')
+          .is('revoked_at', null)
+          .maybeSingle();
+
+        if (sourceErr) throw sourceErr;
+        return sourceAccess;
+      }
+
+      return null;
     },
     enabled: !!dealId && !!user?.id,
   });
 
-  // Fetch documents (RLS will filter based on access)
-  const { data: documents = [], isLoading: _isLoading } = useQuery({
-    queryKey: ['buyer-data-room-documents', dealId],
+  // Build allowed categories from access toggles
+  const allowedCategories = new Set<string>();
+  if (access?.can_view_teaser) allowedCategories.add('anonymous_teaser');
+  if (access?.can_view_full_memo) allowedCategories.add('full_memo');
+  if (access?.can_view_data_room) allowedCategories.add('data_room');
+
+  const hasFullAccess = access?.can_view_full_memo && access?.can_view_data_room;
+
+  // Fetch documents filtered by status, then client-filter by category
+  const { data: documents = [] } = useQuery({
+    queryKey: ['buyer-data-room-documents', dealId, Array.from(allowedCategories).sort().join(',')],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const selectCols =
+        'id, folder_name, file_name, file_type, file_size_bytes, document_category, allow_download, created_at';
+
+      const { data: primaryDocs, error } = await supabase
         .from('data_room_documents')
-        .select(
-          'id, folder_name, file_name, file_type, file_size_bytes, document_category, allow_download, created_at',
-        )
+        .select(selectCols)
         .eq('deal_id', dealId)
+        .eq('status', 'active')
         .order('folder_name')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as BuyerDocument[];
+
+      let allDocs = (primaryDocs || []) as BuyerDocument[];
+
+      // Fallback: check source_deal_id documents
+      if (allDocs.length === 0) {
+        const { data: listingRow } = await supabase
+          .from('listings')
+          .select('source_deal_id')
+          .eq('id', dealId)
+          .maybeSingle();
+
+        if (listingRow?.source_deal_id) {
+          const { data: sourceDocs } = await supabase
+            .from('data_room_documents')
+            .select(selectCols)
+            .eq('deal_id', listingRow.source_deal_id)
+            .eq('status', 'active')
+            .order('folder_name')
+            .order('created_at', { ascending: false });
+
+          if (sourceDocs) {
+            allDocs = sourceDocs as BuyerDocument[];
+          }
+        }
+      }
+
+      return allDocs.filter((doc) => allowedCategories.has(doc.document_category));
     },
-    enabled: !!dealId && !!access,
+    enabled: !!dealId && !!access && allowedCategories.size > 0,
   });
 
   // Fetch published memos
@@ -99,32 +159,80 @@ export function BuyerDataRoom({ dealId }: BuyerDataRoomProps) {
     enabled: !!dealId && !!access,
   });
 
+  // Fetch buyer's own audit log entries for document timestamps
+  const { data: auditEvents = [] } = useQuery({
+    queryKey: ['buyer-doc-audit', dealId, user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('data_room_audit_log')
+        .select('document_id, action, created_at')
+        .eq('deal_id', dealId)
+        .eq('user_id', user?.id ?? '')
+        .in('action', ['view_document', 'download_document'])
+        .order('created_at', { ascending: false });
+
+      if (error) return [];
+      return data as Array<{ document_id: string; action: string; created_at: string }>;
+    },
+    enabled: !!dealId && !!user?.id,
+  });
+
+  // Build lookup: doc_id -> latest event
+  const docTimestamps = new Map<string, { action: string; created_at: string }>();
+  for (const evt of auditEvents) {
+    if (evt.document_id && !docTimestamps.has(evt.document_id)) {
+      docTimestamps.set(evt.document_id, { action: evt.action, created_at: evt.created_at });
+    }
+  }
+
   if (
     !access ||
     (!access.can_view_teaser && !access.can_view_full_memo && !access.can_view_data_room)
   ) {
-    return null; // No access — don't show anything
+    if (connectionApproved) {
+      return (
+        <div className="flex flex-col max-h-[80vh]">
+          <VaultHeader onClose={onClose} />
+          <div className="flex flex-col items-center justify-center py-12 text-center px-5">
+            <ShieldCheck className="h-8 w-8 text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground">
+              Your data room is being prepared.
+            </p>
+            <p className="text-[11px] text-muted-foreground/60 mt-1">
+              Access credentials are being provisioned. Check back shortly.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return null;
   }
 
   const handleViewDocument = async (docId: string) => {
     setLoadingDoc(docId);
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
-      if (!session) return;
+      if (!session) {
+        toast.error('Please sign in to view documents.');
+        return;
+      }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/data-room-download?document_id=${docId}&action=view`,
+        `${SUPABASE_URL}/functions/v1/data-room-download?document_id=${docId}&action=view`,
         { headers: { Authorization: `Bearer ${session.access_token}` } },
       );
 
-      if (response.ok) {
-        const data = await response.json();
-        window.open(data.url, '_blank');
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        toast.error(errBody?.error || 'Failed to load document. Please try again.');
+        return;
       }
+
+      const data = await response.json();
+      window.open(data.url, '_blank');
+    } catch (err) {
+      toast.error('Failed to load document. Please try again.');
     } finally {
       setLoadingDoc(null);
     }
@@ -133,34 +241,41 @@ export function BuyerDataRoom({ dealId }: BuyerDataRoomProps) {
   const handleDownloadDocument = async (docId: string) => {
     setLoadingDoc(docId);
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
-      if (!session) return;
+      if (!session) {
+        toast.error('Please sign in to download documents.');
+        return;
+      }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/data-room-download?document_id=${docId}&action=download`,
+        `${SUPABASE_URL}/functions/v1/data-room-download?document_id=${docId}&action=download`,
         { headers: { Authorization: `Bearer ${session.access_token}` } },
       );
 
-      if (response.ok) {
-        const data = await response.json();
-        window.open(data.url, '_blank');
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        toast.error(errBody?.error || 'Failed to download document. Please try again.');
+        return;
       }
+
+      const data = await response.json();
+      window.open(data.url, '_blank');
+    } catch (err) {
+      toast.error('Failed to download document. Please try again.');
     } finally {
       setLoadingDoc(null);
     }
   };
 
   const getFileIcon = (fileType: string | null) => {
-    if (!fileType) return <File className="h-5 w-5 text-gray-400" />;
-    if (fileType.includes('pdf')) return <FileText className="h-5 w-5 text-red-500" />;
+    const baseClass = 'h-4 w-4 text-muted-foreground/50';
+    if (!fileType) return <File className={baseClass} />;
+    if (fileType.includes('pdf')) return <FileText className={baseClass} />;
     if (fileType.includes('spreadsheet') || fileType.includes('csv'))
-      return <FileSpreadsheet className="h-5 w-5 text-green-500" />;
-    if (fileType.includes('image')) return <FileImage className="h-5 w-5 text-blue-500" />;
-    return <File className="h-5 w-5 text-gray-400" />;
+      return <FileSpreadsheet className={baseClass} />;
+    if (fileType.includes('image')) return <FileImage className={baseClass} />;
+    return <File className={baseClass} />;
   };
 
   const formatFileSize = (bytes: number | null) => {
@@ -180,143 +295,206 @@ export function BuyerDataRoom({ dealId }: BuyerDataRoomProps) {
     {} as Record<string, BuyerDocument[]>,
   );
 
-  return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold flex items-center gap-2">
-        <Lock className="h-5 w-5" />
-        Data Room
-      </h3>
+  const totalCount = documents.length + memos.length;
 
-      {/* Data Room Orientation */}
-      {(documents.length > 0 || memos.length > 0) && (
-        <DataRoomOrientation documents={documents} memoCount={memos.length} />
+  return (
+    <div className="flex flex-col max-h-[80vh]">
+      {/* Vault Header */}
+      <VaultHeader onClose={onClose} />
+
+      {/* Access Tier + Security Metadata */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border/20">
+        <div className="flex items-center gap-2">
+          <div className={`h-1.5 w-1.5 rounded-full ${hasFullAccess ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+          <span className="text-[11px] font-medium text-muted-foreground">
+            {hasFullAccess ? 'Full Access' : 'Teaser Access'}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 text-[10px] text-muted-foreground/50">
+          {totalCount > 0 && (
+            <span>{totalCount} document{totalCount !== 1 ? 's' : ''}</span>
+          )}
+          {access?.granted_at && (
+            <span>Granted {new Date(access.granted_at).toLocaleDateString()}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Upgrade prompt for partial access */}
+      {!hasFullAccess && (
+        <div className="px-5 py-3 border-b border-border/20">
+          <p className="text-[11px] text-muted-foreground/60">
+            Sign Fee Agreement to unlock all documents.
+          </p>
+        </div>
       )}
 
+      {/* Scrollable content area */}
+      <ScrollArea className="flex-1 min-h-0">
       {/* Published Memos */}
       {memos.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Lead Memos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {memos.map((memo) => (
-                <div key={memo.id} className="p-4 rounded-lg border bg-card">
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge variant="secondary">
-                      {memo.memo_type === 'anonymous_teaser' ? 'Teaser' : 'Full Memo'}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {memo.published_at && new Date(memo.published_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  {memo.html_content ? (
-                    <div
-                      className="prose prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(memo.html_content) }}
-                    />
-                  ) : (
-                    <div className="space-y-3">
-                      {(
-                        (
-                          memo.content as {
-                            sections?: Array<{ title: string; content: string }>;
-                          } | null
-                        )?.sections || []
-                      ).map((section: { title: string; content: string }) => (
-                        <div key={section.title}>
-                          <h4 className="font-medium text-sm mb-1">{section.title}</h4>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                            {section.content}
-                          </p>
-                        </div>
-                      ))}
+        <div className="px-5 pt-5 pb-2">
+          <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground/50 mb-3">
+            Lead Memos
+          </p>
+          {memos.map((memo) => (
+            <div key={memo.id} className="py-3 border-t border-border/20">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-foreground">
+                  {memo.memo_type === 'anonymous_teaser' ? 'Teaser' : 'Full Memo'}
+                </span>
+              </div>
+              {memo.html_content ? (
+                <div
+                  className="prose prose-sm max-w-none text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(memo.html_content) }}
+                />
+              ) : (
+                <div className="space-y-3">
+                  {(
+                    (
+                      memo.content as {
+                        sections?: Array<{ title: string; content: string }>;
+                      } | null
+                    )?.sections || []
+                  ).map((section: { title: string; content: string }) => (
+                    <div key={section.title}>
+                      <h4 className="text-sm font-medium mb-1">{section.title}</h4>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {section.content}
+                      </p>
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </CardContent>
-        </Card>
+          ))}
+        </div>
       )}
 
       {/* Documents by Folder */}
-      {Object.keys(documentsByFolder).length > 0 &&
-        Object.entries(documentsByFolder)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([folder, docs]) => (
-            <Card key={folder}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <FolderOpen className="h-4 w-4" />
+      {Object.keys(documentsByFolder).length > 0 && (
+        <div className="px-5 pt-4 pb-2">
+          {Object.entries(documentsByFolder)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([folder, docs]) => (
+              <div key={folder} className="mb-4">
+                <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground/50 mb-2">
                   {folder}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="divide-y">
-                  {docs.map((doc) => (
-                    <div key={doc.id} className="flex items-center gap-3 py-2">
-                      {getFileIcon(doc.file_type)}
+                </p>
+                <div className="border-t border-border/30" />
+                {docs.map((doc, i) => {
+                  const lastEvent = docTimestamps.get(doc.id);
+                  return (
+                    <div
+                      key={doc.id}
+                      className={`group flex items-center gap-3 py-3 transition-all duration-150 hover:translate-x-0.5 hover:bg-muted/10 -mx-2 px-2 rounded ${
+                        i < docs.length - 1 ? 'border-b border-border/10' : ''
+                      }`}
+                    >
+                      <div className="border-l-2 border-transparent group-hover:border-emerald-500/40 pl-2 transition-colors duration-150">
+                        {getFileIcon(doc.file_type)}
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-medium truncate">{doc.file_name}</p>
-                          {Date.now() - new Date(doc.created_at).getTime() <
-                            7 * 24 * 60 * 60 * 1000 && (
-                            <Badge
-                              variant="secondary"
-                              className="text-[9px] bg-green-50 text-green-700 border-green-200 shrink-0"
-                            >
-                              New
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-sm font-medium text-foreground truncate">{doc.file_name}</p>
+                        <p className="text-[10px] text-muted-foreground/50 mt-0.5">
                           {formatFileSize(doc.file_size_bytes)}
-                          {' · '}
-                          {new Date(doc.created_at).toLocaleDateString()}
+                          {lastEvent && (
+                            <>
+                              {doc.file_size_bytes ? ' · ' : ''}
+                              {lastEvent.action === 'download_document' ? 'Downloaded' : 'Viewed'}{' '}
+                              {formatDistanceToNow(new Date(lastEvent.created_at), { addSuffix: true })}
+                            </>
+                          )}
                         </p>
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex items-center gap-1 shrink-0 max-md:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => handleViewDocument(doc.id)}
                           disabled={loadingDoc === doc.id}
+                          className="h-7 rounded-full px-3 text-[11px] border-border/40 text-muted-foreground hover:text-foreground"
                         >
                           {loadingDoc === doc.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <Loader2 className="h-3 w-3 animate-spin" />
                           ) : (
-                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            <>
+                              <Eye className="h-3 w-3 mr-1" />
+                              View
+                            </>
                           )}
-                          View
                         </Button>
                         {doc.allow_download && (
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => handleDownloadDocument(doc.id)}
                             disabled={loadingDoc === doc.id}
+                            className="h-7 rounded-full px-3 text-[11px] border-border/40 text-muted-foreground hover:text-foreground"
                           >
-                            <Download className="h-3.5 w-3.5 mr-1" />
+                            <Download className="h-3 w-3 mr-1" />
                             Download
                           </Button>
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-      {documents.length === 0 && memos.length === 0 && (
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            <FolderOpen className="mx-auto h-8 w-8 mb-2" />
-            No documents available yet
-          </CardContent>
-        </Card>
+                  );
+                })}
+              </div>
+            ))}
+        </div>
       )}
+
+      {/* Empty state */}
+      {documents.length === 0 && memos.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-14 text-center px-5">
+          <ShieldCheck className="h-8 w-8 text-muted-foreground/20 mb-3" />
+          <p className="text-sm text-muted-foreground">
+            Your data room is being prepared.
+          </p>
+          <p className="text-[10px] text-muted-foreground/40 mt-1">
+            Documents will appear here once released by the advisor.
+          </p>
+        </div>
+      )}
+
+      </ScrollArea>
+
+      {/* Security Footer */}
+      <div className="border-t border-border/20 px-5 py-3 shrink-0">
+        <p className="text-[10px] text-muted-foreground/40 text-center">
+          Documents shared under NDA. Unauthorized distribution is prohibited.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** Dark vault header with security signal and custom close button */
+function VaultHeader({ onClose }: { onClose?: () => void }) {
+  return (
+    <div className="bg-[#0E101A] rounded-t-lg px-5 py-4 flex items-center justify-between">
+      <div className="flex items-center gap-2.5">
+        <ShieldCheck className="h-4 w-4 text-emerald-400/80" />
+        <h3 className="text-sm font-semibold tracking-wide text-white/90">
+          Secure Data Room
+        </h3>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="text-[10px] text-white/30 tracking-widest uppercase hidden sm:inline">
+          Confidential
+        </span>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="rounded-sm p-0.5 text-white/40 hover:text-white/80 transition-colors focus:outline-none focus:ring-1 focus:ring-white/20"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -328,7 +328,7 @@ export const DealTableRow = ({
       {/* Description */}
       <TableCell style={{ width: columnWidths.description, minWidth: 120 }}>
         {(() => {
-          const descText = listing.executive_summary || listing.description;
+          const descText = listing.executive_summary;
           return descText ? (
             <Tooltip>
               <TooltipTrigger asChild>

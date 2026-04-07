@@ -92,12 +92,38 @@ export function ListingsTabContent({
     }
   };
 
-  const emptyStateContent = {
-    icon: Building2,
-    title: 'No Marketplace Listings',
-    description: 'Publish your first listing to start attracting buyers.',
-    actionLabel: 'Create Listing',
-  };
+  const emptyStateContent = (() => {
+    switch (type) {
+      case 'ready_to_publish':
+        return {
+          icon: Building2,
+          title: 'No Listings Waiting to Publish',
+          description: 'Push deals from the Marketplace Queue to create listings ready for review.',
+          actionLabel: 'Go to Queue',
+        };
+      case 'live':
+        return {
+          icon: Building2,
+          title: 'No Live Listings',
+          description: 'Publish listings from the "Ready to Publish" tab to make them visible to buyers.',
+          actionLabel: 'View Ready',
+        };
+      case 'internal':
+        return {
+          icon: Building2,
+          title: 'No Internal Deals',
+          description: 'Internal deals from remarketing will appear here.',
+          actionLabel: 'Create Listing',
+        };
+      default:
+        return {
+          icon: Building2,
+          title: 'No Listings',
+          description: 'No listings found. Create deals from the pipeline or marketplace queue.',
+          actionLabel: 'Create Listing',
+        };
+    }
+  })();
 
   const isFiltered = filterState.rules.length > 0 || filterState.search;
 

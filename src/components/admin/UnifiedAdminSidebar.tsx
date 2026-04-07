@@ -59,6 +59,7 @@ import {
   LogOut,
   User,
   GraduationCap,
+  Archive,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -77,7 +78,7 @@ import { useUnviewedConnectionRequests } from '@/hooks/admin/use-unviewed-connec
 import { useUnviewedUsers } from '@/hooks/admin/use-unviewed-users';
 import { useUnviewedOwnerLeads } from '@/hooks/admin/use-unviewed-owner-leads';
 import { useUnreadMessageCounts } from '@/hooks/use-connection-messages';
-
+import { usePendingDocumentRequests } from '@/hooks/admin/use-pending-document-requests';
 interface NavItem {
   label: string;
   href: string;
@@ -115,6 +116,7 @@ export function UnifiedAdminSidebar({
   const { unviewedCount: unviewedUsersCount } = useUnviewedUsers();
   const { unviewedCount: unviewedOwnerLeadsCount } = useUnviewedOwnerLeads();
   const { data: unreadMessages } = useUnreadMessageCounts();
+  const { data: pendingDocRequestCount = 0 } = usePendingDocumentRequests();
 
   const sections: NavSection[] = useMemo(
     () => [
@@ -175,6 +177,11 @@ export function UnifiedAdminSidebar({
             icon: <GitBranch className="h-4 w-4" />,
           },
           {
+            label: 'Archived Deals',
+            href: '/admin/deals/archived',
+            icon: <Archive className="h-4 w-4" />,
+          },
+          {
             label: 'Deal Sourcing',
             href: '/admin/buyers/deal-sourcing',
             icon: <Sparkles className="h-4 w-4" />,
@@ -184,6 +191,12 @@ export function UnifiedAdminSidebar({
             label: 'Document Tracking',
             href: '/admin/documents',
             icon: <FileCheck className="h-4 w-4" />,
+            badge: pendingDocRequestCount,
+          },
+          {
+            label: 'Email Dashboard',
+            href: '/admin/emails',
+            icon: <Mail className="h-4 w-4" />,
           },
           {
             label: 'Lists',
@@ -250,6 +263,11 @@ export function UnifiedAdminSidebar({
             label: 'Valuation Leads',
             href: '/admin/remarketing/leads/valuation',
             icon: <Calculator className="h-4 w-4" />,
+          },
+          {
+            label: 'Match Tool Leads',
+            href: '/admin/remarketing/leads/match-tool',
+            icon: <Globe2 className="h-4 w-4" />,
           },
           {
             label: 'Referral Partners',
@@ -394,6 +412,7 @@ export function UnifiedAdminSidebar({
       unviewedConnectionRequestsCount,
       unviewedUsersCount,
       unviewedOwnerLeadsCount,
+      pendingDocRequestCount,
       canAccessSettings,
     ],
   );

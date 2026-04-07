@@ -204,20 +204,31 @@ export function useDealsActions({
     setSelectedDeals(new Set());
   }, []);
 
+  const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null);
+
   const handleArchiveDeal = useCallback(
-    async (dealId: string, dealName: string) => {
+    (dealId: string, dealName: string) => {
+      setArchiveTarget({ id: dealId, name: dealName });
+    },
+    [],
+  );
+
+  const confirmArchiveDeal = useCallback(
+    async (reason: string) => {
+      if (!archiveTarget) return;
       const { error } = await supabase
         .from('listings')
-        .update({ remarketing_status: 'archived' })
-        .eq('id', dealId);
+        .update({ remarketing_status: 'archived', archive_reason: reason } as never)
+        .eq('id', archiveTarget.id);
       if (error) {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
-        return;
+        throw error;
       }
-      toast({ title: 'Deal archived', description: `${dealName} has been archived` });
+      toast({ title: 'Deal archived', description: `${archiveTarget.name} has been archived` });
+      setArchiveTarget(null);
       refetchListings();
     },
-    [toast, refetchListings],
+    [archiveTarget, toast, refetchListings],
   );
 
   const handleDeleteDeal = useCallback((dealId: string, dealName: string) => {
@@ -685,6 +696,9 @@ export function useDealsActions({
     handleDragEnd,
     handleUpdateRank,
     handleArchiveDeal,
+    confirmArchiveDeal,
+    archiveTarget,
+    setArchiveTarget,
     handleDeleteDeal,
     handleTogglePriority,
     handleToggleUniverseBuild,

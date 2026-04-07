@@ -230,19 +230,60 @@ export function useUpdateAgreementStatus() {
 
       return { previousData };
     },
-    onSuccess: (_data, params) => {
+    onSuccess: async (_data, params) => {
+      // If status is being set to 'signed', update any pending document_requests and notify firm members
+      if (params.newStatus === 'signed') {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const adminName = user.user_metadata?.first_name
+              ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`.trim()
+              : user.email || 'Admin';
+            
+            // Update pending document_requests for this firm + agreement type
+            await supabase
+              .from('document_requests')
+              .update({
+                status: 'signed',
+                signed_at: new Date().toISOString(),
+                signed_toggled_by: user.id,
+                signed_toggled_by_name: adminName,
+              })
+              .eq('firm_id', params.firmId)
+              .eq('agreement_type', params.agreementType)
+              .neq('status', 'signed');
+          }
+        } catch (err) {
+          console.warn('Failed to update document_requests on sign toggle:', err);
+        }
+
+        // Send confirmation email to firm members
+        try {
+          await supabase.functions.invoke('notify-agreement-confirmed', {
+            body: {
+              firmId: params.firmId,
+              agreementType: params.agreementType,
+            },
+          });
+        } catch (err) {
+          console.warn('Failed to send agreement confirmation email:', err);
+        }
+      }
+
       // Admin-side queries
       queryClient.invalidateQueries({ queryKey: ['firm-agreements'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['firm-members'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['admin-users'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['agreement-audit-log'], refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: ['admin-document-tracking'] });
-      // Buyer-side queries — ensure toggle changes propagate immediately
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-doc-requests'] });
+      // Buyer-side queries
       queryClient.invalidateQueries({ queryKey: ['buyer-firm-agreement-status'] });
       queryClient.invalidateQueries({ queryKey: ['my-agreement-status'] });
       queryClient.invalidateQueries({ queryKey: ['buyer-nda-status'] });
       queryClient.invalidateQueries({ queryKey: ['thread-buyer-firm'] });
       queryClient.invalidateQueries({ queryKey: ['user-firm'] });
+      queryClient.invalidateQueries({ queryKey: ['buyer-signed-documents'] });
 
       const typeLabel = params.agreementType === 'nda' ? 'NDA' : 'Fee Agreement';
       toast({

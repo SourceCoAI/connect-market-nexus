@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Building2, Phone, Mail, Globe, Calendar, DollarSign, MessageSquare, ExternalLink, StickyNote, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Building2, Mail, Globe, Calendar, DollarSign, MessageSquare, ExternalLink, StickyNote, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { format } from "date-fns";
 import {
   OwnerLead,
@@ -107,8 +108,13 @@ function LeadDetailsDialog({ lead, onNotesUpdate }: { lead: OwnerLead; onNotesUp
             </div>
             {lead.phone_number && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="h-4 w-4" />
-                <a href={`tel:${lead.phone_number}`} className="hover:underline">{lead.phone_number}</a>
+                <ClickToDialPhone
+                  phone={lead.phone_number}
+                  name={lead.name || undefined}
+                  email={lead.email || undefined}
+                  company={lead.company_name || undefined}
+                  size="sm"
+                />
               </div>
             )}
             {lead.business_website && (

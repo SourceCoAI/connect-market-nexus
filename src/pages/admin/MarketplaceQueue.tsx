@@ -21,6 +21,7 @@ import {
   Eye,
   CheckCircle2,
 } from 'lucide-react';
+import { CopyDealInfoButton } from './remarketing/ReMarketingDealDetail/CopyDealInfoButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -49,7 +50,7 @@ interface MarketplaceQueueDeal {
 }
 
 const formatCurrency = (value: number | null) => {
-  if (value == null) return '—';
+  if (value == null) return '-';
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
   return `$${value}`;
@@ -139,7 +140,7 @@ const MarketplaceQueue = () => {
     if (deal.ebitda == null) gaps.push('EBITDA');
     if (!deal.address_state && !deal.location) gaps.push('Location');
     if (!deal.category && !deal.industry) gaps.push('Category / Industry');
-    if (!deal.executive_summary && !deal.description) gaps.push('Description');
+    if (!deal.executive_summary) gaps.push('Executive Summary');
     if (!deal.main_contact_name) gaps.push('Main contact name');
     if (!deal.main_contact_email) gaps.push('Main contact email');
     const memos = memoStatusByDeal[deal.id];
@@ -414,6 +415,7 @@ const MarketplaceQueue = () => {
                           );
                         })()
                       )}
+                      <CopyDealInfoButton deal={deal} iconOnly />
                       {deal.website && (
                         <Button
                           variant="ghost"

@@ -38,8 +38,8 @@ export const BUYER_TYPE_OPTIONS = [
   },
   {
     value: 'businessOwner',
-    label: 'Business Owner',
-    description: 'Current business owners exploring opportunities'
+    label: 'Business Owner / Operator',
+    description: 'Current operators exploring add-on or platform acquisitions'
   }
 ] as const;
 

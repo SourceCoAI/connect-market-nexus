@@ -108,6 +108,11 @@ export function useSendMessage() {
       sender_role: 'admin' | 'buyer';
       message_type?: 'message' | 'decision' | 'system';
     }) => {
+      // Prevent empty messages
+      if (!params.body || !params.body.trim()) {
+        throw new Error('Message cannot be empty');
+      }
+
       const {
         data: { user },
         error: authError,
@@ -134,11 +139,64 @@ export function useSendMessage() {
       // Send email notification to the other party.
       // Fire-and-forget: don't block the UI on email delivery.
       if (params.sender_role === 'admin') {
+        // Resolve admin's full name, buyer name, and deal title for emails
+        let adminFullName = user?.email?.split('@')[0] || 'Admin';
+        let buyerName = 'Buyer';
+        let dealTitle = 'General';
+
+        try {
+          // Get admin profile name
+          const { data: adminProfile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', user.id)
+            .single();
+          if (adminProfile) {
+            const name = `${adminProfile.first_name || ''} ${adminProfile.last_name || ''}`.trim();
+            if (name) adminFullName = name;
+          }
+          // Fallback to static admin profiles map
+          if (adminFullName === user?.email?.split('@')[0]) {
+            const { getAdminProfile } = await import('@/lib/admin-profiles');
+            const staticProfile = getAdminProfile(user.email || '');
+            if (staticProfile?.name) adminFullName = staticProfile.name;
+          }
+
+          // Get buyer name and deal title from connection request
+          const { data: connReq } = await supabase
+            .from('connection_requests')
+            .select('user_id, listing_id')
+            .eq('id', params.connection_request_id)
+            .single();
+          if (connReq) {
+            const { data: buyerProfile } = await supabase
+              .from('profiles')
+              .select('first_name, last_name, email')
+              .eq('id', connReq.user_id as string)
+              .single();
+            if (buyerProfile) {
+              const bName = `${buyerProfile.first_name || ''} ${buyerProfile.last_name || ''}`.trim();
+              buyerName = bName || buyerProfile.email || 'Buyer';
+            }
+            if (connReq.listing_id) {
+              const { data: listing } = await supabase
+                .from('listings')
+                .select('title')
+                .eq('id', connReq.listing_id)
+                .single();
+              if (listing?.title) dealTitle = listing.title;
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to resolve email context names:', e);
+        }
+
         supabase.functions
           .invoke('notify-buyer-new-message', {
             body: {
               connection_request_id: params.connection_request_id,
               message_preview: params.body.substring(0, 200),
+              admin_name: adminFullName,
             },
           })
           .then(({ error: fnError }) => {
@@ -149,24 +207,31 @@ export function useSendMessage() {
           .catch((err: unknown) => {
             console.error('Error invoking notify-buyer-new-message:', err);
           });
-      }
 
-      if (params.sender_role === 'buyer') {
+        // Notify support inbox so other admins see the reply
         supabase.functions
-          .invoke('notify-admin-new-message', {
+          .invoke('notify-support-inbox', {
             body: {
-              connection_request_id: params.connection_request_id,
-              message_preview: params.body.substring(0, 200),
+              type: 'admin_reply',
+              buyerName,
+              adminName: adminFullName,
+              dealTitle,
+              messagePreview: params.body.substring(0, 200),
             },
           })
-          .then(({ error: fnError }) => {
-            if (fnError) {
-              console.error('Failed to send admin message notification email:', fnError);
-            }
+          .catch((err: unknown) => console.warn('notify-support-inbox error:', err));
+      } else {
+        // Buyer sent a message — notify support inbox
+        supabase.functions
+          .invoke('notify-support-inbox', {
+            body: {
+              type: 'new_message',
+              buyerName: user?.email || 'Buyer',
+              buyerEmail: user?.email,
+              messagePreview: params.body.substring(0, 200),
+            },
           })
-          .catch((err: unknown) => {
-            console.error('Error invoking notify-admin-new-message:', err);
-          });
+          .catch((err: unknown) => console.warn('notify-support-inbox error:', err));
       }
 
       return data;
@@ -276,7 +341,7 @@ export function useUnreadBuyerMessageCounts() {
 
       const { data: requests } = await supabase
         .from('connection_requests')
-        .select('id, listing_id')
+        .select('id, listing_id, last_message_sender_role, last_message_at')
         .eq('user_id', user.id);
 
       const requestIds = (requests || []).map((r) => r.id);
@@ -285,11 +350,13 @@ export function useUnreadBuyerMessageCounts() {
       // Build a map of request_id -> listing_id
       const requestListingMap: Record<string, string | null> = {};
       (requests || []).forEach((r) => { requestListingMap[r.id] = r.listing_id; });
+
       const { data, error } = await supabase
         .from('connection_messages' as never)
         .select('connection_request_id')
         .eq('is_read_by_buyer', false)
         .eq('sender_role', 'admin')
+        .not('message_type', 'in', '("decision","system")')
         .in('connection_request_id', requestIds);
 
       if (error) throw error;

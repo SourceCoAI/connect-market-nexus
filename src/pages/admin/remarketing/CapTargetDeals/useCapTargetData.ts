@@ -38,6 +38,24 @@ export function useCapTargetData() {
   const sortColumn = (searchParams.get('sort') as SortColumn) ?? 'contact_date';
   const sortDirection = (searchParams.get('dir') as SortDirection) ?? 'desc';
 
+  // KPI card filter (URL-persisted)
+  const kpiFilter = (searchParams.get('kpi') as 'priority' | 'needs_scoring' | null) ?? null;
+  const setKpiFilter = useCallback(
+    (v: 'priority' | 'needs_scoring' | null) => {
+      setSearchParams(
+        (p) => {
+          const n = new URLSearchParams(p);
+          if (v) n.set('kpi', v);
+          else n.delete('kpi');
+          n.delete('cp');
+          return n;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   const hidePushed = searchParams.get('hidePushed') === '1';
   const setHidePushed = useCallback(
     (v: boolean) => {
@@ -257,11 +275,13 @@ export function useCapTargetData() {
     totalCount: engineTotal,
   } = useFilterEngine(tabItems, CAPTARGET_FIELDS);
 
-  // Sort the engine-filtered results
-  const filteredDeals = useMemo(
-    () => sortDeals(engineFiltered, sortColumn, sortDirection),
-    [engineFiltered, sortColumn, sortDirection],
-  );
+  // Apply KPI filter, then sort the engine-filtered results
+  const filteredDeals = useMemo(() => {
+    let items = engineFiltered;
+    if (kpiFilter === 'priority') items = items.filter((d) => d.is_priority_target === true);
+    if (kpiFilter === 'needs_scoring') items = items.filter((d) => d.deal_total_score == null);
+    return sortDeals(items, sortColumn, sortDirection);
+  }, [engineFiltered, sortColumn, sortDirection, kpiFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredDeals.length / PAGE_SIZE));
@@ -393,6 +413,8 @@ export function useCapTargetData() {
 
     // KPI
     kpiStats,
+    kpiFilter,
+    setKpiFilter,
 
     // Summary stats
     totalDeals,

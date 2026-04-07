@@ -312,20 +312,22 @@ export function useNuclearAuth() {
     if (data.user) {
       const userName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'there';
 
-      // Send welcome email + admin notification via user-journey-notifications
-      const welcomeEmailPromise = supabase.functions
-        .invoke('user-journey-notifications', {
-          body: {
-            event_type: 'user_created',
-            user_id: data.user.id,
-            user_email: userData.email,
-            user_name: userName,
-            metadata: { company: userData.company || '' },
-          },
-        })
-        .catch((err) => {
-          console.warn('Welcome email failed but user creation succeeded:', err);
-        });
+      // Send welcome email after 60s delay so it doesn't arrive at the same time as the verification email
+      setTimeout(() => {
+        supabase.functions
+          .invoke('user-journey-notifications', {
+            body: {
+              event_type: 'user_created',
+              user_id: data.user!.id,
+              user_email: userData.email,
+              user_name: userName,
+              metadata: { company: userData.company || '' },
+            },
+          })
+          .catch((err) => {
+            console.warn('Welcome email failed but user creation succeeded:', err);
+          });
+      }, 60_000);
 
       const adminNotificationPromise = supabase.functions
         .invoke('enhanced-admin-notification', {
@@ -354,10 +356,18 @@ export function useNuclearAuth() {
           );
         });
 
+      const scoringPromise = supabase.functions
+        .invoke('calculate-buyer-quality-score', {
+          body: { profile_id: data.user.id, self_score: true },
+        })
+        .catch((err) => {
+          console.warn('Buyer scoring failed (will be scored later):', err);
+        });
+
       await Promise.allSettled([
-        welcomeEmailPromise,
         adminNotificationPromise,
         firmCreationPromise,
+        scoringPromise,
       ]);
     }
   }, []);
@@ -402,7 +412,6 @@ export function useNuclearAuth() {
         'role',
         'id',
         'email',
-        'company',
         'buyer_type',
       ];
       for (const field of PRIVILEGED_FIELDS) {

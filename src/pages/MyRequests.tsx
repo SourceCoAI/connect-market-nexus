@@ -40,7 +40,6 @@ import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useBuyerNdaStatus } from '@/hooks/admin/use-pandadoc';
 
 /* ═══════════════════════════════════════════════════════════════════════
    Main Page Component
@@ -59,7 +58,6 @@ const MyRequests = () => {
   const markRequestNotificationsAsRead = useMarkRequestNotificationsAsRead();
   const markAllNotificationsAsRead = useMarkAllUserNotificationsAsRead();
   const { data: unreadMsgCounts } = useUnreadBuyerMessageCounts();
-  const { data: ndaStatus } = useBuyerNdaStatus(!isAdmin ? user?.id : undefined);
   const { data: coverage } = useMyAgreementStatus(!isAdmin && !!user);
   useAgreementStatusSync();
   const [sortBy] = useState<'recent' | 'action' | 'status'>('recent');
@@ -105,7 +103,7 @@ const MyRequests = () => {
       case 'action': {
         const actionScore = (r: (typeof requests)[number]) => {
           let score = 0;
-          if (!ndaStatus?.ndaSigned) score += 1;
+          if (!coverage?.nda_covered) score += 1;
           if (!coverage?.fee_covered) score += 1;
           const unread = (unreadByRequest[r.id] || 0) + (unreadMsgCounts?.byRequest[r.id] || 0);
           if (unread > 0) score += 1;
@@ -136,7 +134,7 @@ const MyRequests = () => {
       }
     }
     return sorted;
-  }, [requests, sortBy, ndaStatus, coverage, unreadByRequest, unreadMsgCounts]);
+  }, [requests, sortBy, coverage, unreadByRequest, unreadMsgCounts]);
 
   const handleSelectDeal = (dealId: string, tab?: string) => {
     setSelectedDeal(dealId);
@@ -214,6 +212,12 @@ const MyRequests = () => {
               Browse the marketplace and request an introduction when you find a fit. Every deal you
               connect on will appear here — along with your messages, status, and next steps.
             </p>
+            <a
+              href="/marketplace"
+              className="inline-flex items-center justify-center rounded-lg text-[13px] font-semibold bg-[#0E101A] text-white hover:bg-[#0E101A]/90 h-10 px-5 transition-colors"
+            >
+              Browse Marketplace
+            </a>
           </div>
         </div>
       </div>
@@ -223,11 +227,11 @@ const MyRequests = () => {
   return (
     <div className="w-full bg-white min-h-screen">
       {/* Page Header */}
-      <div className="max-w-[1280px] mx-auto px-6 pt-8 pb-5">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-8 pb-5">
         <h1 className="text-xl font-semibold text-[#0E101A] tracking-tight">My Deals</h1>
       </div>
 
-      <div className="max-w-[1280px] mx-auto px-6 pb-8">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 pb-8">
         {/* Main container */}
         <div className="rounded-xl border border-[#F0EDE6] overflow-hidden">
           {/* Two-column layout */}
@@ -249,7 +253,7 @@ const MyRequests = () => {
                   </span>
                 </div>
               </div>
-              <div className="p-2 space-y-0.5 max-h-[calc(100vh-200px)] overflow-y-auto">
+              <div className="p-2 space-y-0.5 max-h-[300px] md:max-h-[calc(100vh-200px)] overflow-y-auto">
                 {sortedRequests.map((request) => {
                   const unreadForRequest =
                     (unreadByRequest[request.id] || 0) +
@@ -260,7 +264,7 @@ const MyRequests = () => {
                       request={request}
                       isSelected={selectedDeal === request.id}
                       unreadCount={unreadForRequest}
-                      ndaSigned={ndaStatus?.ndaSigned ?? undefined}
+                      ndaSigned={coverage?.nda_covered ?? undefined}
                       onSelect={() => handleSelectDeal(request.id)}
                     />
                   );
@@ -278,7 +282,7 @@ const MyRequests = () => {
                   unreadMsgCounts={unreadMsgCounts}
                   updateMessage={updateMessage}
                   profileForCalc={profileForCalc}
-                  ndaSigned={ndaStatus?.ndaSigned ?? false}
+                  ndaSigned={coverage?.nda_covered ?? false}
                   feeCovered={coverage?.fee_covered ?? false}
                   feeStatus={coverage?.fee_status}
                 />
@@ -339,13 +343,13 @@ function DetailPanel({
         acquisitionType={request.listing?.acquisition_type}
         ebitda={request.listing?.ebitda}
         revenue={request.listing?.revenue}
-        requestStatus={requestStatus as 'pending' | 'approved' | 'rejected'}
+        requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
         ndaSigned={ndaSigned}
       />
 
       {/* Tabs */}
       <Tabs value={innerTab} onValueChange={onInnerTabChange} className="flex-1 flex flex-col">
-        <div className="border-b border-[#F0EDE6] px-6 bg-white">
+        <div className="border-b border-[#F0EDE6] px-4 sm:px-6 bg-white">
           <TabsList className="inline-flex h-auto items-center bg-transparent p-0 gap-0 w-full justify-start rounded-none">
             <TabsTrigger
               value="overview"
@@ -385,10 +389,10 @@ function DetailPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <TabsContent value="overview" className="mt-0 p-6 space-y-5">
+          <TabsContent value="overview" className="mt-0 p-4 sm:p-6 space-y-5">
             {/* Row 1: Action Card — full width */}
             <DealActionCard
-              requestStatus={requestStatus as 'pending' | 'approved' | 'rejected'}
+              requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
               ndaSigned={ndaSigned}
               feeCovered={feeCovered}
               feeStatus={feeStatus}
@@ -399,10 +403,11 @@ function DetailPanel({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <DealDocumentsCard
                 dealId={request.listing_id}
-                requestStatus={requestStatus as 'pending' | 'approved' | 'rejected'}
+                requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
                 ndaSigned={ndaSigned}
                 feeCovered={feeCovered}
                 feeStatus={feeStatus}
+                onViewDocuments={() => window.open(`/listing/${request.listing_id}?tab=data-room`, '_blank')}
               />
               <DealInfoCard
                 category={request.listing?.category}
@@ -417,10 +422,9 @@ function DetailPanel({
 
             {/* Row 3: Deal Progress — full width */}
             <DealStatusSection
-              requestStatus={requestStatus as 'pending' | 'approved' | 'rejected'}
+              requestStatus={requestStatus as 'pending' | 'approved' | 'rejected' | 'on_hold'}
               ndaSigned={ndaSigned}
               feeCovered={feeCovered}
-              feeStatus={feeStatus}
               requestCreatedAt={request.created_at}
             />
 
@@ -465,11 +469,11 @@ function DetailPanel({
             )}
           </TabsContent>
 
-          <TabsContent value="messages" className="mt-0 p-6">
+          <TabsContent value="messages" className="mt-0 p-4 sm:p-6">
             <DealMessagesTab requestId={request.id} requestStatus={requestStatus} />
           </TabsContent>
 
-          <TabsContent value="activity" className="mt-0 p-6">
+          <TabsContent value="activity" className="mt-0 p-4 sm:p-6">
             <DealActivityLog requestId={request.id} requestStatus={requestStatus} />
           </TabsContent>
         </div>

@@ -23,7 +23,7 @@ const ListingCardTitle = memo(function ListingCardTitle({
     switch (connectionStatus) {
       case "pending":
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-br from-[#F8F6F1] to-[#F5F1E8] border border-[#E8E3D5] shadow-sm">
               {/* Custom Clock Icon */}
               <svg 

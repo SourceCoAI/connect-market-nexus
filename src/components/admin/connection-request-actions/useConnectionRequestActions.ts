@@ -86,9 +86,10 @@ export function useConnectionRequestActions({
     if (!requestId || updateStatus.isPending) return;
     try {
       await updateStatus.mutateAsync({ requestId, status: 'approved' });
+      const listingName = listing?.title || 'this deal';
       await sendMessage.mutateAsync({
         connection_request_id: requestId,
-        body: 'We have sent you a brief overview of the deal. Please let us know if you are still interested.',
+        body: `Your introduction to ${listingName} has been approved. You now have access to the deal overview and supporting documents in the data room. Our team will facilitate the introduction to the business owner — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`,
         sender_role: 'admin',
         message_type: 'decision',
       });
@@ -115,6 +116,70 @@ export function useConnectionRequestActions({
           .catch((emailErr) => {
             console.error('[approval-email] Failed to send connection approval email:', emailErr);
           });
+      }
+
+      // Phase 87: Insert persistent user_notification so buyer's bell shows approval
+      if (user.id) {
+        supabase
+          .from('user_notifications')
+          .insert({
+            user_id: user.id,
+            notification_type: 'request_approved',
+            title: 'Connection Approved',
+            message: `Your introduction request for "${listingTitle}" has been approved.`,
+            connection_request_id: requestId || null,
+            metadata: { listing_id: listingId },
+          })
+          .then(({ error: notifErr }) => {
+            if (notifErr) console.error('[Phase 87] Failed to insert approval notification:', notifErr);
+          });
+      }
+
+      // Auto-provision data_room_access so buyer can see documents immediately
+      if (listing?.id && user.id) {
+        const { data: existingAccess } = await supabase
+          .from('data_room_access')
+          .select('id')
+          .eq('deal_id', listing.id)
+          .eq('marketplace_user_id', user.id)
+          .is('revoked_at', null)
+          .maybeSingle();
+
+        if (!existingAccess) {
+          // Query firm agreement status directly from DB to avoid stale frontend state
+          let feeAgreementSigned = hasFeeAgreement;
+          if (!feeAgreementSigned && user.id) {
+            const { data: freshFirmId } = await supabase.rpc('resolve_user_firm_id', { p_user_id: user.id });
+            if (freshFirmId) {
+              const { data: freshFirm } = await supabase
+                .from('firm_agreements')
+                .select('fee_agreement_status, fee_agreement_signed')
+                .eq('id', freshFirmId)
+                .maybeSingle();
+              if (freshFirm) {
+                feeAgreementSigned = freshFirm.fee_agreement_signed === true || freshFirm.fee_agreement_status === 'signed';
+              }
+            }
+          }
+
+          const { error: accessErr } = await supabase
+            .from('data_room_access')
+            .insert({
+              deal_id: listing.id,
+              marketplace_user_id: user.id,
+              can_view_teaser: true,
+              can_view_full_memo: feeAgreementSigned,
+              can_view_data_room: feeAgreementSigned,
+            });
+
+          if (accessErr) {
+            console.error('[data-room-access] Failed to auto-provision access:', accessErr);
+          } else {
+            // Invalidate access queries so admin UI reflects the new record
+            queryClient.invalidateQueries({ queryKey: ['buyer-access', listing.id, user.id] });
+            queryClient.invalidateQueries({ queryKey: ['data-room-access', listing.id] });
+          }
+        }
       }
 
       toast({ title: 'Request approved', description: 'Buyer has been notified.' });
@@ -163,6 +228,24 @@ export function useConnectionRequestActions({
           });
       }
 
+      // Phase 87: Insert persistent user_notification so buyer's bell shows rejection
+      if (user.id) {
+        const rejListingTitle = listing?.title || 'the listing';
+        supabase
+          .from('user_notifications')
+          .insert({
+            user_id: user.id,
+            notification_type: 'status_changed',
+            title: 'Connection Update',
+            message: `Your introduction request for "${rejListingTitle}" was not approved at this time.`,
+            connection_request_id: requestId || null,
+            metadata: { listing_id: listing?.id },
+          })
+          .then(({ error: notifErr }) => {
+            if (notifErr) console.error('[Phase 87] Failed to insert rejection notification:', notifErr);
+          });
+      }
+
       setShowRejectDialog(false);
       setRejectNote('');
       toast({ title: 'Request declined', description: 'Buyer has been notified via email.' });
@@ -177,9 +260,61 @@ export function useConnectionRequestActions({
     }
   };
 
-  const handleResetToPending = () => {
+  const handleResetToPending = async () => {
     if (!requestId) return;
-    updateStatus.mutate({ requestId, status: 'pending' });
+    try {
+      await updateStatus.mutateAsync({ requestId, status: 'pending' });
+      // Phase 94: Send a system message so both admin and buyer see the reversal
+      await sendMessage.mutateAsync({
+        connection_request_id: requestId,
+        body: 'Status has been reverted to pending for further review.',
+        sender_role: 'admin',
+        message_type: 'decision',
+      });
+      // Insert clarifying user notification
+      if (user.id) {
+        const listingTitle = listing?.title || 'the listing';
+        supabase
+          .from('user_notifications')
+          .insert({
+            user_id: user.id,
+            notification_type: 'status_changed',
+            title: 'Request Under Review',
+            message: `Your introduction request for "${listingTitle}" is back under review.`,
+            connection_request_id: requestId,
+            metadata: { listing_id: listing?.id },
+          })
+          .then(({ error: notifErr }) => {
+            if (notifErr) console.error('[Phase 94] Failed to insert undo notification:', notifErr);
+          });
+      }
+    } catch (err) {
+      toast({
+        title: 'Action failed',
+        description: err instanceof Error ? err.message : 'Could not reset status.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Phase 95: On Hold handler
+  const handleOnHold = async () => {
+    if (!requestId || updateStatus.isPending) return;
+    try {
+      await updateStatus.mutateAsync({ requestId, status: 'on_hold' });
+      await sendMessage.mutateAsync({
+        connection_request_id: requestId,
+        body: 'This request has been placed on hold for further evaluation.',
+        sender_role: 'admin',
+        message_type: 'decision',
+      });
+    } catch (err) {
+      toast({
+        title: 'Action failed',
+        description: err instanceof Error ? err.message : 'Could not place on hold.',
+        variant: 'destructive',
+      });
+    }
   };
 
   // ─── Flag for Review ───
@@ -312,6 +447,7 @@ export function useConnectionRequestActions({
     handleAccept,
     handleReject,
     handleResetToPending,
+    handleOnHold,
     handleFlagForReview,
     handleUnflag,
     requestAccessToggle,

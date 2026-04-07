@@ -1,329 +1,229 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { PandaDocSigningPanel } from './PandaDocSigningPanel';
-import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Loader2,
-  Shield,
-  FileSignature,
-  Download,
-  MessageSquare,
-  ZoomIn,
-  ZoomOut,
-  Info,
-} from 'lucide-react';
+import { sendAgreementEmail } from '@/lib/agreement-email';
+import { Loader2, Shield, FileSignature, CheckCircle, Mail, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { invalidateAgreementQueries } from '@/hooks/use-agreement-status-sync';
+import { useMyAgreementStatus } from '@/hooks/use-agreement-status';
 
 interface AgreementSigningModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  documentType: 'nda' | 'fee_agreement';
+  documentType?: 'nda' | 'fee_agreement';
 }
 
+/**
+ * Email-based agreement request dialog.
+ * Shows signed status, previous request dates, and allows requesting unsigned docs.
+ */
 export function AgreementSigningModal({
   open,
   onOpenChange,
   documentType,
 }: AgreementSigningModalProps) {
-  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isRequesting, setIsRequesting] = useState(false);
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isDownloadingDraft, setIsDownloadingDraft] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  const [chosenType, setChosenType] = useState<'nda' | 'fee_agreement' | null>(documentType ?? null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const { data: agreementStatus } = useMyAgreementStatus(open);
 
-  const ZOOM_STEP = 0.15;
-  const MIN_ZOOM = 0.75;
-  const MAX_ZOOM = 2;
+  const activeType = chosenType;
+  const docLabel = activeType === 'nda' ? 'NDA' : 'Fee Agreement';
+  const Icon = activeType === 'nda' ? Shield : FileSignature;
 
-  const handleZoomIn = () => setZoomLevel((z) => Math.min(z + ZOOM_STEP, MAX_ZOOM));
-  const handleZoomOut = () => setZoomLevel((z) => Math.max(z - ZOOM_STEP, MIN_ZOOM));
-  const handleZoomReset = () => setZoomLevel(1);
+  const isNdaSigned = agreementStatus?.nda_covered ?? false;
+  const isFeeSigned = agreementStatus?.fee_covered ?? false;
 
-  const docLabel = documentType === 'nda' ? 'NDA' : 'Fee Agreement';
-  const Icon = documentType === 'nda' ? Shield : FileSignature;
+  // Get requested_at from the agreement status (cast to access extra fields)
+  const statusAny = agreementStatus as Record<string, unknown> | undefined;
+  const ndaRequestedAt = statusAny?.nda_requested_at as string | null | undefined;
+  const feeRequestedAt = statusAny?.fee_agreement_requested_at as string | null | undefined;
 
-  useEffect(() => {
-    if (!open) {
-      setEmbedUrl(null);
-      setError(null);
-      setBannerDismissed(false);
-      setZoomLevel(1);
-      setRetryCount(0);
+  const getRequestedAt = (type: 'nda' | 'fee_agreement') => {
+    const raw = type === 'nda' ? ndaRequestedAt : feeRequestedAt;
+    if (!raw) return null;
+    try {
+      return new Date(raw).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  const handleRequest = async () => {
+    setIsRequesting(true);
+    setError(null);
+
+    const result = await sendAgreementEmail({ documentType: activeType! });
+
+    if (result.alreadySigned) {
+      toast({
+        title: 'Already Signed',
+        description: `Your ${docLabel} has already been signed.`,
+      });
+      invalidateAgreementQueries(queryClient, user?.id);
+      onOpenChange(false);
+      setIsRequesting(false);
       return;
     }
 
-    let cancelled = false;
-
-    const fetchEmbed = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const fnName = documentType === 'nda' ? 'get-buyer-nda-embed' : 'get-buyer-fee-embed';
-        const { data, error: fnError } = await supabase.functions.invoke(fnName);
-        if (cancelled) return;
-
-        const alreadySigned = documentType === 'nda' ? data?.ndaSigned : data?.feeSigned;
-
-        if (fnError) {
-          setError('Failed to load signing form. Please try again.');
-        } else if (data?.hasFirm === false) {
-          setError(
-            "Your account hasn't been set up for signing yet. Please contact our team via Messages.",
-          );
-        } else if (alreadySigned) {
-          toast({
-            title: 'Already Signed',
-            description: `Your ${docLabel} has already been signed.`,
-          });
-          invalidateAgreementQueries(queryClient, user?.id);
-          onOpenChange(false);
-        } else if (data?.embedUrl) {
-          setEmbedUrl(data.embedUrl);
-        } else {
-          setError('Signing form not available. Please contact support.');
-        }
-      } catch {
-        if (!cancelled) setError('Something went wrong. Please try again.');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-
-    fetchEmbed();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, documentType, retryCount]);
-
-  const handleSigned = async () => {
-    toast({
-      title: `${docLabel} Signed!`,
-      description: 'Thank you for signing. Your access has been updated.',
-    });
-
-    // Immediately confirm the signing on the backend (updates firm_agreements, sends emails/notifications)
-    // Fire-and-forget — webhook serves as backup if this fails
-    supabase.functions
-      .invoke('confirm-agreement-signed', { body: { documentType } })
-      .then(() => {
-        // Re-invalidate after backend confirmation to pick up DB changes
-        invalidateAgreementQueries(queryClient, user?.id);
-      })
-      .catch((err) => {
-        console.warn('confirm-agreement-signed call failed (webhook will retry):', err);
-      });
-
-    // Staggered invalidation of all agreement-related queries
-    invalidateAgreementQueries(queryClient, user?.id);
-
-    // Auto-close after brief delay
-    const timer = setTimeout(() => onOpenChange(false), 2000);
-    return () => clearTimeout(timer);
+    if (result.success) {
+      setSent(true);
+      invalidateAgreementQueries(queryClient, user?.id);
+    } else {
+      setError(result.error || 'Something went wrong. Please try again.');
+    }
+    setIsRequesting(false);
   };
 
-  const handleDownloadDraft = async () => {
-    setIsDownloadingDraft(true);
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('get-agreement-document', {
-        body: { documentType },
-      });
-      if (fnError || !data?.documentUrl) {
-        toast({
-          title: 'Download unavailable',
-          description: 'Could not retrieve the document. Please try again.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      window.open(data.documentUrl, '_blank', 'noopener,noreferrer');
-    } catch {
-      toast({
-        title: 'Download failed',
-        description: 'Something went wrong.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDownloadingDraft(false);
-    }
+  const handleClose = () => {
+    setSent(false);
+    setError(null);
+    if (!documentType) setChosenType(null);
+    onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[95vw] h-[90vh] flex flex-col overflow-hidden">
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Icon className="h-5 w-5" />
-            Sign {docLabel}
+            {activeType ? (
+              <>
+                <Icon className="h-5 w-5" />
+                {sent ? `${docLabel} Sent` : `Request ${docLabel}`}
+              </>
+            ) : (
+              'Choose Your Agreement'
+            )}
           </DialogTitle>
         </DialogHeader>
 
-        {isLoading && (
-          <div className="flex items-center justify-center py-16">
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Preparing signing form...</p>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 text-center space-y-3">
-            <p className="text-sm text-destructive">{error}</p>
-            <div className="flex items-center justify-center gap-2">
-              {retryCount < 2 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setRetryCount((c) => c + 1)}
-                >
-                  Try Again
-                </Button>
-              )}
+        {!activeType ? (
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Choose which agreement you'd like to sign. A signed Fee Agreement is required for full deal access.
+            </p>
+            <div className="grid gap-3">
+              {/* NDA Option */}
               <Button
                 variant="outline"
-                size="sm"
-                onClick={() => {
-                  onOpenChange(false);
-                  navigate('/messages?deal=general');
-                }}
+                className={`w-full justify-start gap-3 h-auto py-4 ${isNdaSigned ? 'opacity-60 cursor-default border-emerald-200 bg-emerald-50/50' : ''}`}
+                onClick={() => !isNdaSigned && setChosenType('nda')}
+                disabled={isNdaSigned}
               >
-                <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-                Contact Us
+                {isNdaSigned ? (
+                  <CheckCircle className="h-5 w-5 text-emerald-600" />
+                ) : (
+                  <Shield className="h-5 w-5 text-primary" />
+                )}
+                <div className="text-left">
+                  <div className="font-medium">
+                    Non-Disclosure Agreement
+                    {isNdaSigned && <span className="ml-2 text-xs text-emerald-600 font-normal">Signed</span>}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Standard NDA for deal access</div>
+                </div>
+              </Button>
+
+              {/* Fee Agreement Option */}
+              <Button
+                variant="outline"
+                className={`w-full justify-start gap-3 h-auto py-4 ${isFeeSigned ? 'opacity-60 cursor-default border-emerald-200 bg-emerald-50/50' : ''}`}
+                onClick={() => !isFeeSigned && setChosenType('fee_agreement')}
+                disabled={isFeeSigned}
+              >
+                {isFeeSigned ? (
+                  <CheckCircle className="h-5 w-5 text-emerald-600" />
+                ) : (
+                  <FileSignature className="h-5 w-5 text-primary" />
+                )}
+                <div className="text-left">
+                  <div className="font-medium">
+                    Fee Agreement
+                    {isFeeSigned && <span className="ml-2 text-xs text-emerald-600 font-normal">Signed</span>}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Advisory fee agreement for deal access</div>
+                </div>
               </Button>
             </div>
           </div>
-        )}
-
-        {embedUrl && (
-          <>
-            {!bannerDismissed && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-start gap-3 shrink-0">
-                <Info className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-blue-900">
-                    Have redlines or comments on this {docLabel}?
-                  </p>
-                  <p className="text-xs text-blue-700 mt-1 leading-relaxed">
-                    You can{' '}
-                    <button
-                      onClick={handleDownloadDraft}
-                      disabled={isDownloadingDraft}
-                      className="font-semibold underline underline-offset-2 hover:text-blue-900"
-                    >
-                      download the document
-                    </button>{' '}
-                    and send us back a redlined version, or use the{' '}
-                    <button
-                      onClick={() => {
-                        onOpenChange(false);
-                        navigate('/messages?deal=general');
-                      }}
-                      className="font-semibold underline underline-offset-2 hover:text-blue-900"
-                    >
-                      Messages
-                    </button>{' '}
-                    page to share any comments — we'll respond quickly.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setBannerDismissed(true)}
-                  className="text-blue-400 hover:text-blue-600 text-xs mt-0.5 shrink-0"
-                >
-                  Dismiss
-                </button>
+        ) : sent ? (
+          <div className="flex flex-col items-center gap-4 py-6 text-center">
+            <div className="p-3 rounded-full bg-emerald-100">
+              <CheckCircle className="h-8 w-8 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-emerald-800">Document Sent!</h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                Check your inbox at <strong>{user?.email}</strong>.
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Review, sign, and reply to <strong>adam.haile@sourcecodeals.com</strong> with the signed copy.
+              </p>
+            </div>
+            <Button onClick={handleClose} variant="outline" className="mt-2">
+              Got it
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4 py-2">
+            {/* Previous request info */}
+            {activeType && getRequestedAt(activeType) && (
+              <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg p-3">
+                <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-blue-700">
+                  An email was sent to <strong>{user?.email}</strong> on {getRequestedAt(activeType)}.
+                  You can request again below if needed.
+                </p>
               </div>
             )}
 
-            <div className="flex items-center justify-between border border-border rounded-lg px-3 py-1.5 bg-muted/50 shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs gap-1.5"
-                onClick={handleDownloadDraft}
-                disabled={isDownloadingDraft}
-              >
-                {isDownloadingDraft ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                Download PDF
-              </Button>
+            <p className="text-sm text-muted-foreground">
+              We'll email you the {docLabel} to review and sign. Once you've signed it, simply reply to the email with the signed copy attached.
+            </p>
 
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={handleZoomOut}
-                  disabled={zoomLevel <= MIN_ZOOM}
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </Button>
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-center">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              {!documentType && (
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs min-w-[3.5rem] font-mono"
-                  onClick={handleZoomReset}
+                  onClick={() => { setChosenType(null); setError(null); }}
                 >
-                  {Math.round(zoomLevel * 100)}%
+                  Back
                 </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={handleZoomIn}
-                  disabled={zoomLevel >= MAX_ZOOM}
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-
+              )}
               <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs gap-1.5"
-                onClick={() => {
-                  onOpenChange(false);
-                  navigate('/messages?deal=general');
-                }}
+                onClick={handleRequest}
+                disabled={isRequesting}
+                className="flex-1"
               >
-                <MessageSquare className="h-3.5 w-3.5" />
-                Send Comments
+                {isRequesting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send {docLabel} to My Email
+                  </>
+                )}
               </Button>
             </div>
-
-            <div className="flex-1 overflow-auto min-h-0">
-              <div
-                style={{
-                  transform: `scale(${zoomLevel})`,
-                  transformOrigin: 'top center',
-                  width: `${100 / zoomLevel}%`,
-                }}
-              >
-                <PandaDocSigningPanel
-                  embedUrl={embedUrl}
-                  onCompleted={handleSigned}
-                  successMessage={`${docLabel} signed successfully.`}
-                  successDescription="Your access has been updated. You can close this dialog."
-                  title=""
-                  description=""
-                />
-              </div>
-            </div>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>

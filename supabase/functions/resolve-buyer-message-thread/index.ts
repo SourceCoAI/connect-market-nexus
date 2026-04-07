@@ -6,10 +6,11 @@ import { requireAuth } from '../_shared/auth.ts';
 /**
  * resolve-buyer-message-thread
  *
- * Guarantees a connection_request_id for the current buyer.
- * 1. Finds the latest active request (approved/on_hold/pending).
- * 2. If none, finds the latest non-rejected request.
- * 3. If none, creates a "General Inquiry" request using the internal listing.
+ * Guarantees a connection_request_id for the "SourceCo Team" general chat.
+ * Always resolves to the General Inquiry thread (listing_id = internal UUID).
+ * 1. Finds existing General Inquiry request (any status).
+ * 2. If found and rejected, reactivates it.
+ * 3. If not found, creates one.
  *
  * Returns: { connection_request_id: string }
  */
@@ -38,44 +39,10 @@ serve(async (req: Request) => {
 
     const userId = auth.userId;
 
-    // 1. Find latest active request
-    const { data: activeReq } = await supabaseAdmin
-      .from('connection_requests')
-      .select('id')
-      .eq('user_id', userId)
-      .in('status', ['approved', 'on_hold', 'pending'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (activeReq) {
-      return new Response(
-        JSON.stringify({ connection_request_id: activeReq.id, source: 'existing_active' }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
-    }
-
-    // 2. Find latest non-rejected request (including general inquiry)
-    const { data: anyReq } = await supabaseAdmin
-      .from('connection_requests')
-      .select('id')
-      .eq('user_id', userId)
-      .neq('status', 'rejected')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (anyReq) {
-      return new Response(
-        JSON.stringify({ connection_request_id: anyReq.id, source: 'existing_non_rejected' }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
-    }
-
-    // 3. Check for existing general inquiry request (even rejected)
+    // 1. Look for existing General Inquiry thread
     const { data: existingGeneral } = await supabaseAdmin
       .from('connection_requests')
-      .select('id')
+      .select('id, status')
       .eq('user_id', userId)
       .eq('listing_id', GENERAL_INQUIRY_LISTING_ID)
       .order('created_at', { ascending: false })
@@ -84,18 +51,20 @@ serve(async (req: Request) => {
 
     if (existingGeneral) {
       // Reactivate if rejected
-      await supabaseAdmin
-        .from('connection_requests')
-        .update({ status: 'approved', updated_at: new Date().toISOString() })
-        .eq('id', existingGeneral.id);
+      if (existingGeneral.status === 'rejected') {
+        await supabaseAdmin
+          .from('connection_requests')
+          .update({ status: 'approved', updated_at: new Date().toISOString() })
+          .eq('id', existingGeneral.id);
+      }
 
       return new Response(
-        JSON.stringify({ connection_request_id: existingGeneral.id, source: 'reactivated_general' }),
+        JSON.stringify({ connection_request_id: existingGeneral.id, source: 'existing_general' }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
       );
     }
 
-    // 4. Create new General Inquiry request
+    // 2. Create new General Inquiry request
     const { data: newReq, error: insertError } = await supabaseAdmin
       .from('connection_requests')
       .insert({
