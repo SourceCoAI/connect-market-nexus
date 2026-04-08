@@ -84,14 +84,12 @@ function SortableDealCard({
   existingListing,
   getListingGaps,
   onRemove,
-  memoStatusByDeal,
 }: {
   deal: MarketplaceQueueDeal;
   index: number;
   existingListing?: { id: string; title: string };
   getListingGaps: (deal: MarketplaceQueueDeal) => string[];
   onRemove: (dealId: string, dealName: string) => void;
-  memoStatusByDeal: Record<string, { hasLeadMemo: boolean; hasTeaser: boolean }>;
 }) {
   const navigate = useNavigate();
   const hasExistingListing = !!existingListing;
@@ -291,7 +289,7 @@ function SortableDealCard({
 // ─── Main Page ───
 
 const MarketplaceQueue = () => {
-  const navigate = useNavigate();
+  // navigate available via child components
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'rank' | 'pushed_at' | 'name' | 'score'>('rank');
@@ -632,7 +630,6 @@ const MarketplaceQueue = () => {
                   existingListing={existingListingsMap?.[deal.id]}
                   getListingGaps={getListingGaps}
                   onRemove={handleRemoveFromQueue}
-                  memoStatusByDeal={memoStatusByDeal}
                 />
               ))}
             </div>
