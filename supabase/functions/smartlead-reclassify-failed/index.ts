@@ -15,6 +15,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { requireAdmin } from '../_shared/auth.ts';
+import { timingSafeEqual } from '../_shared/security.ts';
 import { DEFAULT_GEMINI_MODEL, getGeminiApiKey, GEMINI_API_URL } from '../_shared/ai-providers.ts';
 
 /** Strip HTML tags and collapse whitespace */
