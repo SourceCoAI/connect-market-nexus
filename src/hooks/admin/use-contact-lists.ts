@@ -205,8 +205,30 @@ export function useContactList(listId: string | undefined) {
         }
       }
 
+      // Enrich members missing contact_id by looking up contacts table by email
+      const membersWithoutContact = (members ?? []).filter(
+        (m) => !m.contact_id && m.contact_email,
+      );
+      const missingEmails = membersWithoutContact.map((m) => m.contact_email);
+      const contactByEmail: Record<
+        string,
+        { first_name: string | null; last_name: string | null; email: string | null; phone: string | null; title: string | null; company_name: string | null }
+      > = {};
+
+      if (missingEmails.length > 0) {
+        const { data: lookedUp } = await supabase
+          .from('contacts')
+          .select('first_name, last_name, email, phone, title, company_name')
+          .in('email', missingEmails);
+        for (const c of lookedUp ?? []) {
+          if (c.email) contactByEmail[c.email] = c;
+        }
+      }
+
       const enrichedMembers: ContactListMember[] = (members ?? []).map((m) => ({
         ...m,
+        // If FK join returned no contact data, use email-based lookup
+        contact: m.contact ?? contactByEmail[m.contact_email] ?? null,
         last_call_date: callData[m.contact_email]?.last_call ?? null,
         total_calls: callData[m.contact_email]?.total_calls ?? 0,
         last_disposition: callData[m.contact_email]?.last_disposition ?? null,
