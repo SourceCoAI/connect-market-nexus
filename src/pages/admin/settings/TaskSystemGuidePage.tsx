@@ -26,9 +26,6 @@ import {
   Phone,
   ArrowDown,
   Shield,
-  GripVertical,
-  Tag,
-  Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,9 +41,9 @@ interface GuideSection {
 
 function ProTip({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 mt-3">
-      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">Pro Tip</p>
-      <p className="text-sm text-blue-900">{children}</p>
+    <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-4 py-3 mt-3">
+      <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wider mb-1">Pro Tip</p>
+      <p className="text-sm text-blue-900 dark:text-blue-400">{children}</p>
     </div>
   );
 }
@@ -147,12 +144,12 @@ function buildSections(): GuideSection[] {
       subtitle: 'How tasks are auto-extracted from meetings',
       content: (
         <div className="space-y-3">
-          <div className="rounded-lg bg-purple-50 border border-purple-200 px-4 py-3">
-            <p className="text-sm font-semibold text-purple-800 mb-1">
-              Tag your meetings with <code className="bg-purple-100 px-1.5 py-0.5 rounded text-xs">&lt;ds&gt;</code>
+          <div className="rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 px-4 py-3">
+            <p className="text-sm font-semibold text-purple-800 dark:text-purple-300 mb-1">
+              Tag your meetings with <code className="bg-purple-100 dark:bg-purple-900/50 px-1.5 py-0.5 rounded text-xs">&lt;ds&gt;</code>
             </p>
-            <p className="text-xs text-purple-700">
-              Include <code className="bg-purple-100 px-1 rounded">&lt;ds&gt;</code> anywhere in
+            <p className="text-xs text-purple-700 dark:text-purple-400">
+              Include <code className="bg-purple-100 dark:bg-purple-900/50 px-1 rounded">&lt;ds&gt;</code> anywhere in
               your meeting title (e.g., "Daily Standup &lt;ds&gt;") for automatic task extraction.
               Meetings without this tag are skipped.
             </p>
@@ -304,8 +301,14 @@ function buildSections(): GuideSection[] {
               </ul>
             </div>
           </div>
+          <div className="bg-muted/50 rounded-lg p-3">
+            <p className="text-xs font-semibold mb-1">Custom Templates</p>
+            <p className="text-xs text-muted-foreground">
+              Custom templates can be stored in the database and triggered on stage entry. Apply templates from any deal detail page via the <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">Start Deal Process</code> button.
+            </p>
+          </div>
           <ProTip>
-            Apply templates from any deal detail page via the "Start Deal Process" button. Stage-triggered templates run automatically when a deal enters a matching stage.
+            Use the "Start Deal Process" button on a deal detail page to apply the full template suite for that stage. It creates all the tasks at once with proper dependencies and due dates.
           </ProTip>
         </div>
       ),
@@ -357,11 +360,11 @@ function buildSections(): GuideSection[] {
         <div className="space-y-3">
           <div className="grid gap-2">
             {[
-              { icon: <Users className="h-4 w-4" />, label: 'My Tasks vs All Tasks', desc: 'Toggle between personal and team-wide view. "All" requires owner or admin role.' },
-              { icon: <GripVertical className="h-4 w-4" />, label: 'Team Workload', desc: 'Visual bar chart showing open tasks per team member, broken down by priority.' },
-              { icon: <Bell className="h-4 w-4" />, label: 'Reassignment', desc: 'Reassign tasks to any team member. They receive an in-app notification and email.' },
-              { icon: <Calendar className="h-4 w-4" />, label: 'Calendar View', desc: 'Month view with task dots colored by priority. Click any day to see tasks.' },
-              { icon: <Tag className="h-4 w-4" />, label: 'Tags', desc: 'Free-form tags for custom categorization. Filter by tags in the filter bar.' },
+              { icon: <Users className="h-4 w-4" />, label: 'My Tasks vs All Tasks', desc: 'Toggle between personal and team-wide view. "All Tasks" requires a leadership role to access.' },
+              { icon: <Target className="h-4 w-4" />, label: 'Team Workload', desc: 'Visual bar chart showing open tasks per team member, broken down by priority.' },
+              { icon: <ArrowDown className="h-4 w-4" />, label: 'Reassignment', desc: 'Reassign tasks to any team member. They receive an in-app notification and email.' },
+              { icon: <Calendar className="h-4 w-4" />, label: 'Calendar View', desc: 'Month view with task dots colored by priority (red for high, amber for medium, gray for low). Click any day to see tasks.' },
+              { icon: <ListChecks className="h-4 w-4" />, label: 'Tags', desc: 'Free-form tags for custom categorization and filtering across any view.' },
             ].map((feature) => (
               <div key={feature.label} className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
                 <div className="shrink-0 mt-0.5">{feature.icon}</div>
@@ -460,59 +463,56 @@ function buildSections(): GuideSection[] {
 
 // ─── Main Page ───
 
-const TaskSystemGuidePage = () => {
+export default function TaskSystemGuidePage() {
   const sections = buildSections();
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['quick-start']));
+  const [openSections, setOpenSections] = useState<string[]>(['quick-start']);
 
-  const toggle = (id: string) => {
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggleSection = (id: string) => {
+    setOpenSections((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
   };
 
   return (
-    <div className="px-4 md:px-8 py-6 space-y-5 max-w-4xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <BookOpen className="h-5 w-5" />
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <BookOpen className="h-6 w-6" />
           Task System Guide
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Learn how the task extraction, standup tracking, and automation system works.
+        <p className="text-muted-foreground">
+          Learn how the task extraction, standup tracking, and automation system works
         </p>
       </div>
 
-      {/* Sections */}
       <div className="space-y-3">
         {sections.map((section) => {
-          const isOpen = openSections.has(section.id);
+          const isOpen = openSections.includes(section.id);
           return (
-            <Collapsible key={section.id} open={isOpen} onOpenChange={() => toggle(section.id)}>
+            <Collapsible key={section.id} open={isOpen} onOpenChange={() => toggleSection(section.id)}>
               <Card>
                 <CollapsibleTrigger asChild>
-                  <CardHeader className="pb-3 pt-4 px-5 cursor-pointer hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <CardHeader className="cursor-pointer select-none hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
                         {section.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="text-sm font-semibold">{section.title}</CardTitle>
-                        <p className="text-xs text-muted-foreground mt-0.5">{section.subtitle}</p>
+                        <div>
+                          <CardTitle className="text-lg">{section.title}</CardTitle>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            {section.subtitle}
+                          </p>
+                        </div>
                       </div>
                       {isOpen ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
                       )}
                     </div>
                   </CardHeader>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <CardContent className="px-5 pb-5 pt-0">{section.content}</CardContent>
+                  <CardContent>{section.content}</CardContent>
                 </CollapsibleContent>
               </Card>
             </Collapsible>
@@ -521,6 +521,4 @@ const TaskSystemGuidePage = () => {
       </div>
     </div>
   );
-};
-
-export default TaskSystemGuidePage;
+}
