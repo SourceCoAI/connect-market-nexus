@@ -11,7 +11,7 @@
 CREATE TABLE IF NOT EXISTS portal_organizations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
-  buyer_id uuid REFERENCES remarketing_buyers(id) ON DELETE SET NULL,
+  buyer_id uuid REFERENCES buyers(id) ON DELETE SET NULL,
   profile_id uuid REFERENCES profiles(id) ON DELETE SET NULL,
   relationship_owner_id uuid REFERENCES profiles(id) ON DELETE SET NULL,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'archived')),
