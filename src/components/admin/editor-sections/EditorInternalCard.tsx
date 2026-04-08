@@ -36,7 +36,7 @@ const BUYER_TYPES = [
 export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { data: sourceCoAdmins, isLoading: loadingAdmins } = useSourceCoAdmins();
-  const { user } = useAuthState();
+  const { user } = useAuth();
   const visibleToBuyerTypes = form.watch('visible_to_buyer_types') || [];
   
 

@@ -22,7 +22,7 @@ interface PageEngagementTrackerProps {
  */
 const PageEngagementTrackerInner: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
-  const { user } = useAuthState();
+  const { user } = useAuth();
   const { handlePageChange } = usePageEngagement(user?.id);
   const previousPathRef = useRef<string>(location.pathname);
 
