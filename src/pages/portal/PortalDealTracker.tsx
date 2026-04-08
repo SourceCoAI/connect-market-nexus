@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, DollarSign, MapPin, Building2, MessageSquare, LayoutGrid, List } from 'lucide-react';
+import { ChevronLeft, DollarSign, MapPin, Building2, MessageSquare, LayoutGrid, List, Globe, ExternalLink } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
@@ -28,6 +28,15 @@ function formatCurrency(value: number | null | undefined): string {
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
   return `$${value.toLocaleString()}`;
+}
+
+function formatWebsiteUrl(url: string): string {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
+
+function ensureProtocol(url: string): string {
+  if (/^https?:\/\//.test(url)) return url;
+  return `https://${url}`;
 }
 
 export default function PortalDealTracker() {
@@ -150,6 +159,7 @@ export default function PortalDealTracker() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Company</TableHead>
+                  <TableHead>Website</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Industry</TableHead>
                   <TableHead className="text-right">Revenue</TableHead>
@@ -184,6 +194,22 @@ export default function PortalDealTracker() {
                             </span>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {deal.deal_snapshot?.website ? (
+                          <a
+                            href={ensureProtocol(deal.deal_snapshot.website)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline text-sm"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {formatWebsiteUrl(deal.deal_snapshot.website)}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-muted-foreground">
                         {deal.deal_snapshot?.geography || '-'}
@@ -267,6 +293,20 @@ export default function PortalDealTracker() {
                           </div>
                         )}
                       </div>
+
+                      {deal.deal_snapshot?.website && (
+                        <a
+                          href={ensureProtocol(deal.deal_snapshot.website)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Globe className="h-3.5 w-3.5" />
+                          {formatWebsiteUrl(deal.deal_snapshot.website)}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
 
                       {/* Memo excerpt: show first section */}
                       {deal.deal_snapshot?.teaser_sections?.[0]?.content && (
