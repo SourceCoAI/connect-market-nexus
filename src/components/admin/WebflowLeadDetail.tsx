@@ -237,14 +237,27 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
                   <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {request.user.email}</span>
                 )}
                 {request.user.approval_status && (
-                  <Badge variant={
-                    request.user.approval_status === 'approved' ? 'success' :
-                    request.user.approval_status === 'rejected' ? 'destructive' : 'sent'
-                  } className="text-[10px] px-1.5 py-0 inline-flex items-center gap-0.5">
-                    <User className="h-2.5 w-2.5" />
-                    {request.user.approval_status === 'approved' ? 'Mkt. Approved' :
-                     request.user.approval_status === 'rejected' ? 'Mkt. Rejected' : 'Mkt. Not Approved'}
-                  </Badge>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant={
+                          request.user.approval_status === 'approved' ? 'success' :
+                          request.user.approval_status === 'rejected' ? 'destructive' : 'sent'
+                        } className="text-[10px] px-1.5 py-0 inline-flex items-center gap-0.5 cursor-help">
+                          <User className="h-2.5 w-2.5" />
+                          {request.user.approval_status === 'approved' ? 'Mkt. Approved' :
+                           request.user.approval_status === 'rejected' ? 'Mkt. Rejected' : 'Mkt. Not Approved'}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {request.user.approval_status === 'approved'
+                          ? 'This user has been approved to use the SourceCo Marketplace.'
+                          : request.user.approval_status === 'rejected'
+                          ? "This user's marketplace account application was rejected."
+                          : 'This user has a marketplace account but has not yet been approved.'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             )}
