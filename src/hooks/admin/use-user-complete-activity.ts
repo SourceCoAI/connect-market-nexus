@@ -83,6 +83,7 @@ export function useUserCompleteActivity(userId: string) {
 
       if (connectionRequests) {
         for (const request of connectionRequests) {
+          if (!request.listing_id) continue;
           const { data: listingData, error: listingDataError } = await supabase
             .from('listings')
             .select('title, id')

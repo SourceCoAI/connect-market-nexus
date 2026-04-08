@@ -44,7 +44,7 @@ export function useUserConnectionRequests(userId: string) {
 
       const enhancedRequests = requests.map(request => {
         const userData = request.user_id ? profileMap.get(request.user_id) : undefined;
-        const listingData = listingMap.get(request.listing_id);
+        const listingData = request.listing_id ? listingMap.get(request.listing_id) : undefined;
 
         const followedUpByAdmin = request.followed_up_by
           ? (profileMap.get(request.followed_up_by) ? createUserObject(profileMap.get(request.followed_up_by)!) : null)

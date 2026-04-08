@@ -155,7 +155,7 @@ export function useAdminStats() {
 
             const connectionActivities = connections.map((connection) => {
               const userData = connection.user_id ? userMap.get(connection.user_id) : undefined;
-              const listingData = listingMap.get(connection.listing_id);
+              const listingData = connection.listing_id ? listingMap.get(connection.listing_id) : undefined;
               const userName = userData
                 ? `${userData.first_name} ${userData.last_name}`
                 : 'Unknown User';

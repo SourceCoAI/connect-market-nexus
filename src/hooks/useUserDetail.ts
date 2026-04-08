@@ -268,7 +268,7 @@ export function useUserDetail(visitorId: string | null) {
           .eq('user_id', visitorId)
           .order('created_at', { ascending: true });
         if (connectionsError) throw connectionsError;
-        connections = data || [];
+        connections = (data || []).map(d => ({ ...d, listing_id: d.listing_id || '' }));
       }
 
       // Determine if anonymous

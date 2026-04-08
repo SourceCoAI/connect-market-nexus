@@ -84,8 +84,8 @@ export function useSmartAlerts() {
         });
 
         listingConnections?.forEach(connection => {
-          if (listingDataMap.has(connection.listing_id)) {
-            listingDataMap.get(connection.listing_id)!.connections.push(connection);
+          if (connection.listing_id && listingDataMap.has(connection.listing_id)) {
+            listingDataMap.get(connection.listing_id)!.connections.push(connection as { listing_id: string; created_at: string | null });
           }
         });
 

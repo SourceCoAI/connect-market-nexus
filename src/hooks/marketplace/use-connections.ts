@@ -219,7 +219,7 @@ export const useAllConnectionStatuses = () => {
 
         const map = new Map<string, { exists: boolean; status: string; id: string }>();
         for (const row of data || []) {
-          map.set(row.listing_id, { exists: true, status: row.status, id: row.id });
+          if (row.listing_id) map.set(row.listing_id, { exists: true, status: row.status, id: row.id });
         }
         return map;
       } catch (error: unknown) {

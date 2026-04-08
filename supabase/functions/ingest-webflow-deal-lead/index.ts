@@ -172,7 +172,7 @@ Deno.serve(async (req: Request) => {
     };
 
     const insertData: Record<string, unknown> = {
-      source: "webflow_deal_memo",
+      source: "webflow",
       status: "pending",
       source_metadata: sourceMetadata,
       lead_name: name || null,

@@ -155,7 +155,7 @@ export function useRecentActivity(limit: number = 50) {
             description: `Requested connection for: ${connection.listings?.title || 'Unknown listing'}`,
             metadata: {
               listing_title: connection.listings?.title ?? undefined,
-              listing_id: connection.listing_id
+              listing_id: connection.listing_id ?? undefined
             }
           });
         }

@@ -59,7 +59,7 @@ export function useConnectionRequestsMutation() {
         const { data: listingData, error: listingError } = await supabase
           .from('listings')
           .select('*')
-          .eq('id', requestData.listing_id)
+          .eq('id', requestData.listing_id!)
           .maybeSingle();
         
         if (listingError) {
