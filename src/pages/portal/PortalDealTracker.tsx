@@ -104,7 +104,7 @@ export default function PortalDealTracker() {
                   <CardContent className="pt-5 space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-semibold text-sm leading-tight">
-                        {deal.deal_snapshot?.headline || 'Untitled Deal'}
+                        {deal.deal_snapshot?.project_name || deal.deal_snapshot?.headline || 'Untitled Deal'}
                       </h3>
                       <div className="flex items-center gap-1 shrink-0">
                         <PriorityBadge priority={deal.priority} />
@@ -138,6 +138,13 @@ export default function PortalDealTracker() {
                         </div>
                       )}
                     </div>
+
+                    {/* Teaser excerpt: show first section (business overview) */}
+                    {deal.deal_snapshot?.teaser_sections?.[0]?.content && (
+                      <p className="text-xs text-muted-foreground border-t pt-2 line-clamp-3">
+                        {deal.deal_snapshot.teaser_sections[0].content}
+                      </p>
+                    )}
 
                     {deal.push_note && (
                       <p className="text-xs text-muted-foreground italic border-t pt-2 truncate">

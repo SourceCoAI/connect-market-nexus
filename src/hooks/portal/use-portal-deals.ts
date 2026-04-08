@@ -8,6 +8,7 @@ import type {
   PushDealToPortalInput,
   SubmitDealResponseInput,
   DealSnapshot,
+  TeaserSection,
 } from '@/types/portal';
 
 const PORTAL_PUSHES_KEY = 'portal-deal-pushes';
@@ -122,44 +123,71 @@ export function usePortalDealResponses(pushId: string | undefined) {
   });
 }
 
-/** Build a deal snapshot from a listing using actual DB columns */
+/** Build a deal snapshot from a listing + its anonymous teaser.
+ *  Throws if no published teaser exists — deals must have a teaser before being pushed to portal. */
 async function buildDealSnapshot(listingId: string): Promise<DealSnapshot> {
-  // Try marketplace_listings view first (buyer-safe, active deals only)
-  const { data, error } = await supabase
-    .from('marketplace_listings')
-    .select('id, title, category, categories, location, revenue, ebitda, description')
+  // 1. Fetch listing basics
+  const { data: listing, error: listError } = await supabase
+    .from('listings')
+    .select('id, title, category, categories, location, revenue, ebitda, description, project_name')
     .eq('id', listingId)
     .maybeSingle();
 
-  if (error || !data) {
-    // Fallback: fetch from listings directly (for internal/inactive deals)
-    const { data: listing, error: listError } = await supabase
-      .from('listings')
-      .select('id, title, category, categories, location, revenue, ebitda, description')
-      .eq('id', listingId)
-      .maybeSingle();
+  if (listError || !listing) throw new Error('Listing not found');
 
-    if (listError || !listing) throw new Error('Listing not found');
+  // 2. Fetch the published anonymous teaser
+  const { data: teaser } = await supabase
+    .from('lead_memos')
+    .select('content, html_content, branding, status')
+    .eq('deal_id', listingId)
+    .eq('memo_type', 'anonymous_teaser')
+    .in('status', ['published', 'completed', 'draft'])
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-    return {
-      headline: listing.title || 'Untitled Deal',
-      industry: listing.category || '',
-      geography: listing.location || '',
-      ebitda: listing.ebitda,
-      revenue: listing.revenue,
-      business_description: listing.description || undefined,
-      category: listing.category || undefined,
-    };
+  if (!teaser) {
+    throw new Error('This deal has no teaser generated. Generate a teaser before pushing to a portal.');
+  }
+
+  // 3. Fetch the full memo HTML (for the detailed view)
+  const { data: fullMemo } = await supabase
+    .from('lead_memos')
+    .select('html_content, status')
+    .eq('deal_id', listingId)
+    .eq('memo_type', 'full_memo')
+    .in('status', ['published', 'completed', 'draft'])
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // Extract teaser sections from content JSONB
+  const teaserContent = teaser.content as Record<string, unknown> | null;
+  const sections: TeaserSection[] = [];
+  if (teaserContent && Array.isArray(teaserContent.sections)) {
+    for (const s of teaserContent.sections) {
+      if (s && typeof s === 'object' && 'key' in s && 'title' in s && 'content' in s) {
+        sections.push({
+          key: String(s.key),
+          title: String(s.title),
+          content: String(s.content),
+        });
+      }
+    }
   }
 
   return {
-    headline: data.title || 'Untitled Deal',
-    industry: data.category || '',
-    geography: data.location || '',
-    ebitda: data.ebitda,
-    revenue: data.revenue,
-    business_description: data.description || undefined,
-    category: data.category || undefined,
+    headline: (teaserContent?.company_name as string) || listing.project_name || listing.title || 'Untitled Deal',
+    industry: listing.category || '',
+    geography: listing.location || '',
+    ebitda: listing.ebitda,
+    revenue: listing.revenue,
+    business_description: listing.description || undefined,
+    category: listing.category || undefined,
+    teaser_sections: sections.length > 0 ? sections : undefined,
+    memo_html: fullMemo?.html_content || teaser.html_content || undefined,
+    project_name: (teaserContent?.company_name as string) || listing.project_name || undefined,
+    branding: teaser.branding || undefined,
   };
 }
 

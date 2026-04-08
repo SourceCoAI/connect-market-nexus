@@ -413,55 +413,54 @@ export function DealBulkActionBar({
           </DropdownMenu>
         )}
 
-        {/* ---- Not a Fit / Archive / Delete ---- */}
-        {(onMarkNotFit || onArchive || onDelete) && <div className="h-5 w-px bg-border" />}
-        {onMarkNotFit && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowNotFitDialog(true)}
-            disabled={isMarkingNotFit}
-            className="gap-2 text-orange-600 border-orange-200 hover:bg-orange-50"
-          >
-            {isMarkingNotFit ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ThumbsDown className="h-4 w-4" />
-            )}
-            Not a Fit
-          </Button>
-        )}
-        {onArchive && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowArchiveDialog(true)}
-            disabled={isArchiving}
-            className="gap-2"
-          >
-            {isArchiving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Archive className="h-4 w-4" />
-            )}
-            Archive
-          </Button>
-        )}
-        {onDelete && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowDeleteDialog(true)}
-            disabled={isDeleting}
-            className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
-          >
-            {isDeleting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="h-4 w-4" />
-            )}
-            Delete
-          </Button>
+        {/* ---- Dismiss dropdown (Not a Fit / Archive / Delete) ---- */}
+        {(onMarkNotFit || onArchive || onDelete) && (
+          <>
+            <div className="h-5 w-px bg-border" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10">
+                  <Trash2 className="h-4 w-4" />
+                  Dismiss
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onMarkNotFit && (
+                  <DropdownMenuItem
+                    onClick={() => setShowNotFitDialog(true)}
+                    disabled={isMarkingNotFit}
+                    className="text-orange-600 focus:text-orange-600"
+                  >
+                    <ThumbsDown className="h-4 w-4 mr-2" />
+                    Not a Fit
+                  </DropdownMenuItem>
+                )}
+                {onArchive && (
+                  <DropdownMenuItem
+                    onClick={() => setShowArchiveDialog(true)}
+                    disabled={isArchiving}
+                  >
+                    <Archive className="h-4 w-4 mr-2" />
+                    Archive
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setShowDeleteDialog(true)}
+                      disabled={isDeleting}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
         )}
       </div>
 

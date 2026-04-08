@@ -93,6 +93,12 @@ export interface PortalUser {
   updated_at: string;
 }
 
+export interface TeaserSection {
+  key: string;
+  title: string;
+  content: string;
+}
+
 export interface DealSnapshot {
   headline: string;
   industry: string;
@@ -102,6 +108,14 @@ export interface DealSnapshot {
   revenue: number | null;
   business_description?: string;
   category?: string;
+  /** Anonymous teaser sections (BUSINESS OVERVIEW, DEAL SNAPSHOT, KEY FACTS, etc.) */
+  teaser_sections?: TeaserSection[];
+  /** Full memo HTML (rich text from TipTap editor) */
+  memo_html?: string;
+  /** Project codename used in the teaser */
+  project_name?: string;
+  /** Branding for the memo (sourceco, new_heritage, etc.) */
+  branding?: string;
 }
 
 export interface PortalDealPush {

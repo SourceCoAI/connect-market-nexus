@@ -124,7 +124,7 @@ export default function PortalDashboard() {
                         <FileText className="h-5 w-5 text-muted-foreground" />
                         <div>
                           <p className="font-medium text-sm">
-                            {deal.deal_snapshot?.headline || 'Untitled Deal'}
+                            {deal.deal_snapshot?.project_name || deal.deal_snapshot?.headline || 'Untitled Deal'}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {deal.deal_snapshot?.industry}

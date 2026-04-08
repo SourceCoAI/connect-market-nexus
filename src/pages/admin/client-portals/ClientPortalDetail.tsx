@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Send, Users, Activity, Settings, Plus, ArrowRight, Building2, Globe, RefreshCw, Pause, Archive, Download, MessageSquare } from 'lucide-react';
+import { ChevronLeft, Send, Users, Activity, Settings, Plus, ArrowRight, Building2, Globe, RefreshCw, Pause, Archive, Download, MessageSquare, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -111,6 +111,12 @@ export default function ClientPortalDetail() {
           )}
         </div>
         <div className="flex gap-2">
+          <Link to={`/portal/${slug}`} target="_blank">
+            <Button variant="outline" size="sm">
+              <Eye className="h-3.5 w-3.5 mr-1" />
+              Preview as Client
+            </Button>
+          </Link>
           {org.status === 'active' && (
             <>
               <Button
