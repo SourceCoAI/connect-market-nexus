@@ -84,7 +84,6 @@ function SortableDealCard({
   existingListing,
   getListingGaps,
   onRemove,
-  memoStatusByDeal,
 }: {
   deal: MarketplaceQueueDeal;
   index: number;
