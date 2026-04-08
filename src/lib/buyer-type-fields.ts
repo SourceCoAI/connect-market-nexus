@@ -26,6 +26,7 @@ export const BUYER_TYPE_FIELD_MAPPINGS = {
     'job_title',
   ],
   profile: [
+    'bio',
     'ideal_target_description',
     'business_categories',
     'target_locations',
