@@ -25,7 +25,7 @@ export function ConnectionRequestFirmBadge({ requestId, compact = false }: Conne
 
   const content = (
     <Link
-      to="/admin/buyers/firm-agreements"
+      to={`/admin/buyers/pe-firms/${firmInfo.firm_id}`}
       className="inline-flex items-center gap-1 text-sm text-foreground hover:text-primary transition-colors"
       onClick={(e) => e.stopPropagation()}
     >
