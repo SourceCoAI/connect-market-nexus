@@ -7816,6 +7816,7 @@ export type Database = {
           universe_build_flagged_by: string | null
           updated_at: string
           visible_to_buyer_types: string[] | null
+          webflow_slug: string | null
           website: string | null
         }
         Insert: {
@@ -8016,6 +8017,7 @@ export type Database = {
           universe_build_flagged_by?: string | null
           updated_at?: string
           visible_to_buyer_types?: string[] | null
+          webflow_slug?: string | null
           website?: string | null
         }
         Update: {
@@ -8216,6 +8218,7 @@ export type Database = {
           universe_build_flagged_by?: string | null
           updated_at?: string
           visible_to_buyer_types?: string[] | null
+          webflow_slug?: string | null
           website?: string | null
         }
         Relationships: [
@@ -13839,6 +13842,7 @@ export type Database = {
           universe_build_flagged_by: string | null
           updated_at: string
           visible_to_buyer_types: string[] | null
+          webflow_slug: string | null
           website: string | null
         }[]
         SetofOptions: {
