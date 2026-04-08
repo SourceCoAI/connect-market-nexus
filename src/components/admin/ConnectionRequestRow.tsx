@@ -641,7 +641,10 @@ export function ConnectionRequestRow({
                   />
                 </>
               ) : request.source === 'webflow' ? (
-                <WebflowLeadDetail request={request} />
+                <>
+                  <WebflowLeadDetail request={request} />
+                  <LeadRequestActions request={request} />
+                </>
               ) : request.user ? (
                 <ConnectionRequestActions
                   user={request.user}
