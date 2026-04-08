@@ -1,37 +1,36 @@
 
 
-# Fix Webflow Lead Workflow + Badge Improvements
+# Show User Approval Status on Connection Requests
 
-## Bug Found: Guest Webflow Leads Have No Action Buttons
+## Problem
 
-In `ConnectionRequestRow.tsx` lines 643-644, when a Webflow lead has no matched user, only `<WebflowLeadDetail>` renders — **no accept/decline/on hold/flag buttons**. The `LeadRequestActions` component (which has those buttons) is never shown.
-
-**Fix**: Add `<LeadRequestActions request={request} />` below `<WebflowLeadDetail>` for guest Webflow leads (line 643-644 branch).
-
-## Webflow Leads Are Flowing Correctly
-
-The edge function is processing new submissions successfully. Latest lead (Brian Underkofler) was ingested at 17:10 UTC with correct slug matching, listing association, and admin notification. All 15 Webflow leads are in the database.
-
-## Accept/Decline Code Path Verification
-
-Both `useUpdateConnectionRequestStatus` and `useConnectionRequestsMutation` operate on `connection_requests` by `id` — they don't filter by `source` or require a `user_id`. So accepting/declining a Webflow lead works identically to a marketplace request at the database level. The only gap was the missing UI buttons for guest leads (fixed above).
-
-## UI: Add Tooltip to "Marketplace" Badge + Make Both Badges More Prominent
-
-**SourceBadge.tsx** currently renders plain `<Badge>` components without tooltips. Changes:
-
-1. Wrap the `SourceBadge` in a `Tooltip` for both `marketplace` and `webflow` (and optionally all sources)
-2. Marketplace tooltip: *"This request was submitted through the SourceCo Marketplace by a registered user."*
-3. Make both the "Lead-Only" and "Marketplace" badges more visually prominent:
-   - **Marketplace**: Use a stronger green tint (`bg-emerald-500/15 text-emerald-700 border-emerald-500/30`) with a `ShoppingBag` or `Store` icon instead of the current muted gray
-   - **Lead-Only**: Use a stronger amber/orange tint (`bg-amber-500/15 text-amber-700 border-amber-500/30`) to clearly signal external origin
-   - **Webflow**: Keep the existing blue styling
+When a connection request is linked to an existing marketplace profile, there's no indication whether that user is approved, pending, or rejected. Screenshots show "Matched to Marketplace Profile" but no approval status — admins need this at a glance.
 
 ## Changes
 
+### 1. Collapsed row header (ConnectionRequestRow.tsx, ~line 542-544)
+
+After the existing `BuyerTierBadge`, add an approval status badge when `request.user` exists:
+
+- **Approved**: small emerald dot/badge — subtle since this is the expected state
+- **Pending**: amber badge "Pending" — stands out as a warning
+- **Rejected**: red badge "Rejected" — clear alert
+
+### 2. WebflowLeadDetail "Matched to Marketplace Profile" card (~line 228-239)
+
+Add an approval status badge inline with the user info row. Same color coding:
+- Approved: emerald "Approved" badge
+- Pending: amber "Pending Approval" badge  
+- Rejected: red "Rejected" badge
+
+### 3. Expanded marketplace view (ConnectionRequestRow.tsx)
+
+For standard marketplace requests in the expanded detail, add the same approval indicator near where the user profile info is displayed.
+
+## Files
+
 | File | Change |
 |------|--------|
-| `src/components/admin/ConnectionRequestRow.tsx` | Line 643-644: Add `<LeadRequestActions>` below `<WebflowLeadDetail>` for guest Webflow leads |
-| `src/components/admin/SourceBadge.tsx` | Wrap badge in Tooltip; update marketplace styling to emerald green; add descriptive tooltip text per source |
-| `src/components/admin/ConnectionRequestRow.tsx` | Update "Lead-Only" badge styling from neutral `outline` to amber tint for prominence |
+| `src/components/admin/ConnectionRequestRow.tsx` | Add approval status badge in collapsed header (~line 542) and expanded detail |
+| `src/components/admin/WebflowLeadDetail.tsx` | Add approval status badge inside "Matched to Marketplace Profile" card (~line 228) |
 
