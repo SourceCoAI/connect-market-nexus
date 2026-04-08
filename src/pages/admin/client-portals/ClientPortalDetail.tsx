@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Send, Users, Activity, Settings, Plus, ArrowRight, Building2, Globe, RefreshCw, Pause, Archive, Download, MessageSquare, Eye } from 'lucide-react';
+import { ChevronLeft, Send, Users, Activity, Settings, Plus, ArrowRight, Building2, Globe, RefreshCw, Pause, Archive, Download, MessageSquare, Eye, ExternalLink, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -38,8 +38,20 @@ function formatDate(dateStr: string | null | undefined): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function daysSince(dateStr: string): number {
-  return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
+function formatCurrency(value: number | null | undefined): string {
+  if (!value) return '-';
+  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
+  return `$${value.toLocaleString()}`;
+}
+
+function ensureProtocol(url: string): string {
+  if (/^https?:\/\//.test(url)) return url;
+  return `https://${url}`;
+}
+
+function formatWebsiteUrl(url: string): string {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 }
 
 export default function ClientPortalDetail() {
@@ -58,6 +70,7 @@ export default function ClientPortalDetail() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [expandedPushId, setExpandedPushId] = useState<string | null>(null);
+  const [memoExpandedPushId, setMemoExpandedPushId] = useState<string | null>(null);
 
   if (isLoading) return <div className="py-12 text-center text-muted-foreground">Loading...</div>;
   if (!org) return <div className="py-12 text-center text-muted-foreground">Portal not found.</div>;
@@ -271,51 +284,79 @@ export default function ClientPortalDetail() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Deal</TableHead>
+                    <TableHead>Company</TableHead>
+                    <TableHead>Website</TableHead>
+                    <TableHead>Location</TableHead>
                     <TableHead>Industry</TableHead>
-                    <TableHead>EBITDA</TableHead>
-                    <TableHead>Pushed By</TableHead>
-                    <TableHead>Push Date</TableHead>
-                    <TableHead>Days</TableHead>
+                    <TableHead className="text-right">Revenue</TableHead>
+                    <TableHead className="text-right">EBITDA</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Date</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPushes.map((push) => (
+                  {filteredPushes.map((push) => {
+                    const description =
+                      push.deal_snapshot?.business_description ||
+                      push.deal_snapshot?.teaser_sections?.[0]?.content ||
+                      '';
+                    const hasMemo = !!(push.deal_snapshot?.memo_html || push.deal_snapshot?.teaser_sections?.length || push.deal_snapshot?.business_description);
+
+                    return (
                     <React.Fragment key={push.id}>
                     <TableRow>
-                      <TableCell className="max-w-[250px]">
-                        <div className="font-medium truncate">
+                      <TableCell className="max-w-[200px]">
+                        <Link
+                          to={`/admin/deals/${push.listing_id}`}
+                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block"
+                        >
                           {push.deal_snapshot?.headline || 'Untitled'}
-                        </div>
+                        </Link>
                         {push.latest_response?.notes && (
                           <p className="text-xs text-muted-foreground truncate mt-0.5 italic">
                             "{push.latest_response.notes}"
                           </p>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell className="whitespace-nowrap">
+                        {push.deal_snapshot?.website ? (
+                          <a
+                            href={ensureProtocol(push.deal_snapshot.website)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline text-sm"
+                          >
+                            {formatWebsiteUrl(push.deal_snapshot.website)}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                        {push.deal_snapshot?.geography || '-'}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                         {push.deal_snapshot?.industry || '-'}
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {push.deal_snapshot?.ebitda
-                          ? `$${(push.deal_snapshot.ebitda / 1000000).toFixed(1)}M`
-                          : '-'}
+                      <TableCell className="text-right whitespace-nowrap text-sm text-muted-foreground">
+                        {formatCurrency(push.deal_snapshot?.revenue)}
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {push.pushed_by_profile
-                          ? `${push.pushed_by_profile.first_name} ${push.pushed_by_profile.last_name}`
-                          : '-'}
+                      <TableCell className="text-right whitespace-nowrap text-sm text-muted-foreground">
+                        {formatCurrency(push.deal_snapshot?.ebitda)}
                       </TableCell>
-                      <TableCell className="text-sm">{formatDate(push.created_at)}</TableCell>
-                      <TableCell className="text-sm">{daysSince(push.created_at)}d</TableCell>
+                      <TableCell className="max-w-[200px]">
+                        <p className="text-muted-foreground text-xs line-clamp-2">
+                          {description || '-'}
+                        </p>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                        {formatDate(push.created_at)}
+                      </TableCell>
                       <TableCell>
                         <PushStatusBadge status={push.status} />
-                      </TableCell>
-                      <TableCell>
-                        <PriorityBadge priority={push.priority} />
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -341,6 +382,17 @@ export default function ClientPortalDetail() {
                           {push.status === 'under_nda' && (
                             <span className="text-xs text-emerald-600 font-medium">In Pipeline</span>
                           )}
+                          {hasMemo && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7 w-7 p-0"
+                              title="View Lead Memo"
+                              onClick={() => setMemoExpandedPushId(memoExpandedPushId === push.id ? null : push.id)}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -362,9 +414,42 @@ export default function ClientPortalDetail() {
                         </div>
                       </TableCell>
                     </TableRow>
+                    {memoExpandedPushId === push.id && (
+                      <TableRow>
+                        <TableCell colSpan={10} className="bg-muted/30 p-6">
+                          <div className="max-w-3xl">
+                            <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              Lead Memo — {push.deal_snapshot?.headline}
+                            </h4>
+                            {push.deal_snapshot?.memo_html ? (
+                              <div
+                                className="prose prose-sm max-w-none
+                                  prose-headings:text-foreground prose-p:text-muted-foreground
+                                  prose-strong:text-foreground prose-li:text-muted-foreground"
+                                dangerouslySetInnerHTML={{ __html: push.deal_snapshot.memo_html }}
+                              />
+                            ) : push.deal_snapshot?.teaser_sections?.length ? (
+                              <div className="space-y-4">
+                                {push.deal_snapshot.teaser_sections.map((section) => (
+                                  <div key={section.key}>
+                                    <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{section.title}</h5>
+                                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{section.content}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : push.deal_snapshot?.business_description ? (
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                {push.deal_snapshot.business_description}
+                              </p>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
                     {expandedPushId === push.id && (
                       <TableRow>
-                        <TableCell colSpan={9} className="bg-muted/30 p-4">
+                        <TableCell colSpan={10} className="bg-muted/30 p-4">
                           <PortalDealChat
                             pushId={push.id}
                             portalOrgId={org.id}
@@ -375,7 +460,8 @@ export default function ClientPortalDetail() {
                       </TableRow>
                     )}
                   </React.Fragment>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

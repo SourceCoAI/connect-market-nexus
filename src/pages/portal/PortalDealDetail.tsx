@@ -10,6 +10,8 @@ import {
   HelpCircle,
   Clock,
   FileText,
+  Globe,
+  ExternalLink,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -161,6 +163,20 @@ export default function PortalDealDetail() {
                 </div>
               )}
             </div>
+            {snapshot?.website && (
+              <div className="mt-4 pt-3 border-t">
+                <a
+                  href={snapshot.website.startsWith('http') ? snapshot.website : `https://${snapshot.website}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  <Globe className="h-4 w-4" />
+                  {snapshot.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -174,57 +190,44 @@ export default function PortalDealDetail() {
           </Card>
         )}
 
-        {/* Teaser sections */}
-        {hasTeaserSections && (
-          <div className="space-y-4">
-            {snapshot.teaser_sections!.map((section: TeaserSection) => (
-              <Card key={section.key}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base uppercase tracking-wide text-muted-foreground">
-                    {section.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{section.content}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Full memo (rich HTML) */}
-        {hasMemoHtml && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <FileText className="h-5 w-5" />
-                Deal Memo
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+        {/* Lead Memo Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="h-5 w-5" />
+              Lead Memo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {hasMemoHtml ? (
               <div
                 className="prose prose-sm max-w-none
                   prose-headings:text-foreground prose-p:text-muted-foreground
                   prose-strong:text-foreground prose-li:text-muted-foreground"
                 dangerouslySetInnerHTML={{ __html: snapshot.memo_html! }}
               />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Fallback: plain description if no teaser/memo */}
-        {!hasTeaserSections && !hasMemoHtml && snapshot?.business_description && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Business Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
+            ) : hasTeaserSections ? (
+              <div className="space-y-6">
+                {snapshot.teaser_sections!.map((section: TeaserSection) => (
+                  <div key={section.key}>
+                    <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      {section.title}
+                    </h4>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{section.content}</p>
+                  </div>
+                ))}
+              </div>
+            ) : snapshot?.business_description ? (
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {snapshot.business_description.replace(/<[^>]*>/g, '')}
               </p>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No lead memo available yet. Check back later or reach out via the messaging section below.
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Data room link */}
         {push.data_room_access_token && (
