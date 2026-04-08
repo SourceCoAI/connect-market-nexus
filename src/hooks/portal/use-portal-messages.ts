@@ -13,6 +13,16 @@ export interface PortalMessage {
   created_at: string;
 }
 
+export interface DealMessageSummary {
+  push_id: string;
+  total: number;
+  /** Number of messages from the "other side" that haven't been replied to */
+  unread: number;
+  latest_message: string | null;
+  latest_sender_type: 'admin' | 'portal_user' | null;
+  latest_at: string | null;
+}
+
 export function usePortalMessages(pushId: string | undefined) {
   return useQuery({
     queryKey: ['portal-messages', pushId],
@@ -27,7 +37,7 @@ export function usePortalMessages(pushId: string | undefined) {
       return (data || []) as PortalMessage[];
     },
     enabled: !!pushId,
-    refetchInterval: 30000, // Poll every 30s for new messages
+    refetchInterval: 15000, // Poll every 15s for new messages
   });
 }
 
@@ -44,6 +54,75 @@ export function usePortalMessageCount(pushId: string | undefined) {
       return count || 0;
     },
     enabled: !!pushId,
+  });
+}
+
+/** Batch-fetch message summaries for all deals in a portal org.
+ *  Returns per-deal: total count, unread count, latest message preview.
+ *  "Unread" = messages from the other side after the viewer's last message. */
+export function usePortalMessageSummaries(
+  portalOrgId: string | undefined,
+  viewerType: 'admin' | 'portal_user',
+) {
+  return useQuery({
+    queryKey: ['portal-message-summaries', portalOrgId, viewerType],
+    queryFn: async (): Promise<Record<string, DealMessageSummary>> => {
+      if (!portalOrgId) return {};
+
+      const { data, error } = await untypedFrom('portal_deal_messages')
+        .select('id, push_id, sender_type, sender_name, message, created_at')
+        .eq('portal_org_id', portalOrgId)
+        .order('created_at', { ascending: true });
+
+      if (error) return {};
+
+      const messages = (data || []) as PortalMessage[];
+      const summaries: Record<string, DealMessageSummary> = {};
+
+      // Group by push_id
+      for (const msg of messages) {
+        if (!summaries[msg.push_id]) {
+          summaries[msg.push_id] = {
+            push_id: msg.push_id,
+            total: 0,
+            unread: 0,
+            latest_message: null,
+            latest_sender_type: null,
+            latest_at: null,
+          };
+        }
+        summaries[msg.push_id].total++;
+        summaries[msg.push_id].latest_message = msg.message;
+        summaries[msg.push_id].latest_sender_type = msg.sender_type;
+        summaries[msg.push_id].latest_at = msg.created_at;
+      }
+
+      // Calculate unread: count trailing messages from the other side
+      // (i.e., messages after the viewer's last message)
+      const otherSide = viewerType === 'portal_user' ? 'admin' : 'portal_user';
+      for (const pushId of Object.keys(summaries)) {
+        const pushMessages = messages.filter((m) => m.push_id === pushId);
+        // Find the viewer's last message timestamp
+        let viewerLastAt: string | null = null;
+        for (const m of pushMessages) {
+          if (m.sender_type === viewerType) viewerLastAt = m.created_at;
+        }
+        // Count messages from the other side after viewer's last message
+        let unread = 0;
+        for (const m of pushMessages) {
+          if (m.sender_type === otherSide) {
+            if (!viewerLastAt || m.created_at > viewerLastAt) {
+              unread++;
+            }
+          }
+        }
+        summaries[pushId].unread = unread;
+      }
+
+      return summaries;
+    },
+    enabled: !!portalOrgId,
+    refetchInterval: 30000, // Poll every 30s at the list level
   });
 }
 
@@ -91,6 +170,7 @@ export function useSendPortalMessage() {
     onSuccess: (_, input) => {
       queryClient.invalidateQueries({ queryKey: ['portal-messages', input.push_id] });
       queryClient.invalidateQueries({ queryKey: ['portal-message-count', input.push_id] });
+      queryClient.invalidateQueries({ queryKey: ['portal-message-summaries', input.portal_org_id] });
     },
     onError: (err: Error) => {
       toast({ title: 'Error sending message', description: err.message, variant: 'destructive' });

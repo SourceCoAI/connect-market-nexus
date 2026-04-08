@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, DollarSign, MapPin, Building2 } from 'lucide-react';
+import { ChevronLeft, DollarSign, MapPin, Building2, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Select,
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select';
 import { useMyPortalUser } from '@/hooks/portal/use-portal-users';
 import { useMyPortalDeals } from '@/hooks/portal/use-portal-deals';
+import { usePortalMessageSummaries } from '@/hooks/portal/use-portal-messages';
 import { PushStatusBadge, PriorityBadge } from '@/components/portal/PortalStatusBadge';
 
 function formatCurrency(value: number | null | undefined): string {
@@ -24,6 +25,10 @@ export default function PortalDealTracker() {
   const { slug } = useParams<{ slug: string }>();
   const { data: portalUser } = useMyPortalUser(slug);
   const { data: deals, isLoading } = useMyPortalDeals(portalUser?.portal_org?.id);
+  const { data: messageSummaries } = usePortalMessageSummaries(
+    portalUser?.portal_org?.id,
+    'portal_user',
+  );
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'ebitda'>('newest');
 
@@ -36,6 +41,8 @@ export default function PortalDealTracker() {
     if (sortBy === 'ebitda') return (b.deal_snapshot?.ebitda || 0) - (a.deal_snapshot?.ebitda || 0);
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
+
+  const totalUnread = Object.values(messageSummaries || {}).reduce((sum, s) => sum + s.unread, 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -55,7 +62,7 @@ export default function PortalDealTracker() {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Filter status" />
@@ -80,9 +87,17 @@ export default function PortalDealTracker() {
               <SelectItem value="ebitda">EBITDA</SelectItem>
             </SelectContent>
           </Select>
-          <span className="text-sm text-muted-foreground ml-auto">
-            {filtered.length} deal{filtered.length !== 1 ? 's' : ''}
-          </span>
+          <div className="flex items-center gap-3 ml-auto text-sm text-muted-foreground">
+            {totalUnread > 0 && (
+              <span className="flex items-center gap-1 text-blue-600 font-medium">
+                <MessageSquare className="h-3.5 w-3.5" />
+                {totalUnread} unread message{totalUnread !== 1 ? 's' : ''}
+              </span>
+            )}
+            <span>
+              {filtered.length} deal{filtered.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
 
         {/* Deal cards */}
@@ -98,67 +113,91 @@ export default function PortalDealTracker() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filtered.map((deal) => (
-              <Link key={deal.id} to={`/portal/${slug}/deals/${deal.id}`}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                  <CardContent className="pt-5 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-sm leading-tight">
-                        {deal.deal_snapshot?.headline || 'Untitled Deal'}
-                      </h3>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <PriorityBadge priority={deal.priority} />
-                        <PushStatusBadge status={deal.status} />
+            {filtered.map((deal) => {
+              const msgSummary = messageSummaries?.[deal.id];
+              const hasUnread = (msgSummary?.unread || 0) > 0;
+
+              return (
+                <Link key={deal.id} to={`/portal/${slug}/deals/${deal.id}`}>
+                  <Card className={`hover:shadow-md transition-shadow cursor-pointer h-full ${hasUnread ? 'ring-2 ring-blue-200' : ''}`}>
+                    <CardContent className="pt-5 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-sm leading-tight">
+                          {deal.deal_snapshot?.headline || 'Untitled Deal'}
+                        </h3>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {hasUnread && (
+                            <span className="flex items-center gap-1 bg-blue-100 text-blue-700 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+                              <MessageSquare className="h-3 w-3" />
+                              {msgSummary!.unread}
+                            </span>
+                          )}
+                          <PriorityBadge priority={deal.priority} />
+                          <PushStatusBadge status={deal.status} />
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-                      {deal.deal_snapshot?.industry && (
-                        <div className="flex items-center gap-1.5">
-                          <Building2 className="h-3.5 w-3.5" />
-                          <span className="truncate">{deal.deal_snapshot.industry}</span>
+                      <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                        {deal.deal_snapshot?.industry && (
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="h-3.5 w-3.5" />
+                            <span className="truncate">{deal.deal_snapshot.industry}</span>
+                          </div>
+                        )}
+                        {deal.deal_snapshot?.geography && (
+                          <div className="flex items-center gap-1.5">
+                            <MapPin className="h-3.5 w-3.5" />
+                            <span className="truncate">{deal.deal_snapshot.geography}</span>
+                          </div>
+                        )}
+                        {deal.deal_snapshot?.ebitda != null && (
+                          <div className="flex items-center gap-1.5">
+                            <DollarSign className="h-3.5 w-3.5" />
+                            <span>EBITDA: {formatCurrency(deal.deal_snapshot.ebitda)}</span>
+                          </div>
+                        )}
+                        {deal.deal_snapshot?.revenue != null && (
+                          <div className="flex items-center gap-1.5">
+                            <DollarSign className="h-3.5 w-3.5" />
+                            <span>Rev: {formatCurrency(deal.deal_snapshot.revenue)}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Memo excerpt: show first section */}
+                      {deal.deal_snapshot?.teaser_sections?.[0]?.content && (
+                        <p className="text-xs text-muted-foreground border-t pt-2 line-clamp-3">
+                          {deal.deal_snapshot.teaser_sections[0].content}
+                        </p>
+                      )}
+
+                      {/* Latest message preview */}
+                      {msgSummary && msgSummary.total > 0 && (
+                        <div className={`flex items-start gap-2 border-t pt-2 text-xs ${hasUnread ? 'text-blue-700' : 'text-muted-foreground'}`}>
+                          <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+                          <p className="truncate">
+                            <span className="font-medium">
+                              {msgSummary.latest_sender_type === 'admin' ? 'SourceCo' : 'You'}:
+                            </span>
+                            {' '}{msgSummary.latest_message}
+                          </p>
                         </div>
                       )}
-                      {deal.deal_snapshot?.geography && (
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="h-3.5 w-3.5" />
-                          <span className="truncate">{deal.deal_snapshot.geography}</span>
-                        </div>
-                      )}
-                      {deal.deal_snapshot?.ebitda != null && (
-                        <div className="flex items-center gap-1.5">
-                          <DollarSign className="h-3.5 w-3.5" />
-                          <span>EBITDA: {formatCurrency(deal.deal_snapshot.ebitda)}</span>
-                        </div>
-                      )}
-                      {deal.deal_snapshot?.revenue != null && (
-                        <div className="flex items-center gap-1.5">
-                          <DollarSign className="h-3.5 w-3.5" />
-                          <span>Rev: {formatCurrency(deal.deal_snapshot.revenue)}</span>
-                        </div>
-                      )}
-                    </div>
 
-                    {/* Teaser excerpt: show first section (business overview) */}
-                    {deal.deal_snapshot?.teaser_sections?.[0]?.content && (
-                      <p className="text-xs text-muted-foreground border-t pt-2 line-clamp-3">
-                        {deal.deal_snapshot.teaser_sections[0].content}
-                      </p>
-                    )}
+                      {deal.push_note && !msgSummary?.total && (
+                        <p className="text-xs text-muted-foreground italic border-t pt-2 truncate">
+                          "{deal.push_note}"
+                        </p>
+                      )}
 
-                    {deal.push_note && (
-                      <p className="text-xs text-muted-foreground italic border-t pt-2 truncate">
-                        "{deal.push_note}"
-                      </p>
-                    )}
-
-                    <div className="text-xs text-muted-foreground pt-1">
-                      Shared {new Date(deal.created_at).toLocaleDateString()}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                      <div className="text-xs text-muted-foreground pt-1">
+                        Shared {new Date(deal.created_at).toLocaleDateString()}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
