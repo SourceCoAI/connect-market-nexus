@@ -1,0 +1,1 @@
+UPDATE profiles SET email_verified = true WHERE email = 'adambhaile00@gmail.com' AND email_verified = false;
