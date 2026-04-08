@@ -43,7 +43,42 @@ interface AIClassification {
   reasoning: string;
 }
 
-async function classifyReply(replyText: string): Promise<AIClassification> {
+const DEFAULT_SYSTEM_PROMPT = `You are an email reply classifier for a cold email outreach platform. Classify each reply into exactly one category and sentiment.
+
+Categories:
+- meeting_request: wants to schedule a call/meeting
+- interested: expresses interest but no meeting request
+- question: asking clarifying questions
+- referral: directing to someone else
+- not_now: timing issue, not rejecting
+- not_interested: polite decline
+- unsubscribe: explicit opt-out request
+- out_of_office: automated OOO reply
+- negative_hostile: angry/hostile response
+- neutral: cannot determine intent
+
+Sentiment: positive, negative, neutral
+is_positive should be true for: meeting_request, interested, question, and referral categories.
+When in doubt between "neutral" and "interested", prefer "interested" if the reply shows any engagement, curiosity, or willingness to learn more.`;
+
+async function getClassificationPrompt(supabaseClient: any): Promise<string> {
+  try {
+    const { data } = await supabaseClient
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'smartlead_classification_prompt')
+      .maybeSingle();
+    if (data?.value && data.value.trim().length > 20) {
+      console.log('[smartlead-inbox-webhook] Using custom classification prompt from app_settings');
+      return data.value;
+    }
+  } catch (err) {
+    console.warn('[smartlead-inbox-webhook] Failed to read classification prompt from app_settings:', err);
+  }
+  return DEFAULT_SYSTEM_PROMPT;
+}
+
+async function classifyReply(replyText: string, supabaseClient: any): Promise<AIClassification> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     console.warn('[smartlead-inbox-webhook] GEMINI_API_KEY not set, skipping classification');
@@ -67,23 +102,7 @@ async function classifyReply(replyText: string): Promise<AIClassification> {
     };
   }
 
-  const systemPrompt = `You are an email reply classifier for a cold email outreach platform. Classify each reply into exactly one category and sentiment.
-
-Categories:
-- meeting_request: wants to schedule a call/meeting
-- interested: expresses interest but no meeting request
-- question: asking clarifying questions
-- referral: directing to someone else
-- not_now: timing issue, not rejecting
-- not_interested: polite decline
-- unsubscribe: explicit opt-out request
-- out_of_office: automated OOO reply
-- negative_hostile: angry/hostile response
-- neutral: cannot determine intent
-
-Sentiment: positive, negative, neutral
-is_positive should be true for: meeting_request, interested, question, and referral categories.
-When in doubt between "neutral" and "interested", prefer "interested" if the reply shows any engagement, curiosity, or willingness to learn more.`;
+  const systemPrompt = await getClassificationPrompt(supabaseClient);
 
   try {
     const response = await fetch(
