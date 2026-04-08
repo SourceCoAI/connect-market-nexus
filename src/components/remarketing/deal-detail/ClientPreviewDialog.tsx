@@ -217,7 +217,7 @@ function PortalPreview({ push }: { push: Record<string, unknown> | null }) {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
-                  {snapshot.industry && (
+                  {snapshot.industry ? (
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-muted-foreground" />
                       <div>
