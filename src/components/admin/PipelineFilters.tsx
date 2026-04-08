@@ -1,19 +1,19 @@
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { 
-  CheckCircle2, 
-  Clock, 
+import {
+  CheckCircle2,
+  Clock,
   XCircle,
   AlertTriangle,
   Users,
@@ -22,6 +22,8 @@ import {
   FileText,
   Shield,
   Search,
+  ArrowDownAZ,
+  Building2,
 } from "lucide-react";
 import { AdminConnectionRequest } from "@/types/admin";
 
@@ -29,7 +31,8 @@ export type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'on_hol
 export type BuyerTypeFilter = 'all' | 'private_equity' | 'corporate' | 'family_office' | 'independent_sponsor' | 'search_fund' | 'individual_buyer';
 export type NdaFilter = 'all' | 'signed' | 'not_signed' | 'sent';
 export type FeeAgreementFilter = 'all' | 'signed' | 'not_signed' | 'sent';
-export type SortOption = 'newest' | 'oldest' | 'buyer_priority' | 'deal_size' | 'approval_date' | 'score_highest' | 'score_lowest';
+export type DateRangeFilter = 'all' | '7d' | '30d' | '90d' | '6m' | '1y';
+export type SortOption = 'newest' | 'oldest' | 'buyer_priority' | 'deal_size' | 'approval_date' | 'score_highest' | 'score_lowest' | 'name_asc' | 'name_desc' | 'company_asc' | 'listing_asc';
 
 interface PipelineFiltersProps {
   requests: AdminConnectionRequest[];
@@ -37,12 +40,14 @@ interface PipelineFiltersProps {
   buyerTypeFilter: BuyerTypeFilter;
   ndaFilter: NdaFilter;
   feeAgreementFilter: FeeAgreementFilter;
+  dateRangeFilter: DateRangeFilter;
   sortOption: SortOption;
   searchQuery: string;
   onStatusFilterChange: (filter: StatusFilter) => void;
   onBuyerTypeFilterChange: (filter: BuyerTypeFilter) => void;
   onNdaFilterChange: (filter: NdaFilter) => void;
   onFeeAgreementFilterChange: (filter: FeeAgreementFilter) => void;
+  onDateRangeFilterChange: (filter: DateRangeFilter) => void;
   onSortChange: (sort: SortOption) => void;
   onSearchChange: (query: string) => void;
 }
@@ -128,12 +133,14 @@ export function PipelineFilters({
   buyerTypeFilter,
   ndaFilter,
   feeAgreementFilter,
+  dateRangeFilter,
   sortOption,
   searchQuery,
   onStatusFilterChange,
   onBuyerTypeFilterChange,
   onNdaFilterChange,
   onFeeAgreementFilterChange,
+  onDateRangeFilterChange,
   onSortChange,
   onSearchChange,
 }: PipelineFiltersProps) {
@@ -189,12 +196,25 @@ export function PipelineFilters({
   const sortOptions = [
     { value: 'newest', label: 'Newest First', icon: Calendar },
     { value: 'oldest', label: 'Oldest First', icon: Calendar },
+    { value: 'name_asc', label: 'Name (A-Z)', icon: ArrowDownAZ },
+    { value: 'name_desc', label: 'Name (Z-A)', icon: ArrowDownAZ },
+    { value: 'company_asc', label: 'Company (A-Z)', icon: Building2 },
+    { value: 'listing_asc', label: 'Listing (A-Z)', icon: Building2 },
     { value: 'score_highest', label: 'Score (Highest)', icon: Users },
     { value: 'score_lowest', label: 'Score (Lowest)', icon: Users },
     { value: 'buyer_priority', label: 'Buyer Priority', icon: Users },
     { value: 'deal_size', label: 'Deal Size', icon: DollarSign },
     { value: 'approval_date', label: 'Approval Date', icon: CheckCircle2 },
   ] as const;
+
+  const dateRangeOptions = [
+    { value: 'all', label: 'All Time' },
+    { value: '7d', label: 'Last 7 Days' },
+    { value: '30d', label: 'Last 30 Days' },
+    { value: '90d', label: 'Last 90 Days' },
+    { value: '6m', label: 'Last 6 Months' },
+    { value: '1y', label: 'Last Year' },
+  ];
 
   return (
     <div className="bg-card border border-border rounded-lg">
@@ -293,6 +313,13 @@ export function PipelineFilters({
             value={feeAgreementFilter}
             options={feeAgreementOptions}
             onChange={(v) => onFeeAgreementFilterChange(v as FeeAgreementFilter)}
+          />
+          <FilterDropdown
+            label="Date Range"
+            icon={Calendar}
+            value={dateRangeFilter}
+            options={dateRangeOptions}
+            onChange={(v) => onDateRangeFilterChange(v as DateRangeFilter)}
           />
           <FilterDropdown
             label="Status"
