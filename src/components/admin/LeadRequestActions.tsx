@@ -115,15 +115,15 @@ export function LeadRequestActions({ request }: LeadRequestActionsProps) {
         </div>
 
         {/* NDA Row */}
-        <div className="flex items-center justify-between py-2 px-3 rounded-md border border-border/50 bg-background/50 hover:bg-accent/20 transition-colors">
+        <div className="py-2 px-3 rounded-md border border-border/50 bg-background/50 hover:bg-accent/20 transition-colors space-y-1.5">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 min-w-[100px]">
-              <Shield className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-foreground">NDA</span>
+            <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-foreground">NDA</span>
+            <div className="ml-auto">
+              {getStatusIndicator(leadNDASent, leadNDASigned, leadNDASentAt || undefined, leadNDASignedAt || undefined)}
             </div>
-            {getStatusIndicator(leadNDASent, leadNDASigned, leadNDASentAt || undefined, leadNDASignedAt || undefined)}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <Label htmlFor={`lead-nda-sent-${request.id}`} className="text-xs font-medium text-muted-foreground">Sent</Label>
               <Switch
