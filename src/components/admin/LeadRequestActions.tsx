@@ -154,30 +154,30 @@ export function LeadRequestActions({ request }: LeadRequestActionsProps) {
         </div>
 
         {/* Follow-up Row */}
-        <div className="flex items-center justify-between py-2 px-3 rounded-md border border-border/50 bg-background/50 hover:bg-accent/20 transition-colors">
+        <div className="py-2 px-3 rounded-md border border-border/50 bg-background/50 hover:bg-accent/20 transition-colors space-y-1.5">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 min-w-[100px]">
-              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-foreground">Follow-up</span>
+            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-foreground">Follow-up</span>
+            <div className="ml-auto">
+              {followedUp ? (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                  <span className="font-medium text-foreground">Positive</span>
+                </div>
+              ) : negativeFollowedUp ? (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <div className="w-1.5 h-1.5 rounded-full bg-destructive"></div>
+                  <span className="font-medium text-foreground">Negative</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+                  <span className="font-medium text-foreground">Required</span>
+                </div>
+              )}
             </div>
-            {followedUp ? (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                <span className="font-medium text-foreground">Positive</span>
-              </div>
-            ) : negativeFollowedUp ? (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <div className="w-1.5 h-1.5 rounded-full bg-destructive"></div>
-                <span className="font-medium text-foreground">Negative</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
-                <span className="font-medium text-foreground">Required</span>
-              </div>
-            )}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <Label htmlFor={`lead-positive-followup-${request.id}`} className="text-xs font-medium text-muted-foreground">Positive</Label>
               <Switch

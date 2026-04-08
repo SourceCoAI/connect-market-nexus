@@ -238,6 +238,24 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
                 )}
               </div>
             )}
+        </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-border bg-muted/30">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-center w-7 h-7 rounded-md bg-muted">
+                <User className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Not a Marketplace User
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  This lead does not have an existing marketplace account
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
