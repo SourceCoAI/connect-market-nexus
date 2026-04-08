@@ -209,6 +209,7 @@ const convertListingToFormInput = (listing?: AdminListing): ListingFormInput => 
     main_contact_phone: listing?.main_contact_phone || '',
     main_contact_linkedin: listing?.main_contact_linkedin || '',
     custom_sections: listing?.custom_sections || null,
+    webflow_slug: (listing as any)?.webflow_slug || '',
   };
 };
 
