@@ -2494,7 +2494,7 @@ export type Database = {
           lead_nda_signed_by: string | null
           lead_phone: string | null
           lead_role: string | null
-          listing_id: string
+          listing_id: string | null
           negative_followed_up: boolean | null
           negative_followed_up_at: string | null
           negative_followed_up_by: string | null
@@ -2557,7 +2557,7 @@ export type Database = {
           lead_nda_signed_by?: string | null
           lead_phone?: string | null
           lead_role?: string | null
-          listing_id: string
+          listing_id?: string | null
           negative_followed_up?: boolean | null
           negative_followed_up_at?: string | null
           negative_followed_up_by?: string | null
@@ -2620,7 +2620,7 @@ export type Database = {
           lead_nda_signed_by?: string | null
           lead_phone?: string | null
           lead_role?: string | null
-          listing_id?: string
+          listing_id?: string | null
           negative_followed_up?: boolean | null
           negative_followed_up_at?: string | null
           negative_followed_up_by?: string | null

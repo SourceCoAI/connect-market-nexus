@@ -1,0 +1,1 @@
+ALTER TABLE public.connection_requests ALTER COLUMN listing_id DROP NOT NULL;
