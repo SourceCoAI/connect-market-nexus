@@ -222,8 +222,11 @@ const PendingApproval = () => {
 
   const getUIState = () => {
     if (user?.approval_status === 'rejected') return 'rejected';
-    else if (user?.email_verified) return 'approved_pending';
-    else return 'email_not_verified';
+    // Use profile email_verified as primary, but never show "verify email"
+    // if we already know from Auth that the email IS confirmed (avoids
+    // stale-profile-state showing the wrong screen).
+    if (user?.email_verified) return 'approved_pending';
+    return 'email_not_verified';
   };
 
   const uiState = getUIState();
