@@ -185,7 +185,7 @@ export function DealBulkActionBar({
   };
 
   /* ---------- Helpers to detect grouped items ---------- */
-  const hasOutreachActions = onPushToDialer || onPushToSmartlead || onPushToHeyreach || onPushToPortal;
+  const hasOutreachActions = onPushToDialer || onPushToSmartlead || onPushToHeyreach;
   const hasMoreActions = (onBulkAssignOwner && adminProfiles) || onAddToList || true; // always has Export CSV
 
   return (
@@ -319,6 +319,17 @@ export function DealBulkActionBar({
           </>
         )}
 
+        {/* ---- Push to Portal (top-level) ---- */}
+        {onPushToPortal && (
+          <>
+            <div className="h-5 w-px bg-border" />
+            <Button size="sm" variant="outline" onClick={onPushToPortal} className="gap-2">
+              <Send className="h-4 w-4" />
+              Push to Portal
+            </Button>
+          </>
+        )}
+
         {/* ---- Outreach dropdown ---- */}
         {hasOutreachActions && (
           <>
@@ -332,15 +343,6 @@ export function DealBulkActionBar({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                {onPushToPortal && (
-                  <DropdownMenuItem onClick={onPushToPortal}>
-                    <Send className="h-4 w-4 mr-2" />
-                    Push to Portal
-                  </DropdownMenuItem>
-                )}
-                {onPushToPortal && (onPushToDialer || onPushToSmartlead || onPushToHeyreach) && (
-                  <DropdownMenuSeparator />
-                )}
                 {onPushToDialer && (
                   <DropdownMenuItem onClick={onPushToDialer}>
                     <Phone className="h-4 w-4 mr-2" />
