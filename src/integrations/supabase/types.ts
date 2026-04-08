@@ -14556,6 +14556,10 @@ export type Database = {
         Args: { notes: string; request_id: string }
         Returns: boolean
       }
+      bulk_update_connection_request_status: {
+        Args: { admin_notes?: string; new_status: string; request_ids: string[] }
+        Returns: number
+      }
       update_connection_request_status: {
         Args: { admin_notes?: string; new_status: string; request_id: string }
         Returns: boolean
