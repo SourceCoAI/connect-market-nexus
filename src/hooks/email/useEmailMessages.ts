@@ -106,19 +106,42 @@ export function useEmailThreads(contactId: string | undefined, additionalContact
   });
 }
 
+export interface SmartleadReplyRecord {
+  id: string;
+  from_email: string | null;
+  to_email: string | null;
+  subject: string | null;
+  reply_body: string | null;
+  sent_message_body: string | null;
+  time_replied: string | null;
+  event_timestamp: string | null;
+  ai_category: string | null;
+  ai_sentiment: string | null;
+  ai_confidence: number | null;
+  ai_reasoning: string | null;
+  ai_is_positive: boolean | null;
+  campaign_name: string | null;
+  lead_first_name: string | null;
+  lead_last_name: string | null;
+  lead_company_name: string | null;
+  manual_category: string | null;
+  recategorized_by: string | null;
+  created_at: string;
+}
+
 export function useDealEmailActivity(dealId: string | undefined) {
   const { user } = useAuth();
 
   return useQuery({
     queryKey: ['email', 'deal-activity', dealId],
-    queryFn: async (): Promise<EmailMessage[]> => {
+    queryFn: async (): Promise<SmartleadReplyRecord[]> => {
       if (!dealId) return [];
 
       const { data, error } = await (supabase as any)
-        .from('email_messages')
-        .select('*')
-        .eq('deal_id', dealId)
-        .order('sent_at', { ascending: false })
+        .from('smartlead_reply_inbox')
+        .select('id, from_email, to_email, subject, reply_body, sent_message_body, time_replied, event_timestamp, ai_category, ai_sentiment, ai_confidence, ai_reasoning, ai_is_positive, campaign_name, lead_first_name, lead_last_name, lead_company_name, manual_category, recategorized_by, created_at')
+        .eq('linked_deal_id', dealId)
+        .order('time_replied', { ascending: false })
         .limit(50);
 
       if (error) throw error;

@@ -1,14 +1,14 @@
 /**
- * DealEmailActivity: Aggregated email activity feed across all contacts tied to a deal.
- * Shows a timeline of all email interactions on a deal.
+ * DealEmailActivity: Shows Smartlead email activity for a deal.
+ * Queries smartlead_reply_inbox by linked_deal_id.
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Mail, ArrowUpRight, ArrowDownLeft, Paperclip } from 'lucide-react';
+import { Mail, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { useDealEmailActivity } from '@/hooks/email';
-import type { EmailMessage } from '@/types/email';
+import type { SmartleadReplyRecord } from '@/hooks/email/useEmailMessages';
 
 interface DealEmailActivityProps {
   dealId: string;
@@ -28,46 +28,86 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function EmailActivityItem({ message }: { message: EmailMessage }) {
-  const isOutbound = message.direction === 'outbound';
-  const preview = message.body_text || stripHtml(message.body_html || '');
+const CATEGORY_COLORS: Record<string, string> = {
+  meeting_request: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+  interested: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  question: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+  referral: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  not_now: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  not_interested: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  unsubscribe: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  out_of_office: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  negative_hostile: 'bg-red-200 text-red-900 dark:bg-red-900/40 dark:text-red-200',
+  neutral: 'bg-muted text-muted-foreground',
+};
+
+function getCategoryLabel(cat: string): string {
+  return cat.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function ReplyItem({ record }: { record: SmartleadReplyRecord }) {
+  const replyPreview = record.reply_body ? stripHtml(record.reply_body) : '';
+  const sentPreview = record.sent_message_body ? stripHtml(record.sent_message_body) : '';
+  const category = record.manual_category || record.ai_category || 'neutral';
+  const timestamp = record.time_replied || record.event_timestamp || record.created_at;
+  const leadName = [record.lead_first_name, record.lead_last_name].filter(Boolean).join(' ');
 
   return (
     <div className="flex items-start gap-3 py-2.5 border-b last:border-b-0">
       <div className="mt-0.5 shrink-0">
-        {isOutbound ? (
-          <ArrowUpRight className="h-4 w-4 text-blue-500" />
-        ) : (
-          <ArrowDownLeft className="h-4 w-4 text-green-500" />
-        )}
+        <ArrowDownLeft className="h-4 w-4 text-green-500" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-xs font-medium truncate">{message.from_address}</span>
-            <span className="text-[10px] text-muted-foreground shrink-0">
-              {isOutbound ? 'sent to' : 'received from'}
+            <span className="text-xs font-medium truncate">
+              {leadName || record.from_email || 'Unknown'}
             </span>
-            <span className="text-xs truncate text-muted-foreground">
-              {isOutbound ? message.to_addresses[0] : message.from_address}
-            </span>
+            {record.lead_company_name && (
+              <span className="text-[10px] text-muted-foreground shrink-0">
+                ({record.lead_company_name})
+              </span>
+            )}
           </div>
           <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
-            {formatDate(message.sent_at)}
+            {formatDate(timestamp)}
           </span>
         </div>
-        <p className="text-xs font-medium mt-0.5">{message.subject || '(No subject)'}</p>
-        <p className="text-xs text-muted-foreground truncate mt-0.5">
-          {preview.slice(0, 120)}{preview.length > 120 ? '...' : ''}
-        </p>
-        <div className="flex items-center gap-1.5 mt-1">
-          <Badge variant={isOutbound ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-            {isOutbound ? 'Outbound' : 'Inbound'}
+        <p className="text-xs font-medium mt-0.5">{record.subject || '(No subject)'}</p>
+        
+        {/* Reply body */}
+        {replyPreview && (
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            <span className="font-medium text-foreground/70">Reply:</span>{' '}
+            {replyPreview.slice(0, 150)}{replyPreview.length > 150 ? '...' : ''}
+          </p>
+        )}
+        
+        {/* Original sent message */}
+        {sentPreview && !replyPreview && (
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            <span className="font-medium text-foreground/70">Sent:</span>{' '}
+            {sentPreview.slice(0, 120)}{sentPreview.length > 120 ? '...' : ''}
+          </p>
+        )}
+
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          <Badge className={`text-[10px] px-1.5 py-0 ${CATEGORY_COLORS[category] || CATEGORY_COLORS.neutral}`}>
+            {getCategoryLabel(category)}
           </Badge>
-          {message.has_attachments && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
-              <Paperclip className="h-2.5 w-2.5" />
-              Attachments
+          {record.ai_sentiment && record.ai_sentiment !== 'neutral' && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              {record.ai_sentiment}
+            </Badge>
+          )}
+          {record.campaign_name && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 max-w-[200px] truncate">
+              {record.campaign_name}
+            </Badge>
+          )}
+          {record.recategorized_by && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700">
+              Recategorized
             </Badge>
           )}
         </div>
@@ -77,7 +117,7 @@ function EmailActivityItem({ message }: { message: EmailMessage }) {
 }
 
 export function DealEmailActivity({ dealId, dealTitle }: DealEmailActivityProps) {
-  const { data: emails, isLoading, error } = useDealEmailActivity(dealId);
+  const { data: replies, isLoading, error } = useDealEmailActivity(dealId);
 
   if (isLoading) {
     return (
@@ -100,9 +140,9 @@ export function DealEmailActivity({ dealId, dealTitle }: DealEmailActivityProps)
         <CardTitle className="text-base flex items-center gap-2">
           <Mail className="h-4 w-4" />
           Email Activity
-          {emails && emails.length > 0 && (
+          {replies && replies.length > 0 && (
             <Badge variant="secondary" className="text-xs">
-              {emails.length}
+              {replies.length}
             </Badge>
           )}
         </CardTitle>
@@ -112,7 +152,7 @@ export function DealEmailActivity({ dealId, dealTitle }: DealEmailActivityProps)
           <p className="text-sm text-muted-foreground text-center py-4">
             Failed to load email activity.
           </p>
-        ) : !emails || emails.length === 0 ? (
+        ) : !replies || replies.length === 0 ? (
           <div className="text-center py-8">
             <Mail className="h-10 w-10 mx-auto text-muted-foreground/40 mb-2" />
             <p className="text-sm text-muted-foreground">
@@ -121,8 +161,8 @@ export function DealEmailActivity({ dealId, dealTitle }: DealEmailActivityProps)
           </div>
         ) : (
           <div className="divide-y-0">
-            {emails.map((email) => (
-              <EmailActivityItem key={email.id} message={email} />
+            {replies.map((record) => (
+              <ReplyItem key={record.id} record={record} />
             ))}
           </div>
         )}
