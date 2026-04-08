@@ -602,7 +602,9 @@ export function ConnectionRequestRow({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Connection Request Actions */}
-              {request.user ? (
+              {request.source === 'webflow' ? (
+                <WebflowLeadDetail request={request} />
+              ) : request.user ? (
                 <ConnectionRequestActions
                   user={request.user}
                   listing={request.listing ?? undefined}
