@@ -59,6 +59,7 @@ import { SubmissionReviewQueue } from '@/components/remarketing/SubmissionReview
 import { EnrichmentProgressIndicator } from '@/components/remarketing/EnrichmentProgressIndicator';
 import { SingleDealEnrichmentDialog } from '@/components/remarketing/SingleDealEnrichmentDialog';
 import { ArchiveDealDialog } from '@/components/admin/deals/ArchiveDealDialog';
+import { PushToPortalDialog } from '@/components/portal/PushToPortalDialog';
 
 import { FilterBar } from '@/components/filters/FilterBar';
 import { usePartnerData } from './usePartnerData';
@@ -73,6 +74,7 @@ export default function ReMarketingReferralPartnerDetail() {
   const [smartleadOpen, setSmartleadOpen] = useState(false);
   const [heyreachOpen, setHeyreachOpen] = useState(false);
   const [addToListOpen, setAddToListOpen] = useState(false);
+  const [portalOpen, setPortalOpen] = useState(false);
 
   const data = usePartnerData(partnerId);
   const actions = usePartnerActions(partnerId, data.partner, data.deals);
@@ -420,6 +422,7 @@ export default function ReMarketingReferralPartnerDetail() {
                 onPushToDialer={() => setDialerOpen(true)}
                 onPushToSmartlead={() => setSmartleadOpen(true)}
                 onPushToHeyreach={() => setHeyreachOpen(true)}
+                onPushToPortal={() => setPortalOpen(true)}
                 onAddToList={() => setAddToListOpen(true)}
                 onMarkNotFit={actions.handleMarkNotFit}
                 isMarkingNotFit={actions.isMarkingNotFit}
@@ -548,6 +551,11 @@ export default function ReMarketingReferralPartnerDetail() {
           onOpenChange={setAddToListOpen}
           selectedDeals={selectedDealsForList}
           entityType="referral_deal"
+        />
+        <PushToPortalDialog
+          open={portalOpen}
+          onOpenChange={setPortalOpen}
+          listingIds={Array.from(actions.selectedDealIds)}
         />
       </div>
     </TooltipProvider>

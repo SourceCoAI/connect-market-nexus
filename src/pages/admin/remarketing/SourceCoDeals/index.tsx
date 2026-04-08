@@ -31,6 +31,7 @@ import {
 import type { DealForList } from '@/components/remarketing';
 import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
 import { PushToSmartleadModal } from '@/components/remarketing/PushToSmartleadModal';
+import { PushToPortalDialog } from '@/components/portal/PushToPortalDialog';
 import { useSourceCoDeals } from './useSourceCoDeals';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
 import type { Operator, FilterRule } from '@/components/filters';
@@ -49,6 +50,7 @@ export default function SourceCoDeals() {
   const [smartleadOpen, setSmartleadOpen] = useState(false);
   const [heyreachOpen, setHeyreachOpen] = useState(false);
   const [addToListOpen, setAddToListOpen] = useState(false);
+  const [portalOpen, setPortalOpen] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMarkingNotFit, setIsMarkingNotFit] = useState(false);
@@ -396,6 +398,7 @@ export default function SourceCoDeals() {
           onPushToDialer={() => setDialerOpen(true)}
           onPushToSmartlead={() => setSmartleadOpen(true)}
           onPushToHeyreach={() => setHeyreachOpen(true)}
+          onPushToPortal={() => setPortalOpen(true)}
           onAddToList={() => setAddToListOpen(true)}
           onMarkNotFit={handleMarkNotFit}
           isMarkingNotFit={isMarkingNotFit}
@@ -431,6 +434,11 @@ export default function SourceCoDeals() {
         onOpenChange={setAddToListOpen}
         selectedDeals={selectedDealsForList}
         entityType="sourceco_deal"
+      />
+      <PushToPortalDialog
+        open={portalOpen}
+        onOpenChange={setPortalOpen}
+        listingIds={Array.from(hook.selectedIds)}
       />
 
       {/* Deals Table */}

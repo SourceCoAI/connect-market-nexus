@@ -21,6 +21,7 @@ import {
 import type { DealForList } from '@/components/remarketing';
 import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
 import { PushToSmartleadModal } from '@/components/remarketing/PushToSmartleadModal';
+import { PushToPortalDialog } from '@/components/portal/PushToPortalDialog';
 import {
   Loader2,
   BarChart3,
@@ -60,6 +61,7 @@ export default function ValuationLeads() {
   const [heyreachOpen, setHeyreachOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [addToListOpen, setAddToListOpen] = useState(false);
+  const [portalOpen, setPortalOpen] = useState(false);
   const {
     leads,
     isLoading,
@@ -456,6 +458,7 @@ export default function ValuationLeads() {
         onPushToDialer={() => setDialerOpen(true)}
         onPushToSmartlead={() => setSmartleadOpen(true)}
         onPushToHeyreach={() => setHeyreachOpen(true)}
+        onPushToPortal={() => setPortalOpen(true)}
         onAddToList={() => setAddToListOpen(true)}
       />
       <PushToDialerModal
@@ -484,6 +487,11 @@ export default function ValuationLeads() {
         onOpenChange={setAddToListOpen}
         selectedDeals={selectedDealsForList}
         entityType="lead"
+      />
+      <PushToPortalDialog
+        open={portalOpen}
+        onOpenChange={setPortalOpen}
+        listingIds={Array.from(selectedIds)}
       />
 
       {/* Upload Dialog */}

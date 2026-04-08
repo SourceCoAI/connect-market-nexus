@@ -30,6 +30,7 @@ export function useCapTargetActions(
   const [smartleadOpen, setSmartleadOpen] = useState(false);
   const [heyreachOpen, setHeyreachOpen] = useState(false);
   const [addToListOpen, setAddToListOpen] = useState(false);
+  const [portalOpen, setPortalOpen] = useState(false);
 
   // ─── Loading states ──────────────────────────────────────────────────
   const [isPushing, setIsPushing] = useState(false);
@@ -650,6 +651,8 @@ export function useCapTargetActions(
     setHeyreachOpen,
     addToListOpen,
     setAddToListOpen,
+    portalOpen,
+    setPortalOpen,
 
     // Loading states
     isPushing,

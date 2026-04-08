@@ -6,6 +6,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -35,6 +38,8 @@ import {
   Zap,
   ThumbsDown,
   UserCog,
+  Megaphone,
+  MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -71,10 +76,13 @@ interface DealBulkActionBarProps {
   onReEnrichPushed?: (dealIds: string[]) => void;
   isReEnrichingPushed?: boolean;
 
-  /* ---- Common actions ---- */
+  /* ---- Outreach actions ---- */
   onPushToDialer?: () => void;
   onPushToSmartlead?: () => void;
   onPushToHeyreach?: () => void;
+  onPushToPortal?: () => void;
+
+  /* ---- Organize actions ---- */
   onAddToList?: () => void;
 
   /* ---- Overrides ---- */
@@ -121,6 +129,7 @@ export function DealBulkActionBar({
   onPushToDialer,
   onPushToSmartlead,
   onPushToHeyreach,
+  onPushToPortal,
   onAddToList,
   onExportCSV,
   showPriorityToggle = true,
@@ -175,6 +184,10 @@ export function DealBulkActionBar({
     }
   };
 
+  /* ---------- Helpers to detect grouped items ---------- */
+  const hasOutreachActions = onPushToDialer || onPushToSmartlead || onPushToHeyreach || onPushToPortal;
+  const hasMoreActions = (onBulkAssignOwner && adminProfiles) || onAddToList || true; // always has Export CSV
+
   return (
     <>
       <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-lg flex-wrap">
@@ -198,7 +211,7 @@ export function DealBulkActionBar({
           </>
         )}
 
-        {/* ---- Pipeline: Approve, Push & Enrich, Re-Enrich ---- */}
+        {/* ---- Pipeline: Approve, Push & Enrich, Re-Enrich, Enrich ---- */}
         {(onApproveToActiveDeals || onPushAndEnrich || onEnrichSelected) && <div className="h-5 w-px bg-border" />}
         {onApproveToActiveDeals && (
           <Button
@@ -285,115 +298,137 @@ export function DealBulkActionBar({
           </Button>
         ) : null}
 
-        {/* ---- Common actions ---- */}
-        <div className="h-5 w-px bg-border" />
-
-        {/* Priority toggle */}
+        {/* ---- Priority toggle (top-level) ---- */}
         {showPriorityToggle && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleTogglePriority}
-            className={cn(
-              'gap-2',
-              allPriority
-                ? 'text-muted-foreground'
-                : 'text-amber-600 border-amber-200 hover:bg-amber-50',
-            )}
-          >
-            <Star className={cn('h-4 w-4', allPriority ? '' : 'fill-amber-500')} />
-            {allPriority ? 'Remove Priority' : 'Mark as Priority'}
-          </Button>
-        )}
-
-        {/* Assign Owner */}
-        {onBulkAssignOwner && adminProfiles && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="gap-2">
-                <UserCog className="h-4 w-4" />
-                Assign Owner
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="max-h-64 overflow-y-auto">
-              {Object.values(adminProfiles).map((profile) => (
-                <DropdownMenuItem
-                  key={profile.id}
-                  onClick={() => onBulkAssignOwner(dealIds, profile.id)}
-                >
-                  {profile.first_name} {profile.last_name}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onBulkAssignOwner(dealIds, null)}>
-                Unassign Owner
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-
-        {/* Export CSV */}
-        <Button size="sm" variant="outline" onClick={onExportCSV || handleExportCSV} className="gap-2">
-          <Download className="h-4 w-4" />
-          Export CSV
-        </Button>
-
-        {/* Dialer */}
-        {onPushToDialer && (
-          <Button size="sm" variant="outline" onClick={onPushToDialer} className="gap-2">
-            <Phone className="h-4 w-4" />
-            Dialer
-          </Button>
-        )}
-
-        {/* Smartlead */}
-        {onPushToSmartlead && (
-          <Button size="sm" variant="outline" onClick={onPushToSmartlead} className="gap-2">
-            <Mail className="h-4 w-4" />
-            Smartlead
-          </Button>
-        )}
-
-        {/* Heyreach */}
-        {onPushToHeyreach && (
-          <Button size="sm" variant="outline" onClick={onPushToHeyreach} className="gap-2">
-            <Send className="h-4 w-4" />
-            Heyreach
-          </Button>
-        )}
-
-        {/* Add to List */}
-        {onAddToList && (
-          <Button size="sm" variant="outline" onClick={onAddToList} className="gap-2">
-            <ListChecks className="h-4 w-4" />
-            Add to List
-          </Button>
-        )}
-
-        {/* ---- Not a Fit ---- */}
-        {onMarkNotFit && (
           <>
             <div className="h-5 w-px bg-border" />
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setShowNotFitDialog(true)}
-              disabled={isMarkingNotFit}
-              className="gap-2 text-orange-600 border-orange-200 hover:bg-orange-50"
-            >
-              {isMarkingNotFit ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ThumbsDown className="h-4 w-4" />
+              onClick={handleTogglePriority}
+              className={cn(
+                'gap-2',
+                allPriority
+                  ? 'text-muted-foreground'
+                  : 'text-amber-600 border-amber-200 hover:bg-amber-50',
               )}
-              Not a Fit
+            >
+              <Star className={cn('h-4 w-4', allPriority ? '' : 'fill-amber-500')} />
+              {allPriority ? 'Remove Priority' : 'Mark as Priority'}
             </Button>
           </>
         )}
 
-        {/* ---- Archive / Delete ---- */}
-        {(onArchive || onDelete) && <div className="h-5 w-px bg-border" />}
+        {/* ---- Outreach dropdown ---- */}
+        {hasOutreachActions && (
+          <>
+            <div className="h-5 w-px bg-border" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-2">
+                  <Megaphone className="h-4 w-4" />
+                  Outreach
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {onPushToPortal && (
+                  <DropdownMenuItem onClick={onPushToPortal}>
+                    <Send className="h-4 w-4 mr-2" />
+                    Push to Portal
+                  </DropdownMenuItem>
+                )}
+                {onPushToPortal && (onPushToDialer || onPushToSmartlead || onPushToHeyreach) && (
+                  <DropdownMenuSeparator />
+                )}
+                {onPushToDialer && (
+                  <DropdownMenuItem onClick={onPushToDialer}>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Dialer
+                  </DropdownMenuItem>
+                )}
+                {onPushToSmartlead && (
+                  <DropdownMenuItem onClick={onPushToSmartlead}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Smartlead
+                  </DropdownMenuItem>
+                )}
+                {onPushToHeyreach && (
+                  <DropdownMenuItem onClick={onPushToHeyreach}>
+                    <Send className="h-4 w-4 mr-2" />
+                    Heyreach
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
+
+        {/* ---- More actions dropdown ---- */}
+        {hasMoreActions && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-2">
+                <MoreHorizontal className="h-4 w-4" />
+                More
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {onBulkAssignOwner && adminProfiles && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <UserCog className="h-4 w-4 mr-2" />
+                    Assign Owner
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="max-h-64 overflow-y-auto">
+                    {Object.values(adminProfiles).map((profile) => (
+                      <DropdownMenuItem
+                        key={profile.id}
+                        onClick={() => onBulkAssignOwner(dealIds, profile.id)}
+                      >
+                        {profile.first_name} {profile.last_name}
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => onBulkAssignOwner(dealIds, null)}>
+                      Unassign Owner
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              {onAddToList && (
+                <DropdownMenuItem onClick={onAddToList}>
+                  <ListChecks className="h-4 w-4 mr-2" />
+                  Add to List
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={onExportCSV || handleExportCSV}>
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        {/* ---- Not a Fit / Archive / Delete ---- */}
+        {(onMarkNotFit || onArchive || onDelete) && <div className="h-5 w-px bg-border" />}
+        {onMarkNotFit && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowNotFitDialog(true)}
+            disabled={isMarkingNotFit}
+            className="gap-2 text-orange-600 border-orange-200 hover:bg-orange-50"
+          >
+            {isMarkingNotFit ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ThumbsDown className="h-4 w-4" />
+            )}
+            Not a Fit
+          </Button>
+        )}
         {onArchive && (
           <Button
             size="sm"

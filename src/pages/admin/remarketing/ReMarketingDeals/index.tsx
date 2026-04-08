@@ -39,6 +39,7 @@ import { Label } from '@/components/ui/label';
 import { ArchiveDealDialog } from '@/components/admin/deals/ArchiveDealDialog';
 import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
 import { PushToSmartleadModal } from '@/components/remarketing/PushToSmartleadModal';
+import { PushToPortalDialog } from '@/components/portal/PushToPortalDialog';
 import { DndContext, closestCorners, MeasuringStrategy } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { cn } from '@/lib/utils';
@@ -69,6 +70,7 @@ const ReMarketingDeals = () => {
   const [heyreachOpen, setHeyreachOpen] = useState(false);
   const [addToListOpen, setAddToListOpen] = useState(false);
   const [notAFitTarget, setNotAFitTarget] = useState<{ id: string; name: string } | null>(null);
+  const [portalOpen, setPortalOpen] = useState(false);
 
   const selectedDealsForList = useMemo((): DealForList[] => {
     if (!h.localOrder || h.selectedDeals.size === 0) return [];
@@ -402,6 +404,7 @@ const ReMarketingDeals = () => {
         onPushToDialer={() => setDialerOpen(true)}
         onPushToSmartlead={() => setSmartleadOpen(true)}
         onPushToHeyreach={() => setHeyreachOpen(true)}
+        onPushToPortal={() => setPortalOpen(true)}
         onAddToList={() => setAddToListOpen(true)}
         onMarkNotFit={h.handleBulkMarkNotAFit}
         onArchive={h.handleBulkArchive}
@@ -763,6 +766,12 @@ const ReMarketingDeals = () => {
         onOpenChange={setAddToListOpen}
         selectedDeals={selectedDealsForList}
         entityType="deal"
+      />
+
+      <PushToPortalDialog
+        open={portalOpen}
+        onOpenChange={setPortalOpen}
+        listingIds={Array.from(h.selectedDeals)}
       />
 
       {/* Archive Deal Dialog */}
