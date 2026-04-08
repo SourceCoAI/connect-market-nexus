@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 import { requireAdmin } from "../_shared/auth.ts";
+import { sendEmail } from "../_shared/email-sender.ts";
+import { resolveTemplate } from "../_shared/email-templates.ts";
 
 /**
  * invite-portal-user
@@ -256,7 +258,7 @@ const handler = async (req: Request): Promise<Response> => {
     const siteUrl = Deno.env.get("SITE_URL") || "https://marketplace.sourcecodeals.com";
     const redirectTo = `${siteUrl}/portal/${portal_slug}`;
 
-    const { error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
+    const { data: magicLinkData, error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: normalizedEmail,
       options: { redirectTo },
@@ -264,7 +266,45 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (magicLinkError) {
       console.error("[invite-portal-user] Magic link error:", magicLinkError);
-      // Non-fatal — user was still created, they can use password reset
+      // Non-fatal - user was still created, they can use password reset
+    }
+
+    // ── Step 5b: Send the portal invite email ──
+    const magicLinkUrl = magicLinkData?.properties?.action_link || `${siteUrl}/auth`;
+
+    // Look up portal org name for the email
+    const { data: portalOrg } = await supabaseAdmin
+      .from("portal_organizations")
+      .select("name")
+      .eq("id", portal_org_id)
+      .maybeSingle();
+
+    const portalName = portalOrg?.name || "Client";
+
+    const resolved = resolveTemplate("portal_invite", {
+      recipientName: fullName || first_name,
+      portalName,
+      loginUrl: magicLinkUrl,
+    });
+
+    if (!resolved.error) {
+      const emailResult = await sendEmail({
+        templateName: "portal_invite",
+        to: normalizedEmail,
+        toName: fullName,
+        subject: resolved.subject,
+        htmlContent: resolved.htmlContent,
+        isTransactional: true,
+        metadata: { portalOrgId: portal_org_id, portalSlug: portal_slug },
+      });
+
+      if (emailResult.success) {
+        console.log(`[invite-portal-user] Invite email sent to ${normalizedEmail}`);
+      } else {
+        console.error("[invite-portal-user] Failed to send invite email:", emailResult.error);
+      }
+    } else {
+      console.error("[invite-portal-user] Template error:", resolved.error);
     }
 
     // ── Step 6: Log activity ──

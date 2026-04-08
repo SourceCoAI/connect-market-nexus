@@ -50,6 +50,7 @@ import {
 import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
 import { PushToSmartleadModal } from '@/components/remarketing/PushToSmartleadModal';
 import { ArchiveDealDialog } from '@/components/admin/deals/ArchiveDealDialog';
+import { PushToPortalDialog } from '@/components/portal/PushToPortalDialog';
 
 // Local hooks & types
 import { useCapTargetData } from './useCapTargetData';
@@ -318,6 +319,7 @@ export default function CapTargetDeals() {
         onPushToDialer={() => actions.setDialerOpen(true)}
         onPushToSmartlead={() => actions.setSmartleadOpen(true)}
         onPushToHeyreach={() => actions.setHeyreachOpen(true)}
+        onPushToPortal={() => actions.setPortalOpen(true)}
         onAddToList={() => actions.setAddToListOpen(true)}
         onMarkNotFit={actions.handleMarkNotFit}
         isMarkingNotFit={actions.isMarkingNotFit}
@@ -352,6 +354,11 @@ export default function CapTargetDeals() {
         onOpenChange={actions.setAddToListOpen}
         selectedDeals={data.selectedDealsForList}
         entityType="captarget_deal"
+      />
+      <PushToPortalDialog
+        open={actions.portalOpen}
+        onOpenChange={actions.setPortalOpen}
+        listingIds={Array.from(data.selectedIds)}
       />
       <ArchiveDealDialog
         open={!!actions.archiveTarget}

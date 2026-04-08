@@ -98,14 +98,14 @@ const DailyTaskDashboard = () => {
   const { data: staleDeals } = useQuery({
     queryKey: ['stale-deals', staleCutoff],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('deal_pipeline')
         .select('id, title, last_activity_at, deal_stages(name)')
         .lt('last_activity_at', staleCutoff)
         .order('last_activity_at', { ascending: true })
         .limit(10);
       if (error) throw error;
-      return data as Array<{
+      return data as unknown as Array<{
         id: string;
         title: string | null;
         last_activity_at: string | null;

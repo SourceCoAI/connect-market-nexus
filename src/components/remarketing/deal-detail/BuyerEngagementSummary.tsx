@@ -23,7 +23,7 @@ export function BuyerEngagementSummary({ listingId }: BuyerEngagementSummaryProp
   const { data: emailStats, isLoading: loadingEmail } = useQuery({
     queryKey: ['buyer-engagement-email', listingId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('contact_email_history')
         .select('id, opened_at, replied_at')
         .eq('listing_id', listingId);
@@ -67,7 +67,7 @@ export function BuyerEngagementSummary({ listingId }: BuyerEngagementSummaryProp
   const { data: linkedinStats, isLoading: loadingLinkedin } = useQuery({
     queryKey: ['buyer-engagement-linkedin', listingId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('contact_linkedin_history')
         .select('id, activity_type, response_text')
         .eq('listing_id', listingId);

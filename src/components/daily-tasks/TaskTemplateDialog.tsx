@@ -77,7 +77,7 @@ export function TaskTemplateDialog({
   const { data: dbTemplates, isLoading: dbTemplatesLoading } = useQuery({
     queryKey: ['task-templates'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('task_templates')
         .select('*')
         .eq('is_active', true)
