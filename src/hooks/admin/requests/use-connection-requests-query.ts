@@ -129,7 +129,7 @@ export function useConnectionRequestsQuery() {
           fetchInChunks(
             'listings',
             'id, title, category, status, revenue, ebitda, image_url, location, internal_company_name, deal_identifier',
-            listingIds,
+            listingIds.filter((id): id is string => id !== null),
           ),
         ]);
 
