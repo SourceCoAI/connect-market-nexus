@@ -224,6 +224,15 @@ export default function SmartleadResponsesList() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReclassifyFailed}
+            disabled={isReclassifying}
+          >
+            <Sparkles className="h-4 w-4 mr-1" />
+            {isReclassifying ? 'Reclassifying...' : 'Reclassify Failed'}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleExport} disabled={items.length === 0}>
             <Download className="h-4 w-4 mr-1" /> Export
           </Button>
