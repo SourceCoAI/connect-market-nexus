@@ -74,6 +74,7 @@ export interface User {
   company: string;
   website: string;
   phone_number: string;
+  additional_phone_numbers?: string[];
   role: UserRole;
   /** Internal team role fetched from user_roles table. */
   team_role?: TeamRole;

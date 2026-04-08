@@ -10085,6 +10085,7 @@ export type Database = {
       profiles: {
         Row: {
           acq_equity_band: string | null
+          additional_phone_numbers: string[] | null
           admin_override_note: string | null
           admin_tier_override: number | null
           anchor_investors_summary: string | null
@@ -10183,6 +10184,7 @@ export type Database = {
         }
         Insert: {
           acq_equity_band?: string | null
+          additional_phone_numbers?: string[] | null
           admin_override_note?: string | null
           admin_tier_override?: number | null
           anchor_investors_summary?: string | null
@@ -10281,6 +10283,7 @@ export type Database = {
         }
         Update: {
           acq_equity_band?: string | null
+          additional_phone_numbers?: string[] | null
           admin_override_note?: string | null
           admin_tier_override?: number | null
           anchor_investors_summary?: string | null

@@ -20,6 +20,7 @@ interface Contact {
   name: string;
   email?: string | null;
   phone?: string | null;
+  additional_phones?: string[];
   role?: string | null;
   linkedin_url?: string | null;
   company_type?: string | null;
@@ -138,6 +139,16 @@ export const MainContactCard = ({
                         size="xs"
                       />
                     )}
+                    {selectedContact.additional_phones?.map((ph, i) => (
+                      <ClickToDialPhone
+                        key={i}
+                        phone={ph}
+                        name={selectedContact.name || undefined}
+                        email={selectedContact.email || undefined}
+                        label={ph}
+                        size="xs"
+                      />
+                    ))}
                     {selectedContact.linkedin_url && (
                       <a 
                         href={selectedContact.linkedin_url}

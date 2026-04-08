@@ -24,7 +24,7 @@ export default function DealSidebar({ listingId, presentedByAdminId }: DealSideb
     queryFn: async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('first_name, last_name, email, phone_number, company, title, calendar_url')
+        .select('first_name, last_name, email, phone_number, additional_phone_numbers, company, title, calendar_url')
         .eq('id', presentedByAdminId!)
         .single();
       if (!data) return null;
@@ -33,6 +33,7 @@ export default function DealSidebar({ listingId, presentedByAdminId }: DealSideb
         last_name: string | null;
         email: string | null;
         phone_number: string | null;
+        additional_phone_numbers: string[] | null;
         company: string | null;
         title?: string | null;
         calendar_url?: string | null;
@@ -45,6 +46,7 @@ export default function DealSidebar({ listingId, presentedByAdminId }: DealSideb
           ? `${profileData.title}, ${profileData.company || 'SourceCo'}`
           : DEFAULT_PRESENTER.title,
         phone: profileData.phone_number || DEFAULT_PRESENTER.phone,
+        additionalPhones: (profileData.additional_phone_numbers || []).filter(Boolean),
         email: profileData.email || DEFAULT_PRESENTER.email,
         calendarUrl: profileData.calendar_url || DEFAULT_PRESENTER.calendarUrl,
       };
@@ -262,6 +264,23 @@ export default function DealSidebar({ listingId, presentedByAdminId }: DealSideb
                 >
                   {p.phone}
                 </a>
+                {presenter?.additionalPhones?.map((ph, i) => (
+                  <a
+                    key={i}
+                    href={`tel:${ph.replace(/[\s()-]/g, '')}`}
+                    style={{
+                      fontSize: 12,
+                      color: '#6B6560',
+                      textDecoration: 'none',
+                      display: 'block',
+                      lineHeight: 1.6,
+                      transition: 'color 0.15s',
+                    }}
+                    className="hover:!text-[#B8933A]"
+                  >
+                    {ph}
+                  </a>
+                ))}
                 <a
                   href={`mailto:${p.email}`}
                   style={{
