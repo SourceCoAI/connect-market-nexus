@@ -692,7 +692,7 @@ export function RecommendedBuyersTab({
   const allSelected = selectableBuyers.length > 0 && selectableBuyers.every((b) => selectedIds.has(b.buyer_id));
 
   const handleToggleSelectAll = useCallback(() => {
-    setSelectedIds((prev) => {
+    setSelectedIds(() => {
       if (allSelected) {
         return new Set();
       }
