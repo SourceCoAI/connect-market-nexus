@@ -61,13 +61,25 @@ Deno.serve(async (req: Request) => {
         }
       }
     } else if (typeof formFields === "object") {
-      // V1 or flat format
-      name = formFields.name || formFields.Name || "";
-      email = formFields.email || formFields.Email || "";
-      phone = formFields.phone || formFields.Phone || "";
-      company = formFields.company || formFields.Company || formFields.firm || "";
-      role = formFields.role || formFields.Role || formFields.title || "";
-      message = formFields.message || formFields.Message || formFields.interest_message || "";
+      // V1, flat, or Webflow V2 data object — keys may be "Email address", "Phone number", etc.
+      for (const [key, rawVal] of Object.entries(formFields)) {
+        const label = key.toLowerCase().trim();
+        const value = (String(rawVal ?? "")).trim();
+        if (!value) continue;
+        if (label.includes("email")) {
+          email = email || value;
+        } else if (label.includes("name") && !label.includes("company") && !label.includes("firm")) {
+          name = name || value;
+        } else if (label.includes("phone") || label.includes("tel")) {
+          phone = phone || value;
+        } else if (label.includes("company") || label.includes("firm") || label.includes("organization")) {
+          company = company || value;
+        } else if (label.includes("role") || label.includes("title") || label.includes("position")) {
+          role = role || value;
+        } else if (label.includes("message") || label.includes("interest") || label.includes("comment") || label.includes("note")) {
+          message = message || value;
+        }
+      }
     }
 
     if (!email) {
