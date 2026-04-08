@@ -630,7 +630,6 @@ const MarketplaceQueue = () => {
                   existingListing={existingListingsMap?.[deal.id]}
                   getListingGaps={getListingGaps}
                   onRemove={handleRemoveFromQueue}
-                  memoStatusByDeal={memoStatusByDeal}
                 />
               ))}
             </div>
