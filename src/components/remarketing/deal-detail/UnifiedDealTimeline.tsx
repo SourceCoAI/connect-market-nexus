@@ -278,7 +278,7 @@ export function UnifiedDealTimeline({ dealId, listingId }: UnifiedDealTimelinePr
   const { data: emailHistory = [], isLoading: loadingEmails } = useQuery({
     queryKey: ['unified-timeline-emails', listingId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('contact_email_history')
         .select('*')
         .eq('listing_id', listingId)
@@ -295,7 +295,7 @@ export function UnifiedDealTimeline({ dealId, listingId }: UnifiedDealTimelinePr
   const { data: linkedinHistory = [], isLoading: loadingLinkedin } = useQuery({
     queryKey: ['unified-timeline-linkedin', listingId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('contact_linkedin_history')
         .select('*')
         .eq('listing_id', listingId)
@@ -312,7 +312,7 @@ export function UnifiedDealTimeline({ dealId, listingId }: UnifiedDealTimelinePr
   const { data: transcripts = [], isLoading: loadingTranscripts } = useQuery({
     queryKey: ['unified-timeline-transcripts', listingId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('deal_transcripts')
         .select('id, title, created_at, transcript_type, summary')
         .eq('listing_id', listingId)

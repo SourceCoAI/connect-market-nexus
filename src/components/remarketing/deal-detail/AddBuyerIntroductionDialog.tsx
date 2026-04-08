@@ -165,8 +165,8 @@ export function AddBuyerIntroductionDialog({
     }
 
     // Validate email format if provided
-    const email = contactEmail.trim().replace(/\/+$/, ''); // Remove trailing slashes
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    const emailVal = contactEmail.trim().replace(/\/+$/, ''); // Remove trailing slashes
+    if (emailVal && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
       toast.error('Please enter a valid email address');
       return;
     }
@@ -174,7 +174,7 @@ export function AddBuyerIntroductionDialog({
     // Create a contact record for the person so they appear in Buyer Outreach
     let contactId: string | undefined;
     const remarkBuyerId = isExisting ? selectedBuyerId : undefined;
-    const email = contactEmail.trim() || null;
+    const email = emailVal || null;
 
     try {
       const { data: newContact } = await supabase

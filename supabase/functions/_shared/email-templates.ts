@@ -40,6 +40,8 @@ export type EmailTemplate =
   | 'memo'
   | 'owner_intro'
   | 'owner_inquiry'
+  // Portal
+  | 'portal_invite'
   // Admin & System
   | 'task_notification'
   | 'feedback'
@@ -421,6 +423,18 @@ export const TEMPLATES: Record<EmailTemplate, TemplateDefinition> = {
       heading(v.subject) +
       paragraph(`Hi ${v.firstName},`) +
       paragraph(v.body),
+    ),
+  },
+  portal_invite: {
+    subject: 'You have been invited to the SourceCo Client Portal',
+    requiredVars: ['recipientName', 'portalName', 'loginUrl'],
+    buildHtml: (v) => wrapInLayout(
+      heading('You Have Been Invited') +
+      paragraph(`Hi ${v.recipientName},`) +
+      paragraph(`You have been invited to access the ${v.portalName} client portal on SourceCo. Click the button below to log in and view your deals, documents, and updates.`) +
+      button('Access Your Portal', v.loginUrl) +
+      paragraph('This link will log you in automatically. If it expires, you can request a new one from the login page.'),
+      `You've been invited to the ${v.portalName} portal`
     ),
   },
 };
