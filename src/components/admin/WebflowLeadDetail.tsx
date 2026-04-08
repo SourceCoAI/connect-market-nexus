@@ -13,6 +13,7 @@ import { Globe, User, Building2, Mail, Phone, Briefcase, ExternalLink, FileText,
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AdminConnectionRequest } from '@/types/admin';
 import { LeadRequestActions } from './LeadRequestActions';
 import { ApprovalSection } from './connection-request-actions/ApprovalSection';
