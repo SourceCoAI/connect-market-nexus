@@ -269,7 +269,7 @@ function PortalPreview({ push }: { push: Record<string, unknown> | null }) {
                   </p>
                 </CardContent>
               </Card>
-            )}
+            ) : null}
 
             {/* Push note */}
             {push.push_note && (
