@@ -692,6 +692,102 @@ export type Database = {
           },
         ]
       }
+      buyer_discovery_feedback: {
+        Row: {
+          action: string
+          buyer_id: string | null
+          buyer_name: string
+          buyer_source: string | null
+          buyer_type: string | null
+          composite_score: number | null
+          created_at: string
+          created_by: string | null
+          deal_categories: string[] | null
+          deal_industry: string | null
+          id: string
+          listing_id: string
+          niche_category: string
+          pe_firm_name: string | null
+          reason: string | null
+          reason_category: string | null
+          service_score: number | null
+        }
+        Insert: {
+          action: string
+          buyer_id?: string | null
+          buyer_name: string
+          buyer_source?: string | null
+          buyer_type?: string | null
+          composite_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          deal_categories?: string[] | null
+          deal_industry?: string | null
+          id?: string
+          listing_id: string
+          niche_category: string
+          pe_firm_name?: string | null
+          reason?: string | null
+          reason_category?: string | null
+          service_score?: number | null
+        }
+        Update: {
+          action?: string
+          buyer_id?: string | null
+          buyer_name?: string
+          buyer_source?: string | null
+          buyer_type?: string | null
+          composite_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          deal_categories?: string[] | null
+          deal_industry?: string | null
+          id?: string
+          listing_id?: string
+          niche_category?: string
+          pe_firm_name?: string | null
+          reason?: string | null
+          reason_category?: string | null
+          service_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyer_discovery_feedback_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_discovery_feedback_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "remarketing_buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_discovery_feedback_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_introduction_summary"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "buyer_discovery_feedback_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_discovery_feedback_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       buyer_enrichment_queue: {
         Row: {
           attempts: number
@@ -1098,6 +1194,7 @@ export type Database = {
           results: Json
           score_version: string | null
           scored_at: string | null
+          universe_ids: Json | null
         }
         Insert: {
           buyer_count?: number | null
@@ -1107,6 +1204,7 @@ export type Database = {
           results?: Json
           score_version?: string | null
           scored_at?: string | null
+          universe_ids?: Json | null
         }
         Update: {
           buyer_count?: number | null
@@ -1116,6 +1214,7 @@ export type Database = {
           results?: Json
           score_version?: string | null
           scored_at?: string | null
+          universe_ids?: Json | null
         }
         Relationships: []
       }
@@ -4149,6 +4248,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           buyer_contact_id: string | null
+          buyer_introduction_id: string | null
           buyer_priority_score: number | null
           connection_request_id: string | null
           contact_company: string | null
@@ -4193,6 +4293,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           buyer_contact_id?: string | null
+          buyer_introduction_id?: string | null
           buyer_priority_score?: number | null
           connection_request_id?: string | null
           contact_company?: string | null
@@ -4237,6 +4338,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           buyer_contact_id?: string | null
+          buyer_introduction_id?: string | null
           buyer_priority_score?: number | null
           connection_request_id?: string | null
           contact_company?: string | null
@@ -4284,6 +4386,20 @@ export type Database = {
             columns: ["buyer_contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_pipeline_buyer_introduction_id_fkey"
+            columns: ["buyer_introduction_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_introductions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_pipeline_buyer_introduction_id_fkey"
+            columns: ["buyer_introduction_id"]
+            isOneToOne: false
+            referencedRelation: "introduced_and_passed_buyers"
             referencedColumns: ["id"]
           },
           {
@@ -5547,6 +5663,81 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      engagement_signals: {
+        Row: {
+          buyer_id: string | null
+          created_at: string
+          id: string
+          listing_id: string | null
+          metadata: Json | null
+          signal_date: string
+          signal_type: string
+          signal_value: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          buyer_id?: string | null
+          created_at?: string
+          id?: string
+          listing_id?: string | null
+          metadata?: Json | null
+          signal_date?: string
+          signal_type: string
+          signal_value?: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          buyer_id?: string | null
+          created_at?: string
+          id?: string
+          listing_id?: string | null
+          metadata?: Json | null
+          signal_date?: string
+          signal_type?: string
+          signal_value?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engagement_signals_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_signals_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "remarketing_buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_signals_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_introduction_summary"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "engagement_signals_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_signals_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
             referencedColumns: ["id"]
           },
         ]
@@ -7059,64 +7250,6 @@ export type Database = {
           },
         ]
       }
-      introduction_activity: {
-        Row: {
-          activity_date: string
-          activity_type: string
-          actor: string | null
-          buyer_introduction_id: string
-          created_at: string
-          created_by: string
-          description: string | null
-          id: string
-          metadata: Json | null
-        }
-        Insert: {
-          activity_date?: string
-          activity_type: string
-          actor?: string | null
-          buyer_introduction_id: string
-          created_at?: string
-          created_by: string
-          description?: string | null
-          id?: string
-          metadata?: Json | null
-        }
-        Update: {
-          activity_date?: string
-          activity_type?: string
-          actor?: string | null
-          buyer_introduction_id?: string
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          id?: string
-          metadata?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "introduction_activity_buyer_introduction_id_fkey"
-            columns: ["buyer_introduction_id"]
-            isOneToOne: false
-            referencedRelation: "buyer_introductions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "introduction_activity_buyer_introduction_id_fkey"
-            columns: ["buyer_introduction_id"]
-            isOneToOne: false
-            referencedRelation: "introduced_and_passed_buyers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "introduction_activity_buyer_introduction_id_fkey"
-            columns: ["buyer_introduction_id"]
-            isOneToOne: false
-            referencedRelation: "not_yet_introduced_buyers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       introduction_status_log: {
         Row: {
           buyer_introduction_id: string
@@ -7158,13 +7291,6 @@ export type Database = {
             columns: ["buyer_introduction_id"]
             isOneToOne: false
             referencedRelation: "introduced_and_passed_buyers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "introduction_status_log_buyer_introduction_id_fkey"
-            columns: ["buyer_introduction_id"]
-            isOneToOne: false
-            referencedRelation: "not_yet_introduced_buyers"
             referencedColumns: ["id"]
           },
         ]
@@ -9486,6 +9612,475 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      portal_activity_log: {
+        Row: {
+          action: string
+          actor_id: string
+          actor_type: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          portal_org_id: string
+          push_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          actor_type: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          portal_org_id: string
+          push_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          actor_type?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          portal_org_id?: string
+          push_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_activity_log_portal_org_id_fkey"
+            columns: ["portal_org_id"]
+            isOneToOne: false
+            referencedRelation: "portal_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_activity_log_push_id_fkey"
+            columns: ["push_id"]
+            isOneToOne: false
+            referencedRelation: "portal_deal_pushes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_deal_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          portal_org_id: string
+          push_id: string
+          sender_id: string
+          sender_name: string | null
+          sender_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          portal_org_id: string
+          push_id: string
+          sender_id: string
+          sender_name?: string | null
+          sender_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          portal_org_id?: string
+          push_id?: string
+          sender_id?: string
+          sender_name?: string | null
+          sender_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_deal_messages_portal_org_id_fkey"
+            columns: ["portal_org_id"]
+            isOneToOne: false
+            referencedRelation: "portal_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_deal_messages_push_id_fkey"
+            columns: ["push_id"]
+            isOneToOne: false
+            referencedRelation: "portal_deal_pushes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_deal_pushes: {
+        Row: {
+          created_at: string
+          data_room_access_token: string | null
+          deal_snapshot: Json
+          first_viewed_at: string | null
+          id: string
+          last_reminder_at: string | null
+          listing_id: string
+          portal_org_id: string
+          priority: string
+          push_note: string | null
+          pushed_by: string
+          reminder_count: number
+          response_due_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_room_access_token?: string | null
+          deal_snapshot?: Json
+          first_viewed_at?: string | null
+          id?: string
+          last_reminder_at?: string | null
+          listing_id: string
+          portal_org_id: string
+          priority?: string
+          push_note?: string | null
+          pushed_by: string
+          reminder_count?: number
+          response_due_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_room_access_token?: string | null
+          deal_snapshot?: Json
+          first_viewed_at?: string | null
+          id?: string
+          last_reminder_at?: string | null
+          listing_id?: string
+          portal_org_id?: string
+          priority?: string
+          push_note?: string | null
+          pushed_by?: string
+          reminder_count?: number
+          response_due_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_deal_pushes_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "buyer_introduction_summary"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "portal_deal_pushes_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_deal_pushes_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_deal_pushes_portal_org_id_fkey"
+            columns: ["portal_org_id"]
+            isOneToOne: false
+            referencedRelation: "portal_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_deal_pushes_pushed_by_fkey"
+            columns: ["pushed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_deal_responses: {
+        Row: {
+          created_at: string
+          id: string
+          internal_notes: string | null
+          notes: string | null
+          push_id: string
+          responded_by: string
+          response_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          internal_notes?: string | null
+          notes?: string | null
+          push_id: string
+          responded_by: string
+          response_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          internal_notes?: string | null
+          notes?: string | null
+          push_id?: string
+          responded_by?: string
+          response_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_deal_responses_push_id_fkey"
+            columns: ["push_id"]
+            isOneToOne: false
+            referencedRelation: "portal_deal_pushes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_deal_responses_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "portal_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_notifications: {
+        Row: {
+          body: string | null
+          channel: string
+          clicked_at: string | null
+          created_at: string
+          id: string
+          portal_org_id: string
+          portal_user_id: string
+          push_id: string | null
+          read_at: string | null
+          sent_at: string | null
+          subject: string | null
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          channel?: string
+          clicked_at?: string | null
+          created_at?: string
+          id?: string
+          portal_org_id: string
+          portal_user_id: string
+          push_id?: string | null
+          read_at?: string | null
+          sent_at?: string | null
+          subject?: string | null
+          type: string
+        }
+        Update: {
+          body?: string | null
+          channel?: string
+          clicked_at?: string | null
+          created_at?: string
+          id?: string
+          portal_org_id?: string
+          portal_user_id?: string
+          push_id?: string | null
+          read_at?: string | null
+          sent_at?: string | null
+          subject?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_notifications_portal_org_id_fkey"
+            columns: ["portal_org_id"]
+            isOneToOne: false
+            referencedRelation: "portal_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_notifications_portal_user_id_fkey"
+            columns: ["portal_user_id"]
+            isOneToOne: false
+            referencedRelation: "portal_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_notifications_push_id_fkey"
+            columns: ["push_id"]
+            isOneToOne: false
+            referencedRelation: "portal_deal_pushes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_organizations: {
+        Row: {
+          auto_reminder_days: number | null
+          auto_reminder_enabled: boolean
+          auto_reminder_max: number | null
+          buyer_id: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          notes: string | null
+          notification_frequency: string
+          portal_slug: string
+          preferred_deal_size_max: number | null
+          preferred_deal_size_min: number | null
+          preferred_geographies: string[] | null
+          preferred_industries: string[] | null
+          profile_id: string | null
+          relationship_owner_id: string | null
+          status: string
+          updated_at: string
+          welcome_message: string | null
+        }
+        Insert: {
+          auto_reminder_days?: number | null
+          auto_reminder_enabled?: boolean
+          auto_reminder_max?: number | null
+          buyer_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          notes?: string | null
+          notification_frequency?: string
+          portal_slug: string
+          preferred_deal_size_max?: number | null
+          preferred_deal_size_min?: number | null
+          preferred_geographies?: string[] | null
+          preferred_industries?: string[] | null
+          profile_id?: string | null
+          relationship_owner_id?: string | null
+          status?: string
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Update: {
+          auto_reminder_days?: number | null
+          auto_reminder_enabled?: boolean
+          auto_reminder_max?: number | null
+          buyer_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          notes?: string | null
+          notification_frequency?: string
+          portal_slug?: string
+          preferred_deal_size_max?: number | null
+          preferred_deal_size_min?: number | null
+          preferred_geographies?: string[] | null
+          preferred_industries?: string[] | null
+          profile_id?: string | null
+          relationship_owner_id?: string | null
+          status?: string
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_organizations_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_organizations_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "remarketing_buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_organizations_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_organizations_relationship_owner_id_fkey"
+            columns: ["relationship_owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_users: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          email: string
+          id: string
+          invite_accepted_at: string | null
+          invite_sent_at: string | null
+          is_active: boolean
+          last_login_at: string | null
+          name: string
+          portal_org_id: string
+          profile_id: string | null
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          invite_accepted_at?: string | null
+          invite_sent_at?: string | null
+          is_active?: boolean
+          last_login_at?: string | null
+          name: string
+          portal_org_id: string
+          profile_id?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          invite_accepted_at?: string | null
+          invite_sent_at?: string | null
+          is_active?: boolean
+          last_login_at?: string | null
+          name?: string
+          portal_org_id?: string
+          profile_id?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_users_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_users_portal_org_id_fkey"
+            columns: ["portal_org_id"]
+            isOneToOne: false
+            referencedRelation: "portal_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_users_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -12408,82 +13003,6 @@ export type Database = {
           },
         ]
       }
-      not_yet_introduced_buyers: {
-        Row: {
-          activity_count: number | null
-          buyer_email: string | null
-          buyer_firm_name: string | null
-          buyer_linkedin_url: string | null
-          buyer_name: string | null
-          buyer_phone: string | null
-          company_name: string | null
-          created_at: string | null
-          expected_deal_size_high: number | null
-          expected_deal_size_low: number | null
-          id: string | null
-          internal_champion: string | null
-          last_activity: string | null
-          listing_id: string | null
-          targeting_reason: string | null
-        }
-        Insert: {
-          activity_count?: never
-          buyer_email?: string | null
-          buyer_firm_name?: string | null
-          buyer_linkedin_url?: string | null
-          buyer_name?: string | null
-          buyer_phone?: string | null
-          company_name?: string | null
-          created_at?: string | null
-          expected_deal_size_high?: number | null
-          expected_deal_size_low?: number | null
-          id?: string | null
-          internal_champion?: string | null
-          last_activity?: never
-          listing_id?: string | null
-          targeting_reason?: string | null
-        }
-        Update: {
-          activity_count?: never
-          buyer_email?: string | null
-          buyer_firm_name?: string | null
-          buyer_linkedin_url?: string | null
-          buyer_name?: string | null
-          buyer_phone?: string | null
-          company_name?: string | null
-          created_at?: string | null
-          expected_deal_size_high?: number | null
-          expected_deal_size_low?: number | null
-          id?: string | null
-          internal_champion?: string | null
-          last_activity?: never
-          listing_id?: string | null
-          targeting_reason?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "buyer_introductions_listing_id_fkey"
-            columns: ["listing_id"]
-            isOneToOne: false
-            referencedRelation: "buyer_introduction_summary"
-            referencedColumns: ["listing_id"]
-          },
-          {
-            foreignKeyName: "buyer_introductions_listing_id_fkey"
-            columns: ["listing_id"]
-            isOneToOne: false
-            referencedRelation: "listings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "buyer_introductions_listing_id_fkey"
-            columns: ["listing_id"]
-            isOneToOne: false
-            referencedRelation: "marketplace_listings"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       remarketing_buyer_universes: {
         Row: {
           archived: boolean | null
@@ -13699,6 +14218,7 @@ export type Database = {
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_owner: { Args: { _user_id: string }; Returns: boolean }
+      is_portal_member: { Args: { org_id: string }; Returns: boolean }
       is_valid_company_website: { Args: { website: string }; Returns: boolean }
       link_journey_to_user: {
         Args: { p_user_id: string; p_visitor_id: string }
@@ -13843,6 +14363,18 @@ export type Database = {
       normalize_domain: { Args: { url: string }; Returns: string }
       normalize_phone_lookup: { Args: { value: string }; Returns: string }
       normalize_state_name: { Args: { state_name: string }; Returns: string }
+      portal_responses_for_user: {
+        Args: { p_push_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          internal_notes: string
+          notes: string
+          push_id: string
+          responded_by: string
+          response_type: string
+        }[]
+      }
       promote_user_to_admin: {
         Args: { target_user_id: string }
         Returns: boolean
