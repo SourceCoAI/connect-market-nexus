@@ -27,3 +27,4 @@ export { CallScoreCard } from './CallScoreCard';
 export { DealSearchDialog } from './DealSearchDialog';
 export { StageVelocityChart } from './StageVelocityChart';
 export { BuyerEngagementSummary } from './BuyerEngagementSummary';
+export { ClientPreviewDialog } from './ClientPreviewDialog';

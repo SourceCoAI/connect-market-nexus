@@ -40,6 +40,7 @@ import { ValuationTab } from './ValuationTab';
 import { DealEmailActivity } from '@/components/email';
 import { UnifiedDealTimeline } from '@/components/remarketing/deal-detail/UnifiedDealTimeline';
 import { DealSearchDialog } from '@/components/remarketing/deal-detail/DealSearchDialog';
+import { ClientPreviewDialog } from '@/components/remarketing/deal-detail/ClientPreviewDialog';
 
 const ReMarketingDealDetail = () => {
   const {
@@ -82,6 +83,7 @@ const ReMarketingDealDetail = () => {
 
   const [notAFitDialogOpen, setNotAFitDialogOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [clientPreviewOpen, setClientPreviewOpen] = useState(false);
 
   if (dealLoading) {
     return (
@@ -144,6 +146,10 @@ const ReMarketingDealDetail = () => {
           />
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setClientPreviewOpen(true)}>
+            <Eye className="h-4 w-4 mr-1" />
+            Preview as Client
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setSearchOpen(true)}>
             <Search className="h-4 w-4 mr-1" />
             Search History
@@ -189,6 +195,12 @@ const ReMarketingDealDetail = () => {
         onOpenChange={setSearchOpen}
         dealId={dealId!}
         listingId={dealId!}
+      />
+
+      <ClientPreviewDialog
+        listingId={dealId!}
+        open={clientPreviewOpen}
+        onOpenChange={setClientPreviewOpen}
       />
 
       <Tabs defaultValue="overview" className="space-y-6">

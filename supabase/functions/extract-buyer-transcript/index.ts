@@ -533,22 +533,24 @@ serve(async (req) => {
 
         // Map buyer_profile fields
         if (insights.buyer_profile) {
+          // thesis_summary is denormalized to buyers table because the scoring engine needs it
           if (insights.buyer_profile.thesis_summary) {
             safeSet('thesis_summary', insights.buyer_profile.thesis_summary);
           }
-          if (insights.buyer_profile.acquisition_timeline) {
-            safeSet('acquisition_timeline', insights.buyer_profile.acquisition_timeline);
-          }
+          // Revenue/EBITDA ranges, acquisition_timeline, and deal structure are now read directly from
+          // buyer_transcripts.extracted_insights by the frontend. Only fields
+          // needed by the scoring engine are denormalized to the buyers table.
         }
 
         // Map buyer_criteria fields to buyer record
         if (insights.buyer_criteria) {
           // Map service targets to target_services (NOT target_industries — that's a different field)
+          // Needed by scoring engine
           if (insights.buyer_criteria.service_criteria?.target_services?.length) {
             safeSet('target_services', insights.buyer_criteria.service_criteria.target_services);
           }
 
-          // Map geography targets
+          // Map geography targets — needed by scoring engine
           if (insights.buyer_criteria.geography_criteria?.target_states?.length) {
             safeSet('target_geographies', insights.buyer_criteria.geography_criteria.target_states);
           }
@@ -556,14 +558,9 @@ serve(async (req) => {
           // Geographic exclusions are stored in extracted_insights JSONB on the
           // transcript record. No dedicated column exists on the buyers table yet.
 
-          // Map size criteria — deal structure can ONLY come from transcripts
-          const size = insights.buyer_criteria.size_criteria;
-          if (size) {
-            if (size.revenue_min) safeSet('target_revenue_min', size.revenue_min);
-            if (size.revenue_max) safeSet('target_revenue_max', size.revenue_max);
-            if (size.ebitda_min) safeSet('target_ebitda_min', size.ebitda_min);
-            if (size.ebitda_max) safeSet('target_ebitda_max', size.ebitda_max);
-          }
+          // Revenue/EBITDA ranges are now read directly from
+          // buyer_transcripts.extracted_insights by the frontend.
+          // They are NOT denormalized to the buyers table.
         }
 
         if (rejectedFields.length > 0) {

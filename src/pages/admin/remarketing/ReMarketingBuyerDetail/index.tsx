@@ -20,7 +20,9 @@ import {
   Phone,
   PhoneCall,
   Users,
+  Video,
 } from 'lucide-react';
+import { useBuyerCriteriaFromTranscripts } from '@/hooks/useBuyerCriteriaFromTranscripts';
 import { EntityTasksTab, CreateTaskButton } from '@/components/daily-tasks';
 import { BuyerAgreementsPanel } from '@/components/remarketing/BuyerAgreementsPanel';
 import { BuyerRelationshipSection } from '@/components/remarketing/buyer-detail/BuyerRelationshipSection';
@@ -107,6 +109,8 @@ const ReMarketingBuyerDetail = () => {
     handleExtractAll,
     handleSingleExtractWithSummary,
   } = useExtractionHandlers(transcripts, extractTranscriptMutation);
+
+  const { data: transcriptCriteria } = useBuyerCriteriaFromTranscripts(buyer?.id);
 
   if (!isNew && isLoading) {
     return (
@@ -288,7 +292,7 @@ const ReMarketingBuyerDetail = () => {
             />
 
             <InvestmentCriteriaCard
-              investmentThesis={buyer?.thesis_summary}
+              investmentThesis={transcriptCriteria?.thesis_summary ?? buyer?.thesis_summary}
               onEdit={() => setActiveEditDialog('investment')}
               className="bg-accent/20"
             />
@@ -302,7 +306,11 @@ const ReMarketingBuyerDetail = () => {
             />
 
             <GeographicFootprintCard
-              targetGeographies={buyer?.target_geographies}
+              targetGeographies={
+                transcriptCriteria?.target_states?.length
+                  ? transcriptCriteria.target_states
+                  : buyer?.target_geographies
+              }
               operatingLocations={buyer?.operating_locations}
               geographicFootprint={buyer?.geographic_footprint}
               serviceRegions={buyer?.service_regions}
@@ -320,12 +328,14 @@ const ReMarketingBuyerDetail = () => {
             />
 
             <DealStructureCard
-              minRevenue={buyer?.target_revenue_min}
-              maxRevenue={buyer?.target_revenue_max}
-              minEbitda={buyer?.target_ebitda_min}
-              maxEbitda={buyer?.target_ebitda_max}
+              minRevenue={transcriptCriteria?.target_revenue_min ?? buyer?.target_revenue_min}
+              maxRevenue={transcriptCriteria?.target_revenue_max ?? buyer?.target_revenue_max}
+              minEbitda={transcriptCriteria?.target_ebitda_min ?? buyer?.target_ebitda_min}
+              maxEbitda={transcriptCriteria?.target_ebitda_max ?? buyer?.target_ebitda_max}
               acquisitionAppetite={buyer?.acquisition_appetite}
-              acquisitionTimeline={buyer?.acquisition_timeline}
+              acquisitionTimeline={
+                transcriptCriteria?.acquisition_timeline ?? buyer?.acquisition_timeline
+              }
               onEdit={() => setActiveEditDialog('dealStructure')}
               className="bg-accent/20"
             />
@@ -337,6 +347,17 @@ const ReMarketingBuyerDetail = () => {
               className="bg-accent/20"
             />
           </div>
+
+          {transcriptCriteria?.sources?.length ? (
+            <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+              <Video className="h-3 w-3" />
+              Criteria sourced from {transcriptCriteria.sources.length} transcript
+              {transcriptCriteria.sources.length > 1 ? 's' : ''}
+              {transcriptCriteria.sources[0] && (
+                <span>— Latest: {transcriptCriteria.sources[0].title}</span>
+              )}
+            </div>
+          ) : null}
 
           {/* Full Width: Transcripts */}
           <TranscriptsListCard
