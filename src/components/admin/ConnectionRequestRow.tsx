@@ -542,6 +542,15 @@ export function ConnectionRequestRow({
                   {request.user && (
                     <BuyerTierBadge tier={request.user?.buyer_tier ?? null} />
                   )}
+                  {request.user && request.user.approval_status && (
+                    <Badge variant={
+                      request.user.approval_status === 'approved' ? 'success' :
+                      request.user.approval_status === 'rejected' ? 'destructive' : 'sent'
+                    } className="text-[10px] px-1.5 py-0">
+                      {request.user.approval_status === 'approved' ? '✓ Approved' :
+                       request.user.approval_status === 'rejected' ? 'Rejected' : 'Pending Approval'}
+                    </Badge>
+                  )}
                 </div>
                 <div className="text-sm text-muted-foreground space-y-1">
                   <div className="flex items-center gap-2">

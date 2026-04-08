@@ -236,6 +236,15 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
                 {request.user.email && (
                   <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {request.user.email}</span>
                 )}
+                {request.user.approval_status && (
+                  <Badge variant={
+                    request.user.approval_status === 'approved' ? 'success' :
+                    request.user.approval_status === 'rejected' ? 'destructive' : 'sent'
+                  } className="text-[10px] px-1.5 py-0">
+                    {request.user.approval_status === 'approved' ? '✓ Approved' :
+                     request.user.approval_status === 'rejected' ? 'Rejected' : 'Pending Approval'}
+                  </Badge>
+                )}
               </div>
             )}
         </CardContent>
