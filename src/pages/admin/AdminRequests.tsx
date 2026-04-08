@@ -17,6 +17,7 @@ import {
   type BuyerTypeFilter,
   type NdaFilter,
   type FeeAgreementFilter,
+  type DateRangeFilter,
   type SortOption,
 } from '@/hooks/admin/use-pipeline-filters';
 import { toast } from '@/hooks/use-toast';
@@ -151,6 +152,7 @@ const AdminRequests = () => {
         setBuyerTypeFilter('all');
         setNdaFilter('all');
         setFeeAgreementFilter('all');
+        setDateRangeFilter('all');
         setSearchQuery('');
       }
       filters.forEach((f) => {
@@ -191,6 +193,7 @@ const AdminRequests = () => {
       setBuyerTypeFilter('all');
       setNdaFilter('all');
       setFeeAgreementFilter('all');
+      setDateRangeFilter('all');
       setSearchQuery('');
     },
   });
@@ -239,12 +242,14 @@ const AdminRequests = () => {
     buyerTypeFilter,
     ndaFilter,
     feeAgreementFilter,
+    dateRangeFilter,
     sortOption,
     filteredAndSortedRequests: pipelineFilteredRequests,
     setStatusFilter,
     setBuyerTypeFilter,
     setNdaFilter,
     setFeeAgreementFilter,
+    setDateRangeFilter,
     setSortOption,
   } = usePipelineFilters(requests);
 
@@ -418,12 +423,14 @@ const AdminRequests = () => {
               buyerTypeFilter={buyerTypeFilter}
               ndaFilter={ndaFilter}
               feeAgreementFilter={feeAgreementFilter}
+              dateRangeFilter={dateRangeFilter}
               sortOption={sortOption}
               searchQuery={searchQuery}
               onStatusFilterChange={setStatusFilter}
               onBuyerTypeFilterChange={(filter) => setBuyerTypeFilter(filter)}
               onNdaFilterChange={setNdaFilter}
               onFeeAgreementFilterChange={setFeeAgreementFilter}
+              onDateRangeFilterChange={setDateRangeFilter}
               onSortChange={(sort) => setSortOption(sort)}
               onSearchChange={setSearchQuery}
             />
@@ -447,6 +454,7 @@ const AdminRequests = () => {
                 buyerTypeFilter !== 'all' ||
                 ndaFilter !== 'all' ||
                 feeAgreementFilter !== 'all' ||
+                dateRangeFilter !== 'all' ||
                 searchQuery ||
                 selectedListingId) && (
                 <Badge variant="outline" className="text-xs font-medium px-3 py-1.5">
@@ -483,6 +491,16 @@ const AdminRequests = () => {
                   className="text-xs font-medium px-3 py-1.5 bg-secondary/10 text-secondary-foreground border-secondary/20"
                 >
                   Fee: {feeAgreementFilter.replace('_', ' ')}
+                </Badge>
+              )}
+              {dateRangeFilter !== 'all' && (
+                <Badge
+                  variant="outline"
+                  className="text-xs font-medium px-3 py-1.5 bg-secondary/10 text-secondary-foreground border-secondary/20"
+                >
+                  Date: {
+                    { '7d': 'Last 7 days', '30d': 'Last 30 days', '90d': 'Last 90 days', '6m': 'Last 6 months', '1y': 'Last year' }[dateRangeFilter]
+                  }
                 </Badge>
               )}
             </div>

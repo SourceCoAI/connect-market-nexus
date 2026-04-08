@@ -6,7 +6,7 @@
  *
  * Extracted from AddDealDialog.tsx for maintainability.
  */
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -31,7 +31,7 @@ const normalizeName = (name: string) =>
 
 interface AddDealFormProps {
   formData: AddDealFormData;
-  onFormChange: (field: string, value: string) => void;
+  onFormChange: (field: string, value: string | string[]) => void;
   transcriptFiles: File[];
   onFilesChange: (files: File[]) => void;
   onSubmit: () => void;
@@ -180,6 +180,46 @@ export const AddDealForm = ({
               value={formData.mainContactPhone}
               onChange={(e) => onFormChange('mainContactPhone', e.target.value)}
             />
+            {(formData.additionalPhones || []).map((ph, idx) => (
+              <div key={idx} className="flex items-center gap-1 mt-1">
+                <Input
+                  type="tel"
+                  placeholder="Additional phone"
+                  value={ph}
+                  onChange={(e) => {
+                    const updated = [...(formData.additionalPhones || [])];
+                    updated[idx] = e.target.value;
+                    onFormChange('additionalPhones', updated);
+                  }}
+                  className="text-xs"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() => {
+                    const updated = (formData.additionalPhones || []).filter((_, i) => i !== idx);
+                    onFormChange('additionalPhones', updated);
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1 h-7 text-xs mt-1"
+              onClick={() => {
+                const current = formData.additionalPhones || [];
+                onFormChange('additionalPhones', [...current, '']);
+              }}
+            >
+              <Plus className="h-3 w-3" />
+              Add Phone
+            </Button>
           </div>
           <div className="space-y-1">
             <Label htmlFor="mainContactTitle" className="text-xs">

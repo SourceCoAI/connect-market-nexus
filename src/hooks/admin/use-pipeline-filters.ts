@@ -13,6 +13,7 @@ export type BuyerTypeFilter =
   | 'individual_buyer';
 export type NdaFilter = 'all' | 'signed' | 'not_signed' | 'sent';
 export type FeeAgreementFilter = 'all' | 'signed' | 'not_signed' | 'sent';
+export type DateRangeFilter = 'all' | '7d' | '30d' | '90d' | '6m' | '1y';
 export type SortOption =
   | 'newest'
   | 'oldest'
@@ -20,7 +21,11 @@ export type SortOption =
   | 'deal_size'
   | 'approval_date'
   | 'score_highest'
-  | 'score_lowest';
+  | 'score_lowest'
+  | 'name_asc'
+  | 'name_desc'
+  | 'company_asc'
+  | 'listing_asc';
 
 export function usePipelineFilters(requests: AdminConnectionRequest[]) {
   // URL-persisted filter state (survives browser Back navigation)
@@ -90,6 +95,22 @@ export function usePipelineFilters(requests: AdminConnectionRequest[]) {
     [setSearchParams],
   );
 
+  const dateRangeFilter = (searchParams.get('dateRange') as DateRangeFilter) ?? 'all';
+  const setDateRangeFilter = useCallback(
+    (v: DateRangeFilter) => {
+      setSearchParams(
+        (p) => {
+          const n = new URLSearchParams(p);
+          if (v !== 'all') n.set('dateRange', v);
+          else n.delete('dateRange');
+          return n;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   const sortOption = (searchParams.get('sortBy') as SortOption) ?? 'newest';
   const setSortOption = useCallback(
     (v: SortOption) => {
@@ -124,6 +145,21 @@ export function usePipelineFilters(requests: AdminConnectionRequest[]) {
       default:
         return 0;
     }
+  };
+
+  // Helper: get display name for a request's buyer
+  const getBuyerName = (request: AdminConnectionRequest): string => {
+    if (request.user) {
+      return `${request.user.first_name || ''} ${request.user.last_name || ''}`.trim().toLowerCase();
+    }
+    return (request.lead_name || '').toLowerCase();
+  };
+
+  const getBuyerCompany = (request: AdminConnectionRequest): string => {
+    if (request.user) {
+      return (request.user.company || '').toLowerCase();
+    }
+    return (request.lead_company || '').toLowerCase();
   };
 
   const filteredAndSortedRequests = useMemo(() => {
@@ -171,6 +207,22 @@ export function usePipelineFilters(requests: AdminConnectionRequest[]) {
       });
     }
 
+    // Apply date range filter
+    if (dateRangeFilter !== 'all') {
+      const now = Date.now();
+      const msMap: Record<string, number> = {
+        '7d': 7 * 24 * 60 * 60 * 1000,
+        '30d': 30 * 24 * 60 * 60 * 1000,
+        '90d': 90 * 24 * 60 * 60 * 1000,
+        '6m': 182 * 24 * 60 * 60 * 1000,
+        '1y': 365 * 24 * 60 * 60 * 1000,
+      };
+      const cutoff = now - (msMap[dateRangeFilter] || 0);
+      filtered = filtered.filter(
+        (request) => new Date(request.created_at).getTime() >= cutoff,
+      );
+    }
+
     // Apply sorting
     const sorted = [...filtered].sort((a, b) => {
       switch (sortOption) {
@@ -179,6 +231,34 @@ export function usePipelineFilters(requests: AdminConnectionRequest[]) {
 
         case 'oldest':
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+
+        case 'name_asc': {
+          const nameA = getBuyerName(a);
+          const nameB = getBuyerName(b);
+          if (nameA !== nameB) return nameA.localeCompare(nameB);
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
+
+        case 'name_desc': {
+          const nameA = getBuyerName(a);
+          const nameB = getBuyerName(b);
+          if (nameA !== nameB) return nameB.localeCompare(nameA);
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
+
+        case 'company_asc': {
+          const compA = getBuyerCompany(a);
+          const compB = getBuyerCompany(b);
+          if (compA !== compB) return compA.localeCompare(compB);
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
+
+        case 'listing_asc': {
+          const listA = (a.listing?.title || '').toLowerCase();
+          const listB = (b.listing?.title || '').toLowerCase();
+          if (listA !== listB) return listA.localeCompare(listB);
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
 
         case 'buyer_priority': {
           const priorityA = getBuyerPriority(a.user?.buyer_type);
@@ -232,19 +312,21 @@ export function usePipelineFilters(requests: AdminConnectionRequest[]) {
     });
 
     return sorted;
-  }, [requests, statusFilter, buyerTypeFilter, ndaFilter, feeAgreementFilter, sortOption]);
+  }, [requests, statusFilter, buyerTypeFilter, ndaFilter, feeAgreementFilter, dateRangeFilter, sortOption]);
 
   return {
     statusFilter,
     buyerTypeFilter,
     ndaFilter,
     feeAgreementFilter,
+    dateRangeFilter,
     sortOption,
     filteredAndSortedRequests,
     setStatusFilter,
     setBuyerTypeFilter,
     setNdaFilter,
     setFeeAgreementFilter,
+    setDateRangeFilter,
     setSortOption,
   };
 }

@@ -90,7 +90,7 @@ export const AddDealDialog = ({
     resetForm,
   });
 
-  const handleFormChange = (field: string, value: string) => {
+  const handleFormChange = (field: string, value: string | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 

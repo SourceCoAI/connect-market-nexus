@@ -30,6 +30,7 @@ export interface AddDealFormData {
   mainContactEmail: string;
   mainContactPhone: string;
   mainContactTitle: string;
+  additionalPhones?: string[];
 }
 
 export const INITIAL_FORM_DATA: AddDealFormData = {
@@ -44,6 +45,7 @@ export const INITIAL_FORM_DATA: AddDealFormData = {
   mainContactEmail: '',
   mainContactPhone: '',
   mainContactTitle: '',
+  additionalPhones: [],
 };
 
 interface UseAddDealSubmitOptions {

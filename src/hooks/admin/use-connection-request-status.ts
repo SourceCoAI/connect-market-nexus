@@ -119,10 +119,18 @@ export const useUpdateConnectionRequestStatus = () => {
         queryClient.setQueryData(QUERY_KEYS.admin.connectionRequests, context.prevAdmin);
       }
 
+      // Supabase PostgrestError has .message but isn't an Error instance
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : 'Could not update request status';
+
       toast({
         variant: 'destructive',
         title: 'Update failed',
-        description: err instanceof Error ? err.message : 'Could not update request status',
+        description: message,
       });
     },
   });

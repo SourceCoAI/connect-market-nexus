@@ -30,6 +30,7 @@ export function useProfileData() {
     website: user?.website || '',
     linkedin_profile: user?.linkedin_profile || '',
     phone_number: user?.phone_number || '',
+    additional_phone_numbers: user?.additional_phone_numbers || [],
     buyer_type: user?.buyer_type || 'corporate',
     bio: user?.bio || '',
     ideal_target_description: user?.ideal_target_description || '',
@@ -137,6 +138,9 @@ export function useProfileData() {
     try {
       const normalizedData = {
         ...formData,
+        additional_phone_numbers: (formData.additional_phone_numbers || []).filter(
+          (n) => n && n.trim() !== '',
+        ),
         website: formData.website ? processUrl(formData.website) : formData.website,
         linkedin_profile: formData.linkedin_profile
           ? processLinkedInUrl(formData.linkedin_profile)

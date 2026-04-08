@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, X } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { MultiCategorySelect } from '@/components/ui/category-select';
 import { MultiLocationSelect } from '@/components/ui/location-select';
@@ -188,6 +188,45 @@ export function ProfileForm({
                 value={formData.phone_number}
                 onChange={onInputChange}
               />
+              {/* Additional phone numbers */}
+              {(formData.additional_phone_numbers || []).map((num, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Additional phone number"
+                    value={num}
+                    onChange={(e) => {
+                      const updated = [...(formData.additional_phone_numbers || [])];
+                      updated[idx] = e.target.value;
+                      onSetFormData((prev) => ({ ...prev, additional_phone_numbers: updated }));
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => {
+                      const updated = (formData.additional_phone_numbers || []).filter((_, i) => i !== idx);
+                      onSetFormData((prev) => ({ ...prev, additional_phone_numbers: updated }));
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                onClick={() => {
+                  const current = formData.additional_phone_numbers || [];
+                  onSetFormData((prev) => ({ ...prev, additional_phone_numbers: [...current, ''] }));
+                }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Phone Number
+              </Button>
             </div>
 
             <div className="space-y-2">

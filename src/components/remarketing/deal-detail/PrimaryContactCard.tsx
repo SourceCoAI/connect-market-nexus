@@ -12,21 +12,23 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Pencil, Loader2, User, Mail } from 'lucide-react';
+import { Pencil, Loader2, User, Mail, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface PrimaryContactCardProps {
   name: string | null;
   email: string | null;
   phone: string | null;
+  additionalPhones?: string[];
   dealId?: string;
-  onSave: (data: { name: string; email: string; phone: string }) => Promise<void>;
+  onSave: (data: { name: string; email: string; phone: string; additionalPhones?: string[] }) => Promise<void>;
 }
 
 export const PrimaryContactCard = ({
   name,
   email,
   phone,
+  additionalPhones = [],
   dealId,
   onSave,
 }: PrimaryContactCardProps) => {
@@ -34,15 +36,18 @@ export const PrimaryContactCard = ({
   const [editedName, setEditedName] = useState(name || '');
   const [editedEmail, setEditedEmail] = useState(email || '');
   const [editedPhone, setEditedPhone] = useState(phone || '');
+  const [editedAdditionalPhones, setEditedAdditionalPhones] = useState<string[]>(additionalPhones);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const filteredPhones = editedAdditionalPhones.filter((p) => p.trim() !== '');
       await onSave({
         name: editedName,
         email: editedEmail,
         phone: editedPhone,
+        additionalPhones: filteredPhones,
       });
       setIsEditOpen(false);
       toast.success('Contact updated');
@@ -57,6 +62,7 @@ export const PrimaryContactCard = ({
     setEditedName(name || '');
     setEditedEmail(email || '');
     setEditedPhone(phone || '');
+    setEditedAdditionalPhones([...additionalPhones]);
     setIsEditOpen(true);
   };
 
@@ -116,6 +122,18 @@ export const PrimaryContactCard = ({
                     className="text-sm text-muted-foreground hover:text-foreground"
                   />
                 )}
+                {additionalPhones.map((ph, i) => (
+                  <ClickToDialPhone
+                    key={i}
+                    phone={ph}
+                    name={name || undefined}
+                    email={email || undefined}
+                    entityType="listings"
+                    entityId={dealId}
+                    size="sm"
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                  />
+                ))}
               </div>
               <div className="flex gap-2">
                 {email && (
@@ -190,6 +208,39 @@ export const PrimaryContactCard = ({
                 onChange={(e) => setEditedPhone(e.target.value)}
                 className="mt-1.5"
               />
+              {editedAdditionalPhones.map((ph, idx) => (
+                <div key={idx} className="flex items-center gap-2 mt-1.5">
+                  <Input
+                    type="tel"
+                    placeholder="Additional phone number"
+                    value={ph}
+                    onChange={(e) => {
+                      const updated = [...editedAdditionalPhones];
+                      updated[idx] = e.target.value;
+                      setEditedAdditionalPhones(updated);
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => setEditedAdditionalPhones(editedAdditionalPhones.filter((_, i) => i !== idx))}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-1.5 gap-1"
+                onClick={() => setEditedAdditionalPhones([...editedAdditionalPhones, ''])}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Phone Number
+              </Button>
             </div>
           </div>
           <DialogFooter>
