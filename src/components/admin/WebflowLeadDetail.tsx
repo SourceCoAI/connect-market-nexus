@@ -9,7 +9,8 @@
  */
 import { useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
-import { Globe, User, Building2, Mail, Phone, Briefcase, ExternalLink, FileText, Clock, CheckCircle } from 'lucide-react';
+import { Globe, User, Building2, Mail, Phone, Briefcase, ExternalLink, FileText, Clock, CheckCircle, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
