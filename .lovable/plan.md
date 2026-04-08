@@ -1,146 +1,68 @@
 
-What I found after a deeper audit:
 
-1. The core verification plan was mostly implemented
-- `src/pages/auth/callback.tsx` no longer writes `profiles.email_verified` directly.
-- It now resolves the session, fetches the profile, waits briefly for DB sync, and routes to `/pending-approval`.
-- `src/pages/PendingApproval.tsx` now has a reconciliation/loading state (`Finalizing your verification`) and refreshes the profile if Auth says verified but the profile still looks stale.
-- The migration `supabase/migrations/20260408140754_e905b07c-7534-444f-af59-15656cefa199.sql` exists and redefines:
-  - `public.sync_user_verification_status()`
-  - `public.protect_sensitive_profile_fields()`
-  - auth triggers `on_auth_user_updated` and `on_auth_user_verification_inserted`
-  - a one-time backfill update
+# Fix GP Partner Email Activity + Add Response Categorization Settings
 
-2. The live database currently shows the sync is working
-For `adambhaile00@gmail.com` right now:
-- `auth.users.email_confirmed_at` is set
-- `profiles.email_verified = true`
-- `approval_status = pending`
+## Problem 1: Email Activity Tab Shows Error
 
-So the original “Auth verified but profile still false” problem is not currently present in the live DB for this user.
+**Root cause**: The `DealEmailActivity` component queries an `email_messages` table that does not exist. The actual Smartlead reply data lives in `smartlead_reply_inbox`. When the component runs `.from('email_messages').select('*').eq('deal_id', dealId)`, it fails because the table is missing entirely.
 
-3. That means the remaining problem is deeper than the original plan
-The last plan fixed the DB-side sync path, but that is not the whole story. I found two important remaining risks:
+GP Partner deals already have Smartlead replies linked via `smartlead_reply_inbox.linked_deal_id`, but the Email Activity tab never reads from that table.
 
-A. Misleading “verification success” email timing
-`src/pages/auth/callback.tsx` sends the “Your email is confirmed” success email as soon as:
-- Auth session exists
-- `authUser.email_confirmed_at` is true
-- profile fetch succeeds
+**Fix**: Create a new `SmartleadEmailActivity` component (or modify `DealEmailActivity`) that queries `smartlead_reply_inbox` where `linked_deal_id = dealId` OR where the lead email matches the deal's `main_contact_email`. This surfaces sent messages, replies, and their AI classifications directly in the Email Activity tab.
 
-That email is not tied to admin approval, and the wording can easily be read as “everything is complete” even though admin still sees `approval_status = pending`. So part of the confusion is product/flow messaging, not just data sync.
+### Files to change
+- **`src/hooks/email/useEmailMessages.ts`** — Update `useDealEmailActivity` to query `smartlead_reply_inbox` (by `linked_deal_id`) as a fallback/additional source when `email_messages` returns nothing or errors. Since `email_messages` doesn't exist, rewrite the hook to query `smartlead_reply_inbox` directly.
+- **`src/components/email/DealEmailActivity.tsx`** — Adapt the display to handle `smartlead_reply_inbox` fields (`from_email`, `reply_body`, `sent_message_body`, `ai_category`, `campaign_name`, `time_replied`, etc.) instead of the non-existent `EmailMessage` type.
 
-B. Split auth state architecture still exists in the codebase
-The app’s main auth context uses `useNuclearAuth`, but there is also an older `useAuthState` hook still in the codebase.
-- `AuthProvider` uses `useNuclearAuth`
-- but `PageEngagementTracker` and `EditorInternalCard` still import `useAuthState`
+## Problem 2: Activity Tab Not Updating
 
-`useAuthState` has older behavior:
-- reads/writes `localStorage`
-- creates fallback “minimal user” objects from auth session
-- can independently represent email verification from `session.user.email_confirmed_at`
-- is not the same source of truth as the main app auth context
+The `UnifiedDealTimeline` merges `deal_activities` + `contact_activities`. Smartlead email replies are stored in `smartlead_reply_inbox`, not in either of those tables. When a GP deal is created from a Smartlead reply, no corresponding `deal_activity` or `contact_activity` record is written for the email exchange itself.
 
-Even if it is not the exact cause of the pending-approval bug, this split architecture is dangerous and can absolutely create stale or contradictory UI state elsewhere.
+**Fix**: In the `UnifiedDealTimeline`, add a third data source — fetch `smartlead_reply_inbox` records where `linked_deal_id = dealId` and merge them into the timeline as email-type entries.
 
-4. Why the app may still have looked wrong even if DB was correct
-Most likely scenarios now:
-- the session/callback timing briefly showed the old state before refresh
-- a stale client auth object remained in memory during navigation
-- the success email created the impression that the account should already be “fully verified” in admin, when only email verification had happened
-- some parts of the app may still derive state from the old hook instead of the canonical auth context
+### Files to change
+- **`src/components/remarketing/deal-detail/UnifiedDealTimeline.tsx`** — Add a query for `smartlead_reply_inbox` by `linked_deal_id`, map results to `UnifiedTimelineEntry` with source `'email'` and category `'emails'`, merge into the combined timeline.
 
-5. Is that previous plan “all we need”?
-No. It solved the original DB-trigger conflict, but not the full reliability problem.
+## Problem 3: Response Categorization Settings Page
 
-What still needs to be done
+Build a new section on the existing Smartlead Settings page (`SmartleadSettingsPage.tsx`) with two parts:
 
-Step 1 — verify the current frontend state path end-to-end
-Audit the exact route sequence for:
-signup -> email link -> `/auth/callback` -> `/pending-approval` -> admin dashboard
-and confirm each screen uses the same canonical profile/auth source after the redirect.
+### A. Classification Prompt Editor
+- Show the current AI classification prompt (the system prompt from `smartlead-inbox-webhook`)
+- Store it in `app_settings` with key `smartlead_classification_prompt`
+- Allow editing and saving, with a "Reset to Default" option
+- Update the edge function to read the prompt from `app_settings` if present, falling back to the hardcoded default
 
-Step 2 — make the callback use a stronger verified-state gate
-In `src/pages/auth/callback.tsx`, don’t just “wait a bit and continue.”
-Instead:
-- resolve auth session
-- fetch profile
-- if `authUser.email_confirmed_at` is true and `profile.email_verified` is still false, explicitly retry profile fetch a few times
-- if still not synced, surface a deterministic recovery path/log instead of silently continuing
-This avoids hidden partial-success states.
+### B. Response Categorization Matrix
+- Query `smartlead_reply_inbox` to build an aggregated matrix showing:
+  - Category breakdown (meeting_request, interested, question, referral, not_now, not_interested, unsubscribe, out_of_office, negative_hostile, neutral) with counts, percentages
+  - Sentiment distribution per category
+  - Confidence distribution (avg confidence per category)
+  - Recent examples for each category (expandable)
+  - Manual override stats (how many were recategorized)
+- This mirrors the call disposition tracking pattern but for email responses
 
-Step 3 — harden pending-approval state derivation
-In `src/pages/PendingApproval.tsx`, compute UI from both:
-- canonical profile state
-- underlying auth verification state
-If auth is verified but profile is still stale after retries, show a dedicated reconciliation state, not the old “Verify your email” screen.
+### Files to create/change
+- **`src/pages/admin/settings/SmartleadSettingsPage.tsx`** — Add two new card sections: "Response Classification Prompt" and "Response Categorization Matrix"
+- **`src/hooks/smartlead/use-smartlead-categorization.ts`** (new) — Hook to fetch categorization stats from `smartlead_reply_inbox` grouped by `ai_category`, `ai_sentiment`, with counts and examples
+- **`supabase/functions/smartlead-inbox-webhook/index.ts`** — Read classification prompt from `app_settings` table instead of hardcoding it, falling back to the current default
 
-Step 4 — remove or isolate the legacy auth hook
-Refactor remaining consumers of `useAuthState` to use the main `AuthContext` / `useAuth`.
-This is the biggest architectural cleanup still missing.
-Goal:
-- one auth hook
-- one user object
-- no localStorage shadow auth state
-- no conflicting verification booleans
+## Implementation order
 
-Step 5 — tighten the verification-success email behavior
-Review the success email trigger and copy.
-Two changes:
-- only send the email after verified-state reconciliation succeeds
-- make wording explicitly say “Your email is verified; your application is still pending team approval”
-This avoids false expectations.
+1. Fix `useDealEmailActivity` to query `smartlead_reply_inbox`
+2. Update `DealEmailActivity` component to render Smartlead reply data
+3. Add Smartlead replies as a data source in `UnifiedDealTimeline`
+4. Create categorization stats hook
+5. Build prompt editor + matrix UI on SmartleadSettingsPage
+6. Update edge function to use configurable prompt
 
-Step 6 — add debugging instrumentation for stuck verification cases
-Because this issue has repeated multiple times, add targeted logs around:
-- callback session resolution
-- fetched `authUser.email_confirmed_at`
-- fetched `profile.email_verified`
-- retry attempts / final route decision
-That will make the next failure diagnosable instead of speculative.
+## Technical details
 
-Step 7 — verify admin dashboard uses canonical profile data only
-The admin users hook currently reads directly from `profiles`, which is good.
-I would still verify that any status badges, filters, cached query state, and detail views all refresh after verification without stale react-query cache issues.
+Current live data in `smartlead_reply_inbox`:
+- 269 total replies across 10 categories
+- 63 not_interested, 37 out_of_office, 34 meeting_request, 34 neutral, 30 unsubscribe, 25 question, 16 interested, 15 not_now, 9 referral, 6 negative_hostile
+- Many have `linked_deal_id` set (GP deals created from automation)
+- Fields available: `from_email`, `to_email`, `subject`, `reply_body`, `sent_message_body`, `ai_category`, `ai_sentiment`, `ai_confidence`, `ai_reasoning`, `campaign_name`, `time_replied`, `manual_category`, `recategorized_by`
 
-Most likely final root cause mix
+The `app_settings` table already exists with `key`/`value` text columns — same pattern used by the outreach template editor.
 
-```text
-Original issue:
-auth verified -> profile sync blocked by protected trigger
-
-Now fixed:
-auth.users trigger sync exists and live DB is syncing correctly
-
-Remaining issue:
-frontend timing + duplicate auth state patterns + misleading success email
-```
-
-Implementation scope I would recommend now
-1. Refactor `auth/callback.tsx` to make verified-state reconciliation explicit and logged.
-2. Refactor `PendingApproval.tsx` to never show the wrong “Verify your email” screen when Auth already says verified.
-3. Remove remaining `useAuthState` consumers or migrate them to `useAuth`.
-4. Update verification-success email trigger/copy so it reflects reality.
-5. Add temporary verification diagnostics so we can confirm the next signup works cleanly.
-
-Files to update
-- `src/pages/auth/callback.tsx`
-- `src/pages/PendingApproval.tsx`
-- `src/hooks/auth/use-auth-state.ts` (deprecate or stop using)
-- `src/components/PageEngagementTracker.tsx`
-- `src/components/admin/editor-sections/EditorInternalCard.tsx`
-- `src/hooks/auth/use-verification-success-email.ts` and/or related email trigger logic
-- possibly the email template/function copy if wording needs correction
-
-Technical note
-The DB objects are currently present live:
-- `public.sync_user_verification_status()`
-- `public.protect_sensitive_profile_fields()`
-- triggers on `auth.users`
-So I would not center the next fix on SQL first. The deeper remaining work is frontend state consistency and messaging integrity.
-
-Bottom line
-- The last plan was implemented in large part.
-- The DB sync path is currently working.
-- No, that was not the full fix.
-- The remaining reliability issue is now mostly in client-state consistency and verification email behavior, not just the database trigger layer.
