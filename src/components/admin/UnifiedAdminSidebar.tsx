@@ -60,6 +60,7 @@ import {
   User,
   Archive,
   FolderOpen,
+  BookOpen,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -395,6 +396,11 @@ export function UnifiedAdminSidebar({
             label: 'Form Monitoring',
             href: '/admin/settings/form-monitoring',
             icon: <FileCheck className="h-4 w-4" />,
+          },
+          {
+            label: 'Task System Guide',
+            href: '/admin/settings/task-guide',
+            icon: <BookOpen className="h-4 w-4" />,
           },
           {
             label: 'Security & MFA',

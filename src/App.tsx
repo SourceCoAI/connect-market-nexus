@@ -132,6 +132,9 @@ const SecuritySettings = lazyWithRetry(() => import('@/pages/admin/settings/Secu
 const OutreachSettingsPage = lazyWithRetry(
   () => import('@/pages/admin/settings/OutreachSettingsPage'),
 );
+const TaskSystemGuidePage = lazyWithRetry(
+  () => import('@/pages/admin/settings/TaskSystemGuidePage'),
+);
 const GlobalApprovalsPage = lazyWithRetry(() => import('@/pages/admin/GlobalApprovalsPage'));
 const DocumentTrackingPage = lazyWithRetry(() => import('@/pages/admin/DocumentTrackingPage'));
 const EmailDashboardPage = lazyWithRetry(() => import('@/pages/admin/EmailDashboardPage'));
@@ -683,6 +686,7 @@ function App() {
                 }
               />
               <Route path="settings/outlook" element={<OutlookSettingsPage />} />
+              <Route path="settings/task-guide" element={<TaskSystemGuidePage />} />
               {/* FEATURE IDEAS */}
               <Route path="feature-ideas" element={<AdminFeatureIdeas />} />
 

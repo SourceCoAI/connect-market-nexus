@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,11 +20,30 @@ import {
   Plus,
   Eye,
   CheckCircle2,
+  GripVertical,
 } from 'lucide-react';
 import { CopyDealInfoButton } from './remarketing/ReMarketingDealDetail/CopyDealInfoButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface MarketplaceQueueDeal {
   id: string;
@@ -47,6 +66,7 @@ interface MarketplaceQueueDeal {
   status: string | null;
   created_at: string;
   deal_source: string | null;
+  marketplace_queue_rank: number | null;
 }
 
 const formatCurrency = (value: number | null) => {
@@ -56,12 +76,233 @@ const formatCurrency = (value: number | null) => {
   return `$${value}`;
 };
 
+// ─── Sortable Deal Card ───
+
+function SortableDealCard({
+  deal,
+  index,
+  existingListing,
+  getListingGaps,
+  onRemove,
+  memoStatusByDeal,
+}: {
+  deal: MarketplaceQueueDeal;
+  index: number;
+  existingListing?: { id: string; title: string };
+  getListingGaps: (deal: MarketplaceQueueDeal) => string[];
+  onRemove: (dealId: string, dealName: string) => void;
+  memoStatusByDeal: Record<string, { hasLeadMemo: boolean; hasTeaser: boolean }>;
+}) {
+  const navigate = useNavigate();
+  const hasExistingListing = !!existingListing;
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: deal.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'hover:border-blue-200 transition-colors cursor-pointer',
+        isDragging && 'opacity-80 shadow-lg z-50 bg-muted/80',
+      )}
+      onClick={() =>
+        navigate(`/admin/deals/${deal.id}`, {
+          state: { from: '/admin/marketplace/queue' },
+        })
+      }
+    >
+      <CardContent className="py-4">
+        <div className="flex items-start justify-between gap-4">
+          {/* Drag handle + rank */}
+          <div
+            className="flex items-center gap-1.5 shrink-0 pt-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none p-0.5 rounded hover:bg-muted transition-colors"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+            <span className="text-xs font-medium text-muted-foreground tabular-nums w-5 text-center">
+              {index + 1}
+            </span>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-base truncate">
+                {deal.internal_company_name || deal.title || 'Untitled Deal'}
+              </h3>
+              {deal.deal_total_score != null && (
+                <Badge
+                  variant="outline"
+                  className={`text-xs shrink-0 ${
+                    deal.deal_total_score >= 75
+                      ? 'bg-green-50 text-green-700 border-green-200'
+                      : deal.deal_total_score >= 50
+                        ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                        : 'bg-gray-50 text-gray-600 border-gray-200'
+                  }`}
+                >
+                  Score: {deal.deal_total_score}
+                </Badge>
+              )}
+              {hasExistingListing && (
+                <Badge
+                  variant="outline"
+                  className="text-xs shrink-0 bg-green-50 text-green-700 border-green-200 gap-1"
+                >
+                  <CheckCircle2 className="h-3 w-3" />
+                  Listing Created
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+              {(deal.industry || deal.category) && (
+                <span className="flex items-center gap-1">
+                  <Building2 className="h-3.5 w-3.5" />
+                  {deal.industry || deal.category}
+                </span>
+              )}
+              {deal.revenue != null && (
+                <span className="flex items-center gap-1">
+                  <DollarSign className="h-3.5 w-3.5" />
+                  Rev: {formatCurrency(deal.revenue)}
+                </span>
+              )}
+              {deal.ebitda != null && <span>EBITDA: {formatCurrency(deal.ebitda)}</span>}
+              {deal.address_state && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {deal.address_state}
+                </span>
+              )}
+              {deal.pushed_to_marketplace_at && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Queued {format(new Date(deal.pushed_to_marketplace_at), 'MMM d, yyyy')}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {hasExistingListing ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/admin/deals/${existingListing!.id}?tab=marketplace`, {
+                    state: { from: '/admin/marketplace/queue' },
+                  });
+                }}
+              >
+                <Eye className="h-3.5 w-3.5 mr-1" />
+                View Listing
+              </Button>
+            ) : (
+              (() => {
+                const gaps = getListingGaps(deal);
+                const canCreate = gaps.length === 0;
+                return (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`h-8 text-xs ${!canCreate ? 'border-gray-200 text-gray-400 cursor-not-allowed' : ''}`}
+                            disabled={!canCreate}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(
+                                `/admin/marketplace/create-listing?fromDeal=${deal.id}`,
+                              );
+                            }}
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" />
+                            Create Listing
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        {canCreate
+                          ? 'Create an anonymous marketplace listing from this deal.'
+                          : `Complete these before creating a listing:\n${gaps.map((g) => `• ${g}`).join('\n')}`}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              })()
+            )}
+            <CopyDealInfoButton deal={deal} iconOnly />
+            {deal.website && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(
+                    deal.website!.startsWith('http')
+                      ? deal.website!
+                      : `https://${deal.website}`,
+                    '_blank',
+                  );
+                }}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(
+                  deal.id,
+                  deal.internal_company_name || deal.title || 'Deal',
+                );
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main Page ───
+
 const MarketplaceQueue = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'pushed_at' | 'name' | 'score'>('pushed_at');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = useState<'rank' | 'pushed_at' | 'name' | 'score'>('rank');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [localOrder, setLocalOrder] = useState<MarketplaceQueueDeal[]>([]);
+  const localOrderRef = useRef<MarketplaceQueueDeal[]>([]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const { data: deals, isLoading } = useQuery({
     queryKey: ['marketplace-queue'],
@@ -73,16 +314,25 @@ const MarketplaceQueue = () => {
            industry, category, revenue, ebitda, location, address_state, website,
            main_contact_name, main_contact_email, deal_total_score,
            pushed_to_marketplace_at, pushed_to_marketplace_by, status, created_at,
-           deal_source`,
+           deal_source, marketplace_queue_rank`,
         )
         .eq('pushed_to_marketplace', true)
         .eq('is_internal_deal', true)
+        .order('marketplace_queue_rank', { ascending: true, nullsFirst: false })
         .order('pushed_to_marketplace_at', { ascending: false });
 
       if (error) throw error;
       return data as MarketplaceQueueDeal[];
     },
   });
+
+  // Sync local order from server data
+  useEffect(() => {
+    if (deals) {
+      setLocalOrder(deals);
+      localOrderRef.current = deals;
+    }
+  }, [deals]);
 
   // Query for existing listings that were created from deals (duplicate prevention)
   const { data: existingListingsMap } = useQuery({
@@ -94,7 +344,6 @@ const MarketplaceQueue = () => {
         .not('source_deal_id', 'is', null);
 
       if (error) throw error;
-      // Build a map: dealId -> listing info
       const map: Record<string, { id: string; title: string }> = {};
       data?.forEach((listing: { source_deal_id: string | null; id: string; title: string }) => {
         if (listing.source_deal_id) {
@@ -121,7 +370,6 @@ const MarketplaceQueue = () => {
     },
   });
 
-  // Build a set of deal IDs that have each memo type
   const memoStatusByDeal = useMemo(() => {
     const map: Record<string, { hasLeadMemo: boolean; hasTeaser: boolean }> = {};
     memoDocsRaw?.forEach((doc) => {
@@ -133,45 +381,107 @@ const MarketplaceQueue = () => {
     return map;
   }, [memoDocsRaw]);
 
-  /** Compute listing prerequisites that are still missing for a deal. */
-  const getListingGaps = (deal: MarketplaceQueueDeal): string[] => {
-    const gaps: string[] = [];
-    if (deal.revenue == null) gaps.push('Revenue');
-    if (deal.ebitda == null) gaps.push('EBITDA');
-    if (!deal.address_state && !deal.location) gaps.push('Location');
-    if (!deal.category && !deal.industry) gaps.push('Category / Industry');
-    if (!deal.executive_summary) gaps.push('Executive Summary');
-    if (!deal.main_contact_name) gaps.push('Main contact name');
-    
-    const memos = memoStatusByDeal[deal.id];
-    if (!memos?.hasLeadMemo) gaps.push('Lead Memo PDF');
-    if (!memos?.hasTeaser) gaps.push('Teaser PDF');
-    return gaps;
-  };
+  const getListingGaps = useCallback(
+    (deal: MarketplaceQueueDeal): string[] => {
+      const gaps: string[] = [];
+      if (deal.revenue == null) gaps.push('Revenue');
+      if (deal.ebitda == null) gaps.push('EBITDA');
+      if (!deal.address_state && !deal.location) gaps.push('Location');
+      if (!deal.category && !deal.industry) gaps.push('Category / Industry');
+      if (!deal.executive_summary) gaps.push('Executive Summary');
+      if (!deal.main_contact_name) gaps.push('Main contact name');
 
-  const handleRemoveFromQueue = async (dealId: string, dealName: string) => {
-    const { error } = await supabase
-      .from('listings')
-      .update({
-        pushed_to_marketplace: false,
-        pushed_to_marketplace_at: null,
-        pushed_to_marketplace_by: null,
-      })
-      .eq('id', dealId);
+      const memos = memoStatusByDeal[deal.id];
+      if (!memos?.hasLeadMemo) gaps.push('Lead Memo PDF');
+      if (!memos?.hasTeaser) gaps.push('Teaser PDF');
+      return gaps;
+    },
+    [memoStatusByDeal],
+  );
 
-    if (error) {
-      toast.error('Failed to remove from queue');
-      return;
-    }
+  const handleRemoveFromQueue = useCallback(
+    async (dealId: string, dealName: string) => {
+      const { error } = await supabase
+        .from('listings')
+        .update({
+          pushed_to_marketplace: false,
+          pushed_to_marketplace_at: null,
+          pushed_to_marketplace_by: null,
+          marketplace_queue_rank: null,
+        })
+        .eq('id', dealId);
 
-    toast.success(`${dealName} removed from Marketplace Queue`);
-    queryClient.invalidateQueries({ queryKey: ['marketplace-queue'] });
-    queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
-  };
+      if (error) {
+        toast.error('Failed to remove from queue');
+        return;
+      }
+
+      toast.success(`${dealName} removed from Marketplace Queue`);
+      queryClient.invalidateQueries({ queryKey: ['marketplace-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'deals'] });
+    },
+    [queryClient],
+  );
+
+  // ─── Drag & Drop ───
+
+  const persistRankChanges = useCallback(
+    async (reordered: MarketplaceQueueDeal[]) => {
+      const updated = reordered.map((deal, idx) => ({
+        ...deal,
+        marketplace_queue_rank: idx + 1,
+      }));
+
+      const changed = updated.filter((deal, idx) => {
+        const orig = localOrderRef.current.find((d) => d.id === deal.id);
+        return !orig || orig.marketplace_queue_rank !== idx + 1;
+      });
+
+      setLocalOrder(updated);
+      localOrderRef.current = updated;
+
+      try {
+        if (changed.length > 0) {
+          await Promise.all(
+            changed.map((d) =>
+              supabase
+                .from('listings')
+                .update({ marketplace_queue_rank: d.marketplace_queue_rank })
+                .eq('id', d.id)
+                .throwOnError(),
+            ),
+          );
+        }
+        await queryClient.invalidateQueries({ queryKey: ['marketplace-queue'] });
+        toast.success('Queue order updated');
+      } catch {
+        await queryClient.invalidateQueries({ queryKey: ['marketplace-queue'] });
+        toast.error('Failed to update queue order');
+      }
+    },
+    [queryClient],
+  );
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      const current = [...localOrder];
+      const oldIdx = current.findIndex((d) => d.id === active.id);
+      const newIdx = current.findIndex((d) => d.id === over.id);
+      if (oldIdx === -1 || newIdx === -1) return;
+
+      const reordered = arrayMove(current, oldIdx, newIdx);
+      await persistRankChanges(reordered);
+    },
+    [localOrder, persistRankChanges],
+  );
+
+  // ─── Sorting & Filtering ───
 
   const filteredDeals = useMemo(() => {
-    if (!deals) return [];
-    let result = deals;
+    let result = [...localOrder];
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -190,46 +500,52 @@ const MarketplaceQueue = () => {
       );
     }
 
-    result = [...result].sort((a, b) => {
-      let aVal: string | number;
-      let bVal: string | number;
+    // When sorting by rank, use local order (drag position). Otherwise apply sort.
+    if (sortBy !== 'rank') {
+      result = [...result].sort((a, b) => {
+        let aVal: string | number;
+        let bVal: string | number;
 
-      switch (sortBy) {
-        case 'name':
-          aVal = (a.internal_company_name || a.title || '').toLowerCase();
-          bVal = (b.internal_company_name || b.title || '').toLowerCase();
-          break;
-        case 'score':
-          aVal = a.deal_total_score ?? 0;
-          bVal = b.deal_total_score ?? 0;
-          break;
-        case 'pushed_at':
-        default:
-          aVal = new Date(a.pushed_to_marketplace_at ?? a.created_at).getTime() || 0;
-          bVal = new Date(b.pushed_to_marketplace_at ?? b.created_at).getTime() || 0;
-          break;
-      }
+        switch (sortBy) {
+          case 'name':
+            aVal = (a.internal_company_name || a.title || '').toLowerCase();
+            bVal = (b.internal_company_name || b.title || '').toLowerCase();
+            break;
+          case 'score':
+            aVal = a.deal_total_score ?? 0;
+            bVal = b.deal_total_score ?? 0;
+            break;
+          case 'pushed_at':
+          default:
+            aVal = new Date(a.pushed_to_marketplace_at ?? a.created_at).getTime() || 0;
+            bVal = new Date(b.pushed_to_marketplace_at ?? b.created_at).getTime() || 0;
+            break;
+        }
 
-      if (typeof aVal === 'string') {
-        const cmp = aVal.localeCompare(bVal as string);
-        return sortDir === 'asc' ? cmp : -cmp;
-      }
-      return sortDir === 'asc'
-        ? (aVal as number) - (bVal as number)
-        : (bVal as number) - (aVal as number);
-    });
+        if (typeof aVal === 'string') {
+          const cmp = aVal.localeCompare(bVal as string);
+          return sortDir === 'asc' ? cmp : -cmp;
+        }
+        return sortDir === 'asc'
+          ? (aVal as number) - (bVal as number)
+          : (bVal as number) - (aVal as number);
+      });
+    }
 
     return result;
-  }, [deals, searchQuery, sortBy, sortDir]);
+  }, [localOrder, searchQuery, sortBy, sortDir]);
 
-  const handleSort = (col: 'pushed_at' | 'name' | 'score') => {
+  const handleSort = (col: 'rank' | 'pushed_at' | 'name' | 'score') => {
     if (sortBy === col) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortBy(col);
-      setSortDir(col === 'name' ? 'asc' : 'desc');
+      setSortDir(col === 'name' ? 'asc' : col === 'rank' ? 'asc' : 'desc');
     }
   };
+
+  const isDragEnabled = sortBy === 'rank' && !searchQuery.trim();
+  const sortableIds = useMemo(() => filteredDeals.map((d) => d.id), [filteredDeals]);
 
   return (
     <div className="space-y-4">
@@ -258,7 +574,7 @@ const MarketplaceQueue = () => {
         </div>
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <span>Sort:</span>
-          {(['pushed_at', 'name', 'score'] as const).map((col) => (
+          {(['rank', 'pushed_at', 'name', 'score'] as const).map((col) => (
             <Button
               key={col}
               variant={sortBy === col ? 'secondary' : 'ghost'}
@@ -266,12 +582,24 @@ const MarketplaceQueue = () => {
               className="h-7 text-xs"
               onClick={() => handleSort(col)}
             >
-              {col === 'pushed_at' ? 'Date Added' : col === 'name' ? 'Name' : 'Score'}
+              {col === 'rank'
+                ? 'Rank'
+                : col === 'pushed_at'
+                  ? 'Date Added'
+                  : col === 'name'
+                    ? 'Name'
+                    : 'Score'}
               {sortBy === col && <ArrowUpDown className="h-3 w-3 ml-1" />}
             </Button>
           ))}
         </div>
       </div>
+
+      {!isDragEnabled && sortBy === 'rank' && searchQuery.trim() && (
+        <p className="text-xs text-muted-foreground">
+          Drag-to-reorder is disabled while searching. Clear the search to reorder.
+        </p>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
@@ -289,172 +617,27 @@ const MarketplaceQueue = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3">
-          {filteredDeals.map((deal) => {
-            const existingListing = existingListingsMap?.[deal.id];
-            const hasExistingListing = !!existingListing;
-
-            return (
-              <Card
-                key={deal.id}
-                className="hover:border-blue-200 transition-colors cursor-pointer"
-                onClick={() =>
-                  navigate(`/admin/deals/${deal.id}`, {
-                    state: { from: '/admin/marketplace/queue' },
-                  })
-                }
-              >
-                <CardContent className="py-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-base truncate">
-                          {deal.internal_company_name || deal.title || 'Untitled Deal'}
-                        </h3>
-                        {deal.deal_total_score != null && (
-                          <Badge
-                            variant="outline"
-                            className={`text-xs shrink-0 ${
-                              deal.deal_total_score >= 75
-                                ? 'bg-green-50 text-green-700 border-green-200'
-                                : deal.deal_total_score >= 50
-                                  ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                                  : 'bg-gray-50 text-gray-600 border-gray-200'
-                            }`}
-                          >
-                            Score: {deal.deal_total_score}
-                          </Badge>
-                        )}
-                        {hasExistingListing && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs shrink-0 bg-green-50 text-green-700 border-green-200 gap-1"
-                          >
-                            <CheckCircle2 className="h-3 w-3" />
-                            Listing Created
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                        {(deal.industry || deal.category) && (
-                          <span className="flex items-center gap-1">
-                            <Building2 className="h-3.5 w-3.5" />
-                            {deal.industry || deal.category}
-                          </span>
-                        )}
-                        {deal.revenue != null && (
-                          <span className="flex items-center gap-1">
-                            <DollarSign className="h-3.5 w-3.5" />
-                            Rev: {formatCurrency(deal.revenue)}
-                          </span>
-                        )}
-                        {deal.ebitda != null && <span>EBITDA: {formatCurrency(deal.ebitda)}</span>}
-                        {deal.address_state && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-3.5 w-3.5" />
-                            {deal.address_state}
-                          </span>
-                        )}
-                        {deal.pushed_to_marketplace_at && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3.5 w-3.5" />
-                            Queued {format(new Date(deal.pushed_to_marketplace_at), 'MMM d, yyyy')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {hasExistingListing ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/admin/deals/${existingListing.id}?tab=marketplace`, {
-                              state: { from: '/admin/marketplace/queue' },
-                            });
-                          }}
-                        >
-                          <Eye className="h-3.5 w-3.5 mr-1" />
-                          View Listing
-                        </Button>
-                      ) : (
-                        (() => {
-                          const gaps = getListingGaps(deal);
-                          const canCreate = gaps.length === 0;
-                          return (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className={`h-8 text-xs ${!canCreate ? 'border-gray-200 text-gray-400 cursor-not-allowed' : ''}`}
-                                      disabled={!canCreate}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate(
-                                          `/admin/marketplace/create-listing?fromDeal=${deal.id}`,
-                                        );
-                                      }}
-                                    >
-                                      <Plus className="h-3.5 w-3.5 mr-1" />
-                                      Create Listing
-                                    </Button>
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  {canCreate
-                                    ? 'Create an anonymous marketplace listing from this deal.'
-                                    : `Complete these before creating a listing:\n${gaps.map((g) => `• ${g}`).join('\n')}`}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          );
-                        })()
-                      )}
-                      <CopyDealInfoButton deal={deal} iconOnly />
-                      {deal.website && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(
-                              deal.website!.startsWith('http')
-                                ? deal.website!
-                                : `https://${deal.website}`,
-                              '_blank',
-                            );
-                          }}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveFromQueue(
-                            deal.id,
-                            deal.internal_company_name || deal.title || 'Deal',
-                          );
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={isDragEnabled ? handleDragEnd : undefined}
+        >
+          <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+            <div className="grid gap-3">
+              {filteredDeals.map((deal, index) => (
+                <SortableDealCard
+                  key={deal.id}
+                  deal={deal}
+                  index={index}
+                  existingListing={existingListingsMap?.[deal.id]}
+                  getListingGaps={getListingGaps}
+                  onRemove={handleRemoveFromQueue}
+                  memoStatusByDeal={memoStatusByDeal}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   );
