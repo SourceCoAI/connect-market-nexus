@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Ban, Check, MapPin, Pencil, User, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Ban, Check, Clock, MapPin, Pencil, User, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Link } from 'react-router-dom';
 import { ScoreBadge } from '@/components/shared/ScoreBadge';
@@ -8,6 +8,9 @@ import { DealSourceBadge } from '@/components/remarketing';
 import { getDisplayLocation } from '@/lib/location-display';
 import { CopyDealInfoButton } from './CopyDealInfoButton';
 import type { ScoreTier } from '@/types/remarketing';
+import { formatDistanceToNow, format, isPast } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DealHeaderDeal {
   category?: string | null;
@@ -23,6 +26,7 @@ interface DealHeaderDeal {
 
 interface DealHeaderProps {
   deal: DealHeaderDeal & Record<string, unknown>;
+  dealId?: string;
   backTo: string;
   displayName: string;
   listedName: string | null;
@@ -42,6 +46,7 @@ interface DealHeaderProps {
 
 export function DealHeader({
   deal,
+  dealId,
   backTo,
   displayName,
   listedName,
@@ -58,6 +63,45 @@ export function DealHeader({
   onMarkNotAFit,
   onRemoveNotAFit,
 }: DealHeaderProps) {
+  // Last activity timestamp
+  const { data: lastActivity } = useQuery({
+    queryKey: ['deal-last-activity', dealId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('deal_activities')
+        .select('created_at')
+        .eq('deal_id', dealId!)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.created_at ?? null;
+    },
+    enabled: !!dealId,
+    staleTime: 60_000,
+  });
+
+  // Next pending task
+  const { data: nextTask } = useQuery({
+    queryKey: ['deal-next-task', dealId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('daily_standup_tasks')
+        .select('id, title, due_date, status')
+        .eq('entity_id', dealId!)
+        .in('status', ['pending', 'in_progress'])
+        .order('due_date', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data ?? null;
+    },
+    enabled: !!dealId,
+    staleTime: 60_000,
+  });
+
+  const isOverdue = (dateStr: string) => isPast(new Date(dateStr));
+
   return (
     <div className="flex items-start justify-between">
       <div>
@@ -190,30 +234,52 @@ export function DealHeader({
             )
           );
         })()}
+        {/* Last Activity Indicator */}
+        {lastActivity && (
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+            <Clock className="h-3.5 w-3.5" />
+            <span>
+              Last activity: {formatDistanceToNow(new Date(lastActivity), { addSuffix: true })}
+            </span>
+          </div>
+        )}
+        {/* Next Step */}
+        {nextTask && (
+          <div className="flex items-center gap-1.5 text-sm mt-1">
+            <ArrowRight className="h-3.5 w-3.5 text-primary" />
+            <span className="font-medium">Next: {nextTask.title}</span>
+            {nextTask.due_date && (
+              <Badge
+                variant={isOverdue(nextTask.due_date) ? 'destructive' : 'secondary'}
+                className="text-xs"
+              >
+                {format(new Date(nextTask.due_date), 'MMM d')}
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <CopyDealInfoButton deal={deal} />
         {tier && <ScoreBadge variant="tier" tier={tier as ScoreTier} size="lg" />}
-        {deal.not_a_fit ? (
-          onRemoveNotAFit && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onRemoveNotAFit}
-              className="border-orange-300 text-orange-700 hover:bg-orange-50"
-            >
-              <Ban className="h-4 w-4 mr-1.5" />
-              Remove Not a Fit
-            </Button>
-          )
-        ) : (
-          onMarkNotAFit && (
-            <Button variant="outline" size="sm" onClick={onMarkNotAFit}>
-              <Ban className="h-4 w-4 mr-1.5" />
-              Mark Not a Fit
-            </Button>
-          )
-        )}
+        {deal.not_a_fit
+          ? onRemoveNotAFit && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRemoveNotAFit}
+                className="border-orange-300 text-orange-700 hover:bg-orange-50"
+              >
+                <Ban className="h-4 w-4 mr-1.5" />
+                Remove Not a Fit
+              </Button>
+            )
+          : onMarkNotAFit && (
+              <Button variant="outline" size="sm" onClick={onMarkNotAFit}>
+                <Ban className="h-4 w-4 mr-1.5" />
+                Mark Not a Fit
+              </Button>
+            )}
       </div>
     </div>
   );

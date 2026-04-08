@@ -35,6 +35,37 @@ export type TaskEntityType = 'listing' | 'deal' | 'buyer' | 'contact';
 
 export type TaskSource = 'manual' | 'ai' | 'chatbot' | 'system' | 'template';
 
+export type RecurrenceRule = 'daily' | 'weekly' | 'biweekly' | 'monthly';
+
+export type GenerationSource =
+  | 'call_disposition'
+  | 'email_reply'
+  | 'stage_entry'
+  | 'stale_deal'
+  | 'recurrence'
+  | 'meeting_extraction'
+  | 'template';
+
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  stage_trigger: string | null;
+  tasks: Array<{
+    title: string;
+    description?: string;
+    task_type: TaskType;
+    priority: TaskPriority;
+    due_offset_days: number;
+    depends_on_index?: number;
+  }>;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type TaskPriority = 'high' | 'medium' | 'low';
 
 export type AIConfidence = 'high' | 'medium';
@@ -122,6 +153,23 @@ export interface DailyStandupTask {
   carried_over: boolean;
   carry_count: number;
   source_timestamp_seconds: number | null;
+
+  // v3.4 — Recurrence, templates, auto-generation & escalation
+  recurrence_rule?: 'daily' | 'weekly' | 'biweekly' | 'monthly' | null;
+  recurrence_parent_id?: string | null;
+  template_id?: string | null;
+  auto_generated?: boolean;
+  generation_source?:
+    | 'call_disposition'
+    | 'email_reply'
+    | 'stage_entry'
+    | 'stale_deal'
+    | 'recurrence'
+    | 'meeting_extraction'
+    | 'template'
+    | null;
+  escalation_level?: number;
+  escalated_at?: string | null;
 }
 
 export interface DailyStandupTaskWithRelations extends DailyStandupTask {

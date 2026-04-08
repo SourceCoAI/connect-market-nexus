@@ -31,10 +31,18 @@ function calculateScoresFromData(deal: Record<string, any>): DealQualityScores {
   const notes: string[] = [];
 
   const normalizeFinancial = (val: number): number => {
+    // Assume values are stored in actual dollars.
+    // Only apply multiplier heuristic for values that are clearly shorthand:
+    //   0.5-999 with decimals (e.g., 2.5 = $2.5M) → treat as millions
+    //   1-999 integers → ambiguous, but in M&A context likely millions
+    //   1000-99999 → likely thousands shorthand (e.g., 5000 = $5M)
+    //   100000+ → treat as actual dollars
     if (val <= 0) return 0;
-    if (val < 1000) return Math.round(val * 1_000_000);
-    if (val < 100000) return Math.round(val * 1_000);
-    return val;
+    if (val >= 100_000) return val; // Already in actual dollars
+    if (val >= 1_000) return Math.round(val * 1_000); // Thousands shorthand
+    if (val >= 1) return Math.round(val * 1_000_000); // Millions shorthand
+    // Sub-dollar values (e.g., 0.5 = $500K)
+    return Math.round(val * 1_000_000);
   };
 
   const revenue = normalizeFinancial(Number(deal.revenue) || 0);

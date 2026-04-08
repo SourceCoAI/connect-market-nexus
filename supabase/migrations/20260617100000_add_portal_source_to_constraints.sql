@@ -25,6 +25,6 @@ CHECK (
     'manual', 'marketplace', 'webflow', 'salesforce',
     'valuation_calculator', 'valuation_lead', 'smartlead',
     'gp_partners', 'sourceco', 'captarget', 'match_tool',
-    'website', 'referral', 'salesforce_remarketing', 'portal'
+    'website', 'referral', 'salesforce_remarketing', 'remarketing', 'portal'
   )
 );

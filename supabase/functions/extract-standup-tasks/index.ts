@@ -1476,6 +1476,8 @@ async function processSingleMeeting(
       entity_id: entityId,
       secondary_entity_type: secondaryEntityType,
       secondary_entity_id: secondaryEntityId,
+      auto_generated: true,
+      generation_source: 'standup',
     });
   }
 

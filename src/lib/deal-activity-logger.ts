@@ -14,7 +14,21 @@ export type DealActivityType =
   | 'deal_created'
   | 'deal_deleted'
   | 'deal_restored'
-  | 'follow_up';
+  | 'follow_up'
+  | 'call_completed'
+  | 'email_received'
+  | 'buyer_response'
+  | 'linkedin_message'
+  | 'linkedin_connection'
+  | 'transcript_linked'
+  | 'enrichment_completed'
+  | 'buyer_status_change'
+  | 'task_overdue'
+  | 'task_snoozed'
+  | 'meeting_linked'
+  | 'meeting_summary_generated'
+  | 'stale_deal_flagged'
+  | 'auto_followup_created';
 
 interface LogActivityParams {
   dealId: string;

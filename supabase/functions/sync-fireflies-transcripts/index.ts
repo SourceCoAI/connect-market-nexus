@@ -18,7 +18,7 @@
  * EXTERNAL APIS:
  *   Fireflies.ai GraphQL API (transcript search by participant and keyword)
  *
- * LAST UPDATED: 2026-02-26
+ * LAST UPDATED: 2026-04-07
  * AUDIT REF: CTO Audit February 2026
  */
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
@@ -486,25 +486,29 @@ serve(async (req) => {
           extractedData.fireflies_keywords = transcript.summary.keywords;
         }
 
-        const { error: insertError } = await supabase.from('deal_transcripts').insert({
-          listing_id: listingId,
-          fireflies_transcript_id: transcript.id,
-          fireflies_meeting_id: transcript.id,
-          transcript_url: transcript.transcript_url || null,
-          title: transcript.title || `Call`,
-          call_date: callDate,
-          participants: transcript.meeting_attendees || [],
-          meeting_attendees: attendeeEmails,
-          duration_minutes: transcript.duration ? Math.round(transcript.duration) : null,
-          source: 'fireflies',
-          auto_linked: true,
-          transcript_text: '', // Fetched on-demand via fetch-fireflies-content
-          created_by: null,
-          has_content: hasContent,
-          match_type: matchType,
-          external_participants: externalParticipants,
-          extracted_data: extractedData,
-        });
+        const { data: insertedRow, error: insertError } = await supabase
+          .from('deal_transcripts')
+          .insert({
+            listing_id: listingId,
+            fireflies_transcript_id: transcript.id,
+            fireflies_meeting_id: transcript.id,
+            transcript_url: transcript.transcript_url || null,
+            title: transcript.title || `Call`,
+            call_date: callDate,
+            participants: transcript.meeting_attendees || [],
+            meeting_attendees: attendeeEmails,
+            duration_minutes: transcript.duration ? Math.round(transcript.duration) : null,
+            source: 'fireflies',
+            auto_linked: true,
+            transcript_text: '', // Will be pre-fetched below
+            created_by: null,
+            has_content: hasContent,
+            match_type: matchType,
+            external_participants: externalParticipants,
+            extracted_data: extractedData,
+          })
+          .select('id')
+          .single();
 
         if (insertError) {
           console.error(`Failed to link transcript ${transcript.id}:`, insertError);
@@ -515,6 +519,74 @@ serve(async (req) => {
             `Linked transcript ${transcript.id}: ${transcript.title} (has_content=${hasContent}, match_type=${matchType})`,
           );
           linked++;
+
+          // Pre-fetch and store full transcript text for local searchability
+          if (hasContent && insertedRow?.id) {
+            try {
+              const contentResponse = await fetch(
+                `${supabaseUrl}/functions/v1/fetch-fireflies-content`,
+                {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${supabaseKey}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ transcriptId: insertedRow.id }),
+                },
+              );
+
+              if (contentResponse.ok) {
+                const contentData = await contentResponse.json();
+                if (contentData.success && contentData.content) {
+                  console.log(
+                    `Pre-fetched transcript text for ${transcript.id} (${contentData.content.length} chars)`,
+                  );
+                } else {
+                  console.warn(`Pre-fetch returned no content for ${transcript.id}`);
+                }
+              } else {
+                console.warn(
+                  `Pre-fetch failed for ${transcript.id}: HTTP ${contentResponse.status}`,
+                );
+              }
+            } catch (e) {
+              console.error(`Failed to pre-fetch transcript text for ${transcript.id}:`, e);
+              // Non-blocking — transcript is still linked, just not searchable yet
+            }
+          }
+
+          // Log transcript linking to deal_activities
+          try {
+            // Find the deal associated with this listing
+            const { data: dealData } = await supabase
+              .from('deal_pipeline')
+              .select('id')
+              .eq('listing_id', listingId)
+              .limit(1)
+              .maybeSingle();
+
+            if (dealData?.id) {
+              const participantCount =
+                externalParticipants.length || (transcript.meeting_attendees || []).length;
+              await supabase.rpc('log_deal_activity', {
+                p_deal_id: dealData.id,
+                p_activity_type: 'transcript_linked',
+                p_title: `Meeting transcript linked: ${transcript.title || 'Untitled'}`,
+                p_description: `${transcript.duration ? Math.round(transcript.duration) + ' min meeting' : 'Meeting'} with ${participantCount || 'unknown'} participants`,
+                p_admin_id: null,
+                p_metadata: {
+                  fireflies_transcript_id: transcript.id,
+                  meeting_date: callDate,
+                  duration_minutes: transcript.duration ? Math.round(transcript.duration) : null,
+                  participants: externalParticipants,
+                  auto_linked: true,
+                  match_type: matchType,
+                },
+              });
+            }
+          } catch (e) {
+            console.error('Failed to log transcript link to deal_activities:', e);
+          }
         }
       } catch (err) {
         console.error(`Error processing transcript ${transcript.id}:`, err);

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -452,6 +452,7 @@ export function RecommendedBuyersTab({
     }
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const [internalPage, setInternalPage] = useState(0);
   const [externalPage, setExternalPage] = useState(0);
   // Rejection dialog state
@@ -586,16 +587,20 @@ export function RecommendedBuyersTab({
         !pipelineBuyerIds.has(b.buyer_id) &&
         !acceptedIds.has(b.buyer_id),
     );
+    if (buyersToAdd.length === 0) return;
     let successCount = 0;
-    for (const buyer of buyersToAdd) {
+    setBulkProgress({ current: 0, total: buyersToAdd.length });
+    for (let i = 0; i < buyersToAdd.length; i++) {
       try {
-        await handleAccept(buyer);
+        await handleAccept(buyersToAdd[i]);
         successCount++;
       } catch {
         // individual error already handled in handleAccept
       }
+      setBulkProgress({ current: i + 1, total: buyersToAdd.length });
     }
     setSelectedIds(new Set());
+    setBulkProgress(null);
     if (successCount > 0) {
       toast.success(`Added ${successCount} buyer${successCount === 1 ? '' : 's'} to pipeline`);
     }
@@ -649,6 +654,21 @@ export function RecommendedBuyersTab({
     });
   }, []);
 
+  // Auto-deselect buyers that are already in the pipeline or were just accepted
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const id of prev) {
+        if (pipelineBuyerIds.has(id) || acceptedIds.has(id)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [pipelineBuyerIds, acceptedIds]);
+
   const allBuyers = data?.buyers || [];
   const available = allBuyers.filter(
     (b) => !acceptedIds.has(b.buyer_id) && !dismissedIds.has(b.buyer_id),
@@ -666,6 +686,19 @@ export function RecommendedBuyersTab({
   const internalTotalPages = Math.max(1, Math.ceil(allInternal.length / PAGE_SIZE));
   const externalTotalPages = Math.max(1, Math.ceil(allExternal.length / PAGE_SIZE));
   const buyers = [...allInternal, ...allExternal];
+  const selectableBuyers = buyers.filter(
+    (b) => !pipelineBuyerIds.has(b.buyer_id) && !acceptedIds.has(b.buyer_id),
+  );
+  const allSelected = selectableBuyers.length > 0 && selectableBuyers.every((b) => selectedIds.has(b.buyer_id));
+
+  const handleToggleSelectAll = useCallback(() => {
+    setSelectedIds(() => {
+      if (allSelected) {
+        return new Set();
+      }
+      return new Set(selectableBuyers.map((b) => b.buyer_id));
+    });
+  }, [allSelected, selectableBuyers]);
 
   if (isLoading) {
     return (
@@ -711,6 +744,21 @@ export function RecommendedBuyersTab({
           {buyers.length > 0 && <TierSummary buyers={buyers} />}
         </div>
         <div className="flex items-center gap-2">
+          {selectableBuyers.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleToggleSelectAll}
+              className="text-xs"
+            >
+              <Checkbox
+                checked={allSelected}
+                className="h-3.5 w-3.5 mr-1.5 pointer-events-none"
+                tabIndex={-1}
+              />
+              {allSelected ? 'Deselect All' : 'Select All'}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -777,30 +825,46 @@ export function RecommendedBuyersTab({
       {seedResults && seedResults.length > 0 && <SeedResultsSummary results={seedResults} />}
 
       {/* Batch action bar */}
-      {selectedIds.size > 0 && (
-        <div className="sticky top-0 z-20 bg-green-50 border border-green-200 rounded-lg px-4 py-2.5 flex items-center justify-between shadow-sm">
-          <span className="text-sm text-green-700 font-medium">
-            {selectedIds.size} buyer{selectedIds.size === 1 ? '' : 's'} selected
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => setSelectedIds(new Set())}
-            >
-              <X className="h-3.5 w-3.5 mr-1" />
-              Clear
-            </Button>
-            <Button
-              size="sm"
-              className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
-              onClick={handleBatchAdd}
-            >
-              <ArrowRight className="h-3.5 w-3.5" />
-              Approve {selectedIds.size} Selected
-            </Button>
+      {(selectedIds.size > 0 || bulkProgress) && (
+        <div className="sticky top-0 z-20 bg-green-50 border border-green-200 rounded-lg px-4 py-2.5 space-y-2 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-green-700 font-medium">
+              {bulkProgress
+                ? `Adding ${bulkProgress.current} of ${bulkProgress.total}...`
+                : `${selectedIds.size} buyer${selectedIds.size === 1 ? '' : 's'} selected`}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setSelectedIds(new Set())}
+                disabled={!!bulkProgress}
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                Clear Selection
+              </Button>
+              <Button
+                size="sm"
+                className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700"
+                onClick={handleBatchAdd}
+                disabled={!!bulkProgress}
+              >
+                {bulkProgress ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ArrowRight className="h-3.5 w-3.5" />
+                )}
+                {bulkProgress ? 'Adding...' : `Add Selected to Pipeline`}
+              </Button>
+            </div>
           </div>
+          {bulkProgress && (
+            <Progress
+              value={(bulkProgress.current / bulkProgress.total) * 100}
+              className="h-1.5"
+            />
+          )}
         </div>
       )}
 

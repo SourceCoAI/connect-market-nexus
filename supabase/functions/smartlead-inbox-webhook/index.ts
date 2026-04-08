@@ -670,6 +670,131 @@ Deno.serve(async (req) => {
       console.error('[smartlead-inbox-webhook] GP automation error (non-fatal):', gpAutoError);
     }
 
+    // ─── Deal Activity Logging & Auto Follow-up ─────────────────────────
+    // Log buyer response to deal_activities and create tasks for positive replies
+    try {
+      // Try to find a deal linked to this reply via listing_id (gpDealId) or linked_deal_id
+      const listingId = gpDealId;
+      if (listingId) {
+        const { data: dealData } = await supabase
+          .from('deal_pipeline')
+          .select('id, assigned_to')
+          .eq('listing_id', listingId)
+          .limit(1)
+          .maybeSingle();
+
+        if (dealData?.id) {
+          const fromName = record.to_name || fromEmail;
+
+          // Log buyer response activity
+          try {
+            await supabase.rpc('log_deal_activity', {
+              p_deal_id: dealData.id,
+              p_activity_type: 'buyer_response',
+              p_title: `Email reply from ${fromEmail || 'buyer'}: ${classification.category}`,
+              p_description: `Sentiment: ${classification.sentiment} | Confidence: ${classification.confidence}`,
+              p_admin_id: null,
+              p_metadata: {
+                from_email: fromEmail,
+                category: classification.category,
+                sentiment: classification.sentiment,
+                confidence: classification.confidence,
+                campaign_id: record.campaign_id,
+                reply_snippet: (replyText || '').substring(0, 200),
+              },
+            });
+          } catch (e) {
+            console.error(
+              '[smartlead-inbox-webhook] Failed to log deal activity for email reply:',
+              e,
+            );
+          }
+
+          // Auto-create follow-up task for positive buyer responses
+          const activatedCategories = ['meeting_request', 'interested', 'question', 'referral'];
+          if (activatedCategories.includes(classification.category)) {
+            try {
+              const taskTitleMap: Record<string, string> = {
+                meeting_request: `Schedule meeting with ${fromName || fromEmail}`,
+                interested: `Follow up with interested buyer: ${fromName || fromEmail}`,
+                question: `Answer buyer question: ${fromName || fromEmail}`,
+                referral: `Follow up on referral from ${fromName || fromEmail}`,
+              };
+
+              const dueDate = new Date();
+              dueDate.setDate(
+                dueDate.getDate() + (classification.category === 'meeting_request' ? 1 : 2),
+              );
+
+              await supabase.from('daily_standup_tasks').insert({
+                title:
+                  taskTitleMap[classification.category] || `Follow up: ${fromName || fromEmail}`,
+                task_type:
+                  classification.category === 'meeting_request'
+                    ? 'schedule_call'
+                    : 'follow_up_with_buyer',
+                status: 'pending',
+                priority: 'high',
+                priority_score: 80,
+                due_date: dueDate.toISOString().split('T')[0],
+                entity_type: 'deal',
+                entity_id: dealData.id,
+                deal_id: dealData.id,
+                assignee_id: dealData.assigned_to,
+                auto_generated: true,
+                generation_source: 'email_reply',
+                source: 'system',
+                description: `Auto-created from SmartLead ${classification.category} reply. From: ${fromEmail}`,
+              });
+
+              await supabase.rpc('log_deal_activity', {
+                p_deal_id: dealData.id,
+                p_activity_type: 'auto_followup_created',
+                p_title: `Auto follow-up created: ${taskTitleMap[classification.category]}`,
+                p_description: `Triggered by ${classification.category} reply from ${fromEmail}`,
+                p_admin_id: dealData.assigned_to,
+                p_metadata: {
+                  category: classification.category,
+                  from_email: fromEmail,
+                  campaign_id: record.campaign_id,
+                },
+              });
+            } catch (e) {
+              console.error(
+                '[smartlead-inbox-webhook] Failed to create auto follow-up task from email reply:',
+                e,
+              );
+            }
+
+            // Notify deal owner of positive buyer response
+            if (dealData.assigned_to) {
+              try {
+                await supabase.from('user_notifications').insert({
+                  user_id: dealData.assigned_to,
+                  notification_type: 'buyer_response',
+                  title: `Positive buyer response: ${fromName || fromEmail}`,
+                  message: `${fromName || fromEmail} replied with "${classification.category}" to your outreach campaign.`,
+                  metadata: {
+                    deal_id: dealData.id,
+                    category: classification.category,
+                    from_email: fromEmail,
+                    reply_snippet: (replyText || '').substring(0, 200),
+                  },
+                });
+              } catch (e) {
+                console.error('[smartlead-inbox-webhook] Failed to send notification:', e);
+              }
+            }
+          }
+        }
+      }
+    } catch (dealActivityError) {
+      console.error(
+        '[smartlead-inbox-webhook] Deal activity logging error (non-fatal):',
+        dealActivityError,
+      );
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

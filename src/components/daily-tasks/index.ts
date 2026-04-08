@@ -17,3 +17,6 @@ export { DealTeamPanel } from './DealTeamPanel';
 export { DealSignalsPanel } from './DealSignalsPanel';
 export { CreateTaskButton } from './CreateTaskButton';
 export { FlagForBuyerButton } from './FlagForBuyerButton';
+export { TaskDependencyView } from './TaskDependencyView';
+export { TaskCalendarView } from './TaskCalendarView';
+export { TeamWorkloadCard } from './TeamWorkloadCard';

@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { MentionNotesInput } from './MentionNotesInput';
 import {
   ClipboardList,
   Send,
@@ -19,6 +19,13 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  Phone,
+  Mail,
+  Linkedin,
+  Video,
+  Sparkles,
+  AlertTriangle,
+  Bot,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -58,6 +65,22 @@ const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   assignment_changed: <UserCog className="h-3.5 w-3.5" />,
   deal_updated: <Star className="h-3.5 w-3.5" />,
   deal_created: <Star className="h-3.5 w-3.5" />,
+  deal_deleted: <Trash2 className="h-3.5 w-3.5" />,
+  deal_restored: <Star className="h-3.5 w-3.5" />,
+  call_completed: <Phone className="h-3.5 w-3.5" />,
+  email_received: <Mail className="h-3.5 w-3.5" />,
+  buyer_response: <Mail className="h-3.5 w-3.5" />,
+  linkedin_message: <Linkedin className="h-3.5 w-3.5" />,
+  linkedin_connection: <Linkedin className="h-3.5 w-3.5" />,
+  transcript_linked: <Video className="h-3.5 w-3.5" />,
+  meeting_linked: <Video className="h-3.5 w-3.5" />,
+  meeting_summary_generated: <Video className="h-3.5 w-3.5" />,
+  enrichment_completed: <Sparkles className="h-3.5 w-3.5" />,
+  buyer_status_change: <UserCog className="h-3.5 w-3.5" />,
+  task_overdue: <AlertTriangle className="h-3.5 w-3.5" />,
+  task_snoozed: <Clock className="h-3.5 w-3.5" />,
+  stale_deal_flagged: <AlertTriangle className="h-3.5 w-3.5" />,
+  auto_followup_created: <Bot className="h-3.5 w-3.5" />,
 };
 
 const ACTIVITY_COLORS: Record<string, string> = {
@@ -73,6 +96,22 @@ const ACTIVITY_COLORS: Record<string, string> = {
   assignment_changed: 'bg-slate-50 text-slate-700 border-slate-200',
   deal_updated: 'bg-muted text-muted-foreground border-border',
   deal_created: 'bg-muted text-muted-foreground border-border',
+  deal_deleted: 'bg-red-50 text-red-700 border-red-200',
+  deal_restored: 'bg-muted text-muted-foreground border-border',
+  call_completed: 'bg-blue-50 text-blue-700 border-blue-200',
+  email_received: 'bg-green-50 text-green-700 border-green-200',
+  buyer_response: 'bg-green-50 text-green-700 border-green-200',
+  linkedin_message: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  linkedin_connection: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  transcript_linked: 'bg-teal-50 text-teal-700 border-teal-200',
+  meeting_linked: 'bg-teal-50 text-teal-700 border-teal-200',
+  meeting_summary_generated: 'bg-teal-50 text-teal-700 border-teal-200',
+  enrichment_completed: 'bg-amber-50 text-amber-700 border-amber-200',
+  buyer_status_change: 'bg-slate-50 text-slate-700 border-slate-200',
+  task_overdue: 'bg-red-50 text-red-700 border-red-200',
+  task_snoozed: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  stale_deal_flagged: 'bg-red-50 text-red-700 border-red-200',
+  auto_followup_created: 'bg-cyan-50 text-cyan-700 border-cyan-200',
 };
 
 function getActivityLabel(type: string): string {
@@ -101,7 +140,13 @@ export function DealActivityLog({ dealId, maxHeight = 480 }: DealActivityLogProp
   });
 
   const addNoteMutation = useMutation({
-    mutationFn: async (noteText: string) => {
+    mutationFn: async ({
+      noteText,
+      mentionedUserIds,
+    }: {
+      noteText: string;
+      mentionedUserIds: string[];
+    }) => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -112,9 +157,35 @@ export function DealActivityLog({ dealId, maxHeight = 480 }: DealActivityLogProp
         activity_type: 'follow_up',
         title: 'Note added',
         description: noteText,
-        metadata: {},
+        metadata: {
+          mentioned_user_ids: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
+        },
       });
       if (error) throw error;
+
+      // Send notifications to mentioned users
+      if (mentionedUserIds.length > 0 && user) {
+        // Get the current user's name for the notification message
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', user.id)
+          .single();
+
+        const currentUserName = profile
+          ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim()
+          : 'A team member';
+
+        for (const userId of mentionedUserIds) {
+          await supabase.from('user_notifications').insert({
+            user_id: userId,
+            notification_type: 'mention',
+            title: 'You were mentioned in a deal note',
+            message: `${currentUserName} mentioned you in a note: "${noteText.substring(0, 100)}${noteText.length > 100 ? '...' : ''}"`,
+            metadata: { deal_id: dealId, note_text: noteText.substring(0, 200) },
+          });
+        }
+      }
     },
     onSuccess: () => {
       setNote('');
@@ -142,10 +213,10 @@ export function DealActivityLog({ dealId, maxHeight = 480 }: DealActivityLogProp
     },
   });
 
-  const handleSubmit = () => {
-    const trimmed = note.trim();
+  const handleSubmit = (text: string, mentionedUserIds: string[]) => {
+    const trimmed = text.trim();
     if (!trimmed) return;
-    addNoteMutation.mutate(trimmed);
+    addNoteMutation.mutate({ noteText: trimmed, mentionedUserIds });
   };
 
   const handleDelete = (activityId: string) => {
@@ -179,24 +250,22 @@ export function DealActivityLog({ dealId, maxHeight = 480 }: DealActivityLogProp
 
         <CollapsibleContent>
           <CardContent className="space-y-4 pt-0">
-            {/* Note Input */}
+            {/* Note Input with @mention support */}
             <div className="space-y-2">
-              <Textarea
-                placeholder="Add a note, update, or follow-up..."
+              <MentionNotesInput
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className="min-h-[80px] resize-y text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    handleSubmit();
-                  }
-                }}
+                onChange={setNote}
+                onSubmit={handleSubmit}
+                placeholder="Add a note, update, or follow-up... (use @ to mention)"
+                disabled={addNoteMutation.isPending}
               />
               <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">Press Cmd+Enter to submit</p>
+                <p className="text-xs text-muted-foreground">
+                  Press Cmd+Enter to submit &middot; Type @ to mention a team member
+                </p>
                 <Button
                   size="sm"
-                  onClick={handleSubmit}
+                  onClick={() => handleSubmit(note, [])}
                   disabled={!note.trim() || addNoteMutation.isPending}
                 >
                   {addNoteMutation.isPending ? (

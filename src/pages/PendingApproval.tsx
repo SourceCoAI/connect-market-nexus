@@ -45,10 +45,9 @@ const PendingApproval = () => {
 
   useEffect(() => {
     if (user?.approval_status === 'approved') {
-      if (!hasAnyAgreement) return;
       navigate('/', { replace: true });
     }
-  }, [user?.approval_status, hasAnyAgreement, navigate]);
+  }, [user?.approval_status, navigate]);
 
   if (isLoading || !user) {
     return (

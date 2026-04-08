@@ -65,6 +65,23 @@ Deno.serve(async (req: Request) => {
     return errorResponse("Method not allowed", 405, corsHeaders);
   }
 
+  // Webhook secret verification
+  const webhookSecret = Deno.env.get("SALESFORCE_WEBHOOK_SECRET");
+  if (webhookSecret) {
+    const providedSecret =
+      req.headers.get("x-webhook-secret") ||
+      req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+    if (providedSecret !== webhookSecret) {
+      console.error("Webhook secret mismatch");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  } else {
+    console.warn("SALESFORCE_WEBHOOK_SECRET not set — skipping webhook auth (set it to secure this endpoint)");
+  }
+
   try {
     const raw: WebhookPayload | WebhookPayload[] = await req.json();
 

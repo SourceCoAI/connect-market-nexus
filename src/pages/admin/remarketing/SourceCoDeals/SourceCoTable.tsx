@@ -4,14 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +41,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast as sonnerToast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { ResizableHeader } from '../components/ResizableHeader';
 import type { SourceCoDeal, SortColumn } from './types';
 
 interface SourceCoTableProps {
@@ -55,6 +49,8 @@ interface SourceCoTableProps {
   safePage: number;
   PAGE_SIZE: number;
   sortColumn: SortColumn;
+  columnWidths: Record<string, number>;
+  handleColumnResize: (column: string, newWidth: number) => void;
   allSelected: boolean;
   toggleSelectAll: () => void;
   selectedIds: Set<string>;
@@ -75,6 +71,8 @@ export function SourceCoTable({
   safePage,
   PAGE_SIZE,
   sortColumn,
+  columnWidths,
+  handleColumnResize,
   allSelected,
   toggleSelectAll,
   selectedIds,
@@ -112,54 +110,124 @@ export function SourceCoTable({
     <Card>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <Table>
+          <Table style={{ tableLayout: 'fixed' }}>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[40px]">
+                <th
+                  className="h-10 px-3 text-left align-middle font-medium text-muted-foreground border-b"
+                  style={{ width: columnWidths.checkbox, minWidth: 40 }}
+                >
                   <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
-                </TableHead>
-                <TableHead className="w-[50px] text-center">#</TableHead>
-                <TableHead>
+                </th>
+                <ResizableHeader
+                  width={columnWidths.number}
+                  onResize={(w) => handleColumnResize('number', w)}
+                  minWidth={40}
+                >
+                  <span className="text-muted-foreground font-medium">#</span>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.company}
+                  onResize={(w) => handleColumnResize('company', w)}
+                  minWidth={120}
+                >
                   <SortHeader column="company_name">Company</SortHeader>
-                </TableHead>
-                <TableHead className="max-w-[200px]">Executive Summary</TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.description}
+                  onResize={(w) => handleColumnResize('description', w)}
+                  minWidth={100}
+                >
+                  <span className="text-muted-foreground font-medium">Executive Summary</span>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.industry}
+                  onResize={(w) => handleColumnResize('industry', w)}
+                  minWidth={80}
+                >
                   <SortHeader column="industry">Industry</SortHeader>
-                </TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.owner}
+                  onResize={(w) => handleColumnResize('owner', w)}
+                  minWidth={80}
+                >
                   <SortHeader column="owner">Deal Owner</SortHeader>
-                </TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.revenue}
+                  onResize={(w) => handleColumnResize('revenue', w)}
+                  minWidth={70}
+                >
                   <SortHeader column="revenue">Revenue</SortHeader>
-                </TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.ebitda}
+                  onResize={(w) => handleColumnResize('ebitda', w)}
+                  minWidth={70}
+                >
                   <SortHeader column="ebitda">EBITDA</SortHeader>
-                </TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.liCount}
+                  onResize={(w) => handleColumnResize('liCount', w)}
+                  minWidth={60}
+                >
                   <SortHeader column="linkedin_employee_count">LI Count</SortHeader>
-                </TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.liRange}
+                  onResize={(w) => handleColumnResize('liRange', w)}
+                  minWidth={70}
+                >
                   <SortHeader column="linkedin_employee_range">LI Range</SortHeader>
-                </TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.reviews}
+                  onResize={(w) => handleColumnResize('reviews', w)}
+                  minWidth={60}
+                >
                   <SortHeader column="google_review_count">Reviews</SortHeader>
-                </TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.rating}
+                  onResize={(w) => handleColumnResize('rating', w)}
+                  minWidth={60}
+                >
                   <SortHeader column="google_rating">Rating</SortHeader>
-                </TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.score}
+                  onResize={(w) => handleColumnResize('score', w)}
+                  minWidth={60}
+                >
                   <SortHeader column="score">Quality</SortHeader>
-                </TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.date}
+                  onResize={(w) => handleColumnResize('date', w)}
+                  minWidth={70}
+                >
                   <SortHeader column="created_at">Added</SortHeader>
-                </TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.status}
+                  onResize={(w) => handleColumnResize('status', w)}
+                  minWidth={60}
+                >
                   <SortHeader column="pushed">Status</SortHeader>
-                </TableHead>
-                <TableHead>
+                </ResizableHeader>
+                <ResizableHeader
+                  width={columnWidths.priority}
+                  onResize={(w) => handleColumnResize('priority', w)}
+                  minWidth={60}
+                >
                   <SortHeader column="priority">Priority</SortHeader>
-                </TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                </ResizableHeader>
+                <th
+                  className="h-10 px-3 text-left align-middle font-medium text-muted-foreground border-b"
+                  style={{ width: columnWidths.actions, minWidth: 50 }}
+                ></th>
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -20,6 +20,7 @@ import {
   ListChecks,
   Calculator,
   Send,
+  Search,
 } from 'lucide-react';
 import { CreateTaskButton, EntityTasksTab, DealSignalsPanel } from '@/components/daily-tasks';
 import { NotAFitReasonDialog } from '@/components/remarketing';
@@ -32,10 +33,13 @@ import { OverviewTab } from './OverviewTab';
 import { DataRoomTab } from './DataRoomTab';
 import { DealCallActivityTab } from './DealCallActivityTab';
 import { DealContactHistoryTab } from '@/components/remarketing/deal-detail';
+import { CallScoreCard } from '@/components/remarketing/deal-detail/CallScoreCard';
 import { ListingNotesLog } from '@/components/remarketing/deal-detail/ListingNotesLog';
 import { BuyerIntroductionPage } from '@/components/admin/deals/buyer-introductions/BuyerIntroductionPage';
 import { ValuationTab } from './ValuationTab';
 import { DealEmailActivity } from '@/components/email';
+import { UnifiedDealTimeline } from '@/components/remarketing/deal-detail/UnifiedDealTimeline';
+import { DealSearchDialog } from '@/components/remarketing/deal-detail/DealSearchDialog';
 
 const ReMarketingDealDetail = () => {
   const {
@@ -77,6 +81,7 @@ const ReMarketingDealDetail = () => {
   } = useDealDetail();
 
   const [notAFitDialogOpen, setNotAFitDialogOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   if (dealLoading) {
     return (
@@ -118,6 +123,7 @@ const ReMarketingDealDetail = () => {
         <div className="flex-1">
           <DealHeader
             deal={deal}
+            dealId={dealId}
             backTo={backTo}
             displayName={displayName}
             listedName={listedName}
@@ -137,7 +143,13 @@ const ReMarketingDealDetail = () => {
             }
           />
         </div>
-        <CreateTaskButton entityType="deal" entityId={dealId!} entityName={displayName} />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setSearchOpen(true)}>
+            <Search className="h-4 w-4 mr-1" />
+            Search History
+          </Button>
+          <CreateTaskButton entityType="deal" entityId={dealId!} entityName={displayName} />
+        </div>
       </div>
 
       {deal.not_a_fit && (
@@ -172,11 +184,22 @@ const ReMarketingDealDetail = () => {
         }}
       />
 
+      <DealSearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        dealId={dealId!}
+        listingId={dealId!}
+      />
+
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className={cn('grid w-full', isValuationDeal ? 'grid-cols-9' : 'grid-cols-8')}>
+        <TabsList className={cn('grid w-full', isValuationDeal ? 'grid-cols-10' : 'grid-cols-9')}>
           <TabsTrigger value="overview" className="text-sm">
             <Eye className="mr-1.5 h-3.5 w-3.5" />
             Overview
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="text-sm">
+            <Activity className="mr-1.5 h-3.5 w-3.5" />
+            Activity
           </TabsTrigger>
           {isValuationDeal && (
             <TabsTrigger value="valuation" className="text-sm">
@@ -239,6 +262,10 @@ const ReMarketingDealDetail = () => {
           />
         </TabsContent>
 
+        <TabsContent value="activity" className="space-y-6">
+          <UnifiedDealTimeline dealId={dealId!} listingId={dealId!} />
+        </TabsContent>
+
         {isValuationDeal && (
           <TabsContent value="valuation" className="space-y-6">
             <ValuationTab dealId={dealId!} />
@@ -251,6 +278,7 @@ const ReMarketingDealDetail = () => {
             primaryContactEmail={deal.main_contact_email}
             primaryContactName={deal.main_contact_name}
           />
+          <CallScoreCard listingId={dealId!} />
           <DealCallActivityTab listingId={dealId!} />
           <ListingNotesLog listingId={dealId!} />
         </TabsContent>

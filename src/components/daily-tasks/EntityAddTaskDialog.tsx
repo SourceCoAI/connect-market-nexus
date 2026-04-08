@@ -23,12 +23,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { Loader2, FileText, Repeat } from 'lucide-react';
 import { useAddEntityTask } from '@/hooks/useTaskActions';
 import { useTeamMembers } from '@/hooks/use-team-members';
 import { getLocalDateString } from '@/lib/utils';
-import { TASK_TYPE_OPTIONS, DEAL_TASK_TYPE_OPTIONS, ENTITY_TYPE_LABELS, PRIORITY_LABELS } from '@/types/daily-tasks';
-import type { TaskType, TaskPriority, TaskEntityType } from '@/types/daily-tasks';
+import {
+  TASK_TYPE_OPTIONS,
+  DEAL_TASK_TYPE_OPTIONS,
+  ENTITY_TYPE_LABELS,
+  PRIORITY_LABELS,
+} from '@/types/daily-tasks';
+import type { TaskType, TaskPriority, TaskEntityType, RecurrenceRule } from '@/types/daily-tasks';
+import { TaskTemplateDialog } from './TaskTemplateDialog';
 
 interface EntityAddTaskDialogProps {
   open: boolean;
@@ -60,6 +66,8 @@ export function EntityAddTaskDialog({
   const [taskType, setTaskType] = useState<TaskType>(entityType === 'deal' ? 'call' : 'other');
   const [dueDate, setDueDate] = useState(getLocalDateString());
   const [priority, setPriority] = useState<TaskPriority>('medium');
+  const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | 'none'>('none');
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
 
   const handleSubmit = async () => {
     if (!title.trim()) return;
@@ -76,6 +84,7 @@ export function EntityAddTaskDialog({
         entity_id: entityId,
         deal_id: entityType === 'deal' ? entityId : defaultDealId || null,
         deal_reference: entityName || null,
+        ...(recurrenceRule !== 'none' ? { recurrence_rule: recurrenceRule } : {}),
       });
 
       // Reset form
@@ -85,6 +94,7 @@ export function EntityAddTaskDialog({
       setTaskType(entityType === 'deal' ? 'call' : 'other');
       setDueDate(getLocalDateString());
       setPriority('medium');
+      setRecurrenceRule('none');
       onOpenChange(false);
     } catch (err) {
       toast({
@@ -108,6 +118,19 @@ export function EntityAddTaskDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* Use Template shortcut */}
+          {entityType === 'deal' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-xs gap-1.5"
+              onClick={() => setTemplateDialogOpen(true)}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Use Template Instead
+            </Button>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="entity-task-title">Task Title *</Label>
             <Input
@@ -192,6 +215,34 @@ export function EntityAddTaskDialog({
               </Select>
             </div>
           </div>
+
+          {/* Recurrence */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <Repeat className="h-3.5 w-3.5" />
+              Repeat
+            </Label>
+            <Select
+              value={recurrenceRule}
+              onValueChange={(v) => setRecurrenceRule(v as RecurrenceRule | 'none')}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="biweekly">Biweekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+            {recurrenceRule !== 'none' && (
+              <p className="text-[11px] text-muted-foreground">
+                Task will auto-recreate when completed
+              </p>
+            )}
+          </div>
         </div>
 
         <DialogFooter>
@@ -204,6 +255,20 @@ export function EntityAddTaskDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Template dialog — opened via "Use Template" button */}
+      {entityType === 'deal' && (
+        <TaskTemplateDialog
+          open={templateDialogOpen}
+          onOpenChange={setTemplateDialogOpen}
+          listingId={entityId}
+          listingName={entityName}
+          teamMembers={teamMembers}
+          entityType={entityType}
+          dealId={entityType === 'deal' ? entityId : defaultDealId}
+          onSuccess={() => onOpenChange(false)}
+        />
+      )}
     </Dialog>
   );
 }

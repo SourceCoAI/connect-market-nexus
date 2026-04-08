@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { MentionNotesInput } from './MentionNotesInput';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,25 +99,23 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
   });
 
   // Fetch call transcripts (Fireflies + PhoneBurner + all sources)
-  const { data: transcripts = [], isLoading: transcriptsLoading } = useQuery<CallTranscript[]>(
-    {
-      queryKey: ['deal-meeting-summaries', listingId],
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from('deal_transcripts')
-          .select(
-            'id, title, source, call_date, duration_minutes, transcript_url, recording_url, has_content, extracted_data, created_at',
-          )
-          .eq('listing_id', listingId)
-          .in('source', ['fireflies', 'phoneburner'])
-          .order('call_date', { ascending: false, nullsFirst: false });
-        if (error) throw error;
-        return (data || []) as unknown as CallTranscript[];
-      },
-      enabled: !!listingId,
-      staleTime: 60_000,
+  const { data: transcripts = [], isLoading: transcriptsLoading } = useQuery<CallTranscript[]>({
+    queryKey: ['deal-meeting-summaries', listingId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('deal_transcripts')
+        .select(
+          'id, title, source, call_date, duration_minutes, transcript_url, recording_url, has_content, extracted_data, created_at',
+        )
+        .eq('listing_id', listingId)
+        .in('source', ['fireflies', 'phoneburner'])
+        .order('call_date', { ascending: false, nullsFirst: false });
+      if (error) throw error;
+      return (data || []) as unknown as CallTranscript[];
     },
-  );
+    enabled: !!listingId,
+    staleTime: 60_000,
+  });
 
   const isLoading = notesLoading || transcriptsLoading;
 
@@ -147,7 +145,13 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
   }, [notes, transcripts]);
 
   const addNoteMutation = useMutation({
-    mutationFn: async (noteText: string) => {
+    mutationFn: async ({
+      noteText,
+      mentionedUserIds,
+    }: {
+      noteText: string;
+      mentionedUserIds: string[];
+    }) => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -157,6 +161,29 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
         note: noteText,
       } as never);
       if (error) throw error;
+
+      // Send notifications to mentioned users
+      if (mentionedUserIds.length > 0 && user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', user.id)
+          .single();
+
+        const currentUserName = profile
+          ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim()
+          : 'A team member';
+
+        for (const userId of mentionedUserIds) {
+          await supabase.from('user_notifications').insert({
+            user_id: userId,
+            notification_type: 'mention',
+            title: 'You were mentioned in a note',
+            message: `${currentUserName} mentioned you in a note: "${noteText.substring(0, 100)}${noteText.length > 100 ? '...' : ''}"`,
+            metadata: { listing_id: listingId, note_text: noteText.substring(0, 200) },
+          });
+        }
+      }
     },
     onSuccess: () => {
       setNote('');
@@ -170,10 +197,7 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
 
   const deleteNoteMutation = useMutation({
     mutationFn: async (noteId: string) => {
-      const { error } = await supabase
-        .from('listing_notes')
-        .delete()
-        .eq('id', noteId);
+      const { error } = await supabase.from('listing_notes').delete().eq('id', noteId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -189,10 +213,10 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
     },
   });
 
-  const handleSubmit = () => {
-    const trimmed = note.trim();
+  const handleSubmit = (text: string, mentionedUserIds: string[]) => {
+    const trimmed = text.trim();
     if (!trimmed) return;
-    addNoteMutation.mutate(trimmed);
+    addNoteMutation.mutate({ noteText: trimmed, mentionedUserIds });
   };
 
   const handleConfirmDelete = () => {
@@ -229,24 +253,22 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
 
           <CollapsibleContent>
             <CardContent className="space-y-4 pt-0">
-              {/* Note Input */}
+              {/* Note Input with @mention support */}
               <div className="space-y-2">
-                <Textarea
-                  placeholder="Add a note..."
+                <MentionNotesInput
                   value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  className="min-h-[80px] resize-y text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                      handleSubmit();
-                    }
-                  }}
+                  onChange={setNote}
+                  onSubmit={handleSubmit}
+                  placeholder="Add a note... (use @ to mention)"
+                  disabled={addNoteMutation.isPending}
                 />
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">Press Cmd+Enter to submit</p>
+                  <p className="text-xs text-muted-foreground">
+                    Press Cmd+Enter to submit &middot; Type @ to mention a team member
+                  </p>
                   <Button
                     size="sm"
-                    onClick={handleSubmit}
+                    onClick={() => handleSubmit(note, [])}
                     disabled={!note.trim() || addNoteMutation.isPending}
                   >
                     {addNoteMutation.isPending ? (
@@ -295,7 +317,12 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
         </Collapsible>
       </Card>
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete note?</AlertDialogTitle>
@@ -310,7 +337,10 @@ export function ListingNotesLog({ listingId, maxHeight = 480 }: ListingNotesLogP
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

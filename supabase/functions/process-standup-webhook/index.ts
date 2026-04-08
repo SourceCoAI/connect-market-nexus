@@ -66,6 +66,23 @@ serve(async (req) => {
     return corsPreflightResponse(req);
   }
 
+  // Webhook secret verification
+  const webhookSecret = Deno.env.get('FIREFLIES_WEBHOOK_SECRET');
+  if (webhookSecret) {
+    const providedSecret =
+      req.headers.get('x-webhook-secret') ||
+      req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+    if (providedSecret !== webhookSecret) {
+      console.error('Webhook secret mismatch');
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  } else {
+    console.warn('FIREFLIES_WEBHOOK_SECRET not set — skipping webhook auth (set it to secure this endpoint)');
+  }
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -77,6 +94,7 @@ serve(async (req) => {
     // Fireflies webhook payload
     const transcriptId = body.data?.transcript_id || body.transcript_id || body.id;
     let meetingTitle = body.data?.title || body.title || '';
+    const forceProcess = body.force_process === true;
 
     if (!transcriptId) {
       return new Response(JSON.stringify({ error: 'No transcript_id in webhook payload' }), {
@@ -93,84 +111,153 @@ serve(async (req) => {
       console.log(`Fetched title from API: "${meetingTitle}"`);
     }
 
-    // Only process meetings with the <ds> tag
+    // Check if this is a <ds>-tagged standup meeting
     const isTaggedStandup = hasStandupTag(meetingTitle);
-    if (!isTaggedStandup) {
-      console.log(`Skipping non-<ds> meeting: "${meetingTitle}" (${transcriptId})`);
+
+    if (isTaggedStandup || forceProcess) {
+      // === Path A: <ds>-tagged standup or force_process — existing standup extraction ===
+      console.log(`Processing <ds> meeting: "${meetingTitle}" (${transcriptId})${forceProcess ? ' [force_process]' : ''}`);
+
+      // Check if we've already processed this transcript
+      const { data: existing } = await supabase
+        .from('standup_meetings')
+        .select('id')
+        .eq('fireflies_transcript_id', transcriptId)
+        .maybeSingle();
+
+      if (existing) {
+        console.log(`Transcript ${transcriptId} already processed as meeting ${existing.id}`);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            skipped: true,
+            reason: 'Already processed',
+            meeting_id: existing.id,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      // Trigger extraction
+      // Auto-detect: use Fireflies-native mode when Gemini key is not configured
+      const hasGeminiKey = !!getGeminiApiKey();
+      const useFirefliesActions = !hasGeminiKey;
+      console.log(
+        `Processing meeting: "${meetingTitle}" (${transcriptId}) [mode: ${useFirefliesActions ? 'fireflies-native' : 'ai'}${isTaggedStandup ? ', tagged standup' : ''}]`,
+      );
+
+      const extractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-standup-tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          fireflies_transcript_id: transcriptId,
+          meeting_title: meetingTitle,
+          use_fireflies_actions: useFirefliesActions,
+        }),
+      });
+
+      const extractResult = await extractResponse.json();
+
+      if (!extractResponse.ok) {
+        console.error('Extraction failed:', extractResult);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: extractResult.error || 'Extraction failed',
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      console.log('Extraction complete:', extractResult);
+
       return new Response(
         JSON.stringify({
           success: true,
-          skipped: true,
-          reason: 'Not a <ds> tagged meeting',
-          transcript_id: transcriptId,
+          meeting_id: extractResult.meeting_id,
+          tasks_extracted: extractResult.tasks_extracted,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    console.log(`Processing <ds> meeting: "${meetingTitle}" (${transcriptId})`);
+    // === Path B: Non-<ds> meeting — try to auto-pair with deals and extract meeting tasks ===
+    console.log(`Non-<ds> meeting: "${meetingTitle}" (${transcriptId}) — attempting deal auto-pair`);
 
-    // Check if we've already processed this transcript
-    const { data: existing } = await supabase
-      .from('standup_meetings')
-      .select('id')
-      .eq('fireflies_transcript_id', transcriptId)
-      .maybeSingle();
+    // Check if this transcript is already linked to a deal via deal_transcripts
+    let dealLinked = false;
+    try {
+      const { data: linkedTranscript } = await supabase
+        .from('deal_transcripts')
+        .select('id, listing_id')
+        .eq('fireflies_transcript_id', transcriptId)
+        .limit(1)
+        .maybeSingle();
 
-    if (existing) {
-      console.log(`Transcript ${transcriptId} already processed as meeting ${existing.id}`);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          skipped: true,
-          reason: 'Already processed',
-          meeting_id: existing.id,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+      if (linkedTranscript?.listing_id) {
+        dealLinked = true;
+        console.log(`Transcript ${transcriptId} is linked to listing ${linkedTranscript.listing_id}, extracting meeting tasks`);
+      }
+    } catch (e) {
+      console.error('Error checking deal_transcripts link:', e);
     }
 
-    // Trigger extraction
-    // Auto-detect: use Fireflies-native mode when Gemini key is not configured
-    const hasGeminiKey = !!getGeminiApiKey();
-    const useFirefliesActions = !hasGeminiKey;
-    console.log(
-      `Processing meeting: "${meetingTitle}" (${transcriptId}) [mode: ${useFirefliesActions ? 'fireflies-native' : 'ai'}${isTaggedStandup ? ', tagged standup' : ''}]`,
-    );
+    if (dealLinked) {
+      // Call extract-meeting-tasks (may not exist yet — fail gracefully)
+      try {
+        const meetingExtractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-meeting-tasks`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+          body: JSON.stringify({
+            transcript_id: transcriptId,
+          }),
+        });
 
-    const extractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-standup-tasks`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${supabaseKey}`,
-      },
-      body: JSON.stringify({
-        fireflies_transcript_id: transcriptId,
-        meeting_title: meetingTitle,
-        use_fireflies_actions: useFirefliesActions,
-      }),
-    });
+        const meetingExtractResult = await meetingExtractResponse.json().catch(() => ({}));
 
-    const extractResult = await extractResponse.json();
+        if (!meetingExtractResponse.ok) {
+          console.warn(`extract-meeting-tasks returned ${meetingExtractResponse.status}:`, meetingExtractResult);
+        } else {
+          console.log('Meeting task extraction complete:', meetingExtractResult);
+        }
 
-    if (!extractResponse.ok) {
-      console.error('Extraction failed:', extractResult);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: extractResult.error || 'Extraction failed',
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+        return new Response(
+          JSON.stringify({
+            success: true,
+            meeting_type: 'deal_linked',
+            transcript_id: transcriptId,
+            extract_meeting_tasks_status: meetingExtractResponse.status,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      } catch (e) {
+        console.error('Failed to call extract-meeting-tasks (non-blocking):', e);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            meeting_type: 'deal_linked',
+            transcript_id: transcriptId,
+            extract_meeting_tasks_error: e instanceof Error ? e.message : 'Unknown error',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
     }
 
-    console.log('Extraction complete:', extractResult);
-
+    // Not linked to any deal — acknowledge but skip
+    console.log(`Non-<ds> meeting "${meetingTitle}" (${transcriptId}) not linked to any deal, skipping`);
     return new Response(
       JSON.stringify({
         success: true,
-        meeting_id: extractResult.meeting_id,
-        tasks_extracted: extractResult.tasks_extracted,
+        skipped: true,
+        reason: 'Not a <ds> tagged meeting and not linked to a deal',
+        transcript_id: transcriptId,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );

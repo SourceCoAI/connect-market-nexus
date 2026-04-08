@@ -439,6 +439,8 @@ export default function SourceCoDeals() {
         safePage={hook.safePage}
         PAGE_SIZE={hook.PAGE_SIZE}
         sortColumn={hook.sortColumn}
+        columnWidths={hook.columnWidths}
+        handleColumnResize={hook.handleColumnResize}
         allSelected={hook.allSelected}
         toggleSelectAll={hook.toggleSelectAll}
         selectedIds={hook.selectedIds}

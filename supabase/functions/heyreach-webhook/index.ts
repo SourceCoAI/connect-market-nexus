@@ -134,6 +134,180 @@ Deno.serve(async (req) => {
           .update(updateFields)
           .eq('campaign_id', localCampaign.id)
           .eq('linkedin_url', leadLinkedInUrl);
+
+        // ─── Deal Activity Logging & Auto Follow-up ─────────────────
+        // Find deals linked to this lead via listing/contacts
+        try {
+          // Look up the lead to find linked deal
+          const { data: leadRecord } = await supabase
+            .from('heyreach_campaign_leads')
+            .select(
+              'buyer_contact_id, remarketing_buyer_id, email, first_name, last_name, listing_id',
+            )
+            .eq('campaign_id', localCampaign.id)
+            .eq('linkedin_url', leadLinkedInUrl)
+            .limit(1)
+            .maybeSingle();
+
+          const listingId = leadRecord?.listing_id || null;
+          let dealData: { id: string; assigned_to: string | null } | null = null;
+
+          if (listingId) {
+            const { data } = await supabase
+              .from('deal_pipeline')
+              .select('id, assigned_to')
+              .eq('listing_id', listingId)
+              .limit(1)
+              .maybeSingle();
+            dealData = data;
+          }
+
+          if (dealData?.id) {
+            const leadName =
+              [leadRecord?.first_name, leadRecord?.last_name].filter(Boolean).join(' ') ||
+              leadLinkedInUrl;
+
+            // Log activity based on event type
+            if (eventType === 'CONNECTION_REQUEST_ACCEPTED') {
+              try {
+                await supabase.rpc('log_deal_activity', {
+                  p_deal_id: dealData.id,
+                  p_activity_type: 'linkedin_connection',
+                  p_title: `LinkedIn connection accepted: ${leadName}`,
+                  p_description: `${leadName} accepted a LinkedIn connection request.`,
+                  p_admin_id: null,
+                  p_metadata: {
+                    linkedin_url: leadLinkedInUrl,
+                    lead_email: leadEmail,
+                    campaign_id: campaignId,
+                    event_type: eventType,
+                  },
+                });
+              } catch (e) {
+                console.error('[heyreach-webhook] Failed to log linkedin_connection activity:', e);
+              }
+            }
+
+            if (['MESSAGE_RECEIVED', 'INMAIL_RECEIVED', 'LEAD_REPLIED'].includes(eventType)) {
+              try {
+                await supabase.rpc('log_deal_activity', {
+                  p_deal_id: dealData.id,
+                  p_activity_type: 'linkedin_message',
+                  p_title: `LinkedIn reply from ${leadName}`,
+                  p_description: `${leadName} replied to LinkedIn outreach.`,
+                  p_admin_id: null,
+                  p_metadata: {
+                    linkedin_url: leadLinkedInUrl,
+                    lead_email: leadEmail,
+                    campaign_id: campaignId,
+                    event_type: eventType,
+                    message_snippet: (payload.message || payload.text || '').substring(0, 200),
+                  },
+                });
+              } catch (e) {
+                console.error('[heyreach-webhook] Failed to log linkedin_message activity:', e);
+              }
+            }
+
+            if (eventType === 'LEAD_INTERESTED') {
+              try {
+                await supabase.rpc('log_deal_activity', {
+                  p_deal_id: dealData.id,
+                  p_activity_type: 'buyer_response',
+                  p_title: `LinkedIn lead interested: ${leadName}`,
+                  p_description: `${leadName} marked as interested from LinkedIn outreach.`,
+                  p_admin_id: null,
+                  p_metadata: {
+                    linkedin_url: leadLinkedInUrl,
+                    lead_email: leadEmail,
+                    campaign_id: campaignId,
+                  },
+                });
+              } catch (e) {
+                console.error('[heyreach-webhook] Failed to log buyer_response activity:', e);
+              }
+            }
+
+            // Auto-create follow-up task for positive LinkedIn responses
+            const positiveLinkedInEvents = [
+              'MESSAGE_RECEIVED',
+              'INMAIL_RECEIVED',
+              'LEAD_REPLIED',
+              'LEAD_INTERESTED',
+            ];
+            if (positiveLinkedInEvents.includes(eventType)) {
+              try {
+                const taskTitleMap: Record<string, string> = {
+                  MESSAGE_RECEIVED: `Follow up on LinkedIn reply: ${leadName}`,
+                  INMAIL_RECEIVED: `Follow up on LinkedIn InMail reply: ${leadName}`,
+                  LEAD_REPLIED: `Follow up on LinkedIn reply: ${leadName}`,
+                  LEAD_INTERESTED: `Follow up with interested LinkedIn lead: ${leadName}`,
+                };
+
+                const dueDate = new Date();
+                dueDate.setDate(dueDate.getDate() + 1);
+
+                await supabase.from('daily_standup_tasks').insert({
+                  title: taskTitleMap[eventType] || `Follow up: ${leadName}`,
+                  task_type: 'follow_up_with_buyer',
+                  status: 'pending',
+                  priority: 'high',
+                  priority_score: 80,
+                  due_date: dueDate.toISOString().split('T')[0],
+                  entity_type: 'deal',
+                  entity_id: dealData.id,
+                  deal_id: dealData.id,
+                  assignee_id: dealData.assigned_to,
+                  auto_generated: true,
+                  generation_source: 'linkedin_reply',
+                  source: 'system',
+                  description: `Auto-created from HeyReach ${eventType} event. Lead: ${leadName} (${leadLinkedInUrl})`,
+                });
+
+                await supabase.rpc('log_deal_activity', {
+                  p_deal_id: dealData.id,
+                  p_activity_type: 'auto_followup_created',
+                  p_title: `Auto follow-up created: ${taskTitleMap[eventType]}`,
+                  p_description: `Triggered by LinkedIn ${eventType} from ${leadName}`,
+                  p_admin_id: dealData.assigned_to,
+                  p_metadata: {
+                    event_type: eventType,
+                    linkedin_url: leadLinkedInUrl,
+                    lead_email: leadEmail,
+                    campaign_id: campaignId,
+                  },
+                });
+              } catch (e) {
+                console.error('[heyreach-webhook] Failed to create auto follow-up task:', e);
+              }
+
+              // Notify deal owner of positive LinkedIn response
+              if (dealData.assigned_to) {
+                try {
+                  await supabase.from('user_notifications').insert({
+                    user_id: dealData.assigned_to,
+                    notification_type: 'linkedin_response',
+                    title: `Positive LinkedIn response: ${leadName}`,
+                    message: `${leadName} responded positively (${eventType}) to your LinkedIn outreach.`,
+                    metadata: {
+                      deal_id: dealData.id,
+                      event_type: eventType,
+                      linkedin_url: leadLinkedInUrl,
+                      lead_email: leadEmail,
+                    },
+                  });
+                } catch (e) {
+                  console.error('[heyreach-webhook] Failed to send notification:', e);
+                }
+              }
+            }
+          }
+        } catch (dealActivityError) {
+          console.error(
+            '[heyreach-webhook] Deal activity logging error (non-fatal):',
+            dealActivityError,
+          );
+        }
       }
 
       // Mark as processed

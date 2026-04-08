@@ -72,7 +72,7 @@ export function AddBuyerIntroductionDialog({
       const { data, error } = await supabase
         .from('buyers')
         .select(
-          'id, company_name, company_website, buyer_type, pe_firm_name, hq_state, hq_city, is_publicly_traded',
+          'id, company_name, company_website, buyer_type, pe_firm_name, hq_state, hq_city, is_publicly_traded, target_services, target_industries, industry_vertical, thesis_summary',
         )
         .eq('archived', false)
         .order('company_name')
@@ -94,12 +94,17 @@ export function AddBuyerIntroductionDialog({
       const label =
         typeParts.length > 0 ? `${b.company_name} (${typeParts.join(' · ')})` : b.company_name;
 
-      // Secondary description: PE firm and location on a separate line
+      // Secondary description: PE firm, location, and target industries
       const descParts: string[] = [];
       if (b.pe_firm_name) descParts.push(`PE Firm: ${b.pe_firm_name}`);
       if (b.hq_city && b.hq_state) descParts.push(`${b.hq_city}, ${b.hq_state}`);
       else if (b.hq_state) descParts.push(b.hq_state);
+      if (b.industry_vertical) descParts.push(b.industry_vertical);
       const description = descParts.length > 0 ? descParts.join(' · ') : undefined;
+
+      // Build comprehensive search terms including target criteria
+      const targetServices = Array.isArray(b.target_services) ? b.target_services.join(' ') : '';
+      const targetIndustries = Array.isArray(b.target_industries) ? b.target_industries.join(' ') : '';
 
       return {
         value: b.id,
@@ -112,6 +117,10 @@ export function AddBuyerIntroductionDialog({
           b.hq_state,
           b.hq_city,
           b.company_website,
+          b.industry_vertical,
+          targetServices,
+          targetIndustries,
+          b.thesis_summary,
         ]
           .filter(Boolean)
           .join(' ')
@@ -152,6 +161,13 @@ export function AddBuyerIntroductionDialog({
 
     if (!firstName) {
       toast.error('Contact first name is required');
+      return;
+    }
+
+    // Validate email format if provided
+    const email = contactEmail.trim().replace(/\/+$/, ''); // Remove trailing slashes
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Please enter a valid email address');
       return;
     }
 

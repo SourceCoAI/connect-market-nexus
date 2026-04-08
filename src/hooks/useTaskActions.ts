@@ -271,7 +271,9 @@ export function useAddEntityTask() {
       secondary_entity_id?: string | null;
       deal_reference?: string | null;
       deal_id?: string | null;
+      recurrence_rule?: string | null;
     }) => {
+      const priorityScore = task.priority === 'high' ? 80 : task.priority === 'low' ? 30 : 50;
       const { data, error } = await supabase
         .from('daily_standup_tasks' as never)
         .insert({
@@ -290,10 +292,11 @@ export function useAddEntityTask() {
           source: 'manual',
           is_manual: true,
           status: 'pending',
-          priority_score: 50,
+          priority_score: priorityScore,
           extraction_confidence: 'high',
           needs_review: false,
           created_by: user?.id,
+          ...(task.recurrence_rule ? { recurrence_rule: task.recurrence_rule } : {}),
         } as never)
         .select()
         .single();

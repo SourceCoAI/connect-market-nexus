@@ -72,14 +72,14 @@ CREATE POLICY "Admins can manage buyer discovery feedback"
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM admin_users
-      WHERE admin_users.user_id = auth.uid()
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid() AND profiles.is_admin = true
     )
   )
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM admin_users
-      WHERE admin_users.user_id = auth.uid()
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid() AND profiles.is_admin = true
     )
   );
 

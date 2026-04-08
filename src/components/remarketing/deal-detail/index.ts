@@ -23,3 +23,7 @@ export { AddBuyerIntroductionDialog } from './AddBuyerIntroductionDialog';
 export { UpdateIntroductionStatusDialog } from './UpdateIntroductionStatusDialog';
 export { ContactHistoryTracker } from './ContactHistoryTracker';
 export { RecommendedBuyersPanel } from './RecommendedBuyersPanel';
+export { CallScoreCard } from './CallScoreCard';
+export { DealSearchDialog } from './DealSearchDialog';
+export { StageVelocityChart } from './StageVelocityChart';
+export { BuyerEngagementSummary } from './BuyerEngagementSummary';

@@ -14,10 +14,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
   const corsHeaders = getCorsHeaders(req);
 
-  return new Response(
-    JSON.stringify({
-      error: "PhoneBurner OAuth has been removed. Use manual access tokens instead.",
-    }),
-    { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-  );
+  try {
+    return new Response(
+      JSON.stringify({
+        error: "PhoneBurner OAuth has been removed. Use manual access tokens instead.",
+      }),
+      { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  } catch (err) {
+    console.error('phoneburner-oauth-callback error:', err);
+    return new Response(
+      JSON.stringify({ error: err instanceof Error ? err.message : 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
 });

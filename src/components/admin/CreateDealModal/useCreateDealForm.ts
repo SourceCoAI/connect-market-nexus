@@ -184,26 +184,36 @@ export function useCreateDealForm(
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
 
-        // Upsert contact by email
-        const { data: contact } = await supabase
+        // Resolve or create contact (contacts uses partial unique indexes, not simple unique)
+        const cleanEmail = data.contact_email.toLowerCase().trim();
+        const { data: existingContact } = await supabase
           .from('contacts')
-          .upsert(
-            {
+          .select('id')
+          .eq('email', cleanEmail)
+          .eq('contact_type', 'buyer')
+          .eq('archived', false)
+          .maybeSingle();
+
+        if (existingContact) {
+          buyerContactId = existingContact.id;
+        } else {
+          const { data: newContact } = await supabase
+            .from('contacts')
+            .insert({
               first_name: firstName,
               last_name: lastName,
-              email: data.contact_email.toLowerCase().trim(),
+              email: cleanEmail,
               phone: data.contact_phone || null,
               title: data.contact_role || null,
               contact_type: 'buyer',
               source: 'manual_deal_creation',
-            },
-            { onConflict: 'email' },
-          )
-          .select('id')
-          .single();
+            })
+            .select('id')
+            .single();
 
-        if (contact) {
-          buyerContactId = contact.id;
+          if (newContact) {
+            buyerContactId = newContact.id;
+          }
         }
       }
 

@@ -15,6 +15,8 @@ import {
   KeyQuotesCard,
   BuyerHistoryDialog,
   EditFinancialsDialog,
+  StageVelocityChart,
+  BuyerEngagementSummary,
 } from '@/components/remarketing/deal-detail';
 import { format } from 'date-fns';
 import type { QueryClient } from '@tanstack/react-query';
@@ -175,6 +177,11 @@ export function OverviewTab({
         onOpenChange={setBuyerHistoryOpen}
         dealId={dealId}
       />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <StageVelocityChart dealId={dealId} />
+        <BuyerEngagementSummary listingId={dealId} />
+      </div>
 
       <CompanyOverviewCard
         companyName={deal.internal_company_name || deal.title}
@@ -382,7 +389,6 @@ export function OverviewTab({
           });
         }}
       />
-
 
       <DealTranscriptSection
         dealId={dealId}

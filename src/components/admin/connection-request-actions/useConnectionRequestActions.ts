@@ -87,9 +87,30 @@ export function useConnectionRequestActions({
     try {
       await updateStatus.mutateAsync({ requestId, status: 'approved' });
       const listingName = listing?.title || 'this deal';
+
+      // Check fee agreement status to customize the approval message
+      let buyerHasFee = hasFeeAgreement;
+      if (!buyerHasFee && user.id) {
+        const { data: freshFirmId } = await supabase.rpc('resolve_user_firm_id', { p_user_id: user.id });
+        if (freshFirmId) {
+          const { data: freshFirm } = await supabase
+            .from('firm_agreements')
+            .select('fee_agreement_status, fee_agreement_signed')
+            .eq('id', freshFirmId)
+            .maybeSingle();
+          if (freshFirm) {
+            buyerHasFee = freshFirm.fee_agreement_signed === true || freshFirm.fee_agreement_status === 'signed';
+          }
+        }
+      }
+
+      const accessMessage = buyerHasFee
+        ? `Your introduction to ${listingName} has been approved. You now have access to the deal overview and full data room documents. Our team will facilitate the introduction to the business owner — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`
+        : `Your introduction to ${listingName} has been approved. You can now view the deal overview. To unlock the full data room and supporting documents, please sign your Fee Agreement. Our team will facilitate the introduction to the business owner — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`;
+
       await sendMessage.mutateAsync({
         connection_request_id: requestId,
-        body: `Your introduction to ${listingName} has been approved. Deal materials have been made available in your data room. Our team will facilitate the introduction to the business owner - expect to hear from us within one business day. If you have any questions in the meantime, reply here.`,
+        body: accessMessage,
         sender_role: 'admin',
         message_type: 'decision',
       });
@@ -146,30 +167,15 @@ export function useConnectionRequestActions({
           .maybeSingle();
 
         if (!existingAccess) {
-          // Query firm agreement status directly from DB to avoid stale frontend state
-          let feeAgreementSigned = hasFeeAgreement;
-          if (!feeAgreementSigned && user.id) {
-            const { data: freshFirmId } = await supabase.rpc('resolve_user_firm_id', { p_user_id: user.id });
-            if (freshFirmId) {
-              const { data: freshFirm } = await supabase
-                .from('firm_agreements')
-                .select('fee_agreement_status, fee_agreement_signed')
-                .eq('id', freshFirmId)
-                .maybeSingle();
-              if (freshFirm) {
-                feeAgreementSigned = freshFirm.fee_agreement_signed === true || freshFirm.fee_agreement_status === 'signed';
-              }
-            }
-          }
-
+          // Reuse buyerHasFee from earlier check (already queried fresh from DB)
           const { error: accessErr } = await supabase
             .from('data_room_access')
             .insert({
               deal_id: listing.id,
               marketplace_user_id: user.id,
               can_view_teaser: true,
-              can_view_full_memo: feeAgreementSigned,
-              can_view_data_room: feeAgreementSigned,
+              can_view_full_memo: buyerHasFee,
+              can_view_data_room: buyerHasFee,
             });
 
           if (accessErr) {

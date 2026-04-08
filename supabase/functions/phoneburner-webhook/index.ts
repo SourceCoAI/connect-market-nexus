@@ -13,15 +13,17 @@
  *   - sms.opt_out
  *
  * ┌─────────────────────────────────────────────────────────────────┐
- * │ AUTHENTICATION: NONE                                           │
+ * │ AUTHENTICATION: OPTIONAL HMAC                                  │
  * │                                                                │
- * │ This endpoint accepts ALL incoming POST requests without any   │
- * │ secret, signature, or authentication header. This is BY DESIGN │
- * │ to ensure PhoneBurner (and intermediaries like n8n) can always  │
- * │ post call activity updates without configuration friction.     │
+ * │ By default this endpoint accepts ALL incoming POST requests    │
+ * │ without any secret or authentication header.                   │
  * │                                                                │
- * │ DO NOT add secret/signature checks here. If you need to gate   │
- * │ access, use IP allowlisting at the network layer instead.      │
+ * │ To enable HMAC signature validation, set the env variable      │
+ * │ PHONEBURNER_WEBHOOK_SECRET. When set, the handler checks for   │
+ * │ x-phoneburner-signature or x-webhook-signature headers and     │
+ * │ verifies SHA-256 HMAC. Requests without a signature header     │
+ * │ are still allowed through (PhoneBurner may not sign all        │
+ * │ event types).                                                  │
  * └─────────────────────────────────────────────────────────────────┘
  *
  * IMPORTANT: The push function stores `sourceco_id` in custom_fields.
@@ -77,8 +79,7 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  // NO secret/signature check — see file header for rationale.
-  // DO NOT re-add authentication here.
+  // Optional HMAC validation happens after body is read — see below.
   const supabase: ReturnType<typeof createClient> = createClient(supabaseUrl, serviceRoleKey);
 
   // Log all incoming request details for debugging auth-related rejections
@@ -100,9 +101,51 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Failed to read request body' }, 400, corsHeaders);
   }
 
-  const signatureValid = true; // no auth required — always accepted
+  let signatureValid = true; // default: no auth required — always accepted
 
-  console.log(`[phoneburner-webhook] Received (no auth required), body length: ${rawBody.length}`);
+  // Optional HMAC signature validation
+  const webhookSecret = Deno.env.get('PHONEBURNER_WEBHOOK_SECRET');
+  if (webhookSecret) {
+    const signature =
+      req.headers.get('x-phoneburner-signature') || req.headers.get('x-webhook-signature');
+    if (signature) {
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(webhookSecret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['verify'],
+      );
+
+      const expectedSig = signature.replace('sha256=', '');
+
+      try {
+        const sigBuffer = new Uint8Array(
+          expectedSig.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)),
+        );
+        const valid = await crypto.subtle.verify('HMAC', key, sigBuffer, encoder.encode(rawBody));
+
+        if (!valid) {
+          signatureValid = false;
+          console.warn('PhoneBurner webhook HMAC validation failed');
+          return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      } catch (e) {
+        console.warn('PhoneBurner HMAC validation error (allowing through):', e);
+        // Don't block if signature format is unexpected — fall through
+      }
+    }
+    // If secret is set but no signature header, log warning but allow through
+    // (PhoneBurner may not send signature on all event types)
+  }
+
+  console.log(
+    `[phoneburner-webhook] Received${webhookSecret ? ' (HMAC enabled)' : ' (no auth required)'}, body length: ${rawBody.length}`,
+  );
 
   let payload: Record<string, unknown>;
   try {
@@ -867,20 +910,29 @@ async function processEvent(
     : null;
 
   // ── Step 3: DB phone RPC lookup (last resort — broadest, least accurate) ──
-  const phoneMapping = !requestMapping.matched && !waterfallMapping
-    ? await resolvePhoneMapping(supabase, {
-        phone: contactPhone,
-        allPhones,
-        email: contactEmail,
-        name: contactName,
-      })
-    : null;
+  const phoneMapping =
+    !requestMapping.matched && !waterfallMapping
+      ? await resolvePhoneMapping(supabase, {
+          phone: contactPhone,
+          allPhones,
+          email: contactEmail,
+          name: contactName,
+        })
+      : null;
 
   // ── Resolution priority: session match > waterfall > DB phone match > custom_fields ──
   const resolvedContactId =
-    requestMapping.matched?.contact_id || waterfallMapping?.contact_id || phoneMapping?.contact_id || contactId || null;
+    requestMapping.matched?.contact_id ||
+    waterfallMapping?.contact_id ||
+    phoneMapping?.contact_id ||
+    contactId ||
+    null;
   const resolvedListingId =
-    requestMapping.matched?.listing_id || waterfallMapping?.listing_id || phoneMapping?.listing_id || listingId || null;
+    requestMapping.matched?.listing_id ||
+    waterfallMapping?.listing_id ||
+    phoneMapping?.listing_id ||
+    listingId ||
+    null;
   const resolvedBuyerId =
     requestMapping.matched?.remarketing_buyer_id ||
     waterfallMapping?.remarketing_buyer_id ||
@@ -888,9 +940,19 @@ async function processEvent(
     remarketingBuyerId ||
     null;
   const resolvedContactEmail =
-    requestMapping.matched?.contact_email || waterfallMapping?.contact_email || phoneMapping?.contact_email || contactEmail || null;
+    requestMapping.matched?.contact_email ||
+    waterfallMapping?.contact_email ||
+    phoneMapping?.contact_email ||
+    contactEmail ||
+    null;
   const resolvedSessionId = requestMapping.phoneburnerSessionId;
-  const matchSource = requestMapping.matched ? 'session' : waterfallMapping ? (waterfallMapping.source_entity || 'waterfall') : phoneMapping ? 'phone_rpc' : 'custom_fields';
+  const matchSource = requestMapping.matched
+    ? 'session'
+    : waterfallMapping
+      ? waterfallMapping.source_entity || 'waterfall'
+      : phoneMapping
+        ? 'phone_rpc'
+        : 'custom_fields';
 
   console.log(
     `[phoneburner-webhook] Resolution for phones=[${allPhones.join(',')}]: ` +
@@ -1077,6 +1139,135 @@ async function processEvent(
         console.log(
           `[phoneburner-webhook] Transcript available (${topLevelTranscript.length} chars) but no listing_id resolved for call ${pbCallId}. Saving to contact_activities only.`,
         );
+      }
+
+      // ── Log to deal_activities for deal timeline visibility ──
+      if (resolvedListingId) {
+        try {
+          const { data: dealData } = await supabase
+            .from('deal_pipeline')
+            .select('id')
+            .eq('listing_id', resolvedListingId)
+            .limit(1)
+            .maybeSingle();
+
+          const dealId = dealData?.id;
+          if (dealId) {
+            try {
+              await supabase.rpc('log_deal_activity', {
+                p_deal_id: dealId,
+                p_activity_type: 'call_completed',
+                p_title: `Call ${connected ? 'connected' : 'attempted'} with ${contactName || resolvedContactEmail || 'contact'}`,
+                p_description: dispositionLabel
+                  ? `Disposition: ${dispositionLabel}${duration ? ` | Duration: ${Math.round(duration / 60)}min` : ''}`
+                  : null,
+                p_admin_id: null,
+                p_metadata: {
+                  phoneburner_call_id: pbCallId,
+                  duration_seconds: duration,
+                  disposition: dispositionLabel,
+                  recording_url: recordingUrl,
+                  contact_email: resolvedContactEmail,
+                  contact_name: contactName,
+                  connected,
+                },
+              });
+            } catch (e) {
+              console.error('[phoneburner-webhook] Failed to log deal activity:', e);
+            }
+
+            // ── Auto-create follow-up task based on disposition ──
+            if (dispositionLabel) {
+              const dispositionLower = dispositionLabel.toLowerCase();
+              let taskTitle: string | null = null;
+              let taskType = 'follow_up_with_buyer';
+              let dueDays = 3;
+
+              if (dispositionLower.includes('callback') || dispositionLower.includes('call back')) {
+                taskTitle = `Callback: ${contactName || resolvedContactEmail || 'contact'}`;
+                taskType = 'schedule_call';
+                dueDays = 1;
+              } else if (
+                dispositionLower.includes('interested') ||
+                dispositionLower.includes('send info') ||
+                dispositionLower.includes('send more')
+              ) {
+                taskTitle = `Send materials to ${contactName || resolvedContactEmail || 'contact'}`;
+                taskType = 'send_materials';
+                dueDays = 1;
+              } else if (
+                dispositionLower.includes('voicemail') ||
+                dispositionLower.includes('no answer')
+              ) {
+                taskTitle = `Follow up (voicemail): ${contactName || resolvedContactEmail || 'contact'}`;
+                taskType = 'follow_up_with_buyer';
+                dueDays = 3;
+              } else if (
+                connected &&
+                !dispositionLower.includes('not interested') &&
+                !dispositionLower.includes('do not call') &&
+                !dispositionLower.includes('wrong number')
+              ) {
+                taskTitle = `Follow up after call: ${contactName || resolvedContactEmail || 'contact'}`;
+                taskType = 'follow_up_with_buyer';
+                dueDays = 5;
+              }
+
+              if (taskTitle) {
+                try {
+                  const dueDate = new Date();
+                  dueDate.setDate(dueDate.getDate() + dueDays);
+
+                  await supabase.from('daily_standup_tasks').insert({
+                    title: taskTitle,
+                    task_type: taskType,
+                    status: 'pending',
+                    priority: connected ? 'high' : 'medium',
+                    priority_score: connected ? 80 : 50,
+                    due_date: dueDate.toISOString().split('T')[0],
+                    entity_type: 'deal',
+                    entity_id: dealId,
+                    deal_id: dealId,
+                    auto_generated: true,
+                    generation_source: 'call_disposition',
+                    source: 'system',
+                    description: [
+                      `Auto-created from PhoneBurner call.`,
+                      `Contact: ${contactName || 'Unknown'}${resolvedContactEmail ? ` (${resolvedContactEmail})` : ''}`,
+                      `Disposition: ${dispositionLabel}`,
+                      duration ? `Duration: ${Math.round(duration / 60)} min` : null,
+                      recordingUrl ? `Recording: ${recordingUrl}` : null,
+                      topLevelTranscript
+                        ? `\nCall excerpt:\n${topLevelTranscript.substring(0, 300)}${topLevelTranscript.length > 300 ? '...' : ''}`
+                        : null,
+                      `\n---\nAdd your call notes below:`,
+                    ]
+                      .filter(Boolean)
+                      .join('\n'),
+                  });
+
+                  // Also log the auto-task creation to deal_activities
+                  await supabase.rpc('log_deal_activity', {
+                    p_deal_id: dealId,
+                    p_activity_type: 'auto_followup_created',
+                    p_title: `Auto follow-up: ${taskTitle}`,
+                    p_description: `Created from call disposition: ${dispositionLabel}`,
+                    p_admin_id: null,
+                    p_metadata: {
+                      task_type: taskType,
+                      due_days: dueDays,
+                      disposition: dispositionLabel,
+                    },
+                  });
+                } catch (e) {
+                  console.error('[phoneburner-webhook] Failed to create auto follow-up task:', e);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[phoneburner-webhook] Failed to resolve deal for activity logging:', e);
+        }
       }
 
       return data?.id || null;

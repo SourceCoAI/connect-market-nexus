@@ -983,6 +983,37 @@ Extract all available business information using the provided tool. Be EXHAUSTIV
       );
     }
 
+    // Snapshot current values for diff tracking (Gap #18)
+    const fieldsToTrack = [
+      'revenue',
+      'ebitda',
+      'executive_summary',
+      'investment_thesis',
+      'key_risks',
+      'growth_drivers',
+      'services',
+      'business_model',
+      'customer_types',
+      'address_state',
+      'management_depth',
+      'customer_concentration',
+      'owner_goals',
+    ];
+
+    const beforeValues: Record<string, unknown> = {};
+    const afterValues: Record<string, unknown> = {};
+    const changedFields: string[] = [];
+
+    for (const field of fieldsToTrack) {
+      const oldVal = deal[field];
+      const newVal = finalUpdates[field];
+      if (newVal !== undefined && newVal !== null && newVal !== oldVal) {
+        beforeValues[field] = oldVal;
+        afterValues[field] = newVal;
+        changedFields.push(field);
+      }
+    }
+
     let updateQuery = supabase.from('listings').update(finalUpdates).eq('id', dealId);
 
     if (lockVersion) {
@@ -1062,6 +1093,43 @@ Extract all available business information using the provided tool. Be EXHAUSTIV
       status: 'success',
       fieldsUpdated: allFieldsUpdated.length,
     });
+
+    // Log enrichment completion to deal_activities
+    try {
+      // Find the deal associated with this listing
+      const { data: dealActivityData } = await supabase
+        .from('deal_pipeline')
+        .select('id')
+        .eq('listing_id', dealId)
+        .limit(1)
+        .maybeSingle();
+      const activityDealId = dealActivityData?.id;
+
+      if (activityDealId) {
+        const sourcesUsed: string[] = [];
+        if (transcriptFieldNames.length > 0) sourcesUsed.push('transcripts');
+        if (notesFieldsUpdated.length > 0) sourcesUsed.push('notes');
+        if (websiteFieldsUpdated.length > 0) sourcesUsed.push(aiExtractionSource);
+
+        await supabase.rpc('log_deal_activity', {
+          p_deal_id: activityDealId,
+          p_activity_type: 'enrichment_completed',
+          p_title: `Deal enriched from ${sourcesUsed.join(', ') || 'unknown sources'}`,
+          p_description: `Updated fields: ${allFieldsUpdated.join(', ') || 'none'}`,
+          p_admin_id: null,
+          p_metadata: {
+            sources: sourcesUsed,
+            fields_updated: changedFields.length > 0 ? changedFields : allFieldsUpdated,
+            before: beforeValues,
+            after: afterValues,
+            listing_id: dealId,
+            total_fields: allFieldsUpdated.length,
+          },
+        });
+      }
+    } catch (e) {
+      console.error('Failed to log enrichment to deal_activities:', e);
+    }
 
     return new Response(
       JSON.stringify({

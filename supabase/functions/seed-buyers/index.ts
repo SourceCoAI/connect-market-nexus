@@ -882,10 +882,16 @@ Deno.serve(async (req: Request) => {
 
       const domain = extractDomain(suggested.company_website);
 
-      // Website is still required after lookup — skip if we couldn't find one.
-      if (!domain || !suggested.company_website) {
-        console.info(`Skipping ${suggested.company_name} — no website found (AI or Serper)`);
+      // Skip only if we have neither a website nor a company name — the record
+      // is still valuable with company_name + PE firm + why_relevant even when
+      // no website could be resolved (Issue #39).
+      if (!domain && !suggested.company_name) {
+        console.info(`Skipping buyer — no website AND no company name`);
         continue;
+      }
+      if (!domain) {
+        console.info(`${suggested.company_name} — no website found; inserting with null website`);
+        suggested.company_website = null;
       }
 
       // Sanitize PE firm name if present (Claude sometimes returns full sentences)

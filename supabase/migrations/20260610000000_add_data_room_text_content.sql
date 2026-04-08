@@ -13,3 +13,9 @@ WHERE text_content IS NOT NULL AND status = 'active';
 
 COMMENT ON COLUMN data_room_documents.text_content IS 'Extracted text content from the uploaded document, used for AI enrichment and memo generation';
 COMMENT ON COLUMN data_room_documents.text_extracted_at IS 'Timestamp when text was last extracted from this document';
+
+-- Merged from: 20260610000000_add_work_email_to_valuation_leads.sql
+-- Add work_email column to valuation_leads
+-- Stores an enriched work email found via Blitz/Clay, separate from the
+-- calculator submission email which lives in the existing email column.
+ALTER TABLE valuation_leads ADD COLUMN IF NOT EXISTS work_email TEXT;

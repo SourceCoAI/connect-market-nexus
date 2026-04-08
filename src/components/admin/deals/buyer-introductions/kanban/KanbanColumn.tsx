@@ -2,6 +2,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { BuyerIntroduction } from '@/types/buyer-introductions';
@@ -49,6 +50,8 @@ interface KanbanColumnProps {
   onReactivate?: (buyer: BuyerIntroduction) => void;
   onRemove?: (buyer: BuyerIntroduction) => void;
   onLogFollowUp?: (buyer: BuyerIntroduction) => void;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
 export function KanbanColumn({
@@ -64,6 +67,8 @@ export function KanbanColumn({
   onReactivate,
   onRemove,
   onLogFollowUp,
+  selectedIds,
+  onToggleSelect,
 }: KanbanColumnProps) {
   const config = COLUMN_CONFIG[column];
   const [collapsed, setCollapsed] = useState(false);
@@ -110,6 +115,22 @@ export function KanbanColumn({
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b bg-white/60 rounded-t-lg">
         <div className="flex items-center gap-2 min-w-0">
+          {onToggleSelect && buyers.length > 0 && (
+            <Checkbox
+              checked={
+                buyers.length > 0 && buyers.every((b) => selectedIds?.has(b.id))
+              }
+              onCheckedChange={() => {
+                const allSelected = buyers.every((b) => selectedIds?.has(b.id));
+                buyers.forEach((b) => {
+                  const isSelected = selectedIds?.has(b.id);
+                  if (allSelected && isSelected) onToggleSelect(b.id);
+                  if (!allSelected && !isSelected) onToggleSelect(b.id);
+                });
+              }}
+              className="h-3.5 w-3.5 shrink-0"
+            />
+          )}
           <h3 className={cn('text-sm font-semibold truncate', config.headerColor)}>
             {config.title}
           </h3>
@@ -165,6 +186,8 @@ export function KanbanColumn({
                 onReactivate={onReactivate}
                 onRemove={onRemove}
                 onLogFollowUp={onLogFollowUp}
+                isSelected={selectedIds?.has(buyer.id)}
+                onToggleSelect={onToggleSelect}
               />
             ))
           )}
