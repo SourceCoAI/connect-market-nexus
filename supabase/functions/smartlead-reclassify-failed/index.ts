@@ -146,12 +146,18 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  const auth = await requireAdmin(req, supabase);
-  if (!auth.isAdmin) {
-    return new Response(JSON.stringify({ error: auth.error }), {
-      status: auth.authenticated ? 403 : 401,
-      headers: jsonHeaders,
-    });
+  // Allow admin auth OR internal service call via x-internal-secret
+  const internalSecret = req.headers.get('x-internal-secret');
+  const isInternalCall = internalSecret && internalSecret === serviceRoleKey;
+
+  if (!isInternalCall) {
+    const auth = await requireAdmin(req, supabase);
+    if (!auth.isAdmin) {
+      return new Response(JSON.stringify({ error: auth.error }), {
+        status: auth.authenticated ? 403 : 401,
+        headers: jsonHeaders,
+      });
+    }
   }
 
   try {
