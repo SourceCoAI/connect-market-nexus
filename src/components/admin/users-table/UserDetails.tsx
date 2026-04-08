@@ -174,17 +174,21 @@ export const UserDetails = ({ user }: { user: User }) => {
                       );
                     }
 
-                    if (
-                      fieldKey === 'revenue_range_min' ||
-                      fieldKey === 'revenue_range_max' ||
-                      fieldKey === 'target_deal_size_min' ||
-                      fieldKey === 'target_deal_size_max'
-                    ) {
-                      const numValue = fieldValue as number;
+                    if (fieldKey === 'revenue_range_min' || fieldKey === 'revenue_range_max') {
                       return (
                         <div key={fieldKey}>
-                          <span className="text-muted-foreground">{fieldLabel}:</span>
-                          {numValue ? `$${numValue.toLocaleString()}` : '\u2014'}
+                          <span className="text-muted-foreground">{fieldLabel}:</span>{' '}
+                          {fieldValue ? String(fieldValue) : '—'}
+                        </div>
+                      );
+                    }
+
+                    if (fieldKey === 'target_deal_size_min' || fieldKey === 'target_deal_size_max') {
+                      const numValue = Number(fieldValue);
+                      return (
+                        <div key={fieldKey}>
+                          <span className="text-muted-foreground">{fieldLabel}:</span>{' '}
+                          {numValue ? `$${numValue.toLocaleString()}` : '—'}
                         </div>
                       );
                     }
