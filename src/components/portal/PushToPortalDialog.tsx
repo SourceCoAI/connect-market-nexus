@@ -23,7 +23,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Send, FileText } from 'lucide-react';
 import { usePortalOrganizations } from '@/hooks/portal/use-portal-organizations';
 import { usePushDealToPortal, useCheckDuplicatePush } from '@/hooks/portal/use-portal-deals';
-import { OrgStatusBadge } from '@/components/portal/PortalStatusBadge';
+
 import type { PortalDealPriority } from '@/types/portal';
 
 interface PushToPortalDialogProps {

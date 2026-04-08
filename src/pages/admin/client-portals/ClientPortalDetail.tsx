@@ -26,7 +26,7 @@ import {
 import { usePortalOrganization, useUpdatePortalOrg } from '@/hooks/portal/use-portal-organizations';
 import { usePortalUsers, useDeactivatePortalUser } from '@/hooks/portal/use-portal-users';
 import { usePortalDealPushes, useConvertToPipelineDeal, useResendPortalInvite, useUpdateDealPush } from '@/hooks/portal/use-portal-deals';
-import { usePortalMessageCount } from '@/hooks/portal/use-portal-messages';
+
 import { PortalDealChat } from '@/components/portal/PortalDealChat';
 import { usePortalActivity, usePortalAnalytics, exportPortalActivityCSV } from '@/hooks/portal/use-portal-activity';
 import { OrgStatusBadge, PushStatusBadge, PriorityBadge } from '@/components/portal/PortalStatusBadge';

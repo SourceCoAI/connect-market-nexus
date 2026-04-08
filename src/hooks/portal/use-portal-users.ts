@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, untypedFrom } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { PortalUser, InvitePortalUserInput } from '@/types/portal';
+import type { PortalUser } from '@/types/portal';
 
 export function usePortalUsers(portalOrgId: string | undefined) {
   return useQuery({
