@@ -1,7 +1,16 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, DollarSign, MapPin, Building2, MessageSquare } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ChevronLeft, DollarSign, MapPin, Building2, MessageSquare, LayoutGrid, List } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -23,6 +32,7 @@ function formatCurrency(value: number | null | undefined): string {
 
 export default function PortalDealTracker() {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
   const { data: portalUser } = useMyPortalUser(slug);
   const { data: deals, isLoading } = useMyPortalDeals(portalUser?.portal_org?.id);
   const { data: messageSummaries } = usePortalMessageSummaries(
@@ -31,6 +41,7 @@ export default function PortalDealTracker() {
   );
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'ebitda'>('newest');
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
 
   let filtered = (deals || []).filter(
     (d) => statusFilter === 'all' || d.status === statusFilter
@@ -46,7 +57,7 @@ export default function PortalDealTracker() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
         <div>
           <Link
             to={`/portal/${slug}`}
@@ -61,7 +72,7 @@ export default function PortalDealTracker() {
           </p>
         </div>
 
-        {/* Filters */}
+        {/* Filters & View Toggle */}
         <div className="flex items-center gap-3 flex-wrap">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]">
@@ -87,6 +98,27 @@ export default function PortalDealTracker() {
               <SelectItem value="ebitda">EBITDA</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* View toggle */}
+          <div className="flex items-center border rounded-md">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-r-none"
+              onClick={() => setViewMode('table')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-l-none"
+              onClick={() => setViewMode('card')}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
+
           <div className="flex items-center gap-3 ml-auto text-sm text-muted-foreground">
             {totalUnread > 0 && (
               <span className="flex items-center gap-1 text-blue-600 font-medium">
@@ -100,7 +132,7 @@ export default function PortalDealTracker() {
           </div>
         </div>
 
-        {/* Deal cards */}
+        {/* Deal list */}
         {isLoading ? (
           <div className="py-12 text-center text-muted-foreground">Loading deals...</div>
         ) : filtered.length === 0 ? (
@@ -111,7 +143,79 @@ export default function PortalDealTracker() {
                 : 'No deals match this filter.'}
             </CardContent>
           </Card>
+        ) : viewMode === 'table' ? (
+          /* ── Table View ── */
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Industry</TableHead>
+                  <TableHead className="text-right">Revenue</TableHead>
+                  <TableHead className="text-right">EBITDA</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((deal) => {
+                  const msgSummary = messageSummaries?.[deal.id];
+                  const hasUnread = (msgSummary?.unread || 0) > 0;
+                  const description =
+                    deal.deal_snapshot?.business_description ||
+                    deal.deal_snapshot?.teaser_sections?.[0]?.content ||
+                    '';
+
+                  return (
+                    <TableRow
+                      key={deal.id}
+                      className={`cursor-pointer ${hasUnread ? 'bg-blue-50/50' : ''}`}
+                      onClick={() => navigate(`/portal/${slug}/deals/${deal.id}`)}
+                    >
+                      <TableCell className="font-medium whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          {deal.deal_snapshot?.headline || 'Untitled Deal'}
+                          {hasUnread && (
+                            <span className="flex items-center gap-0.5 bg-blue-100 text-blue-700 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+                              <MessageSquare className="h-2.5 w-2.5" />
+                              {msgSummary!.unread}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {deal.deal_snapshot?.geography || '-'}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {deal.deal_snapshot?.industry || '-'}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap text-muted-foreground">
+                        {formatCurrency(deal.deal_snapshot?.revenue)}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap text-muted-foreground">
+                        {formatCurrency(deal.deal_snapshot?.ebitda)}
+                      </TableCell>
+                      <TableCell className="max-w-[250px]">
+                        <p className="text-muted-foreground text-xs line-clamp-2">
+                          {description || '-'}
+                        </p>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground text-sm">
+                        {new Date(deal.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <PushStatusBadge status={deal.status} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
         ) : (
+          /* ── Card View ── */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filtered.map((deal) => {
               const msgSummary = messageSummaries?.[deal.id];
