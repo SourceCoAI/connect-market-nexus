@@ -13,7 +13,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
 import { timingSafeEqual } from '../_shared/security.ts';
 import { smartleadRequest } from '../_shared/smartlead-client.ts';
-import { DEFAULT_GEMINI_MODEL, getGeminiApiKey } from '../_shared/ai-providers.ts';
+import { DEFAULT_GEMINI_MODEL, getGeminiApiKey, GEMINI_API_URL } from '../_shared/ai-providers.ts';
 
 /** Strip HTML tags and collapse whitespace */
 function stripHtml(html: string): string {
