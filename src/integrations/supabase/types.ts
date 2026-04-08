@@ -7726,6 +7726,7 @@ export type Database = {
           main_contact_title: string | null
           management_depth: string | null
           manual_rank_override: number | null
+          marketplace_queue_rank: number | null
           metric_3_custom_label: string | null
           metric_3_custom_subtitle: string | null
           metric_3_custom_value: string | null
@@ -7927,6 +7928,7 @@ export type Database = {
           main_contact_title?: string | null
           management_depth?: string | null
           manual_rank_override?: number | null
+          marketplace_queue_rank?: number | null
           metric_3_custom_label?: string | null
           metric_3_custom_subtitle?: string | null
           metric_3_custom_value?: string | null
@@ -8128,6 +8130,7 @@ export type Database = {
           main_contact_title?: string | null
           management_depth?: string | null
           manual_rank_override?: number | null
+          marketplace_queue_rank?: number | null
           metric_3_custom_label?: string | null
           metric_3_custom_subtitle?: string | null
           metric_3_custom_value?: string | null
@@ -13474,6 +13477,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      bulk_update_connection_request_status: {
+        Args: {
+          admin_notes?: string
+          new_status: string
+          request_ids: string[]
+        }
+        Returns: number
+      }
       calculate_buyer_priority_score:
         | { Args: { buyer_type_param: string }; Returns: number }
         | {
@@ -13752,6 +13763,7 @@ export type Database = {
           main_contact_title: string | null
           management_depth: string | null
           manual_rank_override: number | null
+          marketplace_queue_rank: number | null
           metric_3_custom_label: string | null
           metric_3_custom_subtitle: string | null
           metric_3_custom_value: string | null
