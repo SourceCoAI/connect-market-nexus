@@ -26,6 +26,7 @@ export const BUYER_TYPE_FIELD_MAPPINGS = {
     'job_title',
   ],
   profile: [
+    'bio',
     'ideal_target_description',
     'business_categories',
     'target_locations',
@@ -87,6 +88,9 @@ export const BUYER_TYPE_FIELD_MAPPINGS = {
     'flex_subxm_ebitda',
     'backers_summary',
     'deployment_timing',
+    'deal_structure_preference',
+    'target_deal_size_min',
+    'target_deal_size_max',
   ],
   advisor: [
     'on_behalf_of_buyer',
@@ -149,6 +153,7 @@ export const SOURCING_FIELDS = [
 
 // Field display labels
 export const FIELD_LABELS = {
+  bio: 'About Me',
   first_name: 'First Name',
   last_name: 'Last Name',
   email: 'Email',
