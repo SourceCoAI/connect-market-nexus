@@ -1,0 +1,2 @@
+DELETE FROM firm_members WHERE connection_request_id IN (SELECT id FROM connection_requests WHERE lead_email IN ('test-webflow@example.com', 'test-webflow2@example.com') AND source = 'webflow');
+DELETE FROM connection_requests WHERE lead_email IN ('test-webflow@example.com', 'test-webflow2@example.com') AND source = 'webflow';
