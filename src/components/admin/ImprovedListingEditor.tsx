@@ -148,6 +148,7 @@ type ListingFormInput = {
   main_contact_phone?: string;
   main_contact_linkedin?: string;
   custom_sections?: unknown;
+  webflow_slug?: string;
 };
 
 type ListingFormValues = z.infer<typeof listingFormSchema>;
