@@ -26,7 +26,7 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
   const formName = (payload.name as string) || (meta.form_name as string) || 'Deal Request Form';
   const pageUrl = (meta.page_url as string) || '';
   const submittedAt = (meta.submitted_at as string) || request.created_at;
-  const slug = (meta.slug as string) || '';
+  
 
   // Clean URL for display (strip query params)
   const displayUrl = pageUrl ? pageUrl.split('?')[0].split('#')[0] : '';
