@@ -231,7 +231,7 @@ const ListingPreview = () => {
                     Interested in This Deal?
                   </h3>
                   <p className="text-xs text-foreground/70 leading-relaxed">
-                    Get full access to detailed financials and business metrics
+                    Get access to deal materials and business details
                   </p>
                 </div>
 

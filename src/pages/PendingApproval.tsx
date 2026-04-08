@@ -70,7 +70,7 @@ const PendingApproval = () => {
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email: user.email,
-        options: { emailRedirectTo: `${window.location.origin}/pending-approval` },
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
       if (resendError) {
         if (resendError.message?.includes('rate limit')) {
@@ -207,8 +207,8 @@ const PendingApproval = () => {
             <p className="text-sm font-medium text-foreground">After you verify</p>
             <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
               <li>Our team reviews your application, usually same day</li>
-              <li>Sign a quick NDA and Fee Agreement via email</li>
-              <li>Full access to off-market deals</li>
+              <li>Sign a Fee Agreement via email</li>
+              <li>Browse deals and request introductions</li>
             </ol>
           </div>
 
@@ -250,7 +250,7 @@ const PendingApproval = () => {
               <StatusStep icon={<CheckCircle className="h-4 w-4 text-white" />} bg="bg-emerald-500" label="Account created" done />
               <StatusStep icon={<CheckCircle className="h-4 w-4 text-white" />} bg="bg-emerald-500" label="Email verified" done />
               <StatusStep icon={<Clock className="h-3.5 w-3.5 text-white" />} bg="bg-amber-500" label="Admin review" sublabel="Usually a few hours" />
-              <StatusStep icon={<CheckCircle className="h-3.5 w-3.5 text-muted-foreground/40" />} bg="bg-muted" label="Full access" sublabel="After approval" last />
+              <StatusStep icon={<CheckCircle className="h-3.5 w-3.5 text-muted-foreground/40" />} bg="bg-muted" label="Access granted" sublabel="After approval" last />
             </div>
 
             {/* User details */}
@@ -275,7 +275,7 @@ const PendingApproval = () => {
                 <div className="space-y-1">
                   <p className="text-base font-semibold text-foreground">Documents signed</p>
                   <p className="text-sm text-muted-foreground">
-                    The moment your account is approved, you'll have full access to the deal pipeline.
+                    Once approved, you can browse deals and request introductions.
                   </p>
                 </div>
               </div>

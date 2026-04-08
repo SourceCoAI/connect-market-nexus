@@ -175,6 +175,13 @@ export function PipelineDetailDealInfo({ deal }: PipelineDetailDealInfoProps) {
           onSave={async (summary) => {
             await updateListing.mutateAsync({ executive_summary: summary });
           }}
+          onGenerate={async () => {
+            const { data, error } = await supabase.functions.invoke('generate-executive-summary', {
+              body: { deal_id: deal.listing_id },
+            });
+            if (error) throw error;
+            return data?.summary ?? null;
+          }}
         />
 
         {/* Services & Geographic */}

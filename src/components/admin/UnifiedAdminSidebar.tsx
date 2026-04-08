@@ -58,8 +58,8 @@ import {
   Layers,
   LogOut,
   User,
-  GraduationCap,
   Archive,
+  FolderOpen,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -228,6 +228,19 @@ export function UnifiedAdminSidebar({
         ],
       },
       {
+        id: 'portals',
+        label: 'Client Portals',
+        icon: <FolderOpen className="h-4 w-4" />,
+        items: [
+          {
+            label: 'All Portals',
+            href: '/admin/client-portals',
+            icon: <FolderOpen className="h-4 w-4" />,
+            exact: true,
+          },
+        ],
+      },
+      {
         id: 'remarketing',
         label: 'Remarketing',
         icon: <Target className="h-4 w-4" />,
@@ -299,18 +312,6 @@ export function UnifiedAdminSidebar({
         ],
       },
       {
-        id: 'coaching',
-        label: 'Coaching',
-        icon: <GraduationCap className="h-4 w-4" />,
-        items: [
-          {
-            label: 'Training Center',
-            href: '/admin/training-center',
-            icon: <GraduationCap className="h-4 w-4" />,
-          },
-        ],
-      },
-      {
         id: 'settings',
         label: 'Settings',
         icon: <Settings className="h-4 w-4" />,
@@ -354,6 +355,12 @@ export function UnifiedAdminSidebar({
                   href: '/admin/fireflies',
                   icon: <Phone className="h-4 w-4" />,
                   separator: 'Fireflies',
+                },
+                {
+                  label: 'Outlook Email',
+                  href: '/admin/settings/outlook',
+                  icon: <Mail className="h-4 w-4" />,
+                  separator: 'Outlook',
                 },
                 {
                   label: 'Webhook Settings',

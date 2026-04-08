@@ -142,9 +142,9 @@ export function BuyerDataRoom({ dealId, connectionApproved, onClose }: BuyerData
     enabled: !!dealId && !!access && allowedCategories.size > 0,
   });
 
-  // Fetch published memos
+  // Fetch published memos filtered by access level
   const { data: memos = [] } = useQuery({
-    queryKey: ['buyer-published-memos', dealId],
+    queryKey: ['buyer-published-memos', dealId, access?.can_view_teaser, access?.can_view_full_memo],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('lead_memos')
@@ -154,7 +154,13 @@ export function BuyerDataRoom({ dealId, connectionApproved, onClose }: BuyerData
         .order('published_at', { ascending: false });
 
       if (error) throw error;
-      return data;
+
+      // Filter memos by buyer's access level
+      return (data ?? []).filter((m) => {
+        if (m.memo_type === 'anonymous_teaser') return access?.can_view_teaser;
+        if (m.memo_type === 'full_memo') return access?.can_view_full_memo;
+        return false;
+      });
     },
     enabled: !!dealId && !!access,
   });
@@ -324,7 +330,7 @@ export function BuyerDataRoom({ dealId, connectionApproved, onClose }: BuyerData
       {!hasFullAccess && (
         <div className="px-5 py-3 border-b border-border/20">
           <p className="text-[11px] text-muted-foreground/60">
-            Sign Fee Agreement to unlock all documents.
+            Sign Fee Agreement to unlock additional deal materials.
           </p>
         </div>
       )}

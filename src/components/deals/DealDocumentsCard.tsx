@@ -14,7 +14,7 @@ import {
   ArrowRight,
   FileText,
   BarChart3,
-  Building2,
+  
   Eye,
   Download,
   Loader2,
@@ -327,28 +327,17 @@ export function DealDocumentsCard({
           </div>
 
           {docsLocked ? (
-            <div className="space-y-2 pl-4 sm:pl-[30px]">
-              <div className="flex items-center gap-2.5 opacity-40">
-                <Building2 className="h-3.5 w-3.5 text-[#0E101A]/50 shrink-0" />
-                <span className="text-[12px] text-[#0E101A]/60">Confidential Company Profile</span>
-                <Lock className="h-3 w-3 text-[#0E101A]/30 ml-auto shrink-0" />
+            <div className="pl-4 sm:pl-[30px]">
+              <div className="flex items-center gap-2.5 opacity-40 mb-2">
+                <Lock className="h-3.5 w-3.5 text-[#0E101A]/40 shrink-0" />
+                <span className="text-[12px] text-[#0E101A]/50">Locked</span>
               </div>
-              <div className="flex items-center gap-2.5 opacity-40">
-                <FileText className="h-3.5 w-3.5 text-[#0E101A]/50 shrink-0" />
-                <span className="text-[12px] text-[#0E101A]/60">Deal Memorandum / CIM</span>
-                <Lock className="h-3 w-3 text-[#0E101A]/30 ml-auto shrink-0" />
-              </div>
-              <div className="flex items-center gap-2.5 opacity-40">
-                <BarChart3 className="h-3.5 w-3.5 text-[#0E101A]/50 shrink-0" />
-                <span className="text-[12px] text-[#0E101A]/60">Detailed Financial Statements</span>
-                <Lock className="h-3 w-3 text-[#0E101A]/30 ml-auto shrink-0" />
-              </div>
-              <p className="text-[11px] text-[#8B6F47] mt-2 font-medium">
+              <p className="text-[11px] text-[#0E101A]/45 leading-relaxed">
                 {!hasAnyAgreement
-                  ? 'Sign an agreement (NDA or Fee Agreement) to begin unlocking these materials.'
+                  ? 'Sign an agreement to proceed. Additional deal materials may be shared at the advisor\'s discretion once your request is approved.'
                   : requestStatus === 'pending'
-                    ? 'Available once your request is approved by the owner.'
-                    : 'Documents are being prepared by our team.'}
+                    ? 'Your request is under review. Additional deal materials may be shared at the advisor\'s discretion once approved.'
+                    : 'Additional deal materials may be shared at the advisor\'s discretion.'}
               </p>
             </div>
           ) : totalDocs === 0 ? (

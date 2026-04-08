@@ -16,6 +16,7 @@ import {
   FileSignature,
   FolderOpen,
   ListChecks,
+  Mail,
   Phone,
   PhoneCall,
   Users,
@@ -47,6 +48,7 @@ import { DealHistoryTab } from './DealHistoryTab';
 import { AddContactDialog } from './AddContactDialog';
 import { EditDialogs } from './EditDialogs';
 import { CallActivityTab } from './CallActivityTab';
+import { EmailHistoryTab } from '@/components/email';
 
 const ReMarketingBuyerDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -252,6 +254,10 @@ const ReMarketingBuyerDetail = () => {
             <ListChecks className="mr-1.5 h-3.5 w-3.5" />
             Tasks
           </TabsTrigger>
+          <TabsTrigger value="email" className="text-sm">
+            <Mail className="mr-1.5 h-3.5 w-3.5" />
+            Email
+          </TabsTrigger>
           <TabsTrigger value="materials" className="text-sm">
             <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
             Materials
@@ -436,6 +442,21 @@ const ReMarketingBuyerDetail = () => {
 
         <TabsContent value="tasks">
           <EntityTasksTab entityType="buyer" entityId={id!} entityName={buyer?.company_name} />
+        </TabsContent>
+
+        <TabsContent value="email" className="space-y-4">
+          {contacts && contacts.length > 0 ? (
+            <EmailHistoryTab
+              contactId={contacts[0].id}
+              additionalContactIds={contacts.slice(1).map((c: Contact) => c.id)}
+              contactName={buyer?.company_name}
+              contactEmail={contacts.find((c: Contact) => c.email)?.email || undefined}
+            />
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No contacts linked to this buyer. Add a contact to view email history.</p>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="materials">

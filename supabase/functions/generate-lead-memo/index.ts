@@ -460,12 +460,36 @@ function buildDataContext(
     'growth_trajectory',
     'ownership_structure',
     'management_depth',
+    // --- Expanded fields for richer memo context ---
+    'financial_notes',
+    'scoring_notes',
+    'customer_geography',
+    'real_estate_info',
+    'technology_systems',
+    'revenue_source_quote',
+    'ebitda_source_quote',
+    // --- Additional high-value fields ---
+    'general_notes',
+    'google_rating',
+    'google_review_count',
   ];
   const enrichmentData = enrichmentFields
     .filter((f) => deal[f] != null && deal[f] !== '')
     .map((f) => `${f}: ${JSON.stringify(deal[f])}`)
     .join('\n');
   if (enrichmentData) sources.push('enrichment');
+
+  // Key quotes (array) — format as labeled block for owner attributions
+  let keyQuotesBlock = '';
+  if (Array.isArray(deal.key_quotes) && deal.key_quotes.length > 0) {
+    keyQuotesBlock = `\n--- KEY QUOTES (owner statements) ---\n${deal.key_quotes.map((q: string) => `"${q}"`).join('\n')}`;
+  }
+
+  // Financial follow-up questions (array) — feed into analyst notes context
+  let financialGapsBlock = '';
+  if (Array.isArray(deal.financial_followup_questions) && deal.financial_followup_questions.length > 0) {
+    financialGapsBlock = `\n--- FINANCIAL FOLLOW-UP QUESTIONS (known data gaps) ---\n${deal.financial_followup_questions.map((q: string) => `- ${q}`).join('\n')}`;
+  }
 
   // Manual data entries (structured fields entered by admin)
   const manualFields = [
@@ -480,6 +504,8 @@ function buildDataContext(
     'seller_motivation',
     'owner_goals',
     'transition_preferences',
+    'special_requirements',
+    'timeline_preference',
   ];
   const manualEntries = manualFields
     .filter((f) => deal[f] != null && deal[f] !== '')
@@ -525,7 +551,7 @@ function buildDataContext(
     transcriptExcerpts,
     enrichmentData,
     manualEntries:
-      manualEntries + (notesExcerpt ? `\n\n--- GENERAL NOTES ---\n${notesExcerpt}` : ''),
+      manualEntries + (notesExcerpt ? `\n\n--- GENERAL NOTES ---\n${notesExcerpt}` : '') + keyQuotesBlock + financialGapsBlock,
     valuationData: valuationStr,
     dataRoomContent,
     sources,
@@ -764,7 +790,72 @@ function stripDataNeededTags(sections: MemoSection[]): MemoSection[] {
   });
 }
 
-// Post-process: enforce anonymization by stripping any leaked identifying information
+// Post-process: strip bullet lines that only state missing data or contrast sources
+function stripOmissionLanguage(sections: MemoSection[]): MemoSection[] {
+  const OMISSION_PATTERNS = [
+    /\bnot\s*on\s*file\b/i,
+    /\bnot\s*available\b/i,
+    /\bnot\s*discussed\b/i,
+    /\bnot\s*provided\b/i,
+    /\bnot\s*confirmed\b/i,
+    /\bnot\s*stated\b/i,
+    /\bis\s*unclear\b/i,
+    /\bis\s*unknown\b/i,
+    /\bare\s*unknown\b/i,
+    /\bhas\s*not\s*been\s*(stated|provided|confirmed|discussed|established|specified|disclosed|determined)\b/i,
+    /\bhave\s*not\s*been\s*(stated|provided|confirmed|discussed|established|specified|disclosed|determined)\b/i,
+    /\bno\s*(detail|information|data)\s*(is|was|has been)?\s*(available|provided|stated|on file)\b/i,
+    /\bnot\s*yet\s*(available|confirmed|provided|stated|disclosed)\b/i,
+    /\bremains\s*(unknown|unclear|unconfirmed)\b/i,
+  ];
+  const SOURCE_CONTRAST_PATTERNS = [
+    /\bLinkedIn\b/i,
+    /\bper\s*(internal|enrichment|manual)\s*data\b/i,
+    /\binternal\s*data\b/i,
+    /\benrichment\s*data\b/i,
+    /\bbroader.*platform\b/i,
+    /\bintegrat(e|ion|ing)\s*into\b/i,
+    /\bback-office\s*(support|integration)\b/i,
+    /\bdiscussions?\s*regarding\s*integration\b/i,
+    /\bcompeting\s*buyers?\b/i,
+    /\bacquisition\s*platform\b/i,
+    /\bcentralized\s*back-office\b/i,
+  ];
+
+  const isOmission = (text: string) => OMISSION_PATTERNS.some(p => p.test(text));
+  const isSourceContrast = (text: string) => SOURCE_CONTRAST_PATTERNS.some(p => p.test(text));
+
+  return sections.map(s => {
+    const lines = s.content.split('\n');
+    const filtered = lines.filter(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return true; // keep blank lines
+      // Keep lines that contain a dollar amount or percentage (factual data)
+      const hasFactualData = /\$[\d,]+|\d+(\.\d+)?%/.test(trimmed);
+      // Remove lines whose primary content is an omission apology
+      if (isOmission(trimmed) && !hasFactualData) return false;
+      // Remove lines that contrast data sources
+      if (isSourceContrast(trimmed)) return false;
+      return true;
+    });
+    // Second pass: clean semicolon-joined fragments within surviving lines
+    const cleaned = filtered.map(line => {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.includes(';')) return line;
+      // Detect bullet prefix if any
+      const bulletMatch = trimmed.match(/^([-*•]\s*)/);
+      const prefix = bulletMatch ? bulletMatch[1] : '';
+      const body = prefix ? trimmed.slice(prefix.length) : trimmed;
+      const fragments = body.split(';').map(f => f.trim());
+      const kept = fragments.filter(f => !isOmission(f) && !isSourceContrast(f));
+      if (kept.length === 0) return null; // entire line was omission
+      return (prefix || '') + kept.join('; ');
+    }).filter((l): l is string => l !== null);
+    return { ...s, content: cleaned.join('\n') };
+  });
+}
+
+
 function enforceAnonymization(
   sections: MemoSection[],
   deal: Record<string, unknown>,
@@ -1144,7 +1235,7 @@ This is NOT a marketing document. It is an institutional record. It informs, it 
 
 CORE RULES
 1. ONLY STATED FACTS: Every sentence must trace to the provided source data. If you cannot point to the exact source sentence, do not include it. No inference, no extrapolation.
-2. OMIT, DON'T APOLOGIZE: When data is missing, leave it out. Never write "not provided", "not stated", "not confirmed", "not discussed", or any variation. The reader knows what is absent by what is not in the memo.
+2. OMIT, DON'T APOLOGIZE: When data is missing, leave it out entirely. Never write "not provided", "not stated", "not confirmed", "not discussed", "not on file", "not available", "is unknown", "is unclear", or any variation. If a bullet point would only say that something is missing, do not include that bullet point. Do not contrast data sources (e.g., "LinkedIn reports X; internal data shows Y") — pick the highest-priority figure and state it alone. The reader knows what is absent by what is not in the memo.
 3. NO CHARACTERIZATION: Do not describe any metric with evaluative adjectives. Do not call revenue "consistent," margins "healthy," or growth "notable." State the number.
 4. NO COMPARISONS: Do not compare to industry benchmarks, competitors, or averages unless the source data contains a specific stated comparison.
 5. MATCH DATA DENSITY: Thin data = short memo (300–500 words). Normal data = 600–900 words. Complex multi-location deals with extensive financials may reach 1,200 words. Never pad.
@@ -1157,43 +1248,49 @@ SOURCE PRIORITY (highest to lowest)
 5. Enrichment data (website, LinkedIn)
 
 Conflict rules:
-* When two sources give specific, different values for the same data point, use the highest-priority source and note: "Owner stated $X; [other source] shows $Y."
+* When two sources give different values for the same data point, USE the highest-priority source figure without comment. Do not cite the source. Do not qualify the figure. Do not add notes about data provenance in the memo body. Do not mention the names of data sources (LinkedIn, enrichment, internal data, manual entry) in the memo body. Present the chosen figure as a simple fact.
 * Vague or approximate enrichment data does not constitute a conflict.
 * If multiple transcripts exist, the most recent takes priority.
-* If no call transcript exists, note at the top: "This memo is based on enrichment data and manual entries only. No owner call transcript is available."
+* If no call transcript exists, simply write with the data you have. Do not note the absence of transcripts in the memo body.
+* NEVER mention "transcript", "Call 1/2/3", "enrichment data", "manual entry", "discrepancy", "conflict", "reconcile", "unverified", or "verified" in the memo body. The memo is investor-facing — it states facts only, with no analyst commentary about sources.
 
 FORMAT
 Use only these section headers, in this order. COMPANY OVERVIEW is always included. Omit any section that has no data. Never create an "INFORMATION NOT YET PROVIDED" section.
 
 COMPANY OVERVIEW
-One paragraph, 3–5 sentences. What the company does, where it operates, how it is structured. Legal name, DBA, founded year, HQ, locations, headcount, ownership, core industry. Plain terms.
+One paragraph, 3–5 sentences. What the company does, where it operates, how it is structured. Legal name, DBA, founded year, HQ, locations, headcount, ownership, core industry. When available, weave in customer geography (service territory, regional footprint), competitive positioning (partnerships, market standing), and end market context. You MUST include google_rating and google_review_count if they appear in the data context — e.g., "The company holds a 4.7-star Google rating across 46 reviews." This is mandatory, not optional.
 
 FINANCIAL SNAPSHOT
 Simple labeled lines, one per data point. Only include what is explicitly stated or confirmed. Format: [Year] [Metric]: $[Amount]
+You MUST include EBITDA Margin as a line item when both EBITDA and Revenue figures are present. Calculate it: (EBITDA / Revenue) × 100, rounded to one decimal. Example: if Revenue is $6,250,000 and EBITDA is $650,000, write "EBITDA Margin: 10.4%". This is mandatory.
 
 Example:
 * 2025 Revenue: $5,200,000
 * 2025 EBITDA: $1,100,000
+* EBITDA Margin: 21.2%
 * Owner Compensation: $350,000
 
-If adjusted EBITDA is mentioned, list each add-back individually. If the owner gives a range, state the range exactly. Do not pick midpoint or either bound. If figures don't reconcile (e.g., monthly × 12 ≠ stated annual), include both and flag it.
+If adjusted EBITDA is mentioned, list each add-back individually. If the owner gives a range, state the range exactly. Do not pick midpoint or either bound. If figures don't reconcile (e.g., monthly × 12 ≠ stated annual), use the figure from the highest-priority source. Do NOT flag reconciliation issues in the memo body. When revenue_source_quote or ebitda_source_quote data is available, use those figures as the authoritative values. If financial_notes context is provided, incorporate relevant confirmed financial details (not projections unless labeled as such).
 
 SERVICES AND OPERATIONS
-Bullet points. What services are performed, how revenue is generated, and relevant operational details. Include industry-specific KPIs only when explicitly stated in the source data — do not use any template checklist to fill in metrics that were not mentioned.
+Bullet points. What services are performed, how revenue is generated, and relevant operational details. Include service mix breakdown, customer types (residential, commercial, government), and technology systems when available. Include industry-specific KPIs only when explicitly stated in the source data — do not use any template checklist to fill in metrics that were not mentioned. When end_market_description or competitive_position data is available, include relevant operational context. You MUST include growth_drivers as bullet points when the data context contains them — e.g., geographic expansion, new service lines, partnerships. This is mandatory.
 
 OWNERSHIP AND TRANSACTION
-Bullet points. Owner name(s), roles, and involvement. Transaction type, reason for sale, valuation expectation (exact figures as stated — do not comment on reasonableness), management continuity, real estate, prior transaction history.
+Bullet points. Owner name(s), roles, and involvement. Transaction type, reason for sale, valuation expectation (exact figures as stated — do not comment on reasonableness), management continuity, real estate, prior transaction history. When transition_preferences or special_requirements data is available, include the transition plan details (named successors, training timeline). When real_estate_info is available, include property details. When timeline_preference is available, include expected timeline. You MUST check general_notes for any mention of a completed business valuation, appraisal, or certified valuation. If found, state it as a fact: "A certified business valuation has been completed and documentation is available." This is mandatory. Do not describe third-party acquisition platforms, competing buyers, or external deal discussions. The memo should only reflect the seller's business and their willingness to transact — not the strategies of other acquirers.
 
 MANAGEMENT AND STAFFING
-Bullet points. Who runs daily operations, owner's specific daily role, key personnel, location-level management, headcount, compensation/benefits if available.
+Bullet points. Who runs daily operations, owner's specific daily role, key personnel, location-level management, headcount, compensation/benefits if available. When transition plans name specific personnel being trained or promoted, include them here.
 
 KEY STRUCTURAL NOTES
-Include only if structural complexity exists. Separate entities, personally owned real estate, related businesses, government designations, non-compete/earn-out/seller financing details.
+Include only if structural complexity exists. Separate entities, personally owned real estate, related businesses, government designations, non-compete/earn-out/seller financing details. Include technology platform context when available.
+
+DATA DENSITY INSTRUCTION
+Match memo length to the richness of available data. If the data includes competitive positioning, customer geography, financial notes, key quotes, transition plans, real estate, and technology systems, the memo should be comprehensive (900–1200 words). A deal with only basic enrichment data and no transcripts should be short (300–500 words). Never pad thin data, but never produce a skeleton when rich data exists.
 
 WRITING RULES
 * Bullet points for all sections except Company Overview (which is prose).
 * Bold labels for: Transaction type, Reason for sale, Valuation context, Real estate, EBITDA, Revenue, Headcount. Do not bold every bullet.
-* When the owner's exact words matter (transaction preferences, business description), use a direct quote attributed to the owner. One sentence max per quote.
+* When the owner's exact words matter (transaction preferences, business description), use a direct quote attributed to the owner. One sentence max per quote. KEY QUOTES data provides verified owner statements you can attribute.
 * Neutral, factual, controlled. No promotional phrasing or narrative storytelling.
 
 BANNED LANGUAGE
@@ -1213,7 +1310,13 @@ IMPORTANT: Transcripts may include SourceCo associates and the business owner. E
 
 === DATA ROOM DOCUMENTS (authoritative due diligence material) === ${context.dataRoomContent || 'No data room documents available.'}
 
-Return the memo as markdown with ## headers. Headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES. Omit sections with no data (except COMPANY OVERVIEW). Present financial data as simple labeled lines. Do not use tables. Include all identifying information. Flag conflicts between sources.`;
+Return your output in TWO clearly separated blocks:
+
+BLOCK 1 — THE MEMO (investor-facing, shareable):
+Wrap the memo between the markers MEMO_START and MEMO_END (each on its own line). Inside, use markdown with ## headers. Headers must exactly match: COMPANY OVERVIEW, FINANCIAL SNAPSHOT, SERVICES AND OPERATIONS, OWNERSHIP AND TRANSACTION, MANAGEMENT AND STAFFING, KEY STRUCTURAL NOTES. Omit sections with no data (except COMPANY OVERVIEW). Present financial data as simple labeled lines. Do not use tables. Include all identifying information. Do NOT cite sources, flag conflicts, mention transcripts, or include any analyst commentary in the memo body. This block must be ready to share with an investor as-is.
+
+BLOCK 2 — INTERNAL ANALYST NOTES (never shared with investors):
+Wrap analyst notes between the markers ANALYST_NOTES_START and ANALYST_NOTES_END (each on its own line). Include a bulleted list of any data discrepancies, unverified figures, source conflicts, or missing data that would strengthen the memo. Reference the specific sources (e.g., "Call 2 states $5.2M revenue; enrichment shows $4.8M"). If FINANCIAL FOLLOW-UP QUESTIONS are provided in the data, incorporate each as a known data gap that should be resolved. If there are no discrepancies, write "None."`;
 
   // Regeneration loop: up to 3 retries for blocking validation failures
   let bestSections: MemoSection[] = [];
@@ -1265,8 +1368,38 @@ Return the memo as markdown with ## headers. Headers must exactly match: COMPANY
       throw new Error('No content returned from AI');
     }
 
+    // Extract memo and analyst notes from tagged blocks (with fallbacks)
+    let memoMarkdown = rawContent;
+    let analystNotesRaw = '';
+
+    // Method 1: MEMO_START/MEMO_END markers (preferred)
+    const memoStartIdx = rawContent.indexOf('MEMO_START');
+    const memoEndIdx = rawContent.indexOf('MEMO_END');
+    const notesStartIdx = rawContent.indexOf('ANALYST_NOTES_START');
+    const notesEndIdx = rawContent.indexOf('ANALYST_NOTES_END');
+    if (memoStartIdx !== -1 && memoEndIdx !== -1 && memoEndIdx > memoStartIdx) {
+      memoMarkdown = rawContent.substring(memoStartIdx + 'MEMO_START'.length, memoEndIdx).trim();
+      if (notesStartIdx !== -1 && notesEndIdx !== -1 && notesEndIdx > notesStartIdx) {
+        analystNotesRaw = rawContent.substring(notesStartIdx + 'ANALYST_NOTES_START'.length, notesEndIdx).trim();
+      }
+    } else {
+      // Method 2: Legacy delimiter fallback
+      const delimiterIndex = rawContent.indexOf('---ANALYST-NOTES---');
+      if (delimiterIndex !== -1) {
+        memoMarkdown = rawContent.substring(0, delimiterIndex).trim();
+        analystNotesRaw = rawContent.substring(delimiterIndex + '---ANALYST-NOTES---'.length).trim();
+      } else {
+        // Method 3: Heading fallback
+        const headingMatch = rawContent.match(/\n##\s*ANALYST\s*NOTES?\b/i);
+        if (headingMatch && headingMatch.index !== undefined) {
+          memoMarkdown = rawContent.substring(0, headingMatch.index).trim();
+          analystNotesRaw = rawContent.substring(headingMatch.index).replace(/^##\s*ANALYST\s*NOTES?\s*/i, '').trim();
+        }
+      }
+    }
+
     // Parse markdown output into sections
-    let sections = parseMarkdownToSections(rawContent);
+    let sections = parseMarkdownToSections(memoMarkdown);
 
     // Post-process: enforce banned words removal (preserves quoted text)
     sections = enforceBannedWords(sections);
@@ -1274,12 +1407,43 @@ Return the memo as markdown with ## headers. Headers must exactly match: COMPANY
     // Post-process: strip [DATA NEEDED: ...] and [VERIFY: ...] tags
     sections = stripDataNeededTags(sections);
 
-    bestSections = sections;
+    // Post-process: strip bullet lines that only apologize for missing data or contrast sources
+    sections = stripOmissionLanguage(sections);
 
-    // Run blocking validation checks (Checks 2, 3, 4)
+    // Safety: remove any analyst-notes sections that leaked into parsed sections
+    sections = sections.filter(s => !/analyst\s*notes?/i.test(s.title));
+
+    // Investor-safety validation: reject if memo body contains analyst language
+    const ANALYST_LANGUAGE_PATTERNS = [
+      /\btranscript\b/i, /\bcall\s*[1-9]\b/i, /\benrichment\s*data\b/i,
+      /\bmanual\s*entr/i, /\bdiscrepanc/i, /\bconflict\b/i, /\breconcile\b/i,
+      /\bunverified\b/i, /\bverified\b/i, /\bsource\s*data\b/i,
+      /\bdata\s*room\s*document/i, /\bnot\s*confirm/i, /\bnot\s*stated\b/i,
+      /\bnot\s*on\s*file\b/i, /\bnot\s*available\b/i, /\bnot\s*discussed\b/i,
+      /\bnot\s*provided\b/i, /\bis\s*unclear\b/i, /\bis\s*unknown\b/i,
+      /\bare\s*unknown\b/i, /\bLinkedIn\b/i,
+      /\bper\s*(internal|enrichment|manual)\s*data\b/i, /\binternal\s*data\b/i,
+    ];
+    const memoText = sections.map(s => s.content).join(' ');
+    const hasAnalystLanguage = ANALYST_LANGUAGE_PATTERNS.some(p => p.test(memoText));
+
+    bestSections = sections;
+    // Store analyst notes for the final return
+    (bestSections as any).__analystNotes = analystNotesRaw;
+
+    // Run blocking validation checks (Checks 2, 3, 4) + investor-safety
     const validation = validateFullMemoSections(sections);
-    if (validation.passed) {
-      break; // All blocking checks passed
+    if (validation.passed && !hasAnalystLanguage) {
+      break; // All blocking checks passed and memo is investor-safe
+    }
+
+    // If only analyst language leaked, add specific retry instruction
+    if (validation.passed && hasAnalystLanguage) {
+      if (attempt < 3) {
+        retryAppendix = `Your previous output contained analyst language in the memo body (e.g., references to "transcript", "enrichment data", "not confirmed", etc.). The memo must be investor-facing with NO source references or analyst commentary. Remove all such language and regenerate.`;
+        console.warn(`Investor-safety check failed (attempt ${attempt + 1}): analyst language detected in memo body`);
+        continue;
+      }
     }
 
     // Failed validation — retry if attempts remain
@@ -1299,11 +1463,15 @@ Return the memo as markdown with ## headers. Headers must exactly match: COMPANY
     console.warn('Full memo warnings:', warnings);
   }
 
+  const analystNotes = (bestSections as any).__analystNotes || '';
+  delete (bestSections as any).__analystNotes;
+
   return {
     sections: bestSections,
     memo_type: 'full_memo',
     branding,
     generated_at: new Date().toISOString(),
+    analyst_notes: analystNotes || undefined,
     ...companyMeta,
   };
 }
@@ -1662,11 +1830,6 @@ function sectionsToHtml(memo: MemoContent, memoType: string, branding: string): 
             : escapeHtmlForMemo(branding);
 
   const isAnonymous = memoType === 'anonymous_teaser';
-  const dateStr = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
 
   let html = `<div class="lead-memo ${memoType}" style="font-family: Arial, Helvetica, sans-serif; max-width: 800px; margin: 0 auto; color: #333; line-height: 1.6;">`;
 
@@ -1700,15 +1863,9 @@ function sectionsToHtml(memo: MemoContent, memoType: string, branding: string): 
     html += `</div>`;
   }
 
-  // Memo type and date
+  // Memo type subtitle (no date, no red disclaimer)
   html += `<div style="text-align: center; margin-bottom: 24px;">`;
-  html += `<p style="font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 4px 0;">${isAnonymous ? 'Anonymous Teaser' : 'Confidential Lead Memo'}</p>`;
-  html += `<p style="font-size: 13px; color: #888; margin: 0;">${dateStr}</p>`;
-  html += `</div>`;
-
-  // Confidential disclaimer
-  html += `<div style="text-align: center; padding: 8px; border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; margin-bottom: 24px;">`;
-  html += `<p style="font-size: 11px; color: #cc0000; font-style: italic; margin: 0;">CONFIDENTIAL — FOR INTENDED RECIPIENT ONLY</p>`;
+  html += `<p style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 2px; margin: 0;">${isAnonymous ? 'Anonymous Teaser' : 'Lead Memo'}</p>`;
   html += `</div>`;
 
   // Sections as continuous document
@@ -1717,7 +1874,7 @@ function sectionsToHtml(memo: MemoContent, memoType: string, branding: string): 
     if (section.key === 'header_block' || section.key === 'contact_information') continue;
 
     html += `<div class="memo-section" data-key="${escapeHtmlForMemo(section.key)}" style="margin-bottom: 20px;">`;
-    html += `<h2 style="font-size: 16px; margin: 0 0 8px 0; color: #1a1a2e; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px;">${escapeHtmlForMemo(section.title)}</h2>`;
+    html += `<h2 style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 8px 0; color: #1a1a2e; padding: 0; border: none;">${escapeHtmlForMemo(section.title)}</h2>`;
     html += `<div class="section-content" style="font-size: 14px;">${markdownToHtml(section.content)}</div>`;
     html += `</div>`;
   }

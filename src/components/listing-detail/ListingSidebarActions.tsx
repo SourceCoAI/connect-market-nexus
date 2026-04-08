@@ -65,7 +65,7 @@ export function ListingSidebarActions({
   const [justRequested, setJustRequested] = useState(false);
   const [cooldownLeft, setCooldownLeft] = useState(0);
 
-  const canExploreDataRoom = feeCovered && connectionApproved;
+  const canExploreDataRoom = connectionApproved;
   const canAskQuestion = feeCovered;
 
   const { data: lastAccess } = useDataRoomLastAccess(listingId);
@@ -174,10 +174,9 @@ export function ListingSidebarActions({
   const isSending = sendMsg.isPending || createInquiry.isPending;
 
   const getDataRoomTooltip = () => {
-    if (!feeCovered) return 'Sign your Fee Agreement to unlock the data room.';
-    if (connectionStatus === 'pending') return 'Your connection request is pending admin approval.';
-    if (connectionStatus === 'on_hold') return 'Your connection request is under review.';
-    if (!connectionApproved) return 'Request a connection to access the data room.';
+    if (connectionStatus === 'pending') return 'Your connection request is pending admin approval. You will receive an email once approved.';
+    if (connectionStatus === 'on_hold') return 'Your connection request is under review. You will receive an email once there is an update.';
+    if (!connectionApproved) return 'Request a connection to access deal materials.';
     return '';
   };
 

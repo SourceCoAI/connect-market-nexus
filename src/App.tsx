@@ -162,10 +162,22 @@ const FirefliesIntegrationPage = lazyWithRetry(
   () => import('@/pages/admin/FirefliesIntegrationPage'),
 );
 
-// Training Center / Objection Tracker
-const ObjectionTrackerPage = lazyWithRetry(
-  () => import('@/features/objection-tracker/ObjectionTrackerPage'),
+
+// Client Portal pages
+const ClientPortalsList = lazyWithRetry(
+  () => import('@/pages/admin/client-portals/ClientPortalsList'),
 );
+const ClientPortalDetail = lazyWithRetry(
+  () => import('@/pages/admin/client-portals/ClientPortalDetail'),
+);
+const PortalDashboard = lazyWithRetry(() => import('@/pages/portal/PortalDashboard'));
+const PortalDealTracker = lazyWithRetry(() => import('@/pages/portal/PortalDealTracker'));
+const PortalDealDetail = lazyWithRetry(() => import('@/pages/portal/PortalDealDetail'));
+// Outlook Email Integration
+const OutlookSettingsPage = lazyWithRetry(
+  () => import('@/pages/admin/settings/OutlookSettingsPage'),
+);
+const OutlookCallback = lazyWithRetry(() => import('@/pages/auth/OutlookCallback'));
 
 // ReMarketing pages (now rendered inside AdminLayout via shared sidebar)
 const ReMarketingLayout = lazyWithRetry(() =>
@@ -291,6 +303,7 @@ function App() {
             <Route path="/dataroom/:accessToken" element={<RouteErrorBoundary name="PublicRoutes"><DataRoomPortal /></RouteErrorBoundary>} />
             <Route path="/view/:linkToken" element={<RouteErrorBoundary name="PublicRoutes"><TrackedDocumentViewer /></RouteErrorBoundary>} />
             <Route path="/deals/:id" element={<RouteErrorBoundary name="PublicRoutes"><DealLandingPage /></RouteErrorBoundary>} />
+            <Route path="/auth/outlook/callback" element={<RouteErrorBoundary name="PublicRoutes"><OutlookCallback /></RouteErrorBoundary>} />
 
             {/* ─── BUYER-FACING (unchanged) ─── */}
             <Route
@@ -312,6 +325,48 @@ function App() {
               <Route path="saved-listings" element={<SavedListings />} />
             </Route>
             <Route path="/marketplace" element={<Navigate to="/" replace />} />
+
+            {/* ─── CLIENT PORTAL (buyer-facing) ─── */}
+            <Route
+              path="/portal/:slug"
+              element={
+                <ProtectedRoute requireApproved={false}>
+                  <RouteErrorBoundary name="PortalRoutes">
+                    <PortalDashboard />
+                  </RouteErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/portal/:slug/deals"
+              element={
+                <ProtectedRoute requireApproved={false}>
+                  <RouteErrorBoundary name="PortalRoutes">
+                    <PortalDealTracker />
+                  </RouteErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/portal/:slug/deals/:pushId"
+              element={
+                <ProtectedRoute requireApproved={false}>
+                  <RouteErrorBoundary name="PortalRoutes">
+                    <PortalDealDetail />
+                  </RouteErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/portal/:slug/team"
+              element={
+                <ProtectedRoute requireApproved={false}>
+                  <RouteErrorBoundary name="PortalRoutes">
+                    <PortalTeam />
+                  </RouteErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
 
             {/* ─── UNIFIED ADMIN LAYOUT ─── */}
             {/* All admin + remarketing routes share one layout with the unified sidebar */}
@@ -518,8 +573,10 @@ function App() {
                 }
               />
 
-              {/* TRAINING CENTER */}
-              <Route path="training-center" element={<ObjectionTrackerPage />} />
+
+              {/* CLIENT PORTALS (admin) */}
+              <Route path="client-portals" element={<ClientPortalsList />} />
+              <Route path="client-portals/:slug" element={<ClientPortalDetail />} />
 
               {/* APPROVALS */}
               <Route
@@ -624,6 +681,7 @@ function App() {
                   </RoleGate>
                 }
               />
+              <Route path="settings/outlook" element={<OutlookSettingsPage />} />
               {/* FEATURE IDEAS */}
               <Route path="feature-ideas" element={<AdminFeatureIdeas />} />
 

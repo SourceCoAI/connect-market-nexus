@@ -45,7 +45,7 @@ import {
 } from '@/hooks/admin/data-room/use-data-room';
 import { SendMemoDialog } from './SendMemoDialog';
 import { ManualLogDialog } from './ManualLogDialog';
-import { extractCompanyInfo, getBrandingLabel } from '@/lib/memo-utils';
+import { buildMemoPdfHtml, openPrintWindow } from '@/lib/memo-pdf-template';
 
 interface MemosPanelProps {
   dealId: string;
@@ -122,93 +122,17 @@ export function MemosPanel({ dealId, dealTitle }: MemosPanelProps) {
           sections?: Array<{ title: string; content: string; key?: string }>;
         } | null
       )?.sections || [];
-    const brandName = getBrandingLabel(memo.branding);
     const isAnonymous = memo.memo_type === 'anonymous_teaser';
-    const company = extractCompanyInfo(memo.content);
-    const dateStr = new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+    const displayTitle = isAnonymous ? (projectName || 'Deal') : (dealTitle || 'Deal');
+
+    const html = buildMemoPdfHtml({
+      sections,
+      memoType: memo.memo_type || 'lead_memo',
+      dealTitle: displayTitle,
+      branding: memo.branding || 'sourceco',
+      content: memo.content as Record<string, unknown>,
     });
-    const logoUrl = '/lovable-uploads/b879fa06-6a99-4263-b973-b9ced4404acb.png';
-
-    const printHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${isAnonymous ? 'Anonymous Teaser' : 'Lead Memo'} - ${dealTitle || 'Deal'}</title>
-        <style>
-          body { font-family: Arial, Helvetica, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; color: #333; line-height: 1.6; font-size: 14px; }
-          .letterhead { display: flex; align-items: center; gap: 16px; padding-bottom: 16px; border-bottom: 3px solid #1a1a2e; margin-bottom: 20px; }
-          .letterhead img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; }
-          .letterhead-text { font-size: 22px; font-weight: bold; letter-spacing: 2px; color: #1a1a2e; margin: 0; }
-          .company-block { margin-bottom: 16px; padding: 14px 16px; background: #f8f9fa; border-left: 4px solid #1a1a2e; }
-          .company-block .name { font-size: 18px; font-weight: bold; color: #1a1a2e; margin: 0 0 4px 0; }
-          .company-block .detail { font-size: 13px; color: #555; margin: 0 0 2px 0; }
-          .memo-meta { text-align: center; margin-bottom: 20px; }
-          .memo-meta .type { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 4px 0; }
-          .memo-meta .date { font-size: 12px; color: #888; margin: 0; }
-          .disclaimer { text-align: center; padding: 6px 0; border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; margin-bottom: 24px; }
-          .disclaimer p { font-size: 10px; color: #cc0000; font-style: italic; margin: 0; }
-          h2 { font-size: 16px; margin: 24px 0 8px 0; color: #1a1a2e; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
-          .section { margin-bottom: 16px; }
-          .section-content { font-size: 14px; }
-          .section-content p { margin: 0 0 8px 0; }
-          ul { padding-left: 20px; margin: 4px 0 8px 0; }
-          li { margin-bottom: 4px; }
-          table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-          th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; font-size: 13px; }
-          th { background: #f5f5f5; font-weight: bold; }
-          @media print { body { margin: 0; padding: 20px; } }
-        </style>
-      </head>
-      <body>
-        <div class="letterhead">
-          <img src="${logoUrl}" alt="${brandName}" />
-          <p class="letterhead-text">${brandName.toUpperCase()}</p>
-        </div>
-        ${
-          company.company_name || company.company_address || company.company_website
-            ? `
-        <div class="company-block">
-          ${company.company_name ? `<p class="name">${company.company_name}</p>` : ''}
-          ${company.company_address ? `<p class="detail">${company.company_address}</p>` : ''}
-          ${company.company_website ? `<p class="detail">${company.company_website}</p>` : ''}
-          ${company.company_phone ? `<p class="detail">${company.company_phone}</p>` : ''}
-        </div>`
-            : ''
-        }
-        <div class="memo-meta">
-          <p class="type">${isAnonymous ? 'Anonymous Teaser' : 'Confidential Lead Memo'}</p>
-          <p class="date">${dateStr}</p>
-        </div>
-        <div class="disclaimer"><p>CONFIDENTIAL — FOR INTENDED RECIPIENT ONLY</p></div>
-        ${sections
-          .filter((s) => s.key !== 'header_block' && s.key !== 'contact_information')
-          .map(
-            (s) => `
-          <div class="section">
-            <h2>${s.title}</h2>
-            <div class="section-content">${s.content
-              .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-              .replace(/\*(.+?)\*/g, '<em>$1</em>')
-              .replace(/^- (.*)/gm, '<li>$1</li>')
-              .replace(/\n\n/g, '</p><p>')
-              .replace(/\n/g, '<br>')}</div>
-          </div>
-        `,
-          )
-          .join('')}
-      </body>
-      </html>
-    `;
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printHtml);
-      printWindow.document.close();
-      setTimeout(() => printWindow.print(), 500);
-    }
+    openPrintWindow(html);
   };
 
   if (isLoading) {

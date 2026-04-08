@@ -300,7 +300,7 @@ function PushToMarketplaceButton({
 
   if (!deal?.main_contact_name) gaps.push('Main contact name');
 
-  if (!deal?.main_contact_email) gaps.push('Main contact email');
+  
 
   return (
     <div className="flex flex-col gap-1">

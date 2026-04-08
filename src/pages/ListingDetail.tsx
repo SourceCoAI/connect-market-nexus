@@ -10,7 +10,7 @@ import type { Json } from '@/integrations/supabase/types';
 import { useSessionContext } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { ChevronLeft, ExternalLink, Shield } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Shield, Send } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency-utils';
 import { isProfileComplete, getProfileCompletionPercentage } from '@/lib/profile-completeness';
 import ConnectionButton from '@/components/listing-detail/ConnectionButton';
@@ -26,6 +26,7 @@ import { DealSourcingCriteriaDialog } from '@/components/listing-detail/DealSour
 import { EditableDescription } from '@/components/listing-detail/EditableDescription';
 import { SimilarListingsCarousel } from '@/components/listing-detail/SimilarListingsCarousel';
 import { EnhancedSaveButton } from '@/components/listing-detail/EnhancedSaveButton';
+import { PushToPortalDialog } from '@/components/portal/PushToPortalDialog';
 
 import { InternalCompanyInfoDisplay } from '@/components/admin/InternalCompanyInfoDisplay';
 import { BuyerDataRoom } from '@/components/marketplace/BuyerDataRoom';
@@ -41,6 +42,7 @@ const ListingDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [showDealSourcingDialog, setShowDealSourcingDialog] = useState(false);
+  const [pushToPortalOpen, setPushToPortalOpen] = useState(false);
   const [dataRoomOpen, setDataRoomOpen] = useState(false);
 
   // Click tracking for engagement analytics
@@ -333,7 +335,7 @@ const ListingDetail = () => {
                     Request Access to This Deal
                   </h3>
                   <p className="text-xs text-foreground/70 leading-relaxed">
-                    Request a connection to unlock the data room. Once approved, you get immediate access to the CIM, real company name, and full business details.
+                    Request a connection to receive deal materials from the advisor.
                   </p>
                 </div>
 
@@ -374,6 +376,18 @@ const ListingDetail = () => {
                         View request status in My Deals →
                       </Link>
                     )}
+
+                  {/* Push to Client Portal - Admin Only */}
+                  {isAdmin && id && (
+                    <Button
+                      variant="outline"
+                      className="w-full text-xs h-9 gap-2"
+                      onClick={() => setPushToPortalOpen(true)}
+                    >
+                      <Send size={14} />
+                      Push to Client Portal
+                    </Button>
+                  )}
 
                   {/* Enhanced Save and Share */}
                   <EnhancedSaveButton
@@ -432,6 +446,15 @@ const ListingDetail = () => {
         onOpenChange={setShowDealSourcingDialog}
         user={user}
       />
+
+      {isAdmin && id && (
+        <PushToPortalDialog
+          open={pushToPortalOpen}
+          onOpenChange={setPushToPortalOpen}
+          listingId={id}
+          listingTitle={listing?.title}
+        />
+      )}
     </div>
   );
 };

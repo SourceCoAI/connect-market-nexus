@@ -1,0 +1,506 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  FileSignature,
+  MessageSquare,
+  Link2,
+  UserCheck,
+  FolderOpen,
+  ArrowRight,
+  CheckCircle2,
+  Loader2,
+  ShieldCheck,
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+
+// ─── Helpers ───
+
+function timeAgo(date: string) {
+  return formatDistanceToNow(new Date(date), { addSuffix: true });
+}
+
+function CountBadge({ count }: { count: number }) {
+  return (
+    <Badge variant={count > 0 ? 'destructive' : 'secondary'} className="ml-auto text-xs">
+      {count}
+    </Badge>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground/60">
+      <CheckCircle2 className="h-4 w-4" />
+      All caught up
+    </div>
+  );
+}
+
+function CardLoading() {
+  return (
+    <div className="flex items-center justify-center py-6">
+      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+// ─── Document Signing Card ───
+
+function DocumentSigningCard() {
+  const navigate = useNavigate();
+  const { data, isLoading } = useQuery({
+    queryKey: ['ops-hub-doc-requests'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('document_requests')
+        .select('id, firm_id, agreement_type, status, requested_at, firm_agreements!inner(primary_company_name)')
+        .in('status', ['requested', 'email_sent'])
+        .order('requested_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <FileSignature className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">Document Signing</CardTitle>
+          <CountBadge count={data?.length ?? 0} />
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <CardLoading />
+        ) : !data?.length ? (
+          <EmptyState />
+        ) : (
+          <div className="space-y-2">
+            {data.map((req: any) => (
+              <div
+                key={req.id}
+                className="flex items-center justify-between text-sm py-1.5 border-b border-border/30 last:border-0"
+              >
+                <div className="min-w-0">
+                  <span className="font-medium text-foreground">
+                    {req.agreement_type === 'nda' ? 'NDA' : 'Fee Agreement'}
+                  </span>
+                  <span className="text-muted-foreground"> — {(req.firm_agreements as any)?.primary_company_name ?? 'Unknown'}</span>
+                </div>
+                <span className="text-xs text-muted-foreground/60 shrink-0 ml-2">
+                  {req.requested_at ? timeAgo(req.requested_at) : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full mt-2 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => navigate('/admin/documents')}
+        >
+          View All <ArrowRight className="h-3 w-3 ml-1" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Unread Messages Card ───
+
+function UnreadMessagesCard() {
+  const navigate = useNavigate();
+  const { data, isLoading } = useQuery({
+    queryKey: ['ops-hub-unread-messages'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      // Get recent unread buyer messages, join to connection_requests + profiles for buyer name
+      const { data, error } = await supabase
+        .from('connection_messages')
+        .select('id, connection_request_id, body, created_at, connection_requests!inner(id, user_id, profiles!connection_requests_user_id_profiles_fkey(first_name, last_name, company_name))')
+        .eq('is_read_by_admin', false)
+        .eq('sender_role', 'buyer')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+
+      // Group by connection_request_id and count
+      const grouped = new Map<string, { name: string; company: string | null; count: number; lastAt: string; requestId: string }>();
+      for (const msg of data ?? []) {
+        const cr = msg.connection_requests as any;
+        const profile = cr?.profiles;
+        const key = msg.connection_request_id;
+        const existing = grouped.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          grouped.set(key, {
+            name: [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Unknown',
+            company: profile?.company_name ?? null,
+            count: 1,
+            lastAt: msg.created_at,
+            requestId: key,
+          });
+        }
+      }
+      return Array.from(grouped.values()).slice(0, 5);
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">Unread Messages</CardTitle>
+          <CountBadge count={data?.length ?? 0} />
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <CardLoading />
+        ) : !data?.length ? (
+          <EmptyState />
+        ) : (
+          <div className="space-y-2">
+            {data.map((t) => (
+              <div
+                key={t.requestId}
+                className="flex items-center justify-between text-sm py-1.5 border-b border-border/30 last:border-0"
+              >
+                <div className="min-w-0 truncate">
+                  <span className="font-medium text-foreground">{t.name}</span>
+                  {t.company && (
+                    <span className="text-muted-foreground"> @ {t.company}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <Badge variant="destructive" className="text-[10px] h-5">
+                    {t.count}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground/60">
+                    {timeAgo(t.lastAt)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full mt-2 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => navigate('/admin/marketplace/messages')}
+        >
+          View All <ArrowRight className="h-3 w-3 ml-1" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Connection Requests Card ───
+
+function ConnectionRequestsCard() {
+  const navigate = useNavigate();
+  const { data, isLoading } = useQuery({
+    queryKey: ['ops-hub-pending-connections'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('connection_requests')
+        .select('id, user_id, listing_id, created_at, profiles!connection_requests_user_id_profiles_fkey(first_name, last_name), listings!inner(title)')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">Connection Requests</CardTitle>
+          <CountBadge count={data?.length ?? 0} />
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <CardLoading />
+        ) : !data?.length ? (
+          <EmptyState />
+        ) : (
+          <div className="space-y-2">
+            {data.map((r: any) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between text-sm py-1.5 border-b border-border/30 last:border-0"
+              >
+                <div className="min-w-0 truncate">
+                  <span className="font-medium text-foreground">
+                    {(r.profiles as any)?.first_name} {(r.profiles as any)?.last_name}
+                  </span>
+                  <span className="text-muted-foreground"> → {(r.listings as any)?.title ?? 'Unknown'}</span>
+                </div>
+                <span className="text-xs text-muted-foreground/60 shrink-0 ml-2">
+                  {timeAgo(r.created_at)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full mt-2 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => navigate('/admin/marketplace/requests')}
+        >
+          View All <ArrowRight className="h-3 w-3 ml-1" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── User Approvals Card ───
+
+function UserApprovalsCard() {
+  const navigate = useNavigate();
+  const { data, isLoading } = useQuery({
+    queryKey: ['ops-hub-pending-users'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, first_name, last_name, created_at')
+        .eq('approval_status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <UserCheck className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">User Approvals</CardTitle>
+          <CountBadge count={data?.length ?? 0} />
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <CardLoading />
+        ) : !data?.length ? (
+          <EmptyState />
+        ) : (
+          <div className="space-y-2">
+            {data.map((u: any) => (
+              <div
+                key={u.id}
+                className="flex items-center justify-between text-sm py-1.5 border-b border-border/30 last:border-0"
+              >
+                <div className="min-w-0 truncate">
+                  <span className="font-medium text-foreground">
+                    {u.first_name} {u.last_name}
+                  </span>
+                  <span className="text-muted-foreground"> — {u.email}</span>
+                </div>
+                <span className="text-xs text-muted-foreground/60 shrink-0 ml-2">
+                  {timeAgo(u.created_at)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full mt-2 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => navigate('/admin/marketplace/users')}
+        >
+          View All <ArrowRight className="h-3 w-3 ml-1" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Data Room Access Card ───
+
+function DataRoomAccessCard() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['ops-hub-data-room-access'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('deal_data_room_access')
+        .select('id, deal_id, buyer_name, buyer_firm, granted_document_ids, is_active, granted_at')
+        .eq('is_active', true)
+        .order('granted_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">Recent Access Grants</CardTitle>
+          <CountBadge count={data?.length ?? 0} />
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <CardLoading />
+        ) : !data?.length ? (
+          <EmptyState />
+        ) : (
+          <div className="space-y-2">
+            {data.map((a: any) => {
+              const docCount = (a.granted_document_ids as string[] | null)?.length ?? 0;
+              return (
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between text-sm py-1.5 border-b border-border/30 last:border-0"
+                >
+                  <div className="min-w-0 truncate">
+                    <span className="font-medium text-foreground">{a.buyer_name}</span>
+                    {a.buyer_firm && (
+                      <span className="text-muted-foreground"> @ {a.buyer_firm}</span>
+                    )}
+                    <Badge variant="secondary" className="ml-2 text-[10px] h-5">
+                      {docCount} doc{docCount !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground/60 shrink-0 ml-2">
+                    {a.granted_at ? timeAgo(a.granted_at) : ''}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Recent Data Room Activity Card ───
+
+function DataRoomActivityCard() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['ops-hub-data-room-activity'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('data_room_audit_log')
+        .select('id, action, user_id, created_at, metadata')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+
+      if (!data?.length) return [];
+
+      // Batch-fetch profile names for user_ids
+      const userIds = [...new Set(data.map((d: any) => d.user_id).filter(Boolean))];
+      const { data: profiles } = userIds.length
+        ? await supabase.from('profiles').select('id, first_name, last_name').in('id', userIds)
+        : { data: [] };
+      const nameMap = new Map((profiles ?? []).map((p: any) => [p.id, `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim()]));
+
+      return data.map((log: any) => ({
+        ...log,
+        user_display: nameMap.get(log.user_id) || log.user_id?.slice(0, 8) + '…',
+      }));
+    },
+  });
+
+  const ACTION_LABELS: Record<string, string> = {
+    view_document: 'Viewed',
+    download_document: 'Downloaded',
+    upload_document: 'Uploaded',
+    delete_document: 'Deleted',
+    grant_teaser: 'Granted Teaser',
+    grant_full_memo: 'Granted Memo',
+    grant_data_room: 'Granted DR',
+    revoke_teaser: 'Revoked Teaser',
+    revoke_full_memo: 'Revoked Memo',
+    revoke_data_room: 'Revoked DR',
+    generate_memo: 'Generated Memo',
+    send_memo_email: 'Sent Email',
+    bulk_grant: 'Bulk Grant',
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <FolderOpen className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">Data Room Activity</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <CardLoading />
+        ) : !data?.length ? (
+          <EmptyState />
+        ) : (
+          <div className="space-y-2">
+            {data.map((log: any) => (
+              <div
+                key={log.id}
+                className="flex items-center justify-between text-sm py-1.5 border-b border-border/30 last:border-0"
+              >
+                <div className="min-w-0 truncate">
+                  <Badge variant="outline" className="text-[10px] h-5 mr-2">
+                    {ACTION_LABELS[log.action] ?? log.action.replace(/_/g, ' ')}
+                  </Badge>
+                  <span className="text-muted-foreground text-xs">
+                    {log.user_display}
+                  </span>
+                </div>
+                <span className="text-xs text-muted-foreground/60 shrink-0 ml-2">
+                  {timeAgo(log.created_at)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main Operations Hub ───
+
+export function OperationsHub() {
+  return (
+    <div className="px-4 md:px-8 py-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <DocumentSigningCard />
+        <UnreadMessagesCard />
+        <ConnectionRequestsCard />
+        <UserApprovalsCard />
+        <DataRoomAccessCard />
+        <DataRoomActivityCard />
+      </div>
+    </div>
+  );
+}

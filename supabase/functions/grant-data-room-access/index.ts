@@ -171,7 +171,7 @@ function buildDataRoomEmailHtml(projectName: string, buyerName: string, dataRoom
     bodyHtml: `
     <p>Hi ${buyerName},</p>
     <p>You have been granted access to the data room for Project ${projectName}.</p>
-    <p>The data room contains deal details, supporting documentation, and diligence materials. Your access link is personal. Do not share or forward it. All access is tracked.</p>
+    <p>Deal materials have been made available for your review. Your access link is personal. Do not share or forward it. All access is tracked.</p>
     <div style="text-align: center; margin: 28px 0;">
       <a href="${dataRoomUrl}" style="display: inline-block; background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">Open Data Room</a>
     </div>

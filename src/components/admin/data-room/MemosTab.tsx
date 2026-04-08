@@ -10,6 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -31,6 +32,7 @@ import {
   BookOpen,
   Save,
   Tag,
+  ChevronDown,
 } from 'lucide-react';
 import {
   useDataRoomDocuments,
@@ -45,6 +47,7 @@ import {
 import { generateMemoDocx } from '@/lib/generate-memo-docx';
 import { format } from 'date-fns';
 import { extractCompanyInfo } from '@/lib/memo-utils';
+import { buildMemoPdfHtml, openPrintWindow } from '@/lib/memo-pdf-template';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +61,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -338,9 +342,18 @@ function MemoSlotCard({
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const prevDraftId = useRef<string | null>(null);
   const hasDocument = !!document;
   const hasDraft = !!draft;
 
+  // Auto-open analyst notes once when a new draft is generated
+  useEffect(() => {
+    if (draft?.id && draft.id !== prevDraftId.current) {
+      setNotesOpen(true);
+      prevDraftId.current = draft.id;
+    }
+  }, [draft?.id]);
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
@@ -369,6 +382,7 @@ function MemoSlotCard({
   };
 
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
   const handlePreviewPdf = () => {
     if (!document) return;
@@ -376,9 +390,17 @@ function MemoSlotCard({
     documentUrl.mutate(
       { documentId: document.id, action: 'view' },
       {
-        onSuccess: (data) => {
+        onSuccess: async (data) => {
           if (data?.url) {
-            window.open(data.url, '_blank');
+            try {
+              const response = await fetch(data.url);
+              const blob = await response.blob();
+              const localUrl = URL.createObjectURL(blob);
+              setPdfPreviewUrl(localUrl);
+            } catch {
+              // Fallback to direct open if fetch fails
+              window.open(data.url, '_blank');
+            }
           }
           setIsPreviewing(false);
         },
@@ -461,39 +483,18 @@ function MemoSlotCard({
   const handleDownloadDraftPdf = () => {
     const sections = getMemoSections();
     if (!sections) return;
-    const title = slotType === 'anonymous_teaser'
-      ? `Anonymous Teaser – ${projectName || 'Deal'}`
-      : `Lead Memo – ${dealTitle || 'Deal'}`;
+    const displayTitle = slotType === 'anonymous_teaser'
+      ? (projectName || 'Deal')
+      : (dealTitle || 'Deal');
 
-    const htmlContent = `<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8">
-<title>${title}</title>
-<style>
-  @page { margin: 1in; size: letter; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color: #1a1a1a; line-height: 1.6; max-width: 100%; margin: 0; padding: 0; font-size: 11pt; }
-  h1 { font-size: 18pt; font-weight: 700; margin: 0 0 6pt 0; letter-spacing: -0.02em; }
-  h2 { font-size: 13pt; font-weight: 600; margin: 20pt 0 8pt 0; padding-bottom: 4pt; border-bottom: 1px solid #e5e5e5; }
-  p { margin: 0 0 8pt 0; }
-  .subtitle { font-size: 10pt; color: #666; margin-bottom: 20pt; }
-  .section-content { white-space: pre-wrap; }
-  .confidential { font-size: 8pt; color: #999; text-align: center; margin-top: 30pt; border-top: 1px solid #e5e5e5; padding-top: 8pt; }
-  @media print { body { -webkit-print-color-adjust: exact; } }
-</style>
-</head><body>
-<h1>${title}</h1>
-<p class="subtitle">Prepared by SourceCo Advisors &bull; ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-${sections.map(s => `<h2>${s.title}</h2><div class="section-content">${s.content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>`).join('\n')}
-<p class="confidential">CONFIDENTIAL — This document contains proprietary information and is intended solely for the recipient.</p>
-</body></html>`;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.onload = () => {
-      setTimeout(() => printWindow.print(), 300);
-    };
+    const html = buildMemoPdfHtml({
+      sections,
+      memoType: slotType,
+      dealTitle: displayTitle,
+      branding: 'SourceCo',
+      content: draft!.content as Record<string, unknown>,
+    });
+    openPrintWindow(html);
   };
 
   const isUploading = uploadDocument.isPending;
@@ -659,6 +660,29 @@ ${sections.map(s => `<h2>${s.title}</h2><div class="section-content">${s.content
                         Regenerate
                       </Button>
                     </div>
+
+                    {/* Analyst Notes — outside preview, in the card */}
+                    {(() => {
+                      const analystNotes = (draft.content as { analyst_notes?: string })?.analyst_notes;
+                      if (!analystNotes || analystNotes === 'None.' || analystNotes.trim() === '') return null;
+                      return (
+                        <Collapsible open={notesOpen} onOpenChange={setNotesOpen}>
+                          <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 px-3 rounded-md border border-amber-200 bg-amber-50/50 hover:bg-amber-50 transition-colors text-left">
+                            <ChevronDown className={`h-3.5 w-3.5 text-amber-600 transition-transform ${notesOpen ? 'rotate-0' : '-rotate-90'}`} />
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                            <span className="text-xs font-medium text-amber-800">Analyst Notes</span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-600 ml-auto">
+                              Internal only
+                            </Badge>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="mt-1.5 px-3 py-2.5 rounded-md border border-amber-200 bg-amber-50/30">
+                              <p className="text-xs text-amber-800 whitespace-pre-wrap leading-relaxed">{analystNotes}</p>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -838,6 +862,31 @@ ${sections.map(s => `<h2>${s.title}</h2><div class="section-content">${s.content
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* PDF Preview Dialog */}
+      <Dialog
+        open={!!pdfPreviewUrl}
+        onOpenChange={(open) => {
+          if (!open && pdfPreviewUrl) {
+            URL.revokeObjectURL(pdfPreviewUrl);
+            setPdfPreviewUrl(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl w-[90vw] h-[85vh] p-0 gap-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <h3 className="text-sm font-medium">{title} — PDF Preview</h3>
+          </div>
+          {pdfPreviewUrl && (
+            <iframe
+              src={pdfPreviewUrl}
+              className="w-full flex-1"
+              style={{ height: 'calc(85vh - 52px)' }}
+              title="PDF Preview"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -946,7 +995,7 @@ function DraftPreview({ draft }: { draft: LeadMemo }) {
           return (
             <div key={sectionTitle || sectionContent?.slice(0, 40)}>
               {sectionTitle && (
-                <h3 className="text-sm font-semibold mb-1 text-[#1a1a2e] border-b border-muted pb-1">
+                <h3 className="text-xs font-semibold mb-1 text-[#1a1a2e] uppercase tracking-widest">
                   {sectionTitle}
                 </h3>
               )}
@@ -965,6 +1014,7 @@ function DraftPreview({ draft }: { draft: LeadMemo }) {
             </div>
           );
         })}
+
     </div>
   );
 }

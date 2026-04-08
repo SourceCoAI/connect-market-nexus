@@ -41,11 +41,11 @@ function getStageExplanation(
   if (status === 'on_hold')
     return 'Your request is being evaluated. We\'ll notify you as soon as there\'s an update.';
   if (index === 3)
-    return 'Great news — the owner selected your firm. Expect an email from our team shortly.';
+    return 'Great news - the owner selected your firm. Expect an email from our team shortly.';
   if (index === 1) {
     return 'Sign an agreement (NDA or Fee Agreement) to proceed. Your interest cannot be presented until at least one document is complete.';
   }
-  return 'Your interest is being presented to the owner alongside other qualified buyers. Decisions typically take 3–7 business days.';
+  return 'Your interest is being reviewed by our team. Once approved, your interest will be presented to the owner and our team will follow up with next steps. Expect to hear from us within 1-2 business days.';
 }
 
 export function DealStatusSection({

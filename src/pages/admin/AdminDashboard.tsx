@@ -13,6 +13,7 @@ import {
   Store,
   Target,
   ListChecks,
+  Inbox,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -74,6 +75,11 @@ const DailyTaskDashboardContent = lazy(
   () => import('@/pages/admin/remarketing/DailyTaskDashboard'),
 );
 
+// Lazy-load operations hub
+const OperationsHub = lazy(() =>
+  import('@/components/admin/dashboard/OperationsHub').then((m) => ({ default: m.OperationsHub })),
+);
+
 const TabFallback = () => (
   <div className="flex items-center justify-center py-16">
     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -99,7 +105,16 @@ const AdminDashboard = () => {
       ? 'remarketing'
       : viewParam === 'marketplace'
         ? 'marketplace'
-        : 'daily-tasks';
+        : viewParam === 'operations'
+          ? 'operations'
+          : 'daily-tasks';
+
+  const subtitleMap: Record<string, string> = {
+    'daily-tasks': 'Tasks from daily standup meetings',
+    remarketing: 'Deal pipeline overview',
+    operations: 'Actionable items across all workflows',
+    marketplace: 'Manage and monitor your marketplace',
+  };
 
   const handleRefresh = () => {
     window.location.reload();
@@ -134,11 +149,7 @@ const AdminDashboard = () => {
                 <div>
                   <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
                   <p className="text-sm text-muted-foreground/70 mt-0.5">
-                    {activeDashboard === 'daily-tasks'
-                      ? 'Tasks from daily standup meetings'
-                      : activeDashboard === 'remarketing'
-                        ? 'Deal pipeline overview'
-                        : 'Manage and monitor your marketplace'}
+                    {subtitleMap[activeDashboard] ?? ''}
                   </p>
                 </div>
 
@@ -228,6 +239,17 @@ const AdminDashboard = () => {
                 >
                   <Target className="h-3.5 w-3.5" />
                   Remarketing
+                </button>
+                <button
+                  onClick={() => setView('operations')}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    activeDashboard === 'operations'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Inbox className="h-3.5 w-3.5" />
+                  Operations
                 </button>
                 <button
                   onClick={() => setView('marketplace')}
@@ -327,6 +349,13 @@ const AdminDashboard = () => {
         {activeDashboard === 'remarketing' && (
           <Suspense fallback={<TabFallback />}>
             <ReMarketingDashboardContent />
+          </Suspense>
+        )}
+
+        {/* Operations hub content */}
+        {activeDashboard === 'operations' && (
+          <Suspense fallback={<TabFallback />}>
+            <OperationsHub />
           </Suspense>
         )}
       </div>

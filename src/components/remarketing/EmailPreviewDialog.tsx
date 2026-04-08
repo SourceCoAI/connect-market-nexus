@@ -45,6 +45,7 @@ interface DealData {
   ebitda?: number;
   category?: string;
   description?: string;
+  executive_summary?: string;
 }
 
 interface EmailPreviewDialogProps {

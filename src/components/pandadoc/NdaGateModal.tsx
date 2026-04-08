@@ -59,7 +59,7 @@ export function NdaGateModal({ userId, firmId: _firmId, onSigned }: NdaGateModal
             </div>
             <h2 id="agreement-gate-title" className="text-2xl font-bold">Sign an Agreement to Access Deals</h2>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Deal details — including the business name, financials, and owner information — are confidential. Sign either an NDA or Fee Agreement to unlock full access.
+              Deal details - including the business name, financials, and owner information - are confidential. Sign a Fee Agreement to access deal materials and request introductions.
             </p>
           </div>
 
@@ -73,7 +73,7 @@ export function NdaGateModal({ userId, firmId: _firmId, onSigned }: NdaGateModal
                 Check your inbox at <strong>{user?.email}</strong>.
               </p>
               <p className="text-sm text-emerald-700">
-                Review, sign, and reply to <strong>support@sourcecodeals.com</strong> with the signed copy. Once processed, you'll have full access.
+                Review, sign, and reply to <strong>support@sourcecodeals.com</strong> with the signed copy. Once processed, you'll be able to request deal introductions and receive deal materials.
               </p>
             </div>
           ) : (

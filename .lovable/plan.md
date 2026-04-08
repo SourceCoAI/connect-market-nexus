@@ -1,32 +1,30 @@
 
 
-# Differentiate Unapproved Users in Document Tracking Pending Queue
+# Operations Hub Fixes + Remove Test Data
 
-## Problem
+## Remaining Bugs Found
 
-When a user requests documents from the Pending Approval screen (before being approved), the request appears in the admin Document Tracking "Pending Requests" queue identically to requests from approved users. Admins have no way to tell whether the requester is still pending approval or already approved.
+### 1. Wrong FK hint in two cards (WILL CRASH)
+Both **UnreadMessagesCard** (line 128) and **ConnectionRequestsCard** (line 220) use `connection_requests_user_id_fkey` but the actual FK name is `connection_requests_user_id_profiles_fkey`. This will cause PostgREST to return an error.
 
-## Solution
+### 2. Test data to delete
+The user `adambhaile00@gmail.com` created test firm agreements and document requests that should be cleaned up. The test firms visible in the screenshot are: **AdamCo**, **Acme Inc**, **test**, **Great company**. Their document_requests and firm_agreements (plus firm_members) need to be deleted.
 
-Add a small "Pending Approval" badge next to the user's name in the Pending Request queue rows when the requesting user's `approval_status` is not `approved`.
+Everything else in the Operations Hub is correctly implemented -- column names, queries, grouping logic, and display are all valid.
 
 ## Changes
 
-### File: `src/pages/admin/DocumentTrackingPage.tsx`
+| # | What | Detail |
+|---|------|--------|
+| 1 | Fix FK hint in `OperationsHub.tsx` line 128 | Change `connection_requests_user_id_fkey` → `connection_requests_user_id_profiles_fkey` |
+| 2 | Fix FK hint in `OperationsHub.tsx` line 220 | Change `connection_requests_user_id_fkey` → `connection_requests_user_id_profiles_fkey` |
+| 3 | Database migration: delete test data | Delete `document_requests` for test firms, then `firm_members` for test firms, then the 4 `firm_agreements` rows (AdamCo, Acme Inc, test, Great company) by their known IDs |
 
-1. **Extend `usePendingRequestQueue` query**: After fetching pending requests, do a secondary lookup on `profiles` for all unique `user_id` values to get their `approval_status`. Return this as a map alongside the requests.
+### Test firm IDs to delete
+- `f3fe049d-143a-4fd5-837b-8e839cf58094` (AdamCo)
+- `5eccb4d6-f52a-440f-bf3c-02a1426da85a` (Acme Inc)
+- `285ad5e8-7447-4681-977d-4727e1de14a4` (test)
+- `ab961d3a-5a90-462c-9063-8b4b6c462e39` (Great company)
 
-2. **Extend `PendingRequest` interface or pass approval map**: Add an `approval_status` field resolved from the profiles lookup.
-
-3. **Update `PendingRequestRow` component**: When `approval_status !== 'approved'`, render a small orange/amber badge: `⏳ Pending Approval` next to the user's name. This gives admins immediate context — the user hasn't been approved yet, so documents shouldn't necessarily be sent until approval happens.
-
-### Implementation Detail
-
-In `usePendingRequestQueue`, after fetching document_requests, extract unique `user_id` values, query `profiles` for `id, approval_status`, and merge the status back into each request object. The badge renders inline next to the name/email, styled consistently with existing badges (small, amber).
-
-## Files Changed
-
-| File | Change |
-|------|--------|
-| `src/pages/admin/DocumentTrackingPage.tsx` | Fetch user approval status in pending queue query; show "Pending Approval" badge on unapproved user rows |
+No other issues remain. The OperationsHub will work correctly after these two FK fixes.
 

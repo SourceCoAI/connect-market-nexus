@@ -105,7 +105,7 @@ export function DealActionCard({
       title: 'Under Review',
       description: isExtended
         ? "This is taking a bit longer than usual. The owner is carefully evaluating all interested buyers. We'll notify you as soon as a decision is made."
-        : 'Your interest is being presented to the owner alongside other qualified buyers. Decisions typically take 3–7 business days.',
+        : 'Your interest is being presented to the owner alongside other qualified buyers. Our team will follow up with next steps. Decisions typically take 3-7 business days.',
       unlock: null,
       variant: 'waiting' as const,
       cta: null,

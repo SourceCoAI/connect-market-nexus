@@ -196,7 +196,7 @@ const ListingCardActions = memo(function ListingCardActions({
             Sign Fee Agreement to Unlock Access
           </button>
           <p className="text-[10px] text-muted-foreground text-center leading-relaxed px-2">
-            Sign your Fee Agreement to unlock the data room and request introductions.
+            Sign your Fee Agreement to unlock deal materials and request introductions.
           </p>
         </div>
         <AgreementSigningModal

@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       if (isFullAccess) {
         bodyHtml = `
           <p>${greeting}</p>
-          <p>Your ${docLabel} for ${firmName} has been recorded and confirmed. You now have full access to browse deals, request introductions, and access the data room on approved deals.</p>
+          <p>Your ${docLabel} for ${firmName} has been recorded and confirmed. You now have full access to browse deals, request introductions, and receive deal materials on approved deals.</p>
           <div style="text-align: center; margin: 28px 0;">
             <a href="${appUrl}/marketplace" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">Browse Deals</a>
           </div>
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
       } else {
         bodyHtml = `
           <p>${greeting}</p>
-          <p>Your NDA for ${firmName} has been recorded and confirmed. To unlock full access to deals and the data room, your Fee Agreement also needs to be signed.</p>
+          <p>Your NDA for ${firmName} has been recorded and confirmed. To unlock full deal materials and request introductions, your Fee Agreement also needs to be signed.</p>
           <p>If you have not yet received your Fee Agreement, reply to this email and we will send it over.</p>
           <div style="text-align: center; margin: 28px 0;">
             <a href="${appUrl}/profile?tab=documents" style="background: #000000; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; display: inline-block;">View Your Documents</a>
