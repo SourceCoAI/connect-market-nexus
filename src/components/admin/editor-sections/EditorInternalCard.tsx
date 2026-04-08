@@ -327,6 +327,30 @@ export function EditorInternalCard({ form, dealIdentifier }: EditorInternalCardP
               )}
             />
           </div>
+
+          {/* Webflow Page Slug */}
+          <div className={cn('pt-3', EDITOR_DESIGN.subtleDivider, EDITOR_DESIGN.microFieldSpacing)}>
+            <div className={EDITOR_DESIGN.microLabel}>Webflow Page Slug</div>
+            <FormField
+              control={form.control}
+              name="webflow_slug"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g. municipal-meter-installation-services"
+                      {...field}
+                      value={field.value || ''}
+                      className={cn(EDITOR_DESIGN.miniHeight, 'text-xs font-mono', EDITOR_DESIGN.inputBg)}
+                    />
+                  </FormControl>
+                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                    The URL slug from your Webflow deal memo page — used to auto-associate website leads
+                  </p>
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
       )}
     </div>

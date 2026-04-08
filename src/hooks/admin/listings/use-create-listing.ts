@@ -42,6 +42,7 @@ export function useCreateListing() {
         owner_notes: listing.owner_notes || null,
         status: listing.status || 'active',
         image_url: null,
+        webflow_slug: (listing as any).webflow_slug || null,
         // CRITICAL: Create as internal draft - must use publish-listing to go public
         is_internal_deal: true,
       };

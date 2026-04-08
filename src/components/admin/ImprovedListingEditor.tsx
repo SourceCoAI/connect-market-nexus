@@ -103,6 +103,7 @@ const listingFormSchema = z.object({
 
   // Content sections (populated by lead memo generator)
   custom_sections: z.unknown().nullable().optional(),
+  webflow_slug: z.string().optional(),
 });
 
 type ListingFormInput = {
@@ -148,6 +149,7 @@ type ListingFormInput = {
   main_contact_phone?: string;
   main_contact_linkedin?: string;
   custom_sections?: unknown;
+  webflow_slug?: string;
 };
 
 type ListingFormValues = z.infer<typeof listingFormSchema>;
@@ -207,6 +209,7 @@ const convertListingToFormInput = (listing?: AdminListing): ListingFormInput => 
     main_contact_phone: listing?.main_contact_phone || '',
     main_contact_linkedin: listing?.main_contact_linkedin || '',
     custom_sections: listing?.custom_sections || null,
+    webflow_slug: (listing as any)?.webflow_slug || '',
   };
 };
 
@@ -537,6 +540,7 @@ export function ImprovedListingEditor({
         main_contact_phone: formData.main_contact_phone || null,
         main_contact_linkedin: formData.main_contact_linkedin || null,
         custom_sections: formData.custom_sections || null,
+        webflow_slug: formData.webflow_slug?.trim() || undefined,
         // Featured deals for landing page
         ...(featuredDealIds ? { featured_deal_ids: featuredDealIds } : {}),
       };
