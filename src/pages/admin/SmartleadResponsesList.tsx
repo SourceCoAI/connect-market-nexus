@@ -68,11 +68,39 @@ export default function SmartleadResponsesList() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [draftReplyItem, setDraftReplyItem] = useState<SmartleadInboxItem | null>(null);
+  const [isReclassifying, setIsReclassifying] = useState(false);
   const navigate = useNavigate();
 
   const { items, stats, isLoading, refetch } = useSmartleadInbox(filter, search);
   useSmartleadInboxRealtime();
   const updateStatus = useUpdateInboxStatus();
+
+  const handleReclassifyFailed = async () => {
+    setIsReclassifying(true);
+    try {
+      const { invokeEdgeFunction } = await import('@/lib/invoke-edge-function');
+      const result = await invokeEdgeFunction<{
+        success: boolean;
+        dry_run: boolean;
+        total: number;
+        reclassified: number;
+        positive: number;
+        gp_deals_created: number;
+        by_category: Record<string, number>;
+      }>('smartlead-reclassify-failed', { body: {}, timeoutMs: 300_000 });
+
+      if (result.success) {
+        toast.success(
+          `Reclassified ${result.reclassified} of ${result.total} failed records. ${result.positive} positive, ${result.gp_deals_created} GP deals created.`,
+        );
+        refetch();
+      }
+    } catch (err) {
+      toast.error(`Reclassification failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsReclassifying(false);
+    }
+  };
 
   const filterCards: {
     key: InboxFilter;
