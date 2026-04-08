@@ -2,38 +2,43 @@
 
 ## Problem
 
-Phone numbers show in the contact drawer but not in the list view table. 
+When a user clicks the email verification link, the auth callback (`/auth/callback`) correctly establishes a session and detects that `auth.users.email_confirmed_at` is set. However, it **never updates `profiles.email_verified` to `true`**. There is also no database trigger syncing this field.
 
-**Root cause**: Two different lookup strategies are used:
-- **List view** (table): Uses `contact_id` FK join → `member.contact?.phone`. But `contact_id` is often `null` (especially for deal-sourced members), so the join returns nothing.
-- **Drawer**: Queries `contacts` table **by email** → always finds the phone.
+The `PendingApproval` page checks `user.email_verified` (from the `profiles` table), sees `false`, and renders the "Verify your email" screen -- even though the email IS verified in `auth.users`.
 
-For example, Russell Bradway has `contact_id = null` and `contact_phone = null` in `contact_list_members`, but the `contacts` table has his phone `(508) 842-0060` linked by email.
+For Adam Haile: `auth.users.email_confirmed_at = 2026-04-08T13:32:25` but `profiles.email_verified = false`.
 
 ## Fix
 
-### 1. Backfill `contact_id` on existing list members
+**File: `src/pages/auth/callback.tsx`**
 
-**File: `src/hooks/admin/use-contact-lists.ts`** — in the `useContactList` query function
+After establishing the session and confirming `emailConfirmed` is true (line 90), add a Supabase UPDATE to set `profiles.email_verified = true`:
 
-After fetching members, for any member where `contact_id` is null, do a batch lookup against the `contacts` table by email to get the phone (and populate the missing join data). This is a read-side enrichment that fills the gap without requiring a migration.
+```typescript
+// After line 90: const emailConfirmed = !!authUser.email_confirmed_at;
+if (emailConfirmed) {
+  await supabase
+    .from('profiles')
+    .update({ email_verified: true })
+    .eq('id', authUser.id)
+    .eq('email_verified', false); // no-op if already true
+}
+```
 
-Add a post-fetch step:
-1. Collect members where `contact_id` is null (no FK join data)
-2. Batch-query `contacts` table by those emails
-3. Merge the `phone` (and other fields) into each member's `contact` object so the existing render logic picks it up
+This goes before the navigation (line 92) so the profile is updated before the user lands on `/pending-approval`. The `refreshUserProfile()` call in `PendingApproval` will then read `email_verified = true` and show the correct "Application received" state.
 
-### 2. Update the list view render to use the enriched data
+**Immediate data fix**: Also update Adam's profile directly so he sees the correct screen without re-verifying:
 
-**File: `src/pages/admin/ContactListDetailPage.tsx`** — line 474
+```sql
+UPDATE profiles SET email_verified = true WHERE email = 'adambhaile00@gmail.com';
+```
 
-The current render: `member.contact?.phone || member.contact_phone || '--'` will automatically work once step 1 populates `member.contact` for members without `contact_id`. No render change needed.
+## Summary
 
-### Summary
+| Change | Detail |
+|--------|--------|
+| `src/pages/auth/callback.tsx` | Add `profiles.email_verified = true` update when `email_confirmed_at` is set |
+| Database | One-time fix for `adambhaile00@gmail.com` |
 
-| File | Change |
-|------|--------|
-| `src/hooks/admin/use-contact-lists.ts` | After fetching members, enrich those with null `contact_id` by looking up `contacts` by email and attaching phone/name data to the `contact` field |
-
-This is a single-file fix. The enrichment runs at query time so it works for all existing and future lists without requiring a data migration.
+Single-file code change plus a one-time data correction.
 
