@@ -2,20 +2,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const WEBHOOK_SECRET = Deno.env.get("WEBFLOW_WEBHOOK_SECRET");
 
 Deno.serve(async (req: Request) => {
   // Only accept POST
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
-  }
-
-  // Authenticate via query param
-  const url = new URL(req.url);
-  const secret = url.searchParams.get("secret");
-  if (!WEBHOOK_SECRET || secret !== WEBHOOK_SECRET) {
-    console.error("Webhook auth failed");
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
