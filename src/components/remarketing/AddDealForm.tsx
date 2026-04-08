@@ -6,7 +6,7 @@
  *
  * Extracted from AddDealDialog.tsx for maintainability.
  */
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
