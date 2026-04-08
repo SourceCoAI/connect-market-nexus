@@ -1,18 +1,27 @@
 /**
  * WebflowLeadDetail.tsx
  *
- * Purpose-built detail view for Webflow form submissions.
- * Distinguishes between matched marketplace users and guest leads.
- * Shows form submission as read-only content (NOT a conversation thread).
+ * Purpose-built detail view for Webflow form submissions (guest leads only).
+ * When a Webflow lead is matched to a marketplace user, ConnectionRequestRow
+ * routes through ConnectionRequestActions instead.
+ *
+ * Includes full approval workflow (Accept/Decline/On Hold/Flag) for guest leads.
  */
+import { useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Globe, User, Building2, Mail, Phone, Briefcase, ExternalLink, FileText, Clock, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
 import { AdminConnectionRequest } from '@/types/admin';
 import { LeadRequestActions } from './LeadRequestActions';
+import { ApprovalSection } from './connection-request-actions/ApprovalSection';
+import { FlagReviewBanner, FlagReviewPopover } from './connection-request-actions/FlagReviewSection';
+import { useUpdateConnectionRequestStatus } from '@/hooks/admin/use-connection-request-status';
+import { useFlagConnectionRequest } from '@/hooks/admin/use-flag-connection-request';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import type { AdminProfile } from './connection-request-actions/types';
 
 interface WebflowLeadDetailProps {
   request: AdminConnectionRequest;
@@ -26,9 +35,63 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
   const formName = (payload.name as string) || (meta.form_name as string) || 'Deal Request Form';
   const pageUrl = (meta.page_url as string) || '';
   const submittedAt = (meta.submitted_at as string) || request.created_at;
-  
 
-  // Clean URL for display (strip query params)
+  // Status & approval state
+  const requestStatus = (request.status === 'converted' ? 'approved' : request.status === 'notified' || request.status === 'reviewed' ? 'pending' : request.status) as 'pending' | 'approved' | 'rejected' | 'on_hold';
+  const updateStatus = useUpdateConnectionRequestStatus();
+  const flagMutation = useFlagConnectionRequest();
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectNote, setRejectNote] = useState('');
+  const [flagPopoverOpen, setFlagPopoverOpen] = useState(false);
+
+  // Fetch admin list for flag assignment
+  const { data: adminList = [] } = useQuery<AdminProfile[]>({
+    queryKey: ['admin-profiles-for-flag'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .eq('is_admin', true);
+      return (data || []).map((p) => ({
+        id: p.id,
+        displayName: `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Admin',
+      }));
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const leadName = request.lead_name || 'Website Lead';
+  const leadCompany = request.lead_company || '';
+
+  const handleAccept = () => {
+    if (!request.id) return;
+    updateStatus.mutate({ requestId: request.id, status: 'approved' });
+  };
+  const handleReject = () => {
+    if (!request.id) return;
+    updateStatus.mutate({ requestId: request.id, status: 'rejected', notes: rejectNote || undefined });
+    setShowRejectDialog(false);
+    setRejectNote('');
+  };
+  const handleResetToPending = () => {
+    if (!request.id) return;
+    updateStatus.mutate({ requestId: request.id, status: 'pending' });
+  };
+  const handleOnHold = () => {
+    if (!request.id) return;
+    updateStatus.mutate({ requestId: request.id, status: 'on_hold' });
+  };
+  const handleFlagForReview = (adminId: string) => {
+    if (!request.id) return;
+    flagMutation.mutate({ requestId: request.id, flagged: true, assignedTo: adminId });
+    setFlagPopoverOpen(false);
+  };
+  const handleUnflag = () => {
+    if (!request.id) return;
+    flagMutation.mutate({ requestId: request.id, flagged: false });
+  };
+
+  // Clean URL for display
   const displayUrl = pageUrl ? pageUrl.split('?')[0].split('#')[0] : '';
 
   // Extract UTM data
@@ -48,6 +111,57 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
 
   return (
     <div className="space-y-5">
+      {/* ── DECISION / STATUS BANNERS ── */}
+      <ApprovalSection
+        requestId={request.id}
+        requestStatus={requestStatus}
+        buyerName={leadName}
+        firmName={leadCompany}
+        listingTitle={request.listing?.title}
+        handleAccept={handleAccept}
+        handleReject={handleReject}
+        handleResetToPending={handleResetToPending}
+        handleOnHold={handleOnHold}
+        isStatusPending={updateStatus.isPending}
+        isRejecting={updateStatus.isPending}
+        showRejectDialog={showRejectDialog}
+        setShowRejectDialog={setShowRejectDialog}
+        rejectNote={rejectNote}
+        setRejectNote={setRejectNote}
+        flagButton={
+          requestStatus === 'pending' && request.id ? (
+            <FlagReviewPopover
+              adminList={adminList}
+              flagPopoverOpen={flagPopoverOpen}
+              setFlagPopoverOpen={setFlagPopoverOpen}
+              handleFlagForReview={handleFlagForReview}
+              align="end"
+            />
+          ) : undefined
+        }
+      />
+
+      {/* Flagged for review indicator */}
+      <FlagReviewBanner
+        requestId={request.id}
+        flaggedForReview={request.flagged_for_review}
+        flaggedByAdmin={request.flaggedByAdmin}
+        flaggedAssignedToAdmin={request.flaggedAssignedToAdmin}
+        handleUnflag={handleUnflag}
+        isFlagPending={flagMutation.isPending}
+      />
+
+      {/* Flag button for non-pending statuses */}
+      {requestStatus !== 'pending' && !request.flagged_for_review && request.id && (
+        <FlagReviewPopover
+          adminList={adminList}
+          flagPopoverOpen={flagPopoverOpen}
+          setFlagPopoverOpen={setFlagPopoverOpen}
+          handleFlagForReview={handleFlagForReview}
+          align="start"
+        />
+      )}
+
       {/* Webflow Source Banner */}
       <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30">
         <CardContent className="py-3 px-4">
@@ -98,25 +212,18 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
       {hasUser && (
         <Card className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/30">
           <CardContent className="py-3 px-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="flex items-center justify-center w-7 h-7 rounded-md bg-emerald-100 dark:bg-emerald-900/50">
-                  <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
-                    Matched to Marketplace Profile
-                  </p>
-                  <p className="text-xs text-emerald-700/70 dark:text-emerald-300/70">
-                    This lead has an existing account — you can proceed through the marketplace workflow
-                  </p>
-                </div>
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-center w-7 h-7 rounded-md bg-emerald-100 dark:bg-emerald-900/50">
+                <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <Button variant="outline" size="sm" className="border-emerald-300 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-300" asChild>
-                <a href={`/admin/users?userId=${request.user?.id}`} target="_blank" rel="noopener noreferrer">
-                  View Profile <ExternalLink className="h-3 w-3 ml-1" />
-                </a>
-              </Button>
+              <div>
+                <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                  Matched to Marketplace Profile
+                </p>
+                <p className="text-xs text-emerald-700/70 dark:text-emerald-300/70">
+                  This lead has an existing account — you can proceed through the marketplace workflow
+                </p>
+              </div>
             </div>
             {request.user && (
               <div className="mt-2 flex items-center gap-4 text-xs text-emerald-800/80 dark:text-emerald-200/80">
@@ -166,7 +273,7 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
                   )}
                 </div>
 
-                {/* Extra form fields not captured in lead_* columns */}
+                {/* Extra form fields */}
                 {Object.keys(formData).length > 0 && (
                   <>
                     <Separator className="my-3" />
