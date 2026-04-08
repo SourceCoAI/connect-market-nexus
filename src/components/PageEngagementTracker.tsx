@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { usePageEngagement } from '@/hooks/use-page-engagement';
-import { useAuthState } from '@/hooks/auth/use-auth-state';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PageEngagementTrackerProps {
   children: React.ReactNode;
