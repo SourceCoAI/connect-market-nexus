@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ExternalLink, User, Upload, Bot, MousePointer, Mail, Link, Users, Store } from 'lucide-react';
+import { ExternalLink, User, Upload, Bot, Mail, Link, Users, Store } from 'lucide-react';
 
 interface SourceBadgeProps {
   source: 'marketplace' | 'webflow' | 'manual' | 'import' | 'api' | 'website' | 'referral' | 'cold_outreach' | 'networking' | 'linkedin' | 'email' | 'landing_page' | 'landing_page_email_capture';
