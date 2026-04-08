@@ -88,6 +88,9 @@ export const BUYER_TYPE_FIELD_MAPPINGS = {
     'flex_subxm_ebitda',
     'backers_summary',
     'deployment_timing',
+    'deal_structure_preference',
+    'target_deal_size_min',
+    'target_deal_size_max',
   ],
   advisor: [
     'on_behalf_of_buyer',
