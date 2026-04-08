@@ -286,7 +286,7 @@ function PortalPreview({ push }: { push: Record<string, unknown> | null }) {
             ) : null}
 
             {/* Data room */}
-            {push.data_room_access_token && (
+            {push.data_room_access_token ? (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Documents</CardTitle>
