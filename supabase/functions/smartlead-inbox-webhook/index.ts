@@ -301,7 +301,7 @@ Deno.serve(async (req) => {
 
     // ─── AI Classification ──────────────────────────────────────────────
     const replyText = payload.reply_body || payload.reply_message || payload.preview_text || '';
-    const classification = await classifyReply(replyText);
+    const classification = await classifyReply(replyText, supabase);
 
     // ─── Generate preview text ──────────────────────────────────────────
     const previewText = payload.preview_text || stripHtml(replyText).substring(0, 300) || null;
