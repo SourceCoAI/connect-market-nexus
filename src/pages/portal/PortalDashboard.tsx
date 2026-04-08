@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { FileText, CheckCircle, XCircle, HelpCircle, Clock, Users, Eye } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, HelpCircle, Clock, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useMyPortalUser } from '@/hooks/portal/use-portal-users';
