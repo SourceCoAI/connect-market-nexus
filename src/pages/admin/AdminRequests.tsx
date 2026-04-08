@@ -48,10 +48,6 @@ const AdminRequests = () => {
   
   const { mutateAsync: updateRequest, isPending: isUpdating } = useConnectionRequestsMutation();
 
-  // Inbound leads mutations
-  useMapLeadToListing();
-  const { mutate: convertLeadToRequest } = useConvertLeadToRequest();
-  const { mutate: archiveLead } = useArchiveInboundLead();
   const isMobile = useIsMobile();
 
   // URL-persisted filter state (survives browser Back navigation)
