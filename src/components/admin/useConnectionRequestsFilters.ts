@@ -84,8 +84,8 @@ export function useConnectionRequestsFilters(
           {
             request_ids: ids,
             new_status: status,
-            admin_notes: notes ?? null,
-          },
+            admin_notes: notes ?? undefined,
+          } as any,
         );
 
         if (bulkError) throw bulkError;

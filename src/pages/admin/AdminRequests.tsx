@@ -17,7 +17,7 @@ import {
   type BuyerTypeFilter,
   type NdaFilter,
   type FeeAgreementFilter,
-  type DateRangeFilter,
+  
   type SortOption,
 } from '@/hooks/admin/use-pipeline-filters';
 import { toast } from '@/hooks/use-toast';
