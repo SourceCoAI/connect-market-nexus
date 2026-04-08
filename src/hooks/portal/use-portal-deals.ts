@@ -129,7 +129,7 @@ async function buildDealSnapshot(listingId: string): Promise<DealSnapshot> {
   // 1. Fetch listing basics (including internal company name)
   const { data: listing, error: listError } = await supabase
     .from('listings')
-    .select('id, title, internal_company_name, category, categories, location, revenue, ebitda, description, description_html, project_name')
+    .select('id, title, internal_company_name, category, categories, location, revenue, ebitda, description, description_html, project_name, website')
     .eq('id', listingId)
     .maybeSingle();
 
@@ -167,6 +167,7 @@ async function buildDealSnapshot(listingId: string): Promise<DealSnapshot> {
     geography: listing.location || '',
     ebitda: listing.ebitda,
     revenue: listing.revenue,
+    website: listing.website || undefined,
     business_description: listing.description || undefined,
     category: listing.category || undefined,
     teaser_sections: sections.length > 0 ? sections : undefined,

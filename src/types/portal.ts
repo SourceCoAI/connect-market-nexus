@@ -106,6 +106,7 @@ export interface DealSnapshot {
   geography: string;
   ebitda: number | null;
   revenue: number | null;
+  website?: string;
   business_description?: string;
   category?: string;
   /** Anonymous teaser sections (BUSINESS OVERVIEW, DEAL SNAPSHOT, KEY FACTS, etc.) */
