@@ -301,7 +301,7 @@ function PortalPreview({ push }: { push: Record<string, unknown> | null }) {
                   </p>
                 </CardContent>
               </Card>
-            )}
+            ) : null}
           </div>
 
           {/* Sidebar — response buttons (preview only) */}
