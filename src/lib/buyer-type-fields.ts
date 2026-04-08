@@ -153,6 +153,7 @@ export const SOURCING_FIELDS = [
 
 // Field display labels
 export const FIELD_LABELS = {
+  bio: 'About Me',
   first_name: 'First Name',
   last_name: 'Last Name',
   email: 'Email',
