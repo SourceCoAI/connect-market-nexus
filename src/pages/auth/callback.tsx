@@ -89,6 +89,15 @@ export default function AuthCallback() {
           // Navigate FIRST, then fire emails in the background
           const emailConfirmed = !!authUser.email_confirmed_at;
 
+          // Sync profiles.email_verified with auth.users.email_confirmed_at
+          if (emailConfirmed) {
+            await supabase
+              .from('profiles')
+              .update({ email_verified: true })
+              .eq('id', authUser.id)
+              .eq('email_verified', false);
+          }
+
           if (emailConfirmed && profile?.approval_status === 'approved') {
             navigate(profile.is_admin ? '/admin' : '/');
           } else {
