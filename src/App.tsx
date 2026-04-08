@@ -173,6 +173,7 @@ const ClientPortalDetail = lazyWithRetry(
 const PortalDashboard = lazyWithRetry(() => import('@/pages/portal/PortalDashboard'));
 const PortalDealTracker = lazyWithRetry(() => import('@/pages/portal/PortalDealTracker'));
 const PortalDealDetail = lazyWithRetry(() => import('@/pages/portal/PortalDealDetail'));
+const PortalTeam = lazyWithRetry(() => import('@/pages/portal/PortalTeam'));
 // Outlook Email Integration
 const OutlookSettingsPage = lazyWithRetry(
   () => import('@/pages/admin/settings/OutlookSettingsPage'),
