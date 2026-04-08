@@ -27,7 +27,7 @@ export default function PortalDashboard() {
     statusCounts[d.status] = (statusCounts[d.status] || 0) + 1;
   });
 
-  const _reviewing = statusCounts['reviewing'] || 0;
+  const _reviewing = statusCounts['reviewing'] || 0; // eslint-disable-line @typescript-eslint/no-unused-vars
   const pending = statusCounts['pending_review'] || 0;
   const interested = statusCounts['interested'] || 0;
   const passed = statusCounts['passed'] || 0;
