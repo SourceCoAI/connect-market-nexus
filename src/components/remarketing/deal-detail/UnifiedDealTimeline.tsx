@@ -26,6 +26,10 @@ import {
 import { format, formatDistanceToNow } from 'date-fns';
 import { useDealActivities } from '@/hooks/admin/use-deal-activities';
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 // ── Types ──
 
 interface UnifiedTimelineEntry {
