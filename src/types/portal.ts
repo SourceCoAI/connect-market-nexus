@@ -117,6 +117,14 @@ export interface DealSnapshot {
   project_name?: string;
   /** Branding for the memo (sourceco, new_heritage, etc.) */
   branding?: string;
+  /** Short executive summary of the deal */
+  executive_summary?: string;
+  /** LinkedIn employee count (enrichment data) */
+  linkedin_employee_count?: number | null;
+  /** Google review average rating (1-5) */
+  google_rating?: number | null;
+  /** Google review count */
+  google_review_count?: number | null;
 }
 
 export interface PortalDealPush {

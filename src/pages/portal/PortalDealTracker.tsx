@@ -22,6 +22,8 @@ import { useMyPortalUser } from '@/hooks/portal/use-portal-users';
 import { useMyPortalDeals } from '@/hooks/portal/use-portal-deals';
 import { usePortalMessageSummaries } from '@/hooks/portal/use-portal-messages';
 import { PushStatusBadge, PriorityBadge } from '@/components/portal/PortalStatusBadge';
+import { CompanyDetailsModal } from '@/components/portal/CompanyDetailsModal';
+import type { PortalDealPush } from '@/types/portal';
 
 function formatCurrency(value: number | null | undefined): string {
   if (!value) return '-';
@@ -51,6 +53,7 @@ export default function PortalDealTracker() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'ebitda'>('newest');
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
+  const [companyModalDeal, setCompanyModalDeal] = useState<PortalDealPush | null>(null);
 
   let filtered = (deals || []).filter(
     (d) => statusFilter === 'all' || d.status === statusFilter
@@ -186,7 +189,16 @@ export default function PortalDealTracker() {
                     >
                       <TableCell className="font-medium whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          {deal.deal_snapshot?.headline || 'Untitled Deal'}
+                          <button
+                            type="button"
+                            className="text-left text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCompanyModalDeal(deal);
+                            }}
+                          >
+                            {deal.deal_snapshot?.headline || 'Untitled Deal'}
+                          </button>
                           {hasUnread && (
                             <span className="flex items-center gap-0.5 bg-blue-100 text-blue-700 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
                               <MessageSquare className="h-2.5 w-2.5" />
@@ -252,9 +264,17 @@ export default function PortalDealTracker() {
                   <Card className={`hover:shadow-md transition-shadow cursor-pointer h-full ${hasUnread ? 'ring-2 ring-blue-200' : ''}`}>
                     <CardContent className="pt-5 space-y-3">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold text-sm leading-tight">
+                        <button
+                          type="button"
+                          className="text-left font-semibold text-sm leading-tight text-blue-600 hover:text-blue-800 hover:underline"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setCompanyModalDeal(deal);
+                          }}
+                        >
                           {deal.deal_snapshot?.headline || 'Untitled Deal'}
-                        </h3>
+                        </button>
                         <div className="flex items-center gap-1 shrink-0">
                           {hasUnread && (
                             <span className="flex items-center gap-1 bg-blue-100 text-blue-700 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
@@ -345,6 +365,17 @@ export default function PortalDealTracker() {
           </div>
         )}
       </div>
+
+      {companyModalDeal && (
+        <CompanyDetailsModal
+          open={!!companyModalDeal}
+          onOpenChange={(open) => {
+            if (!open) setCompanyModalDeal(null);
+          }}
+          push={companyModalDeal}
+          portalSlug={slug!}
+        />
+      )}
     </div>
   );
 }

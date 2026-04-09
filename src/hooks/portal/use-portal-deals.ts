@@ -129,7 +129,7 @@ async function buildDealSnapshot(listingId: string): Promise<DealSnapshot> {
   // 1. Fetch listing basics (including internal company name)
   const { data: listing, error: listError } = await supabase
     .from('listings')
-    .select('id, title, internal_company_name, category, categories, location, revenue, ebitda, description, description_html, project_name, website')
+    .select('id, title, internal_company_name, category, categories, location, revenue, ebitda, description, description_html, project_name, website, executive_summary, linkedin_employee_count, google_rating, google_review_count')
     .eq('id', listingId)
     .maybeSingle();
 
@@ -174,6 +174,10 @@ async function buildDealSnapshot(listingId: string): Promise<DealSnapshot> {
     memo_html: fullMemo?.html_content || listing.description_html || undefined,
     project_name: listing.internal_company_name || listing.title || undefined,
     branding: fullMemo?.branding || undefined,
+    executive_summary: listing.executive_summary || undefined,
+    linkedin_employee_count: listing.linkedin_employee_count ?? undefined,
+    google_rating: listing.google_rating ?? undefined,
+    google_review_count: listing.google_review_count ?? undefined,
   };
 }
 
@@ -428,6 +432,26 @@ export function useRefreshDealSnapshot() {
     onError: (err: Error) => {
       toast({ title: 'Error refreshing snapshot', description: err.message, variant: 'destructive' });
     },
+  });
+}
+
+/** Check if a listing has a lead memo (required before pushing to portal) */
+export function useCheckLeadMemo(listingId: string | undefined) {
+  return useQuery({
+    queryKey: ['check-lead-memo', listingId],
+    queryFn: async () => {
+      if (!listingId) return null;
+      const { data } = await supabase
+        .from('lead_memos')
+        .select('id')
+        .eq('deal_id', listingId)
+        .eq('memo_type', 'full_memo')
+        .in('status', ['published', 'completed', 'draft'])
+        .limit(1)
+        .maybeSingle();
+      return { hasMemo: !!data };
+    },
+    enabled: !!listingId,
   });
 }
 

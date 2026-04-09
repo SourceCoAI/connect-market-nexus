@@ -22,7 +22,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Send, FileText, Loader2 } from 'lucide-react';
 import { usePortalOrganizations } from '@/hooks/portal/use-portal-organizations';
-import { usePushDealToPortal, useCheckDuplicatePush } from '@/hooks/portal/use-portal-deals';
+import { usePushDealToPortal, useCheckDuplicatePush, useCheckLeadMemo } from '@/hooks/portal/use-portal-deals';
 
 import type { PortalDealPriority } from '@/types/portal';
 
@@ -59,6 +59,11 @@ export function PushToPortalDialog({
     !isBulk ? listingId : undefined,
   );
   const pushDeal = usePushDealToPortal();
+
+  // Check if listing(s) have a lead memo — required before pushing
+  const { data: memoCheck, isLoading: memoCheckLoading } = useCheckLeadMemo(
+    open ? (isBulk ? listingIds?.[0] : listingId) : undefined,
+  );
 
   // Fetch existing data room access tokens for this listing (single mode only)
   const { data: dataRoomAccess } = useQuery({
@@ -208,6 +213,15 @@ export function PushToPortalDialog({
             </Alert>
           )}
 
+          {!memoCheckLoading && memoCheck && !memoCheck.hasMemo && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                This deal cannot be pushed without a lead memo. Please create and publish a lead memo first.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <Label>Priority</Label>
             <Select value={priority} onValueChange={(v) => setPriority(v as PortalDealPriority)} disabled={isPushing}>
@@ -287,7 +301,7 @@ export function PushToPortalDialog({
           {!(bulkDone && !bulkHasErrors) && (
             <Button
               onClick={handleSubmit}
-              disabled={isPushing || !selectedOrgId || (!isBulk && !!duplicate)}
+              disabled={isPushing || !selectedOrgId || (!isBulk && !!duplicate) || (!memoCheckLoading && memoCheck && !memoCheck.hasMemo)}
             >
               {isPushing ? 'Pushing...' : isBulk ? `Push ${effectiveIds.length} Deal(s)` : 'Push Deal'}
             </Button>

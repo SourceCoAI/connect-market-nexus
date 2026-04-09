@@ -12,6 +12,8 @@ import {
   FileText,
   Globe,
   ExternalLink,
+  Users,
+  Star,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -125,7 +127,7 @@ export default function PortalDealDetail() {
         {/* Key metrics bar */}
         <Card>
           <CardContent className="pt-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {snapshot?.industry && (
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -162,6 +164,24 @@ export default function PortalDealDetail() {
                   </div>
                 </div>
               )}
+              {snapshot?.linkedin_employee_count != null && (
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Employees</p>
+                    <p className="font-medium text-sm">{snapshot.linkedin_employee_count.toLocaleString()}</p>
+                  </div>
+                </div>
+              )}
+              {snapshot?.google_rating != null && snapshot?.google_review_count != null && (
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Google Reviews</p>
+                    <p className="font-medium text-sm">{snapshot.google_rating.toFixed(1)} ({snapshot.google_review_count.toLocaleString()})</p>
+                  </div>
+                </div>
+              )}
             </div>
             {snapshot?.website && (
               <div className="mt-4 pt-3 border-t">
@@ -186,6 +206,20 @@ export default function PortalDealDetail() {
             <CardContent className="pt-5">
               <p className="text-sm font-medium text-blue-900 mb-1">Note from SourceCo</p>
               <p className="text-sm text-blue-800">{push.push_note}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Executive Summary */}
+        {snapshot?.executive_summary && (
+          <Card>
+            <CardContent className="pt-5">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                Executive Summary
+              </h3>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                {snapshot.executive_summary}
+              </p>
             </CardContent>
           </Card>
         )}

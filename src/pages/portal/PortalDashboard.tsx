@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { FileText, CheckCircle, XCircle, HelpCircle, Clock, Users, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +7,8 @@ import { useMyPortalUser } from '@/hooks/portal/use-portal-users';
 import { useMyPortalDeals } from '@/hooks/portal/use-portal-deals';
 import { usePortalMessageSummaries } from '@/hooks/portal/use-portal-messages';
 import { PushStatusBadge } from '@/components/portal/PortalStatusBadge';
+import { CompanyDetailsModal } from '@/components/portal/CompanyDetailsModal';
+import type { PortalDealPush } from '@/types/portal';
 
 export default function PortalDashboard() {
   const { slug } = useParams<{ slug: string }>();
@@ -27,6 +30,8 @@ export default function PortalDashboard() {
       </div>
     );
   }
+
+  const [companyModalDeal, setCompanyModalDeal] = useState<PortalDealPush | null>(null);
 
   const statusCounts: Record<string, number> = {};
   (deals || []).forEach((d) => {
@@ -155,9 +160,17 @@ export default function PortalDashboard() {
                         <div className="flex items-center gap-3 min-w-0">
                           <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
                           <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">
+                            <button
+                              type="button"
+                              className="font-medium text-sm truncate text-blue-600 hover:text-blue-800 hover:underline text-left"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setCompanyModalDeal(deal);
+                              }}
+                            >
                               {deal.deal_snapshot?.headline || 'Untitled Deal'}
-                            </p>
+                            </button>
                             <p className="text-xs text-muted-foreground truncate">
                               {deal.deal_snapshot?.industry}
                               {deal.deal_snapshot?.geography && ` — ${deal.deal_snapshot.geography}`}
@@ -194,6 +207,17 @@ export default function PortalDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {companyModalDeal && (
+        <CompanyDetailsModal
+          open={!!companyModalDeal}
+          onOpenChange={(open) => {
+            if (!open) setCompanyModalDeal(null);
+          }}
+          push={companyModalDeal}
+          portalSlug={slug!}
+        />
+      )}
     </div>
   );
 }
