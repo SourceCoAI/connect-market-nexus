@@ -55,7 +55,7 @@ const CATEGORIES = [
   'neutral',
 ];
 
-const SENTIMENTS = ['positive', 'negative', 'neutral'];
+const SENTIMENTS = ['positive', 'activated', 'negative', 'neutral'];
 
 const CATEGORY_LABELS: Record<string, string> = {
   meeting_request: '📅 Meeting Request',
