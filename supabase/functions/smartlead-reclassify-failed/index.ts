@@ -97,7 +97,7 @@ When in doubt between "neutral" and "interested", prefer "interested" if the rep
               type: 'object',
               properties: {
                 category: { type: 'string', enum: ['meeting_request', 'interested', 'question', 'referral', 'not_now', 'not_interested', 'unsubscribe', 'out_of_office', 'negative_hostile', 'neutral'] },
-                sentiment: { type: 'string', enum: ['positive', 'negative', 'neutral'] },
+                sentiment: { type: 'string', enum: ['positive', 'activated', 'negative', 'neutral'] },
                 is_positive: { type: 'boolean' },
                 confidence: { type: 'number' },
                 reasoning: { type: 'string' },
