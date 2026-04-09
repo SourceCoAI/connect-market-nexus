@@ -149,6 +149,7 @@ export function PushToPortalDialog({
   const isPushing = pushDeal.isPending || (bulkProgress !== null && bulkProgress.done < bulkProgress.total);
   const bulkDone = bulkProgress && bulkProgress.done === bulkProgress.total;
   const bulkHasErrors = bulkProgress && bulkProgress.errors.length > 0;
+  const singleDealMissingMemo = !isBulk && !memoCheckLoading && memoCheck?.hasMemo === false;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!isPushing) { resetForm(); onOpenChange(v); } }}>
@@ -213,7 +214,7 @@ export function PushToPortalDialog({
             </Alert>
           )}
 
-          {!isBulk && !memoCheckLoading && memoCheck && !memoCheck.hasMemo && (
+          {singleDealMissingMemo && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
@@ -301,7 +302,7 @@ export function PushToPortalDialog({
           {!(bulkDone && !bulkHasErrors) && (
             <Button
               onClick={handleSubmit}
-              disabled={isPushing || !selectedOrgId || (!isBulk && !!duplicate) || (!isBulk && !memoCheckLoading && memoCheck && !memoCheck.hasMemo)}
+              disabled={isPushing || !selectedOrgId || (!isBulk && !!duplicate) || singleDealMissingMemo}
             >
               {isPushing ? 'Pushing...' : isBulk ? `Push ${effectiveIds.length} Deal(s)` : 'Push Deal'}
             </Button>
