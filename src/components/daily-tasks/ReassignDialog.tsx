@@ -59,9 +59,22 @@ export function ReassignDialog({ task, open, onOpenChange, teamMembers: teamMemb
 
         <div className="space-y-4 py-2">
           {task && (
-            <p className="text-sm text-muted-foreground">
-              Reassign "{task.title}" to a different team member.
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">
+                Reassign "<span className="font-medium text-foreground">{task.title}</span>"
+              </p>
+              {task.assignee && (
+                <p className="text-xs text-muted-foreground">
+                  Currently assigned to:{' '}
+                  <span className="font-medium text-foreground">
+                    {`${task.assignee.first_name || ''} ${task.assignee.last_name || ''}`.trim() || task.assignee.email}
+                  </span>
+                </p>
+              )}
+              {!task.assignee && (
+                <p className="text-xs text-muted-foreground">Currently unassigned</p>
+              )}
+            </div>
           )}
 
           <div className="space-y-2">

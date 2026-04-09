@@ -33,9 +33,11 @@ export interface StandupMeetingWithTasks extends StandupMeeting {
   attendees: string[];
 }
 
-export function useStandupMeetings(options?: { limit?: number }) {
+export function useStandupMeetings(options?: { limit?: number; offset?: number }) {
+  const limit = options?.limit || 50;
+  const offset = options?.offset || 0;
   return useQuery({
-    queryKey: [STANDUP_MEETINGS_QUERY_KEY, options],
+    queryKey: [STANDUP_MEETINGS_QUERY_KEY, limit, offset],
     queryFn: async () => {
       // Fetch only <ds>-tagged standup meetings ordered by date descending
       const { data: meetings, error: meetingsError } = await supabase
@@ -43,7 +45,7 @@ export function useStandupMeetings(options?: { limit?: number }) {
         .select('*')
         .eq('is_ds_meeting', true)
         .order('meeting_date', { ascending: false })
-        .limit(options?.limit || 50);
+        .range(offset, offset + limit - 1);
 
       if (meetingsError) throw meetingsError;
       if (!meetings || meetings.length === 0) return [];

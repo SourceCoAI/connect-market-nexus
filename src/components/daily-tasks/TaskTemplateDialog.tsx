@@ -153,6 +153,8 @@ export function TaskTemplateDialog({
         listingId,
         assigneeId,
         template,
+        entityType: entityType || 'deal',
+        dealId: dealId || (entityType === 'deal' ? listingId : undefined),
       });
 
       toast({

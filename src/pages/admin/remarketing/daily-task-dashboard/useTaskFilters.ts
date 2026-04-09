@@ -4,13 +4,6 @@ import type { DailyStandupTaskWithRelations } from '@/types/daily-tasks';
 import { groupByOwner } from './utils';
 import type { TaskGroup, TaskStats } from './types';
 
-interface DistinctMeeting {
-  id: string;
-  title: string;
-  date: string | null;
-  count: number;
-}
-
 interface TaskFiltersInput {
   tasks: DailyStandupTaskWithRelations[] | undefined;
   entityFilter: 'all' | 'deal' | 'buyer';
@@ -22,17 +15,19 @@ interface TaskFiltersInput {
 interface TaskFiltersResult {
   pendingApprovalTasks: DailyStandupTaskWithRelations[];
   approvedTasks: DailyStandupTaskWithRelations[];
+  overdueTasks: DailyStandupTaskWithRelations[];
   todayTasks: DailyStandupTaskWithRelations[];
   futureTasks: DailyStandupTaskWithRelations[];
   completedTasks: DailyStandupTaskWithRelations[];
   snoozedTasks: DailyStandupTaskWithRelations[];
   stats: TaskStats;
   pendingApprovalGroups: TaskGroup[];
+  overdueGroups: TaskGroup[];
   todayGroups: TaskGroup[];
   futureGroups: TaskGroup[];
   completedGroups: TaskGroup[];
   snoozedGroups: TaskGroup[];
-  distinctMeetings: DistinctMeeting[];
+  distinctMeetings: Array<{ id: string; title: string; date: string | null; count: number }>;
 }
 
 export function useTaskFilters({
@@ -72,7 +67,6 @@ export function useTaskFilters({
     return Array.from(seen.entries())
       .map(([id, info]) => ({ id, title: info.title, date: info.date, count: info.count }))
       .sort((a, b) => {
-        // Sort by date descending (newest first), then title
         if (a.date && b.date) return b.date.localeCompare(a.date);
         if (a.date) return -1;
         if (b.date) return 1;
@@ -123,13 +117,21 @@ export function useTaskFilters({
     };
   }, [approvedTasks]);
 
-  // Filter approved tasks into today/future/completed
+  // Overdue — explicitly separated from today
+  const overdueTasks = useMemo(() => {
+    return approvedTasks.filter(
+      (t) => t.status === 'overdue' && t.status !== 'completed' && t.status !== 'snoozed',
+    );
+  }, [approvedTasks]);
+
+  // Today — due today or no date, but NOT overdue
   const todayTasks = useMemo(() => {
     return approvedTasks.filter(
       (t) =>
         t.status !== 'completed' &&
         t.status !== 'snoozed' &&
-        ((t.due_date ?? '') <= today || !t.due_date || t.status === 'overdue'),
+        t.status !== 'overdue' &&
+        ((t.due_date ?? '') <= today || !t.due_date),
     );
   }, [approvedTasks, today]);
 
@@ -157,6 +159,7 @@ export function useTaskFilters({
     () => groupByOwner(pendingApprovalTasks),
     [pendingApprovalTasks],
   );
+  const overdueGroups = useMemo(() => groupByOwner(overdueTasks), [overdueTasks]);
   const todayGroups = useMemo(() => groupByOwner(todayTasks), [todayTasks]);
   const futureGroups = useMemo(() => groupByOwner(futureTasks), [futureTasks]);
   const completedGroups = useMemo(() => groupByOwner(completedTasks), [completedTasks]);
@@ -165,12 +168,14 @@ export function useTaskFilters({
   return {
     pendingApprovalTasks,
     approvedTasks,
+    overdueTasks,
     todayTasks,
     futureTasks,
     completedTasks,
     snoozedTasks,
     stats,
     pendingApprovalGroups,
+    overdueGroups,
     todayGroups,
     futureGroups,
     completedGroups,

@@ -85,20 +85,32 @@ serve(async (req) => {
 
     console.log(`Syncing standup meetings from ${fromDateIso} (${lookbackHours}h lookback)`);
 
-    // Fetch recent transcripts from Fireflies
-    const data = await firefliesGraphQL(
-      `query RecentTranscripts($fromDate: DateTime) {
-        transcripts(fromDate: $fromDate, limit: 50) {
-          id
-          title
-          date
-        }
-      }`,
-      { fromDate: fromDate.toISOString() },
-    );
+    // Fetch recent transcripts from Fireflies. Paginate via skip/limit to
+    // handle teams that hold many meetings in the lookback window.
+    const PAGE_SIZE = 50;
+    const MAX_PAGES = 5; // hard cap: 250 meetings per cron run
+    const allTranscripts: Array<{ id: string; title?: string; date?: string }> = [];
 
-    const transcripts = (data?.transcripts || []).filter((t: { title?: string }) => !!t.title);
-    console.log(`Found ${transcripts.length} recent transcripts`);
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const data = await firefliesGraphQL(
+        `query RecentTranscripts($fromDate: DateTime, $skip: Int, $limit: Int) {
+          transcripts(fromDate: $fromDate, skip: $skip, limit: $limit) {
+            id
+            title
+            date
+          }
+        }`,
+        { fromDate: fromDate.toISOString(), skip: page * PAGE_SIZE, limit: PAGE_SIZE },
+      );
+
+      const pageResults = data?.transcripts || [];
+      if (pageResults.length === 0) break;
+      allTranscripts.push(...pageResults);
+      if (pageResults.length < PAGE_SIZE) break; // last page
+    }
+
+    const transcripts = allTranscripts.filter((t) => !!t.title);
+    console.log(`Found ${transcripts.length} recent transcripts across ${Math.ceil(allTranscripts.length / PAGE_SIZE)} page(s)`);
 
     // Only process meetings with the <ds> standup tag
     const dsTagged = transcripts.filter((t: { title: string }) => hasStandupTag(t.title));

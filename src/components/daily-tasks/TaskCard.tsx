@@ -30,7 +30,6 @@ import {
   Building2,
   Calendar,
   AlarmClock,
-  
   Mail,
   User,
 } from 'lucide-react';
@@ -122,14 +121,14 @@ export function TaskCard({
     },
     staleTime: 60_000,
   });
+
   const undoTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const isOverdue = task.status === 'overdue';
   const isCompleted = task.status === 'completed';
   const isPendingApproval = task.status === 'pending_approval';
-  const isAISource = task.source === 'ai' || task.source === 'chatbot';
 
   const dueDateLabel = (() => {
-    if (!task.due_date) return 'No date';
+    if (!task.due_date) return null;
     const d = parseISO(task.due_date);
     if (isToday(d)) return 'Today';
     if (isTomorrow(d)) return 'Tomorrow';
@@ -207,21 +206,21 @@ export function TaskCard({
 
   return (
     <>
-      {/* ── Compact card: checkbox + title only ── */}
+      {/* ── Compact row: checkbox + title + due + assignee ── */}
       <div
         role="button"
         tabIndex={0}
         onClick={() => setDetailOpen(true)}
         onKeyDown={(e) => e.key === 'Enter' && setDetailOpen(true)}
         className={cn(
-          'group flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all cursor-pointer',
-          isCompleted && 'opacity-60 bg-muted/30',
-          isOverdue && !isCompleted && 'border-red-300 bg-red-50/50',
+          'group flex items-center gap-3 px-3 py-2 rounded-lg border transition-all cursor-pointer',
+          isCompleted && 'opacity-50 bg-muted/30',
+          isOverdue && !isCompleted && 'border-red-200 bg-red-50/40',
           !isCompleted && !isOverdue && 'bg-card hover:shadow-sm border-border',
           justCompleted && 'bg-green-50/50 border-green-300',
         )}
       >
-        {/* Checkbox – only shown for approved tasks */}
+        {/* Checkbox */}
         {!isPendingApproval && (
           <div
             className="flex-shrink-0"
@@ -232,99 +231,71 @@ export function TaskCard({
               checked={isCompleted}
               onCheckedChange={() => handleCheck()}
               disabled={toggleComplete.isPending}
-              className={cn('h-5 w-5', isOverdue && 'border-red-400')}
+              className={cn('h-4.5 w-4.5', isOverdue && 'border-red-400')}
             />
           </div>
         )}
 
-        {/* Title + AI badge */}
+        {/* Priority dot */}
+        {task.priority === 'high' && !isCompleted && (
+          <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" title="High priority" />
+        )}
+
+        {/* Pin indicator */}
+        {task.is_pinned && !isCompleted && (
+          <Pin className="h-3 w-3 text-amber-500 shrink-0" />
+        )}
+
+        {/* Title */}
         <span
           className={cn(
-            'flex-1 text-sm font-medium leading-tight truncate',
+            'flex-1 text-sm leading-tight truncate',
             isCompleted && 'line-through text-muted-foreground',
           )}
         >
           {task.title}
         </span>
 
-        {/* AI source indicator */}
-        {isAISource && isPendingApproval && (
-          <Badge
-            variant="outline"
-            className="shrink-0 text-[9px] px-1.5 py-0 h-4 border-purple-300 text-purple-700 bg-purple-50"
-          >
-            AI Suggested
-          </Badge>
+        {/* Deal name — keep this since it's the most useful context */}
+        {dealName && !isCompleted && (
+          <span className="text-[11px] text-muted-foreground truncate max-w-[140px] shrink-0 hidden md:inline">
+            {dealName}
+          </span>
         )}
 
-        {/* Task category badge */}
-        {task.task_category && task.task_category !== 'deal_task' && (
-          <Badge
-            variant="outline"
-            className={cn('shrink-0 text-[9px] px-1.5 py-0 h-4', TASK_CATEGORY_COLORS[task.task_category as TaskCategory])}
-          >
-            {TASK_CATEGORY_LABELS[task.task_category as TaskCategory]}
-          </Badge>
-        )}
-
-        {/* Carried over indicator */}
-        {task.carried_over && (
-          <Badge
-            variant="outline"
-            className="shrink-0 text-[9px] px-1.5 py-0 h-4 border-amber-300 text-amber-700 bg-amber-50"
-            title={`Carried over ${task.carry_count || 1} time${(task.carry_count || 1) > 1 ? 's' : ''}`}
-          >
-            Carried {task.carry_count || 1}x
-          </Badge>
-        )}
-
-        {/* Source meeting badge */}
-        {task.source_meeting?.meeting_title && (
-          <Badge
-            variant="outline"
-            className="shrink-0 text-[9px] px-1.5 py-0 h-4 border-sky-300 text-sky-700 bg-sky-50 max-w-[160px] truncate"
-            title={task.source_meeting.meeting_title}
-          >
-            {task.source_meeting.meeting_title}
-          </Badge>
-        )}
-
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 text-[11px] shrink-0 tabular-nums',
-            isCompleted
-              ? 'text-muted-foreground'
-              : isOverdue || (isDuePast && !isCompleted)
-                ? 'text-red-600 font-medium'
-                : 'text-muted-foreground',
-          )}
-        >
-          <Calendar className="h-3 w-3" />
-          {dueDateLabel}
-        </span>
-
-        {/* Overdue badge */}
-        {isOverdue && !isCompleted && (
-          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 shrink-0">
-            Overdue
-          </Badge>
-        )}
-
-        {/* Pin indicator */}
-        {task.is_pinned && !isCompleted && <Pin className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
-
-        {/* Tag pills */}
-        {task.tags && task.tags.length > 0 && (
-          <div className="flex items-center gap-1 shrink-0">
-            {task.tags.slice(0, 2).map((tag) => (
-              <Badge key={tag} variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-slate-50">
-                {tag}
-              </Badge>
-            ))}
-            {task.tags.length > 2 && (
-              <span className="text-[9px] text-muted-foreground">+{task.tags.length - 2}</span>
+        {/* Due date */}
+        {dueDateLabel && (
+          <span
+            className={cn(
+              'text-[11px] shrink-0 tabular-nums',
+              isCompleted
+                ? 'text-muted-foreground'
+                : isOverdue || (isDuePast && !isCompleted)
+                  ? 'text-red-600 font-medium'
+                  : 'text-muted-foreground',
             )}
+          >
+            {dueDateLabel}
+          </span>
+        )}
+
+        {/* Assignee initial */}
+        {assigneeName && (
+          <div
+            className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0"
+            title={assigneeName}
+          >
+            <span className="text-[10px] font-medium text-primary">
+              {assigneeName.charAt(0).toUpperCase()}
+            </span>
           </div>
+        )}
+
+        {/* Created date - subtle */}
+        {task.created_at && !isCompleted && (
+          <span className="text-[10px] text-muted-foreground/60 shrink-0 hidden lg:inline tabular-nums">
+            {format(new Date(task.created_at), 'M/d')}
+          </span>
         )}
 
         {/* Undo inline */}
@@ -514,12 +485,30 @@ export function TaskCard({
                 <p className="text-xs text-muted-foreground mb-1">Due</p>
                 <span className={cn('text-sm', isOverdue && 'text-red-600 font-medium')}>
                   {task.due_date
-                    ? formatDistanceToNow(new Date(task.due_date + 'T23:59:59'), {
-                        addSuffix: true,
-                      })
+                    ? `${format(parseISO(task.due_date), 'MMM d, yyyy')} (${formatDistanceToNow(new Date(task.due_date + 'T23:59:59'), { addSuffix: true })})`
                     : 'No due date'}
                 </span>
               </div>
+
+              {/* Created date */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Created</p>
+                <span className="text-sm">
+                  {task.created_at
+                    ? `${format(new Date(task.created_at), 'MMM d, yyyy')} (${formatDistanceToNow(new Date(task.created_at), { addSuffix: true })})`
+                    : 'Unknown'}
+                </span>
+              </div>
+
+              {/* Completed date */}
+              {isCompleted && task.completed_at && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Completed</p>
+                  <span className="text-sm text-green-700">
+                    {format(new Date(task.completed_at), 'MMM d, yyyy')} ({formatDistanceToNow(new Date(task.completed_at), { addSuffix: true })})
+                  </span>
+                </div>
+              )}
 
               {/* Priority */}
               {task.priority_rank && (
@@ -537,6 +526,20 @@ export function TaskCard({
                 </div>
               )}
             </div>
+
+            {/* Tags — shown in detail only */}
+            {task.tags && task.tags.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5">Tags</p>
+                <div className="flex flex-wrap gap-1">
+                  {task.tags.map((tag) => (
+                    <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-slate-50">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Seller contact inline — for Contact Owner tasks */}
             {isContactOwner && sellerContact && (
@@ -585,19 +588,6 @@ export function TaskCard({
               </div>
             )}
 
-            {/* Transcript link */}
-            {task.source_meeting?.transcript_url && (
-              <a
-                href={task.source_meeting.transcript_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                View Standup Transcript
-              </a>
-            )}
-
             {/* Source meeting */}
             {task.source_meeting && (
               <div className="rounded-md bg-sky-50 border border-sky-200 px-3 py-2 space-y-0.5">
@@ -616,14 +606,22 @@ export function TaskCard({
                     })()}
                   </p>
                 )}
-                {task.source_timestamp && (
-                  <p className="text-xs text-sky-600">Timestamp: {task.source_timestamp}</p>
+                {task.source_meeting.transcript_url && (
+                  <a
+                    href={task.source_meeting.transcript_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 mt-1"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    View Transcript
+                  </a>
                 )}
               </div>
             )}
 
             {/* AI source + confidence indicator */}
-            {isAISource && (
+            {(task.source === 'ai' || task.source === 'chatbot') && (
               <div className="rounded-md bg-purple-50 border border-purple-200 px-3 py-2">
                 <p className="text-xs text-purple-800">
                   <span className="font-medium">AI-generated task</span>

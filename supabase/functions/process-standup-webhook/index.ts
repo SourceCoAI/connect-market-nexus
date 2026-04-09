@@ -118,14 +118,17 @@ serve(async (req) => {
       // === Path A: <ds>-tagged standup or force_process — existing standup extraction ===
       console.log(`Processing <ds> meeting: "${meetingTitle}" (${transcriptId})${forceProcess ? ' [force_process]' : ''}`);
 
-      // Check if we've already processed this transcript
+      // Check if we've already processed this transcript. The real dedup guarantee
+      // comes from the unique constraint on standup_meetings.fireflies_transcript_id
+      // enforced inside extract-standup-tasks — this check is just a fast-path to
+      // avoid calling the extraction function when we know it'll no-op.
       const { data: existing } = await supabase
         .from('standup_meetings')
         .select('id')
         .eq('fireflies_transcript_id', transcriptId)
         .maybeSingle();
 
-      if (existing) {
+      if (existing && !forceProcess) {
         console.log(`Transcript ${transcriptId} already processed as meeting ${existing.id}`);
         return new Response(
           JSON.stringify({

@@ -31,6 +31,11 @@ serve(async (req) => {
 
     console.log('Sending task notification email to:', assignee_email);
 
+    // Read app base URL from env (set by deployment), with a fallback to the
+    // production URL. This allows staging/dev to send emails with correct links.
+    const appBaseUrl =
+      Deno.env.get('APP_BASE_URL') || 'https://marketplace.sourcecodeals.com';
+
     const dueDateFormatted = task_due_date
       ? new Date(task_due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
       : null;
@@ -47,13 +52,17 @@ serve(async (req) => {
           ${task_description ? `<p style="margin: 12px 0 0; font-size: 14px; color: #6B6B6B;">${task_description}</p>` : ''}
         </div>
         <div style="text-align: center; margin: 28px 0;">
-          <a href="https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${deal_id}&tab=tasks" style="display: inline-block; padding: 14px 28px; background-color: #000000; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600;">View Task in Pipeline</a>
-        </div>`,
+          <a href="${appBaseUrl}/admin/deals/pipeline?deal=${deal_id}&tab=tasks" style="display: inline-block; padding: 14px 28px; background-color: #000000; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600;">View Task in Pipeline</a>
+        </div>
+        <p style="margin: 24px 0 0; font-size: 11px; color: #9B9B9B; text-align: center;">
+          You're receiving this because a task was assigned to you in SourceCo.
+          <a href="${appBaseUrl}/admin/settings/notifications" style="color: #9B9B9B; text-decoration: underline;">Manage notification preferences</a>
+        </p>`,
       preheader: `New task assigned: ${task_title}`,
       recipientEmail: assignee_email,
     });
 
-    const textContent = `Hi ${assignee_name},\n\n${assigner_name} has assigned you a new task:\n\nTask: ${task_title}\nPriority: ${task_priority.toUpperCase()}\n${task_description ? `Description: ${task_description}\n` : ''}Deal: ${deal_title}\n${dueDateFormatted ? `Due Date: ${dueDateFormatted}\n` : ''}\nView this task: https://marketplace.sourcecodeals.com/admin/deals/pipeline?deal=${deal_id}&tab=tasks`;
+    const textContent = `Hi ${assignee_name},\n\n${assigner_name} has assigned you a new task:\n\nTask: ${task_title}\nPriority: ${task_priority.toUpperCase()}\n${task_description ? `Description: ${task_description}\n` : ''}Deal: ${deal_title}\n${dueDateFormatted ? `Due Date: ${dueDateFormatted}\n` : ''}\nView this task: ${appBaseUrl}/admin/deals/pipeline?deal=${deal_id}&tab=tasks`;
 
     const result = await sendEmail({
       templateName: 'task_notification',

@@ -1002,6 +1002,72 @@ async function loadTeamMembers(supabase: ReturnType<typeof createClient>): Promi
   );
 }
 
+// Common English nicknames ↔ formal first names, used as fallback when
+// Fireflies speaker names don't match profile first names directly.
+const NICKNAME_MAP: Record<string, string[]> = {
+  william: ['bill', 'billy', 'will', 'willy'],
+  robert: ['bob', 'bobby', 'rob', 'robby'],
+  richard: ['rick', 'ricky', 'dick', 'rich'],
+  michael: ['mike', 'mikey', 'mick'],
+  james: ['jim', 'jimmy', 'jamie'],
+  john: ['johnny', 'jack', 'jon'],
+  charles: ['charlie', 'chuck', 'chaz'],
+  thomas: ['tom', 'tommy'],
+  christopher: ['chris', 'topher'],
+  daniel: ['dan', 'danny'],
+  joseph: ['joe', 'joey'],
+  anthony: ['tony'],
+  matthew: ['matt', 'matty'],
+  andrew: ['andy', 'drew'],
+  david: ['dave', 'davey'],
+  edward: ['ed', 'eddie', 'ted', 'ned'],
+  nicholas: ['nick', 'nicky'],
+  benjamin: ['ben', 'benny'],
+  samuel: ['sam', 'sammy'],
+  alexander: ['alex', 'al', 'xander'],
+  jonathan: ['jon', 'john'],
+  kenneth: ['ken', 'kenny'],
+  gerald: ['jerry'],
+  timothy: ['tim', 'timmy'],
+  frederick: ['fred', 'freddy'],
+  lawrence: ['larry'],
+  patrick: ['pat', 'paddy'],
+  elizabeth: ['liz', 'beth', 'betsy', 'eliza', 'lizzy'],
+  katherine: ['kate', 'katie', 'kathy', 'kat'],
+  margaret: ['maggie', 'meg', 'peggy'],
+  jennifer: ['jen', 'jenny'],
+  jessica: ['jess', 'jessie'],
+  rebecca: ['becky', 'becca'],
+  stephanie: ['steph', 'steff'],
+  christina: ['chris', 'tina', 'christy'],
+  victoria: ['vicky', 'tori'],
+  alexandra: ['alex', 'sandra', 'lexi'],
+  samantha: ['sam', 'sammy'],
+  deborah: ['deb', 'debbie'],
+  patricia: ['pat', 'patty', 'tricia'],
+  barbara: ['barb', 'barbie'],
+  susan: ['sue', 'susie'],
+  nathaniel: ['nate', 'nat'],
+  theodore: ['ted', 'teddy'],
+};
+
+/** Build reverse lookup: nickname → formal name */
+function buildNicknameReverseMap(): Map<string, string[]> {
+  const reverse = new Map<string, string[]>();
+  for (const [formal, nicknames] of Object.entries(NICKNAME_MAP)) {
+    for (const nick of nicknames) {
+      if (!reverse.has(nick)) reverse.set(nick, []);
+      reverse.get(nick)!.push(formal);
+    }
+    // Also map formal to itself
+    if (!reverse.has(formal)) reverse.set(formal, []);
+    reverse.get(formal)!.push(formal);
+  }
+  return reverse;
+}
+
+const _nicknameReverseMap = buildNicknameReverseMap();
+
 function matchAssignee(name: string, teamMembers: TeamMember[]): string | null {
   if (!name || name === 'Unassigned') return null;
 
@@ -1053,6 +1119,33 @@ function matchAssignee(name: string, teamMembers: TeamMember[]): string | null {
       }
     }
   }
+
+  // Pass 5: nickname matching — "Bill" → "William", "Liz" → "Elizabeth"
+  // Extract just the first word of the speaker name for nickname lookup
+  const firstWord = lower.split(/\s+/)[0];
+  const formalNames = _nicknameReverseMap.get(firstWord);
+  if (formalNames && formalNames.length > 0) {
+    for (const formal of formalNames) {
+      for (const m of teamMembers) {
+        if (m.first_name.toLowerCase() === formal) {
+          return m.id;
+        }
+      }
+    }
+  }
+
+  // Pass 6: reverse — team member has nickname as first name, speaker uses formal name
+  const possibleNicknames = NICKNAME_MAP[firstWord];
+  if (possibleNicknames) {
+    for (const nick of possibleNicknames) {
+      for (const m of teamMembers) {
+        if (m.first_name.toLowerCase() === nick) {
+          return m.id;
+        }
+      }
+    }
+  }
+
   return null;
 }
 
@@ -1326,25 +1419,30 @@ async function processSingleMeeting(
     task.title = standardizeTaskTitle(task.title, task.deal_reference);
   }
 
-  // Filter: only keep deal/buyer-related tasks with a real deal reference
-  const preFilterCount = extractedTasks.length;
-  extractedTasks = extractedTasks.filter((task) => {
-    // Drop non-deal categories
-    if (task.task_category === 'platform_task' || task.task_category === 'operations_task') {
-      return false;
+  // Mark non-deal tasks and unlinked tasks for human review instead of dropping them.
+  // This prevents silent data loss — admins can review and either approve or dismiss.
+  let flaggedForReviewCount = 0;
+  for (const task of extractedTasks) {
+    const isNonDealCategory =
+      task.task_category === 'platform_task' || task.task_category === 'operations_task';
+    const missingDealRef = !task.deal_reference;
+
+    if (isNonDealCategory || missingDealRef) {
+      // Force low confidence so these end up in pending_approval queue
+      task.confidence = 'low';
+      flaggedForReviewCount++;
     }
-    // Require a deal_reference for ALL tasks — no generic tasks without a deal/company
-    if (!task.deal_reference) {
-      return false;
-    }
-    return true;
-  });
-  const droppedCount = preFilterCount - extractedTasks.length;
-  if (droppedCount > 0) {
-    console.log(`[filter] Dropped ${droppedCount} non-deal tasks (kept ${extractedTasks.length})`);
+  }
+  if (flaggedForReviewCount > 0) {
+    console.log(
+      `[filter] Flagged ${flaggedForReviewCount} tasks for review (non-deal or missing deal reference)`,
+    );
   }
 
-  // Create standup meeting record
+  // Create standup meeting record. The fireflies_transcript_id has a unique
+  // constraint, so concurrent webhook deliveries for the same transcript will
+  // cause one of the inserts to fail with 23505. In that case, we bail out and
+  // let the first-writer's tasks stand.
   const { data: meeting, error: meetingError } = await supabase
     .from('standup_meetings')
     .insert({
@@ -1368,7 +1466,34 @@ async function processSingleMeeting(
     .select()
     .single();
 
-  if (meetingError) throw meetingError;
+  if (meetingError) {
+    // Duplicate fireflies_transcript_id — another worker got here first. Bail out
+    // cleanly so we don't double-insert tasks.
+    if (meetingError.code === '23505' || meetingError.message?.includes('duplicate')) {
+      console.log(
+        `[dedup] Another worker already processed transcript ${firefliesId}, skipping`,
+      );
+      const { data: winner } = await supabase
+        .from('standup_meetings')
+        .select('id')
+        .eq('fireflies_transcript_id', firefliesId)
+        .maybeSingle();
+      return {
+        meeting_id: winner?.id || '',
+        fireflies_id: firefliesId,
+        meeting_title: meetingTitle,
+        tasks_extracted: 0,
+        tasks_unassigned: 0,
+        tasks_needing_review: 0,
+        tasks_deduplicated: 0,
+        tasks_carried_over: 0,
+        tasks: [],
+        skipped: true,
+        skip_reason: 'Race: already processed by another worker',
+      };
+    }
+    throw meetingError;
+  }
 
   // Create task records with priority scoring + dedup
   const taskRecords = [];
@@ -1576,8 +1701,9 @@ serve(async (req) => {
       }
     }
 
-    // Check auto-approve setting from app_settings table
-    let autoApproveEnabled = true;
+    // Check auto-approve setting from app_settings table.
+    // Default is FALSE — AI tasks should require human review before going active.
+    let autoApproveEnabled = false;
     const { data: autoApproveSetting } = await supabase
       .from('app_settings')
       .select('value')

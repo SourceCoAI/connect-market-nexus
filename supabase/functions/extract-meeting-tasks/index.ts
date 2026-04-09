@@ -206,6 +206,29 @@ serve(async (req) => {
       );
     }
 
+    // Dedup: check if this transcript has already been processed.
+    // We track previous extractions by looking for tasks with a matching
+    // generation_source + metadata tag pointing at this transcript.
+    const transcriptTag = `meeting_transcript:${resolvedTranscript.id}`;
+    const { data: existingExtraction } = await supabase
+      .from('daily_standup_tasks')
+      .select('id')
+      .eq('generation_source', 'meeting_transcript')
+      .eq('deal_reference', transcriptTag)
+      .limit(1);
+
+    if (existingExtraction && existingExtraction.length > 0) {
+      console.log(`Transcript ${transcript_id} already has extracted tasks, skipping`);
+      return new Response(
+        JSON.stringify({
+          message: 'Transcript already processed',
+          tasks_created: 0,
+          skipped: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // Extract tasks using AI
     const today = new Date().toISOString().split('T')[0];
     const extractedTasks = await extractTasksWithAI(transcriptText, today);
@@ -254,7 +277,8 @@ serve(async (req) => {
           title: task.title,
           description: task.description,
           task_type: task.task_type,
-          status: 'pending',
+          // AI-extracted tasks require human review before going active
+          status: 'pending_approval',
           priority: task.confidence === 'high' ? 'high' : 'medium',
           due_date: task.due_date,
           deal_id: effectiveDealId,
@@ -263,7 +287,11 @@ serve(async (req) => {
           assignee_id: assigneeId,
           auto_generated: true,
           generation_source: 'meeting_transcript',
-          source: 'system',
+          source: 'ai',
+          // Tag with transcript id for dedup on future runs
+          deal_reference: transcriptTag,
+          extraction_confidence: task.confidence,
+          needs_review: !assigneeId || task.confidence === 'low',
         })
         .select('id')
         .single();

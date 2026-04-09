@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,9 +19,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import { useAddManualTask } from '@/hooks/useDailyTasks';
+import { useAddEntityTask } from '@/hooks/useTaskActions';
 import { useExistingTags } from '@/hooks/useTaskTags';
 import { useTeamMembers } from '@/hooks/use-team-members';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { getLocalDateString } from '@/lib/utils';
 import { TASK_TYPE_OPTIONS } from '@/types/daily-tasks';
 import { TagInput } from './TagInput';
@@ -33,19 +35,55 @@ interface AddTaskDialogProps {
   teamMembers?: { id: string; name: string }[];
 }
 
+function useDealList() {
+  return useQuery({
+    queryKey: ['add-task-deal-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('deal_pipeline')
+        .select('id, listing_id, listings(title, internal_company_name)')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data || []) as Array<{
+        id: string;
+        listing_id: string;
+        listings: { title: string | null; internal_company_name: string | null } | null;
+      }>;
+    },
+    staleTime: 60_000,
+  });
+}
+
 export function AddTaskDialog({ open, onOpenChange, teamMembers: teamMembersProp }: AddTaskDialogProps) {
-  const addTask = useAddManualTask();
+  const addTask = useAddEntityTask();
   const { toast } = useToast();
   const { data: existingTags } = useExistingTags();
   const { data: fetchedMembers } = useTeamMembers();
+  const { data: deals } = useDealList();
   const teamMembers = teamMembersProp?.length ? teamMembersProp : fetchedMembers || [];
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [taskType, setTaskType] = useState<TaskType>('other');
   const [dueDate, setDueDate] = useState(getLocalDateString());
-  const [dealReference, setDealReference] = useState('');
+  const [dealId, setDealId] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+
+  const dealList = useMemo(() => {
+    if (!deals) return [];
+    return deals
+      .map((d) => ({
+        id: d.id,
+        name: d.listings?.internal_company_name || d.listings?.title || d.id.slice(0, 8),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [deals]);
+
+  const effectiveDealId = dealId && dealId !== '__none__' ? dealId : '';
+  const selectedDeal = deals?.find((d) => d.id === effectiveDealId);
+  const dealName = selectedDeal?.listings?.internal_company_name || selectedDeal?.listings?.title || null;
 
   const handleSubmit = async () => {
     if (!title.trim()) return;
@@ -57,8 +95,10 @@ export function AddTaskDialog({ open, onOpenChange, teamMembers: teamMembersProp
         assignee_id: assigneeId || null,
         task_type: taskType,
         due_date: dueDate,
-        deal_reference: dealReference.trim() || null,
-        deal_id: null,
+        entity_type: 'deal',
+        entity_id: effectiveDealId || undefined as unknown as string,
+        deal_id: effectiveDealId || null,
+        deal_reference: dealName,
         tags,
       });
 
@@ -68,7 +108,7 @@ export function AddTaskDialog({ open, onOpenChange, teamMembers: teamMembersProp
       setAssigneeId('');
       setTaskType('other');
       setDueDate(getLocalDateString());
-      setDealReference('');
+      setDealId('');
       setTags([]);
       onOpenChange(false);
     } catch (err) {
@@ -84,7 +124,7 @@ export function AddTaskDialog({ open, onOpenChange, teamMembers: teamMembersProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add Manual Task</DialogTitle>
+          <DialogTitle>Add Task</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -155,13 +195,20 @@ export function AddTaskDialog({ open, onOpenChange, teamMembers: teamMembersProp
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dealRef">Deal Reference</Label>
-              <Input
-                id="dealRef"
-                value={dealReference}
-                onChange={(e) => setDealReference(e.target.value)}
-                placeholder="Company name"
-              />
+              <Label>Link to Deal</Label>
+              <Select value={dealId} onValueChange={setDealId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="None (general task)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None (general task)</SelectItem>
+                  {dealList.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

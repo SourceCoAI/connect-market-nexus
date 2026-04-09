@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -21,6 +23,7 @@ import {
   ClipboardList,
   Building2,
   ShieldAlert,
+  ChevronLeft,
 } from 'lucide-react';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -28,6 +31,9 @@ import { TASK_TYPE_LABELS, TASK_TYPE_COLORS, TASK_STATUS_LABELS } from '@/types/
 import type { DailyStandupTaskWithRelations } from '@/types/daily-tasks';
 import { useStandupMeetings } from '@/hooks/useStandupMeetings';
 import type { StandupMeetingWithTasks } from '@/hooks/useStandupMeetings';
+import { useToggleTaskComplete, useApproveTask } from '@/hooks/useDailyTasks';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { getStatusColor } from './utils';
 
 // ─── Standup Tracker Helpers ───
@@ -40,6 +46,12 @@ function formatMeetingDate(dateStr: string): string {
 }
 
 function StandupTaskRow({ task }: { task: DailyStandupTaskWithRelations }) {
+  const toggleComplete = useToggleTaskComplete();
+  const approveTask = useApproveTask();
+  const { toast } = useToast();
+  const { teamRole } = useAuth();
+  const isLeadership = teamRole === 'owner' || teamRole === 'admin';
+
   const assigneeName = task.assignee
     ? `${task.assignee.first_name || ''} ${task.assignee.last_name || ''}`.trim()
     : 'Unassigned';
@@ -47,6 +59,33 @@ function StandupTaskRow({ task }: { task: DailyStandupTaskWithRelations }) {
   const isPendingApproval = task.status === 'pending_approval';
   const dealName =
     task.deal?.listings?.internal_company_name || task.deal?.listings?.title || task.deal_reference;
+
+  const handleToggleComplete = () => {
+    toggleComplete.mutate(
+      { taskId: task.id, completed: !isCompleted },
+      {
+        onError: (err) =>
+          toast({
+            title: 'Failed to update task',
+            description: err instanceof Error ? err.message : 'Unknown error',
+            variant: 'destructive',
+          }),
+      },
+    );
+  };
+
+  const handleApprove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    approveTask.mutate(task.id, {
+      onSuccess: () => toast({ title: 'Task approved' }),
+      onError: (err) =>
+        toast({
+          title: 'Failed to approve task',
+          description: err instanceof Error ? err.message : 'Unknown error',
+          variant: 'destructive',
+        }),
+    });
+  };
 
   return (
     <div
@@ -59,14 +98,19 @@ function StandupTaskRow({ task }: { task: DailyStandupTaskWithRelations }) {
             : 'bg-card',
       )}
     >
-      {isCompleted ? (
-        <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-      ) : task.status === 'overdue' ? (
-        <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
-      ) : isPendingApproval ? (
+      {isPendingApproval ? (
         <ShieldAlert className="h-4 w-4 text-amber-500 shrink-0" />
       ) : (
-        <div className="h-4 w-4 rounded-full border-2 border-gray-300 shrink-0" />
+        <Checkbox
+          checked={isCompleted}
+          onCheckedChange={handleToggleComplete}
+          disabled={toggleComplete.isPending}
+          className="h-4 w-4 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        />
+      )}
+      {task.status === 'overdue' && !isPendingApproval && (
+        <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />
       )}
       <span
         className={cn(
@@ -76,6 +120,18 @@ function StandupTaskRow({ task }: { task: DailyStandupTaskWithRelations }) {
       >
         {task.title}
       </span>
+      {isPendingApproval && isLeadership && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleApprove}
+          disabled={approveTask.isPending}
+          className="h-6 text-[10px] px-2 gap-1 text-green-700 border-green-300 hover:bg-green-50 shrink-0"
+        >
+          <CheckCircle2 className="h-3 w-3" />
+          Approve
+        </Button>
+      )}
       {dealName && (
         <Badge
           variant="outline"
@@ -310,9 +366,17 @@ function StandupMeetingCard({ meeting }: { meeting: StandupMeetingWithTasks }) {
   );
 }
 
+const MEETINGS_PER_PAGE = 20;
+
 export function StandupsTabContent() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: meetings, isLoading, error } = useStandupMeetings();
+  const [page, setPage] = useState(0);
+  const { data: meetings, isLoading, error } = useStandupMeetings({
+    limit: MEETINGS_PER_PAGE,
+    offset: page * MEETINGS_PER_PAGE,
+  });
+  const hasMore = (meetings?.length ?? 0) >= MEETINGS_PER_PAGE;
+  const hasPrev = page > 0;
 
   const standupStats = useMemo(() => {
     if (!meetings || meetings.length === 0)
@@ -465,6 +529,33 @@ export function StandupsTabContent() {
               ))}
             </div>
           ))}
+
+          {/* Pagination */}
+          {(hasMore || hasPrev) && !searchQuery && (
+            <div className="flex items-center justify-between pt-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={!hasPrev}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Page {page + 1}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={!hasMore}
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

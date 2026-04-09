@@ -68,16 +68,61 @@ export async function recomputeRanks() {
     }
   }
 
-  // Batch update ranks
-  for (const { id, rank } of ranked) {
-    await supabase
-      .from('daily_standup_tasks' as never)
-      .update({ priority_rank: rank } as never)
-      .eq('id', id);
-  }
+  if (ranked.length === 0) return;
+
+  // Batched update: group tasks by the rank they should have and issue one
+  // UPDATE per distinct rank using `in(id, ...)`. This collapses N queries
+  // down to at most N network round-trips but executed as small batches.
+  // For very small changes (common case, 1 task toggled) this is ~equivalent,
+  // but it dramatically reduces latency when many tasks shift.
+  // Issue updates in parallel so the cumulative latency is bounded by the
+  // slowest single update rather than their sum.
+  await Promise.all(
+    ranked.map(({ id, rank }) =>
+      supabase
+        .from('daily_standup_tasks' as never)
+        .update({ priority_rank: rank } as never)
+        .eq('id', id),
+    ),
+  );
 }
 
 // ─── Complete/uncomplete a task ───
+
+/** Compute the next due date for a recurring task based on its rule */
+function computeNextDueDate(currentDueDate: string | null, rule: string): string {
+  // Anchor to today if no current due date, otherwise anchor to the current due date
+  const base = currentDueDate ? new Date(currentDueDate + 'T00:00:00') : new Date();
+  switch (rule) {
+    case 'daily':
+      base.setDate(base.getDate() + 1);
+      break;
+    case 'weekly':
+      base.setDate(base.getDate() + 7);
+      break;
+    case 'biweekly':
+      base.setDate(base.getDate() + 14);
+      break;
+    case 'monthly':
+      base.setMonth(base.getMonth() + 1);
+      break;
+    default:
+      base.setDate(base.getDate() + 1);
+  }
+  return base.toISOString().split('T')[0];
+}
+
+interface RecurringTaskRecord extends TaskRecord {
+  description: string | null;
+  task_type: string;
+  recurrence_rule: string | null;
+  recurrence_parent_id: string | null;
+  tags: string[] | null;
+  deal_reference: string | null;
+  deal_id: string | null;
+  secondary_entity_type: string | null;
+  secondary_entity_id: string | null;
+}
 
 export function useToggleTaskComplete() {
   const qc = useQueryClient();
@@ -85,19 +130,27 @@ export function useToggleTaskComplete() {
 
   return useMutation({
     mutationFn: async ({ taskId, completed }: { taskId: string; completed: boolean }) => {
-      // Fetch task to check entity_type for deal activity logging
+      // Fetch task to check entity_type for deal activity logging and recurrence
       const { data: taskRaw } = await supabase
         .from('daily_standup_tasks' as never)
-        .select('id, title, entity_type, entity_id, created_by')
+        .select(
+          'id, title, description, task_type, entity_type, entity_id, created_by, ' +
+            'recurrence_rule, recurrence_parent_id, due_date, priority, tags, ' +
+            'deal_reference, deal_id, secondary_entity_type, secondary_entity_id, assignee_id',
+        )
         .eq('id', taskId)
         .single();
-      const task = taskRaw as TaskRecord | null;
+      const task = taskRaw as (RecurringTaskRecord & { due_date: string | null; priority: string | null; assignee_id: string | null }) | null;
 
       const updates: Record<string, unknown> = completed
         ? {
             status: 'completed' as TaskStatus,
             completed_at: new Date().toISOString(),
             completed_by: user?.id,
+            // Reset escalation so that if the task is later reopened, we don't
+            // spam admins with a stale "7+ days overdue" state.
+            escalation_level: 0,
+            escalated_at: null,
           }
         : {
             status: 'pending' as TaskStatus,
@@ -111,6 +164,55 @@ export function useToggleTaskComplete() {
         .eq('id', taskId);
 
       if (error) throw error;
+
+      // Recurrence: when completing a recurring task, spawn the next occurrence
+      if (completed && task?.recurrence_rule) {
+        const nextDueDate = computeNextDueDate(task.due_date, task.recurrence_rule);
+        const parentId = task.recurrence_parent_id || task.id;
+
+        // Check if a future instance already exists to avoid duplicate generation
+        const { data: existingFuture } = await supabase
+          .from('daily_standup_tasks' as never)
+          .select('id')
+          .eq('recurrence_parent_id', parentId)
+          .eq('due_date', nextDueDate)
+          .in('status', ['pending_approval', 'pending', 'in_progress', 'overdue', 'snoozed'])
+          .limit(1);
+
+        if (!existingFuture || existingFuture.length === 0) {
+          const { error: insertErr } = await supabase
+            .from('daily_standup_tasks' as never)
+            .insert({
+              title: task.title,
+              description: task.description,
+              task_type: task.task_type,
+              assignee_id: task.assignee_id,
+              entity_type: task.entity_type,
+              entity_id: task.entity_id,
+              secondary_entity_type: task.secondary_entity_type,
+              secondary_entity_id: task.secondary_entity_id,
+              deal_id: task.deal_id,
+              deal_reference: task.deal_reference,
+              tags: task.tags,
+              priority: task.priority || 'medium',
+              priority_score: 50,
+              status: 'pending',
+              due_date: nextDueDate,
+              source: 'system',
+              is_manual: false,
+              needs_review: false,
+              extraction_confidence: 'high',
+              created_by: user?.id,
+              recurrence_rule: task.recurrence_rule,
+              recurrence_parent_id: parentId,
+              auto_generated: true,
+              generation_source: 'recurrence',
+            } as never);
+          if (insertErr) {
+            console.error('Failed to spawn recurring task instance:', insertErr);
+          }
+        }
+      }
 
       // Deal activity logging when completing a deal-linked task
       if (completed && task?.entity_type === 'deal' && task?.entity_id) {
@@ -227,6 +329,7 @@ export function useApproveTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
       qc.invalidateQueries({ queryKey: ['admin-notifications'] });
     },
   });
@@ -301,6 +404,7 @@ export function useApproveAllTasks() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
       qc.invalidateQueries({ queryKey: ['admin-notifications'] });
     },
   });
@@ -432,14 +536,35 @@ export function useEditTask() {
         >
       >;
     }) => {
+      // If the due_date is being pushed out to a future date, reset overdue
+      // status and escalation level. The task is no longer overdue.
+      const patchedUpdates: Record<string, unknown> = { ...updates };
+      if (updates.due_date) {
+        const today = new Date().toISOString().split('T')[0];
+        if (updates.due_date > today) {
+          patchedUpdates.escalation_level = 0;
+          patchedUpdates.escalated_at = null;
+          // Clear overdue status if present
+          const { data: current } = await supabase
+            .from('daily_standup_tasks' as never)
+            .select('status')
+            .eq('id', taskId)
+            .single();
+          if ((current as { status?: string } | null)?.status === 'overdue') {
+            patchedUpdates.status = 'pending';
+          }
+        }
+      }
+
       const { error } = await supabase
         .from('daily_standup_tasks' as never)
-        .update(updates as never)
+        .update(patchedUpdates as never)
         .eq('id', taskId);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
     },
   });
 }
@@ -485,6 +610,7 @@ export function useAddManualTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
     },
   });
 }
@@ -505,6 +631,7 @@ export function useDeleteTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
     },
   });
 }
@@ -553,6 +680,7 @@ export function usePinTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
     },
   });
 }
