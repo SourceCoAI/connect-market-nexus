@@ -1,364 +1,346 @@
-# Pipeline Use Cases Audit — 2026-04-09
+# Deal Pipeline Use Cases Audit — 2026-04-09
 
-Inventory of every "pipeline" concept in connect-market-nexus: what
-pipelines exist, who uses them, how they interact, and where the wiring
-is incomplete. Scope is deliberately descriptive; remediation is listed
-but not prescribed.
+Focused audit of the **admin Deal Pipeline** — the Kanban/list/table
+workspace at `src/pages/admin/AdminPipeline.tsx` — and the two funnels
+that feed it: **marketplace connection requests** and **approved buyer
+introductions**. Scope is intentionally narrow: the portal push
+pipeline and the generic back-end enrichment executor are mentioned
+only where they touch deal_pipeline.
 
-## Summary
+## TL;DR
 
-The codebase uses the word *pipeline* for five distinct things. Three are
-user-facing workflows, one is a metadata enum that is almost unused, and
-one is a back-end data-enrichment executor. The three user-facing
-pipelines are largely independent: there is only one automatic sync
-trigger between any pair of them, and one planned-but-unimplemented
-handoff from portal to deal pipeline.
+The deal pipeline has **three independent insert paths** that produce
+`deal_pipeline` rows with **three different default probabilities**,
+**three different stage-lookup strategies**, and **three different
+title formats**. Two of them (the admin-approval trigger chain and the
+buyer-intro JS path) still hardcode stage names that no longer exist
+in the seed. A Phase 4 migration introduced an RPC
+(`create_pipeline_deal`) that was meant to unify the marketplace
+path, but the only caller of that RPC is the portal flow — the admin
+approval path still goes through the legacy trigger chain. The
+transition note in that migration explicitly asks for a follow-up
+drop; that follow-up has not shipped.
 
-| # | Pipeline | Kind | Primary table(s) | Users |
-|---|----------|------|------------------|-------|
-| 1 | Deal Pipeline | Workflow (Kanban/List/Table) | `deal_pipeline`, `deal_stages`, `deals` | Admins |
-| 2 | Buyer Introduction Pipeline | Workflow (Kanban) | `buyer_introductions`, `introduction_status_log` | Admins |
-| 3 | Portal Deal Push Pipeline | Workflow (distribution + response) | `portal_deal_pushes`, `portal_deal_responses` | Admins + portal users |
-| 4 | Listing Pipeline Status | Metadata enum | (enum only, `ListingPipelineStatus`) | System (mostly dormant) |
-| 5 | Enrichment Pipeline | Back-end step executor | `supabase/functions/_shared/enrichment/pipeline.ts` | System (async) |
+## 1. The Deal Pipeline itself
 
-## 1. Deal Pipeline (admin-facing deal flow)
-
-### What it is
-The primary admin tool for moving individual deals through sales
-stages. A deal has exactly one stage at a time. Stages are stored as
-rows in `deal_stages` (ordered by `position`), and deals reference them
-via `deals.stage_id` (denormalised) and `deal_pipeline.stage_id`.
-
-### Code map
-- `src/components/admin/pipeline/PipelineShell.tsx` — top-level page shell
+### Code
+- `src/pages/admin/AdminPipeline.tsx` — route
+- `src/components/admin/pipeline/PipelineShell.tsx` — page shell
 - `src/components/admin/pipeline/PipelineWorkspace.tsx` — view switcher
 - `src/components/admin/pipeline/views/PipelineKanbanView.tsx`
 - `src/components/admin/pipeline/views/PipelineListView.tsx`
 - `src/components/admin/pipeline/views/PipelineTableView.tsx`
 - `src/components/admin/pipeline/PipelineDetailPanel.tsx` (+ `tabs/`)
-- `src/components/admin/pipeline/PipelineFilterPanel.tsx`, `PipelineHeader.tsx`
-- `src/hooks/admin/use-pipeline-core.ts` — `ViewMode = 'kanban' | 'list' | 'table'`, metrics
-- `src/hooks/admin/use-pipeline-filters.ts`, `use-pipeline-views.ts`
-- `src/pages/admin/AdminPipeline.tsx` — route entry
-- `src/config/pipeline-features.ts` — feature flags (all currently `false`)
+- `src/hooks/admin/use-pipeline-core.ts`
+- `src/hooks/admin/use-pipeline-filters.ts`
+- `src/hooks/admin/use-pipeline-views.ts`
+- `src/config/pipeline-features.ts` — all flags `false`
 
-### Stages (current state)
-Stage history is churny. Tracing the migrations in chronological
-(filename) order:
+### Schema
+- `deal_stages` — ordered stage rows (id, name, position, color,
+  stage_type, default_probability, is_active, is_default,
+  is_system_stage)
+- `deal_pipeline` — one row per deal, referencing `stage_id`,
+  `listing_id`, `connection_request_id`, `buyer_introduction_id`,
+  `remarketing_buyer_id`, `buyer_contact_id`, `seller_contact_id`,
+  `source`, `nda_status`, `fee_agreement_status`, `probability`,
+  `value`, etc.
+- `deals` — legacy table; overlapping columns deduped in
+  `20260506200000_drop_deal_pipeline_duplicate_columns.sql`
 
-1. `20250829*` — initial seeding of ~10 stages.
-2. `20251002202941` — adds `NDA + Agreement Sent` and `Negotiation`,
-   sets 12 positions 0–11 with ascending probabilities.
-3. `20251112174742` — **hard-deletes** `Approved` and `Negotiation`.
-4. `20251112180457` — renames `Initial Review` to `Follow-up`.
-5. `20260223033733` — renames `New Inquiry` to `Approved`, reshuffles
-   positions 0–9 (adds `Owner intro requested`), deactivates `Follow-up`
-   and `NDA + Agreement Sent`.
+### Stages (current active list)
+
+Tracing migrations in filename order:
+
+1. `20250829140751_…sql` — initial seed.
+2. `20251002202941_…sql:6-26` — adds `NDA + Agreement Sent` and
+   `Negotiation`, reorders to 12 stages 0–11.
+3. `20251112174742_…sql:1-3` — **hard-deletes** `Approved` and
+   `Negotiation`.
+4. `20251112180457_…sql:1-3` — renames `Initial Review` → `Follow-up`.
+5. `20260223033733_…sql:3-39` — renames `New Inquiry` → `Approved`,
+   reshuffles positions 0–9, inserts `Owner intro requested` at
+   position 2, deactivates `Follow-up` and `NDA + Agreement Sent`.
 6. `20260527000000_reactivate_pipeline_stages.sql` — despite the file
-   name, this **deletes** `Follow-up` and `NDA + Agreement Sent` by
-   UUID. The header comment openly contradicts the file name ("Remove
-   the deactivated … stages permanently").
+   name, **deletes** `Follow-up` and `NDA + Agreement Sent` by UUID.
+   Header comment contradicts the file name.
 
-**Resulting active stages (as of the latest migration):**
+**Resulting active stages:**
 
-| Pos | Name | Notes |
-|----:|------|-------|
-| 0 | Approved | Renamed from `New Inquiry` |
-| 1 | Info Sent | |
-| 2 | Owner intro requested | |
-| 3 | Buyer/Seller Call | |
-| 4 | Due Diligence | |
-| 5 | LOI Submitted | |
-| 6 | Closed Won | `stage_type = 'closed_won'` |
-| 7 | Closed Lost | `stage_type = 'closed_lost'` |
+| Pos | Name | `stage_type` |
+|----:|------|--------------|
+| 0 | Approved | — |
+| 1 | Info Sent | — |
+| 2 | Owner intro requested | — |
+| 3 | Buyer/Seller Call | — |
+| 4 | Due Diligence | — |
+| 5 | LOI Submitted | — |
+| 6 | Closed Won | `closed_won` |
+| 7 | Closed Lost | `closed_lost` |
 
-Anyone reading the code today would reasonably assume from the stage
-seeder at `supabase/migrations/20251002202941_...sql:6-26` that 12
-stages exist. The later migrations that removed four of them are
-scattered and one is literally misnamed. This is a concrete
-documentation hazard — see *Findings* §1.
-
-### Use cases
-- **Manual advancement.** Admins drag-drop cards on the Kanban, change
-  the stage via the list view, or edit the detail panel. There is no
-  automated transition — e.g. signing an NDA does not move a deal out
-  of `Approved`.
-- **Terminal sync to buyer introductions.** When
-  `deal_pipeline.stage_id` changes to a `closed_won` / `closed_lost`
-  stage *and* the row has a non-null `buyer_introduction_id`, the
-  trigger `sync_pipeline_close_to_introduction` (defined in
-  `supabase/migrations/20260616000000_pipeline_introduction_fixes.sql:29-54`)
-  updates the referenced buyer introduction to `deal_created` — but
-  only if its current status is `fit_and_interested`. This is the only
-  automatic link between any two pipelines.
-- **Traceability.** `deal_pipeline.buyer_introduction_id` was added in
-  `20260616000000_pipeline_introduction_fixes.sql:5-6` so deals created
-  from a buyer intro carry a pointer back to the origin intro.
+The seeder at `20251002202941_…sql` still *looks* like the canonical
+list on a fresh read. That's a documentation trap — see Finding §1.
 
 ### Feature flags
-`src/config/pipeline-features.ts` gates customisation features:
+`src/config/pipeline-features.ts`:
 
 ```
 customViews: false
 stageLibrary: false
-stageCustomization: false   // add/remove stages
+stageCustomization: false
 stageReordering: false
 ```
 
-Disabled message: *"Admin disabled these features. To enable, contact
-Adam."* — i.e. the UI is built but the functionality is switched off.
+UI is built but disabled. Message: *"Admin disabled these features.
+To enable, contact Adam."*
 
-## 2. Buyer Introduction Pipeline (admin-facing buyer funnel)
+## 2. Funnel A — Marketplace connection request → deal_pipeline
 
-### What it is
-A per-listing Kanban board that tracks individual prospective buyers
-from "haven't shown them the deal yet" to "interested / not a fit /
-deal created". Parallel to the deal pipeline, not a subset of it.
+### User-visible flow
+1. Prospect submits a connection request (marketplace form, Webflow
+   embed, or manual entry) → row inserted into `connection_requests`
+   with `status = 'pending'`.
+2. Admin reviews in `src/pages/admin/AdminRequests.tsx`, clicks
+   **Approve**.
+3. Page calls `useConnectionRequestsMutation`
+   (`src/hooks/admin/requests/use-connection-requests-mutation.ts:28`)
+   which calls the RPC
+   `update_connection_request_status(request_id, 'approved')`.
+4. That RPC (defined in
+   `supabase/migrations/20250821111336_…sql:8-54`) updates
+   `connection_requests.status = 'approved'` plus attribution fields.
+   **It does not insert into `deal_pipeline` itself.**
+5. The UPDATE fires the trigger `trg_create_deal_on_request_approval`
+   (created in `20250829162014_…sql:105-109`), which runs
+   `create_deal_on_request_approval()` — latest definition at
+   `supabase/migrations/20260506200000_drop_deal_pipeline_duplicate_columns.sql:267-349`.
+6. That function:
+   - returns early if a `deal_pipeline` row already exists for this
+     `connection_request_id` (idempotent)
+   - returns early if the listing has no valid company website (via
+     `is_valid_company_website`) — silent skip, no admin feedback
+   - looks up the `Qualified` stage — **this stage does not exist**
+     and never has in any seed; the fallback ("first active stage by
+     position") is therefore taken 100% of the time, landing the row
+     on `Approved` (position 0)
+   - inserts into `deal_pipeline` with `probability = 50`,
+     `priority = 'medium'`, title = the listing title only (no buyer
+     name), description = `NEW.user_message` or
+     `'Deal created from approved connection request'`
+   - writes a `deal_activities` row of type `note_added`
 
-### Code map
-- `src/components/admin/deals/buyer-introductions/BuyerIntroductionPage.tsx`
-- `src/components/admin/deals/buyer-introductions/kanban/KanbanBoard.tsx`
-- `src/components/admin/deals/buyer-introductions/kanban/KanbanColumn.tsx`
-- `src/components/admin/deals/buyer-introductions/kanban/BuyerKanbanCard.tsx`
-- `src/components/admin/deals/buyer-introductions/kanban/KanbanEmptyState.tsx`
-- `src/components/admin/deals/buyer-introductions/hooks/use-introduction-pipeline.ts`
-- `src/components/admin/deals/buyer-introductions/hooks/use-approve-for-pipeline.ts`
-- `src/hooks/use-buyer-introductions.ts` (data fetching)
+### Trigger-chain history (context for the mess)
+The connection_request → deal_pipeline path has been rewritten at
+least seven times:
 
-### Schema
-- `buyer_introductions` — main row (one per buyer per listing); columns
-  include `introduction_status`, `introduction_date`, `passed_date`,
-  `score_snapshot`, `remarketing_buyer_id`.
-- `introduction_status_log` — audit log of status transitions.
-- `introduction_activity` — **removed** in
-  `20260616000000_pipeline_introduction_fixes.sql:8-10` ("replaced by
-  `introduction_status_log`"). No code still references it.
+| Migration | Change |
+|-----------|--------|
+| `20250829140751_…sql:238-` | Initial `auto_create_deal_from_connection_request` trigger |
+| `20250829162014_…sql:105-109` | Adds `trg_create_deal_on_request_approval` trigger |
+| `20251001175908_…sql` | Rewrites `create_deal_from_connection_request()`, recreates `auto_create_deal_from_connection_request` trigger |
+| `20251003151520_…sql:8` | `DROP FUNCTION auto_create_deal_from_connection_request()` |
+| `20251006174137_…sql:3-15` | Drops the `auto_create_deal_from_connection_request` trigger ("duplicate/broken") |
+| `20260223092058_…sql:9` | `DROP FUNCTION auto_create_deal_from_connection_request()` again |
+| `20260306400000_…sql:20` | Recreates `create_deal_from_connection_request()` |
+| `20260506000000_…sql:828-931` | Recreates `auto_create_deal_from_connection_request()` function (but no trigger!) |
+| `20260506200000_…sql:267-349` | Updates `create_deal_on_request_approval()` to drop `contact_*` columns |
+| `20260516300000_…sql:33-251` | **Phase 4**: introduces `create_pipeline_deal(p_connection_request_id)` RPC as the consolidated replacement; explicitly leaves old triggers alive "as a safety net" |
 
-### Statuses
-From `src/types/status-enums.ts:45-60`:
+### Current effective state
+- **Active trigger**: `trg_create_deal_on_request_approval` on
+  `connection_requests` → calls `create_deal_on_request_approval()`
+- **Zombie function**: `auto_create_deal_from_connection_request()`
+  was recreated in `20260506000000` but has no trigger bound to it.
+  It is dead code that nonetheless hardcodes the non-existent
+  `'New Inquiry'` stage name — any future caller that rebinds it
+  would silently insert rows with a NULL `stage_id`.
+- **Phase 4 RPC**: `create_pipeline_deal()` exists and is correct
+  (looks up `Approved` or `New Inquiry`, probability 5), but its only
+  caller is `src/hooks/portal/use-portal-deals.ts:610`. The admin
+  approval flow never calls it.
 
-```
-need_to_show_deal → outreach_initiated → meeting_scheduled →
-fit_and_interested → deal_created
-                                    ↘ not_a_fit
-```
+The transition comment at
+`20260516300000_…sql:426-456` spells out the follow-up that's needed:
+verify no duplicates, then drop `trg_ensure_source_from_lead`, the
+deal-creation trigger, and the agreement triggers. **That follow-up
+migration has not shipped.** Phase 4 is half-done.
 
-Six values total. The Kanban column logic in
-`use-introduction-pipeline.ts` collapses these into four columns
-(to-introduce / introduced / interested / passed).
+### Findings for Funnel A
 
-### Use cases
-- Admin curates a set of buyers per listing and tracks outreach state.
-- `use-approve-for-pipeline.ts` promotes an intro into the deal
-  pipeline (creates a `deal_pipeline` row keyed back via
-  `buyer_introduction_id`).
-- Passive reverse sync: when that deal eventually closes, the intro is
-  marked `deal_created` (see §1).
+1. **Hardcoded `'Qualified'` stage lookup** in
+   `create_deal_on_request_approval` →
+   `20260506200000_…sql:297-300`. This stage has never existed. The
+   fallback is triggered every time. Either fix the lookup (use
+   `Approved` or `stage_type`-based selection) or remove the dead
+   lookup block entirely.
+2. **Probability inconsistency**: the trigger sets `probability = 50`
+   at `20260506200000_…sql:328`; the Phase 4 RPC sets it to `5` at
+   `20260516300000_…sql:231`. Whichever is correct, both paths should
+   agree.
+3. **Silent skip on invalid website**:
+   `20260506200000_…sql:293-295` — admin clicks Approve, no deal
+   appears, no toast. The approval still succeeds on the
+   `connection_requests` row. This is almost certainly a support
+   footgun.
+4. **Zombie function** `auto_create_deal_from_connection_request()`
+   can safely be dropped; it has no trigger and its stage lookup
+   targets a non-existent stage name.
+5. **Phase 4 is incomplete**: the RPC exists and is correct but no
+   admin code path calls it. Either migrate
+   `use-connection-requests-mutation.ts` to invoke it explicitly
+   after approval, or accept that Phase 4 applies only to portal and
+   rename the RPC to match.
 
-## 3. Portal Deal Push Pipeline (external buyer distribution)
+## 3. Funnel B — Approved buyer introduction → deal_pipeline
 
-### What it is
-A distribution workflow for sharing deals with external buyer
-organisations via the client portal. The admin pushes a deal to a
-`portal_organization`; portal users in that org see it, react, and
-their responses flow back.
+### User-visible flow
+1. Admin opens the buyer-introduction Kanban on a listing detail
+   page (`src/components/admin/deals/buyer-introductions/kanban/`).
+2. Admin moves a buyer to the "interested" column, or clicks the
+   **Approve for pipeline** action. Both paths resolve to
+   `useApproveForPipeline.approve()`
+   (`src/components/admin/deals/buyer-introductions/hooks/use-approve-for-pipeline.ts:17-52`).
+3. That hook is a thin wrapper — it just calls
+   `updateStatus({ id, updates: { introduction_status: 'fit_and_interested', … } })`
+   on `useBuyerIntroductions`.
+4. Inside
+   `src/hooks/use-buyer-introductions.ts:184-216`, the mutation
+   detects the `'fit_and_interested'` transition and calls
+   `createDealFromIntroduction(buyer)`.
+5. `createDealFromIntroduction`
+   (`src/hooks/use-buyer-introductions.ts:223-353`):
+   - selects the first active `deal_stages` row by position (the
+     current `Approved` stage) — lines 226–239
+   - looks up the listing title for the deal title
+   - resolves-or-creates a `contacts` row for the buyer (because the
+     `contacts` table uses partial unique indexes and
+     `.upsert({ onConflict: 'email' })` silently no-ops — see the
+     comment at lines 256–258)
+   - inserts into `deal_pipeline` with `source = 'remarketing'`,
+     `probability = 25`, `priority = 'medium'`,
+     `buyer_introduction_id = buyer.id`, title
+     `${buyer_firm_name} — ${listing_title}` (lines 304–322)
+   - writes a `deal_activities` row of type `deal_created`
+   - updates the originating `buyer_introductions` row to
+     `introduction_status = 'deal_created'` (lines 341–346)
 
-### Schema
-Defined primarily in
-`supabase/migrations/20260617000000_client_portal_tables.sql`:
+### Reverse sync
+Separately, the trigger `trg_sync_pipeline_to_introduction` on
+`deal_pipeline` UPDATE (created in
+`20260616000000_pipeline_introduction_fixes.sql:50-54`) sets the
+linked `buyer_introduction.introduction_status` to `deal_created`
+when the deal moves to a `closed_won`/`closed_lost` stage — but only
+if the intro was at `fit_and_interested`. In practice, because the
+JS path in step 5 above already advances the intro to `deal_created`
+*at creation time*, the trigger's condition
+(`introduction_status = 'fit_and_interested'`) is rarely met on
+close, and the trigger is effectively a no-op for intros that were
+created via the normal flow.
 
-- `portal_organizations` — buyer-side org (status: `active | paused |
-  archived`; preferences, notification frequency, auto-reminder config)
-- `portal_deal_pushes` — one row per (listing, portal_org) push;
-  carries `status`, `priority`, `deal_snapshot`
-- `portal_deal_responses` — one row per portal user response
-- `portal_notifications` — outbound notification queue
-- `portal_activity_log` — audit log
+### Findings for Funnel B
 
-### Enums
-From `src/types/portal.ts`:
+6. **Client-side deal creation for a funnel that crosses RLS
+   boundaries**: `createDealFromIntroduction` runs as three sequential
+   client-initiated queries (contact lookup/insert, deal_pipeline
+   insert, buyer_introductions update). If any step after step 1
+   fails, the UI shows a generic error and the record set is left
+   partially updated. This is the kind of multi-statement operation
+   that the Phase 4 migration was meant to move into a SECURITY
+   DEFINER RPC. A `create_pipeline_deal_from_introduction(intro_id)`
+   RPC would bring Funnel B in line with the Phase 4 pattern.
+7. **Third probability default**: Funnel B sets `probability = 25`
+   (`use-buyer-introductions.ts:318`). Combined with Funnel A's 50
+   and Phase 4's 5, rows in `deal_pipeline` carry probabilities that
+   reflect how they were created, not where they are in the
+   pipeline. Any report that aggregates by probability is
+   effectively reporting on insert path.
+8. **Stage lookup is coupled to row order, not intent**: Funnel B
+   uses "first active stage by position", which silently followed the
+   rename from `New Inquiry` → `Approved` in
+   `20260223033733_…sql`. Works today, but any reshuffle will drop
+   buyer-intro-sourced deals into whatever ends up at position 0.
+   Using `stage_type = 'active'` + `is_default = true`, or a named
+   system stage, would be robust.
+9. **Intro status advances to `deal_created` immediately at create
+   time**, which makes the backup trigger `trg_sync_pipeline_to_introduction`
+   dead in the common case. Either remove the trigger, or move the
+   status advance out of the client and let the trigger do its job
+   on close. Two mechanisms covering the same event guarantees drift.
+10. **Hardcoded stage_type none**: `createDealFromIntroduction` does
+    not check `is_active = true` before the position-ordered select
+    — it calls
+    `.eq('is_active', true)` correctly at line 229, OK. No
+    correction needed, noted only as a check.
 
-```
-PortalDealPushStatus  = pending_review | viewed | interested | passed
-                      | needs_info | under_nda | archived          (7)
-PortalResponseType    = interested | pass | need_more_info          (3)
-PortalActivityAction  = deal_pushed | deal_viewed | response_submitted
-                      | document_downloaded | message_sent | login
-                      | settings_changed | reminder_sent
-                      | user_invited | user_deactivated
-                      | portal_created | portal_archived
-                      | converted_to_pipeline                      (13)
-```
+## 4. Cross-funnel findings (apply to the pipeline as a whole)
 
-Note the three-value `PortalResponseType` — the migration
-`20260624000000_portal_cleanup_unused_response_types.sql` exists
-specifically to strip out response types that were defined but never
-used.
+11. **Three insert paths, zero convergence.** The admin-approval
+    trigger, the Phase 4 RPC, and the buyer-intro JS all build a
+    `deal_pipeline` row from different field sets. The only field
+    that every path fills in is `stage_id`; everything else (title
+    format, probability, priority, NDA/fee defaults, source string,
+    contact linking) differs by path. Converging on a single SECURITY
+    DEFINER RPC that takes a discriminated-union input would remove
+    the drift and the maintenance surface.
+12. **No dedicated audit log for stage transitions.** Buyer
+    introductions have `introduction_status_log`; portal has
+    `portal_activity_log`; deal_pipeline has only `deal_activities`
+    (scoped to activity notes, not stage transitions as a
+    first-class event). This also blocks the auto-task work flagged
+    in `TASK_WORKFLOW_COMPREHENSIVE_AUDIT_2026-04-07.md`.
+13. **Stage names are hardcoded in downstream SQL.** `'New Inquiry'`,
+    `'Qualified'`, and `'Approved'` all appear as literal names in
+    trigger functions. Because the stage list has churned four times
+    since September, any name-based lookup is one migration away
+    from silent breakage. `stage_type` (`active` / `closed_won` /
+    `closed_lost`) is the only stable coarse-grained selector.
+14. **Feature flags gate a built UI.** Everything in
+    `src/config/pipeline-features.ts` is `false`; the UI for custom
+    views, stage library, stage add/remove, and stage reordering is
+    built but dead. Either wire it up or delete it — dead UI is
+    expensive to keep compiling and type-checking.
+15. **`pipeline-features.ts` has no server-side enforcement.** If
+    these flags ever flip to true, the only gate is client code. The
+    back-end has no equivalent CHECK on stage mutations; a
+    sufficiently motivated admin with DB access can reorder stages
+    out of view of whatever UI safeguards exist.
 
-### Code map
-- `src/hooks/portal/use-portal-deals.ts` — `usePortalDealPushes`,
-  `useMyPortalDeals`, `usePortalDealPush`
-- `src/pages/admin/client-portals/ClientPortalDetail.tsx` — admin view
-- `src/components/portal/*` — portal UI (badges, dialogs, modals)
+## 5. What to read next
 
-### Use cases
-- **Admin side**: create portal orgs, invite portal users, push deals,
-  review responses, send reminders.
-- **Portal user side**: receive notifications, view deal teasers,
-  submit interest / pass / more-info responses.
+- **`TASK_WORKFLOW_COMPREHENSIVE_AUDIT_2026-04-07.md`** — covers the
+  *downstream* side of the pipeline: what should happen automatically
+  when a deal enters a stage (auto-advancement, auto-tasks). Findings
+  §12 and §13 above intentionally overlap with that audit.
+- **`AUDIT_BUYER_SCORING_PIPELINE.md`** — covers buyer recommendation
+  scoring, which precedes Funnel B. No overlap with the stage/
+  transition logic documented here.
+- **`PLATFORM_WORKFLOW_AUDIT_2026-03-22.md`** — cross-feature workflow
+  patterns. Does not drill into the deal pipeline.
 
-## 4. Listing Pipeline Status (metadata enum, near-dead)
+## Key files and line numbers
 
-`src/types/status-enums.ts:9-24` defines `ListingPipelineStatus`:
+**UI / hooks**
+- `src/pages/admin/AdminPipeline.tsx`
+- `src/pages/admin/AdminRequests.tsx` — approval entry point
+- `src/hooks/admin/requests/use-connection-requests-mutation.ts:28` — RPC call
+- `src/hooks/use-buyer-introductions.ts:184-216` — intro→deal trigger
+- `src/hooks/use-buyer-introductions.ts:223-353` — `createDealFromIntroduction`
+- `src/components/admin/deals/buyer-introductions/hooks/use-approve-for-pipeline.ts:17-52`
+- `src/hooks/portal/use-portal-deals.ts:536-616` — the only caller of `create_pipeline_deal`
 
-```
-lead | qualified | engaged | active | marketplace | closed
-```
+**Migrations**
+- `supabase/migrations/20250821111336_…sql:8-54` — `update_connection_request_status` RPC
+- `supabase/migrations/20250829162014_…sql:105-109` — `trg_create_deal_on_request_approval` creation
+- `supabase/migrations/20260506000000_fix_buyer_introductions_rls.sql:828-931` — zombie function recreation
+- `supabase/migrations/20260506200000_drop_deal_pipeline_duplicate_columns.sql:267-349` — current `create_deal_on_request_approval`
+- `supabase/migrations/20260516300000_replace_trigger_chains_with_rpcs.sql:33-251` — Phase 4 RPC `create_pipeline_deal`
+- `supabase/migrations/20260516300000_replace_trigger_chains_with_rpcs.sql:426-456` — transition follow-up TODO
+- `supabase/migrations/20260527000000_reactivate_pipeline_stages.sql` — misnamed stage deletion
+- `supabase/migrations/20260616000000_pipeline_introduction_fixes.sql:5-54` — `buyer_introduction_id` FK + close-sync trigger
 
-This is conceptually a sixth-stage coarse lifecycle for listings,
-parallel to the deal stages above. It is not rendered by the Deal
-Pipeline UI and is not wired into the buyer intro or portal
-workflows. In the current codebase it surfaces mainly in remarketing
-queries and enrichment state-tracking — i.e. as a filter/attribute, not
-as a user-driven workflow. It is a latent concept worth either killing
-or formalising (see *Findings* §4).
-
-## 5. Enrichment Pipeline (back-end executor, not a workflow)
-
-`supabase/functions/_shared/enrichment/pipeline.ts` is a generic
-ordered step runner used by edge functions such as `enrich-deal` and
-`enrich-buyer`. It has nothing to do with user-visible stage concepts.
-Noting it here only to disambiguate the vocabulary.
-
-## Cross-pipeline integration map
-
-```
-                  deal_pipeline ───(closed_won/lost)──▶ buyer_introductions
-                        ▲                                       │
-                        │  approve-for-pipeline (explicit)      │
-                        └───────────────────────────────────────┘
-                        ▲
-                        │  converted_to_pipeline (planned, NOT IMPLEMENTED)
-                        │
-                  portal_deal_pushes ◀── portal_deal_responses
-```
-
-- **Intro → Deal**: `use-approve-for-pipeline.ts` creates a
-  `deal_pipeline` row from an intro. Explicit, user-driven.
-- **Deal close → Intro status**: automatic via
-  `sync_pipeline_close_to_introduction` trigger.
-- **Portal → Deal**: intended but not wired. See Findings §3.
-
-## Findings
-
-### 1. Stage history is documented by migration names that lie
-`20260527000000_reactivate_pipeline_stages.sql` actually *deletes*
-stages. `20260223033733` does several independent things (rename,
-renumber, deactivate) in one file. A new engineer looking at
-`20251002202941` would assume 12 active stages; the real number is 8.
-
-**Recommendation**: add a one-file seed snapshot migration, or at
-minimum a short `docs/deal-stages.md` pinned to the current list, and
-rename the 20260527 file. (Any rename must be accompanied by a
-`schema_migrations` fixup; call it out explicitly if this is done.)
-
-### 2. `introduction_activity` is fully orphaned (resolved)
-Dropped in `20260616000000_pipeline_introduction_fixes.sql:8-10`, no
-live code references, no outstanding RLS or view dependencies. Nothing
-to do; noted for completeness.
-
-### 3. Portal → Deal conversion is typed but not implemented
-`PortalActivityAction` in `src/types/portal.ts:50` includes
-`'converted_to_pipeline'`, and `portal_activity_log.action` allows it
-in the DB CHECK constraint. No code path emits this action, and there
-is no UI or mutation to move an interested portal push into
-`deal_pipeline`. Either:
-- build the handoff (create a `deal_pipeline` row + intro row + log a
-  `converted_to_pipeline` activity), or
-- remove the dead enum value and migration CHECK entry.
-
-Ambiguity if built: which deal stage should a converted push land in?
-Portal push statuses (`pending_review`, `viewed`, `interested`, …) do
-not map 1:1 onto deal stages (`Approved`, `Info Sent`, …). This is a
-product decision, not a code one.
-
-### 4. `ListingPipelineStatus` is a parallel workflow concept that no
-workflow consumes
-It is imported in remarketing and enrichment code but does not drive
-any Kanban/list rendering or state transitions. Either formalise it
-(give it a UI, transitions, audit log) or delete it and fold whatever
-filter purposes remain into existing fields. Current state — a
-typed-but-unwired enum — is a classic dead-code vector.
-
-### 5. No dedicated audit log for deal stage changes
-Compare with buyer introductions (`introduction_status_log`) and
-portal (`portal_activity_log`). Deal stage changes leave side-effects
-(task creation, triggers) but no first-class history row. This is
-flagged in `TASK_WORKFLOW_COMPREHENSIVE_AUDIT_2026-04-07.md` as a
-workflow-automation blocker; noting it again here because the same
-gap shows up from the pipeline angle.
-
-### 6. Stage names are hardcoded in downstream automations
-`TASK_WORKFLOW_COMPREHENSIVE_AUDIT_2026-04-07.md` already documents
-this. Adding here: because the stage list has churned four times in
-seven months, any SQL that matches stages by literal name is fragile
-by construction. `stage_type` (`active | closed_won | closed_lost`) is
-the only stable coarse categorisation.
-
-### 7. `PipelineKanbanView` vs buyer-intro `KanbanBoard` duplication
-There are two independent Kanban implementations
-(`src/components/admin/pipeline/views/PipelineKanbanView.tsx` and
-`src/components/admin/deals/buyer-introductions/kanban/KanbanBoard.tsx`).
-Different data sources, but the drag-drop/column layer could be a
-shared component. Low priority — noting it only as a refactor target
-once feature flags in `pipeline-features.ts` are enabled.
-
-## What prior audits already cover
-
-To avoid duplication with the existing audit set:
-
-- `AUDIT_BUYER_SCORING_PIPELINE.md` — covers the buyer
-  *recommendation scoring* system that feeds the Buyer Introduction
-  Pipeline, not the pipeline itself. No overlap.
-- `TASK_WORKFLOW_COMPREHENSIVE_AUDIT_2026-04-07.md` — covers task
-  automation around deal stage transitions (no auto-advance, no
-  entry-task spawning, hardcoded names). This audit reuses its Finding
-  §5 and §6 by reference; the rest of this document is new.
-- `PLATFORM_WORKFLOW_AUDIT_2026-03-22.md` — cross-feature workflow
-  patterns. Does not enumerate the three pipelines or their
-  integration points.
-
-No prior document enumerated all three user-facing pipelines in one
-place or called out the portal→deal gap.
-
-## Key files referenced
-
-Migrations
-- `supabase/migrations/20250829140751_...sql` — initial deal_stages seed
-- `supabase/migrations/20251002202941_...sql` — 12-stage reorg
-- `supabase/migrations/20251112174742_...sql` — hard-delete `Approved`/`Negotiation`
-- `supabase/migrations/20251112180457_...sql` — rename `Initial Review`→`Follow-up`
-- `supabase/migrations/20260223033733_...sql` — rename/reorder/deactivate
-- `supabase/migrations/20260327000000_buyer_introduction_tracking.sql` — intro schema
-- `supabase/migrations/20260527000000_reactivate_pipeline_stages.sql` — (delete, misnamed)
-- `supabase/migrations/20260616000000_pipeline_introduction_fixes.sql` — sync trigger
-- `supabase/migrations/20260617000000_client_portal_tables.sql` — portal schema
-- `supabase/migrations/20260624000000_portal_cleanup_unused_response_types.sql`
-
-Types
-- `src/types/status-enums.ts` — `ListingPipelineStatus`, `IntroductionStatus`
-- `src/types/portal.ts` — all portal enums and row types
-- `src/types/buyer-introductions.ts` — intro row types
-
-Hooks
-- `src/hooks/admin/use-pipeline-core.ts`
-- `src/hooks/admin/use-pipeline-filters.ts`
-- `src/hooks/admin/use-pipeline-views.ts`
-- `src/hooks/portal/use-portal-deals.ts`
-- `src/hooks/use-buyer-introductions.ts`
-- `src/components/admin/deals/buyer-introductions/hooks/use-introduction-pipeline.ts`
-- `src/components/admin/deals/buyer-introductions/hooks/use-approve-for-pipeline.ts`
-
-Config
+**Config**
 - `src/config/pipeline-features.ts`
+
+**Types**
+- `src/types/status-enums.ts` — `IntroductionStatus`
+- `src/types/buyer-introductions.ts` — `BuyerIntroduction`
