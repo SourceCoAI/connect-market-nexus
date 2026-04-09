@@ -1,45 +1,38 @@
 
 
-# Fix: Defensive Redirect in PendingApproval for Already-Approved Users
+# Investigation: "Signup failed — Invalid email address" for rafeh@rafnumpartners.com
 
 ## Root Cause
 
-Chris's account is `approved` and `email_verified=true` in the database. He should never see this page. But due to a timing race during login (the `SIGNED_IN` event fires before `loadProfile` completes), he briefly lands on `/pending-approval`. Once there, the page shows "Verify your email" or "Account under review" based on potentially stale client state.
+**The error message is misleading.** Line 190 in `src/pages/Signup/index.tsx`:
 
-The `getUIState()` function on line 224-231 only checks `user.email_verified` from the profile object. If the profile is stale or slow to load, it can show the wrong screen to an already-verified, already-approved user.
+```typescript
+else if (msgLower.includes('email')) errorMessage = 'Invalid email address.';
+```
 
-## The Safest Fix (1 file, additive only)
+This catches **any** error whose message contains the word "email" and replaces it with "Invalid email address." The email `rafeh@rafnumpartners.com` is perfectly valid — the real error is being masked.
 
-**File: `src/pages/PendingApproval.tsx`**
+The actual Supabase error is almost certainly one of these:
 
-Add a single `useEffect` near the top (after the existing approved redirect on line 47-51) that checks the **real auth state** via `supabase.auth.getUser()` when the page mounts. If the user is both:
-- `email_confirmed_at` is set in Auth (verified)
-- `approval_status === 'approved'` in the profile
+1. **Metadata payload too large** — The `signUp` call sends ~60+ fields in `options.data` (lines 198-306 of `use-nuclear-auth.ts`). Supabase has a limit on `raw_user_meta_data`. The error message from Supabase likely says something like "Unable to create user with email..." or "Error processing email signup..." — anything with "email" in it triggers the bad catch.
 
-...then immediately redirect to `/` (marketplace). This catches the race condition.
+2. **Duplicate account** — If this user previously started a signup (even partially), Supabase may return a different duplicate error message that contains "email" but doesn't match the exact "user already registered" check on line 186.
 
-Additionally, update `getUIState()` to also check auth truth: before returning `'email_not_verified'`, do a quick check — if the reconciliation effect already confirmed Auth says verified, skip the "Verify your email" screen and show `'approved_pending'` instead (which is the "Application received / waiting for review" screen — much less confusing than asking to re-verify).
+3. **Supabase rate limiting or transient error** — The error response might mention the email in context, getting caught by the broad filter.
 
-### Specific changes
+## The Fix (1 file, safe)
 
-1. **Add state `authConfirmedVerified`** (boolean, default `false`) that gets set to `true` by the existing reconciliation effect when `supabase.auth.getUser()` confirms `email_confirmed_at` is set.
+**File: `src/pages/Signup/index.tsx`** — Fix the error handling to:
 
-2. **Update `getUIState()`** (line 224-231): Change `email_not_verified` branch to also check `authConfirmedVerified` — if auth says verified, return `'approved_pending'` instead of `'email_not_verified'`. This prevents showing the "Resend verification" button to already-verified users.
+1. **Show the actual error message** instead of masking it — change line 190 to only match specific known email validation errors (e.g., "invalid format", "not valid"), not any string containing "email"
+2. **Add the real error to the toast** so users (and you) can see what actually went wrong
+3. Keep the existing user-friendly mappings for "user already registered" and password errors
 
-3. **Enhance the existing approved redirect** (line 47-51): Also trigger redirect if the reconciliation confirms the user is verified AND profile says approved — handles the case where `user.approval_status` updates slightly after mount.
+This is safe because it only changes error display text in the catch block — no signup logic, no auth flow, no validation changes.
 
-### What this does NOT touch
-- Login page — no changes
-- Signup flow — no changes  
-- Password reset — no changes
-- Auth callback — no changes
-- ProtectedRoute — no changes
-- useNuclearAuth — no changes
-- Any edge functions — no changes
+## Files
 
-### Why this is safe
-- It's purely additive defensive logic in a single page
-- It only redirects users **away** from PendingApproval (never traps them)
-- It uses the existing `supabase.auth.getUser()` pattern already in the reconciliation effect
-- Worst case if the new code fails: behavior stays exactly as it is today
+| File | Change |
+|------|--------|
+| `src/pages/Signup/index.tsx` | Narrow the "email" error catch to only match actual email validation errors. For unknown errors, show the real message instead of masking it. |
 
