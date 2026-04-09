@@ -1,20 +1,38 @@
 
 
-# Remove Inbound Leads Tab from Request Management
+# Investigation: "Signup failed — Invalid email address" for rafeh@rafnumpartners.com
 
-## What
+## Root Cause
 
-Remove the "Inbound Leads" tab from the AdminRequests page. The DB table, AI Command Center tools, and backend references stay intact for historical querying.
+**The error message is misleading.** Line 190 in `src/pages/Signup/index.tsx`:
 
-## Changes
+```typescript
+else if (msgLower.includes('email')) errorMessage = 'Invalid email address.';
+```
 
-**`src/pages/admin/AdminRequests.tsx`**:
-- Remove the `InboundLeadsTable` import (line 31)
-- Remove `useInboundLeadsQuery`, `useMapLeadToListing`, `useConvertLeadToRequest`, `useArchiveInboundLead` imports and usages (lines 33-37, 55, 59-61)
-- Remove the inbound leads realtime subscription channel (lines 217-230)
-- Remove the `Inbox` icon import
-- Convert `Tabs` from 2-column grid to a single tab (or remove `Tabs` wrapper entirely since there's only one tab left)
-- Remove the `TabsTrigger` for "Inbound Leads" (lines 403-411)
-- Remove the `TabsContent` for "inbound-leads" (lines 472-484)
-- Update subtitle text from "Manage buyer connection requests and inbound leads" to "Manage buyer connection requests"
+This catches **any** error whose message contains the word "email" and replaces it with "Invalid email address." The email `rafeh@rafnumpartners.com` is perfectly valid — the real error is being masked.
+
+The actual Supabase error is almost certainly one of these:
+
+1. **Metadata payload too large** — The `signUp` call sends ~60+ fields in `options.data` (lines 198-306 of `use-nuclear-auth.ts`). Supabase has a limit on `raw_user_meta_data`. The error message from Supabase likely says something like "Unable to create user with email..." or "Error processing email signup..." — anything with "email" in it triggers the bad catch.
+
+2. **Duplicate account** — If this user previously started a signup (even partially), Supabase may return a different duplicate error message that contains "email" but doesn't match the exact "user already registered" check on line 186.
+
+3. **Supabase rate limiting or transient error** — The error response might mention the email in context, getting caught by the broad filter.
+
+## The Fix (1 file, safe)
+
+**File: `src/pages/Signup/index.tsx`** — Fix the error handling to:
+
+1. **Show the actual error message** instead of masking it — change line 190 to only match specific known email validation errors (e.g., "invalid format", "not valid"), not any string containing "email"
+2. **Add the real error to the toast** so users (and you) can see what actually went wrong
+3. Keep the existing user-friendly mappings for "user already registered" and password errors
+
+This is safe because it only changes error display text in the catch block — no signup logic, no auth flow, no validation changes.
+
+## Files
+
+| File | Change |
+|------|--------|
+| `src/pages/Signup/index.tsx` | Narrow the "email" error catch to only match actual email validation errors. For unknown errors, show the real message instead of masking it. |
 

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -50,6 +51,9 @@ import { ConnectionRequestFirmBadge } from "./ConnectionRequestFirmBadge";
 import { BuyerTierBadge, BuyerScoreBadge } from "./BuyerQualityBadges";
 import { useFlagConnectionRequest } from "@/hooks/admin/use-flag-connection-request";
 import { useAdminProfiles } from "@/hooks/admin/use-admin-profiles";
+import { AssignOwnerDialog } from "./AssignOwnerDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { invalidateConnectionRequests } from "@/lib/query-client-helpers";
 import {
   Tooltip,
   TooltipContent,
@@ -69,6 +73,9 @@ export const formatEnhancedCompanyName = (
   title: string,
   companyName?: string | null,
   listingId?: string,
+  ownerName?: string | null,
+  ownerSource?: 'direct' | 'inherited' | 'none',
+  onAssignOwner?: () => void,
 ) => {
   const content =
     companyName && companyName.trim() ? (
@@ -80,19 +87,58 @@ export const formatEnhancedCompanyName = (
       <span>{title}</span>
     );
 
-  if (listingId) {
-    return (
-      <button
-        onClick={() => window.open(`/listing/${listingId}`, "_blank")}
-        className="text-left hover:text-primary transition-colors group"
-      >
-        {content}
-        <ExternalLink className="h-3 w-3 ml-1 inline opacity-0 group-hover:opacity-100 transition-opacity" />
-      </button>
+  let ownerBadge: React.ReactNode = null;
+
+  if (ownerName) {
+    ownerBadge = (
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-muted-foreground text-sm font-medium ml-1.5 inline-flex items-center gap-1 cursor-help border-b border-dotted border-muted-foreground/40">
+              · {ownerName}
+              <Info className="h-3 w-3 opacity-60" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            {ownerSource === 'inherited'
+              ? 'Deal Owner — inherited from linked Active Deal'
+              : 'Deal Owner — assigned in Active Deals'}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  } else if (ownerSource === 'none') {
+    ownerBadge = (
+      <span className="ml-1.5 inline-flex items-center gap-1.5 text-sm">
+        <span className="text-amber-600 dark:text-amber-400 font-medium">· No owner</span>
+        {onAssignOwner && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onAssignOwner(); }}
+            className="text-xs text-primary hover:text-primary/80 font-medium underline underline-offset-2 transition-colors"
+          >
+            Assign
+          </button>
+        )}
+      </span>
     );
   }
 
-  return content;
+  if (listingId) {
+    return (
+      <span className="inline-flex items-center">
+        <button
+          onClick={() => window.open(`/listing/${listingId}`, "_blank")}
+          className="text-left hover:text-primary transition-colors group"
+        >
+          {content}
+          <ExternalLink className="h-3 w-3 ml-1 inline opacity-0 group-hover:opacity-100 transition-opacity" />
+        </button>
+        {ownerBadge}
+      </span>
+    );
+  }
+
+  return <span className="inline-flex items-center">{content}{ownerBadge}</span>;
 };
 
 /** Buyer type abbreviations - comprehensive mapping */
@@ -482,7 +528,19 @@ export function ConnectionRequestRow({
   isSelected?: boolean;
   onSelectionChange?: (checked: boolean) => void;
 }) {
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleAssignOwner = async (ownerId: string) => {
+    const listingId = request.listing?.owner_listing_id || request.listing?.id;
+    if (!listingId) return;
+    await supabase.from('listings').update({ deal_owner_id: ownerId }).eq('id', listingId);
+    invalidateConnectionRequests(queryClient);
+    setAssignDialogOpen(false);
+  };
+
   return (
+    <>
     <Card
       className={`border ${isSelected ? "border-primary/40 bg-primary/[0.02]" : "border-border/50 hover:border-border"} transition-colors`}
       data-request-id={request.id}
@@ -598,10 +656,13 @@ export function ConnectionRequestRow({
                   </div>
                   <div className="flex items-center gap-2">
                     <Building2 className="h-3.5 w-3.5" />
-                    {formatEnhancedCompanyName(
+                   {formatEnhancedCompanyName(
                       request.listing?.title || "",
                       request.listing?.internal_company_name,
                       request.listing?.id,
+                      request.listing?.owner_name,
+                      request.listing?.owner_source,
+                      () => setAssignDialogOpen(true),
                     )}
                   </div>
                 </div>
@@ -711,6 +772,13 @@ export function ConnectionRequestRow({
         </div>
       </CardContent>
     </Card>
+    <AssignOwnerDialog
+      open={assignDialogOpen}
+      onOpenChange={setAssignDialogOpen}
+      dealTitle={request.listing?.title || 'this deal'}
+      onConfirm={handleAssignOwner}
+    />
+    </>
   );
 }
 

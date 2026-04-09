@@ -57,8 +57,13 @@ Categories:
 - negative_hostile: angry/hostile response
 - neutral: cannot determine intent
 
-Sentiment: positive, negative, neutral
-is_positive should be true for: meeting_request, interested, question, and referral categories.
+Sentiment values:
+- positive: explicitly wants a meeting or call (maps to meeting_request category)
+- activated: shows engagement, interest, asks questions, provides referral, or says "not right now" — anything other than a firm rejection (maps to interested, question, referral, not_now categories)
+- negative: firm decline, hostile, or unsubscribe (maps to not_interested, unsubscribe, negative_hostile categories)
+- neutral: out of office, cannot determine intent (maps to out_of_office, neutral categories)
+
+is_positive should be true for positive and activated sentiments (meeting_request, interested, question, referral, and not_now categories).
 When in doubt between "neutral" and "interested", prefer "interested" if the reply shows any engagement, curiosity, or willingness to learn more.`;
 
 async function getClassificationPrompt(supabaseClient: any): Promise<string> {
@@ -145,7 +150,7 @@ async function classifyReply(replyText: string, supabaseClient: any): Promise<AI
                     },
                     sentiment: {
                       type: 'string',
-                      enum: ['positive', 'negative', 'neutral'],
+                      enum: ['positive', 'activated', 'negative', 'neutral'],
                     },
                     is_positive: { type: 'boolean' },
                     confidence: { type: 'number' },
@@ -469,9 +474,9 @@ Deno.serve(async (req) => {
     let gpDealId: string | null = null;
     try {
       const campaignNameLower = (record.campaign_name || '').toLowerCase();
-      const ACTIVATED_CATEGORIES = ['meeting_request', 'interested', 'question', 'referral'];
+      const ACTIVATED_CATEGORIES = ['meeting_request', 'interested', 'question', 'referral', 'not_now'];
       const isGPCampaign = campaignNameLower.includes('gp');
-      const isActivated = ACTIVATED_CATEGORIES.includes(classification.category);
+      const isActivated = ACTIVATED_CATEGORIES.includes(classification.category) || classification.sentiment === 'positive' || classification.sentiment === 'activated';
 
       if (isGPCampaign && isActivated) {
         // Re-read the enriched record to get lead details
@@ -731,8 +736,8 @@ Deno.serve(async (req) => {
           }
 
           // Auto-create follow-up task for positive buyer responses
-          const activatedCategories = ['meeting_request', 'interested', 'question', 'referral'];
-          if (activatedCategories.includes(classification.category)) {
+           const activatedCategories = ['meeting_request', 'interested', 'question', 'referral', 'not_now'];
+           if (activatedCategories.includes(classification.category) || classification.sentiment === 'positive' || classification.sentiment === 'activated') {
             try {
               const taskTitleMap: Record<string, string> = {
                 meeting_request: `Schedule meeting with ${fromName || fromEmail}`,

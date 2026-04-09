@@ -32,6 +32,7 @@ const PendingApproval = () => {
   const [docCooldown, setDocCooldown] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [isFinalizingVerification, setIsFinalizingVerification] = useState(false);
+  const [authConfirmedVerified, setAuthConfirmedVerified] = useState(false);
 
   const { data: agreementStatus } = useMyAgreementStatus(!!user);
   const hasAnyAgreement = agreementStatus?.fee_covered;
@@ -48,7 +49,7 @@ const PendingApproval = () => {
     if (user?.approval_status === 'approved') {
       navigate('/', { replace: true });
     }
-  }, [user?.approval_status, navigate]);
+  }, [user?.approval_status, authConfirmedVerified, navigate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,6 +71,9 @@ const PendingApproval = () => {
         setIsFinalizingVerification(false);
         return;
       }
+
+      // Auth confirms email is verified — record this truth
+      setAuthConfirmedVerified(true);
 
       // Auth says verified but profile is stale — show finalizing state
       console.info('[PendingApproval] Auth confirmed but profile stale — reconciling...');
@@ -223,10 +227,10 @@ const PendingApproval = () => {
 
   const getUIState = () => {
     if (user?.approval_status === 'rejected') return 'rejected';
-    // Use profile email_verified as primary, but never show "verify email"
-    // if we already know from Auth that the email IS confirmed (avoids
-    // stale-profile-state showing the wrong screen).
-    if (user?.email_verified) return 'approved_pending';
+    // If profile says verified OR auth has confirmed verified, show the
+    // "Application received" screen — never show "Verify your email" to
+    // a user whose email is already confirmed in Auth.
+    if (user?.email_verified || authConfirmedVerified) return 'approved_pending';
     return 'email_not_verified';
   };
 

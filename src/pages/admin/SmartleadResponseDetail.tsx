@@ -55,7 +55,7 @@ const CATEGORIES = [
   'neutral',
 ];
 
-const SENTIMENTS = ['positive', 'negative', 'neutral'];
+const SENTIMENTS = ['positive', 'activated', 'negative', 'neutral'];
 
 const CATEGORY_LABELS: Record<string, string> = {
   meeting_request: '📅 Meeting Request',
@@ -72,6 +72,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 function getSentimentColor(sentiment: string | null) {
   if (sentiment === 'positive') return 'bg-green-500/10 text-green-700 dark:text-green-400';
+  if (sentiment === 'activated') return 'bg-blue-500/10 text-blue-700 dark:text-blue-400';
   if (sentiment === 'negative') return 'bg-destructive/10 text-destructive';
   return 'bg-muted text-muted-foreground';
 }

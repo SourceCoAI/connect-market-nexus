@@ -28,6 +28,7 @@ import {
   Trash2,
   UserRound,
   Building2,
+  Calendar as _Calendar,
   AlarmClock,
   Mail,
   User,

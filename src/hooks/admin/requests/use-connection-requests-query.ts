@@ -128,7 +128,7 @@ export function useConnectionRequestsQuery() {
           fetchInChunks('profiles', '*', profileIds),
           fetchInChunks(
             'listings',
-            'id, title, category, status, revenue, ebitda, image_url, location, internal_company_name, deal_identifier',
+            'id, title, category, status, revenue, ebitda, image_url, location, internal_company_name, deal_identifier, primary_owner_id, deal_owner_id, source_deal_id',
             listingIds.filter((id): id is string => id !== null),
           ),
         ]);
@@ -141,6 +141,41 @@ export function useConnectionRequestsQuery() {
 
         const listingsById = new Map<string, NonNullable<typeof listingsRes.data>[number]>();
         (listingsRes.data ?? []).forEach((l) => listingsById.set(l.id as string, l));
+
+        // Follow source_deal_id chain: batch-fetch any source deal listings
+        const sourceDealIds = new Set<string>();
+        (listingsRes.data ?? []).forEach((l) => {
+          const rec = l as Record<string, unknown>;
+          const srcId = rec.source_deal_id as string | null;
+          if (srcId && !listingsById.has(srcId)) sourceDealIds.add(srcId);
+        });
+
+        const sourceListingsById = new Map<string, Record<string, unknown>>();
+        if (sourceDealIds.size > 0) {
+          const srcRes = await fetchInChunks(
+            'listings',
+            'id, deal_owner_id, primary_owner_id',
+            [...sourceDealIds],
+          );
+          (srcRes.data ?? []).forEach((l) => {
+            const rec = l as Record<string, unknown>;
+            sourceListingsById.set(rec.id as string, rec);
+          });
+        }
+
+        // Collect all owner IDs (from direct listings + source deal listings)
+        const ownerIds = new Set<string>();
+        const collectOwner = (rec: Record<string, unknown>) => {
+          const id = (rec.deal_owner_id as string | null) || (rec.primary_owner_id as string | null);
+          if (id && !profilesById.has(id)) ownerIds.add(id);
+        };
+        (listingsRes.data ?? []).forEach((l) => collectOwner(l as Record<string, unknown>));
+        sourceListingsById.forEach((l) => collectOwner(l));
+
+        if (ownerIds.size > 0) {
+          const ownerRes = await fetchInChunks('profiles', 'id, first_name, last_name, email', [...ownerIds]);
+          (ownerRes.data ?? []).forEach((p) => profilesById.set(p.id as string, p));
+        }
 
         const enhancedRequests: AdminConnectionRequest[] = requests.map((request) => {
           const userData = request.user_id ? profilesById.get(request.user_id) : undefined;
@@ -170,6 +205,43 @@ export function useConnectionRequestsQuery() {
 
           const user = userData ? createUserObject(userData) : null;
           const listing = listingData ? createListingFromData(listingData) : null;
+
+          // Resolve deal owner name — only from deal_owner_id (not primary_owner_id)
+          if (listing && listingData) {
+            const rec = listingData as Record<string, unknown>;
+            let ownerId = rec.deal_owner_id as string | null;
+            let ownerSource: 'direct' | 'inherited' | 'none' = 'direct';
+            let ownerListingId = rec.id as string;
+
+            // If no deal_owner_id on this listing, follow source_deal_id
+            if (!ownerId) {
+              const srcId = rec.source_deal_id as string | null;
+              if (srcId) {
+                const srcListing = sourceListingsById.get(srcId);
+                if (srcListing) {
+                  ownerId = srcListing.deal_owner_id as string | null;
+                  if (ownerId) {
+                    ownerSource = 'inherited';
+                    ownerListingId = srcId;
+                  }
+                }
+              }
+            }
+
+            listing.owner_listing_id = ownerListingId;
+
+            if (ownerId) {
+              const ownerProfile = profilesById.get(ownerId);
+              if (ownerProfile) {
+                const op = ownerProfile as Record<string, unknown>;
+                listing.owner_name = `${op.first_name || ''} ${op.last_name || ''}`.trim() || (op.email as string) || undefined;
+                listing.owner_source = ownerSource;
+              }
+            } else {
+              listing.owner_name = undefined;
+              listing.owner_source = 'none';
+            }
+          }
 
           const status = request.status as 'pending' | 'approved' | 'rejected' | 'on_hold';
 

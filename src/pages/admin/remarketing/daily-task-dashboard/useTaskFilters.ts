@@ -120,7 +120,7 @@ export function useTaskFilters({
   // Overdue — explicitly separated from today
   const overdueTasks = useMemo(() => {
     return approvedTasks.filter(
-      (t) => t.status === 'overdue' && t.status !== 'completed' && t.status !== 'snoozed',
+      (t) => t.status === 'overdue',
     );
   }, [approvedTasks]);
 

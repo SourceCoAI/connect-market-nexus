@@ -29,7 +29,7 @@ import { usePortalDealPushes, useConvertToPipelineDeal, useResendPortalInvite, u
 
 import { PortalDealChat } from '@/components/portal/PortalDealChat';
 import { usePortalActivity, usePortalAnalytics, exportPortalActivityCSV } from '@/hooks/portal/use-portal-activity';
-import { OrgStatusBadge, PushStatusBadge, PriorityBadge } from '@/components/portal/PortalStatusBadge';
+import { OrgStatusBadge, PushStatusBadge, PriorityBadge as _PriorityBadge } from '@/components/portal/PortalStatusBadge';
 import { InvitePortalUserDialog } from '@/components/portal/InvitePortalUserDialog';
 import type { PortalOrgStatus, PortalNotificationFrequency } from '@/types/portal';
 
@@ -317,7 +317,6 @@ export default function ClientPortalDetail() {
                       push.deal_snapshot?.business_description ||
                       push.deal_snapshot?.teaser_sections?.[0]?.content ||
                       '';
-                    const hasMemo = !!(push.deal_snapshot?.memo_html || push.deal_snapshot?.teaser_sections?.length || push.deal_snapshot?.business_description);
 
                     return (
                     <React.Fragment key={push.id}>

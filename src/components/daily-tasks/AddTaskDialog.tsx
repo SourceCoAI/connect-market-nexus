@@ -99,7 +99,7 @@ export function AddTaskDialog({ open, onOpenChange, teamMembers: teamMembersProp
         entity_id: effectiveDealId || undefined as unknown as string,
         deal_id: effectiveDealId || null,
         deal_reference: dealName,
-        tags,
+        ...(tags && tags.length > 0 ? { tags } as any : {}),
       });
 
       // Reset form
