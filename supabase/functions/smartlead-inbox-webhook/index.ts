@@ -150,7 +150,7 @@ async function classifyReply(replyText: string, supabaseClient: any): Promise<AI
                     },
                     sentiment: {
                       type: 'string',
-                      enum: ['positive', 'negative', 'neutral'],
+                      enum: ['positive', 'activated', 'negative', 'neutral'],
                     },
                     is_positive: { type: 'boolean' },
                     confidence: { type: 'number' },
