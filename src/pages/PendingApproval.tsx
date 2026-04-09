@@ -48,9 +48,6 @@ const PendingApproval = () => {
   useEffect(() => {
     if (user?.approval_status === 'approved') {
       navigate('/', { replace: true });
-    } else if (authConfirmedVerified && user?.approval_status === 'approved') {
-      // Defensive: auth confirmed verified + profile says approved → escape
-      navigate('/', { replace: true });
     }
   }, [user?.approval_status, authConfirmedVerified, navigate]);
 
