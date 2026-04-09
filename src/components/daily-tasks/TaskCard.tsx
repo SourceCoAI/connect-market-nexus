@@ -34,7 +34,12 @@ import {
   User,
 } from 'lucide-react';
 import type { DailyStandupTaskWithRelations } from '@/types/daily-tasks';
-import { TASK_TYPE_LABELS, TASK_TYPE_COLORS, TASK_CATEGORY_LABELS, TASK_CATEGORY_COLORS } from '@/types/daily-tasks';
+import {
+  TASK_TYPE_LABELS,
+  TASK_TYPE_COLORS,
+  TASK_CATEGORY_LABELS,
+  TASK_CATEGORY_COLORS,
+} from '@/types/daily-tasks';
 import type { TaskCategory } from '@/types/daily-tasks';
 import { useToggleTaskComplete, useReassignTask, useEditTask } from '@/hooks/useDailyTasks';
 import { useSnoozeTask } from '@/hooks/useTaskActions';
@@ -242,9 +247,7 @@ export function TaskCard({
         )}
 
         {/* Pin indicator */}
-        {task.is_pinned && !isCompleted && (
-          <Pin className="h-3 w-3 text-amber-500 shrink-0" />
-        )}
+        {task.is_pinned && !isCompleted && <Pin className="h-3 w-3 text-amber-500 shrink-0" />}
 
         {/* Title */}
         <span
@@ -468,13 +471,17 @@ export function TaskCard({
                   <p className="text-xs text-muted-foreground mb-1">Category</p>
                   <Badge
                     variant="outline"
-                    className={cn('text-xs', TASK_CATEGORY_COLORS[task.task_category as TaskCategory])}
+                    className={cn(
+                      'text-xs',
+                      TASK_CATEGORY_COLORS[task.task_category as TaskCategory],
+                    )}
                   >
                     {TASK_CATEGORY_LABELS[task.task_category as TaskCategory] || task.task_category}
                   </Badge>
                   {task.carried_over && (
                     <p className="text-xs text-amber-600 mt-1">
-                      Carried over {task.carry_count || 1} time{(task.carry_count || 1) > 1 ? 's' : ''}
+                      Carried over {task.carry_count || 1} time
+                      {(task.carry_count || 1) > 1 ? 's' : ''}
                     </p>
                   )}
                 </div>
@@ -505,7 +512,8 @@ export function TaskCard({
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Completed</p>
                   <span className="text-sm text-green-700">
-                    {format(new Date(task.completed_at), 'MMM d, yyyy')} ({formatDistanceToNow(new Date(task.completed_at), { addSuffix: true })})
+                    {format(new Date(task.completed_at), 'MMM d, yyyy')} (
+                    {formatDistanceToNow(new Date(task.completed_at), { addSuffix: true })})
                   </span>
                 </div>
               )}
@@ -533,7 +541,11 @@ export function TaskCard({
                 <p className="text-xs text-muted-foreground mb-1.5">Tags</p>
                 <div className="flex flex-wrap gap-1">
                   {task.tags.map((tag) => (
-                    <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-slate-50">
+                    <Badge
+                      key={tag}
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 h-5 bg-slate-50"
+                    >
                       {tag}
                     </Badge>
                   ))}
@@ -558,7 +570,9 @@ export function TaskCard({
                   <div className="flex items-center gap-2 text-sm">
                     <ClickToDialPhone
                       phone={sellerContact.phone}
-                      name={`${sellerContact.first_name} ${sellerContact.last_name}`.trim() || undefined}
+                      name={
+                        `${sellerContact.first_name} ${sellerContact.last_name}`.trim() || undefined
+                      }
                       email={sellerContact.email || undefined}
                       size="sm"
                     />

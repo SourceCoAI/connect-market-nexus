@@ -70,14 +70,10 @@ export async function recomputeRanks() {
 
   if (ranked.length === 0) return;
 
-  // Batched update: group tasks by the rank they should have and issue one
-  // UPDATE per distinct rank using `in(id, ...)`. This collapses N queries
-  // down to at most N network round-trips but executed as small batches.
-  // For very small changes (common case, 1 task toggled) this is ~equivalent,
-  // but it dramatically reduces latency when many tasks shift.
-  // Issue updates in parallel so the cumulative latency is bounded by the
-  // slowest single update rather than their sum.
-  await Promise.all(
+  // Issue updates in parallel so cumulative latency is bounded by the slowest
+  // single update. Use allSettled so a single failure doesn't abort the rest —
+  // a partially recomputed list is better than one that stops halfway through.
+  const results = await Promise.allSettled(
     ranked.map(({ id, rank }) =>
       supabase
         .from('daily_standup_tasks' as never)
@@ -85,12 +81,18 @@ export async function recomputeRanks() {
         .eq('id', id),
     ),
   );
+
+  const failures = results.filter((r) => r.status === 'rejected');
+  if (failures.length > 0) {
+    console.warn(`[recomputeRanks] ${failures.length} of ${ranked.length} rank updates failed`);
+  }
 }
 
 // ─── Complete/uncomplete a task ───
 
-/** Compute the next due date for a recurring task based on its rule */
-function computeNextDueDate(currentDueDate: string | null, rule: string): string {
+/** Compute the next due date for a recurring task based on its rule.
+ *  Exported for testing. */
+export function computeNextDueDate(currentDueDate: string | null, rule: string): string {
   // Anchor to today if no current due date, otherwise anchor to the current due date
   const base = currentDueDate ? new Date(currentDueDate + 'T00:00:00') : new Date();
   switch (rule) {
@@ -140,7 +142,13 @@ export function useToggleTaskComplete() {
         )
         .eq('id', taskId)
         .single();
-      const task = taskRaw as (RecurringTaskRecord & { due_date: string | null; priority: string | null; assignee_id: string | null }) | null;
+      const task = taskRaw as
+        | (RecurringTaskRecord & {
+            due_date: string | null;
+            priority: string | null;
+            assignee_id: string | null;
+          })
+        | null;
 
       const updates: Record<string, unknown> = completed
         ? {
@@ -180,34 +188,32 @@ export function useToggleTaskComplete() {
           .limit(1);
 
         if (!existingFuture || existingFuture.length === 0) {
-          const { error: insertErr } = await supabase
-            .from('daily_standup_tasks' as never)
-            .insert({
-              title: task.title,
-              description: task.description,
-              task_type: task.task_type,
-              assignee_id: task.assignee_id,
-              entity_type: task.entity_type,
-              entity_id: task.entity_id,
-              secondary_entity_type: task.secondary_entity_type,
-              secondary_entity_id: task.secondary_entity_id,
-              deal_id: task.deal_id,
-              deal_reference: task.deal_reference,
-              tags: task.tags,
-              priority: task.priority || 'medium',
-              priority_score: 50,
-              status: 'pending',
-              due_date: nextDueDate,
-              source: 'system',
-              is_manual: false,
-              needs_review: false,
-              extraction_confidence: 'high',
-              created_by: user?.id,
-              recurrence_rule: task.recurrence_rule,
-              recurrence_parent_id: parentId,
-              auto_generated: true,
-              generation_source: 'recurrence',
-            } as never);
+          const { error: insertErr } = await supabase.from('daily_standup_tasks' as never).insert({
+            title: task.title,
+            description: task.description,
+            task_type: task.task_type,
+            assignee_id: task.assignee_id,
+            entity_type: task.entity_type,
+            entity_id: task.entity_id,
+            secondary_entity_type: task.secondary_entity_type,
+            secondary_entity_id: task.secondary_entity_id,
+            deal_id: task.deal_id,
+            deal_reference: task.deal_reference,
+            tags: task.tags,
+            priority: task.priority || 'medium',
+            priority_score: 50,
+            status: 'pending',
+            due_date: nextDueDate,
+            source: 'system',
+            is_manual: false,
+            needs_review: false,
+            extraction_confidence: 'high',
+            created_by: user?.id,
+            recurrence_rule: task.recurrence_rule,
+            recurrence_parent_id: parentId,
+            auto_generated: true,
+            generation_source: 'recurrence',
+          } as never);
           if (insertErr) {
             console.error('Failed to spawn recurring task instance:', insertErr);
           }
@@ -260,6 +266,7 @@ export function useToggleTaskComplete() {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
       qc.invalidateQueries({ queryKey: ['entity-tasks'] });
       qc.invalidateQueries({ queryKey: ['admin-notifications'] });
+      qc.invalidateQueries({ queryKey: ['standup-meetings-tracker'] });
     },
   });
 }
@@ -331,6 +338,7 @@ export function useApproveTask() {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
       qc.invalidateQueries({ queryKey: ['entity-tasks'] });
       qc.invalidateQueries({ queryKey: ['admin-notifications'] });
+      qc.invalidateQueries({ queryKey: ['standup-meetings-tracker'] });
     },
   });
 }
@@ -406,6 +414,7 @@ export function useApproveAllTasks() {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
       qc.invalidateQueries({ queryKey: ['entity-tasks'] });
       qc.invalidateQueries({ queryKey: ['admin-notifications'] });
+      qc.invalidateQueries({ queryKey: ['standup-meetings-tracker'] });
     },
   });
 }

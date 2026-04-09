@@ -17,8 +17,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const appBaseUrl =
-      Deno.env.get('APP_BASE_URL') || 'https://marketplace.sourcecodeals.com';
+    const appBaseUrl = Deno.env.get('APP_BASE_URL') || 'https://marketplace.sourcecodeals.com';
 
     // === SNOOZED TASK WAKE-UP ===
     // Find tasks where snoozed_until has passed and wake them up.
@@ -35,8 +34,7 @@ serve(async (req) => {
       for (const task of snoozedTasks) {
         // Validate that the linked deal is still active before waking
         let dealIsActive = true;
-        const dealIdToCheck =
-          task.deal_id || (task.entity_type === 'deal' ? task.entity_id : null);
+        const dealIdToCheck = task.deal_id || (task.entity_type === 'deal' ? task.entity_id : null);
         if (dealIdToCheck) {
           const { data: deal } = await supabase
             .from('deal_pipeline')
@@ -46,8 +44,13 @@ serve(async (req) => {
           if (!deal) {
             dealIsActive = false;
           } else {
-            const stageName = (deal.deal_stages as { name?: string } | null)?.name?.toLowerCase() || '';
-            if (stageName.includes('closed') || stageName.includes('lost') || stageName.includes('archived')) {
+            const stageName =
+              (deal.deal_stages as { name?: string } | null)?.name?.toLowerCase() || '';
+            if (
+              stageName.includes('closed') ||
+              stageName.includes('lost') ||
+              stageName.includes('archived')
+            ) {
               dealIsActive = false;
             }
           }
@@ -138,19 +141,28 @@ serve(async (req) => {
       // Level 0 -> 1: Notify assignee (1+ days overdue)
       // IMPORTANT: Update escalation_level BEFORE sending email to avoid
       // race conditions where a second cron run could re-send the email.
+      // We chain `.select()` so we can detect when 0 rows matched (another
+      // worker beat us) and skip the email.
       if (task.escalation_level === 0 && daysPastDue >= 1 && assignee?.email) {
         const assigneeName =
           `${assignee.first_name || ''} ${assignee.last_name || ''}`.trim() || 'there';
 
-        // Mark escalated first (transactional safety)
-        const { error: updateErr } = await supabase
+        // Atomic gate: this UPDATE only affects the row if escalation_level
+        // is still 0. The returned array is empty if another worker already
+        // bumped it, which means we should skip sending the email.
+        const { data: claimedRows, error: updateErr } = await supabase
           .from('daily_standup_tasks')
           .update({ escalation_level: 1, escalated_at: new Date().toISOString() })
           .eq('id', task.id)
-          .eq('escalation_level', 0); // Only update if still at level 0
+          .eq('escalation_level', 0)
+          .select('id');
 
         if (updateErr) {
-          console.warn(`Failed to update escalation for task ${task.id}, skipping email`);
+          console.warn(`Failed to update escalation for task ${task.id}:`, updateErr);
+          continue;
+        }
+        if (!claimedRows || claimedRows.length === 0) {
+          // Another worker already escalated this task
           continue;
         }
 
@@ -188,15 +200,23 @@ serve(async (req) => {
         notifiedCount++;
       }
 
-      // Level 1 -> 2: Notify via user_notifications (3+ days overdue)
+      // Level 1 -> 2: Notify via user_notifications (3+ days overdue).
+      // Use `lte` in the WHERE so we can fast-forward from 0 directly to 2
+      // if the cron was skipped on day 1. The returned array length tells
+      // us whether we were the thread that actually did the escalation.
       if (task.escalation_level <= 1 && daysPastDue >= 3 && task.assignee_id) {
-        const { error: updateErr } = await supabase
+        const { data: claimedRows, error: updateErr } = await supabase
           .from('daily_standup_tasks')
           .update({ escalation_level: 2 })
           .eq('id', task.id)
-          .lte('escalation_level', 1);
+          .lte('escalation_level', 1)
+          .select('id');
 
-        if (!updateErr) {
+        if (updateErr) {
+          console.warn(`Failed to escalate task ${task.id} to level 2:`, updateErr);
+          continue;
+        }
+        if (claimedRows && claimedRows.length > 0) {
           await supabase.from('user_notifications').insert({
             user_id: task.assignee_id,
             notification_type: 'task_overdue',
@@ -212,20 +232,24 @@ serve(async (req) => {
       // Previously notified ALL admins — now filtered to deal team members
       // to reduce admin notification fatigue.
       if (task.escalation_level <= 2 && daysPastDue >= 7) {
-        const { error: updateErr } = await supabase
+        const { data: claimedRows, error: updateErr } = await supabase
           .from('daily_standup_tasks')
           .update({ escalation_level: 3 })
           .eq('id', task.id)
-          .lte('escalation_level', 2);
+          .lte('escalation_level', 2)
+          .select('id');
 
-        if (updateErr) continue;
+        if (updateErr) {
+          console.warn(`Failed to escalate task ${task.id} to level 3:`, updateErr);
+          continue;
+        }
+        if (!claimedRows || claimedRows.length === 0) continue;
 
         // Gather notification recipients: deal team members + owner role only
         const recipientIds = new Set<string>();
 
         // Add deal team members if task is linked to a deal
-        const dealIdForTeam =
-          task.deal_id || (task.entity_type === 'deal' ? task.entity_id : null);
+        const dealIdForTeam = task.deal_id || (task.entity_type === 'deal' ? task.entity_id : null);
         if (dealIdForTeam) {
           const { data: teamMembers } = await supabase
             .from('rm_deal_team')

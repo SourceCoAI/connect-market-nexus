@@ -110,7 +110,10 @@ serve(async (req) => {
     }
 
     const transcripts = allTranscripts.filter((t) => !!t.title);
-    console.log(`Found ${transcripts.length} recent transcripts across ${Math.ceil(allTranscripts.length / PAGE_SIZE)} page(s)`);
+    const pagesFetched = Math.ceil(allTranscripts.length / PAGE_SIZE) || 1;
+    console.log(
+      `Found ${transcripts.length} recent transcripts (${allTranscripts.length} total, ${pagesFetched} page(s) fetched)`,
+    );
 
     // Only process meetings with the <ds> standup tag
     const dsTagged = transcripts.filter((t: { title: string }) => hasStandupTag(t.title));
