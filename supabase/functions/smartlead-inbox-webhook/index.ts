@@ -474,9 +474,9 @@ Deno.serve(async (req) => {
     let gpDealId: string | null = null;
     try {
       const campaignNameLower = (record.campaign_name || '').toLowerCase();
-      const ACTIVATED_CATEGORIES = ['meeting_request', 'interested', 'question', 'referral'];
+      const ACTIVATED_CATEGORIES = ['meeting_request', 'interested', 'question', 'referral', 'not_now'];
       const isGPCampaign = campaignNameLower.includes('gp');
-      const isActivated = ACTIVATED_CATEGORIES.includes(classification.category);
+      const isActivated = ACTIVATED_CATEGORIES.includes(classification.category) || classification.sentiment === 'positive' || classification.sentiment === 'activated';
 
       if (isGPCampaign && isActivated) {
         // Re-read the enriched record to get lead details
