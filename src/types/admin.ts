@@ -30,6 +30,7 @@ export interface AdminListing {
   internal_primary_owner?: string; // Deprecated - use primary_owner_id
   primary_owner_id?: string | null; // UUID reference to profiles
   owner_name?: string; // Resolved display name of the deal owner
+  owner_source?: 'direct' | 'inherited'; // Where the owner was resolved from
   internal_salesforce_link?: string;
   internal_deal_memo_link?: string;
   internal_contact_info?: string;

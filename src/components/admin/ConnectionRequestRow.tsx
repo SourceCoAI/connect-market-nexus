@@ -70,6 +70,7 @@ export const formatEnhancedCompanyName = (
   companyName?: string | null,
   listingId?: string,
   ownerName?: string | null,
+  ownerSource?: 'direct' | 'inherited',
 ) => {
   const content =
     companyName && companyName.trim() ? (
@@ -91,7 +92,9 @@ export const formatEnhancedCompanyName = (
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
-          Deal Owner — assigned in Active Deals
+          {ownerSource === 'inherited'
+            ? 'Deal Owner — inherited from linked Active Deal'
+            : 'Deal Owner — assigned in Active Deals'}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
