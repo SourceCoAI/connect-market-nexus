@@ -211,7 +211,7 @@ NAME+COMPANY: search_contacts(company_name, search) → clay_find_email(first_na
 COMPANY CONTACTS: find_contact(mode:"decision_makers", company_name) for key people discovery.
 BULK: search_contacts(has_email=false) → auto-enrich each via Clay then Prospeo.
 FIRM: search_pe_contacts(firm_name), auto-enrich if none found.
-clay_find_phone: phone lookup via LinkedIn URL.
+PHONE NUMBER: To find a mobile/phone number, ALWAYS chain two steps: (1) find_contact(mode:"person", person_name, company_name, company_domain) to discover LinkedIn URL, then (2) clay_find_phone(linkedin_url) with the discovered LinkedIn URL. If user provides a website URL, extract the domain (e.g. "acme.com" from "https://www.acme.com") and pass as company_domain. Never say "I need a LinkedIn URL" — find it first.
 Use retrieve_knowledge(topic="contact_discovery_flow") for full workflow.`,
 
   CONTACT_ENRICHMENT: `1. search_contacts(company_name) 2. enrich_contact(mode:"company") if needed 3. clay_find_email FIRST for missing emails 4. Prospeo fallback 5. Present results with counts 6. Suggest PhoneBurner/Smartlead.
