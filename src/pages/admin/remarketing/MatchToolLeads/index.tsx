@@ -69,6 +69,8 @@ function formatFinancials(revenue: string | null, profit: string | null): string
 }
 
 export default function MatchToolLeads() {
+  const { markAsViewed } = useMarkMatchToolLeadsViewed();
+  useEffect(() => { markAsViewed(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
