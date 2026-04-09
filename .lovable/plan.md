@@ -1,37 +1,45 @@
 
 
-# Fix Password Reset: Remove Strength Enforcement + Enable Browser Save
+# Fix: Defensive Redirect in PendingApproval for Already-Approved Users
 
 ## Root Cause
 
-The reset password page calls the `password-security` edge function to validate strength. That function **requires authentication** (`requireAuth`). But users resetting their password are **not logged in** — they arrive via an email link. So the validation always fails with 401, returning `meets_policy: false`, which disables the submit button. Users can never reset their password regardless of what they type.
+Chris's account is `approved` and `email_verified=true` in the database. He should never see this page. But due to a timing race during login (the `SIGNED_IN` event fires before `loadProfile` completes), he briefly lands on `/pending-approval`. Once there, the page shows "Verify your email" or "Account under review" based on potentially stale client state.
 
-## Fix (Minimal, Surgical)
+The `getUIState()` function on line 224-231 only checks `user.email_verified` from the profile object. If the profile is stale or slow to load, it can show the wrong screen to an already-verified, already-approved user.
 
-### 1. `src/pages/ResetPassword.tsx`
-- Remove the `usePasswordSecurity` hook and `PasswordStrengthIndicator` component entirely
-- Remove their imports
-- Change the submit button's disabled condition: only require `password.length >= 6` and `password === confirm` (Supabase's own minimum is 6)
-- Add `autoComplete="new-password"` to both password inputs — this is what triggers Chrome/Safari/Firefox to offer "Save this password?" after submission
-- Add a `<form>` `name="reset-password"` attribute for better password manager detection
-- Keep the edge function call to `password-reset` for the actual reset — that part works fine
+## The Safest Fix (1 file, additive only)
 
-### 2. `supabase/functions/password-reset/index.ts`
-- Change `newPassword.length < 8` check on line 156 to `newPassword.length < 6` to match the relaxed policy
+**File: `src/pages/PendingApproval.tsx`**
 
-### Not Touched
-- Signup flow (uses its own password fields — unchanged)
-- `password-security` edge function (stays as-is, just no longer called from reset page)
-- `PasswordStrengthIndicator` component (stays in codebase, just not used on reset page)
-- Login flow, verification links, auth context — all untouched
+Add a single `useEffect` near the top (after the existing approved redirect on line 47-51) that checks the **real auth state** via `supabase.auth.getUser()` when the page mounts. If the user is both:
+- `email_confirmed_at` is set in Auth (verified)
+- `approval_status === 'approved'` in the profile
 
-## How Browser Password Save Works
-Adding `autoComplete="new-password"` to the password inputs tells the browser this is a new credential. After the form submits successfully and navigates to `/login`, Chrome/Safari/Firefox will prompt "Save password for this site?" — storing it in the user's Google account (if signed into Chrome) or device keychain.
+...then immediately redirect to `/` (marketplace). This catches the race condition.
 
-## Files
+Additionally, update `getUIState()` to also check auth truth: before returning `'email_not_verified'`, do a quick check — if the reconciliation effect already confirmed Auth says verified, skip the "Verify your email" screen and show `'approved_pending'` instead (which is the "Application received / waiting for review" screen — much less confusing than asking to re-verify).
 
-| File | Change |
-|------|--------|
-| `src/pages/ResetPassword.tsx` | Remove password security hook/indicator. Add `autoComplete="new-password"`. Relax min length to 6. |
-| `supabase/functions/password-reset/index.ts` | Change min length check from 8 to 6. |
+### Specific changes
+
+1. **Add state `authConfirmedVerified`** (boolean, default `false`) that gets set to `true` by the existing reconciliation effect when `supabase.auth.getUser()` confirms `email_confirmed_at` is set.
+
+2. **Update `getUIState()`** (line 224-231): Change `email_not_verified` branch to also check `authConfirmedVerified` — if auth says verified, return `'approved_pending'` instead of `'email_not_verified'`. This prevents showing the "Resend verification" button to already-verified users.
+
+3. **Enhance the existing approved redirect** (line 47-51): Also trigger redirect if the reconciliation confirms the user is verified AND profile says approved — handles the case where `user.approval_status` updates slightly after mount.
+
+### What this does NOT touch
+- Login page — no changes
+- Signup flow — no changes  
+- Password reset — no changes
+- Auth callback — no changes
+- ProtectedRoute — no changes
+- useNuclearAuth — no changes
+- Any edge functions — no changes
+
+### Why this is safe
+- It's purely additive defensive logic in a single page
+- It only redirects users **away** from PendingApproval (never traps them)
+- It uses the existing `supabase.auth.getUser()` pattern already in the reconciliation effect
+- Worst case if the new code fails: behavior stays exactly as it is today
 
