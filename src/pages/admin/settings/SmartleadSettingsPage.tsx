@@ -76,6 +76,7 @@ export default function SmartleadSettingsPage() {
 
   const [promptText, setPromptText] = useState<string | null>(null);
   const [savingPrompt, setSavingPrompt] = useState(false);
+  const [reclassifyingAll, setReclassifyingAll] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const localCampaigns = campaignsData?.local_campaigns || [];
