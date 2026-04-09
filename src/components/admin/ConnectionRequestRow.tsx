@@ -82,7 +82,19 @@ export const formatEnhancedCompanyName = (
     );
 
   const ownerBadge = ownerName ? (
-    <span className="text-muted-foreground text-sm font-medium ml-1.5">· {ownerName}</span>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-muted-foreground text-sm font-medium ml-1.5 inline-flex items-center gap-1 cursor-help border-b border-dotted border-muted-foreground/40">
+            · {ownerName}
+            <Info className="h-3 w-3 opacity-60" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          Deal Owner — assigned in Active Deals
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   ) : null;
 
   if (listingId) {

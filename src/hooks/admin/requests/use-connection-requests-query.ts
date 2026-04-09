@@ -128,7 +128,7 @@ export function useConnectionRequestsQuery() {
           fetchInChunks('profiles', '*', profileIds),
           fetchInChunks(
             'listings',
-            'id, title, category, status, revenue, ebitda, image_url, location, internal_company_name, deal_identifier, primary_owner_id',
+            'id, title, category, status, revenue, ebitda, image_url, location, internal_company_name, deal_identifier, primary_owner_id, deal_owner_id',
             listingIds.filter((id): id is string => id !== null),
           ),
         ]);
@@ -145,7 +145,10 @@ export function useConnectionRequestsQuery() {
         // Collect owner IDs not already in profilesById and batch-fetch them
         const ownerIds = new Set<string>();
         (listingsRes.data ?? []).forEach((l) => {
-          const ownerId = (l as Record<string, unknown>).primary_owner_id as string | null;
+          const rec = l as Record<string, unknown>;
+          const dealOwnerId = rec.deal_owner_id as string | null;
+          const primaryOwnerId = rec.primary_owner_id as string | null;
+          const ownerId = dealOwnerId || primaryOwnerId;
           if (ownerId && !profilesById.has(ownerId)) ownerIds.add(ownerId);
         });
         if (ownerIds.size > 0) {
@@ -184,7 +187,8 @@ export function useConnectionRequestsQuery() {
 
           // Resolve deal owner name
           if (listing && listingData) {
-            const ownerId = (listingData as Record<string, unknown>).primary_owner_id as string | null;
+            const rec = listingData as Record<string, unknown>;
+            const ownerId = (rec.deal_owner_id as string | null) || (rec.primary_owner_id as string | null);
             if (ownerId) {
               const ownerProfile = profilesById.get(ownerId);
               if (ownerProfile) {
