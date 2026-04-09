@@ -14425,6 +14425,7 @@ export type Database = {
           remarketing_buyer_id: string
         }[]
       }
+      resolve_portal_access: { Args: { p_slug: string }; Returns: Json }
       resolve_user_firm_id: { Args: { p_user_id: string }; Returns: string }
       restore_deal: { Args: { deal_id: string }; Returns: boolean }
       restore_soft_deleted: {
