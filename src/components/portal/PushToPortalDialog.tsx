@@ -302,7 +302,7 @@ export function PushToPortalDialog({
           {!(bulkDone && !bulkHasErrors) && (
             <Button
               onClick={handleSubmit}
-              disabled={isPushing || !selectedOrgId || (!isBulk && !!duplicate) || singleDealMissingMemo}
+              disabled={isPushing || !selectedOrgId || (!isBulk && !!duplicate) || !!singleDealMissingMemo}
             >
               {isPushing ? 'Pushing...' : isBulk ? `Push ${effectiveIds.length} Deal(s)` : 'Push Deal'}
             </Button>

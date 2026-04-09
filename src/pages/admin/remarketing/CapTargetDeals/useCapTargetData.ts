@@ -421,7 +421,7 @@ export function useCapTargetData() {
       if (!field.dynamicOptions) continue;
       const unique = new Set<string>();
       for (const item of statsData) {
-        const rec = item as Record<string, unknown>;
+        const rec = item as unknown as Record<string, unknown>;
         const val = field.accessor ? field.accessor(rec) : rec[field.key];
         if (val != null && val !== '') unique.add(String(val));
       }

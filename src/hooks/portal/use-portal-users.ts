@@ -135,7 +135,7 @@ export function useMyPortalUser(slug: string | undefined) {
 
       // Track portal login for real portal users (not admin preview)
       if (result && !result.id.startsWith('admin-preview-')) {
-        void (supabase as unknown as UntypedRpcClient).rpc('track_portal_login', { p_slug: slug });
+        void (supabase as any).rpc('track_portal_login', { p_slug: slug });
       }
 
       return result as PortalUserWithOrg;
