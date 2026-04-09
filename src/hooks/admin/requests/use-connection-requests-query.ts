@@ -206,23 +206,29 @@ export function useConnectionRequestsQuery() {
           const user = userData ? createUserObject(userData) : null;
           const listing = listingData ? createListingFromData(listingData) : null;
 
-          // Resolve deal owner name through fallback chain
+          // Resolve deal owner name — only from deal_owner_id (not primary_owner_id)
           if (listing && listingData) {
             const rec = listingData as Record<string, unknown>;
-            let ownerId = (rec.deal_owner_id as string | null) || (rec.primary_owner_id as string | null);
-            let ownerSource: 'direct' | 'inherited' = 'direct';
+            let ownerId = rec.deal_owner_id as string | null;
+            let ownerSource: 'direct' | 'inherited' | 'none' = 'direct';
+            let ownerListingId = rec.id as string;
 
-            // If no owner on this listing, follow source_deal_id
+            // If no deal_owner_id on this listing, follow source_deal_id
             if (!ownerId) {
               const srcId = rec.source_deal_id as string | null;
               if (srcId) {
                 const srcListing = sourceListingsById.get(srcId);
                 if (srcListing) {
-                  ownerId = (srcListing.deal_owner_id as string | null) || (srcListing.primary_owner_id as string | null);
-                  if (ownerId) ownerSource = 'inherited';
+                  ownerId = srcListing.deal_owner_id as string | null;
+                  if (ownerId) {
+                    ownerSource = 'inherited';
+                    ownerListingId = srcId;
+                  }
                 }
               }
             }
+
+            listing.owner_listing_id = ownerListingId;
 
             if (ownerId) {
               const ownerProfile = profilesById.get(ownerId);
@@ -231,6 +237,9 @@ export function useConnectionRequestsQuery() {
                 listing.owner_name = `${op.first_name || ''} ${op.last_name || ''}`.trim() || (op.email as string) || undefined;
                 listing.owner_source = ownerSource;
               }
+            } else {
+              listing.owner_name = undefined;
+              listing.owner_source = 'none';
             }
           }
 
