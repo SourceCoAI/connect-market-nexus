@@ -1,38 +1,61 @@
 
 
-# Investigation: "Signup failed — Invalid email address" for rafeh@rafnumpartners.com
+# Add Notification Badge for New Match Tool Leads
 
-## Root Cause
+## Problem
+When a new lead comes in via the match tool, there's no notification dot/badge on the sidebar — unlike Marketplace, Deal Sourcing, etc.
 
-**The error message is misleading.** Line 190 in `src/pages/Signup/index.tsx`:
+## How It Works (Existing Pattern)
+1. `admin_view_state` table stores `(admin_id, view_type, last_viewed_at)`
+2. A hook queries "count of items created after `last_viewed_at`" + subscribes to realtime INSERTs
+3. The count is passed as a `badge` on the sidebar nav item
+4. When the admin visits the page, a "mark as viewed" mutation upserts `last_viewed_at = now()`
 
-```typescript
-else if (msgLower.includes('email')) errorMessage = 'Invalid email address.';
-```
+## Plan
 
-This catches **any** error whose message contains the word "email" and replaces it with "Invalid email address." The email `rafeh@rafnumpartners.com` is perfectly valid — the real error is being masked.
+### 1. Create `useUnviewedMatchToolLeads` hook
+New file: `src/hooks/admin/use-unviewed-match-tool-leads.ts`
 
-The actual Supabase error is almost certainly one of these:
+Follows the exact same pattern as `use-unviewed-deal-sourcing.ts`:
+- Query `admin_view_state` for `view_type = 'match_tool_leads'`
+- Count rows in `match_tool_leads` where `created_at > last_viewed_at`
+- Realtime subscription on `match_tool_leads` INSERT events to invalidate the count
 
-1. **Metadata payload too large** — The `signUp` call sends ~60+ fields in `options.data` (lines 198-306 of `use-nuclear-auth.ts`). Supabase has a limit on `raw_user_meta_data`. The error message from Supabase likely says something like "Unable to create user with email..." or "Error processing email signup..." — anything with "email" in it triggers the bad catch.
+### 2. Create `useMarkMatchToolLeadsViewed` hook
+New file: `src/hooks/admin/use-mark-match-tool-leads-viewed.ts`
 
-2. **Duplicate account** — If this user previously started a signup (even partially), Supabase may return a different duplicate error message that contains "email" but doesn't match the exact "user already registered" check on line 186.
+Same pattern as `use-mark-connection-requests-viewed.ts`:
+- Calls `markAdminViewAsViewed(user.id, 'match_tool_leads')`
+- Invalidates the unviewed count query
 
-3. **Supabase rate limiting or transient error** — The error response might mention the email in context, getting caught by the broad filter.
+### 3. Update ViewType
+In `src/lib/data-access/admin.ts`, add `'match_tool_leads'` to the `ViewType` union.
 
-## The Fix (1 file, safe)
+### 4. Wire badge into sidebar
+In `UnifiedAdminSidebar.tsx`:
+- Import and call `useUnviewedMatchToolLeads`
+- Add `badge: unviewedMatchToolLeadsCount` to the "Match Tool Leads" nav item (line ~283)
+- Add to the `useMemo` dependency array
 
-**File: `src/pages/Signup/index.tsx`** — Fix the error handling to:
+### 5. Mark as viewed on page visit
+In `src/pages/admin/remarketing/MatchToolLeads/index.tsx`:
+- Import `useMarkMatchToolLeadsViewed`
+- Call `markAsViewed()` in a `useEffect` on mount
 
-1. **Show the actual error message** instead of masking it — change line 190 to only match specific known email validation errors (e.g., "invalid format", "not valid"), not any string containing "email"
-2. **Add the real error to the toast** so users (and you) can see what actually went wrong
-3. Keep the existing user-friendly mappings for "user already registered" and password errors
+### 6. Export hooks
+Add exports to `src/hooks/admin/index.ts`.
 
-This is safe because it only changes error display text in the catch block — no signup logic, no auth flow, no validation changes.
+## No migration needed
+The `view_type` column is plain text with no CHECK constraint — adding a new value is safe.
 
-## Files
+## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/Signup/index.tsx` | Narrow the "email" error catch to only match actual email validation errors. For unknown errors, show the real message instead of masking it. |
+| `src/hooks/admin/use-unviewed-match-tool-leads.ts` | New — count unviewed leads |
+| `src/hooks/admin/use-mark-match-tool-leads-viewed.ts` | New — mark as viewed |
+| `src/lib/data-access/admin.ts` | Add `'match_tool_leads'` to ViewType |
+| `src/components/admin/UnifiedAdminSidebar.tsx` | Wire badge to Match Tool Leads item |
+| `src/pages/admin/remarketing/MatchToolLeads/index.tsx` | Mark as viewed on mount |
+| `src/hooks/admin/index.ts` | Export new hooks |
 
