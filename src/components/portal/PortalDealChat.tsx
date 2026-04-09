@@ -67,21 +67,22 @@ export function PortalDealChat({ pushId, portalOrgId, senderType, senderName }: 
   };
 
   const handleSend = async () => {
-    if (!newMessage.trim()) return;
+    const text = newMessage.trim();
+    if (!text) return;
+    setNewMessage('');
     await sendMessage.mutateAsync({
       push_id: pushId,
       portal_org_id: portalOrgId,
       sender_type: senderType,
       sender_name: senderName,
-      message: newMessage.trim(),
+      message: text,
     });
-    setNewMessage('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
@@ -191,6 +192,7 @@ export function PortalDealChat({ pushId, portalOrgId, senderType, senderName }: 
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={handleKeyDown}
+            maxLength={2000}
             placeholder={
               senderType === 'portal_user'
                 ? 'Ask a question about this deal...'

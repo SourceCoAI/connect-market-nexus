@@ -128,6 +128,12 @@ export function useMyPortalUser(slug: string | undefined) {
 
       // RPC returns JSONB — parse into PortalUserWithOrg shape
       const result = typeof data === 'string' ? JSON.parse(data) : data;
+
+      // Track portal login for real portal users (not admin preview)
+      if (result && !result.id.startsWith('admin-preview-')) {
+        supabase.rpc('track_portal_login', { p_slug: slug }).catch(() => {});
+      }
+
       return result as PortalUserWithOrg;
     },
     enabled: !!slug,
@@ -163,26 +169,36 @@ async function fallbackPortalAccess(
 
   if (data) return data as PortalUserWithOrg;
 
-  // If the org query succeeded, user must have RLS access (admin or member)
-  return {
-    id: `admin-preview-${user.id}`,
-    portal_org_id: org.id,
-    profile_id: user.id,
-    contact_id: null,
-    role: 'admin',
-    email: user.email || '',
-    name: 'Admin Preview',
-    is_active: true,
-    last_login_at: null,
-    invite_sent_at: null,
-    invite_accepted_at: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    portal_org: {
-      id: org.id,
-      name: org.name,
-      portal_slug: org.portal_slug,
-      welcome_message: org.welcome_message,
-    },
-  } as PortalUserWithOrg;
+  // Check admin status via profiles table before granting synthetic access
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .single();
+
+  if (profile?.is_admin) {
+    return {
+      id: `admin-preview-${user.id}`,
+      portal_org_id: org.id,
+      profile_id: user.id,
+      contact_id: null,
+      role: 'admin',
+      email: user.email || '',
+      name: 'Admin Preview',
+      is_active: true,
+      last_login_at: null,
+      invite_sent_at: null,
+      invite_accepted_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      portal_org: {
+        id: org.id,
+        name: org.name,
+        portal_slug: org.portal_slug,
+        welcome_message: org.welcome_message,
+      },
+    } as PortalUserWithOrg;
+  }
+
+  return null; // No access
 }

@@ -26,7 +26,7 @@ import { CompanyDetailsModal } from '@/components/portal/CompanyDetailsModal';
 import type { PortalDealPush } from '@/types/portal';
 
 function formatCurrency(value: number | null | undefined): string {
-  if (!value) return '-';
+  if (value == null) return '-';
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
   return `$${value.toLocaleString()}`;
@@ -162,13 +162,13 @@ export default function PortalDealTracker() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Company</TableHead>
-                  <TableHead>Website</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Industry</TableHead>
+                  <TableHead className="hidden md:table-cell">Website</TableHead>
+                  <TableHead className="hidden md:table-cell">Location</TableHead>
+                  <TableHead className="hidden md:table-cell">Industry</TableHead>
                   <TableHead className="text-right">Revenue</TableHead>
                   <TableHead className="text-right">EBITDA</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead className="hidden md:table-cell">Description</TableHead>
+                  <TableHead className="hidden md:table-cell">Date</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -207,7 +207,7 @@ export default function PortalDealTracker() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="hidden md:table-cell whitespace-nowrap">
                         {deal.deal_snapshot?.website ? (
                           <a
                             href={ensureProtocol(deal.deal_snapshot.website)}
@@ -223,10 +223,10 @@ export default function PortalDealTracker() {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                      <TableCell className="hidden md:table-cell whitespace-nowrap text-muted-foreground">
                         {deal.deal_snapshot?.geography || '-'}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                      <TableCell className="hidden md:table-cell whitespace-nowrap text-muted-foreground">
                         {deal.deal_snapshot?.industry || '-'}
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap text-muted-foreground">
@@ -235,12 +235,12 @@ export default function PortalDealTracker() {
                       <TableCell className="text-right whitespace-nowrap text-muted-foreground">
                         {formatCurrency(deal.deal_snapshot?.ebitda)}
                       </TableCell>
-                      <TableCell className="max-w-[250px]">
+                      <TableCell className="hidden md:table-cell max-w-[250px]">
                         <p className="text-muted-foreground text-xs line-clamp-2">
                           {description || '-'}
                         </p>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-muted-foreground text-sm">
+                      <TableCell className="hidden md:table-cell whitespace-nowrap text-muted-foreground text-sm">
                         {new Date(deal.created_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
@@ -343,7 +343,7 @@ export default function PortalDealTracker() {
                             <span className="font-medium">
                               {msgSummary.latest_sender_type === 'admin' ? 'SourceCo' : 'You'}:
                             </span>
-                            {' '}{msgSummary.latest_message}
+                            {' '}{msgSummary.latest_message || ''}
                           </p>
                         </div>
                       )}

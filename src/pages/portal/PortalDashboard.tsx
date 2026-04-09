@@ -12,14 +12,14 @@ import type { PortalDealPush } from '@/types/portal';
 
 export default function PortalDashboard() {
   const { slug } = useParams<{ slug: string }>();
-  const { data: portalUser, isLoading: userLoading } = useMyPortalUser(slug);
+  const { data: portalUser, isLoading: userLoading, status } = useMyPortalUser(slug);
   const { data: deals, isLoading: dealsLoading } = useMyPortalDeals(portalUser?.portal_org?.id);
   const { data: messageSummaries } = usePortalMessageSummaries(
     portalUser?.portal_org?.id,
     'portal_user',
   );
 
-  if (userLoading) return <div className="py-12 text-center text-muted-foreground">Loading...</div>;
+  if (userLoading || status === 'pending') return <div className="py-12 text-center text-muted-foreground">Loading portal...</div>;
   if (!portalUser) {
     return (
       <div className="py-12 text-center">
@@ -180,7 +180,7 @@ export default function PortalDashboard() {
                               <p className={`text-xs truncate mt-0.5 ${hasUnread ? 'text-blue-700 font-medium' : 'text-muted-foreground'}`}>
                                 <MessageSquare className="h-3 w-3 inline mr-1" />
                                 {msgSummary.latest_sender_type === 'admin' ? 'SourceCo' : 'You'}:{' '}
-                                {msgSummary.latest_message}
+                                {msgSummary.latest_message || ''}
                               </p>
                             )}
                           </div>

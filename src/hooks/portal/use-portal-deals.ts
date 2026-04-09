@@ -110,7 +110,7 @@ export function usePortalDealResponses(pushId: string | undefined) {
       if (!pushId) return [];
       const { data, error } = await untypedFrom('portal_deal_responses')
         .select(`
-          *,
+          id, push_id, responded_by, response_type, notes, created_at,
           responder:portal_users!portal_deal_responses_responded_by_fkey(name)
         `)
         .eq('push_id', pushId)

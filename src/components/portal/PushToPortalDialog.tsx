@@ -213,7 +213,7 @@ export function PushToPortalDialog({
             </Alert>
           )}
 
-          {!memoCheckLoading && memoCheck && !memoCheck.hasMemo && (
+          {!isBulk && !memoCheckLoading && memoCheck && !memoCheck.hasMemo && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
@@ -301,7 +301,7 @@ export function PushToPortalDialog({
           {!(bulkDone && !bulkHasErrors) && (
             <Button
               onClick={handleSubmit}
-              disabled={isPushing || !selectedOrgId || (!isBulk && !!duplicate) || (!memoCheckLoading && memoCheck && !memoCheck.hasMemo)}
+              disabled={isPushing || !selectedOrgId || (!isBulk && !!duplicate) || (!isBulk && !memoCheckLoading && memoCheck && !memoCheck.hasMemo)}
             >
               {isPushing ? 'Pushing...' : isBulk ? `Push ${effectiveIds.length} Deal(s)` : 'Push Deal'}
             </Button>

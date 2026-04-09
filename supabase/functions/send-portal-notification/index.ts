@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { requireAdmin } from "../_shared/auth.ts";
+import { requireAuth } from "../_shared/auth.ts";
 
 /**
  * send-portal-notification
@@ -17,7 +17,8 @@ import { requireAdmin } from "../_shared/auth.ts";
  *   push_note?: string
  * }
  *
- * Requires admin authentication.
+ * Requires authenticated user. The push_id is validated against
+ * portal_org_id to ensure the request is legitimate.
  */
 
 interface NotificationRequest {
@@ -39,12 +40,12 @@ const handler = async (req: Request): Promise<Response> => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-  const auth = await requireAdmin(req, supabaseAdmin);
-  if (!auth.isAdmin) {
+  const auth = await requireAuth(req);
+  if (!auth.authenticated) {
     return new Response(
       JSON.stringify({ error: auth.error }),
       {
-        status: auth.authenticated ? 403 : 401,
+        status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
@@ -59,6 +60,22 @@ const handler = async (req: Request): Promise<Response> => {
       return new Response(
         JSON.stringify({ error: "portal_org_id, push_id, deal_headline, and priority are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate that push_id exists and belongs to the specified portal_org_id
+    const { data: pushRecord, error: pushError } = await supabaseAdmin
+      .from("portal_deal_pushes")
+      .select("id")
+      .eq("id", push_id)
+      .eq("portal_org_id", portal_org_id)
+      .maybeSingle();
+
+    if (pushError || !pushRecord) {
+      console.warn(`[send-portal-notification] Invalid push_id ${push_id} for org ${portal_org_id}`);
+      return new Response(
+        JSON.stringify({ error: "Invalid push_id or portal_org_id" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

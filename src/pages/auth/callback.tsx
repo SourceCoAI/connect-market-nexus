@@ -103,7 +103,19 @@ export default function AuthCallback() {
 
           // Route decision
           if (emailConfirmed && profile?.approval_status === 'approved') {
-            navigate(profile.is_admin ? '/admin' : '/');
+            // Check if this is a portal magic link redirect
+            const hashParams = new URLSearchParams(CAPTURED_HASH);
+            const redirectTo = hashParams.get('redirect_to') || hashParams.get('redirect_url') || hashParams.get('redirectTo');
+            const searchParams = new URLSearchParams(CAPTURED_SEARCH);
+            const redirectParam = searchParams.get('redirect_to') || searchParams.get('redirect') || searchParams.get('next');
+            const portalRedirect = [redirectTo, redirectParam]
+              .find((url) => url && url.startsWith('/portal/'));
+
+            if (portalRedirect) {
+              navigate(portalRedirect);
+            } else {
+              navigate(profile.is_admin ? '/admin' : '/');
+            }
           } else {
             navigate('/pending-approval');
           }

@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import {
   Building2,
   MapPin,
@@ -21,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import type { PortalDealPush, TeaserSection } from '@/types/portal';
 
 function formatCurrency(value: number | null | undefined): string {
-  if (!value) return '-';
+  if (value == null) return '-';
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
   return `$${value.toLocaleString()}`;
@@ -151,7 +152,7 @@ export function CompanyDetailsModal({
               className="prose prose-sm max-w-none
                 prose-headings:text-foreground prose-p:text-muted-foreground
                 prose-strong:text-foreground prose-li:text-muted-foreground"
-              dangerouslySetInnerHTML={{ __html: snapshot.memo_html! }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(snapshot.memo_html!) }}
             />
           ) : hasTeaserSections ? (
             <div className="space-y-5">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { useParams, Link } from 'react-router-dom';
 import {
   ChevronLeft,
@@ -32,7 +33,7 @@ import { PortalDealChat } from '@/components/portal/PortalDealChat';
 import type { PortalResponseType, TeaserSection } from '@/types/portal';
 
 function formatCurrency(value: number | null | undefined): string {
-  if (!value) return '-';
+  if (value == null) return '-';
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
   return `$${value.toLocaleString()}`;
@@ -238,7 +239,7 @@ export default function PortalDealDetail() {
                 className="prose prose-sm max-w-none
                   prose-headings:text-foreground prose-p:text-muted-foreground
                   prose-strong:text-foreground prose-li:text-muted-foreground"
-                dangerouslySetInnerHTML={{ __html: snapshot.memo_html! }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(snapshot.memo_html!) }}
               />
             ) : hasTeaserSections ? (
               <div className="space-y-6">
@@ -373,6 +374,7 @@ export default function PortalDealDetail() {
                 <Textarea
                   value={responseNotes}
                   onChange={(e) => setResponseNotes(e.target.value)}
+                  maxLength={2000}
                   placeholder={
                     selectedResponseType === 'interested'
                       ? "Any additional context? e.g., 'Can we get the CIM?'"
