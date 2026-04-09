@@ -103,7 +103,8 @@ export type PortalUserWithOrg = PortalUser & {
 };
 
 /** For the client portal: get the current user's portal membership for a specific portal slug.
- *  Admins who are not portal members get a synthetic admin context so they can preview the portal. */
+ *  Uses an RPC function (SECURITY DEFINER) to bypass RLS and reliably resolve access
+ *  for both portal members and admins. */
 export function useMyPortalUser(slug: string | undefined) {
   return useQuery({
     queryKey: ['my-portal-user', slug],
@@ -112,56 +113,76 @@ export function useMyPortalUser(slug: string | undefined) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      // Resolve the org by slug — RLS only allows admins and portal members
-      const { data: org } = await untypedFrom('portal_organizations')
-        .select('id, name, portal_slug, welcome_message')
-        .eq('portal_slug', slug)
-        .is('deleted_at', null)
-        .maybeSingle();
+      // Use SECURITY DEFINER RPC to resolve access — bypasses RLS issues
+      const { data, error } = await supabase.rpc('resolve_portal_access', {
+        p_slug: slug,
+      });
 
-      if (!org) return null;
+      if (error) {
+        console.warn('resolve_portal_access RPC failed, falling back to direct query:', error.message);
+        // Fallback: try direct query in case RPC doesn't exist yet (migration pending)
+        return fallbackPortalAccess(slug, user);
+      }
 
-      // Check if user is an actual portal member
-      const { data, error } = await untypedFrom('portal_users')
-        .select(`
-          *,
-          portal_org:portal_organizations!portal_users_portal_org_id_fkey(
-            id, name, portal_slug, welcome_message
-          )
-        `)
-        .eq('profile_id', user.id)
-        .eq('portal_org_id', org.id)
-        .eq('is_active', true)
-        .maybeSingle();
+      if (!data) return null;
 
-      if (error) throw error;
-      if (data) return data as PortalUserWithOrg;
-
-      // If the org query succeeded but we're not a portal member, we must be
-      // an admin (RLS only allows admins and portal members to read the org).
-      // Synthesize an admin portal user so they can preview the portal.
-      return {
-        id: `admin-preview-${user.id}`,
-        portal_org_id: org.id,
-        profile_id: user.id,
-        contact_id: null,
-        role: 'admin',
-        email: user.email || '',
-        name: 'Admin Preview',
-        is_active: true,
-        last_login_at: null,
-        invite_sent_at: null,
-        invite_accepted_at: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        portal_org: {
-          id: org.id,
-          name: org.name,
-          portal_slug: org.portal_slug,
-          welcome_message: org.welcome_message,
-        },
-      } as PortalUserWithOrg;
+      // RPC returns JSONB — parse into PortalUserWithOrg shape
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+      return result as PortalUserWithOrg;
     },
     enabled: !!slug,
   });
+}
+
+/** Fallback for when the RPC function doesn't exist yet (migration not applied). */
+async function fallbackPortalAccess(
+  slug: string,
+  user: { id: string; email?: string },
+): Promise<PortalUserWithOrg | null> {
+  // Resolve the org by slug
+  const { data: org } = await untypedFrom('portal_organizations')
+    .select('id, name, portal_slug, welcome_message')
+    .eq('portal_slug', slug)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (!org) return null;
+
+  // Check if user is an actual portal member
+  const { data } = await untypedFrom('portal_users')
+    .select(`
+      *,
+      portal_org:portal_organizations!portal_users_portal_org_id_fkey(
+        id, name, portal_slug, welcome_message
+      )
+    `)
+    .eq('profile_id', user.id)
+    .eq('portal_org_id', org.id)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (data) return data as PortalUserWithOrg;
+
+  // If the org query succeeded, user must have RLS access (admin or member)
+  return {
+    id: `admin-preview-${user.id}`,
+    portal_org_id: org.id,
+    profile_id: user.id,
+    contact_id: null,
+    role: 'admin',
+    email: user.email || '',
+    name: 'Admin Preview',
+    is_active: true,
+    last_login_at: null,
+    invite_sent_at: null,
+    invite_accepted_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    portal_org: {
+      id: org.id,
+      name: org.name,
+      portal_slug: org.portal_slug,
+      welcome_message: org.welcome_message,
+    },
+  } as PortalUserWithOrg;
 }
