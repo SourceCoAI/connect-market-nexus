@@ -72,6 +72,9 @@ const PendingApproval = () => {
         return;
       }
 
+      // Auth confirms email is verified — record this truth
+      setAuthConfirmedVerified(true);
+
       // Auth says verified but profile is stale — show finalizing state
       console.info('[PendingApproval] Auth confirmed but profile stale — reconciling...');
       setIsFinalizingVerification(true);
