@@ -49,6 +49,8 @@ import { DuplicateChannelWarning } from "./DuplicateChannelWarning";
 import { MessageConflictDisplay } from "./MessageConflictDisplay";
 import { ConnectionRequestFirmBadge } from "./ConnectionRequestFirmBadge";
 import { BuyerTierBadge, BuyerScoreBadge } from "./BuyerQualityBadges";
+import { useFlagConnectionRequest } from "@/hooks/admin/use-flag-connection-request";
+import { useAdminProfiles } from "@/hooks/admin/use-admin-profiles";
 import { AssignOwnerDialog } from "./AssignOwnerDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidateConnectionRequests } from "@/lib/query-client-helpers";
