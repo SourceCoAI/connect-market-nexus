@@ -103,6 +103,26 @@ export default function SmartleadSettingsPage() {
     setPromptText(DEFAULT_PROMPT);
   };
 
+  const handleReclassifyAll = async () => {
+    setReclassifyingAll(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('smartlead-reclassify-all', {
+        body: {},
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      queryClient.invalidateQueries({ queryKey: ['smartlead', 'categorization-stats'] });
+      toast({
+        title: 'Reclassification complete',
+        description: `Processed ${data.total} records. ${data.changed} changed. Sentiment breakdown: ${Object.entries(data.by_sentiment || {}).map(([k, v]) => `${k}: ${v}`).join(', ')}`,
+      });
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to reclassify', variant: 'destructive' });
+    } finally {
+      setReclassifyingAll(false);
+    }
+  };
+
   const toggleCategory = (cat: string) => {
     setExpandedCategories(prev => {
       const next = new Set(prev);
