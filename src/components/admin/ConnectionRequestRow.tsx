@@ -626,6 +626,7 @@ export function ConnectionRequestRow({
                       request.listing?.internal_company_name,
                       request.listing?.id,
                       request.listing?.owner_name,
+                      request.listing?.owner_source,
                     )}
                   </div>
                 </div>
