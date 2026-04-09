@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { untypedFrom } from '@/integrations/supabase/client';
 import { useTimeframe } from '@/hooks/use-timeframe';
 import { useFilterEngine } from '@/hooks/use-filter-engine';
 import { CAPTARGET_FIELDS } from '@/components/filters';
@@ -275,8 +275,7 @@ export function useCapTargetData() {
     queryKey: ['remarketing', 'captarget-deals', 'stats'],
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('listings')
+      const { data, error } = await untypedFrom('listings')
         .select(STATS_SELECT)
         .eq('deal_source', 'captarget');
       if (error) throw error;
@@ -319,8 +318,7 @@ export function useCapTargetData() {
     queryFn: async () => {
       if (!hasAdvancedFilters) {
         // SERVER MODE: fetch only the current page with server-side filtering & sorting
-        let query = supabase
-          .from('listings')
+        let query = untypedFrom('listings')
           .select(DEAL_SELECT, { count: 'exact' })
           .eq('deal_source', 'captarget');
 
@@ -351,8 +349,7 @@ export function useCapTargetData() {
         let hasMore = true;
 
         while (hasMore) {
-          let query = supabase
-            .from('listings')
+          let query = untypedFrom('listings')
             .select(DEAL_SELECT)
             .eq('deal_source', 'captarget');
 
@@ -390,8 +387,7 @@ export function useCapTargetData() {
   const { data: exclusionLog } = useQuery({
     queryKey: ['captarget-exclusion-log'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('captarget_sync_exclusions')
+      const { data, error } = await untypedFrom('captarget_sync_exclusions')
         .select('id, company_name, exclusion_reason, exclusion_category, source, excluded_at')
         .order('excluded_at', { ascending: false })
         .limit(50);
