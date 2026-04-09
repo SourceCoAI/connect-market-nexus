@@ -736,8 +736,8 @@ Deno.serve(async (req) => {
           }
 
           // Auto-create follow-up task for positive buyer responses
-          const activatedCategories = ['meeting_request', 'interested', 'question', 'referral'];
-          if (activatedCategories.includes(classification.category)) {
+           const activatedCategories = ['meeting_request', 'interested', 'question', 'referral', 'not_now'];
+           if (activatedCategories.includes(classification.category) || classification.sentiment === 'positive' || classification.sentiment === 'activated') {
             try {
               const taskTitleMap: Record<string, string> = {
                 meeting_request: `Schedule meeting with ${fromName || fromEmail}`,
