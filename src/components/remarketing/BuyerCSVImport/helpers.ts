@@ -565,6 +565,19 @@ export function buildBuyerFromRow(
     buyer.pe_firm_name = buyer.company_name;
   }
 
+  // Enforce Platform Company Rule: if pe_firm_name is set AND different from company_name,
+  // this is a platform company (operating company under a PE firm), not a PE firm itself.
+  // When pe_firm_name === company_name, the buyer IS the PE firm.
+  if (
+    buyer.pe_firm_name &&
+    buyer.buyer_type === 'private_equity' &&
+    buyer.company_name &&
+    buyer.pe_firm_name.toLowerCase().trim() !== buyer.company_name.toLowerCase().trim()
+  ) {
+    buyer.buyer_type = 'corporate';
+    buyer.is_pe_backed = true;
+  }
+
   // Ensure company_website is always set (DB constraint requires it for active buyers).
   // Fall back to platform_website or pe_firm_website if company_website wasn't mapped.
   if (!buyer.company_website) {

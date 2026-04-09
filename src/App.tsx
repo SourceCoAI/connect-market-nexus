@@ -208,6 +208,9 @@ const ReMarketingBuyerDetail = lazyWithRetry(
   () => import('@/pages/admin/remarketing/ReMarketingBuyerDetail'),
 );
 const PEFirmDetail = lazyWithRetry(() => import('@/pages/admin/remarketing/PEFirmDetail'));
+const BuyerClassificationAudit = lazyWithRetry(
+  () => import('@/pages/admin/remarketing/BuyerClassificationAudit'),
+);
 const ReMarketingDealMatching = lazyWithRetry(
   () => import('@/pages/admin/remarketing/ReMarketingDealMatching'),
 );
@@ -411,6 +414,7 @@ function App() {
                 element={<Navigate to="/admin/buyers?tab=private_equity" replace />}
               />
               <Route path="buyers/pe-firms/:id" element={<PEFirmDetail />} />
+              <Route path="buyers/audit" element={<BuyerClassificationAudit />} />
               <Route path="buyers/:id" element={<ReMarketingBuyerDetail />} />
               <Route
                 path="buyers/universes"

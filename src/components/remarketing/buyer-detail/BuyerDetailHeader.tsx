@@ -98,14 +98,24 @@ export const BuyerDetailHeader = ({
                     <Link
                       to={`/admin/buyers/pe-firms/${peFirmId}`}
                       state={{ from: location.pathname }}
-                      className="hover:text-primary hover:underline transition-colors"
+                      className="text-primary hover:underline transition-colors font-medium"
                     >
                       {peFirmName}
                     </Link>
+                  ) : peFirmWebsite ? (
+                    <a
+                      href={peFirmWebsite.startsWith('http') ? peFirmWebsite : `https://${peFirmWebsite}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline transition-colors font-medium flex items-center gap-1"
+                    >
+                      {peFirmName}
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
                   ) : (
                     <span>{peFirmName}</span>
                   )}
-                  {peFirmWebsite && (
+                  {peFirmId && peFirmWebsite && (
                     <a
                       href={peFirmWebsite.startsWith('http') ? peFirmWebsite : `https://${peFirmWebsite}`}
                       target="_blank"
@@ -129,14 +139,14 @@ export const BuyerDetailHeader = ({
             {/* Platform Website + HQ Location + Investment Date */}
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               {platformWebsite && (
-                <a 
+                <a
                   href={platformWebsite.startsWith('http') ? platformWebsite : `https://${platformWebsite}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 hover:text-primary transition-colors"
+                  className="flex items-center gap-1 text-primary hover:underline transition-colors"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
-                  <span>Platform Website</span>
+                  <span>{platformWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
                 </a>
               )}
               {hqLocation && (
