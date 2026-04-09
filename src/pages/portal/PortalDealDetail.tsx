@@ -6,10 +6,9 @@ import {
   Building2,
   MapPin,
   DollarSign,
-  CheckCircle,
   XCircle,
   HelpCircle,
-  Clock,
+  Handshake,
   FileText,
   Globe,
   ExternalLink,
@@ -40,13 +39,12 @@ function formatCurrency(value: number | null | undefined): string {
 }
 
 const responseConfig: Record<string, { label: string; icon: React.ReactNode; variant: 'default' | 'outline' | 'destructive' }> = {
-  interested: { label: 'Interested', icon: <CheckCircle className="h-4 w-4" />, variant: 'default' },
+  interested: { label: 'Connect with Owner', icon: <Handshake className="h-4 w-4" />, variant: 'default' },
+  need_more_info: { label: 'Learn More From SourceCo', icon: <HelpCircle className="h-4 w-4" />, variant: 'outline' },
   pass: { label: 'Pass', icon: <XCircle className="h-4 w-4" />, variant: 'destructive' },
-  need_more_info: { label: 'Need More Info', icon: <HelpCircle className="h-4 w-4" />, variant: 'outline' },
-  reviewing: { label: 'Reviewing Internally', icon: <Clock className="h-4 w-4" />, variant: 'outline' },
 };
 
-const RESPONSE_TYPES: PortalResponseType[] = ['interested', 'pass', 'need_more_info', 'reviewing'];
+const RESPONSE_TYPES: PortalResponseType[] = ['interested', 'need_more_info', 'pass'];
 
 export default function PortalDealDetail() {
   const { slug, pushId } = useParams<{ slug: string; pushId: string }>();
@@ -124,6 +122,26 @@ export default function PortalDealDetail() {
             </span>
           </div>
         </div>
+
+        {/* Action buttons bar */}
+        {canRespond && (
+          <div className="flex flex-col sm:flex-row gap-2">
+            {RESPONSE_TYPES.map((type) => {
+              const config = responseConfig[type];
+              return (
+                <Button
+                  key={type}
+                  variant={config.variant}
+                  className="flex-1 gap-2"
+                  onClick={() => handleOpenResponse(type)}
+                >
+                  {config.icon}
+                  {config.label}
+                </Button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Key metrics bar */}
         <Card>
@@ -287,47 +305,15 @@ export default function PortalDealDetail() {
           </Card>
         )}
 
-        {/* Response section — appears after all content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Response buttons */}
-          {canRespond && (
-            <Card className="border-2">
-              <CardHeader>
-                <CardTitle className="text-base">What's your decision?</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  After reviewing the deal above, let us know your interest level.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {RESPONSE_TYPES.map((type) => {
-                  const config = responseConfig[type];
-                  return (
-                    <Button
-                      key={type}
-                      variant={config.variant}
-                      className="w-full justify-start gap-2"
-                      size="sm"
-                      onClick={() => handleOpenResponse(type)}
-                    >
-                      {config.icon}
-                      {config.label}
-                    </Button>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Deal messaging */}
-          {portalUser && (
-            <PortalDealChat
-              pushId={push.id}
-              portalOrgId={portalUser.portal_org.id}
-              senderType="portal_user"
-              senderName={portalUser.name}
-            />
-          )}
-        </div>
+        {/* Deal messaging */}
+        {portalUser && (
+          <PortalDealChat
+            pushId={push.id}
+            portalOrgId={portalUser.portal_org.id}
+            senderType="portal_user"
+            senderName={portalUser.name}
+          />
+        )}
 
         {/* Response history */}
         {responses && responses.length > 0 && (
@@ -377,12 +363,10 @@ export default function PortalDealDetail() {
                   maxLength={2000}
                   placeholder={
                     selectedResponseType === 'interested'
-                      ? "Any additional context? e.g., 'Can we get the CIM?'"
-                      : selectedResponseType === 'pass'
-                        ? 'Why is this not a fit?'
-                        : selectedResponseType === 'need_more_info'
-                          ? 'What information do you need?'
-                          : 'Any timeline to share?'
+                      ? 'Any message for the owner? e.g., timing, areas of interest…'
+                      : selectedResponseType === 'need_more_info'
+                        ? 'What would you like to learn more about?'
+                        : 'Why is this not a fit?'
                   }
                   rows={3}
                 />

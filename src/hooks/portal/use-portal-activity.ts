@@ -67,7 +67,6 @@ export function usePortalAnalytics(portalOrgId: string | undefined) {
         interested_count: statusCounts['interested'] || 0,
         passed_count: statusCounts['passed'] || 0,
         needs_info_count: statusCounts['needs_info'] || 0,
-        reviewing_count: statusCounts['reviewing'] || 0,
       };
     },
     enabled: !!portalOrgId,

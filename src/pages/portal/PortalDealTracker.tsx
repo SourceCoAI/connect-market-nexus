@@ -97,7 +97,6 @@ export default function PortalDealTracker() {
               <SelectItem value="interested">Interested</SelectItem>
               <SelectItem value="passed">Passed</SelectItem>
               <SelectItem value="needs_info">Needs Info</SelectItem>
-              <SelectItem value="reviewing">Reviewing</SelectItem>
             </SelectContent>
           </Select>
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'newest' | 'oldest' | 'ebitda')}>

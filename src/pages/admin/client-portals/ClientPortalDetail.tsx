@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Send, Users, Activity, Settings, Plus, ArrowRight, Building2, Globe, RefreshCw, Pause, Archive, Download, MessageSquare, Eye, ExternalLink, FileText } from 'lucide-react';
+import { ChevronLeft, Send, Users, Activity, Settings, Plus, ArrowRight, Building2, Globe, RefreshCw, Pause, Archive, Download, MessageSquare, Eye, ExternalLink, FileText, Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,13 +25,25 @@ import {
 } from '@/components/ui/select';
 import { usePortalOrganization, useUpdatePortalOrg } from '@/hooks/portal/use-portal-organizations';
 import { usePortalUsers, useDeactivatePortalUser } from '@/hooks/portal/use-portal-users';
-import { usePortalDealPushes, useConvertToPipelineDeal, useResendPortalInvite, useUpdateDealPush, useRefreshDealSnapshot } from '@/hooks/portal/use-portal-deals';
+import { usePortalDealPushes, usePortalOrgResponses, useConvertToPipelineDeal, useResendPortalInvite, useUpdateDealPush, useRefreshDealSnapshot } from '@/hooks/portal/use-portal-deals';
 
 import { PortalDealChat } from '@/components/portal/PortalDealChat';
 import { usePortalActivity, usePortalAnalytics, exportPortalActivityCSV } from '@/hooks/portal/use-portal-activity';
 import { OrgStatusBadge, PushStatusBadge, PriorityBadge as _PriorityBadge } from '@/components/portal/PortalStatusBadge';
 import { InvitePortalUserDialog } from '@/components/portal/InvitePortalUserDialog';
-import type { PortalOrgStatus, PortalNotificationFrequency } from '@/types/portal';
+import type { PortalOrgStatus, PortalNotificationFrequency, PortalResponseType } from '@/types/portal';
+
+const RESPONSE_TYPE_LABEL: Record<PortalResponseType, string> = {
+  interested: 'Connect with Owner',
+  need_more_info: 'Learn More',
+  pass: 'Pass',
+};
+
+const RESPONSE_TYPE_CLASS: Record<PortalResponseType, string> = {
+  interested: 'bg-green-100 text-green-800 border-green-200',
+  need_more_info: 'bg-orange-100 text-orange-800 border-orange-200',
+  pass: 'bg-red-100 text-red-700 border-red-200',
+};
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '-';
@@ -59,6 +71,7 @@ export default function ClientPortalDetail() {
   const { data: org, isLoading } = usePortalOrganization(slug);
   const { data: users } = usePortalUsers(org?.id);
   const { data: pushes } = usePortalDealPushes(org?.id);
+  const { data: orgResponses } = usePortalOrgResponses(org?.id);
   const { data: activity } = usePortalActivity(org?.id);
   const { data: analytics } = usePortalAnalytics(org?.id);
   const updateOrg = useUpdatePortalOrg();
@@ -70,6 +83,7 @@ export default function ClientPortalDetail() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [responseTypeFilter, setResponseTypeFilter] = useState<string>('all');
   const [expandedPushId, setExpandedPushId] = useState<string | null>(null);
   const [memoExpandedPushId, setMemoExpandedPushId] = useState<string | null>(null);
 
@@ -254,6 +268,15 @@ export default function ClientPortalDetail() {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="responses" className="flex items-center gap-1.5">
+            <Inbox className="h-3.5 w-3.5" />
+            Responses
+            {(orgResponses || []).length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] text-[10px]">
+                {(orgResponses || []).length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" />
             Users
@@ -282,7 +305,6 @@ export default function ClientPortalDetail() {
                 <SelectItem value="interested">Interested</SelectItem>
                 <SelectItem value="passed">Passed</SelectItem>
                 <SelectItem value="needs_info">Needs Info</SelectItem>
-                <SelectItem value="reviewing">Reviewing</SelectItem>
                 <SelectItem value="under_nda">Under NDA</SelectItem>
               </SelectContent>
             </Select>
@@ -488,6 +510,106 @@ export default function ClientPortalDetail() {
               </Table>
             </div>
           )}
+        </TabsContent>
+
+        {/* Responses Tab */}
+        <TabsContent value="responses" className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Select value={responseTypeFilter} onValueChange={setResponseTypeFilter}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Filter by response type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Response Types</SelectItem>
+                <SelectItem value="interested">Connect with Owner</SelectItem>
+                <SelectItem value="need_more_info">Learn More</SelectItem>
+                <SelectItem value="pass">Pass</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="ml-auto text-xs text-muted-foreground">
+              {(orgResponses || []).length} total responses
+            </div>
+          </div>
+
+          {(() => {
+            const filtered = (orgResponses || []).filter(
+              (r) => responseTypeFilter === 'all' || r.response_type === responseTypeFilter
+            );
+            if (filtered.length === 0) {
+              return (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    {(orgResponses || []).length === 0
+                      ? 'No responses submitted yet.'
+                      : 'No responses match this filter.'}
+                  </CardContent>
+                </Card>
+              );
+            }
+            return (
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Deal</TableHead>
+                      <TableHead>Response</TableHead>
+                      <TableHead>Responder</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead className="whitespace-nowrap">Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="max-w-[220px]">
+                          {r.push ? (
+                            <Link
+                              to={`/admin/deals/${r.push.listing_id}`}
+                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block"
+                            >
+                              {r.push.headline}
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">Unknown deal</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${RESPONSE_TYPE_CLASS[r.response_type as PortalResponseType] || ''}`}
+                          >
+                            {RESPONSE_TYPE_LABEL[r.response_type as PortalResponseType] || r.response_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {r.responder ? (
+                            <div>
+                              <div className="font-medium">{r.responder.name}</div>
+                              <div className="text-xs text-muted-foreground">{r.responder.email}</div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-[320px]">
+                          {r.notes ? (
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                              {r.notes}
+                            </p>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                          {formatDate(r.created_at)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            );
+          })()}
         </TabsContent>
 
         {/* Users Tab */}

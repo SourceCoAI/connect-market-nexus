@@ -13,10 +13,9 @@ import {
   Shield,
   Building2,
   DollarSign,
-  CheckCircle,
   XCircle,
   HelpCircle,
-  Clock,
+  Handshake,
   MessageSquare,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency-utils';
@@ -313,24 +312,19 @@ function PortalPreview({ push }: { push: Record<string, unknown> | null }) {
               <CardContent className="space-y-2">
                 {[
                   {
-                    label: 'Interested',
-                    icon: <CheckCircle className="h-4 w-4" />,
+                    label: 'Connect with Owner',
+                    icon: <Handshake className="h-4 w-4" />,
                     variant: 'default' as const,
+                  },
+                  {
+                    label: 'Learn More From SourceCo',
+                    icon: <HelpCircle className="h-4 w-4" />,
+                    variant: 'outline' as const,
                   },
                   {
                     label: 'Pass',
                     icon: <XCircle className="h-4 w-4" />,
                     variant: 'destructive' as const,
-                  },
-                  {
-                    label: 'Need More Info',
-                    icon: <HelpCircle className="h-4 w-4" />,
-                    variant: 'outline' as const,
-                  },
-                  {
-                    label: 'Reviewing Internally',
-                    icon: <Clock className="h-4 w-4" />,
-                    variant: 'outline' as const,
                   },
                 ].map((btn) => (
                   <Button

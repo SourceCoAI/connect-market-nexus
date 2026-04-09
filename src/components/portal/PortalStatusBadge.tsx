@@ -14,7 +14,6 @@ const pushStatusConfig: Record<PortalDealPushStatus, { label: string; className:
   interested: { label: 'Interested', className: 'bg-green-100 text-green-800 border-green-200' },
   passed: { label: 'Passed', className: 'bg-red-100 text-red-700 border-red-200' },
   needs_info: { label: 'Needs Info', className: 'bg-orange-100 text-orange-800 border-orange-200' },
-  reviewing: { label: 'Reviewing', className: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
   under_nda: { label: 'Under NDA', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
   archived: { label: 'Archived', className: 'bg-gray-100 text-gray-600 border-gray-200' },
 };

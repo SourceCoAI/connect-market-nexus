@@ -12,7 +12,6 @@ export type PortalDealPushStatus =
   | 'interested'
   | 'passed'
   | 'needs_info'
-  | 'reviewing'
   | 'under_nda'
   | 'archived';
 
@@ -21,8 +20,7 @@ export type PortalDealPriority = 'standard' | 'high' | 'urgent';
 export type PortalResponseType =
   | 'interested'
   | 'pass'
-  | 'need_more_info'
-  | 'reviewing';
+  | 'need_more_info';
 
 export type PortalNotificationType =
   | 'new_deal'

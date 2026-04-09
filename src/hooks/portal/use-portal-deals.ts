@@ -102,6 +102,62 @@ export function usePortalDealPush(pushId: string | undefined) {
   });
 }
 
+/** Admin: fetch all responses across all deals for a portal org */
+export function usePortalOrgResponses(portalOrgId: string | undefined) {
+  return useQuery({
+    queryKey: ['portal-org-responses', portalOrgId],
+    queryFn: async (): Promise<
+      (PortalDealResponse & {
+        responder?: { id: string; name: string; email: string } | null;
+        push?: { id: string; listing_id: string; headline: string } | null;
+      })[]
+    > => {
+      if (!portalOrgId) return [];
+
+      // 1. Get all pushes for this portal (id + headline + listing link)
+      const { data: pushes, error: pushesError } = await untypedFrom('portal_deal_pushes')
+        .select('id, listing_id, deal_snapshot')
+        .eq('portal_org_id', portalOrgId);
+
+      if (pushesError) throw pushesError;
+
+      const pushList = (pushes || []) as Array<{
+        id: string;
+        listing_id: string;
+        deal_snapshot: DealSnapshot | null;
+      }>;
+      const pushIds = pushList.map((p) => p.id);
+      if (pushIds.length === 0) return [];
+
+      const pushMap: Record<string, { id: string; listing_id: string; headline: string }> = {};
+      pushList.forEach((p) => {
+        pushMap[p.id] = {
+          id: p.id,
+          listing_id: p.listing_id,
+          headline: p.deal_snapshot?.headline || 'Untitled Deal',
+        };
+      });
+
+      // 2. Fetch all responses for those pushes, joined with responder info
+      const { data: responses, error: respError } = await untypedFrom('portal_deal_responses')
+        .select(`
+          id, push_id, responded_by, response_type, notes, created_at,
+          responder:portal_users!portal_deal_responses_responded_by_fkey(id, name, email)
+        `)
+        .in('push_id', pushIds)
+        .order('created_at', { ascending: false });
+
+      if (respError) throw respError;
+
+      return (responses || []).map((r: PortalDealResponse & { responder?: { id: string; name: string; email: string } | null }) => ({
+        ...r,
+        push: pushMap[r.push_id] || null,
+      }));
+    },
+    enabled: !!portalOrgId,
+  });
+}
+
 /** Responses for a single push */
 export function usePortalDealResponses(pushId: string | undefined) {
   return useQuery({
@@ -283,7 +339,6 @@ export function useSubmitDealResponse() {
         interested: 'interested',
         pass: 'passed',
         need_more_info: 'needs_info',
-        reviewing: 'reviewing',
       };
 
       await untypedFrom('portal_deal_pushes')
