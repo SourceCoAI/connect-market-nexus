@@ -186,8 +186,9 @@ const Signup = () => {
       if (msgLower.includes('user already registered'))
         errorMessage = 'An account with this email already exists.';
       else if (msgLower.includes('password'))
-        errorMessage = 'Password requirements not met. Please use at least 8 characters.';
-      else if (msgLower.includes('email')) errorMessage = 'Invalid email address.';
+        errorMessage = 'Password requirements not met. Please use at least 6 characters.';
+      else if (msgLower.includes('email') && (msgLower.includes('invalid') || msgLower.includes('not valid') || msgLower.includes('format')))
+        errorMessage = 'Invalid email address.';
       else if (msg) errorMessage = msg;
       toast({ variant: 'destructive', title: 'Signup failed', description: errorMessage });
     } finally {
