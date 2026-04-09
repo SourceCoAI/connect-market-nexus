@@ -69,8 +69,13 @@ Categories:
 - negative_hostile: angry/hostile response
 - neutral: cannot determine intent
 
-Sentiment: positive, negative, neutral
-is_positive should be true for: meeting_request, interested, question, and referral categories.
+Sentiment values:
+- positive: explicitly wants a meeting or call (maps to meeting_request category)
+- activated: shows engagement, interest, asks questions, provides referral, or says "not right now" — anything other than a firm rejection (maps to interested, question, referral, not_now categories)
+- negative: firm decline, hostile, or unsubscribe (maps to not_interested, unsubscribe, negative_hostile categories)
+- neutral: out of office, cannot determine intent (maps to out_of_office, neutral categories)
+
+is_positive should be true for positive and activated sentiments (meeting_request, interested, question, referral, and not_now categories).
 When in doubt between "neutral" and "interested", prefer "interested" if the reply shows any engagement, curiosity, or willingness to learn more.`;
 
   try {
@@ -92,7 +97,7 @@ When in doubt between "neutral" and "interested", prefer "interested" if the rep
               type: 'object',
               properties: {
                 category: { type: 'string', enum: ['meeting_request', 'interested', 'question', 'referral', 'not_now', 'not_interested', 'unsubscribe', 'out_of_office', 'negative_hostile', 'neutral'] },
-                sentiment: { type: 'string', enum: ['positive', 'negative', 'neutral'] },
+                sentiment: { type: 'string', enum: ['positive', 'activated', 'negative', 'neutral'] },
                 is_positive: { type: 'boolean' },
                 confidence: { type: 'number' },
                 reasoning: { type: 'string' },
@@ -136,7 +141,7 @@ When in doubt between "neutral" and "interested", prefer "interested" if the rep
 
 const BATCH_SIZE = 5;
 const BATCH_DELAY_MS = 500;
-const ACTIVATED_CATEGORIES = ['meeting_request', 'interested', 'question', 'referral'];
+const ACTIVATED_CATEGORIES = ['meeting_request', 'interested', 'question', 'referral', 'not_now'];
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflightResponse(req);

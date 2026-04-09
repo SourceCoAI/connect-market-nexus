@@ -14525,6 +14525,7 @@ export type Database = {
         Returns: boolean
       }
       soft_delete_listing: { Args: { listing_id: string }; Returns: boolean }
+      track_portal_login: { Args: { p_slug: string }; Returns: undefined }
       try_acquire_queue_processor_lock: {
         Args: { p_queue_name: string }
         Returns: boolean

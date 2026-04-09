@@ -102,9 +102,6 @@ export type PortalUserWithOrg = PortalUser & {
   portal_org: { id: string; name: string; portal_slug: string; welcome_message: string | null };
 };
 
-type UntypedRpcClient = {
-  rpc: (fnName: string, args?: Record<string, unknown>) => Promise<unknown>;
-};
 
 /** For the client portal: get the current user's portal membership for a specific portal slug.
  *  Uses an RPC function (SECURITY DEFINER) to bypass RLS and reliably resolve access
@@ -135,7 +132,7 @@ export function useMyPortalUser(slug: string | undefined) {
 
       // Track portal login for real portal users (not admin preview)
       if (result && !result.id.startsWith('admin-preview-')) {
-        void (supabase as unknown as UntypedRpcClient).rpc('track_portal_login', { p_slug: slug });
+        void (supabase as any).rpc('track_portal_login', { p_slug: slug });
       }
 
       return result as PortalUserWithOrg;

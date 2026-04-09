@@ -29,7 +29,7 @@ import { usePortalDealPushes, useConvertToPipelineDeal, useResendPortalInvite, u
 
 import { PortalDealChat } from '@/components/portal/PortalDealChat';
 import { usePortalActivity, usePortalAnalytics, exportPortalActivityCSV } from '@/hooks/portal/use-portal-activity';
-import { OrgStatusBadge, PushStatusBadge } from '@/components/portal/PortalStatusBadge';
+import { OrgStatusBadge, PushStatusBadge, PriorityBadge as _PriorityBadge } from '@/components/portal/PortalStatusBadge';
 import { InvitePortalUserDialog } from '@/components/portal/InvitePortalUserDialog';
 import type { PortalOrgStatus, PortalNotificationFrequency } from '@/types/portal';
 

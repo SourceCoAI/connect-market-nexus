@@ -279,7 +279,7 @@ export function useCapTargetData() {
         .select(STATS_SELECT)
         .eq('deal_source', 'captarget');
       if (error) throw error;
-      return data || [];
+      return (data || []) as unknown as CapTargetDeal[];
     },
   });
 
@@ -361,7 +361,7 @@ export function useCapTargetData() {
           const { data, error } = await query;
           if (error) throw error;
           if (data && data.length > 0) {
-            allData.push(...(data as CapTargetDeal[]));
+            allData.push(...(data as unknown as CapTargetDeal[]));
             offset += batchSize;
             hasMore = data.length === batchSize;
           } else {
@@ -421,7 +421,7 @@ export function useCapTargetData() {
       if (!field.dynamicOptions) continue;
       const unique = new Set<string>();
       for (const item of statsData) {
-        const rec = item as Record<string, unknown>;
+        const rec = item as unknown as Record<string, unknown>;
         const val = field.accessor ? field.accessor(rec) : rec[field.key];
         if (val != null && val !== '') unique.add(String(val));
       }

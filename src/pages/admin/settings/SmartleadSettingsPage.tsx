@@ -13,10 +13,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { RefreshCw, ExternalLink, Zap, Mail, BarChart3, Webhook, Save, RotateCcw, ChevronDown, Brain } from 'lucide-react';
+import { RefreshCw, ExternalLink, Zap, Mail, BarChart3, Webhook, Save, RotateCcw, ChevronDown, Brain, RotateCw } from 'lucide-react';
 import { useSmartleadCampaigns, useSyncSmartleadCampaigns } from '@/hooks/smartlead';
 import { useSmartleadWebhookEvents } from '@/hooks/smartlead';
-import { SUPABASE_URL } from '@/integrations/supabase/client';
+import { SUPABASE_URL, supabase } from '@/integrations/supabase/client';
 import {
   useSmartleadCategorizationStats,
   useSmartleadClassificationPrompt,
@@ -39,8 +39,13 @@ Categories:
 - negative_hostile: angry/hostile response
 - neutral: cannot determine intent
 
-Sentiment: positive, negative, neutral
-is_positive should be true for: meeting_request, interested, question, and referral categories.
+Sentiment values:
+- positive: explicitly wants a meeting or call (maps to meeting_request category)
+- activated: shows engagement, interest, asks questions, provides referral, or says "not right now" — anything other than a firm rejection (maps to interested, question, referral, not_now categories)
+- negative: firm decline, hostile, or unsubscribe (maps to not_interested, unsubscribe, negative_hostile categories)
+- neutral: out of office, cannot determine intent (maps to out_of_office, neutral categories)
+
+is_positive should be true for positive and activated sentiments (meeting_request, interested, question, referral, and not_now categories).
 When in doubt between "neutral" and "interested", prefer "interested" if the reply shows any engagement, curiosity, or willingness to learn more.`;
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -71,6 +76,7 @@ export default function SmartleadSettingsPage() {
 
   const [promptText, setPromptText] = useState<string | null>(null);
   const [savingPrompt, setSavingPrompt] = useState(false);
+  const [reclassifyingAll, setReclassifyingAll] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const localCampaigns = campaignsData?.local_campaigns || [];
@@ -95,6 +101,26 @@ export default function SmartleadSettingsPage() {
 
   const handleResetPrompt = () => {
     setPromptText(DEFAULT_PROMPT);
+  };
+
+  const handleReclassifyAll = async () => {
+    setReclassifyingAll(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('smartlead-reclassify-all', {
+        body: {},
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      queryClient.invalidateQueries({ queryKey: ['smartlead', 'categorization-stats'] });
+      toast({
+        title: 'Reclassification complete',
+        description: `Processed ${data.total} records. ${data.changed} changed. Sentiment breakdown: ${Object.entries(data.by_sentiment || {}).map(([k, v]) => `${k}: ${v}`).join(', ')}`,
+      });
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to reclassify', variant: 'destructive' });
+    } finally {
+      setReclassifyingAll(false);
+    }
   };
 
   const toggleCategory = (cat: string) => {
@@ -295,7 +321,7 @@ export default function SmartleadSettingsPage() {
                 rows={14}
                 className="font-mono text-xs"
               />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button onClick={handleSavePrompt} disabled={savingPrompt} size="sm">
                   <Save className="h-4 w-4 mr-1.5" />
                   {savingPrompt ? 'Saving...' : 'Save Prompt'}
@@ -304,6 +330,17 @@ export default function SmartleadSettingsPage() {
                   <RotateCcw className="h-4 w-4 mr-1.5" />
                   Reset to Default
                 </Button>
+                <div className="ml-auto">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleReclassifyAll}
+                    disabled={reclassifyingAll}
+                  >
+                    <RotateCw className={`h-4 w-4 mr-1.5 ${reclassifyingAll ? 'animate-spin' : ''}`} />
+                    {reclassifyingAll ? 'Reclassifying...' : 'Reclassify All Responses'}
+                  </Button>
+                </div>
               </div>
             </>
           )}
