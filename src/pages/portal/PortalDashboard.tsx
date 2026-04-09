@@ -18,6 +18,7 @@ export default function PortalDashboard() {
     portalUser?.portal_org?.id,
     'portal_user',
   );
+  const [companyModalDeal, setCompanyModalDeal] = useState<PortalDealPush | null>(null);
 
   if (userLoading || status === 'pending') return <div className="py-12 text-center text-muted-foreground">Loading portal...</div>;
   if (!portalUser) {
@@ -30,8 +31,6 @@ export default function PortalDashboard() {
       </div>
     );
   }
-
-  const [companyModalDeal, setCompanyModalDeal] = useState<PortalDealPush | null>(null);
 
   const statusCounts: Record<string, number> = {};
   (deals || []).forEach((d) => {
