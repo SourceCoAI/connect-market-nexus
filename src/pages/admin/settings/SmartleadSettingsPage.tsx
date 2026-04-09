@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { RefreshCw, ExternalLink, Zap, Mail, BarChart3, Webhook, Save, RotateCcw, ChevronDown, Brain } from 'lucide-react';
+import { RefreshCw, ExternalLink, Zap, Mail, BarChart3, Webhook, Save, RotateCcw, ChevronDown, Brain, RotateCw } from 'lucide-react';
 import { useSmartleadCampaigns, useSyncSmartleadCampaigns } from '@/hooks/smartlead';
 import { useSmartleadWebhookEvents } from '@/hooks/smartlead';
 import { SUPABASE_URL } from '@/integrations/supabase/client';
