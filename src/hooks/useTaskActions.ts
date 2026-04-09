@@ -191,12 +191,20 @@ export function useApplyTaskTemplate() {
       listingId,
       assigneeId,
       template,
+      entityType,
+      dealId,
     }: {
       listingId: string;
       assigneeId: string;
       template: TaskTemplateStage;
+      entityType?: TaskEntityType;
+      dealId?: string;
     }) => {
       const createdTaskIds: string[] = [];
+      // Use the provided entityType, defaulting to 'deal' since templates
+      // are applied from deal pages. Fall back to 'listing' only when explicitly passed.
+      const resolvedEntityType = entityType || 'deal';
+      const resolvedEntityId = resolvedEntityType === 'deal' && dealId ? dealId : listingId;
 
       for (const task of template.tasks) {
         const dueDate = format(addDays(new Date(), task.due_offset_days), 'yyyy-MM-dd');
@@ -207,13 +215,14 @@ export function useApplyTaskTemplate() {
           task_type: task.task_type,
           due_date: dueDate,
           assignee_id: assigneeId,
-          entity_type: 'listing' as TaskEntityType,
-          entity_id: listingId,
+          entity_type: resolvedEntityType,
+          entity_id: resolvedEntityId,
+          ...(dealId ? { deal_id: dealId } : {}),
           source: 'template',
-          priority: 'medium',
+          priority: task.priority || 'medium',
           status: 'pending',
           is_manual: false,
-          priority_score: 50,
+          priority_score: task.priority === 'high' ? 80 : task.priority === 'low' ? 30 : 50,
           extraction_confidence: 'high',
           needs_review: false,
           created_by: user?.id,

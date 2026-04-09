@@ -227,6 +227,7 @@ export function useApproveTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
       qc.invalidateQueries({ queryKey: ['admin-notifications'] });
     },
   });
@@ -301,6 +302,7 @@ export function useApproveAllTasks() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
       qc.invalidateQueries({ queryKey: ['admin-notifications'] });
     },
   });
@@ -440,6 +442,7 @@ export function useEditTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
     },
   });
 }
@@ -485,6 +488,7 @@ export function useAddManualTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
     },
   });
 }
@@ -505,6 +509,7 @@ export function useDeleteTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
     },
   });
 }
@@ -553,6 +558,7 @@ export function usePinTask() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [DAILY_TASKS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: ['entity-tasks'] });
     },
   });
 }
