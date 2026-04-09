@@ -128,7 +128,7 @@ export function useConnectionRequestsQuery() {
           fetchInChunks('profiles', '*', profileIds),
           fetchInChunks(
             'listings',
-            'id, title, category, status, revenue, ebitda, image_url, location, internal_company_name, deal_identifier',
+            'id, title, category, status, revenue, ebitda, image_url, location, internal_company_name, deal_identifier, primary_owner_id',
             listingIds.filter((id): id is string => id !== null),
           ),
         ]);
@@ -141,6 +141,17 @@ export function useConnectionRequestsQuery() {
 
         const listingsById = new Map<string, NonNullable<typeof listingsRes.data>[number]>();
         (listingsRes.data ?? []).forEach((l) => listingsById.set(l.id as string, l));
+
+        // Collect owner IDs not already in profilesById and batch-fetch them
+        const ownerIds = new Set<string>();
+        (listingsRes.data ?? []).forEach((l) => {
+          const ownerId = (l as Record<string, unknown>).primary_owner_id as string | null;
+          if (ownerId && !profilesById.has(ownerId)) ownerIds.add(ownerId);
+        });
+        if (ownerIds.size > 0) {
+          const ownerRes = await fetchInChunks('profiles', 'id, first_name, last_name, email', [...ownerIds]);
+          (ownerRes.data ?? []).forEach((p) => profilesById.set(p.id as string, p));
+        }
 
         const enhancedRequests: AdminConnectionRequest[] = requests.map((request) => {
           const userData = request.user_id ? profilesById.get(request.user_id) : undefined;
@@ -170,6 +181,18 @@ export function useConnectionRequestsQuery() {
 
           const user = userData ? createUserObject(userData) : null;
           const listing = listingData ? createListingFromData(listingData) : null;
+
+          // Resolve deal owner name
+          if (listing && listingData) {
+            const ownerId = (listingData as Record<string, unknown>).primary_owner_id as string | null;
+            if (ownerId) {
+              const ownerProfile = profilesById.get(ownerId);
+              if (ownerProfile) {
+                const op = ownerProfile as Record<string, unknown>;
+                listing.owner_name = `${op.first_name || ''} ${op.last_name || ''}`.trim() || (op.email as string) || undefined;
+              }
+            }
+          }
 
           const status = request.status as 'pending' | 'approved' | 'rejected' | 'on_hold';
 

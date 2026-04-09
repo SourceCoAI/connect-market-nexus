@@ -69,6 +69,7 @@ export const formatEnhancedCompanyName = (
   title: string,
   companyName?: string | null,
   listingId?: string,
+  ownerName?: string | null,
 ) => {
   const content =
     companyName && companyName.trim() ? (
@@ -80,19 +81,26 @@ export const formatEnhancedCompanyName = (
       <span>{title}</span>
     );
 
+  const ownerBadge = ownerName ? (
+    <span className="text-muted-foreground text-sm font-medium ml-1.5">· {ownerName}</span>
+  ) : null;
+
   if (listingId) {
     return (
-      <button
-        onClick={() => window.open(`/listing/${listingId}`, "_blank")}
-        className="text-left hover:text-primary transition-colors group"
-      >
-        {content}
-        <ExternalLink className="h-3 w-3 ml-1 inline opacity-0 group-hover:opacity-100 transition-opacity" />
-      </button>
+      <span className="inline-flex items-center">
+        <button
+          onClick={() => window.open(`/listing/${listingId}`, "_blank")}
+          className="text-left hover:text-primary transition-colors group"
+        >
+          {content}
+          <ExternalLink className="h-3 w-3 ml-1 inline opacity-0 group-hover:opacity-100 transition-opacity" />
+        </button>
+        {ownerBadge}
+      </span>
     );
   }
 
-  return content;
+  return <span className="inline-flex items-center">{content}{ownerBadge}</span>;
 };
 
 /** Buyer type abbreviations - comprehensive mapping */
@@ -602,6 +610,7 @@ export function ConnectionRequestRow({
                       request.listing?.title || "",
                       request.listing?.internal_company_name,
                       request.listing?.id,
+                      request.listing?.owner_name,
                     )}
                   </div>
                 </div>
