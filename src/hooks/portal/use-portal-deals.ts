@@ -20,12 +20,14 @@ export function usePortalDealPushes(portalOrgId: string | undefined) {
     queryFn: async (): Promise<PortalDealPushWithDetails[]> => {
       if (!portalOrgId) return [];
       const { data, error } = await untypedFrom('portal_deal_pushes')
-        .select(`
+        .select(
+          `
           *,
           pushed_by_profile:profiles!portal_deal_pushes_pushed_by_fkey(
             id, first_name, last_name
           )
-        `)
+        `,
+        )
         .eq('portal_org_id', portalOrgId)
         .order('created_at', { ascending: false });
 
@@ -47,11 +49,17 @@ export function usePortalDealPushes(portalOrgId: string | undefined) {
         if (!latestByPush[r.push_id]) latestByPush[r.push_id] = r;
       });
 
-      return (data || []).map((push: PortalDealPush & { pushed_by_profile: PortalDealPushWithDetails['pushed_by_profile'] }) => ({
-        ...push,
-        latest_response: latestByPush[push.id] || null,
-        response_count: countByPush[push.id] || 0,
-      }));
+      return (data || []).map(
+        (
+          push: PortalDealPush & {
+            pushed_by_profile: PortalDealPushWithDetails['pushed_by_profile'];
+          },
+        ) => ({
+          ...push,
+          latest_response: latestByPush[push.id] || null,
+          response_count: countByPush[push.id] || 0,
+        }),
+      );
     },
     enabled: !!portalOrgId,
   });
@@ -83,7 +91,8 @@ export function usePortalDealPush(pushId: string | undefined) {
     queryFn: async () => {
       if (!pushId) return null;
       const { data, error } = await untypedFrom('portal_deal_pushes')
-        .select(`
+        .select(
+          `
           *,
           pushed_by_profile:profiles!portal_deal_pushes_pushed_by_fkey(
             id, first_name, last_name
@@ -91,7 +100,8 @@ export function usePortalDealPush(pushId: string | undefined) {
           portal_org:portal_organizations!portal_deal_pushes_portal_org_id_fkey(
             id, name, portal_slug
           )
-        `)
+        `,
+        )
         .eq('id', pushId)
         .maybeSingle();
 
@@ -109,10 +119,12 @@ export function usePortalDealResponses(pushId: string | undefined) {
     queryFn: async (): Promise<(PortalDealResponse & { responder?: { name: string } })[]> => {
       if (!pushId) return [];
       const { data, error } = await untypedFrom('portal_deal_responses')
-        .select(`
+        .select(
+          `
           id, push_id, responded_by, response_type, notes, created_at,
           responder:portal_users!portal_deal_responses_responded_by_fkey(name)
-        `)
+        `,
+        )
         .eq('push_id', pushId)
         .order('created_at', { ascending: false });
 
@@ -129,7 +141,9 @@ async function buildDealSnapshot(listingId: string): Promise<DealSnapshot> {
   // 1. Fetch listing basics (including internal company name)
   const { data: listing, error: listError } = await supabase
     .from('listings')
-    .select('id, title, internal_company_name, category, categories, location, revenue, ebitda, description, description_html, project_name, website, executive_summary, linkedin_employee_count, google_rating, google_review_count')
+    .select(
+      'id, title, internal_company_name, category, categories, location, revenue, ebitda, description, description_html, project_name, website, executive_summary, linkedin_employee_count, google_rating, google_review_count',
+    )
     .eq('id', listingId)
     .maybeSingle();
 
@@ -162,7 +176,7 @@ async function buildDealSnapshot(listingId: string): Promise<DealSnapshot> {
   }
 
   return {
-    headline: listing.internal_company_name || listing.title || 'Untitled Deal',
+    headline: listing.title || listing.internal_company_name || 'Untitled Deal',
     industry: listing.category || '',
     geography: listing.location || '',
     ebitda: listing.ebitda,
@@ -188,7 +202,9 @@ export function usePushDealToPortal() {
 
   return useMutation({
     mutationFn: async (input: PushDealToPortalInput) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       // Check for duplicates
@@ -200,7 +216,9 @@ export function usePushDealToPortal() {
         .maybeSingle();
 
       if (existing) {
-        throw new Error(`This deal was already pushed to this portal on ${new Date(existing.created_at).toLocaleDateString()}. Status: ${existing.status}`);
+        throw new Error(
+          `This deal was already pushed to this portal on ${new Date(existing.created_at).toLocaleDateString()}. Status: ${existing.status}`,
+        );
       }
 
       const snapshot = await buildDealSnapshot(input.listing_id);
@@ -228,26 +246,36 @@ export function usePushDealToPortal() {
         actor_type: 'admin',
         action: 'deal_pushed',
         push_id: data.id,
-        metadata: { listing_id: input.listing_id, headline: snapshot.headline, priority: input.priority, actor_name: user.email },
+        metadata: {
+          listing_id: input.listing_id,
+          headline: snapshot.headline,
+          priority: input.priority,
+          actor_name: user.email,
+        },
       });
 
       // Send notifications to portal users (fire-and-forget)
-      supabase.functions.invoke('send-portal-notification', {
-        body: {
-          portal_org_id: input.portal_org_id,
-          push_id: data.id,
-          deal_headline: snapshot.headline,
-          priority: input.priority || 'standard',
-          push_note: input.push_note,
-        },
-      }).catch((err) => console.warn('Portal notification error:', err));
+      supabase.functions
+        .invoke('send-portal-notification', {
+          body: {
+            portal_org_id: input.portal_org_id,
+            push_id: data.id,
+            deal_headline: snapshot.headline,
+            priority: input.priority || 'standard',
+            push_note: input.push_note,
+          },
+        })
+        .catch((err) => console.warn('Portal notification error:', err));
 
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [PORTAL_PUSHES_KEY] });
       queryClient.invalidateQueries({ queryKey: ['portal-organizations'] });
-      toast({ title: 'Deal pushed to portal', description: 'The deal has been sent to the client portal.' });
+      toast({
+        title: 'Deal pushed to portal',
+        description: 'The deal has been sent to the client portal.',
+      });
     },
     onError: (err: Error) => {
       toast({ title: 'Error pushing deal', description: err.message, variant: 'destructive' });
@@ -261,8 +289,16 @@ export function useSubmitDealResponse() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (input: SubmitDealResponseInput & { portal_user_id: string; portal_org_id: string; responder_name?: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+    mutationFn: async (
+      input: SubmitDealResponseInput & {
+        portal_user_id: string;
+        portal_org_id: string;
+        responder_name?: string;
+      },
+    ) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       // Create response
@@ -315,7 +351,11 @@ export function useSubmitDealResponse() {
       toast({ title: 'Response submitted' });
     },
     onError: (err: Error) => {
-      toast({ title: 'Error submitting response', description: err.message, variant: 'destructive' });
+      toast({
+        title: 'Error submitting response',
+        description: err.message,
+        variant: 'destructive',
+      });
     },
   });
 }
@@ -323,8 +363,18 @@ export function useSubmitDealResponse() {
 /** Mark a deal as viewed (sets first_viewed_at if not already set) */
 export function useMarkDealViewed() {
   return useMutation({
-    mutationFn: async ({ pushId, portalOrgId, viewerName }: { pushId: string; portalOrgId: string; viewerName?: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+    mutationFn: async ({
+      pushId,
+      portalOrgId,
+      viewerName,
+    }: {
+      pushId: string;
+      portalOrgId: string;
+      viewerName?: string;
+    }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Only set first_viewed_at if it hasn't been set yet
@@ -344,9 +394,7 @@ export function useMarkDealViewed() {
         updates.status = 'viewed';
       }
 
-      await untypedFrom('portal_deal_pushes')
-        .update(updates)
-        .eq('id', pushId);
+      await untypedFrom('portal_deal_pushes').update(updates).eq('id', pushId);
 
       // Log view activity
       await untypedFrom('portal_activity_log').insert({
@@ -367,7 +415,15 @@ export function useUpdateDealPush() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ pushId, ...updates }: { pushId: string; push_note?: string; priority?: string; status?: string }) => {
+    mutationFn: async ({
+      pushId,
+      ...updates
+    }: {
+      pushId: string;
+      push_note?: string;
+      priority?: string;
+      status?: string;
+    }) => {
       const { error } = await untypedFrom('portal_deal_pushes')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', pushId);
@@ -390,7 +446,15 @@ export function useResendPortalInvite() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (input: { portal_org_id: string; portal_slug: string; email: string; first_name: string; last_name?: string; role: string; buyer_id?: string }) => {
+    mutationFn: async (input: {
+      portal_org_id: string;
+      portal_slug: string;
+      email: string;
+      first_name: string;
+      last_name?: string;
+      role: string;
+      buyer_id?: string;
+    }) => {
       const { data, error } = await supabase.functions.invoke('invite-portal-user', {
         body: input,
       });
@@ -427,36 +491,51 @@ export function useRefreshDealSnapshot() {
       queryClient.invalidateQueries({ queryKey: [PORTAL_PUSHES_KEY] });
       queryClient.invalidateQueries({ queryKey: ['portal-deal-push'] });
       queryClient.invalidateQueries({ queryKey: ['my-portal-deals'] });
-      toast({ title: 'Snapshot refreshed', description: 'Deal data updated with latest memo and listing info.' });
+      toast({
+        title: 'Snapshot refreshed',
+        description: 'Deal data updated with latest memo and listing info.',
+      });
     },
     onError: (err: Error) => {
-      toast({ title: 'Error refreshing snapshot', description: err.message, variant: 'destructive' });
+      toast({
+        title: 'Error refreshing snapshot',
+        description: err.message,
+        variant: 'destructive',
+      });
     },
   });
 }
 
 /** Check if a listing has a lead memo (required before pushing to portal) */
-export function useCheckLeadMemo(listingId: string | undefined) {
+export function useCheckLeadMemo(listingIdOrIds: string | string[] | undefined) {
+  const ids = Array.isArray(listingIdOrIds)
+    ? listingIdOrIds
+    : listingIdOrIds
+      ? [listingIdOrIds]
+      : [];
   return useQuery({
-    queryKey: ['check-lead-memo', listingId],
+    queryKey: ['check-lead-memo', ids],
     queryFn: async () => {
-      if (!listingId) return null;
+      if (!ids.length) return null;
       const { data } = await supabase
         .from('lead_memos')
-        .select('id')
-        .eq('deal_id', listingId)
+        .select('id, deal_id')
+        .in('deal_id', ids)
         .eq('memo_type', 'full_memo')
-        .in('status', ['published', 'completed', 'draft'])
-        .limit(1)
-        .maybeSingle();
-      return { hasMemo: !!data };
+        .in('status', ['published', 'completed', 'draft']);
+      const foundIds = new Set((data || []).map((r: { deal_id: string }) => r.deal_id));
+      const missingIds = ids.filter((id) => !foundIds.has(id));
+      return { hasMemo: missingIds.length === 0, missingCount: missingIds.length };
     },
-    enabled: !!listingId,
+    enabled: ids.length > 0,
   });
 }
 
 /** Check if a deal has already been pushed to a portal */
-export function useCheckDuplicatePush(portalOrgId: string | undefined, listingId: string | undefined) {
+export function useCheckDuplicatePush(
+  portalOrgId: string | undefined,
+  listingId: string | undefined,
+) {
   return useQuery({
     queryKey: ['check-duplicate-push', portalOrgId, listingId],
     queryFn: async () => {
@@ -498,7 +577,9 @@ export function useConvertToPipelineDeal() {
       listingId: string;
       portalOrgName: string;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       // Resolve the portal org's linked buyer profile (if any)
@@ -550,11 +631,10 @@ export function useConvertToPipelineDeal() {
         connectionRequestId = newCr.id;
       }
 
-        // Call the RPC to create the pipeline deal from the connection request
-        const { data: _dealId, error: rpcError } = await supabase.rpc(
-          'create_pipeline_deal',
-          { p_connection_request_id: connectionRequestId },
-        );
+      // Call the RPC to create the pipeline deal from the connection request
+      const { data: _dealId, error: rpcError } = await supabase.rpc('create_pipeline_deal', {
+        p_connection_request_id: connectionRequestId,
+      });
 
       if (rpcError) {
         // RPC may error if deal already exists — that's okay, log and continue

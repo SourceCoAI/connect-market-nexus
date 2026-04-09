@@ -22,7 +22,11 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Send, FileText, Loader2 } from 'lucide-react';
 import { usePortalOrganizations } from '@/hooks/portal/use-portal-organizations';
-import { usePushDealToPortal, useCheckDuplicatePush, useCheckLeadMemo } from '@/hooks/portal/use-portal-deals';
+import {
+  usePushDealToPortal,
+  useCheckDuplicatePush,
+  useCheckLeadMemo,
+} from '@/hooks/portal/use-portal-deals';
 
 import type { PortalDealPriority } from '@/types/portal';
 
@@ -47,7 +51,11 @@ export function PushToPortalDialog({
   const [pushNote, setPushNote] = useState('');
   const [priority, setPriority] = useState<PortalDealPriority>('standard');
   const [includeDataRoom, setIncludeDataRoom] = useState(false);
-  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; errors: string[] } | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<{
+    done: number;
+    total: number;
+    errors: string[];
+  } | null>(null);
 
   const isBulk = !!(listingIds && listingIds.length > 0);
   const effectiveIds = isBulk ? listingIds : listingId ? [listingId] : [];
@@ -55,14 +63,14 @@ export function PushToPortalDialog({
   const { data: orgs, isLoading: orgsLoading } = usePortalOrganizations();
   // Only check duplicate for single-deal mode
   const { data: duplicate } = useCheckDuplicatePush(
-    !isBulk ? (selectedOrgId || undefined) : undefined,
+    !isBulk ? selectedOrgId || undefined : undefined,
     !isBulk ? listingId : undefined,
   );
   const pushDeal = usePushDealToPortal();
 
   // Check if listing(s) have a lead memo — required before pushing
   const { data: memoCheck, isLoading: memoCheckLoading } = useCheckLeadMemo(
-    open ? (isBulk ? listingIds?.[0] : listingId) : undefined,
+    open ? (isBulk ? listingIds : listingId) : undefined,
   );
 
   // Fetch existing data room access tokens for this listing (single mode only)
@@ -88,10 +96,10 @@ export function PushToPortalDialog({
   // Auto-select matching data room token based on selected portal org
   const selectedOrg = activeOrgs.find((o) => o.id === selectedOrgId);
   const matchingToken = dataRoomAccess?.find(
-    (a) => selectedOrg && (
-      a.buyer_name?.toLowerCase().includes(selectedOrg.name.toLowerCase()) ||
-      a.buyer_firm?.toLowerCase().includes(selectedOrg.name.toLowerCase())
-    )
+    (a) =>
+      selectedOrg &&
+      (a.buyer_name?.toLowerCase().includes(selectedOrg.name.toLowerCase()) ||
+        a.buyer_firm?.toLowerCase().includes(selectedOrg.name.toLowerCase())),
   );
 
   const resetForm = () => {
@@ -138,7 +146,9 @@ export function PushToPortalDialog({
         listing_id: effectiveIds[0],
         push_note: pushNote.trim() || undefined,
         priority,
-        data_room_access_token: includeDataRoom ? (matchingToken?.access_token || undefined) : undefined,
+        data_room_access_token: includeDataRoom
+          ? matchingToken?.access_token || undefined
+          : undefined,
       });
 
       resetForm();
@@ -146,12 +156,21 @@ export function PushToPortalDialog({
     }
   };
 
-  const isPushing = pushDeal.isPending || (bulkProgress !== null && bulkProgress.done < bulkProgress.total);
+  const isPushing =
+    pushDeal.isPending || (bulkProgress !== null && bulkProgress.done < bulkProgress.total);
   const bulkDone = bulkProgress && bulkProgress.done === bulkProgress.total;
   const bulkHasErrors = bulkProgress && bulkProgress.errors.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!isPushing) { resetForm(); onOpenChange(v); } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!isPushing) {
+          resetForm();
+          onOpenChange(v);
+        }
+      }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -159,9 +178,7 @@ export function PushToPortalDialog({
             Push to Client Portal
           </DialogTitle>
           {!isBulk && listingTitle && (
-            <p className="text-sm text-muted-foreground mt-1 truncate">
-              {listingTitle}
-            </p>
+            <p className="text-sm text-muted-foreground mt-1 truncate">{listingTitle}</p>
           )}
           {isBulk && (
             <p className="text-sm text-muted-foreground mt-1">
@@ -207,24 +224,30 @@ export function PushToPortalDialog({
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
                 This deal was already pushed to this portal on{' '}
-                {new Date(duplicate.created_at).toLocaleDateString()}.
-                Current status: <strong>{duplicate.status}</strong>.
+                {new Date(duplicate.created_at).toLocaleDateString()}. Current status:{' '}
+                <strong>{duplicate.status}</strong>.
               </AlertDescription>
             </Alert>
           )}
 
-          {!isBulk && !memoCheckLoading && memoCheck && !memoCheck.hasMemo && (
+          {!memoCheckLoading && memoCheck && !memoCheck.hasMemo && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
-                This deal cannot be pushed without a lead memo. Please create and publish a lead memo first.
+                {isBulk && memoCheck.missingCount
+                  ? `${memoCheck.missingCount} deal(s) are missing a lead memo. All deals must have a lead memo before pushing.`
+                  : 'This deal cannot be pushed without a lead memo. Please create and publish a lead memo first.'}
               </AlertDescription>
             </Alert>
           )}
 
           <div className="space-y-2">
             <Label>Priority</Label>
-            <Select value={priority} onValueChange={(v) => setPriority(v as PortalDealPriority)} disabled={isPushing}>
+            <Select
+              value={priority}
+              onValueChange={(v) => setPriority(v as PortalDealPriority)}
+              disabled={isPushing}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -258,7 +281,10 @@ export function PushToPortalDialog({
                 id="include-data-room"
                 disabled={isPushing}
               />
-              <label htmlFor="include-data-room" className="flex items-center gap-2 text-sm cursor-pointer">
+              <label
+                htmlFor="include-data-room"
+                className="flex items-center gap-2 text-sm cursor-pointer"
+              >
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 Include data room access
               </label>
@@ -295,15 +321,31 @@ export function PushToPortalDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => { resetForm(); onOpenChange(false); }} disabled={isPushing}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              resetForm();
+              onOpenChange(false);
+            }}
+            disabled={isPushing}
+          >
             {bulkDone && bulkHasErrors ? 'Close' : 'Cancel'}
           </Button>
           {!(bulkDone && !bulkHasErrors) && (
             <Button
               onClick={handleSubmit}
-              disabled={isPushing || !selectedOrgId || (!isBulk && !!duplicate) || (!isBulk && !memoCheckLoading && memoCheck && !memoCheck.hasMemo)}
+              disabled={
+                isPushing ||
+                !selectedOrgId ||
+                (!isBulk && !!duplicate) ||
+                (!memoCheckLoading && memoCheck && !memoCheck.hasMemo)
+              }
             >
-              {isPushing ? 'Pushing...' : isBulk ? `Push ${effectiveIds.length} Deal(s)` : 'Push Deal'}
+              {isPushing
+                ? 'Pushing...'
+                : isBulk
+                  ? `Push ${effectiveIds.length} Deal(s)`
+                  : 'Push Deal'}
             </Button>
           )}
         </DialogFooter>

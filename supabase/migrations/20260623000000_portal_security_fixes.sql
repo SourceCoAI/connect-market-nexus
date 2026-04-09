@@ -100,13 +100,22 @@ CREATE POLICY "Admins can manage all portal messages"
 -- -----------------------------------------------------------------------------
 -- 5. FIX: contact_assignments references deleted 'deals' table
 --    Re-point the foreign key to the correct deal_pipeline table.
+--    Skipped if contact_assignments table does not exist.
 -- -----------------------------------------------------------------------------
 
-ALTER TABLE public.contact_assignments
-  DROP CONSTRAINT IF EXISTS contact_assignments_deal_id_fkey;
-ALTER TABLE public.contact_assignments
-  ADD CONSTRAINT contact_assignments_deal_id_fkey
-    FOREIGN KEY (deal_id) REFERENCES public.deal_pipeline(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'contact_assignments'
+  ) THEN
+    ALTER TABLE public.contact_assignments
+      DROP CONSTRAINT IF EXISTS contact_assignments_deal_id_fkey;
+    ALTER TABLE public.contact_assignments
+      ADD CONSTRAINT contact_assignments_deal_id_fkey
+        FOREIGN KEY (deal_id) REFERENCES public.deal_pipeline(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 
 -- -----------------------------------------------------------------------------
 -- 6. FIX: Missing indexes for portal query performance
