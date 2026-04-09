@@ -26,7 +26,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useMyPortalUser } from '@/hooks/portal/use-portal-users';
-import { usePortalDealPush, usePortalDealResponses, useSubmitDealResponse, useMarkDealViewed } from '@/hooks/portal/use-portal-deals';
+import {
+  usePortalDealPush,
+  usePortalDealResponses,
+  useSubmitDealResponse,
+  useMarkDealViewed,
+} from '@/hooks/portal/use-portal-deals';
 import { PushStatusBadge, PriorityBadge } from '@/components/portal/PortalStatusBadge';
 import { PortalDealChat } from '@/components/portal/PortalDealChat';
 import type { PortalResponseType, TeaserSection } from '@/types/portal';
@@ -38,9 +43,20 @@ function formatCurrency(value: number | null | undefined): string {
   return `$${value.toLocaleString()}`;
 }
 
-const responseConfig: Record<string, { label: string; icon: React.ReactNode; variant: 'default' | 'outline' | 'destructive' }> = {
-  interested: { label: 'Connect with Owner', icon: <Handshake className="h-4 w-4" />, variant: 'default' },
-  need_more_info: { label: 'Learn More From SourceCo', icon: <HelpCircle className="h-4 w-4" />, variant: 'outline' },
+const responseConfig: Record<
+  string,
+  { label: string; icon: React.ReactNode; variant: 'default' | 'outline' | 'destructive' }
+> = {
+  interested: {
+    label: 'Connect with Owner',
+    icon: <Handshake className="h-4 w-4" />,
+    variant: 'default',
+  },
+  need_more_info: {
+    label: 'Learn More From SourceCo',
+    icon: <HelpCircle className="h-4 w-4" />,
+    variant: 'outline',
+  },
   pass: { label: 'Pass', icon: <XCircle className="h-4 w-4" />, variant: 'destructive' },
 };
 
@@ -111,9 +127,7 @@ export default function PortalDealDetail() {
 
         {/* Deal header */}
         <div>
-          <h1 className="text-2xl font-bold">
-            {snapshot?.headline || 'Untitled Deal'}
-          </h1>
+          <h1 className="text-2xl font-bold">{snapshot?.headline || 'Untitled Deal'}</h1>
           <div className="flex items-center gap-2 mt-2">
             <PushStatusBadge status={push.status} />
             <PriorityBadge priority={push.priority} />
@@ -188,7 +202,9 @@ export default function PortalDealDetail() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Employees</p>
-                    <p className="font-medium text-sm">{snapshot.linkedin_employee_count.toLocaleString()}</p>
+                    <p className="font-medium text-sm">
+                      {snapshot.linkedin_employee_count.toLocaleString()}
+                    </p>
                   </div>
                 </div>
               )}
@@ -197,7 +213,10 @@ export default function PortalDealDetail() {
                   <Star className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Google Reviews</p>
-                    <p className="font-medium text-sm">{snapshot.google_rating.toFixed(1)} ({snapshot.google_review_count.toLocaleString()})</p>
+                    <p className="font-medium text-sm">
+                      {snapshot.google_rating.toFixed(1)} (
+                      {snapshot.google_review_count.toLocaleString()})
+                    </p>
                   </div>
                 </div>
               )}
@@ -205,7 +224,11 @@ export default function PortalDealDetail() {
             {snapshot?.website && (
               <div className="mt-4 pt-3 border-t">
                 <a
-                  href={snapshot.website.startsWith('http') ? snapshot.website : `https://${snapshot.website}`}
+                  href={
+                    snapshot.website.startsWith('http')
+                      ? snapshot.website
+                      : `https://${snapshot.website}`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline"
@@ -276,7 +299,8 @@ export default function PortalDealDetail() {
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No lead memo available yet. Check back later or reach out via the messaging section below.
+                No lead memo available yet. Check back later or reach out via the messaging section
+                below.
               </p>
             )}
           </CardContent>
@@ -325,20 +349,16 @@ export default function PortalDealDetail() {
               {responses.map((r) => (
                 <div key={r.id} className="text-sm border-b last:border-0 pb-2 last:pb-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium capitalize">
-                      {r.response_type.replace(/_/g, ' ')}
+                    <span className="font-medium">
+                      {responseConfig[r.response_type]?.label || r.response_type.replace(/_/g, ' ')}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {new Date(r.created_at).toLocaleDateString()}
                     </span>
                   </div>
-                  {r.notes && (
-                    <p className="text-muted-foreground mt-1">{r.notes}</p>
-                  )}
+                  {r.notes && <p className="text-muted-foreground mt-1">{r.notes}</p>}
                   {r.responder && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      by {r.responder.name}
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">by {r.responder.name}</p>
                   )}
                 </div>
               ))}
@@ -376,10 +396,7 @@ export default function PortalDealDetail() {
               <Button variant="outline" onClick={() => setResponseDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button
-                onClick={handleSubmitResponse}
-                disabled={submitResponse.isPending}
-              >
+              <Button onClick={handleSubmitResponse} disabled={submitResponse.isPending}>
                 {submitResponse.isPending ? 'Submitting...' : 'Submit Response'}
               </Button>
             </DialogFooter>

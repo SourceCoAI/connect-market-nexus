@@ -1,6 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Send, Users, Activity, Settings, Plus, ArrowRight, Building2, Globe, RefreshCw, Pause, Archive, Download, MessageSquare, Eye, ExternalLink, FileText, Inbox } from 'lucide-react';
+import {
+  ChevronLeft,
+  Send,
+  Users,
+  Activity,
+  Settings,
+  Plus,
+  ArrowRight,
+  Building2,
+  Globe,
+  RefreshCw,
+  Pause,
+  Archive,
+  Download,
+  MessageSquare,
+  Eye,
+  ExternalLink,
+  FileText,
+  Inbox,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,17 +44,36 @@ import {
 } from '@/components/ui/select';
 import { usePortalOrganization, useUpdatePortalOrg } from '@/hooks/portal/use-portal-organizations';
 import { usePortalUsers, useDeactivatePortalUser } from '@/hooks/portal/use-portal-users';
-import { usePortalDealPushes, usePortalOrgResponses, useConvertToPipelineDeal, useResendPortalInvite, useUpdateDealPush, useRefreshDealSnapshot } from '@/hooks/portal/use-portal-deals';
+import {
+  usePortalDealPushes,
+  usePortalOrgResponses,
+  useConvertToPipelineDeal,
+  useResendPortalInvite,
+  useUpdateDealPush,
+  useRefreshDealSnapshot,
+} from '@/hooks/portal/use-portal-deals';
 
 import { PortalDealChat } from '@/components/portal/PortalDealChat';
-import { usePortalActivity, usePortalAnalytics, exportPortalActivityCSV } from '@/hooks/portal/use-portal-activity';
-import { OrgStatusBadge, PushStatusBadge, PriorityBadge as _PriorityBadge } from '@/components/portal/PortalStatusBadge';
+import {
+  usePortalActivity,
+  usePortalAnalytics,
+  exportPortalActivityCSV,
+} from '@/hooks/portal/use-portal-activity';
+import {
+  OrgStatusBadge,
+  PushStatusBadge,
+  PriorityBadge as _PriorityBadge,
+} from '@/components/portal/PortalStatusBadge';
 import { InvitePortalUserDialog } from '@/components/portal/InvitePortalUserDialog';
-import type { PortalOrgStatus, PortalNotificationFrequency, PortalResponseType } from '@/types/portal';
+import type {
+  PortalOrgStatus,
+  PortalNotificationFrequency,
+  PortalResponseType,
+} from '@/types/portal';
 
 const RESPONSE_TYPE_LABEL: Record<PortalResponseType, string> = {
   interested: 'Connect with Owner',
-  need_more_info: 'Learn More',
+  need_more_info: 'Learn More From SourceCo',
   pass: 'Pass',
 };
 
@@ -47,7 +85,11 @@ const RESPONSE_TYPE_CLASS: Record<PortalResponseType, string> = {
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '-';
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -93,7 +135,11 @@ export default function ClientPortalDetail() {
     if (!pushes) return;
     for (const push of pushes) {
       const snap = push.deal_snapshot;
-      const hasMemoData = !!(snap?.memo_html || snap?.teaser_sections?.length || snap?.business_description);
+      const hasMemoData = !!(
+        snap?.memo_html ||
+        snap?.teaser_sections?.length ||
+        snap?.business_description
+      );
       if (!hasMemoData && !refreshedRef.current.has(push.id)) {
         refreshedRef.current.add(push.id);
         refreshSnapshot.mutate({ pushId: push.id, listingId: push.listing_id });
@@ -105,7 +151,7 @@ export default function ClientPortalDetail() {
   if (!org) return <div className="py-12 text-center text-muted-foreground">Portal not found.</div>;
 
   const filteredPushes = (pushes || []).filter(
-    (p) => statusFilter === 'all' || p.status === statusFilter
+    (p) => statusFilter === 'all' || p.status === statusFilter,
   );
 
   return (
@@ -135,7 +181,11 @@ export default function ClientPortalDetail() {
               )}
               {org.buyer.company_website && (
                 <a
-                  href={org.buyer.company_website.startsWith('http') ? org.buyer.company_website : `https://${org.buyer.company_website}`}
+                  href={
+                    org.buyer.company_website.startsWith('http')
+                      ? org.buyer.company_website
+                      : `https://${org.buyer.company_website}`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
@@ -148,7 +198,8 @@ export default function ClientPortalDetail() {
           )}
           {org.relationship_owner && (
             <p className="text-sm text-muted-foreground mt-1">
-              Relationship Owner: {org.relationship_owner.first_name} {org.relationship_owner.last_name}
+              Relationship Owner: {org.relationship_owner.first_name}{' '}
+              {org.relationship_owner.last_name}
             </p>
           )}
         </div>
@@ -164,7 +215,9 @@ export default function ClientPortalDetail() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => updateOrg.mutate({ id: org.id, status: 'paused' as PortalOrgStatus })}
+                onClick={() =>
+                  updateOrg.mutate({ id: org.id, status: 'paused' as PortalOrgStatus })
+                }
               >
                 <Pause className="h-3.5 w-3.5 mr-1" />
                 Pause
@@ -172,7 +225,9 @@ export default function ClientPortalDetail() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => updateOrg.mutate({ id: org.id, status: 'archived' as PortalOrgStatus })}
+                onClick={() =>
+                  updateOrg.mutate({ id: org.id, status: 'archived' as PortalOrgStatus })
+                }
               >
                 Archive Portal
               </Button>
@@ -183,14 +238,18 @@ export default function ClientPortalDetail() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => updateOrg.mutate({ id: org.id, status: 'active' as PortalOrgStatus })}
+                onClick={() =>
+                  updateOrg.mutate({ id: org.id, status: 'active' as PortalOrgStatus })
+                }
               >
                 Resume
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => updateOrg.mutate({ id: org.id, status: 'archived' as PortalOrgStatus })}
+                onClick={() =>
+                  updateOrg.mutate({ id: org.id, status: 'archived' as PortalOrgStatus })
+                }
               >
                 Archive Portal
               </Button>
@@ -231,7 +290,9 @@ export default function ClientPortalDetail() {
           </Card>
           <Card>
             <CardContent className="pt-4 pb-3">
-              <div className="text-xl font-bold text-blue-600">{analytics.pending_count + (analytics.viewed_count || 0)}</div>
+              <div className="text-xl font-bold text-blue-600">
+                {analytics.pending_count + (analytics.viewed_count || 0)}
+              </div>
               <p className="text-xs text-muted-foreground">Pending</p>
             </CardContent>
           </Card>
@@ -341,169 +402,192 @@ export default function ClientPortalDetail() {
                       '';
 
                     return (
-                    <React.Fragment key={push.id}>
-                    <TableRow>
-                      <TableCell className="max-w-[200px]">
-                        <Link
-                          to={`/admin/deals/${push.listing_id}`}
-                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block"
-                        >
-                          {push.deal_snapshot?.headline || 'Untitled'}
-                        </Link>
-                        {push.latest_response?.notes && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5 italic">
-                            "{push.latest_response.notes}"
-                          </p>
-                        )}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {push.deal_snapshot?.website ? (
-                          <a
-                            href={ensureProtocol(push.deal_snapshot.website)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline text-sm"
-                          >
-                            {formatWebsiteUrl(push.deal_snapshot.website)}
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                        {push.deal_snapshot?.geography || '-'}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                        {push.deal_snapshot?.industry || '-'}
-                      </TableCell>
-                      <TableCell className="text-right whitespace-nowrap text-sm text-muted-foreground">
-                        {formatCurrency(push.deal_snapshot?.revenue)}
-                      </TableCell>
-                      <TableCell className="text-right whitespace-nowrap text-sm text-muted-foreground">
-                        {formatCurrency(push.deal_snapshot?.ebitda)}
-                      </TableCell>
-                      <TableCell className="max-w-[200px]">
-                        <p className="text-muted-foreground text-xs line-clamp-2">
-                          {description || '-'}
-                        </p>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                        {formatDate(push.created_at)}
-                      </TableCell>
-                      <TableCell>
-                        <PushStatusBadge status={push.status} />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          {push.status === 'interested' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs gap-1 text-green-700 border-green-200 hover:bg-green-50"
-                              disabled={convertToPipeline.isPending}
-                              onClick={() =>
-                                convertToPipeline.mutate({
-                                  pushId: push.id,
-                                  portalOrgId: org.id,
-                                  listingId: push.listing_id,
-                                  portalOrgName: org.name,
-                                })
-                              }
+                      <React.Fragment key={push.id}>
+                        <TableRow>
+                          <TableCell className="max-w-[200px]">
+                            <Link
+                              to={`/admin/deals/${push.listing_id}`}
+                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block"
                             >
-                              <ArrowRight className="h-3 w-3" />
-                              Convert
-                            </Button>
-                          )}
-                          {push.status === 'under_nda' && (
-                            <span className="text-xs text-emerald-600 font-medium">In Pipeline</span>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7 w-7 p-0"
-                            title="View Lead Memo"
-                            onClick={() => setMemoExpandedPushId(memoExpandedPushId === push.id ? null : push.id)}
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7 w-7 p-0"
-                            title="Refresh deal data"
-                            disabled={refreshSnapshot.isPending}
-                            onClick={() => refreshSnapshot.mutate({ pushId: push.id, listingId: push.listing_id })}
-                          >
-                            <RefreshCw className={`h-3.5 w-3.5 ${refreshSnapshot.isPending ? 'animate-spin' : ''}`} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7 w-7 p-0"
-                            onClick={() => setExpandedPushId(expandedPushId === push.id ? null : push.id)}
-                          >
-                            <MessageSquare className="h-3.5 w-3.5" />
-                          </Button>
-                          {push.status !== 'archived' && push.status !== 'under_nda' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
-                              onClick={() => updatePush.mutate({ pushId: push.id, status: 'archived' })}
-                            >
-                              <Archive className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {memoExpandedPushId === push.id && (
-                      <TableRow>
-                        <TableCell colSpan={10} className="bg-muted/30 p-6">
-                          <div className="max-w-3xl">
-                            <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                              <FileText className="h-4 w-4" />
-                              Lead Memo — {push.deal_snapshot?.headline}
-                            </h4>
-                            {push.deal_snapshot?.memo_html ? (
-                              <div
-                                className="prose prose-sm max-w-none
+                              {push.deal_snapshot?.headline || 'Untitled'}
+                            </Link>
+                            {push.latest_response?.notes && (
+                              <p className="text-xs text-muted-foreground truncate mt-0.5 italic">
+                                "{push.latest_response.notes}"
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {push.deal_snapshot?.website ? (
+                              <a
+                                href={ensureProtocol(push.deal_snapshot.website)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline text-sm"
+                              >
+                                {formatWebsiteUrl(push.deal_snapshot.website)}
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                            {push.deal_snapshot?.geography || '-'}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                            {push.deal_snapshot?.industry || '-'}
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap text-sm text-muted-foreground">
+                            {formatCurrency(push.deal_snapshot?.revenue)}
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap text-sm text-muted-foreground">
+                            {formatCurrency(push.deal_snapshot?.ebitda)}
+                          </TableCell>
+                          <TableCell className="max-w-[200px]">
+                            <p className="text-muted-foreground text-xs line-clamp-2">
+                              {description || '-'}
+                            </p>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                            {formatDate(push.created_at)}
+                          </TableCell>
+                          <TableCell>
+                            <PushStatusBadge status={push.status} />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              {push.status === 'interested' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs gap-1 text-green-700 border-green-200 hover:bg-green-50"
+                                  disabled={convertToPipeline.isPending}
+                                  onClick={() =>
+                                    convertToPipeline.mutate({
+                                      pushId: push.id,
+                                      portalOrgId: org.id,
+                                      listingId: push.listing_id,
+                                      portalOrgName: org.name,
+                                    })
+                                  }
+                                >
+                                  <ArrowRight className="h-3 w-3" />
+                                  Convert
+                                </Button>
+                              )}
+                              {push.status === 'under_nda' && (
+                                <span className="text-xs text-emerald-600 font-medium">
+                                  In Pipeline
+                                </span>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs h-7 w-7 p-0"
+                                title="View Lead Memo"
+                                onClick={() =>
+                                  setMemoExpandedPushId(
+                                    memoExpandedPushId === push.id ? null : push.id,
+                                  )
+                                }
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs h-7 w-7 p-0"
+                                title="Refresh deal data"
+                                disabled={refreshSnapshot.isPending}
+                                onClick={() =>
+                                  refreshSnapshot.mutate({
+                                    pushId: push.id,
+                                    listingId: push.listing_id,
+                                  })
+                                }
+                              >
+                                <RefreshCw
+                                  className={`h-3.5 w-3.5 ${refreshSnapshot.isPending ? 'animate-spin' : ''}`}
+                                />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs h-7 w-7 p-0"
+                                onClick={() =>
+                                  setExpandedPushId(expandedPushId === push.id ? null : push.id)
+                                }
+                              >
+                                <MessageSquare className="h-3.5 w-3.5" />
+                              </Button>
+                              {push.status !== 'archived' && push.status !== 'under_nda' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
+                                  onClick={() =>
+                                    updatePush.mutate({ pushId: push.id, status: 'archived' })
+                                  }
+                                >
+                                  <Archive className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {memoExpandedPushId === push.id && (
+                          <TableRow>
+                            <TableCell colSpan={10} className="bg-muted/30 p-6">
+                              <div className="max-w-3xl">
+                                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                                  <FileText className="h-4 w-4" />
+                                  Lead Memo — {push.deal_snapshot?.headline}
+                                </h4>
+                                {push.deal_snapshot?.memo_html ? (
+                                  <div
+                                    className="prose prose-sm max-w-none
                                   prose-headings:text-foreground prose-p:text-muted-foreground
                                   prose-strong:text-foreground prose-li:text-muted-foreground"
-                                dangerouslySetInnerHTML={{ __html: push.deal_snapshot.memo_html }}
-                              />
-                            ) : push.deal_snapshot?.teaser_sections?.length ? (
-                              <div className="space-y-4">
-                                {push.deal_snapshot.teaser_sections.map((section) => (
-                                  <div key={section.key}>
-                                    <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{section.title}</h5>
-                                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{section.content}</p>
+                                    dangerouslySetInnerHTML={{
+                                      __html: push.deal_snapshot.memo_html,
+                                    }}
+                                  />
+                                ) : push.deal_snapshot?.teaser_sections?.length ? (
+                                  <div className="space-y-4">
+                                    {push.deal_snapshot.teaser_sections.map((section) => (
+                                      <div key={section.key}>
+                                        <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                                          {section.title}
+                                        </h5>
+                                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                                          {section.content}
+                                        </p>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
+                                ) : push.deal_snapshot?.business_description ? (
+                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {push.deal_snapshot.business_description}
+                                  </p>
+                                ) : null}
                               </div>
-                            ) : push.deal_snapshot?.business_description ? (
-                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                {push.deal_snapshot.business_description}
-                              </p>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {expandedPushId === push.id && (
-                      <TableRow>
-                        <TableCell colSpan={10} className="bg-muted/30 p-4">
-                          <PortalDealChat
-                            pushId={push.id}
-                            portalOrgId={org.id}
-                            senderType="admin"
-                            senderName="SourceCo Team"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {expandedPushId === push.id && (
+                          <TableRow>
+                            <TableCell colSpan={10} className="bg-muted/30 p-4">
+                              <PortalDealChat
+                                pushId={push.id}
+                                portalOrgId={org.id}
+                                senderType="admin"
+                                senderName="SourceCo Team"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </TableBody>
@@ -522,7 +606,7 @@ export default function ClientPortalDetail() {
               <SelectContent>
                 <SelectItem value="all">All Response Types</SelectItem>
                 <SelectItem value="interested">Connect with Owner</SelectItem>
-                <SelectItem value="need_more_info">Learn More</SelectItem>
+                <SelectItem value="need_more_info">Learn More From SourceCo</SelectItem>
                 <SelectItem value="pass">Pass</SelectItem>
               </SelectContent>
             </Select>
@@ -533,7 +617,7 @@ export default function ClientPortalDetail() {
 
           {(() => {
             const filtered = (orgResponses || []).filter(
-              (r) => responseTypeFilter === 'all' || r.response_type === responseTypeFilter
+              (r) => responseTypeFilter === 'all' || r.response_type === responseTypeFilter,
             );
             if (filtered.length === 0) {
               return (
@@ -576,16 +660,19 @@ export default function ClientPortalDetail() {
                         <TableCell>
                           <Badge
                             variant="outline"
-                            className={`text-xs ${RESPONSE_TYPE_CLASS[r.response_type as PortalResponseType] || ''}`}
+                            className={`text-xs whitespace-nowrap ${RESPONSE_TYPE_CLASS[r.response_type as PortalResponseType] || ''}`}
                           >
-                            {RESPONSE_TYPE_LABEL[r.response_type as PortalResponseType] || r.response_type}
+                            {RESPONSE_TYPE_LABEL[r.response_type as PortalResponseType] ||
+                              r.response_type}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm">
                           {r.responder ? (
                             <div>
                               <div className="font-medium">{r.responder.name}</div>
-                              <div className="text-xs text-muted-foreground">{r.responder.email}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {r.responder.email}
+                              </div>
                             </div>
                           ) : (
                             <span className="text-muted-foreground">-</span>
@@ -653,9 +740,13 @@ export default function ClientPortalDetail() {
                       </TableCell>
                       <TableCell>
                         {u.is_active ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">Active</Badge>
+                          <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
+                            Active
+                          </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-gray-50 text-gray-500 text-xs">Inactive</Badge>
+                          <Badge variant="outline" className="bg-gray-50 text-gray-500 text-xs">
+                            Inactive
+                          </Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-sm">{formatDate(u.invite_sent_at)}</TableCell>
@@ -669,15 +760,17 @@ export default function ClientPortalDetail() {
                                 size="sm"
                                 className="text-xs"
                                 disabled={resendInvite.isPending}
-                                onClick={() => resendInvite.mutate({
-                                  portal_org_id: org.id,
-                                  portal_slug: org.portal_slug,
-                                  email: u.email,
-                                  first_name: u.name.split(' ')[0] || u.name,
-                                  last_name: u.name.split(' ').slice(1).join(' ') || undefined,
-                                  role: u.role,
-                                  buyer_id: org.buyer_id || undefined,
-                                })}
+                                onClick={() =>
+                                  resendInvite.mutate({
+                                    portal_org_id: org.id,
+                                    portal_slug: org.portal_slug,
+                                    email: u.email,
+                                    first_name: u.name.split(' ')[0] || u.name,
+                                    last_name: u.name.split(' ').slice(1).join(' ') || undefined,
+                                    role: u.role,
+                                    buyer_id: org.buyer_id || undefined,
+                                  })
+                                }
                               >
                                 <RefreshCw className="h-3 w-3 mr-1" />
                                 Resend
@@ -686,7 +779,9 @@ export default function ClientPortalDetail() {
                                 variant="ghost"
                                 size="sm"
                                 className="text-xs text-red-600"
-                                onClick={() => deactivateUser.mutate({ userId: u.id, portalOrgId: org.id })}
+                                onClick={() =>
+                                  deactivateUser.mutate({ userId: u.id, portalOrgId: org.id })
+                                }
                               >
                                 Deactivate
                               </Button>
@@ -725,8 +820,15 @@ export default function ClientPortalDetail() {
           ) : (
             <div className="space-y-2">
               {(activity || []).map((log) => {
-                const meta = log.metadata && typeof log.metadata === 'object' ? log.metadata as Record<string, unknown> : {};
-                const actorName = meta.actor_name ? String(meta.actor_name) : (meta.user_name ? String(meta.user_name) : null);
+                const meta =
+                  log.metadata && typeof log.metadata === 'object'
+                    ? (log.metadata as Record<string, unknown>)
+                    : {};
+                const actorName = meta.actor_name
+                  ? String(meta.actor_name)
+                  : meta.user_name
+                    ? String(meta.user_name)
+                    : null;
                 const headline = meta.headline ? String(meta.headline) : null;
                 return (
                   <div
@@ -740,9 +842,7 @@ export default function ClientPortalDetail() {
                       by {actorName || (log.actor_type === 'admin' ? 'Admin' : 'Portal User')}
                     </span>
                     {headline && (
-                      <span className="truncate text-muted-foreground">
-                        — {headline}
-                      </span>
+                      <span className="truncate text-muted-foreground">— {headline}</span>
                     )}
                     <span className="ml-auto text-xs text-muted-foreground shrink-0">
                       {formatDate(log.created_at)}
@@ -771,7 +871,11 @@ export default function ClientPortalDetail() {
   );
 }
 
-function PortalSettings({ org }: { org: NonNullable<ReturnType<typeof usePortalOrganization>['data']> }) {
+function PortalSettings({
+  org,
+}: {
+  org: NonNullable<ReturnType<typeof usePortalOrganization>['data']>;
+}) {
   const updateOrg = useUpdatePortalOrg();
   const [welcomeMessage, setWelcomeMessage] = useState(org.welcome_message || '');
   const [frequency, setFrequency] = useState(org.notification_frequency);
@@ -792,8 +896,18 @@ function PortalSettings({ org }: { org: NonNullable<ReturnType<typeof usePortalO
       id: org.id,
       welcome_message: welcomeMessage.trim() || null,
       notification_frequency: frequency as PortalNotificationFrequency,
-      preferred_industries: industries ? industries.split(',').map((s) => s.trim()).filter(Boolean) : [],
-      preferred_geographies: geographies ? geographies.split(',').map((s) => s.trim()).filter(Boolean) : [],
+      preferred_industries: industries
+        ? industries
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
+      preferred_geographies: geographies
+        ? geographies
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
       preferred_deal_size_min: minVal && minVal > 0 ? minVal : null,
       preferred_deal_size_max: maxVal && maxVal > 0 ? maxVal : null,
       notes: notes.trim() || null,
@@ -820,7 +934,10 @@ function PortalSettings({ org }: { org: NonNullable<ReturnType<typeof usePortalO
 
         <div className="space-y-2">
           <Label>Notification Frequency</Label>
-          <Select value={frequency} onValueChange={(v) => setFrequency(v as PortalNotificationFrequency)}>
+          <Select
+            value={frequency}
+            onValueChange={(v) => setFrequency(v as PortalNotificationFrequency)}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -852,11 +969,23 @@ function PortalSettings({ org }: { org: NonNullable<ReturnType<typeof usePortalO
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="space-y-2">
                 <Label className="text-xs">Remind after (days)</Label>
-                <Input type="number" min="1" max="30" value={reminderDays} onChange={(e) => setReminderDays(e.target.value)} />
+                <Input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={reminderDays}
+                  onChange={(e) => setReminderDays(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">Max reminders</Label>
-                <Input type="number" min="1" max="10" value={reminderMax} onChange={(e) => setReminderMax(e.target.value)} />
+                <Input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={reminderMax}
+                  onChange={(e) => setReminderMax(e.target.value)}
+                />
               </div>
             </div>
           )}
@@ -876,11 +1005,21 @@ function PortalSettings({ org }: { org: NonNullable<ReturnType<typeof usePortalO
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Min EBITDA</Label>
-            <Input type="number" min="0" value={dealSizeMin} onChange={(e) => setDealSizeMin(e.target.value)} />
+            <Input
+              type="number"
+              min="0"
+              value={dealSizeMin}
+              onChange={(e) => setDealSizeMin(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label>Max EBITDA</Label>
-            <Input type="number" min="0" value={dealSizeMax} onChange={(e) => setDealSizeMax(e.target.value)} />
+            <Input
+              type="number"
+              min="0"
+              value={dealSizeMax}
+              onChange={(e) => setDealSizeMax(e.target.value)}
+            />
           </div>
         </div>
 
