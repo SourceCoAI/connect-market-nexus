@@ -71,11 +71,11 @@ export function ConnectionRequestActions({
     setEmailDialogOpen(true);
   };
 
-  const handleEmailDialogConfirm = async (_comment: string, senderEmail: string) => {
+  const handleEmailDialogConfirm = async (_comment: string, senderEmail: string, customBody?: string) => {
     if (emailActionType === 'approve') {
-      await actions.handleAccept(senderEmail);
+      await actions.handleAccept(senderEmail, customBody);
     } else if (emailActionType === 'reject') {
-      await actions.handleReject(senderEmail);
+      await actions.handleReject(senderEmail, customBody);
     }
     setEmailDialogOpen(false);
     setEmailActionType(null);

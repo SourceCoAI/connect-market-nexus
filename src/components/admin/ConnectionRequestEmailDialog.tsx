@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,14 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CheckCircle, XCircle, User, Mail, AlertTriangle, Building2 } from 'lucide-react';
+import { CheckCircle, XCircle, User, Mail, AlertTriangle, Building2, Pencil, RotateCcw } from 'lucide-react';
 import { AdminConnectionRequest } from '@/types/admin';
 import { DEAL_OWNER_SENDERS } from '@/lib/admin-profiles';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ConnectionRequestEmailDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (comment: string, senderEmail: string) => Promise<void>;
+  onConfirm: (comment: string, senderEmail: string, customBody?: string) => Promise<void>;
   selectedRequest: AdminConnectionRequest | null;
   actionType: 'approve' | 'reject' | null;
   isLoading: boolean;
@@ -37,37 +38,85 @@ export function ConnectionRequestEmailDialog({
   actionType,
   isLoading,
 }: ConnectionRequestEmailDialogProps) {
+  const { user: authUser } = useAuth();
   const [adminComment, setAdminComment] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [senderEmail, setSenderEmail] = useState(DEAL_OWNER_SENDERS[0].email);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedBody, setEditedBody] = useState('');
+
+  // Auto-select sender based on logged-in admin
+  const defaultSender = useMemo(() => {
+    if (authUser?.email) {
+      const match = DEAL_OWNER_SENDERS.find(s => s.email === authUser.email);
+      if (match) return match.email;
+    }
+    return DEAL_OWNER_SENDERS[0].email;
+  }, [authUser?.email]);
+
+  const [senderEmail, setSenderEmail] = useState(defaultSender);
+
+  // Reset sender when dialog opens or default changes
+  useEffect(() => {
+    if (isOpen) {
+      setSenderEmail(defaultSender);
+      setIsEditing(false);
+      setEditedBody('');
+    }
+  }, [isOpen, defaultSender]);
+
+  const userName = selectedRequest
+    ? (selectedRequest.user
+      ? `${selectedRequest.user.first_name || ''} ${selectedRequest.user.last_name || ''}`.trim()
+      : selectedRequest.lead_name || 'Unknown')
+    : '';
+
+  const userEmail = selectedRequest?.user?.email || selectedRequest?.lead_email || '';
+  const userCompany = selectedRequest?.user?.company || selectedRequest?.lead_company || '';
+  const listingTitle = selectedRequest?.listing?.title || 'Untitled Listing';
+
+  const isApproval = actionType === 'approve';
+
+  // Build default email body text
+  const defaultBody = useMemo(() => {
+    if (!selectedRequest) return '';
+    if (isApproval) {
+      return `Your introduction to ${listingTitle} has been approved.\n\nWe are making a direct introduction to the business owner. You will receive a message from our team with next steps, typically within one business day.\n\nWhat to expect:\n- Our team facilitates the initial introduction\n- You receive access to deal details and supporting materials\n- Message us directly on the platform for support. All conversations are tracked there for your records\n\nThis is an exclusive introduction. We work with a small number of buyers per deal. Move at your own pace, but do not sit on it. Please do not reply to this email.`;
+    }
+    return `Thank you for your interest in ${listingTitle}.\n\nAfter reviewing your profile against this specific opportunity, we have decided not to move forward with an introduction at this time. We limit introductions to a small number of buyers per deal to ensure strong alignment on both sides.\n\nYour interest has been noted. If the situation changes, we will reach out directly.\n\nIn the meantime, continue browsing the pipeline. New deals are added regularly and your next match may already be live.`;
+  }, [selectedRequest, isApproval, listingTitle]);
 
   const handleClose = () => {
     setAdminComment('');
     setError(null);
+    setIsEditing(false);
+    setEditedBody('');
     onClose();
   };
 
   const handleConfirm = async () => {
     try {
       setError(null);
-      await onConfirm(adminComment, senderEmail);
+      const customBody = isEditing && editedBody.trim() !== defaultBody.trim() ? editedBody.trim() : undefined;
+      await onConfirm(adminComment, senderEmail, customBody);
       setAdminComment('');
+      setIsEditing(false);
+      setEditedBody('');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     }
   };
 
+  const handleStartEditing = () => {
+    setEditedBody(defaultBody);
+    setIsEditing(true);
+  };
+
+  const handleResetBody = () => {
+    setEditedBody(defaultBody);
+  };
+
   if (!selectedRequest) return null;
 
-  const userName = selectedRequest.user
-    ? `${selectedRequest.user.first_name || ''} ${selectedRequest.user.last_name || ''}`.trim()
-    : selectedRequest.lead_name || 'Unknown';
-
-  const userEmail = selectedRequest.user?.email || selectedRequest.lead_email || '';
-  const userCompany = selectedRequest.user?.company || selectedRequest.lead_company || '';
-  const listingTitle = selectedRequest.listing?.title || 'Untitled Listing';
-
-  const isApproval = actionType === 'approve';
   const subject = isApproval
     ? `Introduction approved: ${listingTitle}`
     : `Regarding Your Interest in ${listingTitle}`;
@@ -134,9 +183,22 @@ export function ConnectionRequestEmailDialog({
             </Select>
           </div>
 
-          {/* Email preview */}
+          {/* Email preview / editor */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email preview</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email preview</p>
+              {!isEditing ? (
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={handleStartEditing}>
+                  <Pencil className="h-3 w-3" />
+                  Edit
+                </Button>
+              ) : (
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={handleResetBody}>
+                  <RotateCcw className="h-3 w-3" />
+                  Reset
+                </Button>
+              )}
+            </div>
             <div className="rounded-lg border border-border p-4 space-y-3 text-sm bg-background">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -159,7 +221,13 @@ export function ConnectionRequestEmailDialog({
               </div>
               <hr className="border-border" />
 
-              {isApproval ? (
+              {isEditing ? (
+                <Textarea
+                  value={editedBody}
+                  onChange={(e) => setEditedBody(e.target.value)}
+                  className="min-h-[200px] text-xs leading-relaxed font-normal resize-y"
+                />
+              ) : isApproval ? (
                 <div className="space-y-3 text-xs text-foreground leading-relaxed">
                   <p>Your introduction to <strong>{listingTitle}</strong> has been approved.</p>
                   <p>We are making a direct introduction to the business owner. You will receive a message from our team with next steps, typically within one business day.</p>

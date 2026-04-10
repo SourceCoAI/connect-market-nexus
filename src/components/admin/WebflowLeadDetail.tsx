@@ -68,25 +68,75 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
   const leadName = request.lead_name || 'Website Lead';
   const leadCompany = request.lead_company || '';
 
-  const handleAcceptDirect = () => {
-    if (!request.id) return;
-    updateStatus.mutate({ requestId: request.id, status: 'approved' });
-  };
-  const handleRejectDirect = () => {
-    if (!request.id) return;
-    updateStatus.mutate({ requestId: request.id, status: 'rejected', notes: rejectNote || undefined });
-    setShowRejectDialog(false);
-    setRejectNote('');
-  };
   const openEmailDialog = (action: 'approve' | 'reject') => {
     setEmailActionType(action);
     setEmailDialogOpen(true);
   };
-  const handleEmailDialogConfirm = async (_comment: string, _senderEmail: string) => {
+  const handleEmailDialogConfirm = async (_comment: string, senderEmail: string, customBody?: string) => {
+    if (!request.id) return;
+
+    // Look up sender info
+    const { DEAL_OWNER_SENDERS } = await import('@/lib/admin-profiles');
+    const senderInfo = senderEmail ? DEAL_OWNER_SENDERS.find(s => s.email === senderEmail) : null;
+
     if (emailActionType === 'approve') {
-      handleAcceptDirect();
+      updateStatus.mutate({ requestId: request.id, status: 'approved' });
+
+      // Send approval email
+      const buyerEmail = request.lead_email || request.user?.email;
+      const buyerName = request.lead_name || (request.user ? `${request.user.first_name || ''} ${request.user.last_name || ''}`.trim() : '');
+      const listingTitle = request.listing?.title || 'the listing';
+      const listingId = request.listing?.id;
+      if (buyerEmail && listingId) {
+        supabase.functions
+          .invoke('send-connection-notification', {
+            body: {
+              type: 'approval_notification',
+              recipientEmail: buyerEmail,
+              recipientName: buyerName || buyerEmail,
+              requesterName: buyerName || buyerEmail,
+              requesterEmail: buyerEmail,
+              listingTitle,
+              listingId,
+              requestId: request.id,
+              ...(senderEmail && senderInfo ? {
+                senderEmail: senderInfo.email,
+                senderName: senderInfo.name,
+                replyTo: senderInfo.email,
+              } : {}),
+              ...(customBody ? { customBodyText: customBody } : {}),
+            },
+          })
+          .catch((err) => console.error('[webflow-approval-email] Failed:', err));
+      }
     } else if (emailActionType === 'reject') {
-      handleRejectDirect();
+      updateStatus.mutate({ requestId: request.id, status: 'rejected', notes: rejectNote || undefined });
+
+      // Send rejection email
+      const buyerEmail = request.lead_email || request.user?.email;
+      const buyerName = request.lead_name || (request.user ? `${request.user.first_name || ''} ${request.user.last_name || ''}`.trim() : '');
+      const companyName = request.listing?.title || 'the listing';
+      if (buyerEmail) {
+        supabase.functions
+          .invoke('notify-buyer-rejection', {
+            body: {
+              connectionRequestId: request.id,
+              buyerEmail,
+              buyerName: buyerName || buyerEmail,
+              companyName,
+              ...(senderEmail && senderInfo ? {
+                senderEmail: senderInfo.email,
+                senderName: senderInfo.name,
+                replyTo: senderInfo.email,
+              } : {}),
+              ...(customBody ? { customBodyText: customBody } : {}),
+            },
+          })
+          .catch((err) => console.error('[webflow-rejection-email] Failed:', err));
+      }
+
+      setShowRejectDialog(false);
+      setRejectNote('');
     }
     setEmailDialogOpen(false);
     setEmailActionType(null);

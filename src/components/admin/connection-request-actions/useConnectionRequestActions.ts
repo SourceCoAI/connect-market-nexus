@@ -82,7 +82,7 @@ export function useConnectionRequestActions({
 
   // ─── Decision Handlers ───
 
-  const handleAccept = async (senderEmail?: string) => {
+  const handleAccept = async (senderEmail?: string, customBody?: string) => {
     if (!requestId || updateStatus.isPending) return;
     try {
       await updateStatus.mutateAsync({ requestId, status: 'approved' });
@@ -141,6 +141,7 @@ export function useConnectionRequestActions({
                 senderName: senderInfo.name,
                 replyTo: senderInfo.email,
               } : {}),
+              ...(customBody ? { customBodyText: customBody } : {}),
             },
           })
           .catch((emailErr) => {
@@ -207,7 +208,7 @@ export function useConnectionRequestActions({
     }
   };
 
-  const handleReject = async (senderEmail?: string) => {
+  const handleReject = async (senderEmail?: string, customBody?: string) => {
     if (!requestId || isRejecting) return;
     setIsRejecting(true);
     const note = rejectNote.trim();
@@ -245,6 +246,7 @@ export function useConnectionRequestActions({
                 senderName: rejSenderInfo.name,
                 replyTo: rejSenderInfo.email,
               } : {}),
+              ...(customBody ? { customBodyText: customBody } : {}),
             },
           })
           .catch((emailErr) => {
