@@ -13,7 +13,7 @@ interface ConnectionNotificationRequest {
   requesterName: string;
   requesterEmail: string;
   listingTitle: string;
-  listingId: string;
+  listingId?: string;
   message?: string;
   requestId?: string;
   senderEmail?: string;

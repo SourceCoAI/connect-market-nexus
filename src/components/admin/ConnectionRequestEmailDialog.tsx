@@ -85,7 +85,7 @@ export function ConnectionRequestEmailDialog({
         : `${selectedSender.name} from our team will reach out to coordinate next steps`;
       return `Your request for ${listingTitle} has been approved.\n\nYou now have access to additional deal materials, detailed company information, including the real company name, and supporting documents. ${touchLine}\n\nWhat to expect:\n- Access to the full deal profile, data room, and supporting materials\n- ${reachOutLine}\n- Message us directly on the platform or reply to this email\n\nThis is an exclusive opportunity. We work with a small number of buyers per deal. Move at your own pace, but do not sit on it.`;
     }
-    return `Thank you for your interest in ${listingTitle}.\n\nAfter reviewing your profile against this specific opportunity, we have decided not to move forward at this time. We limit introductions to a small number of buyers per deal to ensure strong alignment on both sides.\n\nYour interest has been noted. If the situation changes, we will reach out directly.\n\nIn the meantime, continue browsing the pipeline. New deals are added regularly and your next match may already be live.`;
+    return `Thank you for your interest in ${listingTitle}.\n\nAfter reviewing your profile against this specific opportunity, we have decided not to move forward at this time. We limit access to a small number of buyers per deal to ensure strong alignment on both sides.\n\nYour interest has been noted. If the situation changes, we will reach out directly.\n\nIn the meantime, continue browsing the pipeline. New deals are added regularly and your next match may already be live.`;
   }, [selectedRequest, isApproval, listingTitle, selectedSender.name, isNamedSender]);
 
   const handleClose = () => {
@@ -284,7 +284,7 @@ export function ConnectionRequestEmailDialog({
                     <div className="space-y-4 text-[14px] text-foreground" style={{ lineHeight: '1.7' }}>
                       <p>Thank you for your interest in <strong>{listingTitle}</strong>.</p>
                       <p style={{ color: '#4A4A4A' }}>
-                        After reviewing your profile against this specific opportunity, we have decided not to move forward at this time. We limit introductions to a small number of buyers per deal to ensure strong alignment on both sides.
+                        After reviewing your profile against this specific opportunity, we have decided not to move forward at this time. We limit access to a small number of buyers per deal to ensure strong alignment on both sides.
                       </p>
                       <p style={{ color: '#4A4A4A' }}>
                         Your interest has been noted. If the situation changes, we will reach out directly.
