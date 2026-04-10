@@ -298,9 +298,11 @@ async function importContacts(
         source: row.source || 'import',
       };
 
-      const { error } = await supabase.from('contacts').upsert(contact, {
-        onConflict: 'remarketing_buyer_id,first_name,last_name',
-        ignoreDuplicates: false,
+      const { error } = await supabase.rpc('contacts_upsert', {
+        p_identity: { email: contact.email || null, linkedin_url: contact.linkedin_url || null },
+        p_fields: contact,
+        p_source: contact.source || 'import',
+        p_enrichment: null,
       });
 
       if (error) {

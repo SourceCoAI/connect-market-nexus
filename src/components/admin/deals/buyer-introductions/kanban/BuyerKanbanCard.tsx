@@ -129,35 +129,24 @@ export function BuyerKanbanCard({
       // Skip if no meaningful data
       if (!firstName && !email) return;
 
-      // Check if contact already exists on this buyer (by email or name match)
-      const { data: existing } = await supabase
-        .from('contacts')
-        .select('id')
-        .eq('remarketing_buyer_id', buyerId)
-        .eq('contact_type', 'buyer')
-        .eq('archived', false)
-        .or(
-          [
-            email ? `email.eq.${email}` : null,
-            `and(first_name.ilike.${firstName},last_name.ilike.${lastName})`,
-          ]
-            .filter(Boolean)
-            .join(','),
-        )
-        .limit(1);
-
-      if (existing && existing.length > 0) return; // already exists
-
-      await supabase.from('contacts').insert({
-        remarketing_buyer_id: buyerId,
-        first_name: firstName,
-        last_name: lastName,
-        email: email || null,
-        phone: buyer.buyer_phone || null,
-        linkedin_url: buyer.buyer_linkedin_url || null,
-        contact_type: 'buyer',
-        source: 'introduction_auto_link',
-      } as never);
+      // contacts_upsert handles dedup via resolve_contact_identity
+      await supabase.rpc('contacts_upsert', {
+        p_identity: {
+          email: email || null,
+          linkedin_url: buyer.buyer_linkedin_url || null,
+        },
+        p_fields: {
+          remarketing_buyer_id: buyerId,
+          first_name: firstName,
+          last_name: lastName,
+          email: email || null,
+          phone: buyer.buyer_phone || null,
+          linkedin_url: buyer.buyer_linkedin_url || null,
+          contact_type: 'buyer',
+        },
+        p_source: 'introduction_auto_link',
+        p_enrichment: null,
+      });
     } catch (err) {
       console.warn('[BuyerKanbanCard] Failed to auto-create contact:', err);
     }

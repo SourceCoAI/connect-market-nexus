@@ -123,34 +123,9 @@ async function loadKnownContactEmails(supabase: SupabaseClient): Promise<Map<str
     }
   }
 
-  // Also load from remarketing_buyer_contacts — batch lookup instead of N+1
-  const { data: buyerContacts } = await supabase
-    .from('remarketing_buyer_contacts')
-    .select('id, email, buyer_id')
-    .not('email', 'is', null);
-
-  if (buyerContacts && buyerContacts.length > 0) {
-    // Collect emails not already in our map
-    const missingEmails = buyerContacts
-      .filter((bc) => bc.email && !emailMap.has(bc.email.toLowerCase()))
-      .map((bc) => bc.email!);
-
-    if (missingEmails.length > 0) {
-      // Batch lookup in contacts table
-      const { data: unifiedMatches } = await supabase
-        .from('contacts')
-        .select('id, email')
-        .in('email', missingEmails);
-
-      if (unifiedMatches) {
-        for (const match of unifiedMatches) {
-          if (match.email && !emailMap.has(match.email.toLowerCase())) {
-            emailMap.set(match.email.toLowerCase(), { id: match.id, email: match.email });
-          }
-        }
-      }
-    }
-  }
+  // Legacy remarketing_buyer_contacts read removed — all contacts are in
+  // the canonical contacts table since the 20260228 backfill + mirror trigger.
+  // No additional lookup needed.
 
   return emailMap;
 }

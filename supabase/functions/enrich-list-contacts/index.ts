@@ -172,39 +172,21 @@ Deno.serve(async (req: Request) => {
             updateFields.linkedin_url = enriched.linkedin_url;
 
           if (Object.keys(updateFields).length > 0) {
-            const { error: updateErr } = await supabase
-              .from('contacts')
-              .update(updateFields)
-              .eq('id', contact.id);
+            // Update canonical contact + log enrichment event via RPC
+            const { error: updateErr } = await supabase.rpc('contacts_upsert', {
+              p_identity: { email: contact.email || enriched.email || null, linkedin_url: enriched.linkedin_url || contact.linkedin_url || null },
+              p_fields: updateFields,
+              p_source: `list_enrich:${enriched.source}`,
+              p_enrichment: {
+                provider: `list_enrich:${enriched.source}`,
+                confidence: enriched.confidence,
+                source_query: `list:${contact.first_name} ${contact.last_name}`,
+              },
+            });
 
             if (updateErr) {
               console.error(`[enrich-list] Update failed for ${contact.id}: ${updateErr.message}`);
             }
-          }
-
-          const { error: enrichedUpsertErr } = await supabase.from('enriched_contacts').upsert(
-            {
-              workspace_id: auth.userId,
-              company_name: companyName || 'Unknown',
-              full_name: `${contact.first_name} ${contact.last_name}`.trim(),
-              first_name: enriched.first_name || contact.first_name,
-              last_name: enriched.last_name || contact.last_name,
-              title: enriched.title || contact.title || '',
-              email: enriched.email,
-              phone: enriched.phone,
-              linkedin_url: enriched.linkedin_url || '',
-              confidence: enriched.confidence,
-              source: `list_enrich:${enriched.source}`,
-              enriched_at: new Date().toISOString(),
-              search_query: `list:${contact.first_name} ${contact.last_name}`,
-            },
-            { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false },
-          );
-          if (enrichedUpsertErr) {
-            console.error(
-              `[enrich-list] enriched_contacts upsert failed for ${contact.id}:`,
-              enrichedUpsertErr.message,
-            );
           }
 
           results.push({
@@ -277,27 +259,30 @@ Deno.serve(async (req: Request) => {
         });
 
         if (enriched && (enriched.email || enriched.phone)) {
-          const { error: rawUpsertErr } = await supabase.from('enriched_contacts').upsert(
-            {
-              workspace_id: auth.userId,
-              company_name: raw.company || 'Unknown',
-              full_name: `${raw.first_name} ${raw.last_name}`.trim(),
+          const { error: rawUpsertErr } = await supabase.rpc('contacts_upsert', {
+            p_identity: {
+              email: enriched.email || null,
+              linkedin_url: enriched.linkedin_url || null,
+            },
+            p_fields: {
               first_name: enriched.first_name || raw.first_name,
               last_name: enriched.last_name || raw.last_name,
-              title: enriched.title || '',
-              email: enriched.email,
-              phone: enriched.phone,
-              linkedin_url: enriched.linkedin_url || '',
-              confidence: enriched.confidence,
-              source: `list_enrich:${enriched.source}`,
-              enriched_at: new Date().toISOString(),
-              search_query: `list_deal:${raw.first_name} ${raw.last_name}`,
+              title: enriched.title || null,
+              email: enriched.email || null,
+              phone: enriched.phone || null,
+              linkedin_url: enriched.linkedin_url || null,
+              contact_type: 'buyer',
             },
-            { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false },
-          );
+            p_source: `list_enrich:${enriched.source}`,
+            p_enrichment: {
+              provider: `list_enrich:${enriched.source}`,
+              confidence: enriched.confidence,
+              source_query: `list_deal:${raw.first_name} ${raw.last_name}`,
+            },
+          });
           if (rawUpsertErr) {
             console.error(
-              `[enrich-list] enriched_contacts upsert failed for raw ${raw.key}:`,
+              `[enrich-list] contacts_upsert failed for raw ${raw.key}:`,
               rawUpsertErr.message,
             );
           }

@@ -1506,19 +1506,36 @@ Deno.serve(async (req: Request) => {
       })
       .slice(0, targetCount);
 
-    // 9. Save to enriched_contacts
+    // 9. Save to contacts via RPC (replaces enriched_contacts batch upsert)
     if (allContacts.length > 0) {
-      const { error: insertErr } = await supabaseAdmin.from('enriched_contacts').upsert(
-        allContacts.map((c) => ({
-          ...c,
-          workspace_id: auth.userId,
-        })),
-        { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: true },
-      );
-
-      if (insertErr) {
-        console.error(`[find-contacts] DB insert error: ${insertErr.message}`);
-        errors.push(`Save failed: ${insertErr.message}`);
+      let saveErrors = 0;
+      for (const c of allContacts) {
+        const { error: rpcErr } = await supabaseAdmin.rpc('contacts_upsert', {
+          p_identity: {
+            email: c.email || null,
+            linkedin_url: c.linkedin_url || null,
+          },
+          p_fields: {
+            first_name: c.first_name || 'Unknown',
+            last_name: c.last_name || '',
+            title: c.title || null,
+            email: c.email || null,
+            phone: c.phone || null,
+            linkedin_url: c.linkedin_url || null,
+            contact_type: 'buyer',
+          },
+          p_source: c.source || 'find_contacts',
+          p_enrichment: {
+            provider: c.source || 'find_contacts',
+            confidence: c.confidence || 'medium',
+            source_query: `find_contacts:${companyName}`,
+          },
+        });
+        if (rpcErr) saveErrors++;
+      }
+      if (saveErrors > 0) {
+        console.error(`[find-contacts] ${saveErrors}/${allContacts.length} contacts_upsert calls failed`);
+        errors.push(`Save failed for ${saveErrors} contacts`);
       }
     }
 

@@ -102,28 +102,29 @@ serve(async (req: Request) => {
       console.error(`[clay-webhook-phone] Update failed: ${updateErr.message}`);
     }
 
-    // 7. If phone found, save to enriched_contacts
+    // 7. If phone found, save to contacts via RPC
     if (resultPhone) {
       const fullName = `${request.first_name || ''} ${request.last_name || ''}`.trim();
 
-      await supabase.from('enriched_contacts').upsert(
-        {
-          workspace_id: request.workspace_id,
-          company_name: request.company_name || 'Unknown',
-          full_name: fullName || 'Unknown',
-          first_name: request.first_name || '',
-          last_name: request.last_name || '',
-          title: request.title || '',
-          email: null,
-          phone: resultPhone,
-          linkedin_url: request.linkedin_url || '',
-          confidence: 'high',
-          source: 'clay_phone',
-          enriched_at: new Date().toISOString(),
-          search_query: `clay_phone:${request.linkedin_url}`,
+      await supabase.rpc('contacts_upsert', {
+        p_identity: {
+          linkedin_url: request.linkedin_url || null,
         },
-        { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false },
-      );
+        p_fields: {
+          first_name: request.first_name || 'Unknown',
+          last_name: request.last_name || '',
+          title: request.title || null,
+          phone: resultPhone,
+          linkedin_url: request.linkedin_url || null,
+          contact_type: 'buyer',
+        },
+        p_source: 'clay_phone',
+        p_enrichment: {
+          provider: 'clay_phone',
+          confidence: 'high',
+          source_query: `clay_phone:${request.linkedin_url}`,
+        },
+      });
 
       // 8. Update source entity with result
       if (request.source_entity_id) {
@@ -154,11 +155,13 @@ serve(async (req: Request) => {
             }
           }
         } else {
-          // Default: update contacts table
-          const { error: contactUpdateErr } = await supabase
-            .from('contacts')
-            .update({ phone: resultPhone })
-            .eq('id', request.source_entity_id);
+          // Default: update contacts table via RPC
+          const { error: contactUpdateErr } = await supabase.rpc('contacts_upsert', {
+            p_identity: { linkedin_url: request.linkedin_url || null },
+            p_fields: { phone: resultPhone },
+            p_source: 'clay_phone',
+            p_enrichment: { provider: 'clay_phone', confidence: 'high', source_query: `clay_phone:${request.linkedin_url}` },
+          });
 
           if (contactUpdateErr) {
             console.warn(

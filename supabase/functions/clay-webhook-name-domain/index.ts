@@ -100,28 +100,30 @@ serve(async (req: Request) => {
       console.error(`[clay-webhook-name-domain] Update failed: ${updateErr.message}`);
     }
 
-    // 7. If email found, save to enriched_contacts
+    // 7. If email found, save to contacts via RPC
     if (resultEmail) {
       const fullName = `${request.first_name || ''} ${request.last_name || ''}`.trim();
 
-      await supabase.from('enriched_contacts').upsert(
-        {
-          workspace_id: request.workspace_id,
-          company_name: request.company_name || request.domain || 'Unknown',
-          full_name: fullName || 'Unknown',
-          first_name: request.first_name || '',
-          last_name: request.last_name || '',
-          title: request.title || '',
+      await supabase.rpc('contacts_upsert', {
+        p_identity: {
           email: resultEmail,
-          phone: null,
-          linkedin_url: request.linkedin_url || '',
-          confidence: 'medium',
-          source: 'clay_name_domain',
-          enriched_at: new Date().toISOString(),
-          search_query: `clay:${request.first_name} ${request.last_name}@${request.domain}`,
+          linkedin_url: request.linkedin_url || null,
         },
-        { onConflict: 'workspace_id,linkedin_url', ignoreDuplicates: false },
-      );
+        p_fields: {
+          first_name: request.first_name || 'Unknown',
+          last_name: request.last_name || '',
+          title: request.title || null,
+          email: resultEmail,
+          linkedin_url: request.linkedin_url || null,
+          contact_type: 'buyer',
+        },
+        p_source: 'clay_name_domain',
+        p_enrichment: {
+          provider: 'clay_name_domain',
+          confidence: 'medium',
+          source_query: `clay:${request.first_name} ${request.last_name}@${request.domain}`,
+        },
+      });
 
       // 8. Update source entity with result
       if (request.source_entity_id) {
@@ -150,11 +152,13 @@ serve(async (req: Request) => {
             }
           }
         } else {
-          // Default: update contacts table
-          const { error: contactUpdateErr } = await supabase
-            .from('contacts')
-            .update({ email: resultEmail })
-            .eq('id', request.source_entity_id);
+          // Default: update contacts table via RPC
+          const { error: contactUpdateErr } = await supabase.rpc('contacts_upsert', {
+            p_identity: { email: resultEmail },
+            p_fields: { email: resultEmail },
+            p_source: 'clay_name_domain',
+            p_enrichment: { provider: 'clay_name_domain', confidence: 'medium', source_query: `clay:${request.first_name} ${request.last_name}@${request.domain}` },
+          });
 
           if (contactUpdateErr) {
             console.warn(

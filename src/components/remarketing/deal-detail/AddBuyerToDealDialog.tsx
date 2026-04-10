@@ -181,15 +181,19 @@ export function AddBuyerToDealDialog({
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
 
-        await supabase.from('contacts').insert({
-          remarketing_buyer_id: createdBuyer.id,
-          first_name: firstName,
-          last_name: lastName,
-          email: newBuyer.contact_email.trim() || null,
-          phone: newBuyer.contact_phone.trim() || null,
-          contact_type: 'buyer',
-          is_primary: true,
-          source: 'manual_deal_add',
+        await supabase.rpc('contacts_upsert', {
+          p_identity: { email: newBuyer.contact_email.trim() || null },
+          p_fields: {
+            remarketing_buyer_id: createdBuyer.id,
+            first_name: firstName,
+            last_name: lastName,
+            email: newBuyer.contact_email.trim() || null,
+            phone: newBuyer.contact_phone.trim() || null,
+            contact_type: 'buyer',
+            is_primary_at_firm: true,
+          },
+          p_source: 'manual_deal_add',
+          p_enrichment: null,
         });
       }
 

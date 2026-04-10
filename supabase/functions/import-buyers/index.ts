@@ -146,8 +146,9 @@ serve(async (req) => {
           const nameParts = (contact.name || '').trim().split(/\s+/);
           const firstName = contact.first_name || nameParts[0] || 'Unknown';
           const lastName = contact.last_name || nameParts.slice(1).join(' ') || '';
-          const { error: contactError } = await supabase.from('contacts').upsert(
-            {
+          const { error: contactError } = await supabase.rpc('contacts_upsert', {
+            p_identity: { email: contact.email || null, linkedin_url: contact.linkedin_url || null },
+            p_fields: {
               remarketing_buyer_id: existingBuyerId,
               first_name: firstName,
               last_name: lastName,
@@ -157,10 +158,10 @@ serve(async (req) => {
               linkedin_url: contact.linkedin_url || null,
               is_primary_at_firm: true,
               contact_type: 'buyer',
-              source: 'import',
             },
-            { onConflict: 'remarketing_buyer_id,first_name,last_name', ignoreDuplicates: false },
-          );
+            p_source: 'import',
+            p_enrichment: null,
+          });
           if (!contactError) contactsCreated++;
         }
         continue;
@@ -270,8 +271,9 @@ serve(async (req) => {
             const nameParts2 = (contact.name || '').trim().split(/\s+/);
             const fn = contact.first_name || nameParts2[0] || 'Unknown';
             const ln = contact.last_name || nameParts2.slice(1).join(' ') || '';
-            const { error: contactError } = await supabase.from('contacts').upsert(
-              {
+            const { error: contactError } = await supabase.rpc('contacts_upsert', {
+              p_identity: { email: contact.email || null, linkedin_url: contact.linkedin_url || null },
+              p_fields: {
                 remarketing_buyer_id: newBuyer.id,
                 first_name: fn,
                 last_name: ln,
@@ -281,10 +283,10 @@ serve(async (req) => {
                 linkedin_url: contact.linkedin_url || null,
                 is_primary_at_firm: true,
                 contact_type: 'buyer',
-                source: 'import',
               },
-              { onConflict: 'remarketing_buyer_id,first_name,last_name', ignoreDuplicates: false },
-            );
+              p_source: 'import',
+              p_enrichment: null,
+            });
             if (contactError) {
               console.warn('Contact creation failed for buyer:', newBuyer.id, contactError.message);
             } else {

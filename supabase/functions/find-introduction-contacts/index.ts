@@ -354,17 +354,24 @@ Deno.serve(async (req: Request) => {
       // expression-based partial unique indexes (e.g. lower(email), lower(trim(name)))
       // that Supabase JS .upsert() cannot reference via onConflict.
       // Unique constraint violations (23505) are treated as expected duplicates.
-      const { error: insertError } = await supabaseAdmin.from('contacts').insert({
-        remarketing_buyer_id: body.buyer_id,
-        firm_id: firmId,
-        first_name: firstName,
-        last_name: lastName,
-        title: contact.title || null,
-        email: normalizedEmail || null,
-        linkedin_url: contact.linkedin_url || null,
-        phone: contact.phone || null,
-        contact_type: 'buyer',
-        source: 'auto_introduction_approval',
+      const { error: insertError } = await supabaseAdmin.rpc('contacts_upsert', {
+        p_identity: {
+          email: normalizedEmail || null,
+          linkedin_url: contact.linkedin_url || null,
+        },
+        p_fields: {
+          remarketing_buyer_id: body.buyer_id,
+          firm_id: firmId,
+          first_name: firstName,
+          last_name: lastName,
+          title: contact.title || null,
+          email: normalizedEmail || null,
+          linkedin_url: contact.linkedin_url || null,
+          phone: contact.phone || null,
+          contact_type: 'buyer',
+        },
+        p_source: 'auto_introduction_approval',
+        p_enrichment: null,
       });
 
       if (insertError) {

@@ -601,12 +601,12 @@ serve(async (req) => {
             source: row.source || 'import',
           };
 
-          const { error } = await supabase
-            .from('contacts')
-            .upsert(contactData, {
-              onConflict: 'remarketing_buyer_id,first_name,last_name',
-              ignoreDuplicates: false,
-            });
+          const { error } = await supabase.rpc('contacts_upsert', {
+            p_identity: { email: contactData.email || null, linkedin_url: contactData.linkedin_url || null },
+            p_fields: contactData,
+            p_source: contactData.source || 'import',
+            p_enrichment: null,
+          });
 
           if (error) {
             results.contacts.errors.push(`Contact ${row.name}: ${error.message}`);
