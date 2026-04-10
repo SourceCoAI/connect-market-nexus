@@ -1,55 +1,44 @@
 
 
-# Fix: Reliable Email Delivery for All Admin Senders
+# Audit: Email Infrastructure -- Current State
 
-## Root Cause
+## All fixes confirmed implemented correctly
 
-Brevo confirms delivery for all senders, but Gmail's per-sender reputation scoring routes unfamiliar sender addresses to spam. `adam.haile@sourcecodeals.com` has established reputation; other admin addresses do not.
+### 1. email-sender.ts -- Sender lockdown (WORKING)
+- Line 115-117: Custom senders locked to `noreply@sourcecodeals.com` with `"[Name] via SourceCo"` display name
+- Line 111: Reply-to correctly chains: `options.replyTo → options.senderEmail → DEFAULT_REPLY_TO`
+- Line 152: Brevo payload uses `brevoSenderName` and `brevoSenderEmail` (locked)
+- Line 163: Reply-to set to admin's actual email for direct replies
 
-## Solution: Use a Single Verified Sender + Reply-To
+### 2. useConnectionRequestActions.ts -- Rejection in-app message (FIXED)
+- Line 223: `body: adminComment || note || 'Request declined.'` -- correctly prioritizes dialog comment
 
-Always send from a single known-good address (`noreply@sourcecodeals.com`) and put the admin's name in the display name with their email in Reply-To. This ensures consistent inbox placement while preserving the personal touch.
+### 3. notify-buyer-rejection -- Sender defaults aligned (FIXED)
+- Lines 72-74: `senderName: 'SourceCo Notifications'`, `senderEmail: 'noreply@sourcecodeals.com'`, `replyTo: 'support@sourcecodeals.com'`
 
-**What the recipient sees:**
-- From: `Bill Martin via SourceCo <noreply@sourcecodeals.com>`
-- Reply-To: `bill.martin@sourcecodeals.com`
-- Hitting "Reply" goes to Bill's actual email
+## One minor issue remaining
 
-## Files to Change
-
-### 1. `supabase/functions/_shared/email-sender.ts`
-- Change line 146: Always use `VERIFIED_SENDER_EMAIL` (`support@sourcecodeals.com`) or `NOREPLY_SENDER_EMAIL` as the actual `sender.email` in the Brevo payload
-- Move the admin's email to `replyTo` only
-- Incorporate admin name into sender display name: `"Bill Martin via SourceCo"`
-- Keep `senderEmail` in `outbound_emails` record for tracking, but don't use it as the Brevo `sender.email`
-
-### 2. `supabase/functions/send-connection-notification/index.ts`
-- No changes needed -- it already passes `senderEmail`/`senderName`/`replyTo` to `sendEmail()`. The sender lockdown happens in the shared layer.
-
-### 3. `supabase/functions/notify-buyer-rejection/index.ts`
-- Same as above -- no changes needed.
-
-### 4. Redeploy both edge functions + shared code
-- Redeploy `send-connection-notification` and `notify-buyer-rejection` to pick up the shared email-sender change.
-
-## Key Detail in email-sender.ts
-
-```typescript
-// Current (line 145-146):
-sender: { name: senderName, email: senderEmail },
-
-// New:
-const isCustomSender = options.senderEmail && options.senderEmail !== VERIFIED_SENDER_EMAIL;
-const displayName = isCustomSender ? `${senderName} via SourceCo` : senderName;
-sender: { name: displayName, email: NOREPLY_SENDER_EMAIL },
+### Duplicate `htmlContent` property in email-sender.ts (Line 155-156)
 ```
+htmlContent: options.htmlContent,
+htmlContent: options.htmlContent,   // ← duplicate
+```
+Harmless (JS uses the last value) but should be cleaned up.
 
-The `replyTo` field already works correctly (line 156). The admin's email stays as Reply-To so recipients can reply directly to the admin.
+## Deployment concern
 
-## What This Means for Users
+Both `send-connection-notification` and `notify-buyer-rejection` show **zero logs** in the current window. This could mean either no emails have been triggered since the last deploy, or the deployed code doesn't match source. A redeploy of both functions would guarantee the live code includes the sender lockdown fix.
 
-- All emails arrive from `noreply@sourcecodeals.com` (established reputation)
-- The "From" name shows the admin's name (e.g., "Bill Martin via SourceCo")
-- Hitting Reply goes to the admin's actual email address
-- Consistent inbox delivery regardless of which admin sends
+## Build errors (unrelated)
+The build errors shown are all in `enrich-deal` and `extract-buyer-criteria-background` -- pre-existing TypeScript issues unrelated to email sending.
+
+## Plan
+
+| Step | Detail |
+|------|--------|
+| Remove duplicate `htmlContent` line in `email-sender.ts` (line 156) | One-line deletion |
+| Redeploy `send-connection-notification` | Ensure live code has sender lockdown |
+| Redeploy `notify-buyer-rejection` | Ensure live code has sender lockdown |
+
+Everything else is confirmed correct and at parity. The email system design (single verified sender + reply-to) is the right approach -- no architectural changes needed.
 
