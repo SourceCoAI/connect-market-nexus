@@ -220,7 +220,7 @@ export function useConnectionRequestActions({
       });
       await sendMessage.mutateAsync({
         connection_request_id: requestId,
-        body: note || 'Request declined.',
+        body: adminComment || note || 'Request declined.',
         sender_role: 'admin',
         message_type: 'decision',
       });
