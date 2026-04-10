@@ -242,7 +242,7 @@ const AdminRequests = () => {
     setIsDialogOpen(true);
   };
 
-  const confirmAction = async (comment: string) => {
+  const confirmAction = async (comment: string, _senderEmail?: string) => {
     if (selectedRequest && actionType) {
       try {
         await updateRequest({

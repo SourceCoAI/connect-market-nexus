@@ -105,7 +105,7 @@ export function MobileConnectionRequests({
       <ConnectionRequestEmailDialog
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
-        onConfirm={async (_comment) => {
+        onConfirm={async (_comment, _senderEmail) => {
           if (selectedRequest && actionType) {
             if (actionType === "approve") {
               await onApprove(selectedRequest);
