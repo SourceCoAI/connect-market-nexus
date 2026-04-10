@@ -1,14 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  Linkedin, Building2, Mail, Send,
-  AlertCircle, MessageSquare, User, Briefcase, DollarSign, MapPin,
-  CalendarDays, Clock, Star, FileText, ListChecks, FileSignature,
+  Linkedin,
+  Building2,
+  Mail,
+  Send,
+  AlertCircle,
+  MessageSquare,
+  User,
+  Briefcase,
+  DollarSign,
+  MapPin,
+  CalendarDays,
+  Clock,
+  Star,
+  FileText,
+  ListChecks,
+  FileSignature,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Deal } from '@/hooks/admin/use-deals';
@@ -19,8 +38,115 @@ import { supabase } from '@/integrations/supabase/client';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useConnectionRequestDetails } from '@/hooks/admin/use-connection-request-details';
-import { useConnectionMessages, useSendMessage, useMarkMessagesReadByAdmin } from '@/hooks/use-connection-messages';
+import {
+  useConnectionMessages,
+  useSendMessage,
+  useMarkMessagesReadByAdmin,
+} from '@/hooks/use-connection-messages';
 import { cn } from '@/lib/utils';
+
+// ── Inline editable field for deal details ──────────────────────────────
+function EditableField({
+  label,
+  value,
+  type,
+  options,
+  onSave,
+}: {
+  label: string;
+  value: string | number;
+  type: 'currency' | 'percent' | 'text' | 'date' | 'select';
+  options?: string[];
+  onSave: (value: unknown) => void;
+}) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(String(value ?? ''));
+
+  React.useEffect(() => setDraft(String(value ?? '')), [value]);
+
+  const commit = () => {
+    setEditing(false);
+    if (draft === String(value ?? '')) return;
+    if (type === 'currency' || type === 'percent') {
+      const num = Number(draft);
+      if (Number.isFinite(num)) onSave(num);
+    } else {
+      onSave(draft);
+    }
+  };
+
+  const fmt = () => {
+    if (type === 'currency') {
+      const n = Number(value);
+      if (!n) return '—';
+      if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+      if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+      return `$${n.toLocaleString()}`;
+    }
+    if (type === 'percent') return value != null ? `${value}%` : '—';
+    if (type === 'date') return value ? new Date(String(value)).toLocaleDateString() : '—';
+    if (type === 'select')
+      return value ? String(value).charAt(0).toUpperCase() + String(value).slice(1) : '—';
+    return String(value || '—');
+  };
+
+  if (!editing) {
+    return (
+      <button type="button" onClick={() => setEditing(true)} className="text-left group">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          {label}
+        </div>
+        <div className="text-sm font-semibold text-foreground tabular-nums group-hover:text-primary transition-colors">
+          {fmt()}
+        </div>
+      </button>
+    );
+  }
+
+  if (type === 'select' && options) {
+    return (
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          {label}
+        </div>
+        <select
+          className="text-sm font-semibold border rounded px-1 py-0.5 w-full"
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+          }}
+          onBlur={commit}
+          autoFocus
+        >
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {o.charAt(0).toUpperCase() + o.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+        {label}
+      </div>
+      <input
+        type={
+          type === 'date' ? 'date' : type === 'currency' || type === 'percent' ? 'number' : 'text'
+        }
+        className="text-sm font-semibold border rounded px-1 py-0.5 w-full tabular-nums"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && commit()}
+        autoFocus
+      />
+    </div>
+  );
+}
 
 interface PipelineDetailOverviewProps {
   deal: Deal;
@@ -31,16 +157,21 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
   const { data: allAdminProfiles, isLoading: adminProfilesLoading } = useAdminProfiles();
   const updateDeal = useUpdateDeal();
   const updateDealFollowup = useUpdateDealFollowup();
-  const { data: connectionRequestDetails } = useConnectionRequestDetails(deal.connection_request_id);
+  const { data: connectionRequestDetails } = useConnectionRequestDetails(
+    deal.connection_request_id,
+  );
 
   const [followedUp, setFollowedUp] = React.useState(deal.followed_up || false);
-  const [negativeFollowedUp, setNegativeFollowedUp] = React.useState(deal.negative_followed_up || false);
+  const [negativeFollowedUp, setNegativeFollowedUp] = React.useState(
+    deal.negative_followed_up || false,
+  );
   const [underLoi, setUnderLoi] = React.useState(deal.under_loi || false);
   const [buyerProfile, setBuyerProfile] = React.useState<any>(null);
 
   // Messaging
   const connectionRequestId = deal.connection_request_id;
-  const { data: messages = [], isLoading: messagesLoading } = useConnectionMessages(connectionRequestId);
+  const { data: messages = [], isLoading: messagesLoading } =
+    useConnectionMessages(connectionRequestId);
   const sendMessage = useSendMessage();
   const markRead = useMarkMessagesReadByAdmin();
   const [newMessage, setNewMessage] = useState('');
@@ -60,7 +191,7 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
     if (!newMessage.trim() || !connectionRequestId) return;
     sendMessage.mutate(
       { connection_request_id: connectionRequestId, body: newMessage.trim(), sender_role: 'admin' },
-      { onSuccess: () => setNewMessage('') }
+      { onSuccess: () => setNewMessage('') },
     );
   };
 
@@ -70,7 +201,9 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
       if (!connectionRequestDetails?.user_id) return;
       const { data } = await supabase
         .from('profiles')
-        .select('first_name, last_name, email, company, phone_number, buyer_type, linkedin_url, website')
+        .select(
+          'first_name, last_name, email, company, phone_number, buyer_type, linkedin_url, website',
+        )
         .eq('id', connectionRequestDetails.user_id)
         .maybeSingle();
       setBuyerProfile(data);
@@ -91,11 +224,18 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
 
   const formatDateSafely = (value?: string | null) => {
     if (!isValidDate(value)) return 'N/A';
-    try { return formatDistanceToNow(new Date(value!), { addSuffix: true }); } catch { return 'N/A'; }
+    try {
+      return formatDistanceToNow(new Date(value!), { addSuffix: true });
+    } catch {
+      return 'N/A';
+    }
   };
 
   const handleOwnerChange = (value: string) => {
-    updateDeal.mutate({ dealId: deal.deal_id, updates: { assigned_to: value === 'unassigned' ? null : value } });
+    updateDeal.mutate({
+      dealId: deal.deal_id,
+      updates: { assigned_to: value === 'unassigned' ? null : value },
+    });
   };
 
   const handleFollowupToggle = async (type: 'positive' | 'negative', newValue: boolean) => {
@@ -152,8 +292,12 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
     messages.forEach((msg) => {
       const isAdmin = msg.sender_role === 'admin';
       const senderName = msg.sender
-        ? `${msg.sender.first_name || ''} ${msg.sender.last_name || ''}`.trim() || msg.sender.email || 'Unknown'
-        : isAdmin ? 'Admin' : deal.contact_name || 'Buyer';
+        ? `${msg.sender.first_name || ''} ${msg.sender.last_name || ''}`.trim() ||
+          msg.sender.email ||
+          'Unknown'
+        : isAdmin
+          ? 'Admin'
+          : deal.contact_name || 'Buyer';
       combined.push({
         id: msg.id,
         body: msg.body,
@@ -169,14 +313,18 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
 
   // Derive display values
   const sellerName = deal.listing_real_company_name || deal.listing_title || deal.title || '—';
-  const buyerName = deal.contact_name || buyerProfile?.first_name ? `${buyerProfile?.first_name || ''} ${buyerProfile?.last_name || ''}`.trim() : deal.contact_name || 'Unknown Buyer';
+  const buyerName =
+    deal.contact_name || buyerProfile?.first_name
+      ? `${buyerProfile?.first_name || ''} ${buyerProfile?.last_name || ''}`.trim()
+      : deal.contact_name || 'Unknown Buyer';
   const buyerCompany = deal.contact_company || buyerProfile?.company || null;
   const buyerType = buyerProfile?.buyer_type || null;
   const inquiryMessage = connectionRequestDetails?.user_message || deal.deal_description || null;
   const stageName = deal.stage_name || 'Unknown';
-  const ownerName = deal.assigned_to && allAdminProfiles?.[deal.assigned_to]
-    ? allAdminProfiles[deal.assigned_to].displayName
-    : 'Unassigned';
+  const ownerName =
+    deal.assigned_to && allAdminProfiles?.[deal.assigned_to]
+      ? allAdminProfiles[deal.assigned_to].displayName
+      : 'Unassigned';
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
@@ -200,12 +348,27 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
               )}
               {buyerType && (
                 <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
-                  {buyerType === 'private_equity' ? 'Private Equity' : buyerType === 'corporate' ? 'Corporate / Strategic' : buyerType === 'search_fund' ? 'Search Fund' : buyerType === 'family_office' ? 'Family Office' : buyerType === 'independent_sponsor' ? 'Independent Sponsor' : buyerType === 'individual_buyer' ? 'Individual Buyer' : buyerType}
+                  {buyerType === 'private_equity'
+                    ? 'Private Equity'
+                    : buyerType === 'corporate'
+                      ? 'Corporate / Strategic'
+                      : buyerType === 'search_fund'
+                        ? 'Search Fund'
+                        : buyerType === 'family_office'
+                          ? 'Family Office'
+                          : buyerType === 'independent_sponsor'
+                            ? 'Independent Sponsor'
+                            : buyerType === 'individual_buyer'
+                              ? 'Individual Buyer'
+                              : buyerType}
                 </span>
               )}
               <div className="flex flex-wrap gap-2 pt-1">
                 {deal.contact_email && (
-                  <a href={`mailto:${deal.contact_email}`} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+                  <a
+                    href={`mailto:${deal.contact_email}`}
+                    className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                  >
                     <Mail className="h-3 w-3" />
                     <span className="truncate max-w-[120px]">{deal.contact_email}</span>
                   </a>
@@ -221,7 +384,12 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
                   />
                 )}
                 {buyerProfile?.linkedin_url && (
-                  <a href={buyerProfile.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[11px] text-primary hover:underline">
+                  <a
+                    href={buyerProfile.linkedin_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+                  >
                     <Linkedin className="h-3 w-3" />
                     LinkedIn
                   </a>
@@ -237,7 +405,9 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
                 <Briefcase className="h-3.5 w-3.5" />
                 Seller / Deal
               </div>
-              <p className="text-sm font-semibold text-foreground leading-tight truncate">{sellerName}</p>
+              <p className="text-sm font-semibold text-foreground leading-tight truncate">
+                {sellerName}
+              </p>
               {deal.listing_location && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <MapPin className="h-3 w-3 shrink-0" />
@@ -254,13 +424,17 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
                 {deal.listing_revenue != null && deal.listing_revenue > 0 && (
                   <div className="text-xs">
                     <span className="text-muted-foreground">Rev: </span>
-                    <span className="font-semibold text-foreground">{formatCurrency(deal.listing_revenue)}</span>
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency(deal.listing_revenue)}
+                    </span>
                   </div>
                 )}
                 {deal.listing_ebitda != null && deal.listing_ebitda > 0 && (
                   <div className="text-xs">
                     <span className="text-muted-foreground">EBITDA: </span>
-                    <span className="font-semibold text-foreground">{formatCurrency(deal.listing_ebitda)}</span>
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency(deal.listing_ebitda)}
+                    </span>
                   </div>
                 )}
               </div>
@@ -275,38 +449,65 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
                 Deal Status
               </div>
               <div className="flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: deal.stage_color || 'hsl(var(--muted-foreground))' }} />
+                <span
+                  className="inline-block w-2 h-2 rounded-full"
+                  style={{ backgroundColor: deal.stage_color || 'hsl(var(--muted-foreground))' }}
+                />
                 <span className="text-sm font-semibold text-foreground">{stageName}</span>
                 {underLoi && (
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded" style={{ backgroundColor: '#9333EA', color: '#FFFFFF' }}>
+                  <span
+                    className="text-[10px] font-bold uppercase px-2 py-0.5 rounded"
+                    style={{ backgroundColor: '#9333EA', color: '#FFFFFF' }}
+                  >
                     Under LOI
                   </span>
                 )}
               </div>
               <div className="space-y-1.5 pt-0.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5"><User className="h-3 w-3" /> Owner</span>
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <User className="h-3 w-3" /> Owner
+                  </span>
                   <span className="text-foreground font-medium">{ownerName}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5"><Clock className="h-3 w-3" /> Deal Age</span>
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" /> Deal Age
+                  </span>
                   <span className="text-foreground">{formatDateSafely(deal.deal_created_at)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5"><CalendarDays className="h-3 w-3" /> In Stage</span>
-                  <span className="text-foreground">{formatDateSafely(deal.deal_stage_entered_at)}</span>
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <CalendarDays className="h-3 w-3" /> In Stage
+                  </span>
+                  <span className="text-foreground">
+                    {formatDateSafely(deal.deal_stage_entered_at)}
+                  </span>
                 </div>
                 {deal.deal_score != null && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground flex items-center gap-1.5"><DollarSign className="h-3 w-3" /> Score</span>
-                    <span className="text-foreground font-mono font-semibold">{deal.deal_score}</span>
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <DollarSign className="h-3 w-3" /> Score
+                    </span>
+                    <span className="text-foreground font-mono font-semibold">
+                      {deal.deal_score}
+                    </span>
                   </div>
                 )}
                 {deal.total_tasks > 0 && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground flex items-center gap-1.5"><ListChecks className="h-3 w-3" /> Tasks</span>
-                    <span className={cn('font-medium', deal.pending_tasks > 0 ? 'text-red-700' : 'text-foreground')}>
-                      {deal.pending_tasks > 0 ? `${deal.pending_tasks} open` : `${deal.completed_tasks}/${deal.total_tasks} done`}
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <ListChecks className="h-3 w-3" /> Tasks
+                    </span>
+                    <span
+                      className={cn(
+                        'font-medium',
+                        deal.pending_tasks > 0 ? 'text-red-700' : 'text-foreground',
+                      )}
+                    >
+                      {deal.pending_tasks > 0
+                        ? `${deal.pending_tasks} open`
+                        : `${deal.completed_tasks}/${deal.total_tasks} done`}
                     </span>
                   </div>
                 )}
@@ -328,6 +529,85 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
           </Card>
         )}
 
+        {/* Editable Deal Fields */}
+        <Card className="border-border/60 bg-muted/10">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <EditableField
+                label="Deal Value"
+                value={deal.deal_value}
+                type="currency"
+                onSave={(v) => updateDeal.mutate({ dealId: deal.deal_id, updates: { value: v } })}
+              />
+              <EditableField
+                label="Probability"
+                value={deal.deal_probability}
+                type="percent"
+                onSave={(v) =>
+                  updateDeal.mutate({ dealId: deal.deal_id, updates: { probability: v } })
+                }
+              />
+              <EditableField
+                label="Priority"
+                value={deal.deal_priority}
+                type="select"
+                options={['low', 'medium', 'high', 'urgent']}
+                onSave={(v) =>
+                  updateDeal.mutate({ dealId: deal.deal_id, updates: { priority: v } })
+                }
+              />
+              <EditableField
+                label="Expected Close"
+                value={deal.deal_expected_close_date || ''}
+                type="date"
+                onSave={(v) =>
+                  updateDeal.mutate({
+                    dealId: deal.deal_id,
+                    updates: { expected_close_date: v || null },
+                  })
+                }
+              />
+            </div>
+            {/* LOI details — only show when Under LOI or in LOI/Contract stage */}
+            {(deal.under_loi ||
+              deal.stage_name === 'LOI Submitted' ||
+              deal.stage_name === 'Under Contract') && (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3 pt-3 border-t border-border/40">
+                <EditableField
+                  label="LOI Value"
+                  value={deal.loi_value ?? ''}
+                  type="currency"
+                  onSave={(v) =>
+                    updateDeal.mutate({ dealId: deal.deal_id, updates: { loi_value: v || null } })
+                  }
+                />
+                <EditableField
+                  label="LOI Counterparty"
+                  value={deal.loi_counterparty || ''}
+                  type="text"
+                  onSave={(v) =>
+                    updateDeal.mutate({
+                      dealId: deal.deal_id,
+                      updates: { loi_counterparty: v || null },
+                    })
+                  }
+                />
+                <EditableField
+                  label="LOI Expiry"
+                  value={deal.loi_expiry_date || ''}
+                  type="date"
+                  onSave={(v) =>
+                    updateDeal.mutate({
+                      dealId: deal.deal_id,
+                      updates: { loi_expiry_date: v || null },
+                    })
+                  }
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Quick Actions Row */}
         <div className="flex items-center gap-4 flex-wrap">
           {/* Owner Selector */}
@@ -343,9 +623,12 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
-                {allAdminProfiles && Object.values(allAdminProfiles).map((admin) => (
-                  <SelectItem key={admin.id} value={admin.id}>{admin.displayName}</SelectItem>
-                ))}
+                {allAdminProfiles &&
+                  Object.values(allAdminProfiles).map((admin) => (
+                    <SelectItem key={admin.id} value={admin.id}>
+                      {admin.displayName}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -357,18 +640,28 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
             <span className="text-xs text-muted-foreground">Follow-up:</span>
             <div className="flex items-center gap-1">
               <span className="text-[11px] text-foreground">Positive</span>
-              <Switch checked={followedUp} onCheckedChange={(v) => handleFollowupToggle('positive', v)} className="scale-[0.65]" />
+              <Switch
+                checked={followedUp}
+                onCheckedChange={(v) => handleFollowupToggle('positive', v)}
+                className="scale-[0.65]"
+              />
             </div>
             <div className="flex items-center gap-1">
               <span className="text-[11px] text-foreground">Rejection</span>
-              <Switch checked={negativeFollowedUp} onCheckedChange={(v) => handleFollowupToggle('negative', v)} className="scale-[0.65]" />
+              <Switch
+                checked={negativeFollowedUp}
+                onCheckedChange={(v) => handleFollowupToggle('negative', v)}
+                className="scale-[0.65]"
+              />
             </div>
           </div>
 
           {/* Under LOI Toggle */}
           <div className="h-4 w-px bg-border" />
           <div className="flex items-center gap-1">
-            <FileSignature className={cn('h-3.5 w-3.5', underLoi ? 'text-purple-600' : 'text-muted-foreground')} />
+            <FileSignature
+              className={cn('h-3.5 w-3.5', underLoi ? 'text-purple-600' : 'text-muted-foreground')}
+            />
             <span className="text-[11px] text-foreground">Under LOI</span>
             <Switch checked={underLoi} onCheckedChange={handleLoiToggle} className="scale-[0.65]" />
           </div>
@@ -376,21 +669,36 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
           {/* NDA / Fee Status indicators */}
           <div className="h-4 w-px bg-border" />
           <div className="flex items-center gap-3 text-[11px]">
-            <span className={cn(
-              "px-2 py-0.5 rounded-full border font-medium",
-              deal.nda_status === 'signed' ? "bg-green-50 text-green-700 border-green-200" :
-              deal.nda_status === 'sent' ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
-              "bg-muted text-muted-foreground border-border"
-            )}>
-              NDA: {deal.nda_status === 'not_sent' ? 'Not Sent' : deal.nda_status.charAt(0).toUpperCase() + deal.nda_status.slice(1)}
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded-full border font-medium',
+                deal.nda_status === 'signed'
+                  ? 'bg-green-50 text-green-700 border-green-200'
+                  : deal.nda_status === 'sent'
+                    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                    : 'bg-muted text-muted-foreground border-border',
+              )}
+            >
+              NDA:{' '}
+              {deal.nda_status === 'not_sent'
+                ? 'Not Sent'
+                : deal.nda_status.charAt(0).toUpperCase() + deal.nda_status.slice(1)}
             </span>
-            <span className={cn(
-              "px-2 py-0.5 rounded-full border font-medium",
-              deal.fee_agreement_status === 'signed' ? "bg-green-50 text-green-700 border-green-200" :
-              deal.fee_agreement_status === 'sent' ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
-              "bg-muted text-muted-foreground border-border"
-            )}>
-              Fee: {deal.fee_agreement_status === 'not_sent' ? 'Not Sent' : deal.fee_agreement_status.charAt(0).toUpperCase() + deal.fee_agreement_status.slice(1)}
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded-full border font-medium',
+                deal.fee_agreement_status === 'signed'
+                  ? 'bg-green-50 text-green-700 border-green-200'
+                  : deal.fee_agreement_status === 'sent'
+                    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                    : 'bg-muted text-muted-foreground border-border',
+              )}
+            >
+              Fee:{' '}
+              {deal.fee_agreement_status === 'not_sent'
+                ? 'Not Sent'
+                : deal.fee_agreement_status.charAt(0).toUpperCase() +
+                  deal.fee_agreement_status.slice(1)}
             </span>
           </div>
         </div>
@@ -411,7 +719,12 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
         ) : (
           <>
             <div className="px-8 pt-4 pb-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#8B6F47' }}>💬 Conversation</h3>
+              <h3
+                className="text-xs font-semibold uppercase tracking-wider"
+                style={{ color: '#8B6F47' }}
+              >
+                💬 Conversation
+              </h3>
             </div>
             <ScrollArea className="flex-1 px-8">
               <div className="pb-4 space-y-3 rounded-lg p-3" style={{ backgroundColor: '#FCF9F0' }}>
@@ -425,7 +738,9 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
                   <div className="text-center py-8 space-y-2">
                     <MessageSquare className="w-8 h-8 text-muted-foreground/30 mx-auto" />
                     <p className="text-sm text-muted-foreground">No messages yet</p>
-                    <p className="text-xs text-muted-foreground/60">Send a message to start the conversation.</p>
+                    <p className="text-xs text-muted-foreground/60">
+                      Send a message to start the conversation.
+                    </p>
                   </div>
                 ) : (
                   allMessages.map((msg) => {
@@ -435,28 +750,43 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
                         key={msg.id}
                         className={cn(
                           'max-w-[85%] rounded-xl px-4 py-3 space-y-1 shadow-sm',
-                          isAdmin
-                            ? 'ml-auto border'
-                            : 'mr-auto border'
+                          isAdmin ? 'ml-auto border' : 'mr-auto border',
                         )}
-                        style={isAdmin
-                          ? { backgroundColor: '#F7F4DD', borderColor: '#E5DDD0', color: '#0E101A' }
-                          : { backgroundColor: '#FFFFFF', borderColor: '#E5DDD0', color: '#0E101A' }
+                        style={
+                          isAdmin
+                            ? {
+                                backgroundColor: '#F7F4DD',
+                                borderColor: '#E5DDD0',
+                                color: '#0E101A',
+                              }
+                            : {
+                                backgroundColor: '#FFFFFF',
+                                borderColor: '#E5DDD0',
+                                color: '#0E101A',
+                              }
                         }
                       >
                         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                           <span className="font-medium">{msg.senderName}</span>
                           <span>·</span>
-                          <span>{formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}</span>
+                          <span>
+                            {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                          </span>
                           {msg.isInquiry && (
-                            <span className="inline-block px-1.5 py-0.5 rounded font-semibold text-[10px]" style={{ backgroundColor: '#DEC76B', color: '#0E101A' }}>
+                            <span
+                              className="inline-block px-1.5 py-0.5 rounded font-semibold text-[10px]"
+                              style={{ backgroundColor: '#DEC76B', color: '#0E101A' }}
+                            >
                               Initial Inquiry
                             </span>
                           )}
                         </div>
                         <p className="text-sm text-foreground whitespace-pre-wrap">{msg.body}</p>
                         {msg.message_type === 'decision' && (
-                          <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: '#DEC76B', color: '#0E101A' }}>
+                          <span
+                            className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                            style={{ backgroundColor: '#DEC76B', color: '#0E101A' }}
+                          >
                             Decision
                           </span>
                         )}
@@ -470,7 +800,10 @@ export function PipelineDetailOverview({ deal }: PipelineDetailOverviewProps) {
 
             {/* Compose bar */}
             <div className="px-8 py-3" style={{ borderTop: '1px solid #E5DDD0' }}>
-              <div className="flex items-end gap-3 rounded-lg border-2 p-2" style={{ borderColor: '#E5DDD0', backgroundColor: '#FFFFFF' }}>
+              <div
+                className="flex items-end gap-3 rounded-lg border-2 p-2"
+                style={{ borderColor: '#E5DDD0', backgroundColor: '#FFFFFF' }}
+              >
                 <Textarea
                   placeholder="Type a message..."
                   value={newMessage}
