@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Globe, User, Building2, Mail, Phone, Briefcase, ExternalLink, FileText, Clock, CheckCircle, Info } from 'lucide-react';
+import { ConnectionRequestEmailDialog } from './ConnectionRequestEmailDialog';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,6 +46,8 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
   const [flagPopoverOpen, setFlagPopoverOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailActionType, setEmailActionType] = useState<'approve' | 'reject' | null>(null);
 
   // Fetch admin list for flag assignment
   const { data: adminList = [] } = useQuery<AdminProfile[]>({
@@ -65,15 +68,28 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
   const leadName = request.lead_name || 'Website Lead';
   const leadCompany = request.lead_company || '';
 
-  const handleAccept = () => {
+  const handleAcceptDirect = () => {
     if (!request.id) return;
     updateStatus.mutate({ requestId: request.id, status: 'approved' });
   };
-  const handleReject = () => {
+  const handleRejectDirect = () => {
     if (!request.id) return;
     updateStatus.mutate({ requestId: request.id, status: 'rejected', notes: rejectNote || undefined });
     setShowRejectDialog(false);
     setRejectNote('');
+  };
+  const openEmailDialog = (action: 'approve' | 'reject') => {
+    setEmailActionType(action);
+    setEmailDialogOpen(true);
+  };
+  const handleEmailDialogConfirm = async (_comment: string) => {
+    if (emailActionType === 'approve') {
+      handleAcceptDirect();
+    } else if (emailActionType === 'reject') {
+      handleRejectDirect();
+    }
+    setEmailDialogOpen(false);
+    setEmailActionType(null);
   };
   const handleResetToPending = () => {
     if (!request.id) return;
@@ -120,8 +136,8 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
         buyerName={leadName}
         firmName={leadCompany}
         listingTitle={request.listing?.title}
-        handleAccept={handleAccept}
-        handleReject={handleReject}
+        handleAccept={() => openEmailDialog('approve')}
+        handleReject={() => openEmailDialog('reject')}
         handleResetToPending={handleResetToPending}
         handleOnHold={handleOnHold}
         isStatusPending={updateStatus.isPending}
@@ -408,6 +424,16 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
           <LeadRequestActions request={request} />
         </div>
       </div>
+
+      {/* ── EMAIL PREVIEW DIALOG ── */}
+      <ConnectionRequestEmailDialog
+        isOpen={emailDialogOpen}
+        onClose={() => { setEmailDialogOpen(false); setEmailActionType(null); }}
+        onConfirm={handleEmailDialogConfirm}
+        selectedRequest={request}
+        actionType={emailActionType}
+        isLoading={updateStatus.isPending}
+      />
     </div>
   );
 }

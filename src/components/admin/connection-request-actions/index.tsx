@@ -14,8 +14,11 @@
  *   Embedded within ConnectionRequestsTable on the admin requests page
  *   (/admin/requests)
  */
+import { useState } from 'react';
 import { SendAgreementDialog } from '@/components/pandadoc/SendAgreementDialog';
+import { ConnectionRequestEmailDialog } from '@/components/admin/ConnectionRequestEmailDialog';
 import { Listing } from '@/types';
+import { AdminConnectionRequest } from '@/types/admin';
 import { format } from 'date-fns';
 import { getBuyerTier } from '@/lib/buyer-metrics';
 import { processUrl } from '@/lib/url-utils';
@@ -44,6 +47,39 @@ export function ConnectionRequestActions({
   isWebflowSubmission,
 }: ConnectionRequestActionsProps) {
   const actions = useConnectionRequestActions({ user, listing, requestId });
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailActionType, setEmailActionType] = useState<'approve' | 'reject' | null>(null);
+
+  // Build a minimal AdminConnectionRequest for the email preview dialog
+  const dialogRequest: AdminConnectionRequest = {
+    id: requestId || '',
+    status: requestStatus,
+    user_id: user.id,
+    listing_id: listing?.id || null,
+    user,
+    listing: listing || null,
+    lead_name: user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : undefined,
+    lead_email: user.email,
+    lead_company: user.company || user.company_name,
+    source: 'marketplace',
+    source_metadata: {},
+    created_at: createdAt || '',
+  } as AdminConnectionRequest;
+
+  const openEmailDialog = (action: 'approve' | 'reject') => {
+    setEmailActionType(action);
+    setEmailDialogOpen(true);
+  };
+
+  const handleEmailDialogConfirm = async (_comment: string) => {
+    if (emailActionType === 'approve') {
+      await actions.handleAccept();
+    } else if (emailActionType === 'reject') {
+      await actions.handleReject();
+    }
+    setEmailDialogOpen(false);
+    setEmailActionType(null);
+  };
 
   const tierInfo = getBuyerTier(user);
   const buyerInitials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
@@ -62,8 +98,8 @@ export function ConnectionRequestActions({
         buyerName={buyerName}
         firmName={firmName}
         listingTitle={listing?.title}
-        handleAccept={actions.handleAccept}
-        handleReject={actions.handleReject}
+        handleAccept={() => openEmailDialog('approve')}
+        handleReject={() => openEmailDialog('reject')}
         handleResetToPending={actions.handleResetToPending}
         handleOnHold={actions.handleOnHold}
         isStatusPending={actions.updateStatus.isPending}
@@ -269,6 +305,16 @@ export function ConnectionRequestActions({
           firmName={actions.firmInfo.firm_name || undefined}
         />
       )}
+
+      {/* ── EMAIL PREVIEW DIALOG ── */}
+      <ConnectionRequestEmailDialog
+        isOpen={emailDialogOpen}
+        onClose={() => { setEmailDialogOpen(false); setEmailActionType(null); }}
+        onConfirm={handleEmailDialogConfirm}
+        selectedRequest={dialogRequest}
+        actionType={emailActionType}
+        isLoading={actions.updateStatus.isPending || actions.isRejecting}
+      />
     </div>
   );
 }
