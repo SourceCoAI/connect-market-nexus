@@ -371,7 +371,7 @@ Flag stale outreach (no activity in 5+ business days) and overdue next actions.`
 - firm_agreements: NDA and fee agreement status per company.
 - nda_logs: full NDA action audit trail.
 - contact_activities: PhoneBurner call history (attempts, dispositions, recordings, callbacks).
-- enriched_contacts: contacts from Apify/Prospeo enrichment.
+- contact_events: enrichment history and contact mutation audit trail (replaces enriched_contacts).
 - contact_search_cache: 7-day enrichment search cache.
 - phoneburner_sessions: dialing session logs.
 - phoneburner_oauth_tokens: per-user PB access tokens.

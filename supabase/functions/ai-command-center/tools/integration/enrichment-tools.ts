@@ -31,7 +31,7 @@ export const enrichmentToolDefinitions: ClaudeTool[] = [
   {
     name: 'enrich_contact',
     description:
-      'Enrich contacts via external APIs (Google search + Prospeo email enrichment). Two modes: "company" mode discovers decision makers and key contacts at a company via Google search, filters by title/role, and enriches with email/phone. "linkedin" mode enriches a single contact from their LinkedIn profile URL. Results are saved to the enriched_contacts table.',
+      'Enrich contacts via external APIs (Google search + Prospeo email enrichment). Two modes: "company" mode discovers decision makers and key contacts at a company via Google search, filters by title/role, and enriches with email/phone. "linkedin" mode enriches a single contact from their LinkedIn profile URL. Results are saved to the canonical contacts table and logged in contact_events.',
     input_schema: {
       type: 'object',
       properties: {
