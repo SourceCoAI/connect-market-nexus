@@ -153,7 +153,6 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     to: [{ email: options.to, name: options.toName || options.to }],
     subject: options.subject,
     htmlContent: options.htmlContent,
-    htmlContent: options.htmlContent,
   };
 
   if (options.textContent) {
