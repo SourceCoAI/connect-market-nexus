@@ -35,8 +35,6 @@ const AdminRequests = () => {
   const {
     useConnectionRequests,
     useConnectionRequestsMutation,
-    sendConnectionApprovalEmail,
-    sendConnectionRejectionEmail,
     sendCustomApprovalEmail,
   } = useAdmin();
   const { markAsViewed } = useMarkConnectionRequestsViewed();
