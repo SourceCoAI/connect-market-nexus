@@ -1,88 +1,108 @@
 
 
-# Audit: Connection Request Flow -- Current State
+# Audit: Rejection Flow vs Approval Flow -- Parity Check
 
-## Everything confirmed working in code
+## Side-by-side comparison across all entry points
 
-### 1. AdminRequests.tsx -- Unified and correct
-- Line 32/45: Uses `useUpdateConnectionRequestStatus` (direct `.update()`) -- no more RPC
-- Line 248: `await updateStatus.mutateAsync(...)` with try/catch -- email only sends on success
-- Line 258-261: Sender resolved from `DEAL_OWNER_SENDERS`
-- Line 275: `listingId: selectedRequest.listing?.id || undefined` -- no empty string
-- Line 265: Falls back to `lead_email` for webflow/guest leads
-- Line 280: `customBody` forwarded to edge function
+### 1. ConnectionRequestEmailDialog.tsx -- GOOD
+Both approval and rejection paths are fully implemented:
+- Rejection has its own default body copy (lines 88, 284-295)
+- First-person voice is NOT used in rejection copy (correct -- rejection is from "The SourceCo Team")
+- Sender selector works for both
+- Edit/reset body works for both
+- Subject line: "Regarding your interest in [listing]" (line 125)
+- Red button with XCircle icon (line 343-345)
+- Admin comment labeled "Rejection reason (optional)"
 
-### 2. WebflowLeadDetail.tsx -- Unified and correct
-- Line 84: `await updateStatus.mutateAsync(...)` with try/catch + early return on failure
-- Line 119: `await updateStatus.mutateAsync(...)` for reject path, same pattern
-- Line 75: `comment` parameter is used (not prefixed with underscore)
-- Line 84: `notes: comment || undefined` -- admin comment saved
-- Line 95: `if (buyerEmail)` -- no `listingId` guard
-- Line 105: `listingId: listingId || undefined` -- correct
+### 2. useConnectionRequestActions.ts -- Rejection (lines 211-287) vs Approval (lines 85-209)
 
-### 3. useConnectionRequestActions.ts -- Unified and correct
-- Line 88: `notes: adminComment || undefined`
-- Line 108-109: Uses "Your request for" (not "Your introduction to") -- fixed
-- Line 123: `if (buyerEmail)` -- no `listingId` guard
-- Line 137: `listingId` passed directly (can be undefined)
-- Line 139-143: Sender info forwarded correctly
-- Line 144: `customBodyText` forwarded
+| Feature | Approval | Rejection | Issue? |
+|---------|----------|-----------|--------|
+| `mutateAsync` with try/catch | Yes (line 88) | Yes (line 216) | OK |
+| `notes: adminComment` | Yes (line 88) | Yes (line 219) | OK |
+| In-app message | "Your request for..." (line 108) | `note \|\| 'Request declined.'` (line 223) | **ISSUE** -- uses `rejectNote` state, not `adminComment` |
+| Email guard `if (buyerEmail)` | Yes (line 123) | Yes (line 232) | OK |
+| Sender resolved from DEAL_OWNER_SENDERS | Yes (line 126) | Yes (line 234) | OK |
+| customBody forwarded | Yes (line 144) | Yes (line 249) | OK |
+| User notification (bell) | Yes - "request_approved" (line 158) | Yes - "status_changed" (line 264) | OK |
+| Data room access provisioning | Yes (line 170) | N/A (correct) | OK |
 
-### 4. connection-request-actions/index.tsx
-- Line 74-81: `comment` forwarded as third arg to `handleAccept` and `handleReject`
+**ISSUE A**: The in-app rejection message uses `rejectNote` (the old inline textarea state) not the `adminComment` from the email dialog. When admin uses the email dialog flow, `rejectNote` is empty so the message thread shows "Request declined." -- a generic fallback. The admin's typed comment is saved to `notes` on the DB record but never appears in the buyer's message thread.
 
-### 5. ConnectionRequestEmailDialog.tsx
-- Wide modal (`sm:max-w-4xl`)
-- Full email wrapper simulation (SourceCo logo, warm background, footer)
-- First-person voice for named senders ("I will be in touch")
-- Third-person for support@ ("SourceCo Support will be in touch")
-- "Access" not "introductions" in both approval and rejection copy
-- Edit/reset body functionality
-- Admin comment saved and forwarded
-- Adam Haile in sender dropdown
+### 3. AdminRequests.tsx -- Rejection path (lines 288-308)
 
-### 6. send-connection-notification edge function
-- `listingId` optional in interface (line 16)
-- First-person body for named senders (lines 143-148)
-- Custom body splits into `<p>` tags via double-newline (lines 134-136)
-- `listingUrl` falls back to marketplace when no listingId (line 99)
-- Reply-to set to sender email (line 177)
+| Feature | Approval | Rejection | Issue? |
+|---------|----------|-----------|--------|
+| Status update via unified hook | Yes | Yes | OK |
+| Email invocation | `send-connection-notification` | `notify-buyer-rejection` | OK |
+| Sender resolved | Yes | Yes | OK |
+| customBody forwarded | Yes | Yes | OK |
+| `listingId` guard removed | Yes | N/A (rejection doesn't need listingId) | OK |
+| **In-app message** | None | None | Both skip in-app messages -- consistent |
+| **User notification (bell)** | None | None | Both skip notifications -- consistent |
 
-### 7. notify-buyer-rejection edge function
-- "We limit access to a small number of buyers per deal" (line 22) -- correct
-- Custom body splits into paragraphs (lines 50-54)
-- No "introductions" language anywhere
+No issues here -- both paths are consistent within this entry point.
 
-### 8. admin-profiles.ts
-- Adam Haile in `DEAL_OWNER_SENDERS` (line 90)
-- All senders have correct names and titles
+### 4. WebflowLeadDetail.tsx -- Rejection path (lines 117-149)
 
-## One concern: Zero edge function logs
+| Feature | Approval | Rejection | Issue? |
+|---------|----------|-----------|--------|
+| `mutateAsync` with try/catch + early return | Yes (line 83-88) | Yes (line 118-123) | OK |
+| Email invocation | `send-connection-notification` | `notify-buyer-rejection` | OK |
+| Sender resolved | Yes | Yes | OK |
+| customBody forwarded | Yes | Yes | OK |
+| **In-app message** | None | None | Both skip -- consistent |
+| **User notification (bell)** | None | None | Both skip -- consistent |
 
-Both `send-connection-notification` and `notify-buyer-rejection` show **zero logs**. This could mean:
-- No approval/rejection has been attempted since the last deploy (likely, since the code was just unified)
-- Or the edge functions need a fresh redeploy
+No issues here.
 
-The code in the source files is correct. The only risk is whether the deployed version matches the source. A redeploy of both functions will eliminate this risk.
+### 5. notify-buyer-rejection edge function
 
-## No remaining code issues found
+| Feature | Approval edge fn | Rejection edge fn | Issue? |
+|---------|------------------|--------------------|--------|
+| Custom body paragraph splitting | Yes (double-newline) | Yes (double-newline) | OK |
+| HTML escaping | `escapeHtmlWithBreaks` | Manual `.replace()` chain | **MINOR** -- different implementation, same effect |
+| Named sender support | Yes -- `senderEmail`, `senderName`, `replyTo` | Yes | OK |
+| Default sender | `senderName: 'SourceCo Notifications'`, `senderEmail: 'noreply@...'` | `senderName: 'SourceCo'`, `senderEmail: undefined` | **ISSUE B** |
+| Subject capitalization | "Request approved: [title]" | "Regarding Your Interest in [title]" (Title Case) | Minor style difference, acceptable |
 
-All three entry points (side panel, main Requests page, Webflow detail) now use:
-- The same `useUpdateConnectionRequestStatus` hook (direct `.update()`)
-- `await mutateAsync()` with try/catch (email only sends on success)
-- No `listingId` guard on email sends
-- Admin comment forwarded as `notes`
-- Sender info resolved from `DEAL_OWNER_SENDERS`
-- Custom body forwarded to edge functions
+**ISSUE B**: When no sender is selected, the approval function sends from `SourceCo Notifications <noreply@sourcecodeals.com>`, but the rejection function sends from `SourceCo` with `senderEmail: undefined`. The `sendEmail` function likely has its own default, but this inconsistency means rejection emails may come from a different address than approvals when using the default sender.
 
-## Recommended action
+### 6. ConnectionRequestEmailDialog -- Rejection preview copy
 
-Redeploy both edge functions to guarantee the live code matches the audited source, then test end-to-end.
+The dialog preview (lines 284-295) matches the edge function's default body (lines 20-25) exactly. The copy is:
+- "We limit access to a small number of buyers per deal" (correct, not "introductions")
+- Signed "The SourceCo Team" (correct)
+- No first-person voice for rejections (correct -- rejections are always from the team)
 
-| Action | Detail |
-|--------|--------|
-| Redeploy `send-connection-notification` | Ensure live version has optional listingId, first-person copy, paragraph formatting |
-| Redeploy `notify-buyer-rejection` | Ensure live version has "access" terminology, paragraph formatting |
-| Test approval with Adam as sender | Verify status changes + email arrives |
-| Test rejection | Verify status changes + email arrives |
+This is correct and consistent.
+
+## Summary of findings
+
+### ISSUE A (Medium): In-app message for rejection uses stale `rejectNote` state
+**Problem**: In `useConnectionRequestActions.ts` line 223, the rejection in-app message uses `note` (derived from `rejectNote` state variable), not `adminComment` from the email dialog. Since the email dialog flow passes `adminComment` as the third parameter to `handleReject`, but `rejectNote` remains empty, the buyer's message thread shows "Request declined." instead of any contextual message.
+
+**Fix**: Use `adminComment` (the third parameter) as the message body, falling back to `rejectNote` then "Request declined.":
+```typescript
+body: adminComment || note || 'Request declined.',
+```
+
+### ISSUE B (Minor): Default sender inconsistency in rejection edge function
+**Problem**: `notify-buyer-rejection` defaults to `senderName: 'SourceCo'` with no `senderEmail`, while `send-connection-notification` defaults to `senderName: 'SourceCo Notifications'` with `senderEmail: 'noreply@sourcecodeals.com'`.
+
+**Fix**: Align the rejection function's defaults:
+```typescript
+senderName: customSenderName || 'SourceCo Notifications',
+senderEmail: customSenderEmail || 'noreply@sourcecodeals.com',
+replyTo: customReplyTo || 'support@sourcecodeals.com',
+```
+
+## Files that need changes
+
+| File | Change |
+|------|--------|
+| `src/components/admin/connection-request-actions/useConnectionRequestActions.ts` | Line 223: Use `adminComment` param for in-app message body |
+| `supabase/functions/notify-buyer-rejection/index.ts` | Lines 72-74: Align default sender to match approval function |
+
+Everything else is at parity. Two small fixes needed.
 
