@@ -82,7 +82,7 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
     setEmailActionType(action);
     setEmailDialogOpen(true);
   };
-  const handleEmailDialogConfirm = async (_comment: string) => {
+  const handleEmailDialogConfirm = async (_comment: string, _senderEmail: string) => {
     if (emailActionType === 'approve') {
       handleAcceptDirect();
     } else if (emailActionType === 'reject') {

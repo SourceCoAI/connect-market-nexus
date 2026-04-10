@@ -82,7 +82,7 @@ export function useConnectionRequestActions({
 
   // ─── Decision Handlers ───
 
-  const handleAccept = async () => {
+  const handleAccept = async (senderEmail?: string) => {
     if (!requestId || updateStatus.isPending) return;
     try {
       await updateStatus.mutateAsync({ requestId, status: 'approved' });
@@ -121,6 +121,10 @@ export function useConnectionRequestActions({
       const listingTitle = listing?.title || 'the listing';
       const listingId = listing?.id;
       if (buyerEmail && listingId) {
+        // Look up sender name from DEAL_OWNER_SENDERS
+        const { DEAL_OWNER_SENDERS } = await import('@/lib/admin-profiles');
+        const senderInfo = senderEmail ? DEAL_OWNER_SENDERS.find(s => s.email === senderEmail) : null;
+
         supabase.functions
           .invoke('send-connection-notification', {
             body: {
@@ -132,6 +136,11 @@ export function useConnectionRequestActions({
               listingTitle,
               listingId,
               requestId,
+              ...(senderEmail && senderInfo ? {
+                senderEmail: senderInfo.email,
+                senderName: senderInfo.name,
+                replyTo: senderInfo.email,
+              } : {}),
             },
           })
           .catch((emailErr) => {
@@ -198,7 +207,7 @@ export function useConnectionRequestActions({
     }
   };
 
-  const handleReject = async () => {
+  const handleReject = async (senderEmail?: string) => {
     if (!requestId || isRejecting) return;
     setIsRejecting(true);
     const note = rejectNote.trim();
@@ -220,6 +229,10 @@ export function useConnectionRequestActions({
       const buyerName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
       const companyName = listing?.title || 'the listing';
       if (buyerEmail) {
+        // Look up sender name from DEAL_OWNER_SENDERS
+        const { DEAL_OWNER_SENDERS: senders } = await import('@/lib/admin-profiles');
+        const rejSenderInfo = senderEmail ? senders.find(s => s.email === senderEmail) : null;
+
         supabase.functions
           .invoke('notify-buyer-rejection', {
             body: {
@@ -227,6 +240,11 @@ export function useConnectionRequestActions({
               buyerEmail,
               buyerName: buyerName || buyerEmail,
               companyName,
+              ...(senderEmail && rejSenderInfo ? {
+                senderEmail: rejSenderInfo.email,
+                senderName: rejSenderInfo.name,
+                replyTo: rejSenderInfo.email,
+              } : {}),
             },
           })
           .catch((emailErr) => {
