@@ -180,7 +180,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     };
   }
 
-  console.log(`[email-sender] SENDING | template=${options.templateName} | to=${options.to} | from=${senderName} <${senderEmail}> | replyTo=${replyTo} | attachments=${options.attachments?.length || 0} | correlationId=${correlationId}`);
+  console.log(`[email-sender] SENDING | template=${options.templateName} | to=${options.to} | from=${brevoSenderName} <${brevoSenderEmail}> | replyTo=${replyTo} | attachments=${options.attachments?.length || 0} | correlationId=${correlationId}`);
 
   // ── Step 3: Send with retry ──
   let lastError = '';
