@@ -1,61 +1,61 @@
 
 
-# Add Notification Badge for New Match Tool Leads
+# Email Preview Modal for Connection Request Approve/Reject
 
-## Problem
-When a new lead comes in via the match tool, there's no notification dot/badge on the sidebar — unlike Marketplace, Deal Sourcing, etc.
+## Summary
 
-## How It Works (Existing Pattern)
-1. `admin_view_state` table stores `(admin_id, view_type, last_viewed_at)`
-2. A hook queries "count of items created after `last_viewed_at`" + subscribes to realtime INSERTs
-3. The count is passed as a `badge` on the sidebar nav item
-4. When the admin visits the page, a "mark as viewed" mutation upserts `last_viewed_at = now()`
+Replace the current `ConnectionRequestDialog` (simple confirm + comment box) with a new `ConnectionRequestEmailDialog` that shows the exact email the buyer will receive before the admin clicks send -- same pattern as `ApprovalEmailDialog` for marketplace user approvals.
+
+Since `sourcecodeals.com` is already domain-verified in Brevo, any `@sourcecodeals.com` email address can be used as a sender immediately with no additional setup.
 
 ## Plan
 
-### 1. Create `useUnviewedMatchToolLeads` hook
-New file: `src/hooks/admin/use-unviewed-match-tool-leads.ts`
+### 1. Create `ConnectionRequestEmailDialog` component
+New file: `src/components/admin/ConnectionRequestEmailDialog.tsx`
 
-Follows the exact same pattern as `use-unviewed-deal-sourcing.ts`:
-- Query `admin_view_state` for `view_type = 'match_tool_leads'`
-- Count rows in `match_tool_leads` where `created_at > last_viewed_at`
-- Realtime subscription on `match_tool_leads` INSERT events to invalidate the count
+Modeled after `ApprovalEmailDialog.tsx`, this dialog will show:
 
-### 2. Create `useMarkMatchToolLeadsViewed` hook
-New file: `src/hooks/admin/use-mark-match-tool-leads-viewed.ts`
+**For approvals:**
+- Recipient info (buyer name, email, company)
+- Listing title
+- From: `noreply@sourcecodeals.com` (current sender for approval emails)
+- Subject preview: "Introduction approved: [Deal Title]"
+- Body summary bullets (introduction approved, next steps, exclusive intro language, "View Messages" CTA)
+- Optional admin comment field
 
-Same pattern as `use-mark-connection-requests-viewed.ts`:
-- Calls `markAdminViewAsViewed(user.id, 'match_tool_leads')`
-- Invalidates the unviewed count query
+**For rejections:**
+- Same recipient/listing info
+- From: `support@sourcecodeals.com`
+- Subject preview: "Introduction update: [Deal Title]"
+- Body summary (request not selected, encouragement to keep browsing)
+- Optional rejection reason field (included in email)
 
-### 3. Update ViewType
-In `src/lib/data-access/admin.ts`, add `'match_tool_leads'` to the `ViewType` union.
+Action button: "Approve & Send Email" / "Reject & Send Email"
 
-### 4. Wire badge into sidebar
-In `UnifiedAdminSidebar.tsx`:
-- Import and call `useUnviewedMatchToolLeads`
-- Add `badge: unviewedMatchToolLeadsCount` to the "Match Tool Leads" nav item (line ~283)
-- Add to the `useMemo` dependency array
+### 2. Replace `ConnectionRequestDialog` usage in `AdminRequests.tsx`
+- Remove the old `ConnectionRequestDialog` import
+- Use the new `ConnectionRequestEmailDialog` instead
+- Keep the same `handleAction` / `confirmAction` logic (status update + email send)
 
-### 5. Mark as viewed on page visit
-In `src/pages/admin/remarketing/MatchToolLeads/index.tsx`:
-- Import `useMarkMatchToolLeadsViewed`
-- Call `markAsViewed()` in a `useEffect` on mount
+### 3. Replace in `MobileConnectionRequests.tsx`
+- Same swap for mobile view
 
-### 6. Export hooks
-Add exports to `src/hooks/admin/index.ts`.
+### 4. Optional: Add deal owner reply-to
+Since the domain is verified, we can set `replyTo` to the deal owner's email (Bill, Aliya, Brandon) so buyer replies go directly to the right person. This requires looking up the deal owner from the listing in the edge function. We can do this as a follow-up if you want.
 
-## No migration needed
-The `view_type` column is plain text with no CHECK constraint — adding a new value is safe.
+## Sender Setup -- No Action Needed
+
+Since `sourcecodeals.com` is fully authenticated in Brevo:
+- Any `@sourcecodeals.com` address works as `From` or `Reply-To` immediately
+- No need to verify individual emails for Bill, Aliya, or Brandon
+- If you want emails to come *from* a specific person (e.g., `bill.martin@sourcecodeals.com`), we just update `senderEmail` in the edge function -- no Brevo changes needed
+- For now, the preview will show the current senders (`noreply@` for approvals, `support@` for admin notifications)
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/hooks/admin/use-unviewed-match-tool-leads.ts` | New — count unviewed leads |
-| `src/hooks/admin/use-mark-match-tool-leads-viewed.ts` | New — mark as viewed |
-| `src/lib/data-access/admin.ts` | Add `'match_tool_leads'` to ViewType |
-| `src/components/admin/UnifiedAdminSidebar.tsx` | Wire badge to Match Tool Leads item |
-| `src/pages/admin/remarketing/MatchToolLeads/index.tsx` | Mark as viewed on mount |
-| `src/hooks/admin/index.ts` | Export new hooks |
+| `src/components/admin/ConnectionRequestEmailDialog.tsx` | New -- email preview dialog |
+| `src/pages/admin/AdminRequests.tsx` | Swap dialog component |
+| `src/components/admin/MobileConnectionRequests.tsx` | Swap dialog component |
 
