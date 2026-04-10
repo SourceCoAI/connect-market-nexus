@@ -157,7 +157,7 @@ export function useConnectionRequestActions({
             user_id: user.id,
             notification_type: 'request_approved',
             title: 'Connection Approved',
-            message: `Your introduction request for "${listingTitle}" has been approved.`,
+            message: `Your request for "${listingTitle}" has been approved.`,
             connection_request_id: requestId || null,
             metadata: { listing_id: listingId },
           })
@@ -263,7 +263,7 @@ export function useConnectionRequestActions({
             user_id: user.id,
             notification_type: 'status_changed',
             title: 'Connection Update',
-            message: `Your introduction request for "${rejListingTitle}" was not approved at this time.`,
+            message: `Your request for "${rejListingTitle}" was not approved at this time.`,
             connection_request_id: requestId || null,
             metadata: { listing_id: listing?.id },
           })
@@ -306,7 +306,7 @@ export function useConnectionRequestActions({
             user_id: user.id,
             notification_type: 'status_changed',
             title: 'Request Under Review',
-            message: `Your introduction request for "${listingTitle}" is back under review.`,
+            message: `Your request for "${listingTitle}" is back under review.`,
             connection_request_id: requestId,
             metadata: { listing_id: listing?.id },
           })
