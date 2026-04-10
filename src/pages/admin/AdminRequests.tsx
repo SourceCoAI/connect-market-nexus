@@ -245,10 +245,10 @@ const AdminRequests = () => {
   const confirmAction = async (comment: string, senderEmail?: string, customBody?: string) => {
     if (selectedRequest && actionType) {
       try {
-        await updateRequest({
+        await updateStatus.mutateAsync({
           requestId: selectedRequest.id,
           status: actionType === 'approve' ? 'approved' : 'rejected',
-          adminComment: comment,
+          notes: comment || undefined,
         });
 
         // Force refetch
