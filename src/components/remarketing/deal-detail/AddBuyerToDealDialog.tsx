@@ -181,7 +181,7 @@ export function AddBuyerToDealDialog({
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
 
-        await supabase.rpc('contacts_upsert', {
+        await (supabase.rpc as any)('contacts_upsert', {
           p_identity: { email: newBuyer.contact_email.trim() || null },
           p_fields: {
             remarketing_buyer_id: createdBuyer.id,

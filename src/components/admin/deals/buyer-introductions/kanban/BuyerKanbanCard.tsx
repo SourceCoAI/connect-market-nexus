@@ -130,7 +130,7 @@ export function BuyerKanbanCard({
       if (!firstName && !email) return;
 
       // contacts_upsert handles dedup via resolve_contact_identity
-      await supabase.rpc('contacts_upsert', {
+      await (supabase.rpc as any)('contacts_upsert', {
         p_identity: {
           email: email || null,
           linkedin_url: buyer.buyer_linkedin_url || null,
