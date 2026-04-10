@@ -1,36 +1,43 @@
 
 
-# Analysis: Email Delivery Speed
+# Fix: Listing Edit Changes Not Saving
 
-## Current Architecture (Already Optimized)
+## Root Cause
 
-Your email sending pipeline is already near-instant from your system's perspective:
+The `ImprovedListingEditor` form submit handler (line 436) manually calls `form.trigger()` for validation, then `form.getValues()` to get form data. The problem: **`getValues()` returns raw input values** (pre-zod-transform), so:
 
-1. **Fire-and-forget invocation** -- Both approve and decline trigger the edge function without `await`, so the admin UI responds immediately
-2. **Direct Brevo API call** -- No queue, no batch processing, no cron delay. The edge function calls Brevo's API directly
-3. **15-second timeout** -- Fast abort if Brevo is slow
+- `revenue` goes to the DB as a formatted string like `"5,000,000"` instead of the number `5000000`
+- `ebitda` same issue
+- `location` goes as `["South Central"]` (array) instead of `"South Central"` (string)
 
-## Where Delay Actually Happens
+The DB columns `revenue` and `ebitda` are `numeric`, so PostgREST rejects the comma-formatted strings, causing a silent update failure.
 
-The delay you experience is **not in your system**. It occurs in:
-- **Brevo's processing queue** (1-10 seconds typically)
-- **Gmail's receiving infrastructure** (can add 5-60 seconds for spam/category scanning)
-- **Gmail tab categorization** (Primary vs Promotions vs Updates)
+The location is manually handled (lines 461-463), but revenue/ebitda are not.
 
-## Possible Optimizations (Minor Impact)
+## Fix
 
-| Optimization | Impact | Effort |
-|---|---|---|
-| Remove `outbound_emails` DB insert before Brevo call (log after send instead) | Saves ~50-100ms per email | Small code change |
-| Remove suppression check for admin-initiated emails (admin explicitly chose to send) | Saves ~50-100ms per email | Small code change |
-| Add `X-Priority: 1` and `Importance: high` headers to approval/rejection emails | May help Gmail prioritize | Tiny change |
-| Set Brevo's `scheduledAt` to omit (already omitted, confirming no scheduling) | No change needed | None |
+**File: `src/components/admin/ImprovedListingEditor.tsx`**
 
-## Recommendation
+Replace the manual `trigger()` + `getValues()` approach in `handleFormSubmit` with React Hook Form's built-in `form.handleSubmit()`, which runs zod transforms and returns properly typed output values (numbers for revenue/ebitda, string for location).
 
-The only meaningful optimization is **reordering**: send the Brevo API call first, then log to the database afterward (instead of before). This saves ~100ms but won't make a perceptible difference to the recipient.
+Specifically, change lines 436-476 from the manual validation pattern to:
 
-The real answer: your emails are already arriving as fast as the infrastructure allows. Any perceived delay is Gmail's processing time, which is outside your control. The previous "late email from Bill" was Gmail being slow, not your system.
+```typescript
+const handleFormSubmit = form.handleSubmit(async (formData) => {
+  await handleSubmit(formData);
+}, (errors) => {
+  const errorFields = Object.keys(errors)
+    .map((key) => `${key}: ${errors[key]?.message || 'Invalid'}`)
+    .join(', ');
+  toast({
+    variant: 'destructive',
+    title: 'Please fix the following errors',
+    description: errorFields || 'Form validation failed',
+  });
+});
+```
 
-**No code changes recommended** -- the system is already optimized for instant delivery.
+And remove the manual location transform in `handleSubmit` since zod already transforms `location` from array to string.
+
+This is a one-file change that ensures revenue/ebitda are parsed to numbers and location is transformed to a string before hitting the database.
 
