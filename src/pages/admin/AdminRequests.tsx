@@ -260,39 +260,45 @@ const AdminRequests = () => {
 
         // Send email notification via proper edge functions (non-blocking)
         if (actionType === 'approve') {
-          supabase.functions.invoke('send-connection-notification', {
-            body: {
-              type: 'approval_notification',
-              recipientEmail: selectedRequest.user?.email || selectedRequest.lead_email,
-              recipientName: `${selectedRequest.user?.first_name || ''} ${selectedRequest.user?.last_name || ''}`.trim() || selectedRequest.lead_name,
-              requesterName: `${selectedRequest.user?.first_name || ''} ${selectedRequest.user?.last_name || ''}`.trim() || selectedRequest.lead_name || '',
-              requesterEmail: selectedRequest.user?.email || selectedRequest.lead_email || '',
-              listingTitle: selectedRequest.listing?.title || '',
-              listingId: selectedRequest.listing?.id || '',
-              requestId: selectedRequest.id,
-              senderEmail: finalSenderEmail,
-              senderName: finalSenderName,
-              replyTo: finalSenderEmail,
-              customBodyText: customBody || undefined,
-            },
-          }).catch((e: Error) => console.error('Email send failed:', e));
+          const approvalRecipient = selectedRequest.user?.email || selectedRequest.lead_email;
+          if (approvalRecipient) {
+            supabase.functions.invoke('send-connection-notification', {
+              body: {
+                type: 'approval_notification',
+                recipientEmail: approvalRecipient,
+                recipientName: `${selectedRequest.user?.first_name || ''} ${selectedRequest.user?.last_name || ''}`.trim() || selectedRequest.lead_name || approvalRecipient,
+                requesterName: `${selectedRequest.user?.first_name || ''} ${selectedRequest.user?.last_name || ''}`.trim() || selectedRequest.lead_name || '',
+                requesterEmail: approvalRecipient,
+                listingTitle: selectedRequest.listing?.title || 'General Inquiry',
+                listingId: selectedRequest.listing?.id || undefined,
+                requestId: selectedRequest.id,
+                senderEmail: finalSenderEmail,
+                senderName: finalSenderName,
+                replyTo: finalSenderEmail,
+                customBodyText: customBody || undefined,
+              },
+            }).catch((e: Error) => console.error('Email send failed:', e));
+          }
           toast({
             title: 'Request approved',
             description: 'Connection request has been approved',
           });
         } else {
-          supabase.functions.invoke('notify-buyer-rejection', {
-            body: {
-              connectionRequestId: selectedRequest.id,
-              buyerEmail: selectedRequest.user?.email,
-              buyerName: `${selectedRequest.user?.first_name || ''} ${selectedRequest.user?.last_name || ''}`.trim(),
-              companyName: selectedRequest.listing?.internal_company_name || selectedRequest.listing?.title || '',
-              senderEmail: finalSenderEmail,
-              senderName: finalSenderName,
-              replyTo: finalSenderEmail,
-              customBodyText: customBody || undefined,
-            },
-          }).catch((e: Error) => console.error('Email send failed:', e));
+          const rejectionRecipient = selectedRequest.user?.email || selectedRequest.lead_email;
+          if (rejectionRecipient) {
+            supabase.functions.invoke('notify-buyer-rejection', {
+              body: {
+                connectionRequestId: selectedRequest.id,
+                buyerEmail: rejectionRecipient,
+                buyerName: `${selectedRequest.user?.first_name || ''} ${selectedRequest.user?.last_name || ''}`.trim() || selectedRequest.lead_name || rejectionRecipient,
+                companyName: selectedRequest.listing?.internal_company_name || selectedRequest.listing?.title || 'General Inquiry',
+                senderEmail: finalSenderEmail,
+                senderName: finalSenderName,
+                replyTo: finalSenderEmail,
+                customBodyText: customBody || undefined,
+              },
+            }).catch((e: Error) => console.error('Email send failed:', e));
+          }
           toast({
             title: 'Request rejected',
             description: 'Connection request has been rejected',

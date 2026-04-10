@@ -131,9 +131,11 @@ const handler = async (req: Request): Promise<Response> => {
 
       let htmlContent: string;
       if (customBodyText) {
-        const escapedBody = escapeHtmlWithBreaks(customBodyText);
+        // Split by double-newlines into paragraphs, then convert single newlines to <br>
+        const paragraphs = customBodyText.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+        const bodyParagraphs = paragraphs.map(p => `<p>${escapeHtmlWithBreaks(p)}</p>`).join('\n');
         htmlContent = wrapEmailHtml({
-          bodyHtml: `<p>${escapedBody}</p>`,
+          bodyHtml: bodyParagraphs,
           preheader: 'Your request has been approved. Here is what happens next.',
           recipientEmail,
         });

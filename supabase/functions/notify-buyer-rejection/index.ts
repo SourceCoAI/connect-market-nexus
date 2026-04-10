@@ -19,7 +19,7 @@ function buildRejectionHtml(buyerName: string, companyName: string, buyerEmail: 
   return wrapEmailHtml({
     bodyHtml: `
     <p>Thank you for your interest in ${companyName}.</p>
-    <p>After reviewing your profile against this specific opportunity, we have decided not to move forward with an introduction at this time. We limit introductions to a small number of buyers per deal to ensure strong alignment on both sides.</p>
+    <p>After reviewing your profile against this specific opportunity, we have decided not to move forward at this time. We limit access to a small number of buyers per deal to ensure strong alignment on both sides.</p>
     <p>Your interest has been noted. If the situation changes, we will reach out directly.</p>
     <p>In the meantime, continue browsing the pipeline. New deals are added regularly and your next match may already be live.</p>
     <p style="color: #6B6B6B; margin-top: 32px;">The SourceCo Team</p>`,
@@ -46,10 +46,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     let htmlContent: string;
     if (customBodyText) {
-      // Admin edited the email body — convert newlines to <br> and wrap
-      const escapedBody = customBodyText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
+      // Split by double-newlines into paragraphs, then convert single newlines to <br>
+      const paragraphs = customBodyText.split(/\n\s*\n/).map((p: string) => p.trim()).filter(Boolean);
+      const bodyParagraphs = paragraphs.map((p: string) => {
+        const escaped = p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
+        return `<p>${escaped}</p>`;
+      }).join('\n');
       htmlContent = wrapEmailHtml({
-        bodyHtml: `<p>${escapedBody}</p>`,
+        bodyHtml: bodyParagraphs,
         preheader: `Update on your interest in ${companyName}`,
         recipientEmail: buyerEmail,
       });

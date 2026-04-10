@@ -72,7 +72,7 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
     setEmailActionType(action);
     setEmailDialogOpen(true);
   };
-  const handleEmailDialogConfirm = async (_comment: string, senderEmail: string, customBody?: string) => {
+  const handleEmailDialogConfirm = async (comment: string, senderEmail: string, customBody?: string) => {
     if (!request.id) return;
 
     // Look up sender info
@@ -80,14 +80,14 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
     const senderInfo = senderEmail ? DEAL_OWNER_SENDERS.find(s => s.email === senderEmail) : null;
 
     if (emailActionType === 'approve') {
-      updateStatus.mutate({ requestId: request.id, status: 'approved' });
+      updateStatus.mutate({ requestId: request.id, status: 'approved', notes: comment || undefined });
 
       // Send approval email
       const buyerEmail = request.lead_email || request.user?.email;
       const buyerName = request.lead_name || (request.user ? `${request.user.first_name || ''} ${request.user.last_name || ''}`.trim() : '');
-      const listingTitle = request.listing?.title || 'the listing';
+      const listingTitle = request.listing?.title || 'General Inquiry';
       const listingId = request.listing?.id;
-      if (buyerEmail && listingId) {
+      if (buyerEmail) {
         supabase.functions
           .invoke('send-connection-notification', {
             body: {
@@ -97,7 +97,7 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
               requesterName: buyerName || buyerEmail,
               requesterEmail: buyerEmail,
               listingTitle,
-              listingId,
+              listingId: listingId || undefined,
               requestId: request.id,
               ...(senderEmail && senderInfo ? {
                 senderEmail: senderInfo.email,
@@ -110,7 +110,7 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
           .catch((err) => console.error('[webflow-approval-email] Failed:', err));
       }
     } else if (emailActionType === 'reject') {
-      updateStatus.mutate({ requestId: request.id, status: 'rejected', notes: rejectNote || undefined });
+      updateStatus.mutate({ requestId: request.id, status: 'rejected', notes: comment || rejectNote || undefined });
 
       // Send rejection email
       const buyerEmail = request.lead_email || request.user?.email;
