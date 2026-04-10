@@ -782,19 +782,19 @@ Orthogonal: `status: 'active' | 'inactive'` operates independently.
 
 ---
 
-### 6.2 NDA Execution via DocuSeal (NOT PandaDoc)
+### 6.2 NDA Execution via PandaDoc
 
-**Why:** NDA required before full deal content access. Platform uses **DocuSeal**, not PandaDoc.
+**Why:** NDA required before full deal content access. Platform uses **PandaDoc**.
 
 **Steps:**
 
 1. Authenticated buyer on `/listing/:id` triggers `useBuyerNdaStatus()` check.
 2. If firm exists but NDA unsigned → `NdaGateModal` renders (full-screen, non-dismissible).
-3. Modal calls `get-buyer-nda-embed` edge function → creates or retrieves DocuSeal submission.
-4. DocuSeal signing form embedded inline via `@docuseal/react`.
+3. Modal calls `get-buyer-nda-embed` edge function → creates or retrieves PandaDoc submission.
+4. PandaDoc signing form embedded inline.
 5. On completion → `confirm-agreement-signed` called → caches invalidated → modal dismisses.
 
-**Expected output:** Full-screen DocuSeal NDA form. After signing, listing content revealed. Firm-level — one signature covers all members.
+**Expected output:** Full-screen PandaDoc NDA form. After signing, listing content revealed. Firm-level — one signature covers all members.
 
 **Gaps/Issues:**
 
@@ -1080,7 +1080,7 @@ Anonymous page with anonymized content, tracked via `page_views`.
 
 ### Step 10: Buyer Signs NDA
 
-DocuSeal embedded signing. Firm-level NDA.
+PandaDoc embedded signing. Firm-level NDA.
 **Gap:** Landing page leads have no user account link. NDA tracked at 3 separate levels (profile, firm, lead).
 
 ### Step 11: CIM / Full Content Delivered

@@ -225,17 +225,15 @@ ESTIMATED EFFORT: 2-3 days for shared abstraction. HeyReach deprecation requires
   business decision.
 ```
 
-### FINDING 1E-1: DocuSeal is Fully Dead — PandaDoc is Canonical
+### FINDING 1E-1: PandaDoc is Canonical E-Signature Provider
 
 ```
 SEVERITY: LOW (no issue found — just documentation)
-CATEGORY: Duplicate System (cleared)
-EVIDENCE: DocuSeal columns were added in migration 20260224000000 then explicitly
-  dropped in 20260607000001_drop_docuseal_dead_code.sql with comment "DocuSeal
-  integration was fully replaced by PandaDoc." Zero frontend references to DocuSeal.
-  PandaDoc has 34 frontend file references, 6 active components in src/components/
-  pandadoc/, and 4 edge functions.
-IMPACT: None — cleanup was already completed.
+CATEGORY: E-Signature System (confirmed)
+EVIDENCE: PandaDoc has 34 frontend file references, 6 active components in
+  src/components/pandadoc/, and 4 edge functions. No legacy e-signature
+  references remain.
+IMPACT: None — single canonical provider.
 RECOMMENDED ACTION: None.
 ```
 

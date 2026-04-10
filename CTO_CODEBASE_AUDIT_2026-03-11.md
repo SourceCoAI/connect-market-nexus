@@ -292,7 +292,7 @@ Cannot verify live RLS state without database access. Key observations from migr
 | Step | Status | Notes |
 |------|--------|-------|
 | Buyer selected for introduction | ✅ Working | `buyer_introductions` table and Kanban components exist |
-| NDA/fee agreement via PandaDoc | ✅ Working | `create-pandadoc-document`, `resolve-buyer-agreement` functions active; DocuSeal fully removed |
+| NDA/fee agreement via PandaDoc | ✅ Working | `create-pandadoc-document`, `resolve-buyer-agreement` functions active |
 | Async contact lookup on approval | ✅ Working | `find-introduction-contacts` fires with `Promise.allSettled` for parallel PE + company search |
 | Contact discovery with dedup | ✅ Working | Insert-based with `23505` unique constraint handling |
 | Kanban stages | ✅ Working | Introduction status tracking with `introduction_status_log` |
@@ -426,7 +426,7 @@ This is **extremely high migration volume**. Many migrations appear to be small,
 | Pattern | Count | Assessment |
 |---------|-------|-----------|
 | Table renames with backward-compatible views | 2 | Good — `remarketing_buyers` → `buyers`, `remarketing_buyer_universes` → `buyer_universes` |
-| DocuSeal creation → DocuSeal drop | Net-zero | Created in `20260224`, dropped in `20260607000001` |
+| Legacy e-signature creation → drop | Net-zero | Created in `20260224`, dropped in `20260607000001` |
 | `deal_tasks` creation | 1 | Table still exists but superseded by `daily_standup_tasks` |
 | RLS policy updates | Many | Frequent policy adjustments indicate evolving security model |
 | Column additions to `listings` | Very many | The `listings` table has grown significantly over time |
@@ -641,7 +641,7 @@ DROP TABLE IF EXISTS public.deal_tasks CASCADE;
 3. **Buyer scoring formula** — Clear, documented, with service gate multiplier preventing wrong-industry noise
 4. **AI Command Center prompt compression** — Successfully reduced from ~100KB to ~28KB while preserving all rules
 5. **Security posture** — No service role key leaks, consistent auth guards, no SQL injection vectors
-6. **DocuSeal cleanup complete** — Fully removed with dedicated drop migration
+6. **Legacy e-signature cleanup complete** — Fully removed with dedicated drop migration
 7. **Backward-compatible table renames** — PostgreSQL views used correctly for seamless migration
 8. **Comprehensive anonymity validation** — Teaser generation checks company names, owner names, cities, states, employee names
 
