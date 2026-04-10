@@ -11,28 +11,42 @@ import {
 import { Input } from '@/components/ui/input';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Textarea } from '@/components/ui/textarea';
-import { CreateDealFormData } from './schema';
+import { Combobox } from '@/components/ui/combobox';
+import { CreatePairingFormData } from './schema';
 
-interface BasicInfoSectionProps {
-  form: UseFormReturn<CreateDealFormData>;
-  listings: { id: string; title: string; internal_company_name?: string }[] | undefined;
-  stages: { id: string; name: string; color: string }[] | undefined;
+interface BuyerOption {
+  value: string;
+  label: string;
+  searchTerms: string;
 }
 
-export function BasicInfoSection({ form, listings, stages }: BasicInfoSectionProps) {
+interface BuyerSellerSectionProps {
+  form: UseFormReturn<CreatePairingFormData>;
+  listings: { id: string; title: string; internal_company_name?: string }[] | undefined;
+  stages: { id: string; name: string; color: string }[] | undefined;
+  buyerOptions: BuyerOption[];
+}
+
+export function BuyerSellerSection({ form, listings, stages, buyerOptions }: BuyerSellerSectionProps) {
+  const listingOptions = (listings || []).map((listing) => ({
+    value: listing.id,
+    label: listing.title + (listing.internal_company_name ? ` (${listing.internal_company_name})` : ''),
+    searchTerms: [listing.title, listing.internal_company_name || ''].filter(Boolean).join(' ').toLowerCase(),
+  }));
+
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-foreground">Basic Information</h3>
+      <h3 className="text-sm font-semibold text-foreground">Pairing Details</h3>
 
       <FormField
         control={form.control}
         name="title"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Deal Title *</FormLabel>
+            <FormLabel>Pairing Title *</FormLabel>
             <FormControl>
               <Input
-                placeholder="e.g., Acquisition opportunity with ABC Corp"
+                placeholder="e.g., Acme Corp acquiring Widget Inc"
                 autoFocus
                 {...field}
               />
@@ -45,30 +59,48 @@ export function BasicInfoSection({ form, listings, stages }: BasicInfoSectionPro
       <div className="grid grid-cols-2 gap-4">
         <FormField
           control={form.control}
-          name="listing_id"
+          name="buyer_id"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Listing *</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select listing" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent className="max-h-[300px]">
-                  {listings?.map((listing) => (
-                    <SelectItem key={listing.id} value={listing.id}>
-                      {listing.title}{' '}
-                      {listing.internal_company_name && `(${listing.internal_company_name})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormLabel>Buyer *</FormLabel>
+              <FormControl>
+                <Combobox
+                  options={buyerOptions}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  placeholder="Search buyers..."
+                  emptyText="No buyers found"
+                  searchPlaceholder="Search by company name..."
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="listing_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Seller (Listing) *</FormLabel>
+              <FormControl>
+                <Combobox
+                  options={listingOptions}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  placeholder="Search listings..."
+                  emptyText="No listings found"
+                  searchPlaceholder="Search by listing name..."
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <FormField
           control={form.control}
           name="stage_id"
@@ -99,9 +131,7 @@ export function BasicInfoSection({ form, listings, stages }: BasicInfoSectionPro
             </FormItem>
           )}
         />
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
         <FormField
           control={form.control}
           name="priority"
@@ -125,37 +155,37 @@ export function BasicInfoSection({ form, listings, stages }: BasicInfoSectionPro
             </FormItem>
           )}
         />
-
-        <FormField
-          control={form.control}
-          name="value"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Deal Value ($)</FormLabel>
-              <FormControl>
-                <NumericInput
-                  placeholder="0"
-                  value={field.value || ''}
-                  onChange={(value) =>
-                    field.onChange(value ? parseFloat(value) : undefined)
-                  }
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
       </div>
+
+      <FormField
+        control={form.control}
+        name="value"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Deal Value ($)</FormLabel>
+            <FormControl>
+              <NumericInput
+                placeholder="0"
+                value={field.value || ''}
+                onChange={(value) =>
+                  field.onChange(value ? parseFloat(value) : undefined)
+                }
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
 
       <FormField
         control={form.control}
         name="description"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Description</FormLabel>
+            <FormLabel>Notes</FormLabel>
             <FormControl>
               <Textarea
-                placeholder="Add notes about this deal..."
+                placeholder="Add notes about this pairing..."
                 className="min-h-[80px]"
                 {...field}
               />

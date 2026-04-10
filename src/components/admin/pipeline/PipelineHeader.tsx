@@ -190,7 +190,7 @@ export function PipelineHeader({
 
           <Button size="sm" className="gap-2" onClick={onOpenCreateDeal}>
             <Plus className="h-4 w-4" />
-            New Deal
+            New Pairing
           </Button>
 
           <DropdownMenu>
@@ -591,7 +591,7 @@ export function PipelineHeader({
 
           <Button size="sm" className="w-full" onClick={onOpenCreateDeal}>
             <Plus className="h-4 w-4 mr-2" />
-            New Deal
+            New Pairing
           </Button>
         </div>
       )}

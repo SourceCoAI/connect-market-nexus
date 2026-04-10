@@ -81,14 +81,14 @@ export function PipelineKanbanColumn({ stage, deals, onDealClick, onOpenCreateDe
                 <PipelineKanbanCard key={deal.deal_id} deal={deal} onDealClick={onDealClick} />
               ))}
 
-              {/* Add Deal Button */}
+              {/* Add Pairing Button */}
               <Button
                 variant="ghost"
                 className="w-full h-12 border-2 border-dashed border-border/50 text-muted-foreground hover:text-foreground hover:border-border transition-colors rounded-lg mt-2"
                 onClick={() => onOpenCreateDeal?.(stage.id)}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Deal
+                Add Pairing
               </Button>
 
               {/* Empty State */}

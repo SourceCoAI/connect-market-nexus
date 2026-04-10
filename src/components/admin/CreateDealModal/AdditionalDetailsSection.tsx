@@ -23,10 +23,10 @@ import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { startOfToday } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { CreateDealFormData } from './schema';
+import { CreatePairingFormData } from './schema';
 
 interface AdditionalDetailsSectionProps {
-  form: UseFormReturn<CreateDealFormData>;
+  form: UseFormReturn<CreatePairingFormData>;
   adminUsers: { id: string; first_name: string; last_name: string }[];
 }
 

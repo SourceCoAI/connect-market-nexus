@@ -9,11 +9,9 @@ import {
 import { Form } from '@/components/ui/form';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
-import { CreateDealModalProps } from './schema';
+import { CreatePairingModalProps } from './schema';
 import { useCreateDealForm } from './useCreateDealForm';
-import { AutoPopulationNotice } from './AutoPopulationNotice';
-import { BasicInfoSection } from './BasicInfoSection';
-import { ContactInfoSection } from './ContactInfoSection';
+import { BuyerSellerSection } from './BuyerSellerSection';
 import { AdditionalDetailsSection } from './AdditionalDetailsSection';
 import { DuplicateWarningDialog } from './DuplicateWarningDialog';
 
@@ -22,31 +20,21 @@ export function CreateDealModal({
   onOpenChange,
   prefilledStageId,
   onDealCreated,
-}: CreateDealModalProps) {
+}: CreatePairingModalProps) {
   const {
     form,
     stages,
     listings,
     adminUsers,
-    marketplaceUsers,
-    marketplaceCompanies,
+    buyerOptions,
     createDealMutation,
     duplicates,
     showDuplicateWarning,
     setShowDuplicateWarning,
     isCheckingDuplicates,
-    isSelectingUser,
-    selectedUserId,
-    selectedCompanyName,
-    autoPopulatedFrom,
-    setAutoPopulatedFrom,
-    userOptions,
     handleFormSubmit,
     handleCreateAnyway,
     handleCancelDuplicate,
-    handleUserSelect,
-    handleToggleUserSelection,
-    handleCompanySelect,
   } = useCreateDealForm(open, onOpenChange, prefilledStageId, onDealCreated);
 
   return (
@@ -54,38 +42,20 @@ export function CreateDealModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] md:max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Deal</DialogTitle>
+            <DialogTitle>Create New Pairing</DialogTitle>
             <DialogDescription>
-              Add a new deal to your pipeline. All deals must be associated with a listing.
+              Pair a buyer and seller from your system. Both must already exist as records.
             </DialogDescription>
           </DialogHeader>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
-              {/* Auto-Population Notice */}
-              {autoPopulatedFrom && (
-                <AutoPopulationNotice
-                  autoPopulatedFrom={autoPopulatedFrom}
-                  form={form}
-                  onDismiss={() => setAutoPopulatedFrom(null)}
-                />
-              )}
-
-              {/* Basic Information */}
-              <BasicInfoSection form={form} listings={listings} stages={stages} />
-
-              {/* Contact Information */}
-              <ContactInfoSection
+              {/* Buyer & Seller Selection + Deal Info */}
+              <BuyerSellerSection
                 form={form}
-                isSelectingUser={isSelectingUser}
-                selectedUserId={selectedUserId}
-                selectedCompanyName={selectedCompanyName}
-                marketplaceUsers={marketplaceUsers as { id: string; buyer_type?: string }[]}
-                marketplaceCompanies={marketplaceCompanies}
-                userOptions={userOptions}
-                handleUserSelect={handleUserSelect}
-                handleToggleUserSelection={handleToggleUserSelection}
-                handleCompanySelect={handleCompanySelect}
+                listings={listings}
+                stages={stages}
+                buyerOptions={buyerOptions}
               />
 
               {/* Additional Details */}
@@ -108,7 +78,7 @@ export function CreateDealModal({
                   {(createDealMutation.isPending || isCheckingDuplicates) && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  {isCheckingDuplicates ? 'Checking...' : 'Create Deal'}
+                  {isCheckingDuplicates ? 'Checking...' : 'Create Pairing'}
                 </Button>
               </div>
             </form>
