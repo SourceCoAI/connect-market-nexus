@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Search } from 'lucide-react';
 import { AdminConnectionRequest } from '@/types/admin';
 import { MobileConnectionRequestsTable } from './MobileConnectionRequestsTable';
-import { ConnectionRequestEmailDialog } from './ConnectionRequestEmailDialog';
 
 interface MobileConnectionRequestsProps {
   requests: AdminConnectionRequest[];
@@ -21,9 +20,6 @@ export function MobileConnectionRequests({
   isLoading
 }: MobileConnectionRequestsProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRequest, setSelectedRequest] = useState<AdminConnectionRequest | null>(null);
-  const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const filteredRequests = requests.filter((request) => {
     const searchLower = searchQuery.toLowerCase();
@@ -40,12 +36,6 @@ export function MobileConnectionRequests({
       request.listing?.category?.toLowerCase().includes(searchLower)
     );
   });
-
-  const handleAction = (request: AdminConnectionRequest, action: "approve" | "reject") => {
-    setSelectedRequest(request);
-    setActionType(action);
-    setIsDialogOpen(true);
-  };
 
   return (
     <div className="space-y-4 p-4">
@@ -96,31 +86,11 @@ export function MobileConnectionRequests({
       <div className="bg-card rounded-lg border overflow-hidden">
         <MobileConnectionRequestsTable 
           requests={filteredRequests}
-          onApprove={(request) => handleAction(request, "approve")}
-          onReject={(request) => handleAction(request, "reject")}
+          onApprove={onApprove}
+          onReject={onReject}
           isLoading={isLoading}
         />
       </div>
-
-      <ConnectionRequestEmailDialog
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        onConfirm={async (_comment, _senderEmail, _customBody) => {
-          if (selectedRequest && actionType) {
-            if (actionType === "approve") {
-              await onApprove(selectedRequest);
-            } else {
-              await onReject(selectedRequest);
-            }
-            setIsDialogOpen(false);
-            setSelectedRequest(null);
-            setActionType(null);
-          }
-        }}
-        selectedRequest={selectedRequest}
-        actionType={actionType}
-        isLoading={false}
-      />
     </div>
   );
 }
