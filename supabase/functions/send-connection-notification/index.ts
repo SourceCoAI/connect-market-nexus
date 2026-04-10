@@ -126,6 +126,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       const buyerDealUrl = 'https://marketplace.sourcecodeals.com/my-deals';
       const senderDisplayName = customSenderName || 'SourceCo';
+      const isNamedSender = customSenderEmail && customSenderEmail !== 'support@sourcecodeals.com';
       const subject = `Request approved: ${escapeHtml(listingTitle)}`;
 
       let htmlContent: string;
@@ -137,14 +138,21 @@ const handler = async (req: Request): Promise<Response> => {
           recipientEmail,
         });
       } else {
+        const touchLine = isNamedSender
+          ? 'I will be in touch shortly with next steps.'
+          : `${escapeHtml(senderDisplayName)} will be in touch shortly with next steps.`;
+        const reachOutLine = isNamedSender
+          ? 'I will reach out to coordinate next steps'
+          : `${escapeHtml(senderDisplayName)} from our team will reach out to coordinate next steps`;
+
         htmlContent = wrapEmailHtml({
           bodyHtml: `
     <p>Your request for ${escapeHtml(listingTitle)} has been approved.</p>
-    <p>You now have access to additional deal materials, detailed company information - including the real company name - and supporting documents. ${escapeHtml(senderDisplayName)} will be in touch shortly with next steps.</p>
+    <p>You now have access to additional deal materials, detailed company information, including the real company name, and supporting documents. ${touchLine}</p>
     <p>What to expect</p>
     <ul style="padding-left: 20px; line-height: 1.8;">
       <li>Access to the full deal profile, data room, and supporting materials</li>
-      <li>${escapeHtml(senderDisplayName)} from our team will reach out to coordinate next steps</li>
+      <li>${reachOutLine}</li>
       <li>Message us directly on the platform or reply to this email</li>
     </ul>
     <p>This is an exclusive opportunity. We work with a small number of buyers per deal. Move at your own pace, but do not sit on it.</p>

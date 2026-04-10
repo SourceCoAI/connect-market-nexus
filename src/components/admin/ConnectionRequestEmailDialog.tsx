@@ -17,6 +17,8 @@ import { AdminConnectionRequest } from '@/types/admin';
 import { DEAL_OWNER_SENDERS } from '@/lib/admin-profiles';
 import { useAuth } from '@/contexts/AuthContext';
 
+const LOGO_URL = 'https://cdn.prod.website-files.com/66851dae8a2c8c3f8cd9c703/66af956d372d85d43f02f481_Group%202%20(4)%20(1).png';
+
 interface ConnectionRequestEmailDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -70,14 +72,21 @@ export function ConnectionRequestEmailDialog({
 
   const isApproval = actionType === 'approve';
   const selectedSender = DEAL_OWNER_SENDERS.find(s => s.email === senderEmail) || DEAL_OWNER_SENDERS[0];
+  const isNamedSender = senderEmail !== 'support@sourcecodeals.com';
 
   const defaultBody = useMemo(() => {
     if (!selectedRequest) return '';
     if (isApproval) {
-      return `Your request for ${listingTitle} has been approved.\n\nYou now have access to additional deal materials, detailed company information, including the real company name, and supporting documents. ${selectedSender.name} will be in touch shortly with next steps.\n\nWhat to expect:\n- Access to the full deal profile, data room, and supporting materials\n- ${selectedSender.name} from our team will reach out to coordinate next steps\n- Message us directly on the platform or reply to this email\n\nThis is an exclusive opportunity. We work with a small number of buyers per deal. Move at your own pace, but do not sit on it.`;
+      const touchLine = isNamedSender
+        ? 'I will be in touch shortly with next steps.'
+        : `${selectedSender.name} will be in touch shortly with next steps.`;
+      const reachOutLine = isNamedSender
+        ? 'I will reach out to coordinate next steps'
+        : `${selectedSender.name} from our team will reach out to coordinate next steps`;
+      return `Your request for ${listingTitle} has been approved.\n\nYou now have access to additional deal materials, detailed company information, including the real company name, and supporting documents. ${touchLine}\n\nWhat to expect:\n- Access to the full deal profile, data room, and supporting materials\n- ${reachOutLine}\n- Message us directly on the platform or reply to this email\n\nThis is an exclusive opportunity. We work with a small number of buyers per deal. Move at your own pace, but do not sit on it.`;
     }
-    return `Thank you for your interest in ${listingTitle}.\n\nAfter reviewing your profile against this specific opportunity, we have decided not to move forward with an introduction at this time. We limit introductions to a small number of buyers per deal to ensure strong alignment on both sides.\n\nYour interest has been noted. If the situation changes, we will reach out directly.\n\nIn the meantime, continue browsing the pipeline. New deals are added regularly and your next match may already be live.`;
-  }, [selectedRequest, isApproval, listingTitle, selectedSender.name]);
+    return `Thank you for your interest in ${listingTitle}.\n\nAfter reviewing your profile against this specific opportunity, we have decided not to move forward at this time. We limit introductions to a small number of buyers per deal to ensure strong alignment on both sides.\n\nYour interest has been noted. If the situation changes, we will reach out directly.\n\nIn the meantime, continue browsing the pipeline. New deals are added regularly and your next match may already be live.`;
+  }, [selectedRequest, isApproval, listingTitle, selectedSender.name, isNamedSender]);
 
   const handleClose = () => {
     setAdminComment('');
@@ -115,9 +124,17 @@ export function ConnectionRequestEmailDialog({
     ? `Request approved: ${listingTitle}`
     : `Regarding your interest in ${listingTitle}`;
 
+  // First-person copy for named senders
+  const touchLine = isNamedSender
+    ? 'I will be in touch shortly with next steps.'
+    : `${selectedSender.name} will be in touch shortly with next steps.`;
+  const reachOutLine = isNamedSender
+    ? 'I will reach out to coordinate next steps'
+    : `${selectedSender.name} from our team will reach out to coordinate next steps`;
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-3xl w-[95vw] max-h-[90vh] overflow-y-auto p-0 rounded-xl border-[#E5E5E5]">
+      <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto p-0 rounded-xl border-[#E5E5E5]">
         {/* Header */}
         <div className="px-8 pt-8 pb-0">
           <div className="flex items-center gap-3 mb-1.5">
@@ -131,7 +148,7 @@ export function ConnectionRequestEmailDialog({
               </div>
             )}
             <div>
-              <h2 className="text-[17px] font-semibold tracking-tight text-foreground">
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">
                 {isApproval ? 'Approve Request' : 'Decline Request'}
               </h2>
               <p className="text-[13px]" style={{ color: '#6B6B6B' }}>
@@ -185,7 +202,7 @@ export function ConnectionRequestEmailDialog({
             </Select>
           </div>
 
-          {/* Email preview card */}
+          {/* Email preview - full wrapper simulation */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-medium uppercase tracking-wider" style={{ color: '#9A9A9A' }}>Email preview</p>
@@ -202,74 +219,88 @@ export function ConnectionRequestEmailDialog({
               )}
             </div>
 
-            <div className="rounded-lg border overflow-hidden" style={{ borderColor: '#E5E5E5', boxShadow: '0 1px 4px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.02)' }}>
-              {/* Email header */}
-              <div className="px-6 py-4 space-y-2 border-b" style={{ borderColor: '#F0F0F0' }}>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest w-[52px] shrink-0 text-right" style={{ color: '#B0B0B0' }}>From</span>
-                  <span className="text-[13px] text-foreground">{selectedSender.name} &lt;{selectedSender.email}&gt;</span>
+            {/* Outer wrapper simulating wrapEmailHtml */}
+            <div className="rounded-lg overflow-hidden" style={{ backgroundColor: '#FAFAF8', padding: '28px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03)' }}>
+              {/* SourceCo logo */}
+              <div className="text-center mb-5">
+                <img src={LOGO_URL} alt="SourceCo" style={{ height: '28px', width: 'auto', display: 'inline-block' }} />
+              </div>
+
+              {/* White card */}
+              <div className="bg-white rounded-md overflow-hidden" style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.04)' }}>
+                {/* Email header */}
+                <div className="px-6 py-4 space-y-2 border-b" style={{ borderColor: '#F0F0F0' }}>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest w-[52px] shrink-0 text-right" style={{ color: '#B0B0B0' }}>From</span>
+                    <span className="text-[13px] text-foreground">{selectedSender.name} &lt;{selectedSender.email}&gt;</span>
+                  </div>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest w-[52px] shrink-0 text-right" style={{ color: '#B0B0B0' }}>To</span>
+                    <span className="text-[13px] text-foreground">{userName} &lt;{userEmail}&gt;</span>
+                  </div>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest w-[52px] shrink-0 text-right" style={{ color: '#B0B0B0' }}>Subject</span>
+                    <span className="text-[13px] text-foreground font-medium">{subject}</span>
+                  </div>
                 </div>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest w-[52px] shrink-0 text-right" style={{ color: '#B0B0B0' }}>To</span>
-                  <span className="text-[13px] text-foreground">{userName} &lt;{userEmail}&gt;</span>
-                </div>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest w-[52px] shrink-0 text-right" style={{ color: '#B0B0B0' }}>Subject</span>
-                  <span className="text-[13px] text-foreground font-medium">{subject}</span>
+
+                {/* Email body */}
+                <div className="px-8 py-7">
+                  {isEditing ? (
+                    <Textarea
+                      value={editedBody}
+                      onChange={(e) => setEditedBody(e.target.value)}
+                      className="min-h-[280px] text-[14px] leading-[1.7] font-normal resize-y border-[#E5E5E5] bg-white focus:border-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  ) : isApproval ? (
+                    <div className="space-y-4 text-[14px] text-foreground" style={{ lineHeight: '1.7' }}>
+                      <p>Your request for <strong>{listingTitle}</strong> has been approved.</p>
+                      <p style={{ color: '#4A4A4A' }}>
+                        You now have access to additional deal materials, detailed company information, including the real company name, and supporting documents. {touchLine}
+                      </p>
+                      <div className="pt-1">
+                        <p className="font-semibold text-foreground mb-2.5">What to expect</p>
+                        <ul className="space-y-2 pl-5" style={{ color: '#4A4A4A' }}>
+                          <li className="list-disc">Access to the full deal profile, data room, and supporting materials</li>
+                          <li className="list-disc">{reachOutLine}</li>
+                          <li className="list-disc">Message us directly on the platform or reply to this email</li>
+                        </ul>
+                      </div>
+                      <div className="pt-2 mt-2 border-t" style={{ borderColor: '#F0F0F0' }}>
+                        <p className="text-[13px]" style={{ color: '#6B6B6B' }}>
+                          This is an exclusive opportunity. We work with a small number of buyers per deal. Move at your own pace, but do not sit on it.
+                        </p>
+                      </div>
+                      <div className="pt-1 text-center">
+                        <span
+                          className="inline-block text-[13px] font-semibold px-7 py-3 rounded-md cursor-default"
+                          style={{ backgroundColor: '#0E101A', color: '#ffffff' }}
+                        >
+                          View Deal
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 text-[14px] text-foreground" style={{ lineHeight: '1.7' }}>
+                      <p>Thank you for your interest in <strong>{listingTitle}</strong>.</p>
+                      <p style={{ color: '#4A4A4A' }}>
+                        After reviewing your profile against this specific opportunity, we have decided not to move forward at this time. We limit introductions to a small number of buyers per deal to ensure strong alignment on both sides.
+                      </p>
+                      <p style={{ color: '#4A4A4A' }}>
+                        Your interest has been noted. If the situation changes, we will reach out directly.
+                      </p>
+                      <p style={{ color: '#4A4A4A' }}>
+                        In the meantime, continue browsing the pipeline. New deals are added regularly and your next match may already be live.
+                      </p>
+                      <p className="pt-2" style={{ color: '#9A9A9A' }}>The SourceCo Team</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Email body */}
-              <div className="px-6 py-6 bg-white">
-                {isEditing ? (
-                  <Textarea
-                    value={editedBody}
-                    onChange={(e) => setEditedBody(e.target.value)}
-                    className="min-h-[260px] text-[14px] leading-[1.7] font-normal resize-y border-[#E5E5E5] bg-white focus:border-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
-                ) : isApproval ? (
-                  <div className="space-y-4 text-[14px] text-foreground" style={{ lineHeight: '1.7' }}>
-                    <p>Your request for <strong>{listingTitle}</strong> has been approved.</p>
-                    <p style={{ color: '#4A4A4A' }}>
-                      You now have access to additional deal materials, detailed company information, including the real company name, and supporting documents. {selectedSender.name} will be in touch shortly with next steps.
-                    </p>
-                    <div className="pt-1">
-                      <p className="font-semibold text-foreground mb-2.5">What to expect</p>
-                      <ul className="space-y-2 pl-5" style={{ color: '#4A4A4A' }}>
-                        <li className="list-disc">Access to the full deal profile, data room, and supporting materials</li>
-                        <li className="list-disc">{selectedSender.name} from our team will reach out to coordinate next steps</li>
-                        <li className="list-disc">Message us directly on the platform or reply to this email</li>
-                      </ul>
-                    </div>
-                    <div className="pt-2 mt-2 border-t" style={{ borderColor: '#F0F0F0' }}>
-                      <p className="text-[13px]" style={{ color: '#6B6B6B' }}>
-                        This is an exclusive opportunity. We work with a small number of buyers per deal. Move at your own pace, but do not sit on it.
-                      </p>
-                    </div>
-                    <div className="pt-1">
-                      <span
-                        className="inline-block text-[13px] font-semibold px-6 py-3 rounded-md cursor-default"
-                        style={{ backgroundColor: '#0E101A', color: '#ffffff' }}
-                      >
-                        View Deal
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4 text-[14px] text-foreground" style={{ lineHeight: '1.7' }}>
-                    <p>Thank you for your interest in <strong>{listingTitle}</strong>.</p>
-                    <p style={{ color: '#4A4A4A' }}>
-                      After reviewing your profile against this specific opportunity, we have decided not to move forward with an introduction at this time. We limit introductions to a small number of buyers per deal to ensure strong alignment on both sides.
-                    </p>
-                    <p style={{ color: '#4A4A4A' }}>
-                      Your interest has been noted. If the situation changes, we will reach out directly.
-                    </p>
-                    <p style={{ color: '#4A4A4A' }}>
-                      In the meantime, continue browsing the pipeline. New deals are added regularly and your next match may already be live.
-                    </p>
-                    <p className="pt-2" style={{ color: '#9A9A9A' }}>The SourceCo Team</p>
-                  </div>
-                )}
+              {/* Footer simulating wrapEmailHtml footer */}
+              <div className="text-center mt-5">
+                <p className="text-[11px]" style={{ color: '#9B9B9B' }}>&copy; {new Date().getFullYear()} SourceCo</p>
               </div>
             </div>
           </div>

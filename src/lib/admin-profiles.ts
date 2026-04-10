@@ -87,6 +87,7 @@ export interface DealOwnerSender {
 
 export const DEAL_OWNER_SENDERS: DealOwnerSender[] = [
   { email: 'support@sourcecodeals.com', name: 'SourceCo Support', title: 'Default' },
+  { email: 'adam.haile@sourcecodeals.com', name: 'Adam Haile', title: 'Founder & CEO' },
   { email: 'bill.martin@sourcecodeals.com', name: 'Bill Martin', title: 'Principal & SVP - Growth' },
   { email: 'alia.ballout@sourcecodeals.com', name: 'Alia Ballout', title: 'Deal Owner' },
   { email: 'brandon.hall@sourcecodeals.com', name: 'Brandon Hall', title: 'Deal Owner' },

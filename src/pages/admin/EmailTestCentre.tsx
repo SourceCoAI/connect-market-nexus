@@ -256,26 +256,26 @@ const EMAILS: EmailDef[] = [
   {
     id: 'e09',
     num: '09',
-    title: 'Introduction Approved',
+    title: 'Request Approved',
     category: 'transactional',
     trigger: 'Admin approves a connection request',
     triggerDetail:
-      'Fires when an admin approves a buyer\'s introduction request. Sent by send-connection-notification with type: "approval_notification". This is the most important transactional email — it converts a browser into an active deal participant. Creates urgency with exclusivity language.',
+      'Fires when an admin approves a buyer\'s connection request. Sent by send-connection-notification with type: "approval_notification". This is the most important transactional email - it converts a browser into an active deal participant. Creates urgency with exclusivity language.',
     file: 'supabase/functions/send-connection-notification/index.ts',
-    subject: "You're in — introduction to [Deal Title] approved.",
-    preheader: "Your introduction is confirmed. Here's what happens next.",
+    subject: "Request approved: [Deal Title]",
+    preheader: "Your request has been approved. Here is what happens next.",
     bodyHtml: `<div style="font-family:sans-serif;max-width:520px;color:#333;line-height:1.6;padding:20px">
 <p>Hi [First Name],</p>
-<p>Your introduction to <strong>[Deal Title]</strong> has been approved.</p>
-<p>We're making a direct introduction to the business owner. You'll receive a message from our team with next steps — typically within one business day.</p>
+<p>Your request for <strong>[Deal Title]</strong> has been approved.</p>
+<p>You now have access to additional deal materials, detailed company information, including the real company name, and supporting documents. I will be in touch shortly with next steps.</p>
 <h3 style="color:#0e101a;font-size:15px;margin:20px 0 6px">What to expect</h3>
 <ul style="padding-left:20px;color:#374151">
-<li>Our team facilitates the initial introduction</li>
-<li>You'll receive access to deal details and supporting materials</li>
-<li>Reply to any email or message us in the platform — we support through the process</li>
+<li>Access to the full deal profile, data room, and supporting materials</li>
+<li>I will reach out to coordinate next steps</li>
+<li>Message us directly on the platform or reply to this email</li>
 </ul>
-<p>This is an exclusive introduction — we work with a small number of buyers per deal. Move at your own pace, but don't sit on it.</p>
-<p style="color:#6b7280;margin-top:28px">— The SourceCo Team</p></div>`,
+<p>This is an exclusive opportunity. We work with a small number of buyers per deal. Move at your own pace, but do not sit on it.</p>
+<p style="color:#6b7280;margin-top:28px">The SourceCo Team</p></div>`,
     invokeFunction: 'send-connection-notification',
     testPayload: {
       type: 'approval_notification',
