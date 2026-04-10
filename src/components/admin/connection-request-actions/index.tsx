@@ -305,6 +305,16 @@ export function ConnectionRequestActions({
           firmName={actions.firmInfo.firm_name || undefined}
         />
       )}
+
+      {/* ── EMAIL PREVIEW DIALOG ── */}
+      <ConnectionRequestEmailDialog
+        isOpen={emailDialogOpen}
+        onClose={() => { setEmailDialogOpen(false); setEmailActionType(null); }}
+        onConfirm={handleEmailDialogConfirm}
+        selectedRequest={dialogRequest}
+        actionType={emailActionType}
+        isLoading={actions.updateStatus.isPending || actions.isRejecting}
+      />
     </div>
   );
 }
