@@ -105,8 +105,8 @@ export function useConnectionRequestActions({
       }
 
       const accessMessage = buyerHasFee
-        ? `Your introduction to ${listingName} has been approved. You now have access to the deal overview and full data room documents. Our team will facilitate the introduction to the business owner — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`
-        : `Your introduction to ${listingName} has been approved. You can now view the deal overview. To unlock the full data room and supporting documents, please sign your Fee Agreement. Our team will facilitate the introduction to the business owner — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`;
+        ? `Your request for ${listingName} has been approved. You now have access to the deal overview and full data room documents. Our team will be in touch — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`
+        : `Your request for ${listingName} has been approved. You can now view the deal overview. To unlock the full data room and supporting documents, please sign your Fee Agreement. Our team will be in touch — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`;
 
       await sendMessage.mutateAsync({
         connection_request_id: requestId,
