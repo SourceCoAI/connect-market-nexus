@@ -8,10 +8,12 @@ import { AdminListing } from '@/types/admin';
 import { useAdmin } from '@/hooks/use-admin';
 import { useListingTypeCounts } from '@/hooks/admin/listings/use-listings-by-type';
 import { ListingType } from '@/hooks/admin/listings/use-listings-by-type';
+import { useAdminListingDetail } from '@/hooks/admin/listings/use-admin-listing-detail';
+import { Loader2 } from 'lucide-react';
 
 const ListingsManagementTabs = () => {
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
-  const [editingListing, setEditingListing] = useState<AdminListing | null>(null);
+  const [editingListingId, setEditingListingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ListingType>('ready_to_publish');
 
   const { useCreateListing, useUpdateListing } = useAdmin();
@@ -19,15 +21,18 @@ const ListingsManagementTabs = () => {
   const { mutateAsync: updateListing, isPending: isUpdating } = useUpdateListing();
   const { data: counts } = useListingTypeCounts();
 
+  // Fetch full listing detail when editing
+  const { data: editingListing, isLoading: isLoadingDetail } = useAdminListingDetail(editingListingId);
+
   const handleFormSubmit = async (
     data: Record<string, unknown>,
     image?: File | null,
     sendDealAlerts?: boolean,
   ) => {
     try {
-      if (editingListing) {
+      if (editingListingId && editingListing) {
         await updateListing({
-          id: editingListing.id,
+          id: editingListingId,
           listing: data as Partial<Omit<AdminListing, 'id' | 'created_at' | 'updated_at'>>,
           image,
         });
@@ -47,10 +52,27 @@ const ListingsManagementTabs = () => {
 
   const handleFormClose = () => {
     setIsCreateFormOpen(false);
-    setEditingListing(null);
+    setEditingListingId(null);
   };
 
-  if (isCreateFormOpen || editingListing) {
+  const handleEditListing = (listing: AdminListing) => {
+    // Store only the ID — full record will be fetched by useAdminListingDetail
+    setEditingListingId(listing.id);
+  };
+
+  if (isCreateFormOpen || editingListingId) {
+    // Show loading while fetching full listing detail for edit
+    if (editingListingId && (isLoadingDetail || !editingListing)) {
+      return (
+        <div className="p-6 max-w-4xl mx-auto flex items-center justify-center min-h-[400px]">
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <p className="text-sm">Loading listing details…</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <ListingForm
@@ -118,21 +140,21 @@ const ListingsManagementTabs = () => {
           <TabsContent value="ready_to_publish">
             <ListingsTabContent
               type="ready_to_publish"
-              onEdit={setEditingListing}
+              onEdit={handleEditListing}
               onCreateNew={() => setIsCreateFormOpen(true)}
             />
           </TabsContent>
           <TabsContent value="live">
             <ListingsTabContent
               type="live"
-              onEdit={setEditingListing}
+              onEdit={handleEditListing}
               onCreateNew={() => setIsCreateFormOpen(true)}
             />
           </TabsContent>
           <TabsContent value="internal">
             <ListingsTabContent
               type="internal"
-              onEdit={setEditingListing}
+              onEdit={handleEditListing}
               onCreateNew={() => setIsCreateFormOpen(true)}
             />
           </TabsContent>
