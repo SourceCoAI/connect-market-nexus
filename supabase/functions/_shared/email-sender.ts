@@ -110,11 +110,9 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
   const senderName = options.senderName || VERIFIED_SENDER_NAME;
   const replyTo = options.replyTo || options.senderEmail || DEFAULT_REPLY_TO;
 
-  // Lock Brevo sender to noreply@ for consistent inbox delivery.
-  // Admin's personal email goes to replyTo only.
-  const isCustomSender = options.senderEmail && options.senderEmail !== VERIFIED_SENDER_EMAIL && options.senderEmail !== NOREPLY_SENDER_EMAIL;
-  const brevoSenderName = isCustomSender ? `${senderName} via SourceCo` : senderName;
-  const brevoSenderEmail = NOREPLY_SENDER_EMAIL;
+  // Send directly from the admin's email for better inbox placement
+  const brevoSenderName = senderName;
+  const brevoSenderEmail = senderEmail;
 
   // ── Step 1: Create outbound_emails record (status=queued) ──
   let emailId: string | undefined;
