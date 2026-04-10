@@ -1,61 +1,45 @@
 
 
-# Email Preview Modal for Connection Request Approve/Reject
+# Fix: Email Preview Dialog Not Showing on Accept/Decline
 
-## Summary
+## Root Cause
 
-Replace the current `ConnectionRequestDialog` (simple confirm + comment box) with a new `ConnectionRequestEmailDialog` that shows the exact email the buyer will receive before the admin clicks send -- same pattern as `ApprovalEmailDialog` for marketplace user approvals.
+There are **two separate action paths** for approving/rejecting connection requests:
 
-Since `sourcecodeals.com` is already domain-verified in Brevo, any `@sourcecodeals.com` email address can be used as a sender immediately with no additional setup.
+1. **Table-level buttons** (`AdminRequests.tsx`) — correctly wired to open `ConnectionRequestEmailDialog`
+2. **Expanded row detail buttons** (`ConnectionRequestActions` → `ApprovalSection`) — calls `handleAccept`/`handleReject` in `useConnectionRequestActions.ts` which **directly updates status and sends emails with no preview dialog**
+
+You clicked Accept from the expanded row detail (path #2), so no modal appeared. The email was sent immediately.
 
 ## Plan
 
-### 1. Create `ConnectionRequestEmailDialog` component
-New file: `src/components/admin/ConnectionRequestEmailDialog.tsx`
+### 1. Add email preview dialog to `ConnectionRequestActions`
 
-Modeled after `ApprovalEmailDialog.tsx`, this dialog will show:
+In `src/components/admin/connection-request-actions/index.tsx`:
+- Add state for `showEmailDialog` and `emailActionType` (approve/reject)
+- Render `ConnectionRequestEmailDialog` in this component
+- On confirm, call the existing `actions.handleAccept` or `actions.handleReject` logic
 
-**For approvals:**
-- Recipient info (buyer name, email, company)
-- Listing title
-- From: `noreply@sourcecodeals.com` (current sender for approval emails)
-- Subject preview: "Introduction approved: [Deal Title]"
-- Body summary bullets (introduction approved, next steps, exclusive intro language, "View Messages" CTA)
-- Optional admin comment field
+### 2. Update `ApprovalSection` to open dialog instead of acting directly
 
-**For rejections:**
-- Same recipient/listing info
-- From: `support@sourcecodeals.com`
-- Subject preview: "Introduction update: [Deal Title]"
-- Body summary (request not selected, encouragement to keep browsing)
-- Optional rejection reason field (included in email)
+In `ApprovalSection.tsx`:
+- Change `handleAccept` and `handleReject` props to open the email preview dialog instead of executing immediately
+- The dialog's confirm callback will then trigger the actual action
 
-Action button: "Approve & Send Email" / "Reject & Send Email"
+### 3. Update `useConnectionRequestActions.ts`
 
-### 2. Replace `ConnectionRequestDialog` usage in `AdminRequests.tsx`
-- Remove the old `ConnectionRequestDialog` import
-- Use the new `ConnectionRequestEmailDialog` instead
-- Keep the same `handleAction` / `confirmAction` logic (status update + email send)
+- Export a version of accept/reject that accepts an optional admin comment from the dialog
+- Or: keep `handleAccept`/`handleReject` as-is and just gate them behind the dialog in the parent
 
-### 3. Replace in `MobileConnectionRequests.tsx`
-- Same swap for mobile view
+### 4. Also wire into `WebflowLeadDetail.tsx`
 
-### 4. Optional: Add deal owner reply-to
-Since the domain is verified, we can set `replyTo` to the deal owner's email (Bill, Aliya, Brandon) so buyer replies go directly to the right person. This requires looking up the deal owner from the listing in the edge function. We can do this as a follow-up if you want.
-
-## Sender Setup -- No Action Needed
-
-Since `sourcecodeals.com` is fully authenticated in Brevo:
-- Any `@sourcecodeals.com` address works as `From` or `Reply-To` immediately
-- No need to verify individual emails for Bill, Aliya, or Brandon
-- If you want emails to come *from* a specific person (e.g., `bill.martin@sourcecodeals.com`), we just update `senderEmail` in the edge function -- no Brevo changes needed
-- For now, the preview will show the current senders (`noreply@` for approvals, `support@` for admin notifications)
+This component also has its own `handleAccept`/`handleReject` that bypass the dialog — same fix needed.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/admin/ConnectionRequestEmailDialog.tsx` | New -- email preview dialog |
-| `src/pages/admin/AdminRequests.tsx` | Swap dialog component |
-| `src/components/admin/MobileConnectionRequests.tsx` | Swap dialog component |
+| `src/components/admin/connection-request-actions/index.tsx` | Add `ConnectionRequestEmailDialog`, gate accept/reject behind it |
+| `src/components/admin/connection-request-actions/ApprovalSection.tsx` | No change needed (handlers are already passed as props) |
+| `src/components/admin/WebflowLeadDetail.tsx` | Add same email preview dialog gating |
 
