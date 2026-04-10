@@ -1,44 +1,36 @@
 
 
-# Audit: Email Infrastructure -- Current State
+# Revert: Send Emails Directly From Admin's Email Address
 
-## All fixes confirmed implemented correctly
+## What happened
+The "noreply@" sender lockdown caused emails to land in Gmail's Promotions tab. The original approach of sending directly from the admin's email (e.g., bill.martin@sourcecodeals.com) actually works fine -- the earlier test just arrived late.
 
-### 1. email-sender.ts -- Sender lockdown (WORKING)
-- Line 115-117: Custom senders locked to `noreply@sourcecodeals.com` with `"[Name] via SourceCo"` display name
-- Line 111: Reply-to correctly chains: `options.replyTo → options.senderEmail → DEFAULT_REPLY_TO`
-- Line 152: Brevo payload uses `brevoSenderName` and `brevoSenderEmail` (locked)
-- Line 163: Reply-to set to admin's actual email for direct replies
+## Changes
 
-### 2. useConnectionRequestActions.ts -- Rejection in-app message (FIXED)
-- Line 223: `body: adminComment || note || 'Request declined.'` -- correctly prioritizes dialog comment
+### 1. `supabase/functions/_shared/email-sender.ts` (lines 113-117)
+Remove the sender lockdown logic. Revert to using the admin's actual email as the Brevo sender:
 
-### 3. notify-buyer-rejection -- Sender defaults aligned (FIXED)
-- Lines 72-74: `senderName: 'SourceCo Notifications'`, `senderEmail: 'noreply@sourcecodeals.com'`, `replyTo: 'support@sourcecodeals.com'`
+```typescript
+// REMOVE these lines:
+const isCustomSender = options.senderEmail && options.senderEmail !== VERIFIED_SENDER_EMAIL && options.senderEmail !== NOREPLY_SENDER_EMAIL;
+const brevoSenderName = isCustomSender ? `${senderName} via SourceCo` : senderName;
+const brevoSenderEmail = NOREPLY_SENDER_EMAIL;
 
-## One minor issue remaining
-
-### Duplicate `htmlContent` property in email-sender.ts (Line 155-156)
+// REPLACE with:
+const brevoSenderName = senderName;
+const brevoSenderEmail = senderEmail;
 ```
-htmlContent: options.htmlContent,
-htmlContent: options.htmlContent,   // ← duplicate
-```
-Harmless (JS uses the last value) but should be cleaned up.
 
-## Deployment concern
+Also update line 152 (already uses `brevoSenderName`/`brevoSenderEmail` so no change needed there).
 
-Both `send-connection-notification` and `notify-buyer-rejection` show **zero logs** in the current window. This could mean either no emails have been triggered since the last deploy, or the deployed code doesn't match source. A redeploy of both functions would guarantee the live code includes the sender lockdown fix.
+### 2. Redeploy edge functions
+- `send-connection-notification` (approval emails)
+- `notify-buyer-rejection` (decline emails)
 
-## Build errors (unrelated)
-The build errors shown are all in `enrich-deal` and `extract-buyer-criteria-background` -- pre-existing TypeScript issues unrelated to email sending.
+Both consume the shared `email-sender.ts`, so redeploying picks up the revert.
 
-## Plan
-
-| Step | Detail |
-|------|--------|
-| Remove duplicate `htmlContent` line in `email-sender.ts` (line 156) | One-line deletion |
-| Redeploy `send-connection-notification` | Ensure live code has sender lockdown |
-| Redeploy `notify-buyer-rejection` | Ensure live code has sender lockdown |
-
-Everything else is confirmed correct and at parity. The email system design (single verified sender + reply-to) is the right approach -- no architectural changes needed.
+### Result
+- Approval emails: sent from admin's actual email (e.g., `Bill Martin <bill.martin@sourcecodeals.com>`)
+- Rejection emails: sent from admin's actual email when custom sender is provided, otherwise from `noreply@sourcecodeals.com`
+- Reply-to remains the admin's email
 
