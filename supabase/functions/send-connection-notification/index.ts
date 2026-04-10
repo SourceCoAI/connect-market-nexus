@@ -16,6 +16,9 @@ interface ConnectionNotificationRequest {
   listingId: string;
   message?: string;
   requestId?: string;
+  senderEmail?: string;
+  senderName?: string;
+  replyTo?: string;
 }
 
 function buildUserConfirmationHtml(
@@ -88,7 +91,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    const { type, recipientEmail, recipientName, requesterName, requesterEmail, listingTitle, listingId, message, requestId } = requestData;
+    const { type, recipientEmail, recipientName, requesterName, requesterEmail, listingTitle, listingId, message, requestId, senderEmail: customSenderEmail, senderName: customSenderName, replyTo: customReplyTo } = requestData;
     console.log('Processing connection notification:', { type, requesterName, listingTitle, requestId });
 
     const loginUrl = 'https://marketplace.sourcecodeals.com/login';
@@ -146,9 +149,9 @@ const handler = async (req: Request): Promise<Response> => {
         toName: recipientName || requesterName,
         subject,
         htmlContent,
-        senderName: 'SourceCo Notifications',
-        senderEmail: 'noreply@sourcecodeals.com',
-        replyTo: 'noreply@sourcecodeals.com',
+        senderName: customSenderName || 'SourceCo Notifications',
+        senderEmail: customSenderEmail || 'noreply@sourcecodeals.com',
+        replyTo: customReplyTo || 'noreply@sourcecodeals.com',
         isTransactional: true,
       });
 
