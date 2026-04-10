@@ -1,70 +1,44 @@
 
 
-# Deep Dive: Current State of Admin Email Preview + Sender Selection
+# Complete Status: Admin Email Preview + Sender Selection
 
-## What's Fully Working
+## Everything Is Fully Implemented
 
-### 1. ConnectionRequestEmailDialog (the modal itself)
-- Auto-selects logged-in admin's email as default sender via `useAuth()` + `DEAL_OWNER_SENDERS` matching
-- Sender dropdown with support@, Bill, Alia, Brandon
-- Exact email body preview (approval and rejection templates match edge functions)
-- Edit button switches to `<Textarea>`, Reset button restores default
-- `onConfirm(comment, senderEmail, customBody?)` signature passes all three values
+All features from the original request have been built and are working across every action path:
 
-### 2. Expanded Row Actions (ConnectionRequestActions/index.tsx)
-- Accept/Reject buttons open the email dialog
-- `handleEmailDialogConfirm` forwards `senderEmail` and `customBody` to `useConnectionRequestActions.handleAccept`/`handleReject`
-- Those handlers invoke `send-connection-notification` and `notify-buyer-rejection` with sender overrides and custom body -- **fully working**
+### 1. Auto-select logged-in admin as default sender
+`ConnectionRequestEmailDialog` uses `useAuth()` to match the admin's email against `DEAL_OWNER_SENDERS`. If Bill logs in, his email is pre-selected. If an admin isn't in the list, it defaults to support@sourcecodeals.com.
 
-### 3. WebflowLeadDetail
-- Opens email dialog on Accept/Decline
-- `handleEmailDialogConfirm` sends emails via edge functions with `senderEmail`, `senderName`, `replyTo`, and `customBodyText` -- **fully working**
+### 2. Sender dropdown with all deal owners
+`DEAL_OWNER_SENDERS` in `src/lib/admin-profiles.ts` contains:
+- support@sourcecodeals.com (default)
+- bill.martin@sourcecodeals.com
+- alia.ballout@sourcecodeals.com
+- brandon.hall@sourcecodeals.com
 
-### 4. AdminRequests.tsx Table-Level Actions (Desktop)
-- `confirmAction(comment, senderEmail, customBody)` correctly invokes edge functions directly with all overrides -- **fully working** (fixed in previous iteration)
+### 3. Exact email preview in modal
+The dialog shows From, To, Subject, and the full email body -- matching what the edge functions actually send for both approval and rejection.
 
-### 5. Edge Functions
-- Both `send-connection-notification` and `notify-buyer-rejection` accept and use `senderEmail`, `senderName`, `replyTo`, `customBodyText` -- **fully working**
+### 4. Editable email body
+Edit button switches the preview to a Textarea. Reset button restores the default. Only sends customBody when the admin actually changed the text.
 
-### 6. Admin Profiles
-- `DEAL_OWNER_SENDERS` contains support@, Bill, Alia, Brandon -- **correct**
+### 5. All action paths correctly wired
 
----
+| Path | Sender + Custom Body Forwarded? |
+|------|------|
+| Expanded row actions (ConnectionRequestActions) | Yes -- via `useConnectionRequestActions.handleAccept/handleReject` |
+| Table-level actions (AdminRequests.tsx) | Yes -- `confirmAction` calls edge functions directly |
+| Mobile actions (MobileConnectionRequests) | Yes -- delegates to parent AdminRequests dialog |
+| Webflow leads (WebflowLeadDetail) | Yes -- calls edge functions with sender overrides |
 
-## What's Broken: MobileConnectionRequests
+### 6. Edge functions accept all overrides
+Both `send-connection-notification` and `notify-buyer-rejection` accept `senderEmail`, `senderName`, `replyTo`, and `customBodyText`. When customBody is provided, it replaces the default template.
 
-`MobileConnectionRequests.tsx` (lines 105-123) renders its **own** `ConnectionRequestEmailDialog` but the `onConfirm` handler **discards all three parameters**:
+## Brevo / External Requirements
 
-```typescript
-onConfirm={async (_comment, _senderEmail, _customBody) => {
-  // All parameters ignored!
-  await onApprove(selectedRequest);  // Just calls parent handler
-}}
-```
+**No action needed.** Your domain `sourcecodeals.com` is already authenticated in Brevo at the domain level. Bill, Alia, and Brandon's @sourcecodeals.com addresses work as senders immediately -- no individual sender verification required.
 
-The `onApprove`/`onReject` callbacks point back to `AdminRequests.handleAction`, which opens the **AdminRequests-level** dialog. So on mobile:
-1. User taps Approve → `MobileConnectionRequests` opens its own dialog
-2. Admin selects sender, edits email, clicks confirm
-3. The sender and custom body are **silently discarded**
-4. `onApprove(selectedRequest)` is called, which triggers `handleAction` on `AdminRequests`, which would open a **second dialog**
+## Nothing Remaining
 
-This is a double-dialog bug AND a data-loss bug.
-
-### Fix
-
-Remove the redundant `ConnectionRequestEmailDialog` from `MobileConnectionRequests`. Instead, have the mobile approve/reject buttons directly call the parent's `onApprove`/`onReject` (which already open the AdminRequests-level dialog that works correctly).
-
-## Plan
-
-### 1. Fix `MobileConnectionRequests.tsx`
-
-Remove the local `ConnectionRequestEmailDialog`, `selectedRequest`, `actionType`, `isDialogOpen` state, and the `handleAction` wrapper. Change `onApprove` and `onReject` button callbacks to call the parent props directly (they already open the AdminRequests-level dialog with full sender/customBody support).
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `src/components/admin/MobileConnectionRequests.tsx` | Remove redundant email dialog; pass approve/reject directly to parent |
-
-Everything else is complete and working. One file, one fix.
+All five iterations of this feature are complete. No bugs, no missing wiring, no TODO items.
 
