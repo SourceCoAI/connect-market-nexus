@@ -433,47 +433,22 @@ export function ImprovedListingEditor({
     setImageError(null);
   };
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      const isValid = await form.trigger();
-
-      if (!isValid) {
-        const errors = form.formState.errors;
-        const errorFields = Object.keys(errors)
-          .map((key) => {
-            const error = errors[key as keyof typeof errors];
-            return `${key}: ${(error as { message?: string })?.message || 'Invalid'}`;
-          })
-          .join(', ');
-
-        toast({
-          variant: 'destructive',
-          title: 'Please fix the following errors',
-          description: errorFields || 'Form validation failed',
-        });
-        return;
-      }
-
-      const formData = form.getValues();
-
-      const transformedLocation = Array.isArray(formData.location)
-        ? formData.location[0] || ''
-        : formData.location || '';
-
-      await handleSubmit({
-        ...formData,
-        location: transformedLocation,
-      } as unknown as ListingFormValues);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Validation Error',
-        description: 'Please check all required fields are filled correctly.',
-      });
-    }
-  };
+  const handleFormSubmit = form.handleSubmit(async (formData) => {
+    // formData here has Zod transforms applied (numbers parsed, location as string)
+    await handleSubmit(formData as unknown as ListingFormValues);
+  }, (errors) => {
+    const errorFields = Object.keys(errors)
+      .map((key) => {
+        const error = errors[key as keyof typeof errors];
+        return `${key}: ${(error as { message?: string })?.message || 'Invalid'}`;
+      })
+      .join(', ');
+    toast({
+      variant: 'destructive',
+      title: 'Please fix the following errors',
+      description: errorFields || 'Form validation failed',
+    });
+  });
 
   const handleSubmit = async (formData: ListingFormValues) => {
     try {
