@@ -149,9 +149,10 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 
   // ── Step 2: Build Brevo payload ──
   const payload: Record<string, unknown> = {
-    sender: { name: senderName, email: senderEmail },
+    sender: { name: brevoSenderName, email: brevoSenderEmail },
     to: [{ email: options.to, name: options.toName || options.to }],
     subject: options.subject,
+    htmlContent: options.htmlContent,
     htmlContent: options.htmlContent,
   };
 
