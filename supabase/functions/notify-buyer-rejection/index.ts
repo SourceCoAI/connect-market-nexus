@@ -9,6 +9,9 @@ interface BuyerRejectionRequest {
   buyerEmail: string;
   buyerName: string;
   companyName: string;
+  senderEmail?: string;
+  senderName?: string;
+  replyTo?: string;
 }
 
 function buildRejectionHtml(buyerName: string, companyName: string, buyerEmail: string): string {
@@ -29,7 +32,7 @@ const handler = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return corsPreflightResponse(req);
 
   try {
-    const { connectionRequestId, buyerEmail, buyerName, companyName }: BuyerRejectionRequest = await req.json();
+    const { connectionRequestId, buyerEmail, buyerName, companyName, senderEmail: customSenderEmail, senderName: customSenderName, replyTo: customReplyTo }: BuyerRejectionRequest = await req.json();
 
     if (!buyerEmail || !companyName) {
       return new Response(JSON.stringify({ success: false, error: 'buyerEmail and companyName are required' }),
@@ -49,7 +52,9 @@ const handler = async (req: Request): Promise<Response> => {
       subject,
       htmlContent,
       textContent,
-      senderName: 'SourceCo',
+      senderName: customSenderName || 'SourceCo',
+      senderEmail: customSenderEmail || undefined,
+      replyTo: customReplyTo || undefined,
       isTransactional: true,
       metadata: { connectionRequestId },
     });
