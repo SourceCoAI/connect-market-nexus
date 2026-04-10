@@ -68,15 +68,28 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
   const leadName = request.lead_name || 'Website Lead';
   const leadCompany = request.lead_company || '';
 
-  const handleAccept = () => {
+  const handleAcceptDirect = () => {
     if (!request.id) return;
     updateStatus.mutate({ requestId: request.id, status: 'approved' });
   };
-  const handleReject = () => {
+  const handleRejectDirect = () => {
     if (!request.id) return;
     updateStatus.mutate({ requestId: request.id, status: 'rejected', notes: rejectNote || undefined });
     setShowRejectDialog(false);
     setRejectNote('');
+  };
+  const openEmailDialog = (action: 'approve' | 'reject') => {
+    setEmailActionType(action);
+    setEmailDialogOpen(true);
+  };
+  const handleEmailDialogConfirm = async (_comment: string) => {
+    if (emailActionType === 'approve') {
+      handleAcceptDirect();
+    } else if (emailActionType === 'reject') {
+      handleRejectDirect();
+    }
+    setEmailDialogOpen(false);
+    setEmailActionType(null);
   };
   const handleResetToPending = () => {
     if (!request.id) return;
