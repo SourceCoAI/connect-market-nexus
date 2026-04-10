@@ -14,8 +14,11 @@
  *   Embedded within ConnectionRequestsTable on the admin requests page
  *   (/admin/requests)
  */
+import { useState } from 'react';
 import { SendAgreementDialog } from '@/components/pandadoc/SendAgreementDialog';
+import { ConnectionRequestEmailDialog } from '@/components/admin/ConnectionRequestEmailDialog';
 import { Listing } from '@/types';
+import { AdminConnectionRequest } from '@/types/admin';
 import { format } from 'date-fns';
 import { getBuyerTier } from '@/lib/buyer-metrics';
 import { processUrl } from '@/lib/url-utils';
