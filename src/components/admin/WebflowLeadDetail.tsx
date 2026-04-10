@@ -46,6 +46,8 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
   const [flagPopoverOpen, setFlagPopoverOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailActionType, setEmailActionType] = useState<'approve' | 'reject' | null>(null);
 
   // Fetch admin list for flag assignment
   const { data: adminList = [] } = useQuery<AdminProfile[]>({
