@@ -78,17 +78,18 @@ Deno.serve(async (req) => {
       return successResponse({ skipped: true, reason: 'insufficient_content' }, corsHeaders);
     }
 
-    // Resolve the deal ID from listing_id
-    let dealId: string | null = null;
-    if (transcript.listing_id) {
+    // Resolve deal context from listing_id
+    // In the remarketing system, deal_comments and deal_activities use listing_id as deal_id
+    const listingId = transcript.listing_id;
+    let buyerContext = '';
+    if (listingId) {
       const { data: deal } = await supabase
         .from('deal_pipeline')
         .select('id, remarketing_buyer_id')
-        .eq('listing_id', transcript.listing_id)
+        .eq('listing_id', listingId)
         .is('deleted_at', null)
         .limit(1)
         .maybeSingle();
-      dealId = deal?.id || null;
 
       // Fetch buyer context for multi-deal awareness
       if (deal?.remarketing_buyer_id) {
@@ -97,14 +98,12 @@ Deno.serve(async (req) => {
           .select('title, listing_id')
           .eq('remarketing_buyer_id', deal.remarketing_buyer_id)
           .is('deleted_at', null)
-          .neq('listing_id', transcript.listing_id)
+          .neq('listing_id', listingId)
           .limit(5);
 
         if (otherDeals?.length) {
-          // Prepend buyer context to system prompt
           const otherDealNames = otherDeals.map((d: any) => d.title).join(', ');
-          // We'll include this in the user message instead
-          var buyerContext = `\nNOTE: This buyer is also being marketed on these other deals: ${otherDealNames}. Flag any mentions of interest in other deals or cross-deal references.\n`;
+          buyerContext = `\nNOTE: This buyer is also being marketed on these other deals: ${otherDealNames}. Flag any mentions of interest in other deals or cross-deal references.\n`;
         }
       }
     }
@@ -157,11 +156,11 @@ Deno.serve(async (req) => {
       return errorResponse('AI returned insufficient summary', 500, corsHeaders);
     }
 
-    // Save as deal_comment if we have a dealId
+    // Save as deal_comment using listing_id as deal_id (matches UI query pattern)
     let noteId: string | null = null;
-    if (dealId) {
+    if (listingId) {
       const noteContent = [
-        `## AI Call Summary — ${transcript.title || 'Call'}`,
+        `## AI Meeting Summary — ${transcript.title || 'Call'}`,
         transcript.call_date ? `*Date: ${transcript.call_date}*` : '',
         transcript.duration_minutes ? `*Duration: ${transcript.duration_minutes} min*` : '',
         '',
@@ -171,7 +170,7 @@ Deno.serve(async (req) => {
       const { data: savedNote } = await (supabase as any)
         .from('deal_comments')
         .insert({
-          deal_id: dealId,
+          deal_id: listingId,
           admin_id: null,
           comment_text: noteContent,
         })
@@ -179,6 +178,25 @@ Deno.serve(async (req) => {
         .single();
 
       noteId = savedNote?.id || null;
+
+      // Log the summary generation as a deal_activity
+      try {
+        await supabase.rpc('log_deal_activity', {
+          p_deal_id: listingId,
+          p_activity_type: 'meeting_summary_generated',
+          p_title: `AI summary generated: ${transcript.title || 'Call'}`,
+          p_description: summaryText.substring(0, 200),
+          p_admin_id: null,
+          p_metadata: {
+            transcript_id,
+            note_id: noteId,
+            model: GEMINI_25_FLASH_MODEL,
+            summary_length: summaryText.length,
+          },
+        });
+      } catch (e) {
+        console.error('[auto-summarize-transcript] Failed to log deal activity:', e);
+      }
     }
 
     // Mark transcript as summarized
@@ -199,7 +217,7 @@ Deno.serve(async (req) => {
     return successResponse({
       summarized: true,
       transcript_id,
-      deal_id: dealId,
+      deal_id: listingId,
       note_id: noteId,
       summary_length: summaryText.length,
     }, corsHeaders);

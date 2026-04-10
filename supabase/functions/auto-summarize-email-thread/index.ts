@@ -46,10 +46,22 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { conversation_id, deal_id } = body;
+    const { conversation_id, deal_id: inputDealId } = body;
 
-    if (!conversation_id || !deal_id) {
+    if (!conversation_id || !inputDealId) {
       return errorResponse('conversation_id and deal_id are required', 400, corsHeaders);
+    }
+
+    // Resolve listing_id from deal_pipeline if needed (the UI uses listing_id as deal_id)
+    let deal_id = inputDealId;
+    const { data: pipelineRow } = await supabase
+      .from('deal_pipeline')
+      .select('listing_id')
+      .eq('id', inputDealId)
+      .limit(1)
+      .maybeSingle();
+    if (pipelineRow?.listing_id) {
+      deal_id = pipelineRow.listing_id;
     }
 
     // Fetch all emails in this thread

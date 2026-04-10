@@ -217,14 +217,13 @@ Deno.serve(async (req) => {
       ip_address: req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || null,
     });
 
-    // Log to deal_activities for deal timeline visibility
+    // Log to deal_activities for deal timeline visibility (use listing_id as deal_id)
     let resolvedDealId = body.dealId || null;
     if (!resolvedDealId && body.contactId) {
       try {
         const { data: ct } = await supabase.from('contacts').select('listing_id').eq('id', body.contactId).single();
         if (ct?.listing_id) {
-          const { data: dp } = await supabase.from('deal_pipeline').select('id').eq('listing_id', ct.listing_id).is('deleted_at', null).limit(1).maybeSingle();
-          resolvedDealId = dp?.id || null;
+          resolvedDealId = ct.listing_id;
         }
       } catch (_) { /* ignore resolution failure */ }
     }

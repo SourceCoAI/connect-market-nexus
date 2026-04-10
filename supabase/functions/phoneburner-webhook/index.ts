@@ -994,30 +994,22 @@ async function processEvent(
       // Log to deal_activities for deal timeline visibility
       if (resolvedListingId) {
         try {
-          const { data: dealData } = await supabase
-            .from('deal_pipeline')
-            .select('id')
-            .eq('listing_id', resolvedListingId)
-            .limit(1)
-            .maybeSingle();
-          if (dealData?.id) {
-            await supabase.rpc('log_deal_activity', {
-              p_deal_id: dealData.id,
-              p_activity_type: 'call_made',
-              p_title: `Dialing ${contactName || resolvedContactEmail || 'contact'}${userName ? ` (${userName})` : ''}`,
-              p_description: null,
-              p_admin_id: null,
-              p_metadata: {
-                phoneburner_call_id: String(payload.call_id || ''),
-                contact_name: contactName,
-                contact_email: resolvedContactEmail,
-                contact_phone: contactPhone,
-                caller_name: userName,
-                caller_email: userEmail,
-                call_direction: (payload.direction || 'outbound') as string,
-              },
-            });
-          }
+          await supabase.rpc('log_deal_activity', {
+            p_deal_id: resolvedListingId,
+            p_activity_type: 'call_made',
+            p_title: `Dialing ${contactName || resolvedContactEmail || 'contact'}${userName ? ` (${userName})` : ''}`,
+            p_description: null,
+            p_admin_id: null,
+            p_metadata: {
+              phoneburner_call_id: String(payload.call_id || ''),
+              contact_name: contactName,
+              contact_email: resolvedContactEmail,
+              contact_phone: contactPhone,
+              caller_name: userName,
+              caller_email: userEmail,
+              call_direction: (payload.direction || 'outbound') as string,
+            },
+          });
         } catch (e) {
           console.error('[phoneburner-webhook] Failed to log call_begin deal activity:', e);
         }
@@ -1169,6 +1161,26 @@ async function processEvent(
           userName,
           dispositionLabel: dispositionLabel || null,
         });
+        // Trigger auto-summarize if talk_time > 30s and transcript has content
+        if (talkTime && talkTime > 30) {
+          try {
+            // Find the deal_transcript we just saved
+            const { data: dtRow } = await (supabase as any)
+              .from('deal_transcripts')
+              .select('id')
+              .eq('phoneburner_call_id', pbCallId)
+              .limit(1)
+              .maybeSingle();
+            if (dtRow?.id) {
+              await supabase.functions.invoke('auto-summarize-transcript', {
+                body: { transcript_id: dtRow.id },
+              });
+              console.log(`[phoneburner-webhook] Triggered auto-summarize for transcript ${dtRow.id}`);
+            }
+          } catch (e) {
+            console.error('[phoneburner-webhook] Failed to trigger auto-summarize:', e);
+          }
+        }
       } else if (topLevelTranscript && topLevelTranscript.trim().length > 0 && !resolvedListingId) {
         console.log(
           `[phoneburner-webhook] Transcript available (${topLevelTranscript.length} chars) but no listing_id resolved for call ${pbCallId}. Saving to contact_activities only.`,
@@ -1178,18 +1190,10 @@ async function processEvent(
       // ── Log to deal_activities for deal timeline visibility ──
       if (resolvedListingId) {
         try {
-          const { data: dealData } = await supabase
-            .from('deal_pipeline')
-            .select('id')
-            .eq('listing_id', resolvedListingId)
-            .limit(1)
-            .maybeSingle();
-
-          const dealId = dealData?.id;
-          if (dealId) {
-            try {
+          // Use listing_id as deal_id (the remarketing UI queries deal_activities by listing_id)
+          try {
               await supabase.rpc('log_deal_activity', {
-                p_deal_id: dealId,
+                p_deal_id: resolvedListingId,
                 p_activity_type: 'call_completed',
                 p_title: `${connected ? 'Connected call' : 'Call attempt'}: ${contactName || resolvedContactEmail || 'Unknown'}${userName ? ` (by ${userName})` : ''}`,
                 p_description: [
@@ -1293,8 +1297,8 @@ async function processEvent(
                     priority_score: connected ? 80 : 50,
                     due_date: dueDate.toISOString().split('T')[0],
                     entity_type: 'deal',
-                    entity_id: dealId,
-                    deal_id: dealId,
+                    entity_id: resolvedListingId,
+                    deal_id: resolvedListingId,
                     auto_generated: true,
                     generation_source: 'call_disposition',
                     source: 'system',
@@ -1315,7 +1319,7 @@ async function processEvent(
 
                   // Also log the auto-task creation to deal_activities
                   await supabase.rpc('log_deal_activity', {
-                    p_deal_id: dealId,
+                    p_deal_id: resolvedListingId,
                     p_activity_type: 'auto_followup_created',
                     p_title: `Auto follow-up: ${taskTitle}`,
                     p_description: `Created from call disposition: ${dispositionLabel}`,
@@ -1331,9 +1335,8 @@ async function processEvent(
                 }
               }
             }
-          }
         } catch (e) {
-          console.error('[phoneburner-webhook] Failed to resolve deal for activity logging:', e);
+          console.error('[phoneburner-webhook] Failed to log deal activity:', e);
         }
       }
 
@@ -1393,16 +1396,9 @@ async function processEvent(
       // Log to deal_activities for deal timeline visibility
       if (resolvedListingId) {
         try {
-          const { data: dealData } = await supabase
-            .from('deal_pipeline')
-            .select('id')
-            .eq('listing_id', resolvedListingId)
-            .limit(1)
-            .maybeSingle();
-          if (dealData?.id) {
             const cbDate = (callback.scheduled_for || payload.callback_date || null) as string | null;
             await supabase.rpc('log_deal_activity', {
-              p_deal_id: dealData.id,
+              p_deal_id: resolvedListingId,
               p_activity_type: 'meeting_scheduled',
               p_title: `Callback scheduled: ${contactName || resolvedContactEmail || 'contact'}${cbDate ? ` for ${cbDate}` : ''}`,
               p_description: (callback.notes || payload.callback_notes || null) as string | null,
@@ -1414,7 +1410,6 @@ async function processEvent(
                 callback_date: cbDate,
               },
             });
-          }
         } catch (e) {
           console.error('[phoneburner-webhook] Failed to log callback deal activity:', e);
         }
