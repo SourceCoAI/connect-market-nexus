@@ -19,53 +19,59 @@ const OutlookCallback = () => {
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
-    const error = searchParams.get('error');
-    const errorDescription = searchParams.get('error_description');
+    const processCallback = async () => {
+      const code = searchParams.get('code');
+      const state = searchParams.get('state');
+      const error = searchParams.get('error');
+      const errorDescription = searchParams.get('error_description');
 
-    if (error) {
-      setStatus('error');
-      setErrorMessage(errorDescription || error);
-      return;
-    }
+      if (error) {
+        setStatus('error');
+        setErrorMessage(errorDescription || error);
+        return;
+      }
 
-    if (!code || !state) {
-      setStatus('error');
-      setErrorMessage('Missing authorization code or state parameter.');
-      return;
-    }
+      if (!code || !state) {
+        setStatus('error');
+        setErrorMessage('Missing authorization code or state parameter.');
+        return;
+      }
 
-    // Verify state matches what we stored (using localStorage for cross-tab persistence)
-    const storedState = localStorage.getItem('outlook_oauth_state');
-    // Remove state FIRST to prevent replay attacks
-    localStorage.removeItem('outlook_oauth_state');
+      // Verify state matches what we stored (using localStorage for cross-tab persistence)
+      const storedState = localStorage.getItem('outlook_oauth_state');
+      // Remove state FIRST to prevent replay attacks
+      localStorage.removeItem('outlook_oauth_state');
 
-    if (storedState && storedState !== state) {
-      setStatus('error');
-      setErrorMessage('Security validation failed. Please try connecting again.');
-      return;
-    }
+      if (storedState && storedState !== state) {
+        setStatus('error');
+        setErrorMessage('Security validation failed. Please try connecting again.');
+        return;
+      }
 
-    // Refresh session before callback — user's session may have expired
-    // during the OAuth flow with Microsoft
-    supabase.auth.refreshSession().catch(() => {
-      // Best-effort — if refresh fails, callback will fail with auth error
-    });
+      // Refresh session before callback — user's session may have expired
+      // during the OAuth flow with Microsoft
+      try {
+        await supabase.auth.refreshSession();
+      } catch {
+        // Best-effort — if refresh fails, callback will attempt with current session
+      }
 
-    handleCallback(
-      { code, state },
-      {
-        onSuccess: () => {
-          setStatus('success');
-          setTimeout(() => navigate('/admin/settings/outlook'), 2000);
+      handleCallback(
+        { code, state },
+        {
+          onSuccess: () => {
+            setStatus('success');
+            setTimeout(() => navigate('/admin/settings/outlook'), 2000);
+          },
+          onError: (err: Error) => {
+            setStatus('error');
+            setErrorMessage(err.message);
+          },
         },
-        onError: (err: Error) => {
-          setStatus('error');
-          setErrorMessage(err.message);
-        },
-      },
-    );
+      );
+    };
+
+    processCallback();
   }, []);
 
   return (
@@ -87,8 +93,8 @@ const OutlookCallback = () => {
               <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
               <h2 className="text-lg font-semibold">Outlook Connected!</h2>
               <p className="text-sm text-muted-foreground">
-                Your account has been linked. Email sync is starting in the background.
-                Redirecting to settings...
+                Your account has been linked. Email sync is starting in the background. Redirecting
+                to settings...
               </p>
             </>
           )}
@@ -102,9 +108,7 @@ const OutlookCallback = () => {
                 <Button variant="outline" onClick={() => navigate('/admin/settings/outlook')}>
                   Back to Settings
                 </Button>
-                <Button onClick={() => navigate('/admin/settings/outlook')}>
-                  Try Again
-                </Button>
+                <Button onClick={() => navigate('/admin/settings/outlook')}>Try Again</Button>
               </div>
             </>
           )}

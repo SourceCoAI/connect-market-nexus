@@ -323,7 +323,12 @@ Deno.serve(async (req) => {
     return successResponse({ results }, corsHeaders);
   }
 
-  // Single user sync (called from callback or manually)
+  // Single user sync (called from callback or webhook trigger, both use service role key)
+  const authCheck = requireServiceRole(req);
+  if (!authCheck.authorized) {
+    return errorResponse(authCheck.error || 'Unauthorized', 403, corsHeaders);
+  }
+
   const userId = body.userId!;
   let accessToken = body.accessToken;
 

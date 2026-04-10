@@ -71,6 +71,9 @@ export async function decryptToken(encrypted: string): Promise<string> {
   }
 
   // Legacy XOR decryption (for tokens encrypted before AES-GCM migration)
+  console.warn(
+    'Legacy XOR decryption used — token will be re-encrypted with AES-GCM on next refresh',
+  );
   const secret = Deno.env.get('MICROSOFT_CLIENT_SECRET');
   if (!secret) {
     throw new Error('MICROSOFT_CLIENT_SECRET is required for token decryption');
