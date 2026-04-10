@@ -259,7 +259,7 @@ The codebase has **three incompatible buyer type enums** running in parallel:
 
 These tables were created and later dropped — the migrations add complexity with zero current value:
 
-`ai_command_center_actions`, `buyer_introductions`, `buyer_type_profiles`, `chat_recommendations`, `chat_smart_suggestions`, `collections`, `connection_messages`, `connection_request_stages`, `contact_call_history`, `contact_email_history`, `contact_linkedin_history`, `deal_contacts`, `deal_notes`, `docuseal_webhook_log`, `generic_email_domains`, `interest_signals`, `introduction_activity`, `introduction_status_log`, `listing_messages`, `listing_notes`, `listing_personal_notes`, `pe_firm_contacts`, `platform_contacts`, `profile_data_snapshots`, `scoring_weights_history`, `task_pin_log`, `tracker_activity_logs`, `visitor_companies`
+`ai_command_center_actions`, `buyer_introductions`, `buyer_type_profiles`, `chat_recommendations`, `chat_smart_suggestions`, `collections`, `connection_messages`, `connection_request_stages`, `contact_call_history`, `contact_email_history`, `contact_linkedin_history`, `deal_contacts`, `deal_notes`, `generic_email_domains`, `interest_signals`, `introduction_activity`, `introduction_status_log`, `listing_messages`, `listing_notes`, `listing_personal_notes`, `pe_firm_contacts`, `platform_contacts`, `profile_data_snapshots`, `scoring_weights_history`, `task_pin_log`, `tracker_activity_logs`, `visitor_companies`
 
 ### 4B. Tables Created Multiple Times (27 tables)
 

@@ -411,7 +411,6 @@ This would reduce the `listings` table from 193 to ~129 columns, with the moved 
 | `contact_linkedin_history` | Moved to contacts table |
 | `deal_contacts` | Consolidated into contacts |
 | `deal_notes` | Merged into deal_comments |
-| `docuseal_webhook_log` | Replaced by PandaDoc |
 | `generic_email_domains` | Removed |
 | `interest_signals` | Removed |
 | `listing_messages` | Removed |
@@ -440,7 +439,6 @@ Plus 19 additional tables dropped that were views/materialized data.
 - `buyer_type_profiles`: 5+ ALTERs before drop
 - `chat_recommendations`: 5+ ALTERs before drop
 - `deal_contacts`: 3+ ALTERs before drop
-- `docuseal_webhook_log`: 4+ ALTERs before drop
 
 ### 6D. Double-Drop Redundancy
 

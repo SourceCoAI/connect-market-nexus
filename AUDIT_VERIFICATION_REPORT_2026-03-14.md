@@ -102,7 +102,7 @@
 | 1C-4: N-times notification amplification | ACCURATE | Move to server-side trigger |
 | 1C-5: NDA/fee-agreement copy-paste | ACCURATE | Safe to extract shared helpers |
 | 1D-1: HeyReach + Smartlead dual | ACCURATE | Safe to extract abstraction |
-| 1E-1: DocuSeal fully dead | ACCURATE | Already cleaned up |
+| 1E-1: PandaDoc is canonical | ACCURATE | Single e-signature provider |
 | 1E-2: PandaDoc double-notification | ACCURATE | Guards exist but race possible |
 | 1F-1: Enrichment queue duplication | ACCURATE | Low priority abstraction |
 | 1G-1: Firm creation race condition | ACCURATE | Add unique constraint |
